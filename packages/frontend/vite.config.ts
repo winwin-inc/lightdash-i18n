@@ -87,6 +87,10 @@ export default defineConfig({
         hmr: {
             overlay: true,
         },
+        // TODO: 临时处理
+        watch: {
+          usePolling: true, // 修复HMR热更新失效
+        },
         proxy: {
             '/api': {
                 target: 'http://localhost:8080',

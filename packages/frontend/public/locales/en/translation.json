@@ -1,0 +1,68 @@
+{
+  "welcome": "Welcome",
+
+  "components_landing_panel": {
+    "query": "Run a query",
+    "tip": "Run a query to ask a business question or browse your data below:"
+  },
+  "components_onboarding_panel": {
+    "query": "Run your first query!",
+    "exploring": "You&apos;re ready to start exploring. Here&apos;s what you can do with Lightdash:",
+    "steps": {
+      "step1": {
+        "title": "1. Run queries",
+        "description": "to explore your data"
+      },
+      "step2": {
+        "title": "2. Create charts",
+        "description": "using your query results"
+      },
+      "step3": {
+        "title": "3. Build dashboards",
+        "description": "to share your insights"
+      }
+    }
+  },
+  "components_most_popular_and_rencently_updated_panel": {
+    "tabs": {
+      "tab1": {
+        "name": "Most popular"
+      },
+      "tab2": {
+        "name": "Recently updated"
+      }
+    },
+    "header": {
+      "title": "Charts and Dashboards"
+    },
+    "empty": {
+      "can_create": {
+        "title": "Feels a little bit empty over here",
+        "description": "get started by creating some charts"
+      },
+      "cannot_create": {
+        "title": "No items added yet",
+        "description": ""
+      },
+      "create": "Create chart"
+    }
+  },
+
+  "components_pinned_items_panel": {
+    "header": {
+      "manage": {
+        "title": "Pinned items",
+        "description": "Pin Spaces, Dashboards and Charts to the top of the homepage to guide your business users to the right content."
+      },
+      "cannot_manage": {
+        "title": "Pinned for you",
+        "description": "Your data team have pinned these items to help guide you towards the most relevant content!"
+      }
+    },
+    "no_items": {
+      "title": "No Pinned items.",
+      "tip": "Pin items to the top of the homepage to guide users to relevant content!",
+      "view": "View docs"
+    }
+  }
+}

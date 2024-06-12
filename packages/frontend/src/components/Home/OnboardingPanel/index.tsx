@@ -1,5 +1,6 @@
 import { Card, Group, Paper, Stack, Text, Title } from '@mantine/core';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import Step1 from '../../../svgs/onboarding1.svg';
 import Step2 from '../../../svgs/onboarding2.svg';
 import Step3 from '../../../svgs/onboarding3.svg';
@@ -11,33 +12,35 @@ interface Props {
     userName?: string;
 }
 
-const onboardingSteps = [
-    {
-        title: '1. Run queries',
-        description: 'to explore your data',
-        image: <img src={Step1} alt="onboarding-step-1" />,
-    },
-    {
-        title: '2. Create charts',
-        description: 'using your query results',
-        image: <img src={Step2} alt="onboarding-step-2" />,
-    },
-    {
-        title: '3. Build dashboards',
-        description: 'to share your insights',
-        image: <img src={Step3} alt="onboarding-step-3" />,
-    },
-];
 
 const OnboardingPanel: FC<Props> = ({ projectUuid, userName }) => {
+    const { t } = useTranslation()
+        
+    const onboardingSteps = [
+        {
+            title: t('components_onboarding_panel.steps.step1.title'),
+            description:  t('components_onboarding_panel.steps.step1.description'),
+            image: <img src={Step1} alt="onboarding-step-1" />,
+        },
+        {
+            title: t('components_onboarding_panel.steps.step2.title'),
+            description: t('components_onboarding_panel.steps.step2.description'),
+            image: <img src={Step2} alt="onboarding-step-2" />,
+        },
+        {
+            title:  t('components_onboarding_panel.steps.step3.title'),
+            description:t('components_onboarding_panel.steps.step3.description'),
+            image: <img src={Step3} alt="onboarding-step-3" />,
+        },
+    ];
+
     return (
         <Stack justify="flex-start" spacing="xs" mt="4xl">
             <Title order={3}>
-                {`Welcome${userName ? ', ' + userName : ' to Lightdash'}! 👋`}
+                {`${t('welcome')}${userName ? ', ' + userName : ' to Lightdash'}! 👋`}
             </Title>
             <Text color="gray.7">
-                You&apos;re ready to start exploring. Here&apos;s what you can
-                do with Lightdash:
+                {t('components_onboarding_panel.exploring')}
             </Text>
             <Paper withBorder p="xl" mt="lg">
                 <Group position="center">
@@ -64,7 +67,7 @@ const OnboardingPanel: FC<Props> = ({ projectUuid, userName }) => {
                         }}
                         my="xl"
                     >
-                        Run your first query!
+                       {t('components_onboarding_panel.query')}
                     </MantineLinkButton>
                 </Group>
             </Paper>

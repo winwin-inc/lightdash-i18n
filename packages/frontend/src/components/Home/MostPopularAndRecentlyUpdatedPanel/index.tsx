@@ -9,6 +9,7 @@ import { Button } from '@mantine/core';
 import { IconChartBar, IconPlus } from '@tabler/icons-react';
 import { useMemo, type FC } from 'react';
 import { useHistory } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import useCreateInAnySpaceAccess from '../../../hooks/user/useCreateInAnySpaceAccess';
 import { useApp } from '../../../providers/AppProvider';
 import MantineIcon from '../../common/MantineIcon';
@@ -27,6 +28,7 @@ export const MostPopularAndRecentlyUpdatedPanel: FC<Props> = ({
     const MAX_NUMBER_OF_ITEMS_IN_PANEL = 10;
     const history = useHistory();
     const { health } = useApp();
+    const { t } = useTranslation()
 
     const mostPopularAndRecentlyUpdatedItems = useMemo(() => {
         const mostPopularItems =
@@ -70,14 +72,14 @@ export const MostPopularAndRecentlyUpdatedPanel: FC<Props> = ({
             tabs={[
                 {
                     id: 'most-popular',
-                    name: 'Most popular',
+                    name: t('components_most_popular_and_rencently_updated_panel.tabs.tab1.name'),
                     filter: (item) =>
                         'category' in item &&
                         item.category === ResourceItemCategory.MOST_POPULAR,
                 },
                 {
                     id: 'recently-updated',
-                    name: 'Recently updated',
+                    name: t('components_most_popular_and_rencently_updated_panel.tabs.tab2.name'),
                     filter: (item) =>
                         'category' in item &&
                         item.category === ResourceItemCategory.RECENTLY_UPDATED,
@@ -90,7 +92,7 @@ export const MostPopularAndRecentlyUpdatedPanel: FC<Props> = ({
             headerProps={
                 mostPopularAndRecentlyUpdatedItems.length === 0
                     ? {
-                          title: 'Charts and Dashboards',
+                          title: t('components_most_popular_and_rencently_updated_panel.header.title'),
                           action: (
                               <MantineLinkButton
                                   color="gray.6"
@@ -108,18 +110,18 @@ export const MostPopularAndRecentlyUpdatedPanel: FC<Props> = ({
             emptyStateProps={{
                 icon: <MantineIcon icon={IconChartBar} size={30} />,
                 title: userCanCreateCharts
-                    ? 'Feels a little bit empty over here'
-                    : 'No items added yet',
+                    ? t('components_most_popular_and_rencently_updated_panel.empty.can_create.title')
+                    :  t('components_most_popular_and_rencently_updated_panel.empty.can_create.description'),
                 description: userCanCreateCharts
-                    ? 'get started by creating some charts'
-                    : undefined,
+                    ?  t('components_most_popular_and_rencently_updated_panel.empty.cannot_create.title')
+                    :  t('components_most_popular_and_rencently_updated_panel.empty.cannot_create.description'),
                 action:
                     !isDemo && userCanCreateCharts ? (
                         <Button
                             leftIcon={<MantineIcon icon={IconPlus} size={18} />}
                             onClick={handleCreateChart}
                         >
-                            Create chart
+                           {t('components_most_popular_and_rencently_updated_panel.empty.create')}
                         </Button>
                     ) : undefined,
             }}

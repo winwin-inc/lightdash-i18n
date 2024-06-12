@@ -1,0 +1,68 @@
+{
+  "welcome": "欢迎您",
+
+  "components_landing_panel": {
+    "query": "运行查询",
+    "tip": "运行查询以询问业务问题或浏览以下数据："
+  },
+  "components_onboarding_panel": {
+    "query": "运行您的第一个查询！",
+    "exploring": "您已准备好开始探索。您可以使用 Lightdash 进行以下操作：",
+    "steps": {
+      "step1": {
+        "title": "1. 运行查询",
+        "description": "探索你的数据"
+      },
+      "step2": {
+        "title": "2. 创建图表",
+        "description": "使用您的查询结果"
+      },
+      "step3": {
+        "title": "3. 构建仪表板",
+        "description": "分享你的见解"
+      }
+    }
+  },
+  "components_most_popular_and_rencently_updated_panel": {
+    "tabs": {
+      "tab1": {
+        "name": "最受欢迎"
+      },
+      "tab2": {
+        "name": "最近更新"
+      }
+    },
+    "header": {
+      "title": "图表和仪表板"
+    },
+    "empty": {
+      "can_create": {
+        "title": "这里感觉有点空",
+        "description": "首先创建一些图表"
+      },
+      "cannot_create": {
+        "title": "尚未添加任何商品",
+        "description": ""
+      },
+      "create": "创建图表"
+    }
+  },
+
+  "components_pinned_items_panel": {
+    "header": {
+      "manage": {
+        "title": "固定项目",
+        "description": "将空间、仪表板和图表固定到主页顶部，以引导您的业务用户找到正确的内容。"
+      },
+      "cannot_manage": {
+        "title": "为您置顶",
+        "description": "您的数据团队已固定这些项目，以帮助您找到最相关的内容"
+      }
+    },
+    "no_items": {
+      "title": "没有固定的项目。",
+      "tip": "将项目固定到主页顶部，以引导用户找到相关内容！",
+      "view": "查看文档"
+    }
+  }
+}

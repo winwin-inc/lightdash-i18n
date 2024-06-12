@@ -2,6 +2,7 @@ import { ResourceViewItemType, type PinnedItems } from '@lightdash/common';
 import { Card, Group, Text } from '@mantine/core';
 import { IconPin } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { usePinnedItemsContext } from '../../providers/PinnedItemsProvider';
 import MantineIcon from '../common/MantineIcon';
 import MantineLinkButton from '../common/MantineLinkButton';
@@ -14,6 +15,7 @@ interface Props {
 
 const PinnedItemsPanel: FC<Props> = ({ pinnedItems, isEnabled }) => {
     const { userCanManage } = usePinnedItemsContext();
+    const { t } = useTranslation()
 
     return pinnedItems && pinnedItems.length > 0 ? (
         <ResourceView
@@ -30,10 +32,10 @@ const PinnedItemsPanel: FC<Props> = ({ pinnedItems, isEnabled }) => {
                 ],
             }}
             headerProps={{
-                title: userCanManage ? 'Pinned items' : 'Pinned for you',
+                title: userCanManage ? t('components_pinned_items_panel.header.manage.title') :  t('components_pinned_items_panel.header.cannot_manage.title'),
                 description: userCanManage
-                    ? 'Pin Spaces, Dashboards and Charts to the top of the homepage to guide your business users to the right content.'
-                    : 'Your data team have pinned these items to help guide you towards the most relevant content!',
+                    ? t('components_pinned_items_panel.header.manage.description')
+                    :  t('components_pinned_items_panel.header.cannot_manage.description'),
             }}
         />
     ) : ((userCanManage && pinnedItems.length <= 0) || !pinnedItems) &&
@@ -54,11 +56,10 @@ const PinnedItemsPanel: FC<Props> = ({ pinnedItems, isEnabled }) => {
                         fill="gray.1"
                     />
                     <Text fw={600} color="gray.7">
-                        No Pinned items.
+                       { t('components_pinned_items_panel.no_items.title')}
                     </Text>
                     <Text color="gray.7">
-                        Pin items to the top of the homepage to guide users to
-                        relevant content!
+                    { t('components_pinned_items_panel.no_items.tip')}
                     </Text>
                 </Group>
                 <MantineLinkButton
@@ -68,7 +69,7 @@ const PinnedItemsPanel: FC<Props> = ({ pinnedItems, isEnabled }) => {
                     compact
                     color="gray.6"
                 >
-                    View docs
+                   { t('components_pinned_items_panel.no_items.view')}
                 </MantineLinkButton>
             </Group>
         </Card>
