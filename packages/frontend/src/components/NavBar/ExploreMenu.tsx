@@ -10,7 +10,9 @@ import {
     IconTerminal2,
 } from '@tabler/icons-react';
 import { memo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useHistory } from 'react-router-dom';
+
 import { useApp } from '../../providers/AppProvider';
 import { Can } from '../common/Authorization';
 import LargeMenuItem from '../common/LargeMenuItem';
@@ -25,6 +27,8 @@ type Props = {
 const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
     const { user, health } = useApp();
     const history = useHistory();
+    const { t } = useTranslation();
+
     const [isOpen, setIsOpen] = useState<boolean>(false);
 
     const [isCreateSpaceOpen, setIsCreateSpaceOpen] = useState<boolean>(false);
@@ -59,7 +63,7 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                             onClick={() => setIsOpen(!isOpen)}
                             data-testid="ExploreMenu/NewButton"
                         >
-                            New
+                            {t('components_navbar_explore_menu.title')}
                         </Button>
                     </Menu.Target>
 

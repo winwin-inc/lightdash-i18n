@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
     getEmailSchema,
@@ -41,17 +42,18 @@ const Login: FC<{}> = () => {
     const { health } = useApp();
     const { identify } = useTracking();
     const location = useLocation<{ from?: Location } | undefined>();
+    const { t } = useTranslation();
 
     const { showToastError, showToastApiError } = useToaster();
     const flashMessages = useFlashMessages();
     useEffect(() => {
         if (flashMessages.data?.error) {
             showToastError({
-                title: 'Failed to authenticate',
+                title: t('Failed to authenticate.user_no_auth_tip'),
                 subtitle: flashMessages.data.error.join('\n'),
             });
         }
-    }, [flashMessages.data, showToastError]);
+    }, [flashMessages.data, showToastError, t]);
 
     const [fetchOptionsEnabled, setFetchOptionsEnabled] = useState(false);
 
@@ -97,7 +99,7 @@ const Login: FC<{}> = () => {
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to login`,
+                title: t('Failed to authenticate.user_no_login_tip'),
                 apiError: error,
             });
         },
@@ -186,7 +188,7 @@ const Login: FC<{}> = () => {
             />
             <Card p="xl" radius="xs" withBorder shadow="xs">
                 <Title order={3} ta="center" mb="md">
-                    Sign in
+                    {t('features_users.title')}
                 </Title>
                 <form
                     name="login"
@@ -194,9 +196,11 @@ const Login: FC<{}> = () => {
                 >
                     <Stack spacing="lg">
                         <TextInput
-                            label="Email address"
+                            label={t('features_users.form.email.label')}
                             name="email"
-                            placeholder="Your email address"
+                            placeholder={t(
+                                'features_users.form.email.placeholder',
+                            )}
                             required
                             {...form.getInputProps('email')}
                             disabled={disableControls}
@@ -204,15 +208,19 @@ const Login: FC<{}> = () => {
                         {isEmailLoginAvailable && formStage === 'login' && (
                             <>
                                 <PasswordInput
-                                    label="Password"
+                                    label={t(
+                                        'features_users.form.password.placeholder',
+                                    )}
                                     name="password"
-                                    placeholder="Your password"
+                                    placeholder={t(
+                                        'features_users.form.password.placeholder',
+                                    )}
                                     required
                                     {...form.getInputProps('password')}
                                     disabled={disableControls}
                                 />
                                 <Anchor href="/recover-password" mx="auto">
-                                    Forgot your password?
+                                    {t('features_users.form.password.recover')}
                                 </Anchor>
                             </>
                         )}
@@ -222,8 +230,8 @@ const Login: FC<{}> = () => {
                             data-cy="signin-button"
                         >
                             {formStage === 'login' && !loginOptionsFetched
-                                ? 'Sign in'
-                                : 'Continue'}
+                                ? t('features_users.form.btn.sign_in')
+                                : t('features_users.form.btn.continue')}
                         </Button>
                         {(googleAuthAvailable || otherSsoLogins.length > 0) && (
                             <Divider
@@ -231,7 +239,7 @@ const Login: FC<{}> = () => {
                                 labelPosition="center"
                                 label={
                                     <Text color="gray.5" size="sm" fw={500}>
-                                        OR
+                                        {t('features_users.form.btn.or')}
                                     </Text>
                                 }
                             />
@@ -264,8 +272,10 @@ const Login: FC<{}> = () => {
                             )}
                         </Stack>
                         <Text mx="auto" mt="md">
-                            Don't have an account?{' '}
-                            <Anchor href="/register">Sign up</Anchor>
+                            {t('features_users.form.btn.no_account')}{' '}
+                            <Anchor href="/register">
+                                {t('features_users.form.btn.sign_up')}
+                            </Anchor>
                         </Text>
                     </Stack>
                 </form>

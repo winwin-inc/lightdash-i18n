@@ -7,6 +7,7 @@ import {
     IconLayoutDashboard,
 } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { useSpaceSummaries } from '../../hooks/useSpaces';
@@ -18,6 +19,7 @@ interface Props {
 
 const BrowseMenu: FC<Props> = ({ projectUuid }) => {
     const { data: spaces, isInitialLoading } = useSpaceSummaries(projectUuid);
+    const { t } = useTranslation();
 
     return (
         <Menu
@@ -35,7 +37,7 @@ const BrowseMenu: FC<Props> = ({ projectUuid }) => {
                     fz="sm"
                     leftIcon={<MantineIcon icon={IconCategory} />}
                 >
-                    Browse
+                    {t('components_navbar_browse_menu.title')}
                 </Button>
             </Menu.Target>
 

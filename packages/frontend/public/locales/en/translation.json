@@ -1,6 +1,37 @@
 {
   "welcome": "Welcome",
 
+  "features_users": {
+    "title": "Sign in",
+    "user_no_auth_tip": "Failed to authenticate",
+    "user_no_login_tip": "Failed to login",
+    "form": {
+      "email": {
+        "label": "Email address",
+        "placeholder": "Your Email"
+      },
+      "password": {
+        "label": "Password",
+        "placeholder": "Your password",
+        "recover": "Forgot your password?"
+      },
+      "btn": {
+        "sign_in": "Sign in",
+        "sign_up": "Sign up",
+        "continue": "Continue",
+        "or": "OR",
+        "no_account": "Don't have an account?"
+      }
+    }
+  },
+
+  "components_navbar_explore_menu": {
+    "title": "New"
+  },
+  "components_navbar_browse_menu": {
+    "title": "Browse"
+  },
+
   "components_landing_panel": {
     "query": "Run a query",
     "tip": "Run a query to ask a business question or browse your data below:"

@@ -15,7 +15,7 @@ import ThirdPartyProvider from './providers/ThirdPartyServicesProvider';
 import { TrackingProvider } from './providers/TrackingProvider';
 import Routes from './Routes';
 
-import './plugins/i18n'
+import './plugins/i18n';
 
 const defaultAbility = new Ability();
 

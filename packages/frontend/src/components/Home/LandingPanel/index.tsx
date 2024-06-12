@@ -14,16 +14,21 @@ interface Props {
 
 const LandingPanel: FC<Props> = ({ userName, projectUuid }) => {
     const { user } = useApp();
-    const { t } = useTranslation()
+    const { t } = useTranslation();
 
     return (
         <Group position="apart" my="xl">
             <Stack justify="flex-start" spacing="xs">
                 <Title order={3}>
-                    {`${t('welcome')}${userName ? ', ' + userName : ' to Lightdash'}!`}{' '}
+                    {`${t('welcome')}${
+                        userName ? ', ' + userName : ' to Lightdash'
+                    }!`}{' '}
                     ⚡️
                 </Title>
-                <Text color="gray.7"> {t('components_landing_panel.tip')} </Text>
+                <Text color="gray.7">
+                    {' '}
+                    {t('components_landing_panel.tip')}{' '}
+                </Text>
             </Stack>
             <Can
                 I="manage"
@@ -33,7 +38,7 @@ const LandingPanel: FC<Props> = ({ userName, projectUuid }) => {
                 })}
             >
                 <MantineLinkButton href={`/projects/${projectUuid}/tables`}>
-                   {t('components_landing_panel.query')}
+                    {t('components_landing_panel.query')}
                 </MantineLinkButton>
             </Can>
         </Group>

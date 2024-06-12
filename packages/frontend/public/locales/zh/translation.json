@@ -1,6 +1,37 @@
 {
   "welcome": "欢迎您",
 
+  "features_users": {
+    "title": "登录",
+    "user_no_auth_tip": "身份验证失败",
+    "user_no_login_tip": "登录失败",
+    "form": {
+      "email": {
+        "label": "邮箱",
+        "placeholder": "请输入您的邮箱地址"
+      },
+      "password": {
+        "label": "密码",
+        "placeholder": "请输入密码",
+        "recover": "忘记密码了吗?"
+      },
+      "btn": {
+        "sign_in": "登录",
+        "sign_up": "报名",
+        "continue": "继续",
+        "or": "或者",
+        "no_account": "没有账户?"
+      }
+    }
+  },
+
+  "components_navbar_explore_menu": {
+    "title": "新建"
+  },
+  "components_navbar_browse_menu": {
+    "title": "浏览"
+  },
+
   "components_landing_panel": {
     "query": "运行查询",
     "tip": "运行查询以询问业务问题或浏览以下数据："

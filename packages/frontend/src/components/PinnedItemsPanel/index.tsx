@@ -15,7 +15,7 @@ interface Props {
 
 const PinnedItemsPanel: FC<Props> = ({ pinnedItems, isEnabled }) => {
     const { userCanManage } = usePinnedItemsContext();
-    const { t } = useTranslation()
+    const { t } = useTranslation();
 
     return pinnedItems && pinnedItems.length > 0 ? (
         <ResourceView
@@ -32,10 +32,18 @@ const PinnedItemsPanel: FC<Props> = ({ pinnedItems, isEnabled }) => {
                 ],
             }}
             headerProps={{
-                title: userCanManage ? t('components_pinned_items_panel.header.manage.title') :  t('components_pinned_items_panel.header.cannot_manage.title'),
+                title: userCanManage
+                    ? t('components_pinned_items_panel.header.manage.title')
+                    : t(
+                          'components_pinned_items_panel.header.cannot_manage.title',
+                      ),
                 description: userCanManage
-                    ? t('components_pinned_items_panel.header.manage.description')
-                    :  t('components_pinned_items_panel.header.cannot_manage.description'),
+                    ? t(
+                          'components_pinned_items_panel.header.manage.description',
+                      )
+                    : t(
+                          'components_pinned_items_panel.header.cannot_manage.description',
+                      ),
             }}
         />
     ) : ((userCanManage && pinnedItems.length <= 0) || !pinnedItems) &&
@@ -56,10 +64,10 @@ const PinnedItemsPanel: FC<Props> = ({ pinnedItems, isEnabled }) => {
                         fill="gray.1"
                     />
                     <Text fw={600} color="gray.7">
-                       { t('components_pinned_items_panel.no_items.title')}
+                        {t('components_pinned_items_panel.no_items.title')}
                     </Text>
                     <Text color="gray.7">
-                    { t('components_pinned_items_panel.no_items.tip')}
+                        {t('components_pinned_items_panel.no_items.tip')}
                     </Text>
                 </Group>
                 <MantineLinkButton
@@ -69,7 +77,7 @@ const PinnedItemsPanel: FC<Props> = ({ pinnedItems, isEnabled }) => {
                     compact
                     color="gray.6"
                 >
-                   { t('components_pinned_items_panel.no_items.view')}
+                    {t('components_pinned_items_panel.no_items.view')}
                 </MantineLinkButton>
             </Group>
         </Card>

@@ -12,24 +12,29 @@ interface Props {
     userName?: string;
 }
 
-
 const OnboardingPanel: FC<Props> = ({ projectUuid, userName }) => {
-    const { t } = useTranslation()
-        
+    const { t } = useTranslation();
+
     const onboardingSteps = [
         {
             title: t('components_onboarding_panel.steps.step1.title'),
-            description:  t('components_onboarding_panel.steps.step1.description'),
+            description: t(
+                'components_onboarding_panel.steps.step1.description',
+            ),
             image: <img src={Step1} alt="onboarding-step-1" />,
         },
         {
             title: t('components_onboarding_panel.steps.step2.title'),
-            description: t('components_onboarding_panel.steps.step2.description'),
+            description: t(
+                'components_onboarding_panel.steps.step2.description',
+            ),
             image: <img src={Step2} alt="onboarding-step-2" />,
         },
         {
-            title:  t('components_onboarding_panel.steps.step3.title'),
-            description:t('components_onboarding_panel.steps.step3.description'),
+            title: t('components_onboarding_panel.steps.step3.title'),
+            description: t(
+                'components_onboarding_panel.steps.step3.description',
+            ),
             image: <img src={Step3} alt="onboarding-step-3" />,
         },
     ];
@@ -37,7 +42,9 @@ const OnboardingPanel: FC<Props> = ({ projectUuid, userName }) => {
     return (
         <Stack justify="flex-start" spacing="xs" mt="4xl">
             <Title order={3}>
-                {`${t('welcome')}${userName ? ', ' + userName : ' to Lightdash'}! 👋`}
+                {`${t('welcome')}${
+                    userName ? ', ' + userName : ' to Lightdash'
+                }! 👋`}
             </Title>
             <Text color="gray.7">
                 {t('components_onboarding_panel.exploring')}
@@ -67,7 +74,7 @@ const OnboardingPanel: FC<Props> = ({ projectUuid, userName }) => {
                         }}
                         my="xl"
                     >
-                       {t('components_onboarding_panel.query')}
+                        {t('components_onboarding_panel.query')}
                     </MantineLinkButton>
                 </Group>
             </Paper>
