@@ -70,16 +70,24 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                     <Menu.Dropdown>
                         <LargeMenuItem
                             component={Link}
-                            title="Query from tables"
-                            description="Build queries and save them as charts."
+                            title={t(
+                                'components_navbar_explore_menu.menus.query_tables.title',
+                            )}
+                            description={t(
+                                'components_navbar_explore_menu.menus.query_tables.description',
+                            )}
                             to={`/projects/${projectUuid}/tables`}
                             icon={IconTable}
                         />
                         {health.data?.hasDbtSemanticLayer && (
                             <LargeMenuItem
                                 component={Link}
-                                title="Query using dbt Semantic Layer"
-                                description="Build queries with dbt Semantic Layer"
+                                title={t(
+                                    'components_navbar_explore_menu.menus.dbt_semantic.title',
+                                )}
+                                description={t(
+                                    'components_navbar_explore_menu.menus.dbt_semantic.description',
+                                )}
                                 to={`/projects/${projectUuid}/dbtsemanticlayer`}
                                 icon={IconLayersIntersect}
                             />
@@ -93,8 +101,12 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                         >
                             <LargeMenuItem
                                 component={Link}
-                                title="Query using SQL runner"
-                                description="Access your database to run ad-hoc queries."
+                                title={t(
+                                    'components_navbar_explore_menu.menus.sql_runner.title',
+                                )}
+                                description={t(
+                                    'components_navbar_explore_menu.menus.sql_runner.description',
+                                )}
                                 to={`/projects/${projectUuid}/sqlRunner`}
                                 icon={IconTerminal2}
                             />
@@ -108,8 +120,12 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                             })}
                         >
                             <LargeMenuItem
-                                title="Dashboard"
-                                description="Arrange multiple charts into a single view."
+                                title={t(
+                                    'components_navbar_explore_menu.menus.dashboard.title',
+                                )}
+                                description={t(
+                                    'components_navbar_explore_menu.menus.dashboard.description',
+                                )}
                                 onClick={() => setIsCreateDashboardOpen(true)}
                                 icon={IconLayoutDashboard}
                                 data-testid="ExploreMenu/NewDashboardButton"
@@ -124,8 +140,12 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                             })}
                         >
                             <LargeMenuItem
-                                title="Space"
-                                description="Organize your saved charts and dashboards."
+                                title={t(
+                                    'components_navbar_explore_menu.menus.space.title',
+                                )}
+                                description={t(
+                                    'components_navbar_explore_menu.menus.space.description',
+                                )}
                                 onClick={() => setIsCreateSpaceOpen(true)}
                                 icon={IconFolder}
                             />
@@ -138,8 +158,12 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                 <SpaceActionModal
                     projectUuid={projectUuid}
                     actionType={ActionType.CREATE}
-                    title="Create new space"
-                    confirmButtonLabel="Create"
+                    title={t(
+                        'components_navbar_explore_menu.menus.create.title',
+                    )}
+                    confirmButtonLabel={t(
+                        'components_navbar_explore_menu.menus.create.label',
+                    )}
                     icon={IconFolderPlus}
                     onClose={() => setIsCreateSpaceOpen(false)}
                     onSubmitForm={(space) => {

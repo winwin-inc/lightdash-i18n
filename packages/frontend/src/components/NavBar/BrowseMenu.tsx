@@ -47,7 +47,7 @@ const BrowseMenu: FC<Props> = ({ projectUuid }) => {
                     to={`/projects/${projectUuid}/spaces`}
                     icon={<MantineIcon icon={IconFolders} />}
                 >
-                    All Spaces
+                    {t('components_navbar_browse_menu.menus.spaces.title')}
                 </Menu.Item>
 
                 <Menu.Item
@@ -55,7 +55,7 @@ const BrowseMenu: FC<Props> = ({ projectUuid }) => {
                     to={`/projects/${projectUuid}/dashboards`}
                     icon={<MantineIcon icon={IconLayoutDashboard} />}
                 >
-                    All dashboards
+                    {t('components_navbar_browse_menu.menus.dashboards.title')}
                 </Menu.Item>
 
                 <Menu.Item
@@ -63,13 +63,15 @@ const BrowseMenu: FC<Props> = ({ projectUuid }) => {
                     to={`/projects/${projectUuid}/saved`}
                     icon={<MantineIcon icon={IconChartAreaLine} />}
                 >
-                    All saved charts
+                    {t('components_navbar_browse_menu.menus.charts.title')}
                 </Menu.Item>
 
                 {isInitialLoading || (spaces && spaces.length > 0) ? (
                     <>
                         <Menu.Divider />
-                        <Menu.Label>Spaces</Menu.Label>
+                        <Menu.Label>
+                            {t('components_navbar_browse_menu.divider_label')}
+                        </Menu.Label>
 
                         {isInitialLoading ? (
                             <Center my="sm">

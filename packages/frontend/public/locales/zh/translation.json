@@ -26,10 +26,67 @@
   },
 
   "components_navbar_explore_menu": {
-    "title": "新建"
+    "title": "新建",
+    "menus": {
+      "query_tables": {
+        "title": "表查询",
+        "description": "建立查询并将其保存为图表"
+      },
+      "dbt_semantic": {
+        "title": "dbt 语义层查询",
+        "description": "使用 dbt 语义层构建查询"
+      },
+      "sql_runner": {
+        "title": "SQL 运行器查询",
+        "description": "访问您的数据库来运行临时查询"
+      },
+      "dashboard": {
+        "title": "看板",
+        "description": "将多个图表排列到单一视图中"
+      },
+      "space": {
+        "title": "空间",
+        "description": "组织您保存的图表和仪表板"
+      }
+    }
   },
   "components_navbar_browse_menu": {
-    "title": "浏览"
+    "title": "浏览",
+    "menus": {
+      "spaces": {
+        "title": "全部空间"
+      },
+      "dashboards": {
+        "title": "全部看板"
+      },
+      "charts": {
+        "title": "全部图表"
+      }
+    },
+    "divider_label": "空间"
+  },
+  "components_navbar_settings_menu": {
+    "menus": {
+      "project": {
+        "title": "项目设置"
+      },
+      "organization": {
+        "title": "组织设置"
+      }
+    }
+  },
+  "components_navbar_user_menu": {
+    "menus": {
+      "user": {
+        "title": "用户设置"
+      },
+      "invite": {
+        "title": "邀请用户"
+      },
+      "logout": {
+        "title": "登出"
+      }
+    }
   },
 
   "components_landing_panel": {

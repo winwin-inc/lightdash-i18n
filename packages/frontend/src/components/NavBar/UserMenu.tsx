@@ -2,6 +2,7 @@ import { Menu } from '@mantine/core';
 import { IconLogout, IconUserCircle, IconUserPlus } from '@tabler/icons-react';
 import posthog from 'posthog-js';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import useLogoutMutation from '../../hooks/user/useUserLogoutMutation';
@@ -17,6 +18,7 @@ const UserMenu: FC = () => {
             window.location.href = '/login';
         },
     });
+    const { t } = useTranslation();
 
     return (
         <Menu
@@ -37,7 +39,7 @@ const UserMenu: FC = () => {
                     to="/generalSettings"
                     icon={<MantineIcon icon={IconUserCircle} />}
                 >
-                    User settings
+                    {t('components_navbar_user_menu.menus.user.title')}
                 </Menu.Item>
 
                 {user.data?.ability?.can('create', 'InviteLink') ? (
@@ -47,7 +49,7 @@ const UserMenu: FC = () => {
                         to="/generalSettings/userManagement?to=invite"
                         icon={<MantineIcon icon={IconUserPlus} />}
                     >
-                        Invite user
+                        {t('components_navbar_user_menu.menus.invite.title')}
                     </Menu.Item>
                 ) : null}
 
@@ -56,7 +58,7 @@ const UserMenu: FC = () => {
                     onClick={() => logout()}
                     icon={<MantineIcon icon={IconLogout} />}
                 >
-                    Logout
+                    {t('components_navbar_user_menu.menus.logout.title')}
                 </Menu.Item>
             </Menu.Dropdown>
         </Menu>

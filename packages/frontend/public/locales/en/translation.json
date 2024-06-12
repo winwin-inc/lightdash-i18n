@@ -26,10 +26,71 @@
   },
 
   "components_navbar_explore_menu": {
-    "title": "New"
+    "title": "New",
+    "menus": {
+      "query_tables": {
+        "title": "Query from tables",
+        "description": "Build queries and save them as charts."
+      },
+      "dbt_semantic": {
+        "title": "Query using dbt Semantic Layer",
+        "description": "Build queries with dbt Semantic Layer."
+      },
+      "sql_runner": {
+        "title": "Query using SQL runner",
+        "description": "Access your database to run ad-hoc queries."
+      },
+      "dashboard": {
+        "title": "Dashboard",
+        "description": "Arrange multiple charts into a single view."
+      },
+      "space": {
+        "title": "Space",
+        "description": "Organize your saved charts and dashboards."
+      }
+    },
+    "create": {
+      "title": "Create new space",
+      "label": "Create"
+    }
   },
   "components_navbar_browse_menu": {
-    "title": "Browse"
+    "title": "Browse",
+    "menus": {
+      "spaces": {
+        "title": "All Spaces"
+      },
+      "dashboards": {
+        "title": "All dashboards"
+      },
+      "charts": {
+        "title": "All saved charts"
+      }
+    },
+    "divider_label": "Spaces"
+  },
+  "components_navbar_settings_menu": {
+    "menus": {
+      "project": {
+        "title": "Project settings"
+      },
+      "organization": {
+        "title": "Organization settings"
+      }
+    }
+  },
+  "components_navbar_user_menu": {
+    "menus": {
+      "user": {
+        "title": "User settings"
+      },
+      "invite": {
+        "title": "Invite user"
+      },
+      "louout": {
+        "title": "Logout"
+      }
+    }
   },
 
   "components_landing_panel": {
