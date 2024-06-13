@@ -46,7 +46,7 @@
       },
       "space": {
         "title": "空间",
-        "description": "组织您保存的图表和仪表板"
+        "description": "组织您保存的图表和看板"
       }
     }
   },
@@ -278,7 +278,7 @@
         "description": "使用您的查询结果"
       },
       "step3": {
-        "title": "3. 构建仪表板",
+        "title": "3. 构建看板",
         "description": "分享你的见解"
       }
     }
@@ -293,7 +293,7 @@
       }
     },
     "header": {
-      "title": "图表和仪表板"
+      "title": "图表和看板"
     },
     "empty": {
       "can_create": {
@@ -312,7 +312,7 @@
     "header": {
       "manage": {
         "title": "固定项目",
-        "description": "将空间、仪表板和图表固定到主页顶部，以引导您的业务用户找到正确的内容。"
+        "description": "将空间、看板和图表固定到主页顶部，以引导您的业务用户找到正确的内容。"
       },
       "cannot_manage": {
         "title": "为您置顶",
@@ -361,7 +361,7 @@
         "title": "复制"
       },
       "add": {
-        "title": "添加到仪表板"
+        "title": "添加到看板"
       },
       "promote": {
         "title": "推动"
@@ -387,7 +387,7 @@
     "form_dashboard": {
       "select": {
         "label": "选择看板",
-        "nothingFound": "未找到匹配的仪表板",
+        "nothingFound": "未找到匹配的看板",
         "create": "创建新看板"
       },
       "name": {
