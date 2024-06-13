@@ -5,7 +5,7 @@
     "title": "Sign in",
     "user_no_auth_tip": "Failed to authenticate",
     "user_no_login_tip": "Failed to login",
-    "form": {
+    "form_dashboard": {
       "email": {
         "label": "Email address",
         "placeholder": "Your Email"
@@ -136,6 +136,129 @@
     }
   },
 
+  "components_modal_chart_update": {
+    "title": "Update Chart",
+    "form_dashboard": {
+      "name": {
+        "label": "Enter a memorable name for your chart",
+        "placeholder": "eg. How many weekly active users do we have?"
+      },
+      "description": {
+        "label": "Chart description",
+        "placeholder": "A few words to give your team some context"
+      }
+    },
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "components_modal_chart_duplicate": {
+    "title": "Duplicate Chart",
+    "form_dashboard": {
+      "name": {
+        "label": "Enter a memorable name for your chart",
+        "placeholder": "eg. How many weekly active users do we have?"
+      },
+      "description": {
+        "label": "Chart description",
+        "placeholder": "A few words to give your team some context"
+      }
+    },
+    "cancel": "Cancel",
+    "create": "Create duplicate"
+  },
+  "components_modal_chart_create": {
+    "title": "Save chart",
+    "add": {
+      "form_dashboard": {
+        "name": {
+          "label": "Enter a memorable name for your chart",
+          "placeholder": "eg. How many weekly active users do we have?"
+        },
+        "description": {
+          "label": "Chart description",
+          "placeholder": "A few words to give your team some context"
+        }
+      },
+      "success": "Success! {{name}} was added to {{dashboardName}}",
+      "saving_tip_1": "Saving to \"{{dashboardName}}\" dashboard",
+      "saving_tip_2": "This chart will be saved exclusively to the dashboard \"{{dashboardName}}\", keeping your space clutter-free.",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "default": {
+      "form_dashboard_space": {
+        "name": {
+          "label": "Space",
+          "description": "Create a new space to add this chart to",
+          "placeholder": "eg. KPIs"
+        },
+        "space": {
+          "label": "Space",
+          "description": "Select a space to save the chart directly to"
+        }
+      },
+      "form_dashboard_dashboard": {
+        "name": {
+          "label": "Dashboard",
+          "description": "Select a dashboard to save the chart directly to",
+          "nothingFound": "No matching dashboards found"
+        }
+      },
+      "create": "Create new space",
+      "save": "Save to existing space",
+
+      "boxs": {
+        "name": {
+          "label": "Enter a memorable name for your chart",
+          "placeholder": "eg. How many weekly active users do we have?"
+        },
+        "description": {
+          "label": "Chart description",
+          "placeholder": "A few words to give your team some context"
+        }
+      },
+      "radio_groups": {
+        "save": "Save to",
+        "space": {
+          "label": "Space"
+        },
+        "dashboard": {
+          "label": "Dashboard"
+        }
+      },
+      "cancel": "Cancel",
+      "submit": "Save"
+    }
+  },
+  "components_modal_chart_delete": {
+    "title": "Delete Chart",
+    "tip": "Are you sure you want to delete the chart ",
+    "content": "This action will remove a chart tile from {{length}} dashboard {{text}}:",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  },
+  "components_modal_dashboard_create": {
+    "title": "Create Dashboard",
+    "form_dashboard": {
+      "name": {
+        "label": "Name your dashboard",
+        "placeholder": "eg. KPI Dashboard"
+      },
+      "description": {
+        "label": "Dashboard description",
+        "placeholder": "A few words to give your team some context"
+      },
+      "space": {
+        "move": "Moving to new space",
+        "select": "Select a space",
+        "placeholder": "Select space",
+        "create": "Create new space"
+      }
+    },
+    "cancel": "Cancel",
+    "create": "Create"
+  },
+
   "components_landing_panel": {
     "query": "Run a query",
     "tip": "Run a query to ask a business question or browse your data below:"
@@ -255,5 +378,37 @@
         "title": "Delete {{type}}"
       }
     }
+  },
+
+  "component_saved_dashboards_files_add": {
+    "title": "Add chart to dashboard",
+    "form_dashboard": {
+      "select": {
+        "label": "Select a dashboard",
+        "nothingFound": "No matching dashboards found",
+        "create": "Create new dashboard"
+      },
+      "name": {
+        "label": "Name your dashboard",
+        "placeholder": "eg. KPI dashboard"
+      },
+      "description": {
+        "label": "Dashboard description",
+        "placeholder": "A few words to give your team some context"
+      }
+    },
+    "form_space": {
+      "select": {
+        "label": "Select a space",
+        "create": "Create new space"
+      },
+      "name": {
+        "label": "Name your new space",
+        "placeholder": "eg. KPIs",
+        "save": "Save to existing space"
+      }
+    },
+    "cancel": "Cancel",
+    "add": "Add to dashboard"
   }
 }

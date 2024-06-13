@@ -12,6 +12,7 @@ import {
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { useDashboardsContainingChart } from '../../../hooks/dashboard/useDashboards';
 import {
@@ -38,6 +39,7 @@ const ChartDeleteModal: FC<ChartDeleteModalProps> = ({
     } = useDashboardsContainingChart(projectUuid, uuid);
     const { mutateAsync: deleteChart, isLoading: isDeleting } =
         useSavedQueryDeleteMutation();
+    const { t } = useTranslation();
 
     if (
         isInitialLoading ||
@@ -54,10 +56,17 @@ const ChartDeleteModal: FC<ChartDeleteModalProps> = ({
     };
 
     return (
-        <Modal title={<Title order={4}>Delete Chart</Title>} {...modalProps}>
+        <Modal
+            title={
+                <Title order={4}>
+                    {t('components_modal_chart_delete.title')}
+                </Title>
+            }
+            {...modalProps}
+        >
             <Stack spacing="lg" pt="sm">
                 <Text>
-                    Are you sure you want to delete the chart{' '}
+                    {t('components_modal_chart_delete.tip')}
                     <Text span fw={600}>
                         "{chart.name}"
                     </Text>
@@ -70,9 +79,16 @@ const ChartDeleteModal: FC<ChartDeleteModalProps> = ({
                             icon={<MantineIcon icon={IconAlertCircle} />}
                             title={
                                 <Text fw={600}>
-                                    This action will remove a chart tile from{' '}
-                                    {relatedDashboards.length} dashboard
-                                    {relatedDashboards.length > 1 ? 's' : ''}:
+                                    {t(
+                                        'components_modal_chart_delete.content',
+                                        {
+                                            length: relatedDashboards.length,
+                                            text:
+                                                relatedDashboards.length > 1
+                                                    ? 's'
+                                                    : '',
+                                        },
+                                    )}
                                 </Text>
                             }
                         >
@@ -99,7 +115,7 @@ const ChartDeleteModal: FC<ChartDeleteModalProps> = ({
                         variant="outline"
                         onClick={modalProps.onClose}
                     >
-                        Cancel
+                        {t('components_modal_chart_delete.cancel')}
                     </Button>
 
                     <Button
@@ -107,7 +123,7 @@ const ChartDeleteModal: FC<ChartDeleteModalProps> = ({
                         color="red"
                         onClick={handleConfirm}
                     >
-                        Delete
+                        {t('components_modal_chart_delete.delete')}
                     </Button>
                 </Group>
             </Stack>

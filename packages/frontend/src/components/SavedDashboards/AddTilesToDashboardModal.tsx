@@ -21,6 +21,8 @@ import {
     IconPlus,
 } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { v4 as uuid4 } from 'uuid';
 import {
     appendNewTilesToBottom,
@@ -49,6 +51,8 @@ const AddTilesToDashboardModal: FC<AddTilesToDashboardModalProps> = ({
     savedChartUuid,
     onClose,
 }) => {
+    const { t } = useTranslation();
+
     const [isCreatingNewDashboard, setIsCreatingNewDashboard] = useState(false);
     const [isCreatingNewSpace, setIsCreatingNewSpace] =
         useState<boolean>(false);
@@ -202,7 +206,9 @@ const AddTilesToDashboardModal: FC<AddTilesToDashboardModalProps> = ({
                         size="lg"
                         color="green.8"
                     />
-                    <Title order={4}> Add chart to dashboard</Title>
+                    <Title order={4}>
+                        {t('component_saved_dashboards_files_add.title')}
+                    </Title>
                 </Group>
             }
             withCloseButton
@@ -213,7 +219,9 @@ const AddTilesToDashboardModal: FC<AddTilesToDashboardModalProps> = ({
                         <Stack spacing="md">
                             <Select
                                 id="select-dashboard"
-                                label="Select a dashboard"
+                                label={t(
+                                    'component_saved_dashboards_files_add.form_dashboard.select.label',
+                                )}
                                 data={dashboards.map((d) => ({
                                     value: d.uuid,
                                     label: d.name,
@@ -228,7 +236,9 @@ const AddTilesToDashboardModal: FC<AddTilesToDashboardModalProps> = ({
                                     )?.uuid
                                 }
                                 searchable
-                                nothingFound="No matching dashboards found"
+                                nothingFound={t(
+                                    'component_saved_dashboards_files_add.form_dashboard.select.nothingFound',
+                                )}
                                 filter={(value, dashboard) =>
                                     !!dashboard.label
                                         ?.toLowerCase()
@@ -244,7 +254,9 @@ const AddTilesToDashboardModal: FC<AddTilesToDashboardModalProps> = ({
                             >
                                 <Group spacing="two">
                                     <MantineIcon icon={IconPlus} />
-                                    Create new dashboard
+                                    {t(
+                                        'component_saved_dashboards_files_add.form_dashboard.select.create',
+                                    )}
                                 </Group>
                             </Anchor>
                         </Stack>
@@ -252,15 +264,23 @@ const AddTilesToDashboardModal: FC<AddTilesToDashboardModalProps> = ({
                         <Stack spacing="md">
                             <TextInput
                                 id="dashboard-name"
-                                label="Name your dashboard"
-                                placeholder="eg. KPI dashboard"
+                                label={t(
+                                    'component_saved_dashboards_files_add.form_dashboard.name.label',
+                                )}
+                                placeholder={t(
+                                    'component_saved_dashboards_files_add.form_dashboard.name.placeholder',
+                                )}
                                 required
                                 {...form.getInputProps('dashboardName')}
                             />
                             <Textarea
                                 id="dashboard-description"
-                                label="Dashboard description"
-                                placeholder="A few words to give your team some context"
+                                label={t(
+                                    'component_saved_dashboards_files_add.form_dashboard.description.label',
+                                )}
+                                placeholder={t(
+                                    'component_saved_dashboards_files_add.form_dashboard.description.placeholder',
+                                )}
                                 autosize
                                 maxRows={3}
                                 style={{ overflowY: 'auto' }}
@@ -270,7 +290,9 @@ const AddTilesToDashboardModal: FC<AddTilesToDashboardModalProps> = ({
                                 <>
                                     <Select
                                         id="select-space"
-                                        label="Select a space"
+                                        label={t(
+                                            'component_saved_dashboards_files_add.form_space.select.label',
+                                        )}
                                         data={spaces.map((space) => ({
                                             value: space.uuid,
                                             label: space.name,
@@ -288,7 +310,9 @@ const AddTilesToDashboardModal: FC<AddTilesToDashboardModalProps> = ({
                                     >
                                         <Group spacing="two">
                                             <MantineIcon icon={IconPlus} />
-                                            Create new space
+                                            {t(
+                                                'component_saved_dashboards_files_add.form_space.select.create',
+                                            )}
                                         </Group>
                                     </Anchor>
                                 </>
@@ -296,8 +320,12 @@ const AddTilesToDashboardModal: FC<AddTilesToDashboardModalProps> = ({
                                 <>
                                     <TextInput
                                         id="new-space"
-                                        label="Name your new space"
-                                        placeholder="eg. KPIs"
+                                        label={t(
+                                            'component_saved_dashboards_files_add.form_space.name.label',
+                                        )}
+                                        placeholder={t(
+                                            'component_saved_dashboards_files_add.form_space.name.placeholder',
+                                        )}
                                         required
                                         {...form.getInputProps('spaceName')}
                                     />
@@ -309,7 +337,9 @@ const AddTilesToDashboardModal: FC<AddTilesToDashboardModalProps> = ({
                                     >
                                         <Group spacing="two">
                                             <MantineIcon icon={IconArrowLeft} />
-                                            Save to existing space
+                                            {t(
+                                                'component_saved_dashboards_files_add.form_space.name.save',
+                                            )}
                                         </Group>
                                     </Anchor>
                                 </>
@@ -324,7 +354,7 @@ const AddTilesToDashboardModal: FC<AddTilesToDashboardModalProps> = ({
                             }}
                             variant="outline"
                         >
-                            Cancel
+                            {t('component_saved_dashboards_files_add.cancel')}
                         </Button>
                         <Button
                             type="submit"
@@ -338,7 +368,7 @@ const AddTilesToDashboardModal: FC<AddTilesToDashboardModalProps> = ({
                                         '')
                             }
                         >
-                            Add to dashboard
+                            {t('component_saved_dashboards_files_add.add')}
                         </Button>
                     </Group>
                 </form>

@@ -26,6 +26,7 @@ import { useForm, zodResolver, type UseFormReturnType } from '@mantine/form';
 import { uuid4 } from '@sentry/utils';
 import { IconArrowLeft, IconPlus } from '@tabler/icons-react';
 import { useCallback, useEffect, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { z } from 'zod';
 import {
@@ -70,6 +71,8 @@ type SaveToSpaceProps = {
 
 const SaveToSpace: FC<SaveToSpaceProps> = ({ form, spaces, projectUuid }) => {
     const { user } = useApp();
+    const { t } = useTranslation();
+
     const [shouldCreateNewSpace, setShouldCreateNewSpace] = useState(false);
     const isCreatingNewSpace =
         shouldCreateNewSpace || !spaces || spaces.length === 0;
@@ -79,9 +82,15 @@ const SaveToSpace: FC<SaveToSpaceProps> = ({ form, spaces, projectUuid }) => {
             <Stack spacing="xs">
                 <TextInput
                     size="xs"
-                    label="Space"
-                    description="Create a new space to add this chart to"
-                    placeholder="eg. KPIs"
+                    label={t(
+                        'components_modal_chart_create.default.form_space.name.label',
+                    )}
+                    description={t(
+                        'components_modal_chart_create.default.form_space.name.description',
+                    )}
+                    placeholder={t(
+                        'components_modal_chart_create.default.form_space.name.placeholder',
+                    )}
                     {...form.getInputProps('newSpaceName')}
                 />
                 <Button
@@ -95,7 +104,7 @@ const SaveToSpace: FC<SaveToSpaceProps> = ({ form, spaces, projectUuid }) => {
                     }}
                     leftIcon={<MantineIcon icon={IconArrowLeft} />}
                 >
-                    Save to existing space
+                    {t('components_modal_chart_create.default.save')}
                 </Button>
             </Stack>
         );
@@ -106,8 +115,12 @@ const SaveToSpace: FC<SaveToSpaceProps> = ({ form, spaces, projectUuid }) => {
             <Select
                 size="xs"
                 searchable
-                label="Space"
-                description="Select a space to save the chart directly to"
+                label={t(
+                    'components_modal_chart_create.default.form_space.space.label',
+                )}
+                description={t(
+                    'components_modal_chart_create.default.form_space.space.description',
+                )}
                 withinPortal
                 data={spaces.map((space) => ({
                     value: space.uuid,
@@ -131,7 +144,7 @@ const SaveToSpace: FC<SaveToSpaceProps> = ({ form, spaces, projectUuid }) => {
                     leftIcon={<MantineIcon icon={IconPlus} />}
                     onClick={() => setShouldCreateNewSpace(true)}
                 >
-                    Create new space
+                    {t('components_modal_chart_create.default.create')}
                 </Button>
             </Can>
         </Stack>
@@ -149,13 +162,19 @@ const SaveToDashboard: FC<SaveToDashboardProps> = ({
     dashboards,
     isLoadingDashboards,
 }) => {
+    const { t } = useTranslation();
+
     if (!dashboards) return null;
 
     return (
         <Select
-            description="Select a dashboard to save the chart directly to"
+            description={t(
+                'components_modal_chart_create.default.form_dashboard.name.description',
+            )}
             id="select-dashboard"
-            label="Dashboard"
+            label={t(
+                'components_modal_chart_create.default.form_dashboard.name.label',
+            )}
             size="xs"
             data={dashboards.map((d) => ({
                 value: d.uuid,
@@ -168,7 +187,9 @@ const SaveToDashboard: FC<SaveToDashboardProps> = ({
                     ?.uuid
             }
             searchable
-            nothingFound="No matching dashboards found"
+            nothingFound={t(
+                'components_modal_chart_create.default.form_dashboard.name.nothingFound',
+            )}
             filter={(value, dashboard) =>
                 !!dashboard.label
                     ?.toLowerCase()
@@ -204,8 +225,8 @@ export const SaveToSpaceOrDashboard: FC<SaveToSpaceOrDashboardProps> = ({
     const { projectUuid } = useParams<{ projectUuid: string }>();
 
     const { mutateAsync: createChart } = useCreateMutation();
-
     const { mutateAsync: createSpace } = useSpaceCreateMutation(projectUuid);
+    const { t } = useTranslation();
 
     const form = useForm<FormValues>({
         validate: zodResolver(validationSchema),
@@ -368,15 +389,23 @@ export const SaveToSpaceOrDashboard: FC<SaveToSpaceOrDashboardProps> = ({
             <Box p="md">
                 <Stack spacing="xs">
                     <TextInput
-                        label="Enter a memorable name for your chart"
-                        placeholder="eg. How many weekly active users do we have?"
+                        label={t(
+                            'components_modal_chart_create.default.boxs.name.label',
+                        )}
+                        placeholder={t(
+                            'components_modal_chart_create.default.boxs.name.placeholder',
+                        )}
                         required
                         {...form.getInputProps('name')}
                         data-testid="ChartCreateModal/NameInput"
                     />
                     <Textarea
-                        label="Chart description"
-                        placeholder="A few words to give your team some context"
+                        label={t(
+                            'components_modal_chart_create.default.boxs.description.label',
+                        )}
+                        placeholder={t(
+                            'components_modal_chart_create.default.boxs.description.placeholder',
+                        )}
                         autosize
                         maxRows={3}
                         {...form.getInputProps('description')}
@@ -394,7 +423,9 @@ export const SaveToSpaceOrDashboard: FC<SaveToSpaceOrDashboardProps> = ({
 
                             <Radio
                                 value={SaveDestination.Space}
-                                label="Space"
+                                label={t(
+                                    'components_modal_chart_create.default.radio_groups.space.label',
+                                )}
                                 styles={(theme) => ({
                                     label: {
                                         paddingLeft: theme.spacing.xs,
@@ -404,7 +435,9 @@ export const SaveToSpaceOrDashboard: FC<SaveToSpaceOrDashboardProps> = ({
                             />
                             <Radio
                                 value={SaveDestination.Dashboard}
-                                label="Dashboard"
+                                label={t(
+                                    'components_modal_chart_create.default.radio_groups.dashboard.label',
+                                )}
                                 styles={(theme) => ({
                                     label: {
                                         paddingLeft: theme.spacing.xs,
@@ -442,7 +475,7 @@ export const SaveToSpaceOrDashboard: FC<SaveToSpaceOrDashboardProps> = ({
                 })}
             >
                 <Button onClick={onClose} variant="outline">
-                    Cancel
+                    {t('components_modal_chart_create.default.cancel')}
                 </Button>
 
                 <Button
@@ -458,7 +491,7 @@ export const SaveToSpaceOrDashboard: FC<SaveToSpaceOrDashboardProps> = ({
                                 SaveDestination.Dashboard)
                     }
                 >
-                    Save
+                    {t('components_modal_chart_create.default.submit')}
                 </Button>
             </Group>
         </form>

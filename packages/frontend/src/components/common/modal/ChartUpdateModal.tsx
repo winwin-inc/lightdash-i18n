@@ -11,6 +11,8 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useSavedQuery, useUpdateMutation } from '../../../hooks/useSavedQuery';
 import useSearchParams from '../../../hooks/useSearchParams';
 
@@ -32,6 +34,7 @@ const ChartUpdateModal: FC<ChartUpdateModalProps> = ({
         dashboardUuid ? dashboardUuid : undefined,
         uuid,
     );
+    const { t } = useTranslation();
 
     const form = useForm<FormState>({
         initialValues: {
@@ -63,20 +66,38 @@ const ChartUpdateModal: FC<ChartUpdateModalProps> = ({
     });
 
     return (
-        <Modal title={<Title order={4}>Update Chart</Title>} {...modalProps}>
-            <form title="Update Chart" onSubmit={handleConfirm}>
+        <Modal
+            title={
+                <Title order={4}>
+                    {t('components_modal_chart_update.title')}
+                </Title>
+            }
+            {...modalProps}
+        >
+            <form
+                title={t('components_modal_chart_update.title')}
+                onSubmit={handleConfirm}
+            >
                 <Stack spacing="lg" pt="sm">
                     <TextInput
-                        label="Enter a memorable name for your chart"
+                        label={t(
+                            'components_modal_chart_update.form.name.label',
+                        )}
                         required
-                        placeholder="eg. How many weekly active users do we have?"
+                        placeholder={t(
+                            'components_modal_chart_update.form.name.placeholder',
+                        )}
                         disabled={isUpdating}
                         {...form.getInputProps('name')}
                     />
 
                     <Textarea
-                        label="Chart description"
-                        placeholder="A few words to give your team some context"
+                        label={t(
+                            'components_modal_chart_update.form.description.label',
+                        )}
+                        placeholder={t(
+                            'components_modal_chart_update.form.description.placeholder',
+                        )}
                         disabled={isUpdating}
                         autosize
                         maxRows={3}
@@ -85,7 +106,7 @@ const ChartUpdateModal: FC<ChartUpdateModalProps> = ({
 
                     <Group position="right" mt="sm">
                         <Button variant="outline" onClick={modalProps.onClose}>
-                            Cancel
+                            {t('components_modal_chart_update.cancel')}
                         </Button>
 
                         <Button
@@ -93,7 +114,7 @@ const ChartUpdateModal: FC<ChartUpdateModalProps> = ({
                             loading={isUpdating}
                             type="submit"
                         >
-                            Save
+                            {t('components_modal_chart_update.save')}
                         </Button>
                     </Group>
                 </Stack>

@@ -2,7 +2,9 @@ import { type CreateSavedChartVersion } from '@lightdash/common';
 import { Group, Modal, Text } from '@mantine/core';
 import { IconChartBar } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import useDashboardStorage from '../../../../hooks/dashboard/useDashboardStorage';
 import MantineIcon from '../../MantineIcon';
 import { SaveToDashboard } from './SaveToDashboard';
@@ -30,6 +32,7 @@ const ChartCreateModal: FC<ChartCreateModalProps> = ({
 }) => {
     // Store it in the state to avoid losing the param when the user switches between tables
     const [spaceUuid] = useState(defaultSpaceUuid);
+    const { t } = useTranslation();
 
     const { getEditingDashboardInfo } = useDashboardStorage();
     const editingDashboardInfo = getEditingDashboardInfo();
@@ -45,10 +48,12 @@ const ChartCreateModal: FC<ChartCreateModalProps> = ({
 
     const getModalTitle = useCallback(() => {
         if (saveMode === SaveMode.TO_DASHBOARD) {
-            return `Save chart "${editingDashboardInfo.name}"`;
+            return `${t('components_modal_chart_create.title')} "${
+                editingDashboardInfo.name
+            }"`;
         }
-        return 'Save chart';
-    }, [saveMode, editingDashboardInfo]);
+        return t('components_modal_chart_create.title');
+    }, [saveMode, editingDashboardInfo, t]);
 
     return (
         <Modal

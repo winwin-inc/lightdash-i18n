@@ -9,6 +9,7 @@ import { Button, Group, Stack, Text, Textarea, TextInput } from '@mantine/core';
 import { useForm, zodResolver } from '@mantine/form';
 import { uuid4 } from '@sentry/utils';
 import { useCallback, useEffect, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import { z } from 'zod';
 import { appendNewTilesToBottom } from '../../../../hooks/dashboard/useDashboard';
@@ -44,6 +45,7 @@ export const SaveToDashboard: FC<Props> = ({
         name: dashboardName,
         dashboardUuid,
     });
+    const { t } = useTranslation();
     const { getEditingDashboardInfo } = useDashboardStorage();
     const editingDashboardInfo = getEditingDashboardInfo();
 
@@ -121,7 +123,10 @@ export const SaveToDashboard: FC<Props> = ({
                 `/projects/${projectUuid}/dashboards/${dashboardUuid}/edit`,
             );
             showToastSuccess({
-                title: `Success! ${values.name} was added to ${dashboardName}`,
+                title: t('components_modal_chart_create.add.success', {
+                    name: values.name,
+                    dashboardName,
+                }),
             });
         },
         [
@@ -136,6 +141,7 @@ export const SaveToDashboard: FC<Props> = ({
             showToastSuccess,
             dashboardName,
             activeTabUuid,
+            t,
         ],
     );
     return (
@@ -147,25 +153,38 @@ export const SaveToDashboard: FC<Props> = ({
             <Stack p="md">
                 <Stack spacing="xs">
                     <TextInput
-                        label="Enter a memorable name for your chart"
-                        placeholder="eg. How many weekly active users do we have?"
+                        label={t(
+                            'components_modal_chart_create.add.form.name.label',
+                        )}
+                        placeholder={t(
+                            'components_modal_chart_create.add.form.name.placeholder',
+                        )}
                         required
                         {...form.getInputProps('name')}
                         data-testid="ChartCreateModal/NameInput"
                     />
                     <Textarea
-                        label="Chart description"
-                        placeholder="A few words to give your team some context"
+                        label={t(
+                            'components_modal_chart_create.add.form.description.label',
+                        )}
+                        placeholder={t(
+                            'components_modal_chart_create.add.form.description.placeholder',
+                        )}
                         autosize
                         maxRows={3}
                         {...form.getInputProps('description')}
                     />
                 </Stack>
                 <Stack spacing="xxs">
-                    <Text fw={500}>Saving to "{dashboardName}" dashboard</Text>
+                    <Text fw={500}>
+                        {t('components_modal_chart_create.add.saving_tip_1', {
+                            dashboardName,
+                        })}
+                    </Text>
                     <Text fw={400} color="gray.6" fz="xs">
-                        This chart will be saved exclusively to the dashboard "
-                        {dashboardName}", keeping your space clutter-free.
+                        {t('components_modal_chart_create.add.saving_tip_2', {
+                            dashboardName,
+                        })}
                     </Text>
                 </Stack>
             </Stack>
@@ -180,11 +199,11 @@ export const SaveToDashboard: FC<Props> = ({
                 })}
             >
                 <Button onClick={onClose} variant="outline">
-                    Cancel
+                    {t('components_modal_chart_create.add.cancel')}
                 </Button>
 
                 <Button type="submit" disabled={!form.values.name}>
-                    Save
+                    {t('components_modal_chart_create.add.save')}
                 </Button>
             </Group>
         </form>

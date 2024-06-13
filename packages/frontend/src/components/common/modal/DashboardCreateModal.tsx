@@ -18,6 +18,8 @@ import {
 import { useForm } from '@mantine/form';
 import { IconFolder, IconX } from '@tabler/icons-react';
 import { useCallback, useEffect, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useCreateMutation } from '../../../hooks/dashboard/useDashboard';
 import {
     useCreateMutation as useSpaceCreateMutation,
@@ -44,6 +46,7 @@ const DashboardCreateModal: FC<DashboardCreateModalProps> = ({
         useCreateMutation(projectUuid);
     const { mutateAsync: createSpace, isLoading: isCreatingSpace } =
         useSpaceCreateMutation(projectUuid);
+    const { t } = useTranslation();
 
     const form = useForm({
         initialValues: {
@@ -148,27 +151,37 @@ const DashboardCreateModal: FC<DashboardCreateModalProps> = ({
             <Modal
                 title={
                     <Box>
-                        <Title order={4}>Create Dashboard</Title>
+                        <Title order={4}>
+                            {t('components_modal_dashboard_create.title')}
+                        </Title>
                     </Box>
                 }
                 onClose={() => handleClose()}
                 {...modalProps}
             >
                 <form
-                    title="Create Dashboard"
+                    title={t('components_modal_dashboard_create.title')}
                     onSubmit={form.onSubmit((values) => handleConfirm(values))}
                 >
                     <Stack mb="sm">
                         <TextInput
-                            label="Name your dashboard"
-                            placeholder="eg. KPI Dashboard"
+                            label={t(
+                                'components_modal_dashboard_create.form.name.label',
+                            )}
+                            placeholder={t(
+                                'components_modal_dashboard_create.form.name.placeholder',
+                            )}
                             disabled={isCreatingDashboard}
                             required
                             {...form.getInputProps('dashboardName')}
                         />
                         <Textarea
-                            label="Dashboard description"
-                            placeholder="A few words to give your team some context"
+                            label={t(
+                                'components_modal_dashboard_create.form.description.label',
+                            )}
+                            placeholder={t(
+                                'components_modal_dashboard_create.form.description.placeholder',
+                            )}
                             disabled={isCreatingDashboard}
                             autosize
                             maxRows={3}
@@ -190,8 +203,12 @@ const DashboardCreateModal: FC<DashboardCreateModalProps> = ({
                                     withinPortal
                                     label={
                                         form.values.isCreatingNewSpace
-                                            ? 'Moving to new space'
-                                            : 'Select a space'
+                                            ? t(
+                                                  'components_modal_dashboard_create.form.space.move',
+                                              )
+                                            : t(
+                                                  'components_modal_dashboard_create.form.space.select',
+                                              )
                                     }
                                     data={spacesOptions}
                                     icon={<MantineIcon icon={IconFolder} />}
@@ -220,7 +237,10 @@ const DashboardCreateModal: FC<DashboardCreateModalProps> = ({
                                     placeholder="Select space"
                                     getCreateLabel={(query) => (
                                         <Text component="b">
-                                            + Create new space{' '}
+                                            +{' '}
+                                            {t(
+                                                'components_modal_dashboard_create.form.space.create',
+                                            )}{' '}
                                             <Text span color="blue">
                                                 {query}
                                             </Text>
@@ -292,7 +312,7 @@ const DashboardCreateModal: FC<DashboardCreateModalProps> = ({
                             color="gray"
                             onClick={handleClose}
                         >
-                            Cancel
+                            {t('components_modal_dashboard_create.cancel')}
                         </Button>
                         <Button
                             size="sm"
@@ -300,7 +320,7 @@ const DashboardCreateModal: FC<DashboardCreateModalProps> = ({
                             loading={isCreatingDashboard || isCreatingSpace}
                             type="submit"
                         >
-                            Create
+                            {t('components_modal_dashboard_create.create')}
                         </Button>
                     </Group>
                 </form>

@@ -132,6 +132,135 @@
     }
   },
 
+  "components_modal_chart_update": {
+    "title": "更新图表",
+    "form": {
+      "name": {
+        "label": "为图表输入一个容易记住的名称",
+        "placeholder": "例如，我们每周有多少活跃用户？"
+      },
+      "description": {
+        "label": "图表描述",
+        "placeholder": "给你的团队介绍一些背景信息"
+      }
+    },
+    "cancel": "取消",
+    "save": "保存"
+  },
+  "components_modal_chart_duplicate": {
+    "title": "复制图表",
+    "form": {
+      "name": {
+        "label": "为图表输入一个容易记住的名称",
+        "placeholder": "例如，我们每周有多少活跃用户？"
+      },
+      "description": {
+        "label": "图表描述",
+        "placeholder": "给你的团队介绍一些背景信息"
+      }
+    },
+    "cancel": "取消",
+    "create": "创建"
+  },
+  "components_modal_chart_create": {
+    "title": "保存图表",
+    "add": {
+      "form": {
+        "name": {
+          "label": "为图表输入一个容易记住的名称",
+          "placeholder": "例如，我们每周有多少活跃用户？"
+        },
+        "description": {
+          "label": "图表描述",
+          "placeholder": "给你的团队介绍一些背景信息"
+        }
+      },
+      "success": "保存成功! {{values.name}} 被添加到 {{dashboardName}}",
+      "saving_tip_1": "保存到 \"{{dashboardName}}\" 看板",
+      "saving_tip_2": "此图表将仅保存到看板 \"{{dashboardName}}\", 保持您的空间整洁。",
+      "cancel": "取消",
+      "save": "保存"
+    },
+    "default": {
+      "form_space_create": {
+        "name": {
+          "label": "空间",
+          "description": "创建新空间以添加此图表",
+          "placeholder": "例如 KPIs"
+        }
+      },
+      "form_space": {
+        "name": {
+          "label": "空间",
+          "description": "选择空间直接保存图表"
+        },
+        "space": {
+          "label": "空间",
+          "description": "选择空间直接保存图表"
+        }
+      },
+      "form_dashboard": {
+        "uuid": {
+          "label": "看板",
+          "description": "选择看板直接保存图表",
+          "nothingFound": "未找到匹配的看板"
+        }
+      },
+      "create": "创建新空间",
+      "save": "保存到已存在空间",
+
+      "boxs": {
+        "name": {
+          "label": "为图表输入一个容易记住的名称",
+          "placeholder": "例如，我们每周有多少活跃用户？"
+        },
+        "description": {
+          "label": "图表描述",
+          "placeholder": "给你的团队介绍一些背景信息"
+        }
+      },
+      "radio_groups": {
+        "save": "保存到",
+        "space": {
+          "label": "空间"
+        },
+        "dashboard": {
+          "label": "看板"
+        }
+      },
+      "cancel": "取消",
+      "submit": "保存"
+    }
+  },
+  "components_modal_chart_delete": {
+    "title": "删除图表",
+    "tip": "您确定要删除图表吗 ",
+    "content": "此操作将从{{length}}看板{{text}}中删除图表:",
+    "cancel": "取消",
+    "delete": "删除"
+  },
+  "components_modal_dashboard_create": {
+    "title": "创建看板",
+    "form": {
+      "name": {
+        "label": "看板命名",
+        "placeholder": "例如 KPI 看板"
+      },
+      "description": {
+        "label": "看板描述",
+        "placeholder": "给你的团队介绍一些背景信息"
+      },
+      "space": {
+        "move": "移动至新空间",
+        "select": "选择空间",
+        "placeholder": "选择空间",
+        "create": "创建新空间"
+      }
+    },
+    "cancel": "取消",
+    "create": "创建"
+  },
+
   "components_landing_panel": {
     "query": "运行查询",
     "tip": "运行查询以询问业务问题或浏览以下数据："
@@ -251,5 +380,37 @@
         "title": "删除 {{type}}"
       }
     }
+  },
+
+  "component_saved_dashboards_files_add": {
+    "title": "将图表添加到看板",
+    "form_dashboard": {
+      "select": {
+        "label": "选择看板",
+        "nothingFound": "未找到匹配的仪表板",
+        "create": "创建新看板"
+      },
+      "name": {
+        "label": "看板命名",
+        "placeholder": "例如 KPI 看板"
+      },
+      "description": {
+        "label": "看板描述",
+        "placeholder": "给你的团队介绍一些背景信息"
+      }
+    },
+    "form_space": {
+      "select": {
+        "label": "选择空间",
+        "create": "创建新空间"
+      },
+      "name": {
+        "label": "新空间命名",
+        "placeholder": "例如 KPIs",
+        "save": "保存到现有空间"
+      }
+    },
+    "cancel": "取消",
+    "add": "添加到看板"
   }
 }

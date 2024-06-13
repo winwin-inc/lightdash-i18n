@@ -11,6 +11,8 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import {
     useDuplicateChartMutation,
     useSavedQuery,
@@ -33,6 +35,7 @@ const ChartDuplicateModal: FC<ChartDuplicateModalProps> = ({
             showRedirectButton: true,
         });
     const { data: savedQuery, isInitialLoading } = useSavedQuery({ id: uuid });
+    const { t } = useTranslation();
 
     const form = useForm<FormState>();
 
@@ -68,21 +71,39 @@ const ChartDuplicateModal: FC<ChartDuplicateModalProps> = ({
     });
 
     return (
-        <Modal title={<Title order={4}>Duplicate Chart</Title>} {...modalProps}>
-            <form title="Duplicate Chart" onSubmit={handleConfirm}>
+        <Modal
+            title={
+                <Title order={4}>
+                    {t('components_modal_chart_duplicate.title')}
+                </Title>
+            }
+            {...modalProps}
+        >
+            <form
+                title={t('components_modal_chart_duplicate.title')}
+                onSubmit={handleConfirm}
+            >
                 <Stack spacing="lg" pt="sm">
                     <TextInput
-                        label="Enter a memorable name for your chart"
+                        label={t(
+                            'components_modal_chart_duplicate.form.name.label',
+                        )}
                         required
-                        placeholder="eg. How many weekly active users do we have?"
+                        placeholder={t(
+                            'components_modal_chart_duplicate.form.name.placeholder',
+                        )}
                         disabled={isLoading}
                         {...form.getInputProps('name')}
                         value={form.values.name ?? ''}
                     />
 
                     <Textarea
-                        label="Chart description"
-                        placeholder="A few words to give your team some context"
+                        label={t(
+                            'components_modal_chart_duplicate.form.description.label',
+                        )}
+                        placeholder={t(
+                            'components_modal_chart_duplicate.form.description.placeholder',
+                        )}
                         disabled={isLoading}
                         autosize
                         maxRows={3}
@@ -92,7 +113,7 @@ const ChartDuplicateModal: FC<ChartDuplicateModalProps> = ({
 
                     <Group position="right" mt="sm">
                         <Button variant="outline" onClick={modalProps.onClose}>
-                            Cancel
+                            {t('components_modal_chart_duplicate.cancel')}
                         </Button>
 
                         <Button
@@ -100,7 +121,7 @@ const ChartDuplicateModal: FC<ChartDuplicateModalProps> = ({
                             loading={isLoading}
                             type="submit"
                         >
-                            Create duplicate
+                            {t('components_modal_chart_duplicate.create')}
                         </Button>
                     </Group>
                 </Stack>
