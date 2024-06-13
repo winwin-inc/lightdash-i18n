@@ -2,7 +2,9 @@ import { subject } from '@casl/ability';
 import { ActionIcon, Box, Menu } from '@mantine/core';
 import { IconEdit, IconPin, IconPinned, IconTrash } from '@tabler/icons-react';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import { useApp } from '../../../providers/AppProvider';
 import MantineIcon from '../../common/MantineIcon';
 
@@ -23,6 +25,7 @@ export const SpaceBrowserMenu: React.FC<React.PropsWithChildren<Props>> = ({
     const { user } = useApp();
     const organizationUuid = user.data?.organizationUuid;
     const { projectUuid } = useParams<{ projectUuid: string }>();
+    const { t } = useTranslation();
 
     return (
         <Menu
@@ -46,7 +49,9 @@ export const SpaceBrowserMenu: React.FC<React.PropsWithChildren<Props>> = ({
                     icon={<MantineIcon icon={IconEdit} />}
                     onClick={onRename}
                 >
-                    Rename
+                    {t(
+                        'components_explorer_space_browser_menu.menus.rename.title',
+                    )}
                 </Menu.Item>
 
                 {user.data?.ability.can(
@@ -68,7 +73,13 @@ export const SpaceBrowserMenu: React.FC<React.PropsWithChildren<Props>> = ({
                         }
                         onClick={onTogglePin}
                     >
-                        {isPinned ? 'Unpin from homepage' : 'Pin to homepage'}
+                        {isPinned
+                            ? t(
+                                  'components_explorer_space_browser_menu.menus.toggle_pin.unpin',
+                              )
+                            : t(
+                                  'components_explorer_space_browser_menu.menus.toggle_pin.pin',
+                              )}
                     </Menu.Item>
                 )}
 
@@ -79,7 +90,9 @@ export const SpaceBrowserMenu: React.FC<React.PropsWithChildren<Props>> = ({
                     icon={<MantineIcon icon={IconTrash} />}
                     onClick={onDelete}
                 >
-                    Delete space
+                    {t(
+                        'components_explorer_space_browser_menu.menus.delete.title',
+                    )}
                 </Menu.Item>
             </Menu.Dropdown>
         </Menu>

@@ -199,5 +199,61 @@
       "tip": "Pin items to the top of the homepage to guide users to relevant content!",
       "view": "View docs"
     }
+  },
+
+  "components_explorer_space_browser_menu": {
+    "menus": {
+      "rename": {
+        "title": "Rename"
+      },
+      "toggle_pin": {
+        "pin": "Pin to homepage",
+        "unpin": "Unpin from homepage"
+      },
+      "delete": {
+        "title": "Delete space"
+      }
+    }
+  },
+
+  "components_resource_view_list": {
+    "columns": {
+      "name": "Name",
+      "space": "Space",
+      "updated": "Last Edited"
+    }
+  },
+  "components_resource_view_action_menu": {
+    "space_type_labels": {
+      "shared_with_me": "Shared with me",
+      "admin_content_view": "Public content view"
+    },
+    "menus": {
+      "rename": {
+        "title": "Rename"
+      },
+      "duplicate": {
+        "title": "Duplicate"
+      },
+      "add": {
+        "title": "Add to Dashboard"
+      },
+      "promote": {
+        "title": "Promote"
+      },
+      "toggle_pin": {
+        "pin": "Pin to homepage",
+        "unpin": "Unpin from homepage"
+      },
+      "move": {
+        "title": "Move to Space"
+      },
+      "create": {
+        "title": "Create new space"
+      },
+      "delete": {
+        "title": "Delete {{type}}"
+      }
+    }
   }
 }

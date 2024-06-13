@@ -11,7 +11,9 @@ import {
     IconChevronUp,
 } from '@tabler/icons-react';
 import React, { useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useHistory, useParams } from 'react-router-dom';
+
 import { type ResourceViewCommonProps } from '..';
 import { useTableStyles } from '../../../../hooks/styles/useTableStyles';
 import { useSpaceSummaries } from '../../../../hooks/useSpaces';
@@ -84,6 +86,7 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { data: spaces = [] } = useSpaceSummaries(projectUuid);
     const canUserManageValidation = useValidationUserAbility(projectUuid);
+    const { t } = useTranslation();
 
     const [columnSorts, setColumnSorts] = useState<SortingStateMap>(
         defaultSort ? new Map(Object.entries(defaultSort)) : new Map(),
@@ -113,7 +116,7 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
         () => [
             {
                 id: 'name',
-                label: 'Name',
+                label: t('components_resource_view_list.columns.name'),
                 cell: (item: ResourceViewItem) => {
                     const canBelongToSpace =
                         isResourceViewItemChart(item) ||
@@ -262,7 +265,7 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
             },
             {
                 id: 'space',
-                label: 'Space',
+                label: t('components_resource_view_list.columns.space'),
                 cell: (item: ResourceViewItem) => {
                     if (isResourceViewSpaceItem(item)) {
                         return null;
@@ -313,7 +316,7 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
             },
             {
                 id: 'updatedAt',
-                label: 'Last Edited',
+                label: t('components_resource_view_list.columns.updated'),
                 cell: (item: ResourceViewItem) => {
                     if (isResourceViewSpaceItem(item)) return null;
                     return <ResourceLastEdited item={item} />;
@@ -363,6 +366,7 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
             spaces,
             onAction,
             hoveredItem,
+            t,
         ],
     );
 

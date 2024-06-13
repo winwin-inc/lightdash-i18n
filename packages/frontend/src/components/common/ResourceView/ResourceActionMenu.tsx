@@ -21,7 +21,9 @@ import {
     IconTrash,
 } from '@tabler/icons-react';
 import { Fragment, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useParams } from 'react-router-dom';
+
 import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
 import { useProject } from '../../../hooks/useProject';
 import { usePromoteMutation } from '../../../hooks/usePromoteChart';
@@ -53,11 +55,6 @@ enum SpaceType {
     AdminContentView,
 }
 
-const SpaceTypeLabels = {
-    [SpaceType.SharedWithMe]: 'Shared with me',
-    [SpaceType.AdminContentView]: 'Public content view',
-};
-
 const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
     item,
     allowDelete = true,
@@ -70,6 +67,17 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
     const location = useLocation();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { data: project } = useProject(projectUuid);
+    const { t } = useTranslation();
+
+    const SpaceTypeLabels = {
+        [SpaceType.SharedWithMe]: t(
+            'components_resource_view_action_menu.space_type_labels.shared_with_me',
+        ),
+        [SpaceType.AdminContentView]: t(
+            'components_resource_view_action_menu.space_type_labels.admin_content_view',
+        ),
+    };
+
     const organizationUuid = user.data?.organizationUuid;
     const { data: spaces = [] } = useSpaceSummaries(projectUuid, true, {});
     const isPinned = !!item.data.pinnedListUuid;
@@ -213,7 +221,9 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                         });
                     }}
                 >
-                    Rename
+                    {t(
+                        'components_resource_view_action_menu.menus.rename.title',
+                    )}
                 </Menu.Item>
 
                 {item.type === ResourceViewItemType.CHART ||
@@ -229,7 +239,9 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                             });
                         }}
                     >
-                        Duplicate
+                        {t(
+                            'components_resource_view_action_menu.menus.duplicate.title',
+                        )}
                     </Menu.Item>
                 ) : null}
 
@@ -245,7 +257,9 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                             });
                         }}
                     >
-                        Add to Dashboard
+                        {t(
+                            'components_resource_view_action_menu.menus.add.title',
+                        )}
                     </Menu.Item>
                 )}
                 {userCanPromoteChart &&
@@ -277,7 +291,9 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                                         else promoteDashboard(item.data.uuid);
                                     }}
                                 >
-                                    Promote{' '}
+                                    {t(
+                                        'components_resource_view_action_menu.menus.promote.title',
+                                    )}{' '}
                                     {item.type === ResourceViewItemType.CHART
                                         ? 'chart'
                                         : 'dashboard'}
@@ -307,7 +323,13 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                             });
                         }}
                     >
-                        {isPinned ? 'Unpin from homepage' : 'Pin to homepage'}
+                        {isPinned
+                            ? t(
+                                  'components_resource_view_action_menu.menus.toggle_pin.unpin',
+                              )
+                            : t(
+                                  'components_resource_view_action_menu.menus.toggle_pin.pin',
+                              )}
                     </Menu.Item>
                 ) : null}
 
@@ -335,7 +357,9 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                                         </Box>
                                     }
                                 >
-                                    Move to Space
+                                    {t(
+                                        'components_resource_view_action_menu.menus.move.title',
+                                    )}
                                 </Menu.Item>
                             </Menu.Target>
 
@@ -442,7 +466,9 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                                             });
                                         }}
                                     >
-                                        Create new space
+                                        {t(
+                                            'components_resource_view_action_menu.menus.create.title',
+                                        )}
                                     </Menu.Item>
                                 </Can>
                             </Menu.Dropdown>
@@ -466,7 +492,10 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                                 });
                             }}
                         >
-                            Delete {item.type}
+                            {t(
+                                'components_resource_view_action_menu.menus.delete.title',
+                                { type: item.type },
+                            )}
                         </Menu.Item>
                     </>
                 )}

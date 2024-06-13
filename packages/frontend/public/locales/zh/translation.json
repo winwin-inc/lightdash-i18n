@@ -195,5 +195,61 @@
       "tip": "将项目固定到主页顶部，以引导用户找到相关内容！",
       "view": "查看文档"
     }
+  },
+
+  "components_explorer_space_browser_menu": {
+    "menus": {
+      "rename": {
+        "title": "重命名"
+      },
+      "toggle_pin": {
+        "pin": "固定到主页",
+        "unpin": "从主页取消固定"
+      },
+      "delete": {
+        "title": "删除空间"
+      }
+    }
+  },
+
+  "components_resource_view_list": {
+    "columns": {
+      "name": "名称",
+      "space": "空间",
+      "updated": "最后编辑时间"
+    }
+  },
+  "components_resource_view_action_menu": {
+    "space_type_labels": {
+      "shared_with_me": "与我分享",
+      "admin_content_view": "公开内容视图"
+    },
+    "menus": {
+      "rename": {
+        "title": "改名"
+      },
+      "duplicate": {
+        "title": "复制"
+      },
+      "add": {
+        "title": "添加到仪表板"
+      },
+      "promote": {
+        "title": "推动"
+      },
+      "toggle_pin": {
+        "pin": "固定到主页",
+        "unpin": "从主页取消固定"
+      },
+      "move": {
+        "title": "移至空间"
+      },
+      "create": {
+        "title": "创建新空间"
+      },
+      "delete": {
+        "title": "删除 {{type}}"
+      }
+    }
   }
 }
