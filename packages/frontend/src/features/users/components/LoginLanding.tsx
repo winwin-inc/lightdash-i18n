@@ -216,6 +216,7 @@ const Login: FC<{}> = () => {
                                         'features_users.form.password.placeholder',
                                     )}
                                     required
+                                    autoFocus
                                     {...form.getInputProps('password')}
                                     disabled={disableControls}
                                 />

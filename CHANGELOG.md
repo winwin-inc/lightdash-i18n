@@ -1,3 +1,106 @@
+# [0.1130.0](https://github.com/lightdash/lightdash/compare/0.1129.1...0.1130.0) (2024-06-13)
+
+
+### Bug Fixes
+
+* join notification channel on settings change ([#10386](https://github.com/lightdash/lightdash/issues/10386)) ([c3bee5c](https://github.com/lightdash/lightdash/commit/c3bee5c7e2d2dac87e87bac9275cc98afbd334af))
+
+
+### Features
+
+* promote diff and confirm dialog ([#10366](https://github.com/lightdash/lightdash/issues/10366)) ([16e71f8](https://github.com/lightdash/lightdash/commit/16e71f8cde73ee92f7f08061a6fa78ac5ec0188a))
+
+## [0.1129.1](https://github.com/lightdash/lightdash/compare/0.1129.0...0.1129.1) (2024-06-12)
+
+
+### Bug Fixes
+
+* remove n+1 queries when creating and updating a dashboard ([#10364](https://github.com/lightdash/lightdash/issues/10364)) ([e579cb0](https://github.com/lightdash/lightdash/commit/e579cb073f85a5398a4b8e6dcd58a300cf4106be))
+
+# [0.1129.0](https://github.com/lightdash/lightdash/compare/0.1128.9...0.1129.0) (2024-06-12)
+
+
+### Features
+
+* improve cli error for operator to type error ([#10380](https://github.com/lightdash/lightdash/issues/10380)) ([7923c02](https://github.com/lightdash/lightdash/commit/7923c0288d6fada5b8a44df56618733490293ad4))
+
+## [0.1128.9](https://github.com/lightdash/lightdash/compare/0.1128.8...0.1128.9) (2024-06-12)
+
+
+### Bug Fixes
+
+* focus password input in login page ([#10387](https://github.com/lightdash/lightdash/issues/10387)) ([5b1cb61](https://github.com/lightdash/lightdash/commit/5b1cb61deb29d63b52774d6b6185e26d7eb6e944))
+
+## [0.1128.8](https://github.com/lightdash/lightdash/compare/0.1128.7...0.1128.8) (2024-06-12)
+
+
+### Bug Fixes
+
+* more playwright improvements ([#10379](https://github.com/lightdash/lightdash/issues/10379)) ([b9e1b3d](https://github.com/lightdash/lightdash/commit/b9e1b3d99821a4d0020ae7bc07f106bde59736cd))
+
+## [0.1128.7](https://github.com/lightdash/lightdash/compare/0.1128.6...0.1128.7) (2024-06-12)
+
+
+### Bug Fixes
+
+* chart and dashboard view count increase on pinning to homepage ([#10365](https://github.com/lightdash/lightdash/issues/10365)) ([3edbbd6](https://github.com/lightdash/lightdash/commit/3edbbd608c17a8e865b5cc44ff0515dbe76ef332))
+
+## [0.1128.6](https://github.com/lightdash/lightdash/compare/0.1128.5...0.1128.6) (2024-06-12)
+
+
+### Bug Fixes
+
+* handle error thrown when parsing explore params ([#10373](https://github.com/lightdash/lightdash/issues/10373)) ([e85ef97](https://github.com/lightdash/lightdash/commit/e85ef97266e3ddc15d60c4838f19d4d6df0483a5))
+
+## [0.1128.5](https://github.com/lightdash/lightdash/compare/0.1128.4...0.1128.5) (2024-06-12)
+
+
+### Bug Fixes
+
+* add intercom and google domains to content security policy ([#10377](https://github.com/lightdash/lightdash/issues/10377)) ([31c9072](https://github.com/lightdash/lightdash/commit/31c9072a3a37aa1d64466563bf537b634b6b5290))
+
+## [0.1128.4](https://github.com/lightdash/lightdash/compare/0.1128.3...0.1128.4) (2024-06-11)
+
+
+### Bug Fixes
+
+* remove x frame options header ([#10376](https://github.com/lightdash/lightdash/issues/10376)) ([3aafa21](https://github.com/lightdash/lightdash/commit/3aafa21f1ead1f756685085f89bc9abd8a593d51))
+
+## [0.1128.3](https://github.com/lightdash/lightdash/compare/0.1128.2...0.1128.3) (2024-06-11)
+
+
+### Bug Fixes
+
+* increase timeout to wait for charts to 60s (playwright) ([#10375](https://github.com/lightdash/lightdash/issues/10375)) ([b3eb62e](https://github.com/lightdash/lightdash/commit/b3eb62ebf150923bdf9304de0ec9b5d81ead8a20))
+
+## [0.1128.2](https://github.com/lightdash/lightdash/compare/0.1128.1...0.1128.2) (2024-06-11)
+
+
+### Bug Fixes
+
+* adjust content security policy directives ([#10369](https://github.com/lightdash/lightdash/issues/10369)) ([60b6a5b](https://github.com/lightdash/lightdash/commit/60b6a5b04b4a089a075d0b0ec11f430272a8c737))
+
+## [0.1128.1](https://github.com/lightdash/lightdash/compare/0.1128.0...0.1128.1) (2024-06-11)
+
+
+### Bug Fixes
+
+* get body selector for chart screenshots ([#10368](https://github.com/lightdash/lightdash/issues/10368)) ([b79992b](https://github.com/lightdash/lightdash/commit/b79992b732b145e16407598af01747264f0a30ee))
+
+# [0.1128.0](https://github.com/lightdash/lightdash/compare/0.1127.0...0.1128.0) (2024-06-11)
+
+
+### Features
+
+* add node runtime ELU metric ([#10362](https://github.com/lightdash/lightdash/issues/10362)) ([fe0c386](https://github.com/lightdash/lightdash/commit/fe0c386833bc072ee0fb84b1204d39b86d376fc1))
+
+# [0.1127.0](https://github.com/lightdash/lightdash/compare/0.1126.3...0.1127.0) (2024-06-11)
+
+
+### Features
+
+* security headers ([#10357](https://github.com/lightdash/lightdash/issues/10357)) ([86b03b0](https://github.com/lightdash/lightdash/commit/86b03b08d79ad51de32ac700beebf535dcda8450))
+
 ## [0.1126.3](https://github.com/lightdash/lightdash/compare/0.1126.2...0.1126.3) (2024-06-10)
 
 

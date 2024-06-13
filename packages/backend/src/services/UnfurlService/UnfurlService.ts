@@ -535,7 +535,9 @@ export class UnfurlService extends BaseService {
                                     `${id}/chart-and-results`,
                                 );
 
-                                return page?.waitForResponse(responsePattern); // NOTE: No await here
+                                return page?.waitForResponse(responsePattern, {
+                                    timeout: 60000,
+                                }); // NOTE: No await here
                             });
                         } else if (
                             lightdashPage === LightdashPage.CHART ||
@@ -547,7 +549,9 @@ export class UnfurlService extends BaseService {
                             );
 
                             chartResultsPromises = [
-                                page?.waitForResponse(responsePattern),
+                                page?.waitForResponse(responsePattern, {
+                                    timeout: 60000,
+                                }), // NOTE: No await here
                             ];
                         }
 
@@ -566,21 +570,32 @@ export class UnfurlService extends BaseService {
                         );
                     }
 
+                    if (lightdashPage === LightdashPage.DASHBOARD) {
+                        // wait for all components with class .loading_chart to disappear - they are the same number as the number of charts
+                        const dashboardChartsLoaders =
+                            page.locator('.loading_chart');
+
+                        await dashboardChartsLoaders.waitFor({
+                            state: 'hidden',
+                            timeout: 60000,
+                        });
+                    }
+
                     const path = `/tmp/${imageId}.png`;
 
                     let finalSelector = selector;
 
-                    if (
-                        lightdashPage === LightdashPage.EXPLORE ||
-                        lightdashPage === LightdashPage.CHART
-                    ) {
+                    if (lightdashPage === LightdashPage.EXPLORE) {
                         finalSelector = `[data-testid="visualization"]`;
                     } else if (lightdashPage === LightdashPage.DASHBOARD) {
                         finalSelector = '.react-grid-layout';
                     }
 
-                    if (lightdashPage === LightdashPage.DASHBOARD) {
-                        const fullPage = await page.$('.react-grid-layout');
+                    const fullPage = await page.$(finalSelector);
+
+                    if (chartType === ChartType.BIG_NUMBER) {
+                        await page.setViewportSize(bigNumberViewport);
+                    } else {
                         const fullPageSize = await fullPage?.boundingBox();
                         await page.setViewportSize({
                             width: gridWidth ?? viewport.width,
@@ -607,14 +622,26 @@ export class UnfurlService extends BaseService {
                         organization_uuid: organizationUuid || 'undefined',
                     });
 
-                    const imageBuffer = await page
-                        .locator(finalSelector)
-                        .screenshot({
-                            path,
-                            ...(lightdashPage === LightdashPage.DASHBOARD
-                                ? { animations: 'disabled' }
-                                : {}),
-                        });
+                    if (
+                        lightdashPage === LightdashPage.DASHBOARD ||
+                        lightdashPage === LightdashPage.EXPLORE
+                    ) {
+                        const imageBuffer = await page
+                            .locator(finalSelector)
+                            .screenshot({
+                                path,
+                                animations: 'disabled',
+                            });
+
+                        return imageBuffer;
+                    }
+
+                    // Full page screenshot for charts
+                    const imageBuffer = await page.screenshot({
+                        path,
+                        fullPage: true,
+                        animations: 'disabled',
+                    });
                     return imageBuffer;
                 } catch (e) {
                     const isRetryableError =
