@@ -16,6 +16,7 @@ import {
 } from '@mantine/core';
 import { IconBook, IconInfoCircle } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useApp } from '../providers/AppProvider';
 import { TrackPage, TrackSection } from '../providers/TrackingProvider';
@@ -34,6 +35,8 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const { health: healthState } = useApp();
+    const { t } = useTranslation();
+
     const showUpdateBadge =
         healthState.data?.latest.version &&
         healthState.data.version !== healthState.data.latest.version &&
@@ -69,7 +72,7 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                                 radius="xs"
                                 size="xs"
                             >
-                                New version available!
+                                {t('components_about_footer.new_version')}
                             </Badge>
                         )}
                     </Button>
@@ -103,7 +106,7 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                             fw="500"
                             p="xs"
                         >
-                            Documentation
+                            {t('components_about_footer.documentation')}
                         </MantineLinkButton>
                     )}
                 </Group>
@@ -114,8 +117,10 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                 onClose={() => setIsOpen(false)}
                 title={
                     <Group align="center" position="left" spacing="xs">
-                        <IconInfoCircle size={17} color="gray" /> About
-                        Lightdash
+                        <IconInfoCircle size={17} color="gray" />{' '}
+                        {t('components_about_footer.modal.title', {
+                            name: 'Lightdash',
+                        })}
                     </Group>
                 }
             >
@@ -125,7 +130,7 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                 >
                     <Stack mx="xs">
                         <Title order={5} fw={500}>
-                            <b>Version:</b>{' '}
+                            <b>{t('components_about_footer.modal.version')}</b>{' '}
                             {healthState.data
                                 ? `v${healthState.data.version}`
                                 : 'n/a'}
@@ -137,10 +142,14 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                                 icon={<IconInfoCircle size={17} />}
                             >
                                 <Text color="blue">
-                                    The version v
-                                    {healthState.data?.latest.version} is now
-                                    available. Please follow the instructions in
-                                    the{' '}
+                                    {t(
+                                        'components_about_footer.modal.description',
+                                        {
+                                            version:
+                                                healthState.data?.latest
+                                                    .version,
+                                        },
+                                    )}
                                     <Anchor
                                         href="https://docs.lightdash.com/self-host/update-lightdash"
                                         target="_blank"
@@ -149,9 +158,11 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                                             textDecoration: 'underline',
                                         }}
                                     >
-                                        How to update version
+                                        {t('components_about_footer.modal.why')}
                                     </Anchor>{' '}
-                                    documentation.
+                                    {t(
+                                        'components_about_footer.modal.documentation',
+                                    )}
                                 </Text>
                             </Alert>
                         )}
@@ -162,14 +173,14 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                                 target="_blank"
                                 variant="default"
                             >
-                                Docs
+                                {t('components_about_footer.group.docs')}
                             </MantineLinkButton>
                             <MantineLinkButton
                                 href="https://github.com/lightdash/lightdash"
                                 target="_blank"
                                 variant="default"
                             >
-                                Github
+                                {t('components_about_footer.group.github')}
                             </MantineLinkButton>
                         </Group>
                     </Stack>

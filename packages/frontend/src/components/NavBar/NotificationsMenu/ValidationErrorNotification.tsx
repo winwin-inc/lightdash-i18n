@@ -2,7 +2,9 @@ import { type ValidationResponse } from '@lightdash/common';
 import { Text } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+
 import { useTimeAgo } from '../../../hooks/useTimeAgo';
 import LargeMenuItem from '../../common/LargeMenuItem';
 
@@ -11,11 +13,14 @@ const ValidationErrorNotificationDescription: FC<{
     numberOfErrors: number;
 }> = ({ lastValidatedAt, numberOfErrors }) => {
     const validationTimeAgo = useTimeAgo(lastValidatedAt);
+    const { t } = useTranslation();
 
     return (
         <Text>
-            New validation completed {validationTimeAgo} with {numberOfErrors}{' '}
-            errors
+            {t(
+                'components_navbar_notifiications_menu.validation_error_notification_tip',
+                { validationTimeAgo, numberOfErrors },
+            )}
         </Text>
     );
 };

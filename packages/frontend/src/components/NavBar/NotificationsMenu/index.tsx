@@ -2,6 +2,8 @@ import { NotificationResourceType } from '@lightdash/common';
 import { Button, Indicator, Menu } from '@mantine/core';
 import { IconBell } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useDashboardCommentsCheck } from '../../../features/comments';
 import {
     DashboardCommentsNotifications,
@@ -20,6 +22,7 @@ export const NotificationsMenu: FC<{ projectUuid: string }> = ({
     projectUuid,
 }) => {
     const { user } = useApp();
+    const { t } = useTranslation();
 
     // Validator notifications
     const { data: validationData } = useValidation(projectUuid, user, false);
@@ -107,7 +110,11 @@ export const NotificationsMenu: FC<{ projectUuid: string }> = ({
                 )}
                 {!hasValidationNotifications &&
                     !hasDashboardCommentsNotifications && (
-                        <Menu.Item>No notifications</Menu.Item>
+                        <Menu.Item>
+                            {t(
+                                'components_navbar_notifiications_menu.no_notifications_tip',
+                            )}
+                        </Menu.Item>
                     )}
             </Menu.Dropdown>
         </Menu>

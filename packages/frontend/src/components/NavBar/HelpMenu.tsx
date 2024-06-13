@@ -8,6 +8,8 @@ import {
     IconUsers,
 } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useIntercom } from 'react-use-intercom';
 import useHealth from '../../hooks/health/useHealth';
 import LargeMenuItem from '../common/LargeMenuItem';
@@ -18,6 +20,7 @@ const HelpMenu: FC = () => {
     const isCloudCustomer = health.data?.mode === LightdashMode.CLOUD_BETA;
 
     const { show: showIntercom } = useIntercom();
+    const { t } = useTranslation();
 
     return (
         <Menu
@@ -45,8 +48,12 @@ const HelpMenu: FC = () => {
                                 showIntercom();
                             }
                         }}
-                        title="Contact support"
-                        description="Drop us a message and we’ll get back to you asap!"
+                        title={t(
+                            'components_navbar_help_menu.menus.contact_support.title',
+                        )}
+                        description={t(
+                            'components_navbar_help_menu.menus.contact_support.description',
+                        )}
                         icon={IconMessages}
                     />
                 )}
@@ -55,8 +62,12 @@ const HelpMenu: FC = () => {
                     component="a"
                     href="https://docs.lightdash.com/"
                     target="_blank"
-                    title="View Docs"
-                    description="Learn how to deploy, use, contribute to Lightdash."
+                    title={t(
+                        'components_navbar_help_menu.menus.view_docs.title',
+                    )}
+                    description={t(
+                        'components_navbar_help_menu.menus.view_docs.description',
+                    )}
                     icon={IconBook}
                 />
 
@@ -64,8 +75,10 @@ const HelpMenu: FC = () => {
                     component="a"
                     href="https://join.slack.com/t/lightdash-community/shared_invite/zt-2ehqnrvqt-LbCq7cUSFHAzEj_wMuxg4A"
                     target="_blank"
-                    title="Join Slack community"
-                    description="Get advice share best practices with other users."
+                    title={t('components_navbar_help_menu.menus.join.title')}
+                    description={t(
+                        'components_navbar_help_menu.menus.join.description',
+                    )}
                     icon={IconUsers}
                 />
 
@@ -73,8 +86,12 @@ const HelpMenu: FC = () => {
                     component="a"
                     href="https://github.com/lightdash/lightdash/issues/new/choose"
                     target="_blank"
-                    title="Feedback on Lightdash"
-                    description="Submit a feature request or bug report to improve Lightdash."
+                    title={t(
+                        'components_navbar_help_menu.menus.feedback.title',
+                    )}
+                    description={t(
+                        'components_navbar_help_menu.menus.feedback.description',
+                    )}
                     icon={IconMessageCircle2}
                 />
             </Menu.Dropdown>

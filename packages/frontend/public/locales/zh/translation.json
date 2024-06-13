@@ -75,6 +75,33 @@
       }
     }
   },
+  "components_navbar_notifiications_menu": {
+    "no_notifications_tip": "没有通知",
+    "validation_error_notification_tip": "新验证已完成 {{validationTimeAgo}} 和 {{numberOfErrors}} 错误"
+  },
+  "components_navbar_help_menu": {
+    "menus": {
+      "contact_support": {
+        "title": "联系支持人员",
+        "description": "给我们留言，我们会尽快回复您！"
+      },
+      "view_docs": {
+        "title": "查看文档",
+        "description": "了解如何部署、使用和贡献 Lightdash。"
+      },
+      "join": {
+        "title": "加入 Slack 社区",
+        "description": "获取建议并与其他用户分享最佳实践。"
+      },
+      "feedback": {
+        "title": "Lightdash 的反馈",
+        "description": "提交功能请求或错误报告以改进 Lightdash。"
+      }
+    }
+  },
+  "components_navbar_headway_menu": {
+    "tooltip_label": "有什么新闻吗?"
+  },
   "components_navbar_user_menu": {
     "menus": {
       "user": {
@@ -86,6 +113,22 @@
       "logout": {
         "title": "登出"
       }
+    }
+  },
+
+  "components_about_footer": {
+    "new_version": "新版本已发布！",
+    "documentation": "文档",
+    "modal": {
+      "version": "版本:",
+      "title": "关于 {{name}}",
+      "description": "版本 v {{version}} 现在可用. 请按照 ",
+      "why": "如何更新版本",
+      "documentation": "文档."
+    },
+    "group": {
+      "docs": "文档",
+      "github": "Github"
     }
   },
 

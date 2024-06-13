@@ -79,6 +79,33 @@
       }
     }
   },
+  "components_navbar_notifiications_menu": {
+    "no_notifications_tip": "No notifications",
+    "validation_error_notification_tip": "New validation completed {{validationTimeAgo}} with {{numberOfErrors}} errors"
+  },
+  "components_navbar_help_menu": {
+    "menus": {
+      "contact_support": {
+        "title": "Contact support",
+        "description": "rop us a message and we’ll get back to you asap!"
+      },
+      "view_docs": {
+        "title": "View Docs",
+        "description": "Learn how to deploy, use, contribute to Lightdash."
+      },
+      "join": {
+        "title": "Join Slack community",
+        "description": "Get advice share best practices with other users."
+      },
+      "feedback": {
+        "title": "Feedback on Lightdash",
+        "description": "Submit a feature request or bug report to improve Lightdash."
+      }
+    }
+  },
+  "components_navbar_headway_menu": {
+    "tooltip_label": "What's new?"
+  },
   "components_navbar_user_menu": {
     "menus": {
       "user": {
@@ -90,6 +117,22 @@
       "louout": {
         "title": "Logout"
       }
+    }
+  },
+
+  "components_about_footer": {
+    "new_version": "New version available!",
+    "documentation": "Documentation",
+    "modal": {
+      "version": "Version:",
+      "title": "About {{name}}",
+      "description": "The version v {{version}} is now available. Please follow the instructions in the ",
+      "why": "How to update version",
+      "documentation": "documentation."
+    },
+    "group": {
+      "docs": "Docs",
+      "github": "Github"
     }
   },
 
