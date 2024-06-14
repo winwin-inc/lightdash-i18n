@@ -6,6 +6,8 @@ import { isField, type SortField } from '@lightdash/common';
 import { ActionIcon, Box, Group, SegmentedControl, Text } from '@mantine/core';
 import { IconGripVertical, IconX } from '@tabler/icons-react';
 import { forwardRef } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { type ExplorerContext } from '../../providers/ExplorerProvider';
 import {
     getSortDirectionOrder,
@@ -46,6 +48,8 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
         },
         ref,
     ) => {
+        const { t } = useTranslation();
+
         const selectedSortDirection = sort.descending
             ? SortDirection.DESC
             : SortDirection.ASC;
@@ -86,7 +90,11 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                         </Box>
                     )}
 
-                    <Text>{isFirstItem ? 'Sort by' : 'then by'}</Text>
+                    <Text>
+                        {isFirstItem
+                            ? t('components_sort_button.sort_by')
+                            : t('components_sort_button.then_by')}
+                    </Text>
 
                     <Text fw={500}>
                         {(isField(item) ? item.label : item.name) ||

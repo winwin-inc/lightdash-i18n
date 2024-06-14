@@ -5,6 +5,7 @@ import { useClipboard } from '@mantine/hooks';
 import { IconArrowBarToDown, IconCopy, IconStack } from '@tabler/icons-react';
 import mapValues from 'lodash/mapValues';
 import { useCallback, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import useToaster from '../../hooks/toaster/useToaster';
 import { useApp } from '../../providers/AppProvider';
@@ -25,6 +26,7 @@ const BigNumberContextMenu: FC<React.PropsWithChildren<{}>> = ({
         useVisualizationContext();
     const { openUnderlyingDataModal, openDrillDownModal, metricQuery } =
         useMetricQueryDataContext();
+    const { t } = useTranslation();
 
     const { track } = useTracking();
     const { user } = useApp();
@@ -57,7 +59,7 @@ const BigNumberContextMenu: FC<React.PropsWithChildren<{}>> = ({
     const handleCopyToClipboard = () => {
         if (!value) return;
         clipboard.copy(value.formatted);
-        showToastSuccess({ title: 'Copied to clipboard!' });
+        showToastSuccess({ title: t('components_simple_statistic.copied') });
     };
 
     const handleViewUnderlyingData = useCallback(() => {
@@ -135,7 +137,7 @@ const BigNumberContextMenu: FC<React.PropsWithChildren<{}>> = ({
                         icon={<MantineIcon icon={IconCopy} />}
                         onClick={handleCopyToClipboard}
                     >
-                        Copy value
+                        {t('components_simple_statistic.menus.copy.title')}
                     </Menu.Item>
                 )}
 
@@ -151,7 +153,7 @@ const BigNumberContextMenu: FC<React.PropsWithChildren<{}>> = ({
                             icon={<MantineIcon icon={IconStack} />}
                             onClick={handleViewUnderlyingData}
                         >
-                            View underlying data
+                            {t('components_simple_statistic.menus.view.title')}
                         </Menu.Item>
                     </Can>
                 )}
@@ -168,7 +170,7 @@ const BigNumberContextMenu: FC<React.PropsWithChildren<{}>> = ({
                             icon={<MantineIcon icon={IconArrowBarToDown} />}
                             onClick={handleOpenDrillIntoModal}
                         >
-                            Drill into{' '}
+                            {t('components_simple_statistic.menus.drill.title')}{' '}
                             <Text span fw={500}>
                                 {value.formatted}
                             </Text>

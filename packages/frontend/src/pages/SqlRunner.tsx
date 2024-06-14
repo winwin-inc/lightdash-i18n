@@ -8,6 +8,7 @@ import {
 import { Box, Group, Stack, Tabs } from '@mantine/core';
 import { getHotkeyHandler } from '@mantine/hooks';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { useMount } from 'react-use';
 
@@ -64,6 +65,7 @@ const SqlRunnerPage = () => {
     const sqlQueryMutation = useSqlQueryMutation();
     const { isInitialLoading: isCatalogLoading, data: catalogData } =
         useProjectCatalog();
+    const { t } = useTranslation();
 
     const [sql, setSql] = useState<string>(initialState?.sqlRunner?.sql || '');
     const [lastSqlRan, setLastSqlRan] = useState<string>();
@@ -178,7 +180,7 @@ const SqlRunnerPage = () => {
 
     return (
         <Page
-            title="SQL Runner"
+            title={t('pages_sql_runner.sql_runner')}
             withFullHeight
             withPaddedContent
             sidebar={
@@ -188,7 +190,12 @@ const SqlRunnerPage = () => {
                     sx={{ overflowY: 'hidden', flex: 1 }}
                 >
                     <PageBreadcrumbs
-                        items={[{ title: 'SQL Runner', active: true }]}
+                        items={[
+                            {
+                                title: t('pages_sql_runner.sql_runner'),
+                                active: true,
+                            },
+                        ]}
                     />
 
                     <Tabs
@@ -259,7 +266,7 @@ const SqlRunnerPage = () => {
                     colorPalette={org?.chartColors ?? ECHARTS_DEFAULT_COLORS}
                 >
                     <CollapsableCard
-                        title="Chart"
+                        title={t('pages_sql_runner.chart')}
                         rightHeaderElement={
                             expandedCards.get(SqlRunnerCards.CHART) && (
                                 <>
@@ -290,7 +297,7 @@ const SqlRunnerPage = () => {
                 </VisualizationProvider>
 
                 <CollapsableCard
-                    title="SQL"
+                    title={t('pages_sql_runner.sql')}
                     isOpen={expandedCards.get(SqlRunnerCards.SQL)}
                     onToggle={(value) =>
                         handleCardExpand(SqlRunnerCards.SQL, value)
@@ -305,7 +312,7 @@ const SqlRunnerPage = () => {
                 </CollapsableCard>
 
                 <CollapsableCard
-                    title="Results"
+                    title={t('pages_sql_runner.results')}
                     isOpen={expandedCards.get(SqlRunnerCards.RESULTS)}
                     onToggle={(value) =>
                         handleCardExpand(SqlRunnerCards.RESULTS, value)

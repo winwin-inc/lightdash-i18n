@@ -7,6 +7,8 @@ import {
 import { ActionIcon, Flex, Menu, Text } from '@mantine/core';
 import { IconCheck, IconChevronDown } from '@tabler/icons-react';
 import { useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useDashboardContext } from '../../providers/DashboardProvider';
 import {
     getSortDirectionOrder,
@@ -23,6 +25,8 @@ type Props = {
 };
 
 const ColumnHeaderSortMenuOptions: FC<Props> = ({ item, tileUuid }) => {
+    const { t } = useTranslation();
+
     const itemFieldId = getItemId(item);
     const chartSort = useDashboardContext((c) => c.chartSort);
     const setChartSort = useDashboardContext((c) => c.setChartSort);
@@ -60,7 +64,7 @@ const ColumnHeaderSortMenuOptions: FC<Props> = ({ item, tileUuid }) => {
                             });
                         }}
                     >
-                        Sort{' '}
+                        {t('components_simple_table.sort')}{' '}
                         <Text span fw={500}>
                             {getSortLabel(item, sortDirection)}
                         </Text>
@@ -80,7 +84,7 @@ const ColumnHeaderSortMenuOptions: FC<Props> = ({ item, tileUuid }) => {
                             });
                         }}
                     >
-                        Remove sort
+                        {t('components_simple_table.remove')}
                     </Menu.Item>
                 </>
             )}

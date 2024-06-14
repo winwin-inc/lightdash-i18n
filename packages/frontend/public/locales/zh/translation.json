@@ -48,6 +48,10 @@
                 "title": "空间",
                 "description": "组织您保存的图表和看板"
             }
+        },
+        "create": {
+            "title": "创建新空间",
+            "label": "创建"
         }
     },
     "components_navbar_browse_menu": {
@@ -485,5 +489,87 @@
         },
         "cancel": "取消",
         "add": "添加到看板"
+    },
+
+    "pages_sql_runner": {
+        "sql_runner": "SQL 运行器",
+        "chart": "图表",
+        "sql": "SQL",
+        "results": "结果"
+    },
+    "components_sql_runner_query_button": {
+        "run_query": "运行查询"
+    },
+    "components_sql_runner_results_table": {
+        "description": "单击运行查询以查看结果"
+    },
+
+    "components_simple_chart": {
+        "empty": {
+            "title": "无可用数据",
+            "description": "查询结果指标和维度。"
+        },
+        "loading": {
+            "title": "正在加载图表"
+        }
+    },
+    "components_simple_pie_chart": {
+        "empty": {
+            "title": "无可用数据",
+            "description": "查询结果指标和维度。"
+        },
+        "loading": {
+            "title": "正在加载图表"
+        },
+        "copy": "已复制到剪贴板！",
+        "menus": {
+            "copy": {
+                "title": "复制值"
+            },
+            "view": {
+                "title": "查看基础数据"
+            },
+            "drill": {
+                "title": "深入研究"
+            }
+        }
+    },
+    "components_simple_statistic": {
+        "copy": "已复制到剪贴板！",
+        "menus": {
+            "copy": {
+                "title": "复制值"
+            },
+            "view": {
+                "title": "查看基础数据"
+            },
+            "drill": {
+                "title": "深入研究"
+            }
+        }
+    },
+    "components_simple_table": {
+        "error": {
+            "title": "结果不可用"
+        },
+        "sort": "排序",
+        "remove": "移除排序",
+        "copy": "已复制到剪贴板！",
+        "menus": {
+            "copy": {
+                "title": "复制值"
+            },
+            "view": {
+                "title": "查看基础数据"
+            },
+            "drill": {
+                "title": "深入研究"
+            }
+        }
+    },
+    "components_sort_button": {
+        "sort": "排序",
+        "sort_by": "排序方式",
+        "then_by": "然后通过"
     }
 }

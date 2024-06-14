@@ -2,6 +2,8 @@ import { type ApiQueryResults, type Field } from '@lightdash/common';
 import { Box } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { type useSqlQueryMutation } from '../../hooks/useSqlQuery';
 import useSqlRunnerColumns from '../../hooks/useSqlRunnerColumns';
 import { TrackSection } from '../../providers/TrackingProvider';
@@ -20,16 +22,22 @@ const ResultsErrorState: FC<{ error: string }> = ({ error }) => (
 
 const ResultsIdleState: FC<React.ComponentProps<typeof RunSqlQueryButton>> = (
     props,
-) => (
-    <TrackSection name={SectionName.EMPTY_RESULTS_TABLE}>
-        <div style={{ padding: '50px 0' }}>
-            <SuboptimalState
-                description="Click run query to see your results"
-                action={<RunSqlQueryButton {...props} />}
-            />
-        </div>
-    </TrackSection>
-);
+) => {
+    const { t } = useTranslation();
+
+    return (
+        <TrackSection name={SectionName.EMPTY_RESULTS_TABLE}>
+            <div style={{ padding: '50px 0' }}>
+                <SuboptimalState
+                    description={t(
+                        'components_sql_runner_results_table.description',
+                    )}
+                    action={<RunSqlQueryButton {...props} />}
+                />
+            </div>
+        </TrackSection>
+    );
+};
 
 const SqlRunnerResultsTable: FC<{
     onSubmit: () => void;

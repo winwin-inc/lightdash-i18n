@@ -4,6 +4,8 @@ import { type ECElementEvent } from 'echarts';
 import EChartsReact from 'echarts-for-react';
 import { type EChartsReactProps, type Opts } from 'echarts-for-react/lib/types';
 import { memo, useCallback, useEffect, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import useEchartsPieConfig, {
     type PieSeriesDataPoint,
 } from '../../hooks/echarts/useEchartsPieConfig';
@@ -14,25 +16,33 @@ import PieChartContextMenu, {
     type PieChartContextMenuProps,
 } from './PieChartContextMenu';
 
-const EmptyChart = () => (
-    <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
-        <SuboptimalState
-            title="No data available"
-            description="Query metrics and dimensions with results."
-            icon={IconChartPieOff}
-        />
-    </div>
-);
+const EmptyChart = () => {
+    const { t } = useTranslation();
 
-const LoadingChart = () => (
-    <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
-        <SuboptimalState
-            title="Loading chart"
-            loading
-            className="loading_chart"
-        />
-    </div>
-);
+    return (
+        <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
+            <SuboptimalState
+                title={t('components_simple_pie_chart.empty.title')}
+                description={t('components_simple_pie_chart.empty.description')}
+                icon={IconChartPieOff}
+            />
+        </div>
+    );
+};
+
+const LoadingChart = () => {
+    const { t } = useTranslation();
+
+    return (
+        <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
+            <SuboptimalState
+                title={t('components_simple_pie_chart.loading.title')}
+                loading
+                className="loading_chart"
+            />
+        </div>
+    );
+};
 
 type SimplePieChartProps = Omit<EChartsReactProps, 'option'> & {
     isInDashboard: boolean;

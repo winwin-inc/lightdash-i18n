@@ -11,7 +11,9 @@ import { useClipboard } from '@mantine/hooks';
 import { IconCopy, IconStack } from '@tabler/icons-react';
 import mapValues from 'lodash/mapValues';
 import { useCallback, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import useToaster from '../../hooks/toaster/useToaster';
 import { useApp } from '../../providers/AppProvider';
 import { useTracking } from '../../providers/TrackingProvider';
@@ -43,11 +45,12 @@ const CellContextMenu: FC<Pick<CellContextMenuProps, 'cell'>> = ({ cell }) => {
     const { user } = useApp();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const clipboard = useClipboard({ timeout: 200 });
+    const { t } = useTranslation();
 
     const handleCopyToClipboard = useCallback(() => {
         clipboard.copy(value.formatted);
-        showToastSuccess({ title: 'Copied to clipboard!' });
-    }, [clipboard, showToastSuccess, value.formatted]);
+        showToastSuccess({ title: t('components_simple_table.copy') });
+    }, [clipboard, showToastSuccess, value.formatted, t]);
 
     const handleViewUnderlyingData = useCallback(() => {
         openUnderlyingDataModal({
@@ -86,7 +89,7 @@ const CellContextMenu: FC<Pick<CellContextMenuProps, 'cell'>> = ({ cell }) => {
                 icon={<MantineIcon icon={IconCopy} size="md" fillOpacity={0} />}
                 onClick={handleCopyToClipboard}
             >
-                Copy value
+                {t('components_simple_table.menus.copy.title')}
             </Menu.Item>
 
             {item &&
@@ -104,7 +107,7 @@ const CellContextMenu: FC<Pick<CellContextMenuProps, 'cell'>> = ({ cell }) => {
                             icon={<MantineIcon icon={IconStack} size="md" />}
                             onClick={handleViewUnderlyingData}
                         >
-                            View underlying data
+                            {t('components_simple_table.menus.view.title')}
                         </Menu.Item>
                     </Can>
                 )}

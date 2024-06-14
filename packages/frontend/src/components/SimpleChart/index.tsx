@@ -10,6 +10,8 @@ import {
     useState,
     type FC,
 } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import useEchartsCartesianConfig, {
     isLineSeriesOption,
 } from '../../hooks/echarts/useEchartsCartesianConfig';
@@ -60,25 +62,33 @@ type LegendClickEvent = {
     };
 };
 
-export const EmptyChart = () => (
-    <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
-        <SuboptimalState
-            title="No data available"
-            description="Query metrics and dimensions with results."
-            icon={IconChartBarOff}
-        />
-    </div>
-);
+export const EmptyChart = () => {
+    const { t } = useTranslation();
 
-export const LoadingChart = () => (
-    <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
-        <SuboptimalState
-            title="Loading chart"
-            loading
-            className="loading_chart"
-        />
-    </div>
-);
+    return (
+        <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
+            <SuboptimalState
+                title={t('components_simple_chart.empty.title')}
+                description={t('components_simple_chart.empty.description')}
+                icon={IconChartBarOff}
+            />
+        </div>
+    );
+};
+
+export const LoadingChart = () => {
+    const { t } = useTranslation();
+
+    return (
+        <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
+            <SuboptimalState
+                title={t('components_simple_chart.loading.title')}
+                loading
+                className="loading_chart"
+            />
+        </div>
+    );
+};
 
 const isSeriesClickEvent = (e: EchartClickEvent): e is EchartSeriesClickEvent =>
     e.componentType === 'series';

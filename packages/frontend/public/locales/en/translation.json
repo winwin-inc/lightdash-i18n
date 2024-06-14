@@ -483,5 +483,84 @@
         },
         "cancel": "Cancel",
         "add": "Add to dashboard"
+    },
+
+    "pages_sql_runner": {
+        "sql_runner": "SQL Runner",
+        "chart": "Chart",
+        "sql": "SQL",
+        "results": "Results"
+    },
+    "components_sql_runner_query_button": {
+        "run_query": "Run query"
+    },
+    "components_sql_runner_results_table": {
+        "description": "Click run query to see your results"
+    },
+
+    "components_simple_chart": {
+        "empty": {
+            "title": "No data available",
+            "description": "Query metrics and dimensions with results."
+        },
+        "loading": {
+            "title": "Loading chart"
+        }
+    },
+    "components_simple_pie_chart": {
+        "empty": {
+            "title": "No data available",
+            "description": "Query metrics and dimensions with results."
+        },
+        "loading": {
+            "title": "Loading chart"
+        },
+        "copy": "Copied to clipboard!",
+        "menus": {
+            "copy": {
+                "title": "Copy value"
+            },
+            "view": {
+                "title": "View underlying data"
+            },
+            "drill": {
+                "title": "Drill into"
+            }
+        }
+    },
+    "components_simple_statistic": {
+        "copy": "Copied to clipboard!",
+        "menus": {
+            "copy": {
+                "title": "Copy value"
+            },
+            "view": {
+                "title": "View underlying data"
+            },
+            "drill": {
+                "title": "Drill into"
+            }
+        }
+    },
+    "components_simple_table": {
+        "error": {
+            "title": "Results not available"
+        },
+        "copy": "Copied to clipboard!",
+        "sort": "Sort",
+        "remove": "Remove sort",
+        "menus": {
+            "copy": {
+                "title": "Copy value"
+            },
+            "view": {
+                "title": "View underlying data"
+            }
+        }
+    },
+    "components_sort_button": {
+        "sort": "Sorted by",
+        "sort_by": "Sort by",
+        "then_by": "then by"
     }
 }

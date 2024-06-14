@@ -158,11 +158,9 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                 <SpaceActionModal
                     projectUuid={projectUuid}
                     actionType={ActionType.CREATE}
-                    title={t(
-                        'components_navbar_explore_menu.menus.create.title',
-                    )}
+                    title={t('components_navbar_explore_menu.create.title')}
                     confirmButtonLabel={t(
-                        'components_navbar_explore_menu.menus.create.label',
+                        'components_navbar_explore_menu.create.label',
                     )}
                     icon={IconFolderPlus}
                     onClose={() => setIsCreateSpaceOpen(false)}

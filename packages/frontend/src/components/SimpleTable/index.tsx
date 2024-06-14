@@ -1,6 +1,8 @@
 import { Box, Flex } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import PivotTable from '../common/PivotTable';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
 import Table from '../common/Table';
@@ -35,6 +37,7 @@ const SimpleTable: FC<SimpleTableProps> = ({
         itemsMap,
         visualizationConfig,
     } = useVisualizationContext();
+    const { t } = useTranslation();
 
     if (!isTableVisualizationConfig(visualizationConfig)) return null;
 
@@ -57,7 +60,7 @@ const SimpleTable: FC<SimpleTableProps> = ({
     if (error) {
         return (
             <SuboptimalState
-                title="Results not available"
+                title={t('components_simple_table.error.title')}
                 description={error}
                 icon={IconAlertCircle}
             />
@@ -67,7 +70,7 @@ const SimpleTable: FC<SimpleTableProps> = ({
     if (pivotTableData.error) {
         return (
             <SuboptimalState
-                title="Results not available"
+                title={t('components_simple_table.error.title')}
                 description={pivotTableData.error}
                 icon={IconAlertCircle}
             />

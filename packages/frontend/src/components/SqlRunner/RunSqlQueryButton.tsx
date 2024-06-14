@@ -10,6 +10,7 @@ import {
 import { useOs } from '@mantine/hooks';
 import { IconPlayerPlay } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import MantineIcon from '../common/MantineIcon';
 
 const RunSqlQueryButton: FC<{
@@ -17,6 +18,8 @@ const RunSqlQueryButton: FC<{
     onSubmit: () => void;
 }> = ({ onSubmit, isLoading }) => {
     const os = useOs();
+    const { t } = useTranslation();
+
     return (
         <Tooltip
             label={
@@ -44,7 +47,7 @@ const RunSqlQueryButton: FC<{
                     onClick={onSubmit}
                     loading={isLoading}
                 >
-                    Run query
+                    {t('components_sql_runner_query_button.run_query')}
                 </Button>
             </Box>
         </Tooltip>

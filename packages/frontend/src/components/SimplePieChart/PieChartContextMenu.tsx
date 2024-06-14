@@ -8,7 +8,9 @@ import { Box, Menu, Portal, Text, type MenuProps } from '@mantine/core';
 import { useClipboard } from '@mantine/hooks';
 import { IconArrowBarToDown, IconCopy, IconStack } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import useToaster from '../../hooks/toaster/useToaster';
 import { useProject } from '../../hooks/useProject';
 import { useApp } from '../../providers/AppProvider';
@@ -45,6 +47,7 @@ const PieChartContextMenu: FC<PieChartContextMenuProps> = ({
     const clipboard = useClipboard({ timeout: 200 });
     const tracking = useTracking(true);
     const metricQueryData = useMetricQueryDataContext(true);
+    const { t } = useTranslation();
 
     if (!value || !tracking || !metricQueryData || !project) {
         return null;
@@ -80,7 +83,7 @@ const PieChartContextMenu: FC<PieChartContextMenuProps> = ({
         if (value) {
             clipboard.copy(value.formatted);
             showToastSuccess({
-                title: 'Copied to clipboard!',
+                title: t('components_simple_pie_chart.copy'),
             });
         }
     };
@@ -160,7 +163,7 @@ const PieChartContextMenu: FC<PieChartContextMenuProps> = ({
                     icon={<MantineIcon icon={IconCopy} />}
                     onClick={handleCopy}
                 >
-                    Copy value
+                    {t('components_simple_pie_chart.menus.copy.title')}
                 </Menu.Item>
 
                 {canViewUnderlyingData && !hasCustomDimension(metricQuery) ? (
@@ -168,7 +171,7 @@ const PieChartContextMenu: FC<PieChartContextMenuProps> = ({
                         icon={<MantineIcon icon={IconStack} />}
                         onClick={handleOpenUnderlyingDataModal}
                     >
-                        View underlying data
+                        {t('components_simple_pie_chart.menus.view.title')}
                     </Menu.Item>
                 ) : null}
 
@@ -177,7 +180,7 @@ const PieChartContextMenu: FC<PieChartContextMenuProps> = ({
                         icon={<MantineIcon icon={IconArrowBarToDown} />}
                         onClick={handleOpenDrillIntoModal}
                     >
-                        Drill into{' '}
+                        {t('components_simple_pie_chart.menus.drill.title')}{' '}
                         <Text span fw={500}>
                             {value.formatted}
                         </Text>

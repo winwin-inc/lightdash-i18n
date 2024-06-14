@@ -3,6 +3,8 @@ import { Badge, Popover, Text } from '@mantine/core';
 import { useClickOutside, useDisclosure } from '@mantine/hooks';
 import { IconChevronDown } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../common/MantineIcon';
 import Sorting from './Sorting';
 
@@ -17,6 +19,7 @@ const SortButton: FC<Props> = ({ sorts, isEditMode }) => {
         () => setTimeout(() => close(), 0),
         ['mouseup', 'touchend'],
     );
+    const { t } = useTranslation();
 
     return (
         <Popover
@@ -48,7 +51,7 @@ const SortButton: FC<Props> = ({ sorts, isEditMode }) => {
                     }
                 >
                     <Text span fw={500}>
-                        Sorted by
+                        {t('components_sort_button.sort')}
                     </Text>{' '}
                     {sorts.length === 1 ? '1 field' : `${sorts.length} fields`}
                 </Badge>
