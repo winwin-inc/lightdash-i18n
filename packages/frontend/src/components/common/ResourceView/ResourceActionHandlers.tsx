@@ -12,6 +12,7 @@ import {
     IconFolderX,
 } from '@tabler/icons-react';
 import { useCallback, useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { useMoveDashboardMutation } from '../../../hooks/dashboard/useDashboard';
 import { useChartPinningMutation } from '../../../hooks/pinning/useChartPinningMutation';
@@ -80,6 +81,7 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
     onAction,
 }) => {
     const { projectUuid } = useParams<{ projectUuid: string }>();
+    const { t } = useTranslation();
 
     const { mutate: moveChart } = useMoveChartMutation();
     const { mutate: moveDashboard } = useMoveDashboardMutation();
@@ -187,8 +189,12 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                             projectUuid={projectUuid}
                             spaceUuid={action.item.data.uuid}
                             actionType={ActionType.UPDATE}
-                            title="Update space"
-                            confirmButtonLabel="Update"
+                            title={t(
+                                'components_resource_view_action_handlers.update.title',
+                            )}
+                            confirmButtonLabel={t(
+                                'components_resource_view_action_handlers.update.label',
+                            )}
                             icon={IconFolderCog}
                             onClose={handleReset}
                             onSubmitForm={handleReset}
@@ -226,8 +232,12 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                             projectUuid={projectUuid}
                             spaceUuid={action.item.data.uuid}
                             actionType={ActionType.DELETE}
-                            title="Delete space"
-                            confirmButtonLabel="Delete"
+                            title={t(
+                                'components_resource_view_action_handlers.delete.title',
+                            )}
+                            confirmButtonLabel={t(
+                                'components_resource_view_action_handlers.delete.label',
+                            )}
                             confirmButtonColor="red"
                             icon={IconFolderX}
                             onClose={handleReset}
@@ -256,8 +266,12 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                     shouldRedirect={false}
                     projectUuid={projectUuid}
                     actionType={ActionType.CREATE}
-                    title="Create new space"
-                    confirmButtonLabel="Create"
+                    title={t(
+                        'components_resource_view_action_handlers.create.title',
+                    )}
+                    confirmButtonLabel={t(
+                        'components_resource_view_action_handlers.create.label',
+                    )}
                     icon={IconFolderPlus}
                     onClose={handleReset}
                     onSubmitForm={handleCreateSpace}

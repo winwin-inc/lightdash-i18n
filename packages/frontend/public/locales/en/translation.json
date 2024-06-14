@@ -259,6 +259,44 @@
     "create": "Create"
   },
 
+  "components_space_action_modal_create": {
+    "name": {
+      "label": "Enter a memorable name for your space",
+      "placeholder": "eg. KPIs"
+    },
+    "radio_groups": {
+      "private": {
+        "label": "Private",
+        "description": "Only you and admins can access this space."
+      },
+      "shared": {
+        "label": "Shared",
+        "description": "Choose who can access this space."
+      }
+    },
+    "multi_select": {
+      "placeholder": "Select users to share this space with",
+      "nothingFound": "No users found"
+    },
+    "access": {
+      "label": "Members of {{name}}"
+    }
+  },
+  "components_space_action_modal_delete": {
+    "question": "Are you sure you want to delete space",
+    "perfix": "This will delete",
+    "and": "and",
+    "dashboard": "dashboard"
+  },
+  "components_space_action_modal_update": {
+    "form": {
+      "name": {
+        "label": "Enter a memorable name for your space",
+        "placeholder": "eg. KPIs"
+      }
+    }
+  },
+
   "components_landing_panel": {
     "query": "Run a query",
     "tip": "Run a query to ask a business question or browse your data below:"
@@ -351,6 +389,11 @@
       "shared_with_me": "Shared with me",
       "admin_content_view": "Public content view"
     },
+    "resource_view_labels": {
+      "chart": "chart",
+      "dashboard": "dashboard",
+      "space": "space"
+    },
     "menus": {
       "rename": {
         "title": "Rename"
@@ -377,6 +420,20 @@
       "delete": {
         "title": "Delete {{type}}"
       }
+    }
+  },
+  "components_resource_view_action_handlers": {
+    "update": {
+      "title": "Update space",
+      "label": "Update"
+    },
+    "delete": {
+      "title": "Delete space",
+      "label": "Delete"
+    },
+    "create": {
+      "title": "Create new space",
+      "label": "Create"
     }
   },
 

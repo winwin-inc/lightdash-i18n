@@ -83,6 +83,17 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
             'components_resource_view_action_menu.space_type_labels.admin_content_view',
         ),
     };
+    const ResourceViewLabels = {
+        [ResourceViewItemType.CHART]: t(
+            'components_resource_view_action_menu.resource_view_labels.chart',
+        ),
+        [ResourceViewItemType.DASHBOARD]: t(
+            'components_resource_view_action_menu.resource_view_labels.dashboard',
+        ),
+        [ResourceViewItemType.SPACE]: t(
+            'components_resource_view_action_menu.resource_view_labels.space',
+        ),
+    };
 
     const organizationUuid = user.data?.organizationUuid;
     const { data: spaces = [] } = useSpaceSummaries(projectUuid, true, {});
@@ -532,7 +543,7 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                             >
                                 {t(
                                     'components_resource_view_action_menu.menus.delete.title',
-                                    { type: item.type },
+                                    { type: ResourceViewLabels[item.type] },
                                 )}
                             </Menu.Item>
                         </>

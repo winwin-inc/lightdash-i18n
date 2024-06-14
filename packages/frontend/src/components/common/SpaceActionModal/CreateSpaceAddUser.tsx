@@ -14,6 +14,8 @@ import {
 } from '@mantine/core';
 import { type UseFormReturnType } from '@mantine/form';
 import { forwardRef, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useOrganizationUsers } from '../../../hooks/useOrganizationUsers';
 import { useProjectAccess } from '../../../hooks/useProjectAccess';
 import { useApp } from '../../../providers/AppProvider';
@@ -37,6 +39,7 @@ export const CreateSpaceAddUser: FC<CreateSpaceAddUserProps> = ({
 
     const { data: organizationUsers } = useOrganizationUsers();
     const { data: projectAccess } = useProjectAccess(projectUuid);
+    const { t } = useTranslation();
 
     const userUuids: string[] = useMemo(() => {
         if (organizationUsers === undefined) return [];
@@ -117,8 +120,12 @@ export const CreateSpaceAddUser: FC<CreateSpaceAddUserProps> = ({
             clearable
             clearSearchOnChange
             clearSearchOnBlur
-            placeholder="Select users to share this space with"
-            nothingFound="No users found"
+            placeholder={t(
+                'components_space_action_modal_create.multi_select.placeholder',
+            )}
+            nothingFound={t(
+                'components_space_action_modal_create.multi_select.nothingFound',
+            )}
             itemComponent={UserItemComponent}
             data={data}
             value={form?.values.access?.map((v) => v.userUuid) ?? []}

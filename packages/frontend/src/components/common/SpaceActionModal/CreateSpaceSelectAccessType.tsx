@@ -1,6 +1,8 @@
 import { Avatar, Flex, Group, Select, Stack, Text } from '@mantine/core';
 import { IconLock, IconUsers } from '@tabler/icons-react';
 import { forwardRef, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useProject } from '../../../hooks/useProject';
 import MantineIcon from '../MantineIcon';
 import {
@@ -39,6 +41,7 @@ export const CreateSpaceSelectAccessType: FC<ShareSpaceAccessTypeProps> = ({
     setSelectedAccess,
 }) => {
     const { data: project } = useProject(projectUuid);
+    const { t } = useTranslation();
 
     return (
         <Group position="apart">
@@ -62,7 +65,12 @@ export const CreateSpaceSelectAccessType: FC<ShareSpaceAccessTypeProps> = ({
 
                 <Stack spacing={2}>
                     <Text fw={600} fz="sm">
-                        Members of {project?.name}
+                        {t(
+                            'components_space_action_modal_create.access.label',
+                            {
+                                name: project?.name,
+                            },
+                        )}
                     </Text>
                     <Text c="gray.6" fz="xs">
                         {selectedAccess.description}

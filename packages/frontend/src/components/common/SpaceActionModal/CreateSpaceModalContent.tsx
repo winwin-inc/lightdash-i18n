@@ -7,6 +7,8 @@ import {
 import { Avatar, Group, Radio, Stack, Text, TextInput } from '@mantine/core';
 import upperFirst from 'lodash/upperFirst';
 import { useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { type CreateSpaceModalBody } from '.';
 import { useProjectAccess } from '../../../hooks/useProjectAccess';
 import { useApp } from '../../../providers/AppProvider';
@@ -70,6 +72,7 @@ const CreateSpaceModalContent: FC<CreateSpaceModalBody> = ({
     );
 
     const { data: projectAccess } = useProjectAccess(projectUuid);
+    const { t } = useTranslation();
 
     const adminUsers = useMemo(() => {
         const projectUserUuids =
@@ -115,8 +118,12 @@ const CreateSpaceModalContent: FC<CreateSpaceModalBody> = ({
                 <Stack>
                     <TextInput
                         {...form.getInputProps('name')}
-                        label="Enter a memorable name for your space"
-                        placeholder="eg. KPIs"
+                        label={t(
+                            'components_space_action_modal_create.name.label',
+                        )}
+                        placeholder={t(
+                            'components_space_action_modal_create.name.placeholder',
+                        )}
                     />
 
                     <Radio.Group
@@ -127,14 +134,22 @@ const CreateSpaceModalContent: FC<CreateSpaceModalBody> = ({
                     >
                         <Stack spacing="xs">
                             <Radio
-                                label="Private"
-                                description="Only you and admins can access this space."
+                                label={t(
+                                    'components_space_action_modal_create.radio_groups.private.label',
+                                )}
+                                description={t(
+                                    'components_space_action_modal_create.radio_groups.private.description',
+                                )}
                                 value={SpacePrivateAccessType.PRIVATE}
                             />
 
                             <Radio
-                                label="Shared"
-                                description="Choose who can access this space."
+                                label={t(
+                                    'components_space_action_modal_create.radio_groups.shared.label',
+                                )}
+                                description={t(
+                                    'components_space_action_modal_create.radio_groups.shared.description',
+                                )}
                                 value={SpacePrivateAccessType.SHARED}
                             />
                         </Stack>

@@ -111,7 +111,7 @@
         "title": "邀请用户"
       },
       "logout": {
-        "title": "登出"
+        "title": "退出登录"
       }
     }
   },
@@ -251,7 +251,7 @@
         "placeholder": "给你的团队介绍一些背景信息"
       },
       "space": {
-        "move": "移动至新空间",
+        "move": "移动到新空间",
         "select": "选择空间",
         "placeholder": "选择空间",
         "create": "创建新空间"
@@ -259,6 +259,44 @@
     },
     "cancel": "取消",
     "create": "创建"
+  },
+
+  "components_space_action_modal_create": {
+    "name": {
+      "label": "为您的空间输入一个令人难忘的名称",
+      "placeholder": "例如 KPIs"
+    },
+    "radio_groups": {
+      "private": {
+        "label": "私人的",
+        "description": "只有您和管理员可以访问该空间。"
+      },
+      "shared": {
+        "label": "共享",
+        "description": "选择谁可以访问这个空间。"
+      }
+    },
+    "multi_select": {
+      "placeholder": "选择要与之共享此空间的用户",
+      "nothingFound": "未找到相应的用户"
+    },
+    "access": {
+      "label": "{{name}}的成员"
+    }
+  },
+  "components_space_action_modal_delete": {
+    "question": "您确定要删除空间吗",
+    "perfix": "这将删除",
+    "and": "和",
+    "dashboard": "看板"
+  },
+  "components_space_action_modal_update": {
+    "form": {
+      "name": {
+        "label": "为您的空间输入一个令人难忘的名称",
+        "placeholder": "例如 KPIs"
+      }
+    }
   },
 
   "components_landing_panel": {
@@ -353,6 +391,11 @@
       "shared_with_me": "与我分享",
       "admin_content_view": "公开内容视图"
     },
+    "resource_view_labels": {
+      "chart": "图表",
+      "dashboard": "看板",
+      "space": "空间"
+    },
     "menus": {
       "rename": {
         "title": "改名"
@@ -371,14 +414,28 @@
         "unpin": "从主页取消固定"
       },
       "move": {
-        "title": "移至空间"
+        "title": "移动到空间"
       },
       "create": {
         "title": "创建新空间"
       },
       "delete": {
-        "title": "删除 {{type}}"
+        "title": "删除{{type}}"
       }
+    }
+  },
+  "components_resource_view_action_handlers": {
+    "update": {
+      "title": "更新空间",
+      "label": "更新"
+    },
+    "delete": {
+      "title": "删除空间",
+      "label": "删除"
+    },
+    "create": {
+      "title": "创建空间",
+      "label": "创建"
     }
   },
 
