@@ -1,473 +1,489 @@
 {
-  "welcome": "欢迎您",
+    "welcome": "欢迎您",
 
-  "features_users": {
-    "title": "登录",
-    "user_no_auth_tip": "身份验证失败",
-    "user_no_login_tip": "登录失败",
-    "form": {
-      "email": {
-        "label": "邮箱",
-        "placeholder": "请输入您的邮箱地址"
-      },
-      "password": {
-        "label": "密码",
-        "placeholder": "请输入密码",
-        "recover": "忘记密码了吗?"
-      },
-      "btn": {
-        "sign_in": "登录",
-        "sign_up": "报名",
+    "features_users": {
+        "title": "登录",
+        "user_no_auth_tip": "身份验证失败",
+        "user_no_login_tip": "登录失败",
+        "form": {
+            "email": {
+                "label": "邮箱",
+                "placeholder": "请输入您的邮箱地址"
+            },
+            "password": {
+                "label": "密码",
+                "placeholder": "请输入密码",
+                "recover": "忘记密码了吗?"
+            },
+            "btn": {
+                "sign_in": "登录",
+                "sign_up": "报名",
+                "continue": "继续",
+                "or": "或者",
+                "no_account": "没有账户?"
+            }
+        }
+    },
+
+    "components_navbar_explore_menu": {
+        "title": "新建",
+        "menus": {
+            "query_tables": {
+                "title": "表查询",
+                "description": "建立查询并将其保存为图表"
+            },
+            "dbt_semantic": {
+                "title": "dbt 语义层查询",
+                "description": "使用 dbt 语义层构建查询"
+            },
+            "sql_runner": {
+                "title": "SQL 运行器查询",
+                "description": "访问您的数据库来运行临时查询"
+            },
+            "dashboard": {
+                "title": "看板",
+                "description": "将多个图表排列到单一视图中"
+            },
+            "space": {
+                "title": "空间",
+                "description": "组织您保存的图表和看板"
+            }
+        }
+    },
+    "components_navbar_browse_menu": {
+        "title": "浏览",
+        "menus": {
+            "spaces": {
+                "title": "全部空间"
+            },
+            "dashboards": {
+                "title": "全部看板"
+            },
+            "charts": {
+                "title": "全部图表"
+            }
+        },
+        "divider_label": "空间"
+    },
+    "components_navbar_settings_menu": {
+        "menus": {
+            "project": {
+                "title": "项目设置"
+            },
+            "organization": {
+                "title": "组织设置"
+            }
+        }
+    },
+    "components_navbar_notifiications_menu": {
+        "no_notifications_tip": "没有通知",
+        "validation_error_notification_tip": "新验证已完成 {{validationTimeAgo}} 和 {{numberOfErrors}} 错误"
+    },
+    "components_navbar_help_menu": {
+        "menus": {
+            "contact_support": {
+                "title": "联系支持人员",
+                "description": "给我们留言，我们会尽快回复您！"
+            },
+            "view_docs": {
+                "title": "查看文档",
+                "description": "了解如何部署、使用和贡献 Lightdash。"
+            },
+            "join": {
+                "title": "加入 Slack 社区",
+                "description": "获取建议并与其他用户分享最佳实践。"
+            },
+            "feedback": {
+                "title": "Lightdash 的反馈",
+                "description": "提交功能请求或错误报告以改进 Lightdash。"
+            }
+        }
+    },
+    "components_navbar_headway_menu": {
+        "tooltip_label": "有什么新闻吗?"
+    },
+    "components_navbar_user_menu": {
+        "menus": {
+            "user": {
+                "title": "用户设置"
+            },
+            "invite": {
+                "title": "邀请用户"
+            },
+            "logout": {
+                "title": "退出登录"
+            }
+        }
+    },
+
+    "components_about_footer": {
+        "new_version": "新版本已发布！",
+        "documentation": "文档",
+        "modal": {
+            "version": "版本:",
+            "title": "关于 {{name}}",
+            "description": "版本 v {{version}} 现在可用. 请按照 ",
+            "why": "如何更新版本",
+            "documentation": "文档."
+        },
+        "group": {
+            "docs": "文档",
+            "github": "Github"
+        }
+    },
+
+    "components_modal_chart_update": {
+        "title": "更新图表",
+        "form": {
+            "name": {
+                "label": "为图表输入一个容易记住的名称",
+                "placeholder": "例如，我们每周有多少活跃用户？"
+            },
+            "description": {
+                "label": "图表描述",
+                "placeholder": "给你的团队介绍一些背景信息"
+            }
+        },
+        "cancel": "取消",
+        "save": "保存"
+    },
+    "components_modal_chart_duplicate": {
+        "title": "复制图表",
+        "form": {
+            "name": {
+                "label": "为图表输入一个容易记住的名称",
+                "placeholder": "例如，我们每周有多少活跃用户？"
+            },
+            "description": {
+                "label": "图表描述",
+                "placeholder": "给你的团队介绍一些背景信息"
+            }
+        },
+        "cancel": "取消",
+        "create": "创建"
+    },
+    "components_modal_chart_create": {
+        "title": "保存图表",
+        "add": {
+            "form": {
+                "name": {
+                    "label": "为图表输入一个容易记住的名称",
+                    "placeholder": "例如，我们每周有多少活跃用户？"
+                },
+                "description": {
+                    "label": "图表描述",
+                    "placeholder": "给你的团队介绍一些背景信息"
+                }
+            },
+            "success": "保存成功! {{values.name}} 被添加到 {{dashboardName}}",
+            "saving_tip_1": "保存到 \"{{dashboardName}}\" 看板",
+            "saving_tip_2": "此图表将仅保存到看板 \"{{dashboardName}}\", 保持您的空间整洁。",
+            "cancel": "取消",
+            "save": "保存"
+        },
+        "default": {
+            "form_space_create": {
+                "name": {
+                    "label": "空间",
+                    "description": "创建新空间以添加此图表",
+                    "placeholder": "例如 KPIs"
+                }
+            },
+            "form_space": {
+                "name": {
+                    "label": "空间",
+                    "description": "选择空间直接保存图表"
+                },
+                "space": {
+                    "label": "空间",
+                    "description": "选择空间直接保存图表"
+                }
+            },
+            "form_dashboard": {
+                "uuid": {
+                    "label": "看板",
+                    "description": "选择看板直接保存图表",
+                    "nothingFound": "未找到匹配的看板"
+                }
+            },
+            "create": "创建新空间",
+            "save": "保存到已存在空间",
+
+            "boxs": {
+                "name": {
+                    "label": "为图表输入一个容易记住的名称",
+                    "placeholder": "例如，我们每周有多少活跃用户？"
+                },
+                "description": {
+                    "label": "图表描述",
+                    "placeholder": "给你的团队介绍一些背景信息"
+                }
+            },
+            "radio_groups": {
+                "save": "保存到",
+                "space": {
+                    "label": "空间"
+                },
+                "dashboard": {
+                    "label": "看板"
+                }
+            },
+            "cancel": "取消",
+            "submit": "保存"
+        }
+    },
+    "components_modal_chart_delete": {
+        "title": "删除图表",
+        "tip": "您确定要删除图表吗 ",
+        "content": "此操作将从{{length}}看板{{text}}中删除图表:",
+        "cancel": "取消",
+        "delete": "删除"
+    },
+    "components_modal_dashboard_create": {
+        "title": "创建看板",
+        "form": {
+            "name": {
+                "label": "看板命名",
+                "placeholder": "例如 KPI 看板"
+            },
+            "description": {
+                "label": "看板描述",
+                "placeholder": "给你的团队介绍一些背景信息"
+            },
+            "space": {
+                "move": "移动到新空间",
+                "select": "选择空间",
+                "placeholder": "选择空间",
+                "create": "创建新空间"
+            }
+        },
+        "cancel": "取消",
+        "create": "创建"
+    },
+
+    "components_space_action_modal_common": {
         "continue": "继续",
-        "or": "或者",
-        "no_account": "没有账户?"
-      }
-    }
-  },
-
-  "components_navbar_explore_menu": {
-    "title": "新建",
-    "menus": {
-      "query_tables": {
-        "title": "表查询",
-        "description": "建立查询并将其保存为图表"
-      },
-      "dbt_semantic": {
-        "title": "dbt 语义层查询",
-        "description": "使用 dbt 语义层构建查询"
-      },
-      "sql_runner": {
-        "title": "SQL 运行器查询",
-        "description": "访问您的数据库来运行临时查询"
-      },
-      "dashboard": {
-        "title": "看板",
-        "description": "将多个图表排列到单一视图中"
-      },
-      "space": {
-        "title": "空间",
-        "description": "组织您保存的图表和看板"
-      }
-    }
-  },
-  "components_navbar_browse_menu": {
-    "title": "浏览",
-    "menus": {
-      "spaces": {
-        "title": "全部空间"
-      },
-      "dashboards": {
-        "title": "全部看板"
-      },
-      "charts": {
-        "title": "全部图表"
-      }
+        "back": "返回"
     },
-    "divider_label": "空间"
-  },
-  "components_navbar_settings_menu": {
-    "menus": {
-      "project": {
-        "title": "项目设置"
-      },
-      "organization": {
-        "title": "组织设置"
-      }
-    }
-  },
-  "components_navbar_notifiications_menu": {
-    "no_notifications_tip": "没有通知",
-    "validation_error_notification_tip": "新验证已完成 {{validationTimeAgo}} 和 {{numberOfErrors}} 错误"
-  },
-  "components_navbar_help_menu": {
-    "menus": {
-      "contact_support": {
-        "title": "联系支持人员",
-        "description": "给我们留言，我们会尽快回复您！"
-      },
-      "view_docs": {
-        "title": "查看文档",
-        "description": "了解如何部署、使用和贡献 Lightdash。"
-      },
-      "join": {
-        "title": "加入 Slack 社区",
-        "description": "获取建议并与其他用户分享最佳实践。"
-      },
-      "feedback": {
-        "title": "Lightdash 的反馈",
-        "description": "提交功能请求或错误报告以改进 Lightdash。"
-      }
-    }
-  },
-  "components_navbar_headway_menu": {
-    "tooltip_label": "有什么新闻吗?"
-  },
-  "components_navbar_user_menu": {
-    "menus": {
-      "user": {
-        "title": "用户设置"
-      },
-      "invite": {
-        "title": "邀请用户"
-      },
-      "logout": {
-        "title": "退出登录"
-      }
-    }
-  },
-
-  "components_about_footer": {
-    "new_version": "新版本已发布！",
-    "documentation": "文档",
-    "modal": {
-      "version": "版本:",
-      "title": "关于 {{name}}",
-      "description": "版本 v {{version}} 现在可用. 请按照 ",
-      "why": "如何更新版本",
-      "documentation": "文档."
-    },
-    "group": {
-      "docs": "文档",
-      "github": "Github"
-    }
-  },
-
-  "components_modal_chart_update": {
-    "title": "更新图表",
-    "form": {
-      "name": {
-        "label": "为图表输入一个容易记住的名称",
-        "placeholder": "例如，我们每周有多少活跃用户？"
-      },
-      "description": {
-        "label": "图表描述",
-        "placeholder": "给你的团队介绍一些背景信息"
-      }
-    },
-    "cancel": "取消",
-    "save": "保存"
-  },
-  "components_modal_chart_duplicate": {
-    "title": "复制图表",
-    "form": {
-      "name": {
-        "label": "为图表输入一个容易记住的名称",
-        "placeholder": "例如，我们每周有多少活跃用户？"
-      },
-      "description": {
-        "label": "图表描述",
-        "placeholder": "给你的团队介绍一些背景信息"
-      }
-    },
-    "cancel": "取消",
-    "create": "创建"
-  },
-  "components_modal_chart_create": {
-    "title": "保存图表",
-    "add": {
-      "form": {
+    "components_space_action_modal_create": {
         "name": {
-          "label": "为图表输入一个容易记住的名称",
-          "placeholder": "例如，我们每周有多少活跃用户？"
+            "label": "为您的空间输入一个令人难忘的名称",
+            "placeholder": "例如 KPIs"
         },
-        "description": {
-          "label": "图表描述",
-          "placeholder": "给你的团队介绍一些背景信息"
-        }
-      },
-      "success": "保存成功! {{values.name}} 被添加到 {{dashboardName}}",
-      "saving_tip_1": "保存到 \"{{dashboardName}}\" 看板",
-      "saving_tip_2": "此图表将仅保存到看板 \"{{dashboardName}}\", 保持您的空间整洁。",
-      "cancel": "取消",
-      "save": "保存"
-    },
-    "default": {
-      "form_space_create": {
-        "name": {
-          "label": "空间",
-          "description": "创建新空间以添加此图表",
-          "placeholder": "例如 KPIs"
-        }
-      },
-      "form_space": {
-        "name": {
-          "label": "空间",
-          "description": "选择空间直接保存图表"
+        "radio_groups": {
+            "private": {
+                "label": "私人的",
+                "description": "只有您和管理员可以访问该空间。"
+            },
+            "shared": {
+                "label": "共享",
+                "description": "选择谁可以访问这个空间。"
+            }
         },
-        "space": {
-          "label": "空间",
-          "description": "选择空间直接保存图表"
-        }
-      },
-      "form_dashboard": {
-        "uuid": {
-          "label": "看板",
-          "description": "选择看板直接保存图表",
-          "nothingFound": "未找到匹配的看板"
-        }
-      },
-      "create": "创建新空间",
-      "save": "保存到已存在空间",
-
-      "boxs": {
-        "name": {
-          "label": "为图表输入一个容易记住的名称",
-          "placeholder": "例如，我们每周有多少活跃用户？"
+        "multi_select": {
+            "placeholder": "选择要与之共享此空间的用户",
+            "nothingFound": "未找到相应的用户"
         },
-        "description": {
-          "label": "图表描述",
-          "placeholder": "给你的团队介绍一些背景信息"
+        "access": {
+            "label": "{{name}}的成员"
         }
-      },
-      "radio_groups": {
-        "save": "保存到",
-        "space": {
-          "label": "空间"
+    },
+    "components_space_action_modal_delete": {
+        "question": "您确定要删除空间吗",
+        "perfix": "这将删除",
+        "and": "和",
+        "dashboard": "看板"
+    },
+    "components_space_action_modal_update": {
+        "form": {
+            "name": {
+                "label": "为您的空间输入一个令人难忘的名称",
+                "placeholder": "例如 KPIs"
+            }
+        }
+    },
+
+    "components_landing_panel": {
+        "query": "运行查询",
+        "tip": "运行查询以询问业务问题或浏览以下数据："
+    },
+    "components_onboarding_panel": {
+        "query": "运行您的第一个查询！",
+        "exploring": "您已准备好开始探索。您可以使用 Lightdash 进行以下操作：",
+        "steps": {
+            "step1": {
+                "title": "1. 运行查询",
+                "description": "探索你的数据"
+            },
+            "step2": {
+                "title": "2. 创建图表",
+                "description": "使用您的查询结果"
+            },
+            "step3": {
+                "title": "3. 构建看板",
+                "description": "分享你的见解"
+            }
+        }
+    },
+    "components_most_popular_and_rencently_updated_panel": {
+        "tabs": {
+            "tab1": {
+                "name": "最受欢迎"
+            },
+            "tab2": {
+                "name": "最近更新"
+            }
         },
-        "dashboard": {
-          "label": "看板"
+        "header": {
+            "title": "图表和看板"
+        },
+        "empty": {
+            "can_create": {
+                "title": "这里感觉有点空",
+                "description": "首先创建一些图表"
+            },
+            "cannot_create": {
+                "title": "尚未添加任何商品",
+                "description": ""
+            },
+            "create": "创建图表"
         }
-      },
-      "cancel": "取消",
-      "submit": "保存"
-    }
-  },
-  "components_modal_chart_delete": {
-    "title": "删除图表",
-    "tip": "您确定要删除图表吗 ",
-    "content": "此操作将从{{length}}看板{{text}}中删除图表:",
-    "cancel": "取消",
-    "delete": "删除"
-  },
-  "components_modal_dashboard_create": {
-    "title": "创建看板",
-    "form": {
-      "name": {
-        "label": "看板命名",
-        "placeholder": "例如 KPI 看板"
-      },
-      "description": {
-        "label": "看板描述",
-        "placeholder": "给你的团队介绍一些背景信息"
-      },
-      "space": {
-        "move": "移动到新空间",
-        "select": "选择空间",
-        "placeholder": "选择空间",
-        "create": "创建新空间"
-      }
     },
-    "cancel": "取消",
-    "create": "创建"
-  },
 
-  "components_space_action_modal_create": {
-    "name": {
-      "label": "为您的空间输入一个令人难忘的名称",
-      "placeholder": "例如 KPIs"
+    "components_pinned_items_panel": {
+        "header": {
+            "manage": {
+                "title": "固定项目",
+                "description": "将空间、看板和图表固定到主页顶部，以引导您的业务用户找到正确的内容。"
+            },
+            "cannot_manage": {
+                "title": "为您置顶",
+                "description": "您的数据团队已固定这些项目，以帮助您找到最相关的内容"
+            }
+        },
+        "no_items": {
+            "title": "没有固定的项目。",
+            "tip": "将项目固定到主页顶部，以引导用户找到相关内容！",
+            "view": "查看文档"
+        }
     },
-    "radio_groups": {
-      "private": {
-        "label": "私人的",
-        "description": "只有您和管理员可以访问该空间。"
-      },
-      "shared": {
-        "label": "共享",
-        "description": "选择谁可以访问这个空间。"
-      }
-    },
-    "multi_select": {
-      "placeholder": "选择要与之共享此空间的用户",
-      "nothingFound": "未找到相应的用户"
-    },
-    "access": {
-      "label": "{{name}}的成员"
-    }
-  },
-  "components_space_action_modal_delete": {
-    "question": "您确定要删除空间吗",
-    "perfix": "这将删除",
-    "and": "和",
-    "dashboard": "看板"
-  },
-  "components_space_action_modal_update": {
-    "form": {
-      "name": {
-        "label": "为您的空间输入一个令人难忘的名称",
-        "placeholder": "例如 KPIs"
-      }
-    }
-  },
 
-  "components_landing_panel": {
-    "query": "运行查询",
-    "tip": "运行查询以询问业务问题或浏览以下数据："
-  },
-  "components_onboarding_panel": {
-    "query": "运行您的第一个查询！",
-    "exploring": "您已准备好开始探索。您可以使用 Lightdash 进行以下操作：",
-    "steps": {
-      "step1": {
-        "title": "1. 运行查询",
-        "description": "探索你的数据"
-      },
-      "step2": {
-        "title": "2. 创建图表",
-        "description": "使用您的查询结果"
-      },
-      "step3": {
-        "title": "3. 构建看板",
-        "description": "分享你的见解"
-      }
-    }
-  },
-  "components_most_popular_and_rencently_updated_panel": {
-    "tabs": {
-      "tab1": {
-        "name": "最受欢迎"
-      },
-      "tab2": {
-        "name": "最近更新"
-      }
+    "components_explorer_space_browser_menu": {
+        "menus": {
+            "rename": {
+                "title": "重命名"
+            },
+            "toggle_pin": {
+                "pin": "固定到主页",
+                "unpin": "从主页取消固定"
+            },
+            "delete": {
+                "title": "删除空间"
+            }
+        }
     },
-    "header": {
-      "title": "图表和看板"
-    },
-    "empty": {
-      "can_create": {
-        "title": "这里感觉有点空",
-        "description": "首先创建一些图表"
-      },
-      "cannot_create": {
-        "title": "尚未添加任何商品",
-        "description": ""
-      },
-      "create": "创建图表"
-    }
-  },
 
-  "components_pinned_items_panel": {
-    "header": {
-      "manage": {
-        "title": "固定项目",
-        "description": "将空间、看板和图表固定到主页顶部，以引导您的业务用户找到正确的内容。"
-      },
-      "cannot_manage": {
-        "title": "为您置顶",
-        "description": "您的数据团队已固定这些项目，以帮助您找到最相关的内容"
-      }
+    "components_resource_view_list": {
+        "columns": {
+            "name": "名称",
+            "space": "空间",
+            "updated": "最后编辑时间"
+        }
     },
-    "no_items": {
-      "title": "没有固定的项目。",
-      "tip": "将项目固定到主页顶部，以引导用户找到相关内容！",
-      "view": "查看文档"
-    }
-  },
+    "components_resource_view_action_menu": {
+        "space_type_labels": {
+            "shared_with_me": "与我分享",
+            "admin_content_view": "公开内容视图"
+        },
+        "resource_view_labels": {
+            "chart": "图表",
+            "dashboard": "看板",
+            "space": "空间"
+        },
+        "resource_view_chart_labels": {
+            "bar": "条形图",
+            "horizontal_bar": "水平条形图",
+            "line": "折线图",
+            "scatter": "散点图",
+            "area": "面积图",
+            "mixed": "混合图",
+            "pie": "饼图",
+            "table": "表格",
+            "bid_number": "大数",
+            "custom": "自定义可视化"
+        },
+        "menus": {
+            "rename": {
+                "title": "改名"
+            },
+            "duplicate": {
+                "title": "复制"
+            },
+            "add": {
+                "title": "添加到看板"
+            },
+            "promote": {
+                "title": "推动"
+            },
+            "toggle_pin": {
+                "pin": "固定到主页",
+                "unpin": "从主页取消固定"
+            },
+            "move": {
+                "title": "移动到空间"
+            },
+            "create": {
+                "title": "创建新空间"
+            },
+            "delete": {
+                "title": "删除{{type}}"
+            }
+        }
+    },
+    "components_resource_view_action_handlers": {
+        "update": {
+            "title": "更新空间",
+            "label": "更新"
+        },
+        "delete": {
+            "title": "删除空间",
+            "label": "删除"
+        },
+        "create": {
+            "title": "创建空间",
+            "label": "创建"
+        }
+    },
 
-  "components_explorer_space_browser_menu": {
-    "menus": {
-      "rename": {
-        "title": "重命名"
-      },
-      "toggle_pin": {
-        "pin": "固定到主页",
-        "unpin": "从主页取消固定"
-      },
-      "delete": {
-        "title": "删除空间"
-      }
+    "component_saved_dashboards_files_add": {
+        "title": "将图表添加到看板",
+        "form_dashboard": {
+            "select": {
+                "label": "选择看板",
+                "nothingFound": "未找到匹配的看板",
+                "create": "创建新看板"
+            },
+            "name": {
+                "label": "看板命名",
+                "placeholder": "例如 KPI 看板"
+            },
+            "description": {
+                "label": "看板描述",
+                "placeholder": "给你的团队介绍一些背景信息"
+            }
+        },
+        "form_space": {
+            "select": {
+                "label": "选择空间",
+                "create": "创建新空间"
+            },
+            "name": {
+                "label": "新空间命名",
+                "placeholder": "例如 KPIs",
+                "save": "保存到现有空间"
+            }
+        },
+        "cancel": "取消",
+        "add": "添加到看板"
     }
-  },
-
-  "components_resource_view_list": {
-    "columns": {
-      "name": "名称",
-      "space": "空间",
-      "updated": "最后编辑时间"
-    }
-  },
-  "components_resource_view_action_menu": {
-    "space_type_labels": {
-      "shared_with_me": "与我分享",
-      "admin_content_view": "公开内容视图"
-    },
-    "resource_view_labels": {
-      "chart": "图表",
-      "dashboard": "看板",
-      "space": "空间"
-    },
-    "menus": {
-      "rename": {
-        "title": "改名"
-      },
-      "duplicate": {
-        "title": "复制"
-      },
-      "add": {
-        "title": "添加到看板"
-      },
-      "promote": {
-        "title": "推动"
-      },
-      "toggle_pin": {
-        "pin": "固定到主页",
-        "unpin": "从主页取消固定"
-      },
-      "move": {
-        "title": "移动到空间"
-      },
-      "create": {
-        "title": "创建新空间"
-      },
-      "delete": {
-        "title": "删除{{type}}"
-      }
-    }
-  },
-  "components_resource_view_action_handlers": {
-    "update": {
-      "title": "更新空间",
-      "label": "更新"
-    },
-    "delete": {
-      "title": "删除空间",
-      "label": "删除"
-    },
-    "create": {
-      "title": "创建空间",
-      "label": "创建"
-    }
-  },
-
-  "component_saved_dashboards_files_add": {
-    "title": "将图表添加到看板",
-    "form_dashboard": {
-      "select": {
-        "label": "选择看板",
-        "nothingFound": "未找到匹配的看板",
-        "create": "创建新看板"
-      },
-      "name": {
-        "label": "看板命名",
-        "placeholder": "例如 KPI 看板"
-      },
-      "description": {
-        "label": "看板描述",
-        "placeholder": "给你的团队介绍一些背景信息"
-      }
-    },
-    "form_space": {
-      "select": {
-        "label": "选择空间",
-        "create": "创建新空间"
-      },
-      "name": {
-        "label": "新空间命名",
-        "placeholder": "例如 KPIs",
-        "save": "保存到现有空间"
-      }
-    },
-    "cancel": "取消",
-    "add": "添加到看板"
-  }
 }

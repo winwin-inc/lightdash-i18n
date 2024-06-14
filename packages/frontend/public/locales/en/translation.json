@@ -1,471 +1,487 @@
 {
-  "welcome": "Welcome",
+    "welcome": "Welcome",
 
-  "features_users": {
-    "title": "Sign in",
-    "user_no_auth_tip": "Failed to authenticate",
-    "user_no_login_tip": "Failed to login",
-    "form_dashboard": {
-      "email": {
-        "label": "Email address",
-        "placeholder": "Your Email"
-      },
-      "password": {
-        "label": "Password",
-        "placeholder": "Your password",
-        "recover": "Forgot your password?"
-      },
-      "btn": {
-        "sign_in": "Sign in",
-        "sign_up": "Sign up",
+    "features_users": {
+        "title": "Sign in",
+        "user_no_auth_tip": "Failed to authenticate",
+        "user_no_login_tip": "Failed to login",
+        "form_dashboard": {
+            "email": {
+                "label": "Email address",
+                "placeholder": "Your Email"
+            },
+            "password": {
+                "label": "Password",
+                "placeholder": "Your password",
+                "recover": "Forgot your password?"
+            },
+            "btn": {
+                "sign_in": "Sign in",
+                "sign_up": "Sign up",
+                "continue": "Continue",
+                "or": "OR",
+                "no_account": "Don't have an account?"
+            }
+        }
+    },
+
+    "components_navbar_explore_menu": {
+        "title": "New",
+        "menus": {
+            "query_tables": {
+                "title": "Query from tables",
+                "description": "Build queries and save them as charts."
+            },
+            "dbt_semantic": {
+                "title": "Query using dbt Semantic Layer",
+                "description": "Build queries with dbt Semantic Layer."
+            },
+            "sql_runner": {
+                "title": "Query using SQL runner",
+                "description": "Access your database to run ad-hoc queries."
+            },
+            "dashboard": {
+                "title": "Dashboard",
+                "description": "Arrange multiple charts into a single view."
+            },
+            "space": {
+                "title": "Space",
+                "description": "Organize your saved charts and dashboards."
+            }
+        },
+        "create": {
+            "title": "Create new space",
+            "label": "Create"
+        }
+    },
+    "components_navbar_browse_menu": {
+        "title": "Browse",
+        "menus": {
+            "spaces": {
+                "title": "All Spaces"
+            },
+            "dashboards": {
+                "title": "All dashboards"
+            },
+            "charts": {
+                "title": "All saved charts"
+            }
+        },
+        "divider_label": "Spaces"
+    },
+    "components_navbar_settings_menu": {
+        "menus": {
+            "project": {
+                "title": "Project settings"
+            },
+            "organization": {
+                "title": "Organization settings"
+            }
+        }
+    },
+    "components_navbar_notifiications_menu": {
+        "no_notifications_tip": "No notifications",
+        "validation_error_notification_tip": "New validation completed {{validationTimeAgo}} with {{numberOfErrors}} errors"
+    },
+    "components_navbar_help_menu": {
+        "menus": {
+            "contact_support": {
+                "title": "Contact support",
+                "description": "rop us a message and we’ll get back to you asap!"
+            },
+            "view_docs": {
+                "title": "View Docs",
+                "description": "Learn how to deploy, use, contribute to Lightdash."
+            },
+            "join": {
+                "title": "Join Slack community",
+                "description": "Get advice share best practices with other users."
+            },
+            "feedback": {
+                "title": "Feedback on Lightdash",
+                "description": "Submit a feature request or bug report to improve Lightdash."
+            }
+        }
+    },
+    "components_navbar_headway_menu": {
+        "tooltip_label": "What's new?"
+    },
+    "components_navbar_user_menu": {
+        "menus": {
+            "user": {
+                "title": "User settings"
+            },
+            "invite": {
+                "title": "Invite user"
+            },
+            "louout": {
+                "title": "Logout"
+            }
+        }
+    },
+
+    "components_about_footer": {
+        "new_version": "New version available!",
+        "documentation": "Documentation",
+        "modal": {
+            "version": "Version:",
+            "title": "About {{name}}",
+            "description": "The version v {{version}} is now available. Please follow the instructions in the ",
+            "why": "How to update version",
+            "documentation": "documentation."
+        },
+        "group": {
+            "docs": "Docs",
+            "github": "Github"
+        }
+    },
+
+    "components_modal_chart_update": {
+        "title": "Update Chart",
+        "form_dashboard": {
+            "name": {
+                "label": "Enter a memorable name for your chart",
+                "placeholder": "eg. How many weekly active users do we have?"
+            },
+            "description": {
+                "label": "Chart description",
+                "placeholder": "A few words to give your team some context"
+            }
+        },
+        "cancel": "Cancel",
+        "save": "Save"
+    },
+    "components_modal_chart_duplicate": {
+        "title": "Duplicate Chart",
+        "form_dashboard": {
+            "name": {
+                "label": "Enter a memorable name for your chart",
+                "placeholder": "eg. How many weekly active users do we have?"
+            },
+            "description": {
+                "label": "Chart description",
+                "placeholder": "A few words to give your team some context"
+            }
+        },
+        "cancel": "Cancel",
+        "create": "Create duplicate"
+    },
+    "components_modal_chart_create": {
+        "title": "Save chart",
+        "add": {
+            "form_dashboard": {
+                "name": {
+                    "label": "Enter a memorable name for your chart",
+                    "placeholder": "eg. How many weekly active users do we have?"
+                },
+                "description": {
+                    "label": "Chart description",
+                    "placeholder": "A few words to give your team some context"
+                }
+            },
+            "success": "Success! {{name}} was added to {{dashboardName}}",
+            "saving_tip_1": "Saving to \"{{dashboardName}}\" dashboard",
+            "saving_tip_2": "This chart will be saved exclusively to the dashboard \"{{dashboardName}}\", keeping your space clutter-free.",
+            "cancel": "Cancel",
+            "save": "Save"
+        },
+        "default": {
+            "form_dashboard_space": {
+                "name": {
+                    "label": "Space",
+                    "description": "Create a new space to add this chart to",
+                    "placeholder": "eg. KPIs"
+                },
+                "space": {
+                    "label": "Space",
+                    "description": "Select a space to save the chart directly to"
+                }
+            },
+            "form_dashboard_dashboard": {
+                "name": {
+                    "label": "Dashboard",
+                    "description": "Select a dashboard to save the chart directly to",
+                    "nothingFound": "No matching dashboards found"
+                }
+            },
+            "create": "Create new space",
+            "save": "Save to existing space",
+
+            "boxs": {
+                "name": {
+                    "label": "Enter a memorable name for your chart",
+                    "placeholder": "eg. How many weekly active users do we have?"
+                },
+                "description": {
+                    "label": "Chart description",
+                    "placeholder": "A few words to give your team some context"
+                }
+            },
+            "radio_groups": {
+                "save": "Save to",
+                "space": {
+                    "label": "Space"
+                },
+                "dashboard": {
+                    "label": "Dashboard"
+                }
+            },
+            "cancel": "Cancel",
+            "submit": "Save"
+        }
+    },
+    "components_modal_chart_delete": {
+        "title": "Delete Chart",
+        "tip": "Are you sure you want to delete the chart ",
+        "content": "This action will remove a chart tile from {{length}} dashboard {{text}}:",
+        "cancel": "Cancel",
+        "delete": "Delete"
+    },
+    "components_modal_dashboard_create": {
+        "title": "Create Dashboard",
+        "form_dashboard": {
+            "name": {
+                "label": "Name your dashboard",
+                "placeholder": "eg. KPI Dashboard"
+            },
+            "description": {
+                "label": "Dashboard description",
+                "placeholder": "A few words to give your team some context"
+            },
+            "space": {
+                "move": "Moving to new space",
+                "select": "Select a space",
+                "placeholder": "Select space",
+                "create": "Create new space"
+            }
+        },
+        "cancel": "Cancel",
+        "create": "Create"
+    },
+
+    "components_space_action_modal_common": {
         "continue": "Continue",
-        "or": "OR",
-        "no_account": "Don't have an account?"
-      }
-    }
-  },
-
-  "components_navbar_explore_menu": {
-    "title": "New",
-    "menus": {
-      "query_tables": {
-        "title": "Query from tables",
-        "description": "Build queries and save them as charts."
-      },
-      "dbt_semantic": {
-        "title": "Query using dbt Semantic Layer",
-        "description": "Build queries with dbt Semantic Layer."
-      },
-      "sql_runner": {
-        "title": "Query using SQL runner",
-        "description": "Access your database to run ad-hoc queries."
-      },
-      "dashboard": {
-        "title": "Dashboard",
-        "description": "Arrange multiple charts into a single view."
-      },
-      "space": {
-        "title": "Space",
-        "description": "Organize your saved charts and dashboards."
-      }
+        "back": "Back"
     },
-    "create": {
-      "title": "Create new space",
-      "label": "Create"
-    }
-  },
-  "components_navbar_browse_menu": {
-    "title": "Browse",
-    "menus": {
-      "spaces": {
-        "title": "All Spaces"
-      },
-      "dashboards": {
-        "title": "All dashboards"
-      },
-      "charts": {
-        "title": "All saved charts"
-      }
-    },
-    "divider_label": "Spaces"
-  },
-  "components_navbar_settings_menu": {
-    "menus": {
-      "project": {
-        "title": "Project settings"
-      },
-      "organization": {
-        "title": "Organization settings"
-      }
-    }
-  },
-  "components_navbar_notifiications_menu": {
-    "no_notifications_tip": "No notifications",
-    "validation_error_notification_tip": "New validation completed {{validationTimeAgo}} with {{numberOfErrors}} errors"
-  },
-  "components_navbar_help_menu": {
-    "menus": {
-      "contact_support": {
-        "title": "Contact support",
-        "description": "rop us a message and we’ll get back to you asap!"
-      },
-      "view_docs": {
-        "title": "View Docs",
-        "description": "Learn how to deploy, use, contribute to Lightdash."
-      },
-      "join": {
-        "title": "Join Slack community",
-        "description": "Get advice share best practices with other users."
-      },
-      "feedback": {
-        "title": "Feedback on Lightdash",
-        "description": "Submit a feature request or bug report to improve Lightdash."
-      }
-    }
-  },
-  "components_navbar_headway_menu": {
-    "tooltip_label": "What's new?"
-  },
-  "components_navbar_user_menu": {
-    "menus": {
-      "user": {
-        "title": "User settings"
-      },
-      "invite": {
-        "title": "Invite user"
-      },
-      "louout": {
-        "title": "Logout"
-      }
-    }
-  },
-
-  "components_about_footer": {
-    "new_version": "New version available!",
-    "documentation": "Documentation",
-    "modal": {
-      "version": "Version:",
-      "title": "About {{name}}",
-      "description": "The version v {{version}} is now available. Please follow the instructions in the ",
-      "why": "How to update version",
-      "documentation": "documentation."
-    },
-    "group": {
-      "docs": "Docs",
-      "github": "Github"
-    }
-  },
-
-  "components_modal_chart_update": {
-    "title": "Update Chart",
-    "form_dashboard": {
-      "name": {
-        "label": "Enter a memorable name for your chart",
-        "placeholder": "eg. How many weekly active users do we have?"
-      },
-      "description": {
-        "label": "Chart description",
-        "placeholder": "A few words to give your team some context"
-      }
-    },
-    "cancel": "Cancel",
-    "save": "Save"
-  },
-  "components_modal_chart_duplicate": {
-    "title": "Duplicate Chart",
-    "form_dashboard": {
-      "name": {
-        "label": "Enter a memorable name for your chart",
-        "placeholder": "eg. How many weekly active users do we have?"
-      },
-      "description": {
-        "label": "Chart description",
-        "placeholder": "A few words to give your team some context"
-      }
-    },
-    "cancel": "Cancel",
-    "create": "Create duplicate"
-  },
-  "components_modal_chart_create": {
-    "title": "Save chart",
-    "add": {
-      "form_dashboard": {
+    "components_space_action_modal_create": {
         "name": {
-          "label": "Enter a memorable name for your chart",
-          "placeholder": "eg. How many weekly active users do we have?"
+            "label": "Enter a memorable name for your space",
+            "placeholder": "eg. KPIs"
         },
-        "description": {
-          "label": "Chart description",
-          "placeholder": "A few words to give your team some context"
-        }
-      },
-      "success": "Success! {{name}} was added to {{dashboardName}}",
-      "saving_tip_1": "Saving to \"{{dashboardName}}\" dashboard",
-      "saving_tip_2": "This chart will be saved exclusively to the dashboard \"{{dashboardName}}\", keeping your space clutter-free.",
-      "cancel": "Cancel",
-      "save": "Save"
-    },
-    "default": {
-      "form_dashboard_space": {
-        "name": {
-          "label": "Space",
-          "description": "Create a new space to add this chart to",
-          "placeholder": "eg. KPIs"
+        "radio_groups": {
+            "private": {
+                "label": "Private",
+                "description": "Only you and admins can access this space."
+            },
+            "shared": {
+                "label": "Shared",
+                "description": "Choose who can access this space."
+            }
         },
-        "space": {
-          "label": "Space",
-          "description": "Select a space to save the chart directly to"
-        }
-      },
-      "form_dashboard_dashboard": {
-        "name": {
-          "label": "Dashboard",
-          "description": "Select a dashboard to save the chart directly to",
-          "nothingFound": "No matching dashboards found"
-        }
-      },
-      "create": "Create new space",
-      "save": "Save to existing space",
-
-      "boxs": {
-        "name": {
-          "label": "Enter a memorable name for your chart",
-          "placeholder": "eg. How many weekly active users do we have?"
+        "multi_select": {
+            "placeholder": "Select users to share this space with",
+            "nothingFound": "No users found"
         },
-        "description": {
-          "label": "Chart description",
-          "placeholder": "A few words to give your team some context"
+        "access": {
+            "label": "Members of {{name}}"
         }
-      },
-      "radio_groups": {
-        "save": "Save to",
-        "space": {
-          "label": "Space"
+    },
+    "components_space_action_modal_delete": {
+        "question": "Are you sure you want to delete space",
+        "perfix": "This will delete",
+        "and": "and",
+        "dashboard": "dashboard"
+    },
+    "components_space_action_modal_update": {
+        "form": {
+            "name": {
+                "label": "Enter a memorable name for your space",
+                "placeholder": "eg. KPIs"
+            }
+        }
+    },
+
+    "components_landing_panel": {
+        "query": "Run a query",
+        "tip": "Run a query to ask a business question or browse your data below:"
+    },
+    "components_onboarding_panel": {
+        "query": "Run your first query!",
+        "exploring": "You&apos;re ready to start exploring. Here&apos;s what you can do with Lightdash:",
+        "steps": {
+            "step1": {
+                "title": "1. Run queries",
+                "description": "to explore your data"
+            },
+            "step2": {
+                "title": "2. Create charts",
+                "description": "using your query results"
+            },
+            "step3": {
+                "title": "3. Build dashboards",
+                "description": "to share your insights"
+            }
+        }
+    },
+    "components_most_popular_and_rencently_updated_panel": {
+        "tabs": {
+            "tab1": {
+                "name": "Most popular"
+            },
+            "tab2": {
+                "name": "Recently updated"
+            }
         },
-        "dashboard": {
-          "label": "Dashboard"
+        "header": {
+            "title": "Charts and Dashboards"
+        },
+        "empty": {
+            "can_create": {
+                "title": "Feels a little bit empty over here",
+                "description": "get started by creating some charts"
+            },
+            "cannot_create": {
+                "title": "No items added yet",
+                "description": ""
+            },
+            "create": "Create chart"
         }
-      },
-      "cancel": "Cancel",
-      "submit": "Save"
-    }
-  },
-  "components_modal_chart_delete": {
-    "title": "Delete Chart",
-    "tip": "Are you sure you want to delete the chart ",
-    "content": "This action will remove a chart tile from {{length}} dashboard {{text}}:",
-    "cancel": "Cancel",
-    "delete": "Delete"
-  },
-  "components_modal_dashboard_create": {
-    "title": "Create Dashboard",
-    "form_dashboard": {
-      "name": {
-        "label": "Name your dashboard",
-        "placeholder": "eg. KPI Dashboard"
-      },
-      "description": {
-        "label": "Dashboard description",
-        "placeholder": "A few words to give your team some context"
-      },
-      "space": {
-        "move": "Moving to new space",
-        "select": "Select a space",
-        "placeholder": "Select space",
-        "create": "Create new space"
-      }
     },
-    "cancel": "Cancel",
-    "create": "Create"
-  },
 
-  "components_space_action_modal_create": {
-    "name": {
-      "label": "Enter a memorable name for your space",
-      "placeholder": "eg. KPIs"
+    "components_pinned_items_panel": {
+        "header": {
+            "manage": {
+                "title": "Pinned items",
+                "description": "Pin Spaces, Dashboards and Charts to the top of the homepage to guide your business users to the right content."
+            },
+            "cannot_manage": {
+                "title": "Pinned for you",
+                "description": "Your data team have pinned these items to help guide you towards the most relevant content!"
+            }
+        },
+        "no_items": {
+            "title": "No Pinned items.",
+            "tip": "Pin items to the top of the homepage to guide users to relevant content!",
+            "view": "View docs"
+        }
     },
-    "radio_groups": {
-      "private": {
-        "label": "Private",
-        "description": "Only you and admins can access this space."
-      },
-      "shared": {
-        "label": "Shared",
-        "description": "Choose who can access this space."
-      }
-    },
-    "multi_select": {
-      "placeholder": "Select users to share this space with",
-      "nothingFound": "No users found"
-    },
-    "access": {
-      "label": "Members of {{name}}"
-    }
-  },
-  "components_space_action_modal_delete": {
-    "question": "Are you sure you want to delete space",
-    "perfix": "This will delete",
-    "and": "and",
-    "dashboard": "dashboard"
-  },
-  "components_space_action_modal_update": {
-    "form": {
-      "name": {
-        "label": "Enter a memorable name for your space",
-        "placeholder": "eg. KPIs"
-      }
-    }
-  },
 
-  "components_landing_panel": {
-    "query": "Run a query",
-    "tip": "Run a query to ask a business question or browse your data below:"
-  },
-  "components_onboarding_panel": {
-    "query": "Run your first query!",
-    "exploring": "You&apos;re ready to start exploring. Here&apos;s what you can do with Lightdash:",
-    "steps": {
-      "step1": {
-        "title": "1. Run queries",
-        "description": "to explore your data"
-      },
-      "step2": {
-        "title": "2. Create charts",
-        "description": "using your query results"
-      },
-      "step3": {
-        "title": "3. Build dashboards",
-        "description": "to share your insights"
-      }
-    }
-  },
-  "components_most_popular_and_rencently_updated_panel": {
-    "tabs": {
-      "tab1": {
-        "name": "Most popular"
-      },
-      "tab2": {
-        "name": "Recently updated"
-      }
+    "components_explorer_space_browser_menu": {
+        "menus": {
+            "rename": {
+                "title": "Rename"
+            },
+            "toggle_pin": {
+                "pin": "Pin to homepage",
+                "unpin": "Unpin from homepage"
+            },
+            "delete": {
+                "title": "Delete space"
+            }
+        }
     },
-    "header": {
-      "title": "Charts and Dashboards"
-    },
-    "empty": {
-      "can_create": {
-        "title": "Feels a little bit empty over here",
-        "description": "get started by creating some charts"
-      },
-      "cannot_create": {
-        "title": "No items added yet",
-        "description": ""
-      },
-      "create": "Create chart"
-    }
-  },
 
-  "components_pinned_items_panel": {
-    "header": {
-      "manage": {
-        "title": "Pinned items",
-        "description": "Pin Spaces, Dashboards and Charts to the top of the homepage to guide your business users to the right content."
-      },
-      "cannot_manage": {
-        "title": "Pinned for you",
-        "description": "Your data team have pinned these items to help guide you towards the most relevant content!"
-      }
+    "components_resource_view_list": {
+        "columns": {
+            "name": "Name",
+            "space": "Space",
+            "updated": "Last Edited"
+        }
     },
-    "no_items": {
-      "title": "No Pinned items.",
-      "tip": "Pin items to the top of the homepage to guide users to relevant content!",
-      "view": "View docs"
-    }
-  },
+    "components_resource_view_action_menu": {
+        "space_type_labels": {
+            "shared_with_me": "Shared with me",
+            "admin_content_view": "Public content view"
+        },
+        "resource_view_labels": {
+            "chart": "chart",
+            "dashboard": "dashboard",
+            "space": "space"
+        },
+        "resource_view_chart_labels": {
+            "bar": "Bar chart",
+            "horizontal": "Horizontal bar chart",
+            "line": "Line chart",
+            "scatter": "Scatter chart",
+            "area": "Area chart",
+            "mixed": "Mixed chart",
+            "pie": "Pie chart",
+            "table": "Table",
+            "bid_number": "Bid number",
+            "custom": "Custom visualization"
+        },
+        "menus": {
+            "rename": {
+                "title": "Rename"
+            },
+            "duplicate": {
+                "title": "Duplicate"
+            },
+            "add": {
+                "title": "Add to Dashboard"
+            },
+            "promote": {
+                "title": "Promote"
+            },
+            "toggle_pin": {
+                "pin": "Pin to homepage",
+                "unpin": "Unpin from homepage"
+            },
+            "move": {
+                "title": "Move to Space"
+            },
+            "create": {
+                "title": "Create new space"
+            },
+            "delete": {
+                "title": "Delete {{type}}"
+            }
+        }
+    },
+    "components_resource_view_action_handlers": {
+        "update": {
+            "title": "Update space",
+            "label": "Update"
+        },
+        "delete": {
+            "title": "Delete space",
+            "label": "Delete"
+        },
+        "create": {
+            "title": "Create new space",
+            "label": "Create"
+        }
+    },
 
-  "components_explorer_space_browser_menu": {
-    "menus": {
-      "rename": {
-        "title": "Rename"
-      },
-      "toggle_pin": {
-        "pin": "Pin to homepage",
-        "unpin": "Unpin from homepage"
-      },
-      "delete": {
-        "title": "Delete space"
-      }
+    "component_saved_dashboards_files_add": {
+        "title": "Add chart to dashboard",
+        "form_dashboard": {
+            "select": {
+                "label": "Select a dashboard",
+                "nothingFound": "No matching dashboards found",
+                "create": "Create new dashboard"
+            },
+            "name": {
+                "label": "Name your dashboard",
+                "placeholder": "eg. KPI dashboard"
+            },
+            "description": {
+                "label": "Dashboard description",
+                "placeholder": "A few words to give your team some context"
+            }
+        },
+        "form_space": {
+            "select": {
+                "label": "Select a space",
+                "create": "Create new space"
+            },
+            "name": {
+                "label": "Name your new space",
+                "placeholder": "eg. KPIs",
+                "save": "Save to existing space"
+            }
+        },
+        "cancel": "Cancel",
+        "add": "Add to dashboard"
     }
-  },
-
-  "components_resource_view_list": {
-    "columns": {
-      "name": "Name",
-      "space": "Space",
-      "updated": "Last Edited"
-    }
-  },
-  "components_resource_view_action_menu": {
-    "space_type_labels": {
-      "shared_with_me": "Shared with me",
-      "admin_content_view": "Public content view"
-    },
-    "resource_view_labels": {
-      "chart": "chart",
-      "dashboard": "dashboard",
-      "space": "space"
-    },
-    "menus": {
-      "rename": {
-        "title": "Rename"
-      },
-      "duplicate": {
-        "title": "Duplicate"
-      },
-      "add": {
-        "title": "Add to Dashboard"
-      },
-      "promote": {
-        "title": "Promote"
-      },
-      "toggle_pin": {
-        "pin": "Pin to homepage",
-        "unpin": "Unpin from homepage"
-      },
-      "move": {
-        "title": "Move to Space"
-      },
-      "create": {
-        "title": "Create new space"
-      },
-      "delete": {
-        "title": "Delete {{type}}"
-      }
-    }
-  },
-  "components_resource_view_action_handlers": {
-    "update": {
-      "title": "Update space",
-      "label": "Update"
-    },
-    "delete": {
-      "title": "Delete space",
-      "label": "Delete"
-    },
-    "create": {
-      "title": "Create new space",
-      "label": "Create"
-    }
-  },
-
-  "component_saved_dashboards_files_add": {
-    "title": "Add chart to dashboard",
-    "form_dashboard": {
-      "select": {
-        "label": "Select a dashboard",
-        "nothingFound": "No matching dashboards found",
-        "create": "Create new dashboard"
-      },
-      "name": {
-        "label": "Name your dashboard",
-        "placeholder": "eg. KPI dashboard"
-      },
-      "description": {
-        "label": "Dashboard description",
-        "placeholder": "A few words to give your team some context"
-      }
-    },
-    "form_space": {
-      "select": {
-        "label": "Select a space",
-        "create": "Create new space"
-      },
-      "name": {
-        "label": "Name your new space",
-        "placeholder": "eg. KPIs",
-        "save": "Save to existing space"
-      }
-    },
-    "cancel": "Cancel",
-    "add": "Add to dashboard"
-  }
 }

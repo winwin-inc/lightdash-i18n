@@ -14,6 +14,7 @@ import {
 import { useForm, zodResolver, type UseFormReturnType } from '@mantine/form';
 import { type Icon } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import { z } from 'zod';
 import useToaster from '../../../hooks/toaster/useToaster';
@@ -86,10 +87,11 @@ const SpaceModal: FC<ActionModalProps> = ({
 }) => {
     const { showToastError } = useToaster();
     const { data: organizationUsers } = useOrganizationUsers();
+    const { t } = useTranslation();
+
     const [privateAccessType, setPrivateAccessType] = useState(
         SpacePrivateAccessType.PRIVATE,
     );
-
     const [modalStep, setModalStep] = useState(CreateModalStep.SET_NAME);
 
     const form = useForm<Space>({
@@ -168,7 +170,9 @@ const SpaceModal: FC<ActionModalProps> = ({
                                             ev.preventDefault();
                                         }}
                                     >
-                                        Back
+                                        {t(
+                                            'components_space_action_modal_common.back',
+                                        )}
                                     </Button>
 
                                     <Button
@@ -192,7 +196,9 @@ const SpaceModal: FC<ActionModalProps> = ({
                                     type="submit"
                                     disabled={isDisabled || !form.isValid}
                                 >
-                                    Continue
+                                    {t(
+                                        'components_space_action_modal_common.continue',
+                                    )}
                                 </Button>
                             )}
 
