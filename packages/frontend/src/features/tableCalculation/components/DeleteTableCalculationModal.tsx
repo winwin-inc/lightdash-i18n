@@ -9,6 +9,8 @@ import {
     type ModalProps,
 } from '@mantine/core';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useExplorerContext } from '../../../providers/ExplorerProvider';
 import { useTracking } from '../../../providers/TrackingProvider';
 import { EventName } from '../../../types/Events';
@@ -25,6 +27,7 @@ export const DeleteTableCalculationModal: FC<Props> = ({
         (context) => context.actions.deleteTableCalculation,
     );
     const { track } = useTracking();
+    const { t } = useTranslation();
 
     const onConfirm = () => {
         deleteTableCalculation(tableCalculation.name);
@@ -36,20 +39,32 @@ export const DeleteTableCalculationModal: FC<Props> = ({
     return (
         <Modal
             opened
-            title={<Title order={4}>Delete Table Calculation</Title>}
+            title={
+                <Title order={4}>
+                    {t(
+                        'features_table_calculation_components_modal_delete.modal.title',
+                    )}
+                </Title>
+            }
             onClose={onClose}
         >
             <Stack spacing="lg" pt="sm">
                 <Text>
-                    Are you sure you want to delete this table calculation?
+                    {t(
+                        'features_table_calculation_components_modal_delete.modal.content',
+                    )}
                 </Text>
 
                 <Group position="right" mt="sm">
                     <Button variant="outline" color="dark" onClick={onClose}>
-                        Cancel
+                        {t(
+                            'features_table_calculation_components_modal_delete.modal.cancel',
+                        )}
                     </Button>
                     <Button color="red" onClick={onConfirm}>
-                        Delete
+                        {t(
+                            'features_table_calculation_components_modal_delete.modal.delete',
+                        )}
                     </Button>
                 </Group>
             </Stack>

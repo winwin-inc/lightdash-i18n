@@ -24,6 +24,68 @@
             }
         }
     },
+    "features_table_calculation_components_sql_form": {
+        "alert": {
+            "step_1": "需要灵感?",
+            "step_2": "查看我们的模板！"
+        }
+    },
+    "features_table_calculation_components_modal": {
+        "tips": {
+            "invalid": "具有该标签的表计算/维度已存在",
+            "error": "保存错误",
+            "edit": "编辑表计算",
+            "add": "添加表计算"
+        },
+        "form": {
+            "name": {
+                "label": "名称",
+                "placeholder": "例如，累计订单数"
+            },
+            "tabs": {
+                "sql": "SQL",
+                "format": "Format"
+            },
+            "tooltip": {
+                "label": "手动选择此SQL表计算的结果类型，这将帮助我们在过滤器或结果中正确处理该字段。",
+                "select": {
+                    "label": "结果类型"
+                }
+            },
+            "cancel": "取消",
+            "save": "保存"
+        }
+    },
+    "features_table_calculation_components_modal_delete": {
+        "modal": {
+            "title": "删除表计算",
+            "content": "确实要删除此表计算吗？",
+            "cancel": "取消",
+            "delete": "删除"
+        }
+    },
+
+    "components_refresh_buttom": {
+        "run_query": "运行查询"
+    },
+    "components_refresh_dbt_button": {
+        "refresh": "刷新数据库",
+        "tooltip_preview": {
+            "label": "开发者预览版是临时的 Lightdash 项目",
+            "text": "开发人员预览"
+        },
+        "tooltip_refresh": {
+            "label": "如果您已更新 YAML 文件，则可以单击此按钮将您的更改同步到 Lightdash。",
+            "loading_text": "正在刷新数据库",
+            "normal_text": "刷新数据库"
+        }
+    },
+    "components_add_column_button": {
+        "table_calculation": "表计算"
+    },
+    "components_open_in_sql_runner_button": {
+        "open": "在 SQL 运行器中打开"
+    },
 
     "components_navbar_explore_menu": {
         "title": "新建",
@@ -179,7 +241,7 @@
                     "placeholder": "给你的团队介绍一些背景信息"
                 }
             },
-            "success": "保存成功! {{values.name}} 被添加到 {{dashboardName}}",
+            "success": "保存成功! {{name}} 被添加到 {{dashboardName}}",
             "saving_tip_1": "保存到 \"{{dashboardName}}\" 看板",
             "saving_tip_2": "此图表将仅保存到看板 \"{{dashboardName}}\", 保持您的空间整洁。",
             "cancel": "取消",
@@ -190,7 +252,7 @@
                 "name": {
                     "label": "空间",
                     "description": "创建新空间以添加此图表",
-                    "placeholder": "例如 KPIs"
+                    "placeholder": "例如，KPIs"
                 }
             },
             "form_space": {
@@ -248,7 +310,7 @@
         "form": {
             "name": {
                 "label": "看板命名",
-                "placeholder": "例如 KPI 看板"
+                "placeholder": "例如，KPI 看板"
             },
             "description": {
                 "label": "看板描述",
@@ -272,7 +334,7 @@
     "components_space_action_modal_create": {
         "name": {
             "label": "为您的空间输入一个令人难忘的名称",
-            "placeholder": "例如 KPIs"
+            "placeholder": "例如，KPIs"
         },
         "radio_groups": {
             "private": {
@@ -302,7 +364,7 @@
         "form": {
             "name": {
                 "label": "为您的空间输入一个令人难忘的名称",
-                "placeholder": "例如 KPIs"
+                "placeholder": "例如，KPIs"
             }
         }
     },
@@ -372,6 +434,111 @@
         }
     },
 
+    "components_explorer_tree": {
+        "search": "搜索指标 + 维度",
+        "no_fields": "未找到任何字段...",
+        "read_full_description": "阅读完整描述",
+        "no_dimensions": "您的 dbt 项目中未定义维度",
+        "tooltip_missing": {
+            "title": "缺少字段",
+            "label": "此图表上未找到字段 {{missingField}}。单击此处将其删除。"
+        },
+        "tooltip_dimensions": {
+            "title": "维度",
+            "label": "使用 SQL 添加自定义维度",
+            "add": "添加"
+        },
+        "tooltip_metrics": {
+            "title": "指标",
+            "label": {
+                "step_1": "您的 dbt 项目中未定义指标。",
+                "step_2": "点击",
+                "step_3": "查看文档",
+                "step_4": " 了解如何向您的项目添加指标。"
+            }
+        },
+        "tooltip_custom_metrics": {
+            "title": "自定义指标",
+            "label": {
+                "step_1": "将鼠标悬停在您选择的维度上并选择三点操作菜单来添加自定义指标。",
+                "step_2": "点击查看文档。"
+            }
+        },
+        "tooltip_custom_dimensions": {
+            "title": "自定义维度",
+            "label": {
+                "step_1": "将鼠标悬停在您选择的尺寸上并选择三点操作菜单来添加自定义维度。",
+                "step_2": "点击查看文档。"
+            }
+        }
+    },
+    "components_explorer_custom_dimension_modal": {
+        "tips": {
+            "dimension_is_exists": "此标签的维度已存在",
+            "edit_success": "自定义维度修改成功",
+            "add_success": "自定义维度添加成功"
+        },
+        "modal": {
+            "title": "{{title}}自定义维度",
+            "edit": "编辑",
+            "create": "创建"
+        },
+        "form": {
+            "label": {
+                "label": "标签",
+                "placeholder": "输入自定义尺寸标签"
+            },
+            "bin_type": {
+                "label": "Bin 类型",
+                "radio_groups": {
+                    "radio_01": "固定数量的 bins",
+                    "radio_02": "固定宽度",
+                    "radio_03": "自定义范围"
+                }
+            },
+            "bin_number": {
+                "label": "Bin 号"
+            },
+            "bin_width": {
+                "label": "Bin 宽度"
+            },
+            "range": {
+                "title": "范围",
+                "and_above": "以上",
+                "and": "和",
+                "to": "到",
+                "add": "添加一个范围",
+                "save": "保存更改",
+                "create": "创建"
+            }
+        }
+    },
+    "components_explorer_custom_sql_dimension_modal": {
+        "tips": {
+            "is_exists": "此标签的维度/表计算已存在",
+            "edit_success": "自定义维度修改成功",
+            "add_success": "自定义维度添加成功"
+        },
+        "modal": {
+            "title": "{{title}}自定义维度",
+            "edit": "编辑",
+            "create": "创建"
+        },
+        "form": {
+            "label": {
+                "label": "标签",
+                "placeholder": "输入自定义尺寸标签"
+            },
+            "sql": {
+                "placeholder": "输入 SQL"
+            },
+            "select": {
+                "label": "返回类型"
+            },
+            "save": "保存更改",
+            "create": "创建"
+        }
+    },
     "components_explorer_space_browser_menu": {
         "menus": {
             "rename": {
@@ -384,6 +551,85 @@
             "delete": {
                 "title": "删除空间"
             }
+        }
+    },
+    "components_explorer_results_card_column_context_menu": {
+        "filter": "过滤",
+        "remove": "移除",
+        "edit_metric": "编辑自定义指标",
+        "edit_dimension": "编辑自定义维度",
+        "eidt_calculation": "编辑计算"
+    },
+    "components_explorer_results_card_cell_context_menu": {
+        "copy": "复制值",
+        "expand": "扩展",
+        "view": "查看基础数据",
+        "filter": "过滤通过"
+    },
+    "components_explorer_results_card_explorer_results": {
+        "has_dimensions": {
+            "step_1": "选择一个或多个",
+            "step_2": "维度",
+            "step_3": "按您选择的指标进行拆分。"
+        },
+        "has_metrics": {
+            "step_1": "选择一个",
+            "step_2": "主题",
+            "step_3": "对您选择的维度进行计算。"
+        },
+        "tip": "运行查询以查看结果并将其以图表形式可视化。"
+    },
+    "components_explorer_results_card_non_ideal_state": {
+        "empty_no_columns": {
+            "title": "选择一个指标并选择其维度",
+            "description": {
+                "step_1": "您的数据问题是什么？选择",
+                "step_2": "指标",
+                "step_3": "你想计算",
+                "step_4": "维度",
+                "step_5": "你想把它分成。"
+            },
+            "eg_1": {
+                "step_1": "例如，有多少",
+                "step_2": "注册人数",
+                "step_3": "每",
+                "step_4": "天"
+            },
+            "eg_2": {
+                "step_1": "例如，有多少",
+                "step_2": "总订单数",
+                "step_3": "按",
+                "step_4": "地点"
+            },
+            "eg_3": {
+                "step_1": "例如，有多少",
+                "step_2": "新的关注者",
+                "step_3": "每",
+                "step_4": "周"
+            },
+            "eg_4": {
+                "step_1": "例如，有多少",
+                "step_2": "总订单数",
+                "step_3": "按拆分",
+                "step_4": "状态"
+            }
+        },
+        "empty_no_table": {
+            "title": "选择表格",
+            "description": "要运行查询，首先选择您想要探索的表。"
+        },
+        "empty_state_explore_loading": {
+            "title": "正在加载表格..."
+        },
+        "explore_idle_state": {
+            "title": "运行查询以查看结果"
+        },
+        "explore_empty_query_state": {
+            "title": "查询未返回结果",
+            "description": "此查询已成功运行但未返回任何结果"
+        },
+        "explore_loading_state": {
+            "title": "正在加载结果"
         }
     },
 
@@ -469,7 +715,7 @@
             },
             "name": {
                 "label": "看板命名",
-                "placeholder": "例如 KPI 看板"
+                "placeholder": "例如，KPI 看板"
             },
             "description": {
                 "label": "看板描述",
@@ -483,7 +729,7 @@
             },
             "name": {
                 "label": "新空间命名",
-                "placeholder": "例如 KPIs",
+                "placeholder": "例如，KPIs",
                 "save": "保存到现有空间"
             }
         },

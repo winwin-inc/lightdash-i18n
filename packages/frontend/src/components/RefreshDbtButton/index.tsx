@@ -10,7 +10,9 @@ import {
 } from '@mantine/core';
 import { IconRefresh } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import { useProject } from '../../hooks/useProject';
 import { useRefreshServer } from '../../hooks/useRefreshServer';
 import { useActiveJob } from '../../providers/ActiveJobProvider';
@@ -24,10 +26,12 @@ const RefreshDbtButton = () => {
     const { data } = useProject(projectUuid);
     const { activeJob } = useActiveJob();
     const { mutate: refreshDbtServer } = useRefreshServer();
-    const [isLoading, setIsLoading] = useState(false);
+    const { t } = useTranslation();
 
     const { track } = useTracking();
     const { user } = useApp();
+
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         if (activeJob) {
@@ -73,7 +77,7 @@ const RefreshDbtButton = () => {
                             leftIcon={<MantineIcon icon={IconRefresh} />}
                             disabled
                         >
-                            Refresh dbt
+                            {t('components_refresh_dbt_button.refresh')}
                         </Button>
                     </Box>
                 </Popover.Target>
@@ -134,10 +138,10 @@ const RefreshDbtButton = () => {
         return (
             <Tooltip
                 withinPortal
-                label={`Developer previews are temporary Lightdash projects`}
+                label={t('components_refresh_dbt_button.tooltip_preview.label')}
             >
                 <Badge color="yellow" size="lg" radius="sm">
-                    Developer preview
+                    {t('components_refresh_dbt_button.tooltip_preview.text')}
                 </Badge>
             </Tooltip>
         );
@@ -149,7 +153,7 @@ const RefreshDbtButton = () => {
             multiline
             w={320}
             position="bottom"
-            label="If you've updated your YAML files, you can sync your changes to Lightdash by clicking this button."
+            label={t('components_refresh_dbt_button.tooltip_refresh.text')}
         >
             <Button
                 size="xs"
@@ -158,7 +162,13 @@ const RefreshDbtButton = () => {
                 loading={isLoading}
                 onClick={onClick}
             >
-                {!isLoading ? 'Refresh dbt' : 'Refreshing dbt'}
+                {!isLoading
+                    ? t(
+                          'components_refresh_dbt_button.tooltip_refresh.normal_text',
+                      )
+                    : t(
+                          'components_refresh_dbt_button.tooltip_refresh.loading_text',
+                      )}
             </Button>
         </Tooltip>
     );

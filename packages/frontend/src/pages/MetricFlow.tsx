@@ -320,7 +320,7 @@ const MetricFlowPage = () => {
                                 (
                                 {semanticLayerDimensionsQuery.data?.dimensions
                                     .length ?? 0}
-                                {selectedMetrics.size > 0 && (
+                                {(selectedMetrics as any).size > 0 && (
                                     <> available based on selected metrics</>
                                 )}
                                 )

@@ -8,6 +8,7 @@ import {
 import { Button, Center, Group, Text, Tooltip } from '@mantine/core';
 import { IconAlertTriangle, IconPlus } from '@tabler/icons-react';
 import { useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { useApp } from '../../../../providers/AppProvider';
 import { useExplorerContext } from '../../../../providers/ExplorerProvider';
@@ -42,6 +43,8 @@ const TableTreeSections: FC<Props> = ({
 }) => {
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { user } = useApp();
+    const { t } = useTranslation();
+
     const canManageCustomSql = user.data?.ability?.can(
         'manage',
         subject('CustomSql', {
@@ -105,7 +108,9 @@ const TableTreeSections: FC<Props> = ({
                     {' '}
                     <Group mt="sm" mb="xs">
                         <Text fw={600} color="gray.6">
-                            Missing fields
+                            {t(
+                                'components_explorer_tree.tooltip_missing.title',
+                            )}
                         </Text>
                     </Group>
                     {missingFields.all.map((missingField) => {
@@ -114,7 +119,12 @@ const TableTreeSections: FC<Props> = ({
                                 key={missingField}
                                 withinPortal
                                 sx={{ whiteSpace: 'normal' }}
-                                label={`Field ${missingField} not found on this chart. Click here to remove it.`}
+                                label={t(
+                                    'components_explorer_tree.tooltip_missing.label',
+                                    {
+                                        missingField,
+                                    },
+                                )}
                                 position="bottom-start"
                                 maw={700}
                             >
@@ -148,12 +158,14 @@ const TableTreeSections: FC<Props> = ({
             getSearchResults(dimensions, searchQuery).size === 0 ? null : (
                 <Group mt="sm" mb="xs" position={'apart'}>
                     <Text fw={600} color="blue.9">
-                        Dimensions
+                        {t('components_explorer_tree.tooltip_dimensions.title')}
                     </Text>
 
                     {canManageCustomSql && (
                         <Tooltip
-                            label="Add a custom dimension with SQL"
+                            label={t(
+                                'components_explorer_tree.tooltip_dimensions.label',
+                            )}
                             variant="xs"
                         >
                             <Button
@@ -169,7 +181,9 @@ const TableTreeSections: FC<Props> = ({
                                     })
                                 }
                             >
-                                Add
+                                {t(
+                                    'components_explorer_tree.tooltip_dimensions.add',
+                                )}
                             </Button>
                         </Tooltip>
                     )}
@@ -190,7 +204,7 @@ const TableTreeSections: FC<Props> = ({
             ) : (
                 <Center pt="sm" pb="md">
                     <Text color="dimmed">
-                        No dimensions defined in your dbt project
+                        {t('components_explorer_tree.no_dimensions')}
                     </Text>
                 </Center>
             )}
@@ -199,7 +213,7 @@ const TableTreeSections: FC<Props> = ({
             getSearchResults(metrics, searchQuery).size === 0 ? null : (
                 <Group position="apart" mt="sm" mb="xs" pr="sm">
                     <Text fw={600} color="yellow.9">
-                        Metrics
+                        {t('components_explorer_tree.tooltip_metrics.title')}
                     </Text>
 
                     {hasMetrics ? null : (
@@ -208,14 +222,21 @@ const TableTreeSections: FC<Props> = ({
                             tooltipProps={{
                                 label: (
                                     <>
-                                        No metrics defined in your dbt project.
+                                        {t(
+                                            'components_explorer_tree.tooltip_metrics.label.step_1',
+                                        )}
                                         <br />
-                                        Click to{' '}
+                                        {t(
+                                            'components_explorer_tree.tooltip_metrics.label.step_2',
+                                        )}{' '}
                                         <Text component="span" fw={600}>
-                                            view docs
+                                            {t(
+                                                'components_explorer_tree.tooltip_metrics.label.step_3',
+                                            )}
                                         </Text>{' '}
-                                        and learn how to add a metric to your
-                                        project.
+                                        {t(
+                                            'components_explorer_tree.tooltip_metrics.label.step_4',
+                                        )}
                                     </>
                                 ),
                                 multiline: true,
@@ -245,7 +266,9 @@ const TableTreeSections: FC<Props> = ({
             ) ? (
                 <Group position="apart" mt="sm" mb="xs" pr="sm">
                     <Text fw={600} color="yellow.9">
-                        Custom metrics
+                        {t(
+                            'components_explorer_tree.tooltip_custom_metrics.title',
+                        )}
                     </Text>
 
                     <DocumentationHelpButton
@@ -253,11 +276,13 @@ const TableTreeSections: FC<Props> = ({
                         tooltipProps={{
                             label: (
                                 <>
-                                    Add custom metrics by hovering over the
-                                    dimension of your choice & selecting the
-                                    three-dot Action Menu.{' '}
+                                    {t(
+                                        'components_explorer_tree.tooltip_custom_metrics.label.step_1',
+                                    )}{' '}
                                     <Text component="span" fw={600}>
-                                        Click to view docs.
+                                        {t(
+                                            'components_explorer_tree.tooltip_custom_metrics.label.step_2',
+                                        )}
                                     </Text>
                                 </>
                             ),
@@ -289,7 +314,9 @@ const TableTreeSections: FC<Props> = ({
             ) ? (
                 <Group position="apart" mt="sm" mb="xs" pr="sm">
                     <Text fw={600} color="blue.9">
-                        Custom dimensions
+                        {t(
+                            'components_explorer_tree.tooltip_custom_dimensions.title',
+                        )}
                     </Text>
 
                     <DocumentationHelpButton
@@ -297,11 +324,13 @@ const TableTreeSections: FC<Props> = ({
                         tooltipProps={{
                             label: (
                                 <>
-                                    Add custom dimensions by hovering over the
-                                    dimension of your choice & selecting the
-                                    three-dot Action Menu.{' '}
+                                    {t(
+                                        'components_explorer_tree.tooltip_custom_dimensions.label.step_1',
+                                    )}{' '}
                                     <Text component="span" fw={600}>
-                                        Click to view docs.
+                                        {t(
+                                            'components_explorer_tree.tooltip_custom_dimensions.label.step_2',
+                                        )}
                                     </Text>
                                 </>
                             ),

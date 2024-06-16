@@ -25,6 +25,8 @@ import {
 import { useForm } from '@mantine/form';
 import { IconX } from '@tabler/icons-react';
 import { useEffect, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import useToaster from '../../../hooks/toaster/useToaster';
 import { useExplorerContext } from '../../../providers/ExplorerProvider';
 import MantineIcon from '../../common/MantineIcon';
@@ -58,6 +60,7 @@ export const CustomBinDimensionModal: FC<{
     const editCustomDimension = useExplorerContext(
         (context) => context.actions.editCustomDimension,
     );
+    const { t } = useTranslation();
 
     const form = useForm({
         initialValues: {
@@ -100,7 +103,9 @@ export const CustomBinDimensionModal: FC<{
                 return customDimensions?.some(
                     (customDimension) => customDimension.id === dimensionName,
                 )
-                    ? 'Dimension with this label already exists'
+                    ? t(
+                          'components_explorer_custom_dimension_modal.tips.dimension_is_exists',
+                      )
                     : null;
             },
         },
@@ -155,7 +160,9 @@ export const CustomBinDimensionModal: FC<{
                 );
 
                 showToastSuccess({
-                    title: 'Custom dimension edited successfully',
+                    title: t(
+                        'components_explorer_custom_dimension_modal.tips.edit_success',
+                    ),
                 });
             } else {
                 addCustomDimension({
@@ -171,7 +178,9 @@ export const CustomBinDimensionModal: FC<{
                 });
 
                 showToastSuccess({
-                    title: 'Custom dimension added successfully',
+                    title: t(
+                        'components_explorer_custom_dimension_modal.tips.add_success',
+                    ),
                 });
             }
         }
@@ -204,7 +213,18 @@ export const CustomBinDimensionModal: FC<{
             title={
                 <>
                     <Title order={4}>
-                        {isEditing ? 'Edit' : 'Create'} Custom Dimension
+                        {t(
+                            'components_explorer_custom_dimension_modal.modal.title',
+                            {
+                                title: isEditing
+                                    ? t(
+                                          'components_explorer_custom_dimension_modal.modal.edit',
+                                      )
+                                    : t(
+                                          'components_explorer_custom_dimension_modal.modal.create',
+                                      ),
+                            },
+                        )}
                         <Text span fw={400}>
                             {' '}
                             - {baseDimensionLabel}{' '}
@@ -216,14 +236,20 @@ export const CustomBinDimensionModal: FC<{
             <form onSubmit={handleOnSubmit}>
                 <Stack>
                     <TextInput
-                        label="Label"
+                        label={t(
+                            'components_explorer_custom_dimension_modal.from.label.label',
+                        )}
                         required
-                        placeholder="Enter custom dimension label"
+                        placeholder={t(
+                            'components_explorer_custom_dimension_modal.from.label.placeholder',
+                        )}
                         {...form.getInputProps('customDimensionLabel')}
                     />
 
                     <Radio.Group
-                        label="Bin type"
+                        label={t(
+                            'components_explorer_custom_dimension_modal.from.bin_type.label',
+                        )}
                         withAsterisk
                         required
                         {...form.getInputProps('binType')}
@@ -231,15 +257,21 @@ export const CustomBinDimensionModal: FC<{
                         <Group mt="md">
                             <Radio
                                 value={BinType.FIXED_NUMBER}
-                                label="Fixed number of bins"
+                                label={t(
+                                    'components_explorer_custom_dimension_modal.from.bin_type.radio_groups_radio_01',
+                                )}
                             />
                             <Radio
                                 value={BinType.FIXED_WIDTH}
-                                label="Fixed Width"
+                                label={t(
+                                    'components_explorer_custom_dimension_modal.from.bin_type.radio_groups_radio_02',
+                                )}
                             />
                             <Radio
                                 value={BinType.CUSTOM_RANGE}
-                                label="Custom range"
+                                label={t(
+                                    'components_explorer_custom_dimension_modal.from.bin_type.radio_groups_radio_03',
+                                )}
                             />
                         </Group>
                     </Radio.Group>
@@ -247,7 +279,9 @@ export const CustomBinDimensionModal: FC<{
                     {form.values.binType === BinType.FIXED_NUMBER && (
                         <NumberInput
                             w={100}
-                            label="Bin number"
+                            label={t(
+                                'components_explorer_custom_dimension_modal.from.bin_number.label',
+                            )}
                             required
                             min={MIN_OF_FIXED_NUMBER_BINS}
                             type="number"
@@ -260,7 +294,9 @@ export const CustomBinDimensionModal: FC<{
                     {form.values.binType === BinType.FIXED_WIDTH && (
                         <NumberInput
                             w={100}
-                            label="Bin width"
+                            label={t(
+                                'components_explorer_custom_dimension_modal.from.bin_width.label',
+                            )}
                             required
                             min={MIN_OF_FIXED_NUMBER_BINS}
                             type="number"
@@ -272,7 +308,11 @@ export const CustomBinDimensionModal: FC<{
 
                     {form.values.binType === BinType.CUSTOM_RANGE && (
                         <>
-                            <Text fw={500}>Range</Text>
+                            <Text fw={500}>
+                                {t(
+                                    'components_explorer_custom_dimension_modal.form.range.title',
+                                )}
+                            </Text>
                             {form.values.binConfig.customRange.map(
                                 (range, index) => {
                                     const toProps = form.getInputProps(
@@ -332,7 +372,9 @@ export const CustomBinDimensionModal: FC<{
                                                     {...fromProps}
                                                 />
                                                 <Text color="gray.6" fw="400">
-                                                    and above{' '}
+                                                    {t(
+                                                        'components_explorer_custom_dimension_modal.form.range.and_above',
+                                                    )}{' '}
                                                 </Text>
                                             </Flex>
                                         );
@@ -348,7 +390,11 @@ export const CustomBinDimensionModal: FC<{
                                                     color="gray.6"
                                                     fw="400"
                                                 >
-                                                    ≥{fromProps.value} and &lt;
+                                                    ≥{fromProps.value}{' '}
+                                                    {t(
+                                                        'components_explorer_custom_dimension_modal.form.range.and',
+                                                    )}{' '}
+                                                    &lt;
                                                     {toProps.value}
                                                 </Text>
 
@@ -416,7 +462,10 @@ export const CustomBinDimensionModal: FC<{
                                 }}
                             >
                                 {' '}
-                                + Add a range{' '}
+                                +{' '}
+                                {t(
+                                    'components_explorer_custom_dimension_modal.form.range.add',
+                                )}{' '}
                             </Text>
                         </>
                     )}
@@ -424,7 +473,13 @@ export const CustomBinDimensionModal: FC<{
                     {/* Add results preview */}
 
                     <Button ml="auto" type="submit">
-                        {isEditing ? 'Save changes' : 'Create'}
+                        {isEditing
+                            ? t(
+                                  'components_explorer_custom_dimension_modal.form.range.save',
+                              )
+                            : t(
+                                  'components_explorer_custom_dimension_modal.form.range.create',
+                              )}
                     </Button>
                 </Stack>
             </form>

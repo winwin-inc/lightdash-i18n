@@ -1,5 +1,7 @@
 import { createStyles, keyframes, Loader, Text } from '@mantine/core';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { TrackSection } from '../../../providers/TrackingProvider';
 import NoTableIcon from '../../../svgs/emptystate-no-table.svg?react';
 import { SectionName } from '../../../types/Events';
@@ -70,12 +72,15 @@ const ExploreDocumentationUrl =
 
 export const EmptyStateNoColumns = () => {
     const { classes } = useAnimatedTextStyles();
+    const { t } = useTranslation();
 
     return (
         <EmptyState
             title={
                 <>
-                    Pick a metric & select its dimensions{' '}
+                    {t(
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.title',
+                    )}{' '}
                     <DocumentationHelpButton
                         href={ExploreDocumentationUrl}
                         pos="relative"
@@ -86,63 +91,105 @@ export const EmptyStateNoColumns = () => {
             }
             description={
                 <>
-                    What’s your data question? Select the{' '}
+                    {t(
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.description.step_1',
+                    )}{' '}
                     <Text span color="yellow.9">
-                        metric
+                        {t(
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.description.step_2',
+                        )}
                     </Text>{' '}
-                    you want to calculate and the{' '}
+                    {t(
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.description.step_3',
+                    )}{' '}
                     <Text span color="blue.9">
-                        dimension(s)
+                        {t(
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.description.step_4',
+                        )}
                     </Text>{' '}
-                    you want to split it by.
+                    {t(
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.description.step_5',
+                    )}
                 </>
             }
         >
             <Text className={classes.root} color="dimmed">
                 <Text span>
-                    eg. How many{' '}
+                    {t(
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_1.step_1',
+                    )}{' '}
                     <Text span color="yellow.9">
-                        total signups
+                        {t(
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_1.step_2',
+                        )}
                     </Text>{' '}
-                    per{' '}
+                    {t(
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_1.step_3',
+                    )}{' '}
                     <Text span color="blue.9">
-                        day
+                        {t(
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_1.step_4',
+                        )}
                     </Text>
                     ?
                 </Text>
 
                 <Text span>
-                    eg. What is the{' '}
+                    {t(
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_2.step_1',
+                    )}{' '}
                     <Text span color="yellow.9">
-                        total order count
+                        {t(
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_2.step_2',
+                        )}
                     </Text>{' '}
-                    by{' '}
+                    {t(
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_2.step_3',
+                    )}{' '}
                     <Text span color="blue.9">
-                        location
+                        {t(
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_2.step_4',
+                        )}
                     </Text>
                     ?
                 </Text>
 
                 <Text span>
-                    eg. How many{' '}
+                    {t(
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_3.step_1',
+                    )}{' '}
                     <Text span color="yellow.9">
-                        new followers
+                        {t(
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_3.step_2',
+                        )}
                     </Text>{' '}
-                    every{' '}
+                    {t(
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_3.step_3',
+                    )}{' '}
                     <Text span color="blue.9">
-                        week
+                        {t(
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_3.step_4',
+                        )}
                     </Text>
                     ?
                 </Text>
 
                 <Text span>
-                    eg. What is the{' '}
+                    {t(
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_4.step_1',
+                    )}{' '}
                     <Text span color="yellow.9">
-                        total order count
+                        {t(
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_4.step_2',
+                        )}
                     </Text>{' '}
-                    split by{' '}
+                    {t(
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_4.step_3',
+                    )}{' '}
                     <Text span color="blue.9">
-                        status
+                        {t(
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_4.step_4',
+                        )}
                     </Text>
                     ?
                 </Text>
@@ -173,44 +220,83 @@ export const EmptyStateNoTableData: FC<{ description: React.ReactNode }> = ({
     </TrackSection>
 );
 
-export const NoTableSelected = () => (
-    <EmptyState
-        maw={500}
-        icon={<NoTableIcon />}
-        title="Select a table"
-        description={
-            <>
-                To run a query, first select the table that you would like to
-                explore.{' '}
-                <DocumentationHelpButton
-                    href={ExploreDocumentationUrl}
-                    pos="relative"
-                    top={2}
-                />
-            </>
-        }
-    />
-);
+export const NoTableSelected = () => {
+    const { t } = useTranslation();
 
-export const EmptyStateExploreLoading = () => (
-    <EmptyState title="Loading tables...">
-        <Loader color="gray" />
-    </EmptyState>
-);
+    return (
+        <EmptyState
+            maw={500}
+            icon={<NoTableIcon />}
+            title={t(
+                'components_explorer_results_card_non_ideal_state.empty_no_table.title',
+            )}
+            description={
+                <>
+                    {t(
+                        'components_explorer_results_card_non_ideal_state.empty_no_table.description',
+                    )}{' '}
+                    <DocumentationHelpButton
+                        href={ExploreDocumentationUrl}
+                        pos="relative"
+                        top={2}
+                    />
+                </>
+            }
+        />
+    );
+};
 
-export const ExploreIdleState = () => (
-    <EmptyState title="Run query to see your results" />
-);
+export const EmptyStateExploreLoading = () => {
+    const { t } = useTranslation();
 
-export const ExploreEmptyQueryState = () => (
-    <EmptyState
-        title="Query returned no results"
-        description="This query ran successfully but returned no results"
-    />
-);
+    return (
+        <EmptyState
+            title={t(
+                'components_explorer_results_card_non_ideal_state.empty_state_explore_loading.title',
+            )}
+        >
+            <Loader color="gray" />
+        </EmptyState>
+    );
+};
 
-export const ExploreLoadingState = () => (
-    <EmptyState title="Loading results">
-        <Loader color="gray" />
-    </EmptyState>
-);
+export const ExploreIdleState = () => {
+    const { t } = useTranslation();
+
+    return (
+        <EmptyState
+            title={t(
+                'components_explorer_results_card_non_ideal_state.explore_idle_state.title',
+            )}
+        />
+    );
+};
+
+export const ExploreEmptyQueryState = () => {
+    const { t } = useTranslation();
+
+    return (
+        <EmptyState
+            title={t(
+                'components_explorer_results_card_non_ideal_state.explore_empty_query_state.title',
+            )}
+            description={t(
+                'components_explorer_results_card_non_ideal_state.explore_empty_query_state.description',
+            )}
+        />
+    );
+};
+
+export const ExploreLoadingState = () => {
+    const { t } = useTranslation();
+
+    return (
+        <EmptyState
+            title={t(
+                'components_explorer_results_card_non_ideal_state.explore_loading_state.title',
+            )}
+        >
+            <Loader color="gray" />
+        </EmptyState>
+    );
+};

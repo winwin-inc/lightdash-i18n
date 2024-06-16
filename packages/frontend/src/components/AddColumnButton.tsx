@@ -1,6 +1,8 @@
 import { Button } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import { memo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { CreateTableCalculationModal } from '../features/tableCalculation';
 import { useTracking } from '../providers/TrackingProvider';
 import { EventName } from '../types/Events';
@@ -10,6 +12,8 @@ import MantineIcon from './common/MantineIcon';
 const AddColumnButton: FC = memo(() => {
     const [opened, setOpened] = useState<boolean>(false);
     const { track } = useTracking();
+    const { t } = useTranslation();
+
     return (
         <>
             <Button
@@ -24,7 +28,7 @@ const AddColumnButton: FC = memo(() => {
                     });
                 }}
             >
-                Table calculation
+                {t('components_add_column_button.table_calculation')}
             </Button>
 
             {opened && (

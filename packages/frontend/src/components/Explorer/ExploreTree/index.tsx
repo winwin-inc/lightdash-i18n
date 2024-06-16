@@ -10,6 +10,8 @@ import {
 import { ActionIcon, Center, ScrollArea, Text, TextInput } from '@mantine/core';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../common/MantineIcon';
 import TableTree from './TableTree';
 import { getSearchResults } from './TableTree/Tree/TreeProvider';
@@ -39,6 +41,8 @@ const ExploreTree: FC<ExploreTreeProps> = ({
     selectedDimensions,
     missingFields,
 }) => {
+    const { t } = useTranslation();
+
     const [search, setSearch] = useState<string>('');
     const isSearching = !!search && search !== '';
 
@@ -85,7 +89,7 @@ const ExploreTree: FC<ExploreTreeProps> = ({
                         </ActionIcon>
                     ) : null
                 }
-                placeholder="Search metrics + dimensions"
+                placeholder={t('components_explorer_tree.search')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
             />
@@ -128,7 +132,9 @@ const ExploreTree: FC<ExploreTreeProps> = ({
                     ))
                 ) : (
                     <Center>
-                        <Text color="dimmed">No fields found...</Text>
+                        <Text color="dimmed">
+                            {t('components_explorer_tree.no_fields')}
+                        </Text>
                     </Center>
                 )}
             </ScrollArea>

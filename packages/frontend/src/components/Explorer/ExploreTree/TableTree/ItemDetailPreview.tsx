@@ -10,6 +10,8 @@ import {
 import { IconTable } from '@tabler/icons-react';
 import ReactMarkdownPreview from '@uiw/react-markdown-preview';
 import { type FC, type PropsWithChildren } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { rehypeRemoveHeaderLinks } from '../../../../utils/markdownUtils';
 import MantineIcon from '../../../common/MantineIcon';
 import { useItemDetail } from './ItemDetailContext';
@@ -48,6 +50,8 @@ export const ItemDetailPreview: FC<{
     description?: string;
     onViewDescription: () => void;
 }> = ({ description, onViewDescription }) => {
+    const { t } = useTranslation();
+
     if (!description) return null;
 
     /**
@@ -84,7 +88,7 @@ export const ItemDetailPreview: FC<{
                             onViewDescription();
                         }}
                     >
-                        Read full description
+                        {t('components_explorer_tree.read_full_description')}
                     </Anchor>
                 </Box>
             )}

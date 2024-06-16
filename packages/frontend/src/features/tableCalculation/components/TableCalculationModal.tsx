@@ -22,6 +22,7 @@ import {
 import { useForm } from '@mantine/form';
 import { IconMaximize, IconMinimize } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
 import { type ValueOf } from 'type-fest';
 import MantineIcon from '../../../components/common/MantineIcon';
@@ -53,6 +54,7 @@ const TableCalculationModal: FC<Props> = ({
     const [isFullscreen, toggleFullscreen] = useToggle(false);
 
     const { showToastError } = useToaster();
+    const { t } = useTranslation();
 
     const tableCalculations = useExplorerContext(
         (context) =>
@@ -102,7 +104,9 @@ const TableCalculationModal: FC<Props> = ({
                 );
 
                 return isInvalid
-                    ? 'Table calculation/Dimension with this label already exists'
+                    ? t(
+                          'features_table_calculation_components_modal.tips.invalid',
+                      )
                     : null;
             },
         },
@@ -120,7 +124,9 @@ const TableCalculationModal: FC<Props> = ({
             });
         } catch (e) {
             showToastError({
-                title: 'Error saving',
+                title: t(
+                    'features_table_calculation_components_modal.tips.error',
+                ),
                 subtitle: e.message,
             });
         }
@@ -144,8 +150,8 @@ const TableCalculationModal: FC<Props> = ({
             size="xl"
             title={
                 tableCalculation
-                    ? 'Edit table calculation'
-                    : 'Add table calculation'
+                    ? t('features_table_calculation_components_modal.tips.edit')
+                    : t('features_table_calculation_components_modal.tips.add')
             }
             styles={{
                 title: {
@@ -159,9 +165,13 @@ const TableCalculationModal: FC<Props> = ({
                 <Stack>
                     <TextInput
                         mb="sm"
-                        label="Name"
+                        label={t(
+                            'features_table_calculation_components_modal.form.name.label',
+                        )}
                         required
-                        placeholder="E.g. Cumulative order count"
+                        placeholder={t(
+                            'features_table_calculation_components_modal.form.name.placeholder',
+                        )}
                         data-testid="table-calculation-name-input"
                         {...form.getInputProps('name')}
                     />
@@ -184,8 +194,16 @@ const TableCalculationModal: FC<Props> = ({
                         }}
                     >
                         <Tabs.List>
-                            <Tabs.Tab value="sqlEditor">SQL</Tabs.Tab>
-                            <Tabs.Tab value="format">Format</Tabs.Tab>
+                            <Tabs.Tab value="sqlEditor">
+                                {t(
+                                    'features_table_calculation_components_modal.form.tabs.sql',
+                                )}
+                            </Tabs.Tab>
+                            <Tabs.Tab value="format">
+                                {t(
+                                    'features_table_calculation_components_modal.form.tabs.format',
+                                )}
+                            </Tabs.Tab>
                         </Tabs.List>
                         <Tabs.Panel value="sqlEditor">
                             <SqlForm form={form} isFullScreen={isFullscreen} />
@@ -204,12 +222,14 @@ const TableCalculationModal: FC<Props> = ({
                         multiline
                         maw={400}
                         withinPortal
-                        label={
-                            'Manually select the type of the result of this SQL table calculation, this will help us to treat this field correctly in filters or results.'
-                        }
+                        label={t(
+                            'features_table_calculation_components_modal.form.tooltip.label',
+                        )}
                     >
                         <Select
-                            label={'Result type'}
+                            label={t(
+                                'features_table_calculation_components_modal.form.tooltip.select.label',
+                            )}
                             id="download-type"
                             {...form.getInputProps('type')}
                             onChange={(value) => {
@@ -235,13 +255,17 @@ const TableCalculationModal: FC<Props> = ({
 
                         <Group>
                             <Button variant="outline" onClick={onClose}>
-                                Cancel
+                                {t(
+                                    'features_table_calculation_components_modal.form.cancel',
+                                )}
                             </Button>
                             <Button
                                 type="submit"
                                 data-testid="table-calculation-save-button"
                             >
-                                Save
+                                {t(
+                                    'features_table_calculation_components_modal.form.save',
+                                )}
                             </Button>
                         </Group>
                     </Group>

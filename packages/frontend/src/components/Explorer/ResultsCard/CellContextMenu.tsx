@@ -15,7 +15,9 @@ import { useClipboard } from '@mantine/hooks';
 import { IconCopy, IconEye, IconFilter, IconStack } from '@tabler/icons-react';
 import mapValues from 'lodash/mapValues';
 import { useCallback, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import useToaster from '../../../hooks/toaster/useToaster';
 import { useFilters } from '../../../hooks/useFilters';
 import { useApp } from '../../../providers/AppProvider';
@@ -44,6 +46,7 @@ const CellContextMenu: FC<
     const item = meta?.item;
     const { user } = useApp();
     const { projectUuid } = useParams<{ projectUuid: string }>();
+    const { t } = useTranslation();
 
     const value: ResultValue = useMemo(
         () => cell.getValue()?.value || {},
@@ -128,7 +131,7 @@ const CellContextMenu: FC<
                 icon={<MantineIcon icon={IconCopy} />}
                 onClick={handleCopyToClipboard}
             >
-                Copy value
+                {t('components_explorer_results_card_cell_context_menu.copy')}
             </Menu.Item>
             {parseResult !== null && (
                 <Menu.Item
@@ -142,7 +145,9 @@ const CellContextMenu: FC<
                         )
                     }
                 >
-                    Expand
+                    {t(
+                        'components_explorer_results_card_cell_context_menu.expand',
+                    )}
                 </Menu.Item>
             )}
             {item &&
@@ -160,7 +165,9 @@ const CellContextMenu: FC<
                             icon={<MantineIcon icon={IconStack} />}
                             onClick={handleViewUnderlyingData}
                         >
-                            View underlying data
+                            {t(
+                                'components_explorer_results_card_cell_context_menu.view',
+                            )}
                         </Menu.Item>
                     </Can>
                 )}
@@ -176,7 +183,9 @@ const CellContextMenu: FC<
                         icon={<MantineIcon icon={IconFilter} />}
                         onClick={handleFilterByValue}
                     >
-                        Filter by{' '}
+                        {t(
+                            'components_explorer_results_card_cell_context_menu.filter',
+                        )}{' '}
                         <Text span fw={500}>
                             {value.formatted}
                         </Text>

@@ -10,6 +10,8 @@ import {
 import { useHotkeys, useOs } from '@mantine/hooks';
 import { IconPlayerPlay } from '@tabler/icons-react';
 import { memo, useCallback, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useExplorerContext } from '../providers/ExplorerProvider';
 import { useTracking } from '../providers/TrackingProvider';
 import { EventName } from '../types/Events';
@@ -33,6 +35,7 @@ export const RefreshButton: FC<{ size?: MantineSize }> = memo(({ size }) => {
     const fetchResults = useExplorerContext(
         (context) => context.actions.fetchResults,
     );
+    const { t } = useTranslation();
 
     const canRunQuery = isValidQuery;
 
@@ -77,7 +80,7 @@ export const RefreshButton: FC<{ size?: MantineSize }> = memo(({ size }) => {
                     onClick={onClick}
                     sx={{ flex: 1 }}
                 >
-                    Run query ({limit})
+                    {t('components_refresh_buttom.run_query')} ({limit})
                 </Button>
             </Tooltip>
 

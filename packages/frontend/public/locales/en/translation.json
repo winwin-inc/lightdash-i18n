@@ -24,6 +24,68 @@
             }
         }
     },
+    "features_table_calculation_components_sql_form": {
+        "alert": {
+            "step_1": "Need inspiration?",
+            "step_2": "Check out our templates!"
+        }
+    },
+    "features_table_calculation_components_modal": {
+        "tips": {
+            "invalid": "Table calculation/Dimension with this label already exists",
+            "error": "Error saving",
+            "edit": "Edit table calculation",
+            "add": "Add table calculation"
+        },
+        "form": {
+            "name": {
+                "label": "Name",
+                "placeholder": "E.g. Cumulative order count"
+            },
+            "tabs": {
+                "sql": "SQL",
+                "format": "Format"
+            },
+            "tooltip": {
+                "label": "'Manually select the type of the result of this SQL table calculation, this will help us to treat this field correctly in filters or results.",
+                "select": {
+                    "label": "Result type"
+                }
+            },
+            "cancel": "Cancel",
+            "save": "Save"
+        }
+    },
+    "features_table_calculation_components_modal_delete": {
+        "modal": {
+            "title": "Delete Table Calculation",
+            "content": "Are you sure you want to delete this table calculation?",
+            "cancel": "Cancel",
+            "delete": "Delete"
+        }
+    },
+
+    "components_refresh_buttom": {
+        "run_query": "Run query"
+    },
+    "components_refresh_dbt_button": {
+        "refresh": "Refresh dbt",
+        "tooltip_preview": {
+            "label": "Developer previews are temporary Lightdash projects",
+            "text": "Developer preview"
+        },
+        "tooltip_refresh": {
+            "label": "If you've updated your YAML files, you can sync your changes to Lightdash by clicking this button.",
+            "loading_text": "Refreshing dbt",
+            "normal_text": "Refresh dbt"
+        }
+    },
+    "components_add_column_button": {
+        "table_calculation": "Table calculation"
+    },
+    "components_open_in_sql_runner_button": {
+        "open": "Open in SQL runner"
+    },
 
     "components_navbar_explore_menu": {
         "title": "New",
@@ -366,6 +428,111 @@
         }
     },
 
+    "components_explorer_tree": {
+        "search": "Search metrics + dimensions",
+        "no_fields": "No fields found...",
+        "read_full_description": "Read full description",
+        "no_dimensions": "No dimensions defined in your dbt project",
+        "tooltip_missing": {
+            "title": "Missing fields",
+            "label": "Field {{missingField}} not found on this chart. Click here to remove it."
+        },
+        "tooltip_dimensions": {
+            "title": "Dimensions",
+            "label": "Add a custom dimension with SQL",
+            "add": "Add"
+        },
+        "tooltip_metrics": {
+            "title": "Metrics",
+            "label": {
+                "step_1": "No metrics defined in your dbt project.",
+                "step_2": "Click to",
+                "step_3": "view docs",
+                "step_4": " and learn how to add a metric to your project."
+            }
+        },
+        "tooltip_custom_metrics": {
+            "title": "Custom metrics",
+            "label": {
+                "step_1": "Add custom metrics by hovering over the dimension of your choice & selecting the three-dot Action Menu.",
+                "step_2": "Click to view docs."
+            }
+        },
+        "tooltip_custom_dimensions": {
+            "title": "Custom dimensions",
+            "label": {
+                "step_1": "Add custom dimensions by hovering over the dimension of your choice & selecting the three-dot Action Menu.",
+                "step_2": "Click to view docs."
+            }
+        }
+    },
+    "components_explorer_custom_dimension_modal": {
+        "tips": {
+            "dimension_is_exists": "Dimension with this label already exists",
+            "edit_success": "Custom dimension edited successfully",
+            "add_success": "Custom dimension added successfully"
+        },
+        "modal": {
+            "title": "{{title}} Custom Dimension",
+            "edit": "Edit",
+            "create": "Create"
+        },
+        "form": {
+            "label": {
+                "label": "Label",
+                "placeholder": "Enter custom dimension label"
+            },
+            "bin_type": {
+                "label": "Bin type",
+                "radio_groups": {
+                    "radio_01": "Fixed number of bins",
+                    "radio_02": "Fixed Width",
+                    "radio_03": "Custom range"
+                }
+            },
+            "bin_number": {
+                "label": "Bin number"
+            },
+            "bin_width": {
+                "label": "Bin width"
+            },
+            "range": {
+                "title": "Range",
+                "and_above": "and above",
+                "and": "and",
+                "to": "to",
+                "add": "Add a range",
+                "save": "Save changes",
+                "create": "Create"
+            }
+        }
+    },
+    "components_explorer_custom_sql_dimension_modal": {
+        "tips": {
+            "is_exists": "Dimension/Table calculation with this label already exists",
+            "edit_success": "Custom dimension edited successfully",
+            "add_success": "Custom dimension added successfully"
+        },
+        "modal": {
+            "title": "{{title}} Custom Dimension",
+            "edit": "Edit",
+            "create": "Create"
+        },
+        "form": {
+            "label": {
+                "label": "Label",
+                "placeholder": "Enter custom dimension label"
+            },
+            "sql": {
+                "placeholder": "Enter SQL"
+            },
+            "select": {
+                "label": "Return type"
+            },
+            "save": "Save changes",
+            "create": "Create"
+        }
+    },
     "components_explorer_space_browser_menu": {
         "menus": {
             "rename": {
@@ -378,6 +545,86 @@
             "delete": {
                 "title": "Delete space"
             }
+        }
+    },
+    "components_explorer_results_card_column_context_menu": {
+        "filter": "Filter by",
+        "remove": "Remove",
+        "edit_metric": "Edit custom metric",
+        "edit_dimension": " Edit custom dimension",
+        "eidt_calculation": "Edit calculation",
+        "sort": "Sort"
+    },
+    "components_explorer_results_card_cell_context_menu": {
+        "copy": "Copy value",
+        "expand": "Expand",
+        "view": "View underlying data",
+        "filter": "Filter by"
+    },
+    "components_explorer_results_card_explorer_results": {
+        "has_dimensions": {
+            "step_1": "Pick one or more",
+            "step_2": "dimensions",
+            "step_3": "to split your selected metric by."
+        },
+        "has_metrics": {
+            "step_1": "Pick a",
+            "step_2": "metric",
+            "step_3": "to make calculations across your selected dimensions."
+        },
+        "tip": "Run query to view your results and visualize them as a chart."
+    },
+    "components_explorer_results_card_non_ideal_state": {
+        "empty_no_columns": {
+            "title": "Pick a metric & select its dimensions",
+            "description": {
+                "step_1": "What’s your data question? Select the",
+                "step_2": "metric",
+                "step_3": "you want to calculate and the",
+                "step_4": "dimension(s)",
+                "step_5": "you want to split it by."
+            },
+            "eg_1": {
+                "step_1": "eg. How many",
+                "step_2": "total signups",
+                "step_3": "per",
+                "step_4": "day"
+            },
+            "eg_2": {
+                "step_1": "eg. What is the",
+                "step_2": "total order count",
+                "step_3": "by",
+                "step_4": "location"
+            },
+            "eg_3": {
+                "step_1": "eg. How many",
+                "step_2": "new followers",
+                "step_3": "every",
+                "step_4": "week"
+            },
+            "eg_4": {
+                "step_1": "eg. What is the",
+                "step_2": "total order count",
+                "step_3": "split by",
+                "step_4": "status"
+            }
+        },
+        "empty_no_table": {
+            "title": "Select a table",
+            "description": "To run a query, first select the table that you would like to explore."
+        },
+        "empty_state_explore_loading": {
+            "title": "Loading tables..."
+        },
+        "explore_idle_state": {
+            "title": "Run query to see your results"
+        },
+        "explore_empty_query_state": {
+            "title": "Query returned no results",
+            "description": "This query ran successfully but returned no results"
+        },
+        "explore_loading_state": {
+            "title": "Loading results"
         }
     },
 

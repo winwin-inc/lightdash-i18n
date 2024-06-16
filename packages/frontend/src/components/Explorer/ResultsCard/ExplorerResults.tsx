@@ -1,6 +1,7 @@
 import { getItemMap } from '@lightdash/common';
 import { Box, Text } from '@mantine/core';
 import { memo, useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useColumns } from '../../../hooks/useColumns';
 import { useExplore } from '../../../hooks/useExplore';
@@ -54,6 +55,8 @@ export const ExplorerResults = memo(() => {
         (context) =>
             context.state.unsavedChartVersion.metricQuery.additionalMetrics,
     );
+    const { t } = useTranslation();
+
     const [isExpandModalOpened, setIsExpandModalOpened] = useState(false);
     const [expandData, setExpandData] = useState<{
         name: string;
@@ -98,29 +101,40 @@ export const ExplorerResults = memo(() => {
         const description =
             dimensions.length <= 0 ? (
                 <>
-                    Pick one or more{' '}
+                    {t(
+                        'components_explorer_results_card_explorer_results.has_dimensions.step_1',
+                    )}{' '}
                     <Text span color="blue.9">
-                        dimensions
+                        {t(
+                            'components_explorer_results_card_explorer_results.has_dimensions.step_2',
+                        )}
                     </Text>{' '}
-                    to split your selected metric by.
+                    {t(
+                        'components_explorer_results_card_explorer_results.has_dimensions.step_3',
+                    )}
                 </>
             ) : metrics.length <= 0 ? (
                 <>
-                    Pick a{' '}
+                    {t(
+                        'components_explorer_results_card_explorer_results.has_metrics.step_1',
+                    )}{' '}
                     <Text span color="yellow.9">
-                        metric
+                        {t(
+                            'components_explorer_results_card_explorer_results.has_metrics.step_2',
+                        )}
                     </Text>{' '}
-                    to make calculations across your selected dimensions.
+                    {t(
+                        'components_explorer_results_card_explorer_results.has_metrics.step_3',
+                    )}
                 </>
             ) : (
                 <>
-                    Run query to view your results and visualize them as a
-                    chart.
+                    {t('components_explorer_results_card_explorer_results.tip')}
                 </>
             );
 
         return <EmptyStateNoTableData description={description} />;
-    }, [dimensions.length, metrics.length]);
+    }, [dimensions.length, metrics.length, t]);
 
     const pagination = useMemo(
         () => ({
@@ -140,6 +154,7 @@ export const ExplorerResults = memo(() => {
     if (isInitialLoading) return <EmptyStateExploreLoading />;
 
     if (columns.length === 0) return <EmptyStateNoColumns />;
+
     return (
         <TrackSection name={SectionName.RESULTS_TABLE}>
             <Box px="xs" py="lg">

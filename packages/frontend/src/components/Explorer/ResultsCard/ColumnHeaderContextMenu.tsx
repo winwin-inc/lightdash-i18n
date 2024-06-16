@@ -16,6 +16,8 @@ import {
     IconTrash,
 } from '@tabler/icons-react';
 import { useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import {
     DeleteTableCalculationModal,
     UpdateTableCalculationModal,
@@ -41,6 +43,7 @@ const ContextMenu: FC<ContextMenuProps> = ({
 }) => {
     const { addFilter } = useFilters();
     const { track } = useTracking();
+    const { t } = useTranslation();
 
     const meta = header.column.columnDef.meta;
     const item = meta?.item;
@@ -90,7 +93,9 @@ const ContextMenu: FC<ContextMenuProps> = ({
                                 addFilter(item, undefined, false);
                             }}
                         >
-                            Filter by{' '}
+                            {t(
+                                'components_explorer_results_card_column_context_menu.filter',
+                            )}{' '}
                             <Text span fw={500}>
                                 {getItemLabelWithoutTableName(item)}
                             </Text>
@@ -121,7 +126,9 @@ const ContextMenu: FC<ContextMenuProps> = ({
                             });
                         }}
                     >
-                        Edit custom metric
+                        {t(
+                            'components_explorer_results_card_column_context_menu.edit_metric',
+                        )}
                     </Menu.Item>
                 ) : null}
 
@@ -132,7 +139,9 @@ const ContextMenu: FC<ContextMenuProps> = ({
                         removeActiveField(itemFieldId);
                     }}
                 >
-                    Remove
+                    {t(
+                        'components_explorer_results_card_column_context_menu.remove',
+                    )}
                 </Menu.Item>
             </>
         );
@@ -146,7 +155,9 @@ const ContextMenu: FC<ContextMenuProps> = ({
                         removeActiveField(header.column.id);
                     }}
                 >
-                    Remove
+                    {t(
+                        'components_explorer_results_card_column_context_menu.remove',
+                    )}
                 </Menu.Item>
             </>
         );
@@ -162,7 +173,9 @@ const ContextMenu: FC<ContextMenuProps> = ({
                                 addFilter(item, undefined, false);
                             }}
                         >
-                            Filter by{' '}
+                            {t(
+                                'components_explorer_results_card_column_context_menu.filter',
+                            )}{' '}
                             <Text span fw={500}>
                                 {getItemLabelWithoutTableName(item)}
                             </Text>
@@ -181,7 +194,9 @@ const ContextMenu: FC<ContextMenuProps> = ({
                         });
                     }}
                 >
-                    Edit custom dimension
+                    {t(
+                        'components_explorer_results_card_column_context_menu.edit_dimension',
+                    )}
                 </Menu.Item>
                 <Menu.Divider />
 
@@ -196,7 +211,9 @@ const ContextMenu: FC<ContextMenuProps> = ({
                         removeCustomDimension(getItemId(item));
                     }}
                 >
-                    Remove
+                    {t(
+                        'components_explorer_results_card_column_context_menu.remove',
+                    )}
                 </Menu.Item>
             </>
         );
@@ -210,7 +227,9 @@ const ContextMenu: FC<ContextMenuProps> = ({
                         addFilter(item, undefined, false);
                     }}
                 >
-                    Filter by{' '}
+                    {t(
+                        'components_explorer_results_card_column_context_menu.filter',
+                    )}{' '}
                     <Text span fw={500}>
                         {getItemLabelWithoutTableName(item)}
                     </Text>
@@ -228,7 +247,9 @@ const ContextMenu: FC<ContextMenuProps> = ({
                         onToggleCalculationEditModal(true);
                     }}
                 >
-                    Edit calculation
+                    {t(
+                        'components_explorer_results_card_column_context_menu.eidt_calculation',
+                    )}
                 </Menu.Item>
 
                 <Menu.Divider />
@@ -248,7 +269,9 @@ const ContextMenu: FC<ContextMenuProps> = ({
                         onToggleCalculationDeleteModal(true);
                     }}
                 >
-                    Remove
+                    {t(
+                        'components_explorer_results_card_column_context_menu.remove',
+                    )}
                 </Menu.Item>
             </>
         );

@@ -18,6 +18,8 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { SqlEditor } from '../../../features/tableCalculation/components/SqlForm';
 import useToaster from '../../../hooks/toaster/useToaster';
 import { useCustomDimensionsAceEditorCompleter } from '../../../hooks/useExplorerAceEditorCompleter';
@@ -55,6 +57,7 @@ export const CustomSqlDimensionModal: FC<{
     const editCustomDimension = useExplorerContext(
         (context) => context.actions.editCustomDimension,
     );
+    const { t } = useTranslation();
 
     const form = useForm<FormValues>({
         initialValues: {
@@ -82,7 +85,9 @@ export const CustomSqlDimensionModal: FC<{
                 );
 
                 return isInvalid
-                    ? 'Dimension/Table calculation with this label already exists'
+                    ? t(
+                          'components_explorer_custom_sql_dimension_modal.tips.is_exists',
+                      )
                     : null;
             },
         },
@@ -113,12 +118,16 @@ export const CustomSqlDimensionModal: FC<{
         if (isEditing && item) {
             editCustomDimension({ ...customDim, id: item.id }, item.id);
             showToastSuccess({
-                title: 'Custom dimension edited successfully',
+                title: t(
+                    'components_explorer_custom_sql_dimension_modal.tips.edit_success',
+                ),
             });
         } else {
             addCustomDimension(customDim);
             showToastSuccess({
-                title: 'Custom dimension added successfully',
+                title: t(
+                    'components_explorer_custom_sql_dimension_modal.tips.add_success',
+                ),
             });
         }
 
@@ -138,7 +147,18 @@ export const CustomSqlDimensionModal: FC<{
             title={
                 <>
                     <Title order={4}>
-                        {isEditing ? 'Edit' : 'Create'} Custom Dimension
+                        {t(
+                            'components_explorer_custom_sql_dimension_modal.modal.title',
+                            {
+                                title: isEditing
+                                    ? t(
+                                          'components_explorer_custom_sql_dimension_modal.modal.edit',
+                                      )
+                                    : t(
+                                          'components_explorer_custom_sql_dimension_modal.modal.create',
+                                      ),
+                            },
+                        )}
                         {item ? (
                             <Text span fw={400}>
                                 {' '}
@@ -152,15 +172,21 @@ export const CustomSqlDimensionModal: FC<{
             <form onSubmit={handleOnSubmit}>
                 <Stack>
                     <TextInput
-                        label="Label"
+                        label={t(
+                            'components_explorer_custom_sql_dimension_modal.form.label.label',
+                        )}
                         required
-                        placeholder="Enter custom dimension label"
+                        placeholder={t(
+                            'components_explorer_custom_sql_dimension_modal.form.label.placeholder',
+                        )}
                         {...form.getInputProps('customDimensionLabel')}
                     />
                     <ScrollArea h={'150px'}>
                         <SqlEditor
                             mode="sql"
-                            placeholder="Enter SQL"
+                            placeholder={t(
+                                'components_explorer_custom_sql_dimension_modal.form.sql.placeholder',
+                            )}
                             theme="github"
                             width="100%"
                             maxLines={Infinity}
@@ -180,12 +206,20 @@ export const CustomSqlDimensionModal: FC<{
                     </ScrollArea>
                     <Select
                         withinPortal={true}
-                        label="Return type"
+                        label={t(
+                            'components_explorer_custom_sql_dimension_modal.form.select.label',
+                        )}
                         data={Object.values(DimensionType)}
                         {...form.getInputProps('dimensionType')}
                     />
                     <Button ml="auto" type="submit">
-                        {isEditing ? 'Save changes' : 'Create'}
+                        {isEditing
+                            ? t(
+                                  'components_explorer_custom_sql_dimension_modal.form.save',
+                              )
+                            : t(
+                                  'components_explorer_custom_sql_dimension_modal.form.create',
+                              )}
                     </Button>
                 </Stack>
             </form>

@@ -8,7 +8,9 @@ import {
 import { IconSparkles } from '@tabler/icons-react';
 import { type FC } from 'react';
 import AceEditor, { type IAceEditorProps } from 'react-ace';
+import { useTranslation } from 'react-i18next';
 import styled, { css } from 'styled-components';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useTableCalculationAceEditorCompleter } from '../../../hooks/useExplorerAceEditorCompleter';
 import { type TableCalculationForm } from '../types';
@@ -50,6 +52,7 @@ export const SqlForm: FC<Props> = ({ form, isFullScreen }) => {
         key: SOFT_WRAP_LOCAL_STORAGE_KEY,
         defaultValue: true,
     });
+    const { t } = useTranslation();
 
     const { setAceEditor } = useTableCalculationAceEditorCompleter();
 
@@ -90,13 +93,17 @@ export const SqlForm: FC<Props> = ({ form, isFullScreen }) => {
                 icon={<MantineIcon icon={IconSparkles} />}
                 title={
                     <Text fz="xs">
-                        Need inspiration?{' '}
+                        {t(
+                            'features_table_calculation_components_sql_form.alert.step_1',
+                        )}{' '}
                         <Anchor
                             target="_blank"
                             href="https://docs.lightdash.com/guides/table-calculations/sql-templates"
                             rel="noreferrer"
                         >
-                            Check out our templates!
+                            {t(
+                                'features_table_calculation_components_sql_form.alert.step_2',
+                            )}
                         </Anchor>
                     </Text>
                 }
