@@ -29,7 +29,9 @@ import {
 } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import React, { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
+
 import MantineIcon from '../MantineIcon';
 import FilterRuleForm from './FilterRuleForm';
 
@@ -56,6 +58,7 @@ const FilterGroupForm: FC<Props> = ({
 }) => {
     const items = getItemsFromFilterGroup(filterGroup);
     const [conditionLabel, setConditionLabel] = useState('');
+    const { t } = useTranslation();
 
     const [dimensions, metrics, tableCalculations] = useMemo<
         [
@@ -195,7 +198,9 @@ const FilterGroupForm: FC<Props> = ({
                 </Box>
 
                 <Text color="dimmed" size="xs">
-                    of the following {conditionLabel} conditions match:
+                    {t('components_common_filters.group_form.tip', {
+                        conditionLabel,
+                    })}
                 </Text>
             </Group>
 
@@ -256,7 +261,9 @@ const FilterGroupForm: FC<Props> = ({
                             leftIcon={<MantineIcon icon={IconPlus} />}
                             onClick={onAddFilterRule}
                         >
-                            Add group rule
+                            {t(
+                                'components_common_filters.group_form.add_group_rule',
+                            )}
                         </Button>
                     </Box>
                 )}

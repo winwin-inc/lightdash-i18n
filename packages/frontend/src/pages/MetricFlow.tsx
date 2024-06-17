@@ -13,6 +13,8 @@ import {
 } from '@mantine/core';
 import { IconPlayerPlay, IconRefresh, IconTrashX } from '@tabler/icons-react';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { TimeGranularity } from '../api/MetricFlowAPI';
 import { ChartDownloadMenu } from '../components/ChartDownload';
 import CollapsableCard from '../components/common/CollapsableCard';
@@ -46,6 +48,8 @@ const MetricFlowPage = () => {
     const { user, health } = useApp();
     const { data: org } = useOrganization();
     const { activeProjectUuid } = useActiveProjectUuid();
+    const { t } = useTranslation();
+
     const [selectedMetrics, setSelectedMetrics] = useState<Record<string, {}>>(
         {},
     );
@@ -58,7 +62,7 @@ const MetricFlowPage = () => {
         {
             onError: ({ error }) => {
                 showToastApiError({
-                    title: 'Error fetching dimensions',
+                    title: t('pages_metric_flow.error_tips.dimensions'),
                     apiError: error,
                 });
                 setSelectedMetrics({});
@@ -71,7 +75,7 @@ const MetricFlowPage = () => {
         {
             onError: ({ error }) => {
                 showToastApiError({
-                    title: 'Error fetching metrics',
+                    title: t('pages_metric_flow.error_tips.metrics'),
                     apiError: error,
                 });
                 setSelectedDimensions({});
@@ -87,7 +91,7 @@ const MetricFlowPage = () => {
         {
             onError: ({ error }) => {
                 showToastApiError({
-                    title: 'Error generating query',
+                    title: t('pages_metric_flow.error_tips.query'),
                     apiError: error,
                 });
             },
@@ -95,7 +99,7 @@ const MetricFlowPage = () => {
         {
             onError: ({ error }) => {
                 showToastApiError({
-                    title: 'Error fetching results',
+                    title: t('pages_metric_flow.error_tips.results'),
                     apiError: error,
                 });
             },
@@ -192,7 +196,9 @@ const MetricFlowPage = () => {
         health.isInitialLoading ||
         !health.data
     ) {
-        return <LoadingState title="Loading metricflow" />;
+        return (
+            <LoadingState title={t('pages_metric_flow.loading_metricflow')} />
+        );
     }
 
     if (cannotViewProject) {
@@ -200,7 +206,7 @@ const MetricFlowPage = () => {
     }
     return (
         <Page
-            title="MetricFlow"
+            title={t('pages_metric_flow.title')}
             withSidebarFooter
             withFullHeight
             withPaddedContent
@@ -215,23 +221,31 @@ const MetricFlowPage = () => {
                             <PageBreadcrumbs
                                 items={[
                                     {
-                                        title: 'dbt Semantic Layer',
+                                        title: t(
+                                            'pages_metric_flow.dbt_semantic_layer',
+                                        ),
                                         active: true,
                                     },
                                 ]}
                             />
                             <Tooltip
                                 multiline
-                                label={`The dbt Semantic Layer integration is in beta and may be unstable`}
+                                label={t(
+                                    'pages_metric_flow.tooltip_dbt_semantic.label',
+                                )}
                             >
                                 <Badge size="sm" variant="light">
-                                    BETA
+                                    {t(
+                                        'pages_metric_flow.tooltip_dbt_semantic.content',
+                                    )}
                                 </Badge>
                             </Tooltip>
                         </Flex>
                         <Button.Group>
                             <Tooltip
-                                label={'Run query'}
+                                label={t(
+                                    'pages_metric_flow.tooltip_run_query.label',
+                                )}
                                 withinPortal
                                 position="bottom"
                             >
@@ -249,7 +263,9 @@ const MetricFlowPage = () => {
                                 </Button>
                             </Tooltip>
                             <Tooltip
-                                label={'Refetch fields'}
+                                label={t(
+                                    'pages_metric_flow.tooltip_refetch_fields.label',
+                                )}
                                 withinPortal
                                 position="bottom"
                             >
@@ -269,7 +285,9 @@ const MetricFlowPage = () => {
                                 </Button>
                             </Tooltip>
                             <Tooltip
-                                label={'Clear selected fields'}
+                                label={t(
+                                    'pages_metric_flow.tooltip_clear_fields.label',
+                                )}
                                 withinPortal
                                 position="bottom"
                             >
@@ -289,14 +307,16 @@ const MetricFlowPage = () => {
                     <Stack mah="100%" sx={{ overflow: 'hidden' }}>
                         <Flex align="baseline" gap="xxs">
                             <Title order={5} color="yellow.9">
-                                Metrics
+                                {t('pages_metric_flow.metrics.title')}
                             </Title>
                             <Text span fz="xs" color="gray.6">
                                 (
                                 {semanticLayerMetricsQuery.data
                                     ?.metricsForDimensions.length ?? 0}
                                 {Object.keys(selectedDimensions).length > 0 && (
-                                    <> available based on selected dimensions</>
+                                    <>
+                                        {t('pages_metric_flow.metrics.content')}
+                                    </>
                                 )}
                                 )
                             </Text>
@@ -314,14 +334,18 @@ const MetricFlowPage = () => {
                         </ScrollArea>
                         <Flex align="baseline" gap="xxs">
                             <Title order={5} color="blue.9">
-                                Dimensions
+                                {t('pages_metric_flow.dimensions.title')}
                             </Title>
                             <Text span fz="xs" color="gray.6">
                                 (
                                 {semanticLayerDimensionsQuery.data?.dimensions
                                     .length ?? 0}
                                 {(selectedMetrics as any).size > 0 && (
-                                    <> available based on selected metrics</>
+                                    <>
+                                        {t(
+                                            'pages_metric_flow.dimensions.content',
+                                        )}
+                                    </>
                                 )}
                                 )
                             </Text>
@@ -363,7 +387,7 @@ const MetricFlowPage = () => {
                     colorPalette={org?.chartColors ?? ECHARTS_DEFAULT_COLORS}
                 >
                     <CollapsableCard
-                        title="Charts"
+                        title={t('pages_metric_flow.charts')}
                         rightHeaderElement={
                             <>
                                 <VisualizationCardOptions />
@@ -386,7 +410,7 @@ const MetricFlowPage = () => {
                 </VisualizationProvider>
 
                 <CollapsableCard
-                    title="Results"
+                    title={t('pages_metric_flow.results')}
                     isOpen={true}
                     onToggle={() => undefined}
                 >

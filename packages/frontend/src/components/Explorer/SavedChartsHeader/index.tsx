@@ -44,7 +44,9 @@ import {
 } from '@tabler/icons-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Fragment, useEffect, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation, useParams } from 'react-router-dom';
+
 import { lightdashApi } from '../../../api';
 import { PromotionConfirmDialog } from '../../../features/promotion/components/PromotionConfirmDialog';
 import {
@@ -135,6 +137,7 @@ const useCreatePullRequestForChartFieldsMutation = (
 
     );*/
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
 
     return useMutation<PullRequestCreated, ApiError>(
         () => createPullRequestForChartFields(projectUuid, chartUuid!),
@@ -143,7 +146,9 @@ const useCreatePullRequestForChartFieldsMutation = (
             retry: false,
             onSuccess: async (pullRequest) => {
                 showToastSuccess({
-                    title: `Success! Create branch with changes: '${pullRequest.prTitle}'`,
+                    title: `${t(
+                        'components_explorer_save_charts_header.create_success',
+                    )}'${pullRequest.prTitle}'`,
                     action: {
                         children: 'Open Pull Request',
                         icon: IconArrowRight,
@@ -155,7 +160,9 @@ const useCreatePullRequestForChartFieldsMutation = (
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to create pull request`,
+                    title: t(
+                        'components_explorer_save_charts_header.create_error',
+                    ),
                     apiError: error,
                 });
             },
@@ -179,6 +186,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
     const dashboardUuid = useSearchParams('fromDashboard');
     const isFromDashboard = !!dashboardUuid;
     const spaceUuid = useSearchParams('fromSpace');
+    const { t } = useTranslation();
 
     const userTimeZonesEnabled = useFeatureFlagEnabled(
         FeatureFlags.EnableUserTimezones,
@@ -280,15 +288,16 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
     useEffect(() => {
         const checkReload = (event: BeforeUnloadEvent) => {
             if (hasUnsavedChanges && isEditMode) {
-                const message =
-                    'You have unsaved changes to your dashboard! Are you sure you want to leave without saving?';
+                const message = t(
+                    'components_explorer_save_charts_header.check_reload_message',
+                );
                 event.returnValue = message;
                 return message;
             }
         };
         window.addEventListener('beforeunload', checkReload);
         return () => window.removeEventListener('beforeunload', checkReload);
-    }, [hasUnsavedChanges, isEditMode]);
+    }, [hasUnsavedChanges, isEditMode, t]);
 
     useEffect(() => {
         history.block((prompt) => {
@@ -421,8 +430,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                     icon={<MantineIcon size="xl" icon={IconAlertTriangle} />}
                     color="red"
                 >
-                    You have unsaved changes to your chart! Are you sure you
-                    want to leave without saving?
+                    {t('components_explorer_save_charts_header.modal.content')}
                 </Alert>
                 <Group position="right" mt="sm">
                     <Button
@@ -430,7 +438,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                         variant="outline"
                         onClick={saveWarningModalHandlers.close}
                     >
-                        Stay
+                        {t('components_explorer_save_charts_header.modal.stay')}
                     </Button>
                     <Button
                         color="red"
@@ -440,7 +448,9 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                 history.push(blockedNavigationLocation);
                         }}
                     >
-                        Leave page
+                        {t(
+                            'components_explorer_save_charts_header.modal.leave_page',
+                        )}
                     </Button>
                 </Group>
             </Modal>
@@ -536,7 +546,9 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                                 })
                                             }
                                         >
-                                            Edit chart
+                                            {t(
+                                                'components_explorer_save_charts_header.edit_chart',
+                                            )}
                                         </Button>
                                         <ShareShortLinkButton
                                             disabled={!isValidQuery}
@@ -554,7 +566,9 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                             }
                                             onClick={handleCancelClick}
                                         >
-                                            Cancel{' '}
+                                            {t(
+                                                'components_explorer_save_charts_header.cancel',
+                                            )}{' '}
                                             {isFromDashboard ? 'changes' : ''}
                                         </Button>
 
@@ -599,7 +613,9 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                         }
                                         onClick={queryModalHandlers.open}
                                     >
-                                        Save chart as
+                                        {t(
+                                            'components_explorer_save_charts_header.menus.save_chart_as',
+                                        )}
                                     </Menu.Item>
                                 )}
                                 {userCanManageChart &&
@@ -613,7 +629,9 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                                 chartDuplicateModalHandlers.open
                                             }
                                         >
-                                            Duplicate
+                                            {t(
+                                                'components_explorer_save_charts_header.menus.duplicate',
+                                            )}
                                         </Menu.Item>
                                     )}
                                 {userCanManageChart &&
@@ -628,7 +646,9 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                                 addToDashboardModalHandlers.open
                                             }
                                         >
-                                            Add to dashboard
+                                            {t(
+                                                'components_explorer_save_charts_header.menus.add_to_dashboard',
+                                            )}
                                         </Menu.Item>
                                     )}
                                 {userCanManageChart &&
@@ -643,7 +663,9 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                                 setIsMovingChart(true)
                                             }
                                         >
-                                            Move to space
+                                            {t(
+                                                'components_explorer_save_charts_header.menus.move_to_space',
+                                            )}
                                         </Menu.Item>
                                     )}
 
@@ -663,8 +685,12 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                         onClick={onTogglePin}
                                     >
                                         {isPinned
-                                            ? 'Unpin from homepage'
-                                            : 'Pin to homepage'}
+                                            ? t(
+                                                  'components_explorer_save_charts_header.menus.unpin',
+                                              )
+                                            : t(
+                                                  'components_explorer_save_charts_header.menus.pin',
+                                              )}
                                     </Menu.Item>
                                 )}
 
@@ -817,12 +843,16 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                             })
                                         }
                                     >
-                                        Version history
+                                        {t(
+                                            'components_explorer_save_charts_header.menus.version_history',
+                                        )}
                                     </Menu.Item>
                                 )}
                                 {userCanPromoteChart && (
                                     <Tooltip
-                                        label="You must enable first an upstram project in settings > Data ops"
+                                        label={t(
+                                            'components_explorer_save_charts_header.menus.tooltip_can_prompote.label',
+                                        )}
                                         disabled={
                                             project?.upstreamProjectUuid !==
                                             undefined
@@ -848,14 +878,20 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                                     );
                                                 }}
                                             >
-                                                Promote chart
+                                                {t(
+                                                    'components_explorer_save_charts_header.menus.tooltip_can_prompote.content',
+                                                )}
                                             </Menu.Item>
                                         </div>
                                     </Tooltip>
                                 )}
 
                                 <Menu.Divider />
-                                <Menu.Label>Integrations</Menu.Label>
+                                <Menu.Label>
+                                    {t(
+                                        'components_explorer_save_charts_header.menus.integrations',
+                                    )}
+                                </Menu.Label>
                                 {userCanCreateDeliveriesAndAlerts && (
                                     <Menu.Item
                                         icon={<MantineIcon icon={IconSend} />}
@@ -863,7 +899,9 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                             scheduledDeliveriesModalHandlers.open
                                         }
                                     >
-                                        Scheduled deliveries
+                                        {t(
+                                            'components_explorer_save_charts_header.menus.scheduled_deliveries',
+                                        )}
                                     </Menu.Item>
                                 )}
                                 {userCanCreateDeliveriesAndAlerts && (
@@ -873,7 +911,9 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                             thresholdAlertsModalHandlers.open
                                         }
                                     >
-                                        Alerts
+                                        {t(
+                                            'components_explorer_save_charts_header.menus.alerts',
+                                        )}
                                     </Menu.Item>
                                 )}
                                 {userCanManageChart && hasGoogleDriveEnabled ? (
@@ -887,7 +927,9 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                             syncWithGoogleSheetsModalHandlers.open
                                         }
                                     >
-                                        Google Sheets Sync
+                                        {t(
+                                            'components_explorer_save_charts_header.menus.google_sheets_sync',
+                                        )}
                                     </Menu.Item>
                                 ) : null}
                                 {gitIntegration?.enabled && (
@@ -899,7 +941,9 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                             createPullRequest.mutate()
                                         }
                                     >
-                                        Add custom metrics to dbt project
+                                        {t(
+                                            'components_explorer_save_charts_header.menus.add_custom_metrics',
+                                        )}
                                     </Menu.Item>
                                 )}
                                 {userCanManageChart && (
@@ -911,7 +955,9 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                                 !getIsEditingDashboardChart()
                                             }
                                             position="bottom"
-                                            label="This chart can be deleted from its dashboard"
+                                            label={t(
+                                                'components_explorer_save_charts_header.menus.tooltip_can_manage.label',
+                                            )}
                                         >
                                             <Box>
                                                 <Menu.Item
@@ -927,7 +973,9 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                                         deleteModalHandlers.open
                                                     }
                                                 >
-                                                    Delete
+                                                    {t(
+                                                        'components_explorer_save_charts_header.menus.tooltip_can_manage.content',
+                                                    )}
                                                 </Menu.Item>
                                             </Box>
                                         </Tooltip>

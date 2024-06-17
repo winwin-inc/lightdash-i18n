@@ -9,6 +9,8 @@ import {
     IconLayoutSidebarLeftExpand,
 } from '@tabler/icons-react';
 import { memo, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { COLLAPSABLE_CARD_BUTTON_PROPS } from '../../common/CollapsableCard';
 import MantineIcon from '../../common/MantineIcon';
 import { BANNER_HEIGHT, NAVBAR_HEIGHT } from '../../NavBar';
@@ -28,6 +30,8 @@ const VisualizationSidebar: FC<{
     onOpen: () => void;
 }> = memo(
     ({ chartType, savedChart, isProjectPreview, isOpen, onOpen, onClose }) => {
+        const { t } = useTranslation();
+
         const sidebarVerticalOffset = useMemo(() => {
             let offset = NAVBAR_HEIGHT;
 
@@ -79,11 +83,21 @@ const VisualizationSidebar: FC<{
                         />
                     }
                 >
-                    {isOpen ? 'Close configure' : 'Configure'}
+                    {isOpen
+                        ? t(
+                              'components_explorer_visualization_card.close_configure',
+                          )
+                        : t('components_explorer_visualization_card.configure')}
                 </Button>
 
                 <Drawer
-                    title={<Text fw={600}>Configure chart</Text>}
+                    title={
+                        <Text fw={600}>
+                            {t(
+                                'components_explorer_visualization_card.configure_chart',
+                            )}
+                        </Text>
+                    }
                     zIndex={100}
                     opened={isOpen}
                     withOverlay={false}
@@ -113,7 +127,12 @@ const VisualizationSidebar: FC<{
                     onClose={onClose}
                 >
                     <Group py="lg">
-                        <Text fw={600}>Chart type</Text>
+                        <Text fw={600}>
+                            {' '}
+                            {t(
+                                'components_explorer_visualization_card.chart_type',
+                            )}
+                        </Text>
                         <VisualizationCardOptions />
                     </Group>
 

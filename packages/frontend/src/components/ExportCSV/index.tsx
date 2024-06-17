@@ -8,6 +8,8 @@ import { notifications } from '@mantine/notifications';
 import { IconTableExport } from '@tabler/icons-react';
 import { useMutation } from '@tanstack/react-query';
 import { memo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { pollCsvFileUrl } from '../../api/csv';
 import useHealth from '../../hooks/health/useHealth';
 import useToaster from '../../hooks/toaster/useToaster';
@@ -46,6 +48,7 @@ const ExportCSV: FC<ExportCSVProps> = memo(
     ({ projectUuid, rows, getCsvLink, isDialogBody, renderDialogActions }) => {
         const { showToastError, showToastInfo, showToastWarning } =
             useToaster();
+        const { t } = useTranslation();
 
         const user = useUser(true);
         const [limit, setLimit] = useState<string>(Limit.TABLE);
@@ -68,8 +71,10 @@ const ExportCSV: FC<ExportCSVProps> = memo(
                 {
                     onMutate: () => {
                         showToastInfo({
-                            title: 'Exporting CSV',
-                            subtitle: 'This may take a few minutes...',
+                            title: t('components_export_csv.toast_info.title'),
+                            subtitle: t(
+                                'components_export_csv.toast_info.subtitle',
+                            ),
                             loading: true,
                             key: 'exporting-csv',
                             autoClose: false,
@@ -84,8 +89,17 @@ const ExportCSV: FC<ExportCSVProps> = memo(
 
                                 if (csvFile.truncated) {
                                     showToastWarning({
-                                        title: `The results in this export have been limited.`,
-                                        subtitle: `The export limit is ${health.data?.query.csvCellsLimit} cells, but your file exceeded that limit.`,
+                                        title: t(
+                                            'components_export_csv.toast_warning.title',
+                                        ),
+                                        subtitle: t(
+                                            'components_export_csv.toast_warning.subtitle',
+                                            {
+                                                csvCellsLimit:
+                                                    health.data?.query
+                                                        .csvCellsLimit,
+                                            },
+                                        ),
                                     });
                                 }
                             })
@@ -93,7 +107,9 @@ const ExportCSV: FC<ExportCSVProps> = memo(
                                 notifications.hide('exporting-csv');
 
                                 showToastError({
-                                    title: `Unable to download CSV`,
+                                    title: t(
+                                        'components_export_csv.toast_error.title',
+                                    ),
                                     subtitle: error?.error?.message,
                                 });
                             });
@@ -102,7 +118,7 @@ const ExportCSV: FC<ExportCSVProps> = memo(
                         notifications.hide('exporting-csv');
 
                         showToastError({
-                            title: `Unable to download CSV`,
+                            title: t('components_export_csv.toast_error.title'),
                             subtitle: error?.error?.message,
                         });
                     },
@@ -110,7 +126,11 @@ const ExportCSV: FC<ExportCSVProps> = memo(
             );
 
         if (!rows || rows.length <= 0) {
-            return <Alert color="gray">No data to export</Alert>;
+            return (
+                <Alert color="gray">
+                    {t('components_export_csv.no_data_to_export')}
+                </Alert>
+            );
         }
 
         return (
@@ -121,13 +141,25 @@ const ExportCSV: FC<ExportCSVProps> = memo(
                     miw={300}
                 >
                     <Radio.Group
-                        label="Values"
+                        label={t(
+                            'components_export_csv.radio_groups_values.label',
+                        )}
                         value={format}
                         onChange={(val) => setFormat(val)}
                     >
                         <Stack spacing="xs" mt="xs">
-                            <Radio label="Formatted" value={Values.FORMATTED} />
-                            <Radio label="Raw" value={Values.RAW} />
+                            <Radio
+                                label={t(
+                                    'components_export_csv.radio_groups_values.radio_01',
+                                )}
+                                value={Values.FORMATTED}
+                            />
+                            <Radio
+                                label={t(
+                                    'components_export_csv.radio_groups_values.radio_02',
+                                )}
+                                value={Values.RAW}
+                            />
                         </Stack>
                     </Radio.Group>
 
@@ -139,17 +171,31 @@ const ExportCSV: FC<ExportCSVProps> = memo(
                         })}
                     >
                         <Radio.Group
-                            label="Limit"
+                            label={t(
+                                'components_export_csv.radio_groups_limit.label',
+                            )}
                             value={limit}
                             onChange={(val) => setLimit(val)}
                         >
                             <Stack spacing="xs" mt="xs">
                                 <Radio
-                                    label="Results in Table"
+                                    label={t(
+                                        'components_export_csv.radio_groups_limit.radio_01',
+                                    )}
                                     value={Limit.TABLE}
                                 />
-                                <Radio label="All Results" value={Limit.ALL} />
-                                <Radio label="Custom..." value={Limit.CUSTOM} />
+                                <Radio
+                                    label={t(
+                                        'components_export_csv.radio_groups_limit.radio_02',
+                                    )}
+                                    value={Limit.ALL}
+                                />
+                                <Radio
+                                    label={t(
+                                        'components_export_csv.radio_groups_limit.radio_03',
+                                    )}
+                                    value={Limit.CUSTOM}
+                                />
                             </Stack>
                         </Radio.Group>
                     </Can>
@@ -168,11 +214,11 @@ const ExportCSV: FC<ExportCSVProps> = memo(
 
                     {(limit === Limit.ALL || limit === Limit.CUSTOM) && (
                         <Alert color="gray">
-                            Results are limited to{' '}
+                            {t('components_export_csv.limit_alert_tip.step_1')}{' '}
                             {Number(
                                 health.data?.query.csvCellsLimit || 100000,
                             ).toLocaleString()}{' '}
-                            cells for each file
+                            {t('components_export_csv.limit_alert_tip.step_2')}
                         </Alert>
                     )}
                     {!isDialogBody && (
@@ -186,7 +232,7 @@ const ExportCSV: FC<ExportCSVProps> = memo(
                             onClick={() => exportCsvMutation()}
                             data-testid="chart-export-csv-button"
                         >
-                            Export CSV
+                            {t('components_export_csv.export_csv')}
                         </Button>
                     )}
                 </Stack>

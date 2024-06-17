@@ -64,6 +64,103 @@
             "delete": "删除"
         }
     },
+    "features_scheduler_components_scheduler_form": {
+        "threshold_operator_options": {
+            "is_greater_than": "大于",
+            "is_less_than": "小于",
+            "increased_by": "增加了",
+            "decreased_by": "减少了"
+        },
+        "no_slack": {
+            "stpe_1": "未找到 Slack 集成",
+            "step_2": "要创建 Slack 交付计划，您需要",
+            "step_3": "设置 Slack",
+            "step_4": "适用于您的 Lightdash 实例"
+        },
+        "missing_scopes": {
+            "step_1": "需要重新安装 Slack 集成",
+            "step_2": "要创建 Slack 交付计划，您需要",
+            "step_3": "重新安装 Slack 集成",
+            "step_4": "为您的组织"
+        },
+        "validate_tips": {
+            "name": "姓名为必填项",
+            "custom_limit": "自定义限制必须是整数"
+        },
+        "form": {
+            "tabs_list": {
+                "setup": "设置",
+                "filters": "筛选器",
+                "alert_message": "提醒消息",
+                "customization": "定制",
+                "preview_and_size": "预览和尺寸"
+            },
+            "tabs_panel_setup": {
+                "alter_me": "提醒我",
+                "delivery_name": "推送名称",
+                "name_your_alert": "命名您的提醒",
+                "nmae_your_delivery": "命名您的推送",
+                "alert_field": "提醒字段",
+                "no_fields": "没有可用的数字字段。您必须至少有一个数字指标或计算才能设置提醒。",
+                "condition": "条件",
+                "threshold": "阈值",
+                "notify_me_only_once": "只通知我一次",
+                "trigger_notification": "每当达到阈值条件时,您将按指定频率收到通知",
+                "run_frequency": "运行频率",
+                "delivery_frequency": "推送频率",
+                "threshold_alert": "这是Lightdash查询数据变化的频率。(如果满足最新数值的条件,您将收到通知)",
+                "format": "格式",
+                "image_disabled": {
+                    "step_1": "您必须启用",
+                    "step_2": "无头浏览器",
+                    "step_3": "以发送图像"
+                },
+                "include_image_pdf": "同时以PDF附件形式包含图像",
+                "formatting_options": "格式选项",
+                "formatted": "格式化",
+                "raw": "原始",
+                "limit": "限制",
+                "results_in_table": "结果以表格形式显示",
+                "all_results": "全部结果",
+                "custom": "自定义...",
+                "results_are_limited": "每个文件的结果被限制在 {{limit}} 个单元格内",
+                "destinations": "目标",
+                "enter_email_address": "输入电子邮件地址",
+                "enter_email_validation_error": "'{{val}}' 似乎不是有效的电子邮件地址",
+                "no_email_integration": {
+                    "step_1": "未找到电子邮件集成",
+                    "step_2": "要创建电子邮件定期推送, 您需要添加",
+                    "step_3": "SMTP 环境变量",
+                    "step_4": "到您的 Lightdash 实例"
+                },
+                "search_slack_channels": "搜索 Slack 频道",
+                "send_to_private_channel": "发送到私有频道 #{{query}}",
+                "add_slack_disabled": "如果要投放到私有 Slack 频道, 请在输入框中准确输入该频道在 Slack 中的名称。同时确保您已邀请 Lightdash Slackbot 加入该频道。"
+            },
+            "tabs_panel_customization": {
+                "title": "自定义推送消息体"
+            }
+        }
+    },
+
+    "components_common_filters": {
+        "tried_to_reference": "尝试引用未知 ID 的字段:",
+        "add_filter": "添加筛选器",
+        "group_form": {
+            "tip": "下列 {{conditionLabel}} 条件匹配:",
+            "add_group_rule": "添加分组规则"
+        },
+        "rule_form": {
+            "convert_to_group": "转换为分组",
+            "remove": "删除"
+        },
+        "simplified_group_form": {
+            "tooltip": {
+                "label": "只能在组合指标和维度时使用'and'操作符",
+                "content": "下列所有条件都匹配:"
+            }
+        }
+    },
 
     "components_refresh_buttom": {
         "run_query": "运行查询"
@@ -472,6 +569,17 @@
             }
         }
     },
+    "components_explorer_table_tree": {
+        "add_filter": "添加筛选器",
+        "edit_custom_metric": "编辑自定义指标",
+        "remove_custom_metric": "删除自定义指标",
+        "view_description": "查看描述",
+        "edit_custom_dimension": "编辑自定义维度",
+        "remove_custom_dimension": "删除自定义维度",
+        "add_custom_metrics": "添加自定义指标",
+        "add_custom_dimensions": "添加自定义维度",
+        "view_options": "查看选项"
+    },
     "components_explorer_custom_dimension_modal": {
         "tips": {
             "dimension_is_exists": "此标签的维度已存在",
@@ -553,6 +661,9 @@
             }
         }
     },
+    "components_explorer_results_card": {
+        "title": "结果"
+    },
     "components_explorer_results_card_column_context_menu": {
         "filter": "过滤",
         "remove": "移除",
@@ -632,6 +743,66 @@
             "title": "正在加载结果"
         }
     },
+    "components_explorer_save_charts_header": {
+        "create_success": "成功！创建包含变更的分支：",
+        "create_error": "无法创建拉取请求",
+        "check_reload_message": "您的仪表盘上有未保存的更改！您确定要离开而不保存吗？",
+        "modal": {
+            "content": "您的图表中有未保存的更改！您确定要离开而不保存吗？",
+            "stay": "停留",
+            "leave_page": "离开页面"
+        },
+        "edit_chart": "编辑图表",
+        "cancel": "取消",
+        "menus": {
+            "save_chart_as": "将图表另存为",
+            "duplicate": "复制",
+            "add_to_dashboard": "添加到看板",
+            "move_to_space": "移动到空间",
+            "unpin": "从主页取消固定",
+            "pin": "固定到主页",
+            "version_history": "版本历史",
+            "tooltip_can_prompote": {
+                "label": "您必须先在设置中启用上游项目 > 数据操作",
+                "content": "推广图表"
+            },
+            "integrations": "集成",
+            "scheduled_deliveries": "预定交付",
+            "alerts": "警告",
+            "google_sheets_sync": "Google 表格同步",
+            "add_custom_metrics": "向 dbt 项目添加自定义指标",
+            "tooltip_can_manage": {
+                "label": "可以从仪表板中删除此图表",
+                "content": "删除"
+            }
+        }
+    },
+    "components_explorer_save_chart_button": {
+        "save_changes": "保存更改",
+        "save_chart": "保存图表"
+    },
+    "components_explorer_filters_card": {
+        "title": "筛选器",
+        "no_filter": "当前图表无筛选条件",
+        "active_filter": "激活筛选器",
+        "tip": "您必须处于“编辑”或“探索”模式才能更改过滤器",
+        "rule_error": "尝试引用具有未知 ID 的字段："
+    },
+    "components_explorer_visualization_card": {
+        "chart": "图表",
+        "charts": "图表",
+        "tips": {
+            "copy": "已复制到剪贴板！"
+        },
+        "menus": {
+            "copy_value": "复制值",
+            "view_underlying_data": "查看基础数据"
+        },
+        "close_configure": "关闭配置",
+        "configure": "配置",
+        "configure_chart": "配置图表",
+        "chart_type": "图表类型"
+    },
 
     "components_resource_view_list": {
         "columns": {
@@ -673,7 +844,7 @@
                 "title": "添加到看板"
             },
             "promote": {
-                "title": "推动"
+                "title": "推广"
             },
             "toggle_pin": {
                 "pin": "固定到主页",
@@ -817,5 +988,71 @@
         "sort": "排序",
         "sort_by": "排序方式",
         "then_by": "然后通过"
+    },
+
+    "components_export_csv": {
+        "toast_info": {
+            "title": "导出 CSV",
+            "subtitle": "这可能需要几分钟的时间..."
+        },
+        "toast_warning": {
+            "title": "此次导出结果已经被限制",
+            "subtitle": "导出限制为 {{csvCellsLimit}} 个单元格，但您的文件超出了该限制。"
+        },
+        "toast_error": {
+            "title": "无法下载 CSV"
+        },
+        "no_data_to_export": "没有可导出的数据",
+        "radio_groups_values": {
+            "label": "值",
+            "radio_01": "格式化",
+            "radio_02": "原始"
+        },
+        "radio_groups_limit": {
+            "label": "限制",
+            "radio_01": "表格结果",
+            "radio_02": "所有结果",
+            "radio_03": "自定义..."
+        },
+        "limit_alert_tip": {
+            "step_1": "结果被限制在",
+            "step_2": "每个文件的单元格"
+        },
+        "export_csv": "导出 CSV"
+    },
+
+    "pages_metric_flow": {
+        "error_tips": {
+            "dimensions": "获取维度时出错",
+            "metrics": "获取指标时出错",
+            "query": "生成查询时出错",
+            "results": "获取结果时出错"
+        },
+        "loading_metricflow": "正在加载 MetricFlow",
+        "title": "MetricFlow",
+        "dbt_semantic_layer": "dbt 语义层",
+        "tooltip_dbt_semantic": {
+            "label": "dbt 语义层集成处于测试阶段,可能不太稳定",
+            "content": "测试版"
+        },
+        "tooltip_run_query": {
+            "label": "运行查询"
+        },
+        "tooltip_refetch_fields": {
+            "label": "重新获取字段"
+        },
+        "tooltip_clear_fields": {
+            "label": "清除选择的字段"
+        },
+        "metrics": {
+            "title": "指标",
+            "content": "根据选择的维度可用"
+        },
+        "dimensions": {
+            "title": "维度",
+            "content": "根据选择的指标可用"
+        },
+        "charts": "图表",
+        "results": "结果"
     }
 }

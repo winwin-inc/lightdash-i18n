@@ -2,7 +2,9 @@ import { subject } from '@casl/ability';
 import { ActionIcon, Popover } from '@mantine/core';
 import { IconShare2 } from '@tabler/icons-react';
 import { memo, useCallback, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import { downloadCsv } from '../../../api/csv';
 import { uploadGsheet } from '../../../hooks/gdrive/useGdrive';
 import { useApp } from '../../../providers/AppProvider';
@@ -22,6 +24,8 @@ import SortButton from '../../SortButton';
 import { ExplorerResults } from './ExplorerResults';
 
 const ResultsCard: FC = memo(() => {
+    const { t } = useTranslation();
+
     const isEditMode = useExplorerContext(
         (context) => context.state.isEditMode,
     );
@@ -90,7 +94,7 @@ const ResultsCard: FC = memo(() => {
     const { user } = useApp();
     return (
         <CollapsableCard
-            title="Results"
+            title={t('components_explorer_results_card.title')}
             isOpen={resultsIsOpen}
             onToggle={toggleCard}
             disabled={!tableName}

@@ -1,6 +1,8 @@
 import { Button } from '@mantine/core';
 import { IconDeviceFloppy } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useAddVersionMutation } from '../../../hooks/useSavedQuery';
 import useSearchParams from '../../../hooks/useSearchParams';
 import { useExplorerContext } from '../../../providers/ExplorerProvider';
@@ -18,6 +20,7 @@ const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
         (context) => context.state.savedChart,
     );
     const spaceUuid = useSearchParams('fromSpace');
+    const { t } = useTranslation();
 
     const [isQueryModalOpen, setIsQueryModalOpen] = useState<boolean>(false);
 
@@ -53,7 +56,9 @@ const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
                 }
                 onClick={handleSaveChart}
             >
-                {savedChart ? 'Save changes' : 'Save chart'}
+                {savedChart
+                    ? t('components_explorer_save_chart_button.save_changes')
+                    : t('components_explorer_save_chart_button.save_chart')}
             </Button>
 
             {unsavedChartVersion && (

@@ -64,6 +64,103 @@
             "delete": "Delete"
         }
     },
+    "features_scheduler_components_scheduler_form": {
+        "threshold_operator_options": {
+            "is_greater_than": "is greater than",
+            "is_less_than": "is less than",
+            "increased_by": "increased by",
+            "decreased_by": "decreased by"
+        },
+        "no_slack": {
+            "stpe_1": "No Slack integration found",
+            "step_2": "To create a slack scheduled delivery, you need to",
+            "step_3": "setup Slack",
+            "step_4": "for your Lightdash instance"
+        },
+        "missing_scopes": {
+            "step_1": "Slack integration needs to be reinstalled",
+            "step_2": "To create a slack scheduled delivery, you need to",
+            "step_3": "reinstall the Slack integration",
+            "step_4": "for your organization"
+        },
+        "validate_tips": {
+            "name": "Name is required",
+            "custom_limit": "Custom limit must be an integer"
+        },
+        "form": {
+            "tabs_list": {
+                "setup": "Setup",
+                "filters": "Filters",
+                "alert_message": "Alert message",
+                "customization": "Customization",
+                "preview_and_size": "Preview and size"
+            },
+            "tabs_panel_setup": {
+                "alter_me": "Alert me",
+                "delivery_name": "Delivery name",
+                "name_your_alert": "Name your alert",
+                "nmae_your_delivery": "Name your delivery",
+                "alert_field": "Alert field",
+                "no_fields": "No numeric fields available. You must have at least one numeric metric or calculation to set an alert.",
+                "condition": "Condition",
+                "threshold": "Threshold",
+                "notify_me_only_once": "Notify me only once",
+                "trigger_notification": "You will be notified at the specified frequency whenever the threshold conditions are met",
+                "run_frequency": "Run frequency",
+                "delivery_frequency": "Delivery frequency",
+                "threshold_alert": " This is the frequency at which Lightdash runs a query to check your data for changes. (You will be notified if the conditions on the latest value are met) ",
+                "format": "Format",
+                "image_disabled": {
+                    "step_1": "You must enable the",
+                    "step_2": "headless browser",
+                    "step_3": "to send images"
+                },
+                "include_image_pdf": "Also include image as PDF attachment",
+                "formatting_options": "Formatting options",
+                "formatted": "Formatted",
+                "raw": "Raw",
+                "limit": "Limit",
+                "results_in_table": "Results in table",
+                "all_results": "All results",
+                "custom": "Custom...",
+                "results_are_limited": "Results are limited to {{limit}} cells for each file",
+                "destinations": "Destinations",
+                "enter_email_address": "Enter email addresses",
+                "enter_email_validation_error": "'{{val}}' doesn't appear to be an email address",
+                "no_email_integration": {
+                    "step_1": "No Email integration found",
+                    "step_2": "To create an email scheduled delivery, you need to add",
+                    "step_3": "SMTP environment variables",
+                    "step_4": "for your Lightdash instance"
+                },
+                "search_slack_channels": "Search Slack channels",
+                "send_to_private_channel": "Send to private channel #{{query}}",
+                "add_slack_disabled": "If delivering to a private Slack channel, please type the name of the channel in the input box exactly as it appears in Slack. Also ensure you invite the Lightdash Slackbot into that channel."
+            },
+            "tabs_panel_customization": {
+                "title": "Customize delivery message body"
+            }
+        }
+    },
+
+    "components_common_filters": {
+        "tried_to_reference": "Tried to reference field with unknown id:",
+        "add_filter": "Add filter",
+        "group_form": {
+            "tip": "of the following {{conditionLabel}} conditions match:",
+            "add_group_rule": "Add group rule"
+        },
+        "rule_form": {
+            "convert_to_group": "Convert to group",
+            "remove": "Remove"
+        },
+        "simplified_group_form": {
+            "tooltip": {
+                "label": "You can only use the 'and' operator when combining metrics & dimensions",
+                "content": "All of the following conditions match:"
+            }
+        }
+    },
 
     "components_refresh_buttom": {
         "run_query": "Run query"
@@ -466,6 +563,17 @@
             }
         }
     },
+    "components_explorer_table_tree": {
+        "add_filter": "Add filter",
+        "edit_custom_metric": "Edit custom metric",
+        "remove_custom_metric": "Remove custom metric",
+        "view_description": "View description",
+        "edit_custom_dimension": "Edit custom dimension",
+        "remove_custom_dimension": "Remove custom dimension",
+        "add_custom_metrics": "Add custom metrics",
+        "add_custom_dimensions": "Add custom dimensions",
+        "view_options": "View options"
+    },
     "components_explorer_custom_dimension_modal": {
         "tips": {
             "dimension_is_exists": "Dimension with this label already exists",
@@ -547,6 +655,9 @@
             }
         }
     },
+    "components_explorer_results_card": {
+        "title": "Results"
+    },
     "components_explorer_results_card_column_context_menu": {
         "filter": "Filter by",
         "remove": "Remove",
@@ -626,6 +737,66 @@
         "explore_loading_state": {
             "title": "Loading results"
         }
+    },
+    "components_explorer_save_charts_header": {
+        "create_success": "Success! Create branch with changes: ",
+        "create_error": "Failed to create pull request",
+        "check_reload_message": "You have unsaved changes to your dashboard! Are you sure you want to leave without saving?",
+        "modal": {
+            "content": "You have unsaved changes to your chart! Are you sure you want to leave without saving?",
+            "stay": "Stay",
+            "leave_page": "Leave page"
+        },
+        "edit_chart": "Edit chart",
+        "cancel": "Cancel",
+        "menus": {
+            "save_chart_as": "Save chart as",
+            "duplicate": "Duplicate",
+            "add_to_dashboard": "Add to dashboard",
+            "move_to_space": "Move to space",
+            "unpin": "Unpin from homepage",
+            "pin": "Pin to homepage",
+            "version_history": "Version history",
+            "tooltip_can_prompote": {
+                "label": "You must enable first an upstram project in settings > Data ops",
+                "content": "Promote chart"
+            },
+            "integrations": "Integrations",
+            "scheduled_deliveries": "Scheduled deliveries",
+            "alerts": "Alerts",
+            "google_sheets_sync": "Google Sheets Sync",
+            "add_custom_metrics": "Add custom metrics to dbt project",
+            "tooltip_can_manage": {
+                "label": "This chart can be deleted from its dashboard",
+                "content": "Delete"
+            }
+        }
+    },
+    "components_explorer_save_chart_button": {
+        "save_changes": "Save changes",
+        "save_chart": "Save chart"
+    },
+    "components_explorer_filters_card": {
+        "title": "Filters",
+        "no_filter": "This chart has no filters",
+        "active_filter": "active filter",
+        "tip": "You must be in 'edit' or 'explore' mode to change the filters",
+        "rule_error": "Tried to reference field with unknown id: "
+    },
+    "components_explorer_visualization_card": {
+        "chart": "Chart",
+        "charts": "Charts",
+        "tips": {
+            "copy": "Copied to clipboard!"
+        },
+        "menus": {
+            "copy_value": "Copy value",
+            "view_underlying_data": "View underlying data"
+        },
+        "close_configure": "Close configure",
+        "configure": "Configure",
+        "configure_chart": "Configure chart",
+        "chart_type": "Chart type"
     },
 
     "components_resource_view_list": {
@@ -809,5 +980,69 @@
         "sort": "Sorted by",
         "sort_by": "Sort by",
         "then_by": "then by"
+    },
+
+    "components_export_csv": {
+        "toast_info": {
+            "title": "Exporting CSV",
+            "subtitle": "This may take a few minutes..."
+        },
+        "toast_warning": {
+            "title": "The results in this export have been limited.",
+            "subtitle": "The export limit is {{csvCellsLimit}} cells, but your file exceeded that limit."
+        },
+        "toast_error": {
+            "title": "Unable to download CSV"
+        },
+        "no_data_to_export": "No data to export",
+        "radio_groups_values": {
+            "radio_01": "Formatted",
+            "radio_02": "Raw"
+        },
+        "radio_groups_limit": {
+            "radio_01": "Results in Table",
+            "radio_02": "All Results",
+            "radio_03": "Custom..."
+        },
+        "limit_alert_tip": {
+            "step_1": "Results are limited to",
+            "step_2": "cells for each file"
+        },
+        "export_csv": "Export CSV"
+    },
+
+    "pages_metric_flow": {
+        "error_tips": {
+            "dimensions": "Error fetching dimensions",
+            "metrics": "Error fetching metrics",
+            "query": "Error generating query",
+            "results": "Error fetching results"
+        },
+        "loading_metricflow": "Loading metricflow",
+        "title": "MetricFlow",
+        "dbt_semantic_layer": "dbt Semantic Layer",
+        "tooltip_dbt_semantic": {
+            "label": "The dbt Semantic Layer integration is in beta and may be unstable",
+            "content": "BETA"
+        },
+        "tooltip_run_query": {
+            "label": "Run query"
+        },
+        "tooltip_refetch_fields": {
+            "label": "Refetch fields"
+        },
+        "tooltip_clear_fields": {
+            "label": "Clear selected fields"
+        },
+        "metrics": {
+            "title": "Metrics",
+            "content": "available based on selected dimensions"
+        },
+        "dimensions": {
+            "title": "Dimensions",
+            "content": "available based on selected metrics"
+        },
+        "charts": "Charts",
+        "results": "Results"
     }
 }

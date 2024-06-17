@@ -153,7 +153,7 @@ const RefreshDbtButton = () => {
             multiline
             w={320}
             position="bottom"
-            label={t('components_refresh_dbt_button.tooltip_refresh.text')}
+            label={t('components_refresh_dbt_button.tooltip_refresh.label')}
         >
             <Button
                 size="xs"

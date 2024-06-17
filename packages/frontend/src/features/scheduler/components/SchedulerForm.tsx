@@ -48,6 +48,8 @@ import {
 } from '@tabler/icons-react';
 import MDEditor, { commands } from '@uiw/react-md-editor';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import FieldSelect from '../../../components/common/FieldSelect';
 import FilterNumberInput from '../../../components/common/Filters/FilterInputs/FilterNumberInput';
 import MantineIcon from '../../../components/common/MantineIcon';
@@ -113,13 +115,6 @@ const DEFAULT_VALUES_ALERT = {
     notificationFrequency: NotificationFrequency.ONCE,
 };
 
-const thresholdOperatorOptions = [
-    { label: 'is greater than', value: ThresholdOperator.GREATER_THAN },
-    { label: 'is less than', value: ThresholdOperator.LESS_THAN },
-    { label: 'increased by', value: ThresholdOperator.INCREASED_BY },
-    { label: 'decreased by', value: ThresholdOperator.DECREASED_BY },
-];
-
 const getFormValuesFromScheduler = (schedulerData: SchedulerAndTargets) => {
     const options = schedulerData.options;
 
@@ -171,34 +166,56 @@ const getFormValuesFromScheduler = (schedulerData: SchedulerAndTargets) => {
 };
 
 const SlackErrorContent: FC<{ slackState: SlackStates }> = ({ slackState }) => {
+    const { t } = useTranslation();
+
     if (slackState === SlackStates.NO_SLACK) {
         return (
             <>
-                <Text pb="sm">No Slack integration found</Text>
+                <Text pb="sm">
+                    {t(
+                        'features_scheduler_components_scheduler_form.no_slack.step_1',
+                    )}
+                </Text>
                 <Text>
-                    To create a slack scheduled delivery, you need to
+                    {t(
+                        'features_scheduler_components_scheduler_form.no_slack.step_2',
+                    )}
                     <Anchor
                         target="_blank"
                         href="https://docs.lightdash.com/self-host/customize-deployment/configure-a-slack-app-for-lightdash"
                     >
                         {' '}
-                        setup Slack{' '}
+                        {t(
+                            'features_scheduler_components_scheduler_form.no_slack.step_3',
+                        )}{' '}
                     </Anchor>
-                    for your Lightdash instance
+                    {t(
+                        'features_scheduler_components_scheduler_form.no_slack.step_4',
+                    )}
                 </Text>
             </>
         );
     } else if (slackState === SlackStates.MISSING_SCOPES) {
         return (
             <>
-                <Text pb="sm">Slack integration needs to be reinstalled</Text>
+                <Text pb="sm">
+                    {t(
+                        'features_scheduler_components_scheduler_form.missing_scopes.step_1',
+                    )}
+                </Text>
                 <Text>
-                    To create a slack scheduled delivery, you need to
+                    {t(
+                        'features_scheduler_components_scheduler_form.missing_scopes.step_2',
+                    )}
                     <Anchor href="/generalSettings/integrations">
                         {' '}
-                        reinstall the Slack integration{' '}
+                        {t(
+                            'features_scheduler_components_scheduler_form.missing_scopes.step_3',
+                        )}{' '}
                     </Anchor>
-                    for your organization
+                    {t(
+                        'features_scheduler_components_scheduler_form.missing_scopes.step_4',
+                    )}
                 </Text>
             </>
         );
@@ -234,6 +251,35 @@ const SchedulerForm: FC<Props> = ({
     isThresholdAlert,
     itemsMap,
 }) => {
+    const { t } = useTranslation();
+
+    const thresholdOperatorOptions = [
+        {
+            label: t(
+                'features_scheduler_components_scheduler_form.threshold_operator_options.is_greater_than',
+            ),
+            value: ThresholdOperator.GREATER_THAN,
+        },
+        {
+            label: t(
+                'features_scheduler_components_scheduler_form.threshold_operator_options.is_less_than',
+            ),
+            value: ThresholdOperator.LESS_THAN,
+        },
+        {
+            label: t(
+                'features_scheduler_components_scheduler_form.threshold_operator_options.increased_by',
+            ),
+            value: ThresholdOperator.INCREASED_BY,
+        },
+        {
+            label: t(
+                'features_scheduler_components_scheduler_form.threshold_operator_options.decreased_by',
+            ),
+            value: ThresholdOperator.DECREASED_BY,
+        },
+    ];
+
     const form = useForm({
         initialValues:
             savedSchedulerData !== undefined
@@ -245,13 +291,19 @@ const SchedulerForm: FC<Props> = ({
 
         validate: {
             name: (value) => {
-                return value.length > 0 ? null : 'Name is required';
+                return value.length > 0
+                    ? null
+                    : t(
+                          'features_scheduler_components_scheduler_form.validate_tips.name',
+                      );
             },
             options: {
                 customLimit: (value, values) => {
                     return values.options.limit === Limit.CUSTOM &&
                         !Number.isInteger(value)
-                        ? 'Custom limit must be an integer'
+                        ? t(
+                              'features_scheduler_components_scheduler_form.validate_tips.custom_limit',
+                          )
                         : null;
                 },
             },
@@ -397,18 +449,28 @@ const SchedulerForm: FC<Props> = ({
             <Tabs defaultValue="setup">
                 <Tabs.List mt="sm" mb={0}>
                     <Tabs.Tab value="setup" ml="md">
-                        Setup
+                        {t(
+                            'features_scheduler_components_scheduler_form.form.tabs_list.setup',
+                        )}
                     </Tabs.Tab>
                     {isDashboard && dashboard ? (
-                        <Tabs.Tab value="filters">Filters</Tabs.Tab>
+                        <Tabs.Tab value="filters">
+                            {t(
+                                'features_scheduler_components_scheduler_form.form.tabs_list.filters',
+                            )}
+                        </Tabs.Tab>
                     ) : null}
 
                     {!isThresholdAlert && (
                         <>
                             <Tabs.Tab value="customization">
                                 {isThresholdAlert
-                                    ? 'Alert message'
-                                    : 'Customization'}
+                                    ? t(
+                                          'features_scheduler_components_scheduler_form.form.tabs_list.alert_message',
+                                      )
+                                    : t(
+                                          'features_scheduler_components_scheduler_form.form.tabs_list.customization',
+                                      )}
                             </Tabs.Tab>
                             <Tabs.Tab
                                 disabled={
@@ -417,7 +479,9 @@ const SchedulerForm: FC<Props> = ({
                                 }
                                 value="preview"
                             >
-                                Preview and Size
+                                {t(
+                                    'features_scheduler_components_scheduler_form.form.tabs_list.preview_and_size',
+                                )}
                             </Tabs.Tab>
                         </>
                     )}
@@ -435,13 +499,21 @@ const SchedulerForm: FC<Props> = ({
                         <TextInput
                             label={
                                 isThresholdAlert
-                                    ? 'Alert name'
-                                    : 'Delivery name'
+                                    ? t(
+                                          'features_scheduler_components_scheduler_form.form.tabs_panel_setup.alter_me',
+                                      )
+                                    : t(
+                                          'features_scheduler_components_scheduler_form.form.tabs_panel_setup.delivery_name',
+                                      )
                             }
                             placeholder={
                                 isThresholdAlert
-                                    ? 'Name your alert'
-                                    : 'Name your delivery'
+                                    ? t(
+                                          'features_scheduler_components_scheduler_form.form.tabs_panel_setup.name_your_alert',
+                                      )
+                                    : t(
+                                          'features_scheduler_components_scheduler_form.form.tabs_panel_setup.nmae_your_delivery',
+                                      )
                             }
                             required
                             {...form.getInputProps('name')}
@@ -449,7 +521,9 @@ const SchedulerForm: FC<Props> = ({
                         {isThresholdAlert && (
                             <Stack spacing="xs">
                                 <FieldSelect
-                                    label="Alert field"
+                                    label={t(
+                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.alert_field',
+                                    )}
                                     required
                                     disabled={isThresholdAlertWithNoFields}
                                     withinPortal
@@ -483,21 +557,25 @@ const SchedulerForm: FC<Props> = ({
                                 />
                                 {isThresholdAlertWithNoFields && (
                                     <Text color="red" size="xs" mb="sm">
-                                        No numeric fields available. You must
-                                        have at least one numeric metric or
-                                        calculation to set an alert.
+                                        {t(
+                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_fields',
+                                        )}
                                     </Text>
                                 )}
                                 <Group noWrap grow>
                                     <Select
-                                        label="Condition"
+                                        label={t(
+                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.condition',
+                                        )}
                                         data={thresholdOperatorOptions}
                                         {...form.getInputProps(
                                             `thresholds.0.operator`,
                                         )}
                                     />
                                     <FilterNumberInput
-                                        label="Threshold"
+                                        label={t(
+                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.threshold',
+                                        )}
                                         size="sm"
                                         {...form.getInputProps(
                                             `thresholds.0.value`,
@@ -516,7 +594,9 @@ const SchedulerForm: FC<Props> = ({
 
                                 <Stack spacing="xs" mt="xs">
                                     <Checkbox
-                                        label="Notify me only once"
+                                        label={t(
+                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.notify_me_only_once',
+                                        )}
                                         {...{
                                             ...form.getInputProps(
                                                 'notificationFrequency',
@@ -545,9 +625,9 @@ const SchedulerForm: FC<Props> = ({
                                                 color="gray.6"
                                                 fs="italic"
                                             >
-                                                You will be notified at the
-                                                specified frequency whenever the
-                                                threshold conditions are met
+                                                {t(
+                                                    'features_scheduler_components_scheduler_form.form.tabs_panel_setup.trigger_notification',
+                                                )}
                                             </Text>
                                         )}
                                 </Stack>
@@ -556,8 +636,12 @@ const SchedulerForm: FC<Props> = ({
                         <Input.Wrapper
                             label={
                                 isThresholdAlert
-                                    ? 'Run frequency'
-                                    : 'Delivery frequency'
+                                    ? t(
+                                          'features_scheduler_components_scheduler_form.form.tabs_panel_setup.run_frequency',
+                                      )
+                                    : t(
+                                          'features_scheduler_components_scheduler_form.form.tabs_panel_setup.delivery_frequency',
+                                      )
                             }
                         >
                             {isThresholdAlert && (
@@ -565,7 +649,9 @@ const SchedulerForm: FC<Props> = ({
                                     withinPortal
                                     maw={400}
                                     multiline
-                                    label=" This is the frequency at which Lightdash runs a query to check your data for changes. (You will be notified if the conditions on the latest value are met) "
+                                    label={t(
+                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.threshold_alert',
+                                    )}
                                     position="top"
                                 >
                                     <MantineIcon
@@ -591,7 +677,11 @@ const SchedulerForm: FC<Props> = ({
                         </Input.Wrapper>
                         {!isThresholdAlert && (
                             <Stack spacing={0}>
-                                <Input.Label> Format </Input.Label>
+                                <Input.Label>
+                                    {t(
+                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.format',
+                                    )}
+                                </Input.Label>
                                 <Group spacing="xs" noWrap>
                                     <SegmentedControl
                                         data={[
@@ -616,12 +706,18 @@ const SchedulerForm: FC<Props> = ({
                                             w="30%"
                                             sx={{ alignSelf: 'start' }}
                                         >
-                                            You must enable the
+                                            {t(
+                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.image_disabled.step_1',
+                                            )}
                                             <Anchor href="https://docs.lightdash.com/self-host/customize-deployment/enable-headless-browser-for-lightdash">
                                                 {' '}
-                                                headless browser{' '}
+                                                {t(
+                                                    'features_scheduler_components_scheduler_form.form.tabs_panel_setup.image_disabled.step_2',
+                                                )}{' '}
                                             </Anchor>
-                                            to send images
+                                            {t(
+                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.image_disabled.step_3',
+                                            )}
                                         </Text>
                                     )}
                                 </Group>
@@ -630,7 +726,9 @@ const SchedulerForm: FC<Props> = ({
                                 SchedulerFormat.IMAGE ? (
                                     <Checkbox
                                         h={26}
-                                        label="Also include image as PDF attachment"
+                                        label={t(
+                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.include_image_pdf',
+                                        )}
                                         labelPosition="left"
                                         {...form.getInputProps(
                                             'options.withPdf',
@@ -665,7 +763,9 @@ const SchedulerForm: FC<Props> = ({
                                                 setShowFormatting((old) => !old)
                                             }
                                         >
-                                            Formatting options
+                                            {t(
+                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.formatting_options',
+                                            )}
                                         </Button>
                                         <Collapse in={showFormatting} pl="md">
                                             <Group align="start" spacing="xxl">
@@ -680,20 +780,26 @@ const SchedulerForm: FC<Props> = ({
                                                         pt="xs"
                                                     >
                                                         <Radio
-                                                            label="Formatted"
+                                                            label={t(
+                                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.formatted',
+                                                            )}
                                                             value={
                                                                 Values.FORMATTED
                                                             }
                                                         />
                                                         <Radio
-                                                            label="Raw"
+                                                            label={t(
+                                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.raw',
+                                                            )}
                                                             value={Values.RAW}
                                                         />
                                                     </Stack>
                                                 </Radio.Group>
                                                 <Stack spacing="xs">
                                                     <Radio.Group
-                                                        label="Limit"
+                                                        label={t(
+                                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.limit',
+                                                        )}
                                                         {...form.getInputProps(
                                                             'options.limit',
                                                         )}
@@ -703,19 +809,25 @@ const SchedulerForm: FC<Props> = ({
                                                             pt="xs"
                                                         >
                                                             <Radio
-                                                                label="Results in Table"
+                                                                label={t(
+                                                                    'features_scheduler_components_scheduler_form.form.tabs_panel_setup.results_in_table',
+                                                                )}
                                                                 value={
                                                                     Limit.TABLE
                                                                 }
                                                             />
                                                             <Radio
-                                                                label="All Results"
+                                                                label={t(
+                                                                    'features_scheduler_components_scheduler_form.form.tabs_panel_setup.all_results',
+                                                                )}
                                                                 value={
                                                                     Limit.ALL
                                                                 }
                                                             />
                                                             <Radio
-                                                                label="Custom..."
+                                                                label={t(
+                                                                    'features_scheduler_components_scheduler_form.form.tabs_panel_setup.custom',
+                                                                )}
                                                                 value={
                                                                     Limit.CUSTOM
                                                                 }
@@ -740,15 +852,18 @@ const SchedulerForm: FC<Props> = ({
                                                             ?.limit ===
                                                             Limit.CUSTOM) && (
                                                         <i>
-                                                            Results are limited
-                                                            to{' '}
-                                                            {Number(
-                                                                health.data
-                                                                    ?.query
-                                                                    .csvCellsLimit ||
-                                                                    100000,
-                                                            ).toLocaleString()}{' '}
-                                                            cells for each file
+                                                            {t(
+                                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.results_are_limited',
+                                                                {
+                                                                    limit: Number(
+                                                                        health
+                                                                            .data
+                                                                            ?.query
+                                                                            .csvCellsLimit ||
+                                                                            100000,
+                                                                    ).toLocaleString(),
+                                                                },
+                                                            )}
                                                         </i>
                                                     )}
                                                 </Stack>
@@ -759,7 +874,11 @@ const SchedulerForm: FC<Props> = ({
                             </Stack>
                         )}
 
-                        <Input.Wrapper label="Destinations">
+                        <Input.Wrapper
+                            label={t(
+                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.destinations',
+                            )}
+                        >
                             <Stack mt="sm">
                                 <Group noWrap>
                                     <MantineIcon
@@ -781,7 +900,9 @@ const SchedulerForm: FC<Props> = ({
                                                         emailValidationError ||
                                                         null
                                                     }
-                                                    placeholder="Enter email addresses"
+                                                    placeholder={t(
+                                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.enter_email_address',
+                                                    )}
                                                     disabled={
                                                         isAddEmailDisabled
                                                     }
@@ -800,7 +921,12 @@ const SchedulerForm: FC<Props> = ({
                                                     }
                                                     onValidationReject={(val) =>
                                                         setEmailValidationError(
-                                                            `'${val}' doesn't appear to be an email address`,
+                                                            t(
+                                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.enter_email_validation_error',
+                                                                {
+                                                                    val,
+                                                                },
+                                                            ),
                                                         )
                                                     }
                                                     onChange={(val) => {
@@ -818,20 +944,26 @@ const SchedulerForm: FC<Props> = ({
                                         <HoverCard.Dropdown>
                                             <>
                                                 <Text pb="sm">
-                                                    No Email integration found
+                                                    {t(
+                                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.step_1',
+                                                    )}
                                                 </Text>
                                                 <Text>
-                                                    To create an email scheduled
-                                                    delivery, you need to add
+                                                    {t(
+                                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.step_2',
+                                                    )}
                                                     <Anchor
                                                         target="_blank"
                                                         href="https://docs.lightdash.com/references/environmentVariables"
                                                     >
                                                         {' '}
-                                                        SMTP environment
-                                                        variables{' '}
+                                                        {t(
+                                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.step_3',
+                                                        )}{' '}
                                                     </Anchor>
-                                                    for your Lightdash instance
+                                                    {t(
+                                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.step_4',
+                                                    )}
                                                 </Text>
                                             </>
                                         </HoverCard.Dropdown>
@@ -855,7 +987,9 @@ const SchedulerForm: FC<Props> = ({
                                             <HoverCard.Target>
                                                 <Box w="100%">
                                                     <MultiSelect
-                                                        placeholder="Search slack channels"
+                                                        placeholder={t(
+                                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.search_slack_channels',
+                                                        )}
                                                         data={slackChannels}
                                                         searchable
                                                         creatable
@@ -875,7 +1009,12 @@ const SchedulerForm: FC<Props> = ({
                                                         getCreateLabel={(
                                                             query,
                                                         ) =>
-                                                            `Send to private channel #${query}`
+                                                            t(
+                                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.send_to_private_channel',
+                                                                {
+                                                                    query,
+                                                                },
+                                                            )
                                                         }
                                                         onCreate={(newItem) => {
                                                             setPrivateChannels(
@@ -908,12 +1047,9 @@ const SchedulerForm: FC<Props> = ({
                                     </Group>
                                     {!isAddSlackDisabled && (
                                         <Text size="xs" color="gray.6" ml="3xl">
-                                            If delivering to a private Slack
-                                            channel, please type the name of the
-                                            channel in the input box exactly as
-                                            it appears in Slack. Also ensure you
-                                            invite the Lightdash Slackbot into
-                                            that channel.
+                                            {t(
+                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.add_slack_disabled',
+                                            )}
                                         </Text>
                                     )}
                                 </Stack>
@@ -936,7 +1072,11 @@ const SchedulerForm: FC<Props> = ({
 
                 <Tabs.Panel value="customization">
                     <Stack p="md">
-                        <Text fw={600}>Customize delivery message body</Text>
+                        <Text fw={600}>
+                            {t(
+                                'features_scheduler_components_scheduler_form.form.tabs_panel_customization.title',
+                            )}
+                        </Text>
 
                         <MDEditor
                             preview="edit"

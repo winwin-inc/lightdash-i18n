@@ -5,6 +5,8 @@ import {
 } from '@lightdash/common';
 import { useDisclosure } from '@mantine/hooks';
 import { memo, useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { downloadCsv } from '../../../api/csv';
 import { ErrorBoundary } from '../../../features/errorBoundary';
 import { type EChartSeries } from '../../../hooks/echarts/useEchartsCartesianConfig';
@@ -36,6 +38,7 @@ const VisualizationCard: FC<{
 }> = memo(({ projectUuid: fallBackUUid, isProjectPreview }) => {
     const { health } = useApp();
     const { data: org } = useOrganization();
+    const { t } = useTranslation();
 
     const savedChart = useExplorerContext(
         (context) => context.state.savedChart,
@@ -104,7 +107,12 @@ const VisualizationCard: FC<{
     );
 
     if (!unsavedChartVersion.tableName) {
-        return <CollapsableCard title="Charts" disabled />;
+        return (
+            <CollapsableCard
+                title={t('components_explorer_visualization_card.charts')}
+                disabled
+            />
+        );
     }
 
     const getCsvLink = async (
@@ -178,7 +186,7 @@ const VisualizationCard: FC<{
                 tableCalculationsMetadata={tableCalculationsMetadata}
             >
                 <CollapsableCard
-                    title="Chart"
+                    title={t('components_explorer_visualization_card.chart')}
                     isOpen={isOpen}
                     isVisualizationCard
                     onToggle={toggleSection}

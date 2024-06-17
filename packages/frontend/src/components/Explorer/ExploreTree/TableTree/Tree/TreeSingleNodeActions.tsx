@@ -22,6 +22,8 @@ import {
     IconTrash,
 } from '@tabler/icons-react';
 import { useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useFilters } from '../../../../../hooks/useFilters';
 import { useExplorerContext } from '../../../../../providers/ExplorerProvider';
 import { useTracking } from '../../../../../providers/TrackingProvider';
@@ -78,6 +80,7 @@ const TreeSingleNodeActions: FC<Props> = ({
 }) => {
     const { addFilter } = useFilters();
     const { track } = useTracking();
+    const { t } = useTranslation();
 
     const removeAdditionalMetric = useExplorerContext(
         (context) => context.actions.removeAdditionalMetric,
@@ -124,7 +127,7 @@ const TreeSingleNodeActions: FC<Props> = ({
                             addFilter(item, undefined);
                         }}
                     >
-                        Add filter
+                        {t('components_explorer_table_tree.add_filter')}
                     </Menu.Item>
                 ) : null}
 
@@ -142,7 +145,9 @@ const TreeSingleNodeActions: FC<Props> = ({
                                 });
                             }}
                         >
-                            Edit custom metric
+                            {t(
+                                'components_explorer_table_tree.edit_custom_metric',
+                            )}
                         </Menu.Item>
                         <Menu.Item
                             color="red"
@@ -158,7 +163,9 @@ const TreeSingleNodeActions: FC<Props> = ({
                                 removeAdditionalMetric(getItemId(item));
                             }}
                         >
-                            Remove custom metric
+                            {t(
+                                'components_explorer_table_tree.remove_custom_metric',
+                            )}
                         </Menu.Item>
                     </>
                 ) : null}
@@ -172,7 +179,7 @@ const TreeSingleNodeActions: FC<Props> = ({
                             onViewDescription();
                         }}
                     >
-                        View description
+                        {t('components_explorer_table_tree.view_description')}
                     </Menu.Item>
                 )}
 
@@ -189,7 +196,9 @@ const TreeSingleNodeActions: FC<Props> = ({
                                 });
                             }}
                         >
-                            Edit custom dimension
+                            {t(
+                                'components_explorer_table_tree.edit_custom_dimension',
+                            )}
                         </Menu.Item>
                         <Menu.Item
                             color="red"
@@ -200,7 +209,9 @@ const TreeSingleNodeActions: FC<Props> = ({
                                 removeCustomDimension(getItemId(item));
                             }}
                         >
-                            Remove custom dimension
+                            {t(
+                                'components_explorer_table_tree.remove_custom_dimension',
+                            )}
                         </Menu.Item>
                     </>
                 )}
@@ -210,7 +221,11 @@ const TreeSingleNodeActions: FC<Props> = ({
                     <>
                         <Menu.Divider />
 
-                        <Menu.Label>Add custom metrics</Menu.Label>
+                        <Menu.Label>
+                            {t(
+                                'components_explorer_table_tree.add_custom_metrics',
+                            )}
+                        </Menu.Label>
                         {customMetrics.map((metric) => (
                             <Menu.Item
                                 key={metric}
@@ -258,7 +273,9 @@ const TreeSingleNodeActions: FC<Props> = ({
                                 });
                             }}
                         >
-                            Add custom dimensions
+                            {t(
+                                'components_explorer_table_tree.add_custom_dimensions',
+                            )}
                         </Menu.Item>
                     </>
                 ) : null}
@@ -276,7 +293,7 @@ const TreeSingleNodeActions: FC<Props> = ({
                     <Tooltip
                         openDelay={500}
                         position="top"
-                        label="View options"
+                        label={t('components_explorer_table_tree.view_options')}
                         disabled={isOpened}
                     >
                         <ActionIcon variant="transparent">

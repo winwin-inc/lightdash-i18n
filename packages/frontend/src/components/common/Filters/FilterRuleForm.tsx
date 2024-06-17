@@ -10,6 +10,8 @@ import {
 import { ActionIcon, Box, Group, Menu, Select } from '@mantine/core';
 import { IconDots, IconX } from '@tabler/icons-react';
 import { useCallback, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import FieldSelect from '../FieldSelect';
 import MantineIcon from '../MantineIcon';
 import { FilterInputComponent, getFilterOperatorOptions } from './FilterInputs';
@@ -32,6 +34,7 @@ const FilterRuleForm: FC<Props> = ({
     onDelete,
     onConvertToGroup,
 }) => {
+    const { t } = useTranslation();
     const { popoverProps } = useFiltersContext();
     const activeField = useMemo(() => {
         return fields.find(
@@ -150,10 +153,14 @@ const FilterRuleForm: FC<Props> = ({
 
                         <Menu.Dropdown>
                             <Menu.Item onClick={onConvertToGroup}>
-                                Convert to group
+                                {t(
+                                    'components_common_filters.rule_form.convert_to_group',
+                                )}
                             </Menu.Item>
                             <Menu.Item color="red" onClick={onDelete}>
-                                Remove
+                                {t(
+                                    'components_common_filters.rule_form.remove',
+                                )}
                             </Menu.Item>
                         </Menu.Dropdown>
                     </Menu>

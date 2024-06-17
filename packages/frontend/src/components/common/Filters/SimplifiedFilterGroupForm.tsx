@@ -1,6 +1,8 @@
 import { type FilterableField, type FilterRule } from '@lightdash/common';
 import { Stack, Text, Tooltip } from '@mantine/core';
 import { useCallback, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import FilterRuleForm from './FilterRuleForm';
 
 type Props = {
@@ -16,6 +18,8 @@ const SimplifiedFilterGroupForm: FC<Props> = ({
     filterRules,
     onChange,
 }) => {
+    const { t } = useTranslation();
+
     const onDeleteItem = useCallback(
         (index: number) => {
             onChange([
@@ -40,12 +44,16 @@ const SimplifiedFilterGroupForm: FC<Props> = ({
     return (
         <Stack style={{ flexGrow: 1 }}>
             <Tooltip
-                label="You can only use the 'and' operator when combining metrics & dimensions"
+                label={t(
+                    'components_common_filters.simplified_group_form.tooltip.label',
+                )}
                 disabled={filterRules.length > 1}
                 arrowPosition="center"
             >
                 <Text color="dimmed" size="xs">
-                    All of the following conditions match:
+                    {t(
+                        'components_common_filters.simplified_group_form.tooltip.content',
+                    )}
                 </Text>
             </Tooltip>
 

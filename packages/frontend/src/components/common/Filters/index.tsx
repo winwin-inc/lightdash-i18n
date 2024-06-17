@@ -24,8 +24,10 @@ import {
 } from '@mantine/core';
 import { IconAlertCircle, IconPlus, IconX } from '@tabler/icons-react';
 import { useCallback, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
 import { v4 as uuidv4 } from 'uuid';
+
 import {
     type FieldsWithSuggestions,
     type FieldWithSuggestions,
@@ -59,6 +61,7 @@ const getInvalidFilterRules = (
     }, []);
 
 const FiltersForm: FC<Props> = ({ filters, setFilters, isEditMode }) => {
+    const { t } = useTranslation();
     const { itemsMap } = useFiltersContext<FieldsWithSuggestions>();
     const [isOpen, toggleFieldInput] = useToggle(false);
     const fields = useMemo<FieldWithSuggestions[]>(() => {
@@ -220,7 +223,9 @@ const FiltersForm: FC<Props> = ({ filters, setFilters, isEditMode }) => {
                         >
                             <MantineIcon icon={IconAlertCircle} />
                             <Text color="dimmed" fz="xs">
-                                Tried to reference field with unknown id:{' '}
+                                {t(
+                                    'components_common_filters.tried_to_reference',
+                                )}{' '}
                                 <Text span fw={500} c="gray.7">
                                     {rule.target.fieldId}
                                 </Text>
@@ -251,7 +256,7 @@ const FiltersForm: FC<Props> = ({ filters, setFilters, isEditMode }) => {
                             disabled={fields.length <= 0}
                             onClick={toggleFieldInput}
                         >
-                            Add filter
+                            {t('components_common_filters.add_filter')}
                         </Button>
                     ) : (
                         <FieldSelect

@@ -11,7 +11,9 @@ import {
     useState,
     type FC,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import { type EChartSeries } from '../../../hooks/echarts/useEchartsCartesianConfig';
 import useToaster from '../../../hooks/toaster/useToaster';
 import { useExplore } from '../../../hooks/useExplore';
@@ -38,6 +40,7 @@ export const SeriesContextMenu: FC<{
     const clipboard = useClipboard({ timeout: 200 });
     const { track } = useTracking();
     const { user } = useApp();
+    const { t } = useTranslation();
 
     const tableName = useExplorerContext(
         (context) => context.state.unsavedChartVersion.tableName,
@@ -89,8 +92,10 @@ export const SeriesContextMenu: FC<{
         const value = underlyingData.value.formatted;
 
         clipboard.copy(value);
-        showToastSuccess({ title: 'Copied to clipboard!' });
-    }, [underlyingData, clipboard, showToastSuccess]);
+        showToastSuccess({
+            title: t('components_explorer_visualization_card.tips.copy'),
+        });
+    }, [underlyingData, clipboard, showToastSuccess, t]);
 
     const handleViewUnderlyingData = useCallback(() => {
         if (underlyingData === undefined) return;
@@ -158,7 +163,9 @@ export const SeriesContextMenu: FC<{
                         icon={<MantineIcon icon={IconCopy} />}
                         onClick={handleCopyToClipboard}
                     >
-                        Copy value
+                        {t(
+                            'components_explorer_visualization_card.menus.copy_value',
+                        )}
                     </Menu.Item>
                 )}
 
@@ -174,7 +181,9 @@ export const SeriesContextMenu: FC<{
                             icon={<MantineIcon icon={IconStack} />}
                             onClick={handleViewUnderlyingData}
                         >
-                            View underlying data
+                            {t(
+                                'components_explorer_visualization_card.menus.view_underlying_data',
+                            )}
                         </Menu.Item>
                     )}
                 </Can>

@@ -10,7 +10,9 @@ import {
 } from '@lightdash/common';
 import { Badge, Text, Tooltip } from '@mantine/core';
 import { memo, useCallback, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import { useExplore } from '../../../hooks/useExplore';
 import { useProject } from '../../../hooks/useProject';
 import {
@@ -24,6 +26,8 @@ import { FiltersProvider } from '../../common/Filters/FiltersProvider';
 import { useFieldsWithSuggestions } from './useFieldsWithSuggestions';
 
 const FiltersCard: FC = memo(() => {
+    const { t } = useTranslation();
+
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const project = useProject(projectUuid);
     const expandedSections = useExplorerContext(
@@ -104,19 +108,21 @@ const FiltersCard: FC = memo(() => {
                     </div>
                 );
             }
-            return `Tried to reference field with unknown id: ${filterRule.target.fieldId}`;
+            return `${t('components_explorer_filters_card.rule_error')} ${
+                filterRule.target.fieldId
+            }`;
         },
-        [data],
+        [data, t],
     );
 
     return (
         <CollapsableCard
             isOpen={filterIsOpen}
-            title="Filters"
+            title={t('components_explorer_filters_card.title')}
             disabled={!tableName || (totalActiveFilters === 0 && !isEditMode)}
             toggleTooltip={
                 totalActiveFilters === 0 && !isEditMode
-                    ? 'This chart has no filters'
+                    ? t('components_explorer_filters_card.no_filter')
                     : ''
             }
             onToggle={() => toggleExpandedSection(ExplorerSection.FILTERS)}
@@ -147,7 +153,9 @@ const FiltersCard: FC = memo(() => {
                             >
                                 {totalActiveFilters}{' '}
                                 <Text span fw={500}>
-                                    active filter
+                                    {t(
+                                        'components_explorer_filters_card.active_filter',
+                                    )}
                                     {totalActiveFilters === 1 ? '' : 's'}
                                 </Text>
                             </Badge>
@@ -155,8 +163,7 @@ const FiltersCard: FC = memo(() => {
                     ) : null}
                     {totalActiveFilters > 0 && filterIsOpen && !isEditMode ? (
                         <Text color="gray">
-                            You must be in 'edit' or 'explore' mode to change
-                            the filters
+                            {t('components_explorer_filters_card.tip')}
                         </Text>
                     ) : null}
                 </>
