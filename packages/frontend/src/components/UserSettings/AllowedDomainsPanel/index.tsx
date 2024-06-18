@@ -26,62 +26,15 @@ import {
     type FC,
     type ForwardedRef,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
+
 import {
     useAllowedEmailDomains,
     useUpdateAllowedEmailDomains,
 } from '../../../hooks/organization/useAllowedDomains';
 import { useProjects } from '../../../hooks/useProjects';
 import MantineIcon from '../../common/MantineIcon';
-
-const roleOptions: Array<{
-    value: AllowedEmailDomains['role'];
-    label: string;
-    subLabel: string;
-}> = [
-    {
-        value: OrganizationMemberRole.EDITOR,
-        label: 'Organization Editor',
-        subLabel: 'Has edit access across all projects in the org',
-    },
-    {
-        value: OrganizationMemberRole.INTERACTIVE_VIEWER,
-        label: 'Organization Interactive Viewer',
-        subLabel: 'Has interactive access across all projects in the org',
-    },
-    {
-        value: OrganizationMemberRole.VIEWER,
-        label: 'Organization Viewer',
-        subLabel: 'Has view access across all projects in the org',
-    },
-    {
-        value: OrganizationMemberRole.MEMBER,
-        label: 'Organization Member',
-        subLabel: 'Has view access to selected projects only',
-    },
-];
-
-const projectRoleOptions: Array<{
-    value: ProjectMemberRole;
-    label: string;
-    subLabel: string;
-}> = [
-    {
-        value: ProjectMemberRole.EDITOR,
-        label: 'Editor',
-        subLabel: 'Has edit access in this project',
-    },
-    {
-        value: ProjectMemberRole.INTERACTIVE_VIEWER,
-        label: 'Interactive Viewer',
-        subLabel: 'Has interactive access in this project',
-    },
-    {
-        value: ProjectMemberRole.VIEWER,
-        label: 'Viewer',
-        subLabel: 'Has view access in this project',
-    },
-];
 
 const validationSchema = z.object({
     emailDomains: z.array(z.string().nonempty()),
@@ -105,6 +58,7 @@ const AllowedDomainsPanel: FC = () => {
         },
         validate: zodResolver(validationSchema),
     });
+    const { t } = useTranslation();
 
     const { data: projects, isLoading: isLoadingProjects } = useProjects();
 
@@ -121,6 +75,83 @@ const AllowedDomainsPanel: FC = () => {
         isUpdateAllowedEmailDomainsLoading ||
         isAllowedEmailDomainsDataLoading ||
         isLoadingProjects;
+
+    const roleOptions: Array<{
+        value: AllowedEmailDomains['role'];
+        label: string;
+        subLabel: string;
+    }> = [
+        {
+            value: OrganizationMemberRole.EDITOR,
+            label: t(
+                'components_user_allowed_domains_panel.role_options.editor.label',
+            ),
+            subLabel: t(
+                'components_user_allowed_domains_panel.role_options.editor.sub_label',
+            ),
+        },
+        {
+            value: OrganizationMemberRole.INTERACTIVE_VIEWER,
+            label: t(
+                'components_user_allowed_domains_panel.role_options.interactive_viewer.label',
+            ),
+            subLabel: t(
+                'components_user_allowed_domains_panel.role_options.interactive_viewer.sub_label',
+            ),
+        },
+        {
+            value: OrganizationMemberRole.VIEWER,
+            label: t(
+                'components_user_allowed_domains_panel.role_options.viewer.label',
+            ),
+            subLabel: t(
+                'components_user_allowed_domains_panel.role_options.viewer.sub_label',
+            ),
+        },
+        {
+            value: OrganizationMemberRole.MEMBER,
+            label: t(
+                'components_user_allowed_domains_panel.role_options.member.label',
+            ),
+            subLabel: t(
+                'components_user_allowed_domains_panel.role_options.member.sub_label',
+            ),
+        },
+    ];
+
+    const projectRoleOptions: Array<{
+        value: ProjectMemberRole;
+        label: string;
+        subLabel: string;
+    }> = [
+        {
+            value: ProjectMemberRole.EDITOR,
+            label: t(
+                'components_user_allowed_domains_panel.project_options.editor.label',
+            ),
+            subLabel: t(
+                'components_user_allowed_domains_panel.project_options.editor.sub_label',
+            ),
+        },
+        {
+            value: ProjectMemberRole.INTERACTIVE_VIEWER,
+            label: t(
+                'components_user_allowed_domains_panel.project_options.interactive_viewer.label',
+            ),
+            subLabel: t(
+                'components_user_allowed_domains_panel.project_options.interactive_viewer.sub_label',
+            ),
+        },
+        {
+            value: ProjectMemberRole.VIEWER,
+            label: t(
+                'components_user_allowed_domains_panel.project_options.viewer.label',
+            ),
+            subLabel: t(
+                'components_user_allowed_domains_panel.project_options.viewer.sub_label',
+            ),
+        },
+    ];
 
     useEffect(() => {
         if (isAllowedEmailDomainsDataLoading || !allowedEmailDomainsData)
@@ -194,8 +225,12 @@ const AllowedDomainsPanel: FC = () => {
                     creatable
                     searchable
                     name="emailDomains"
-                    label="Allowed email domains"
-                    placeholder="E.g. lightdash.com"
+                    label={t(
+                        'components_user_allowed_domains_panel.form.email_domains.label',
+                    )}
+                    placeholder={t(
+                        'components_user_allowed_domains_panel.form.email_domains.placeholder',
+                    )}
                     disabled={isLoading}
                     data={form.values.emailDomains.map((emailDomain) => ({
                         value: emailDomain,
@@ -205,7 +240,12 @@ const AllowedDomainsPanel: FC = () => {
                         if (!isValidEmailDomain(value)) {
                             form.setFieldError(
                                 'emailDomains',
-                                `${value} should not contain @, eg: (lightdash.com)`,
+                                t(
+                                    'components_user_allowed_domains_panel.form.email_domains.error',
+                                    {
+                                        value,
+                                    },
+                                ),
                             );
                             return;
                         }
@@ -225,7 +265,14 @@ const AllowedDomainsPanel: FC = () => {
 
                         return value;
                     }}
-                    getCreateLabel={(query: string) => `+ Add ${query} domain`}
+                    getCreateLabel={(query: string) =>
+                        t(
+                            'components_user_allowed_domains_panel.form.email_domains.create_label',
+                            {
+                                query,
+                            },
+                        )
+                    }
                     defaultValue={form.values.emailDomains}
                     {...form.getInputProps('emailDomains')}
                 />
@@ -233,9 +280,13 @@ const AllowedDomainsPanel: FC = () => {
                 {!!form.values.emailDomains.length && (
                     <>
                         <Select
-                            label="Default role"
+                            label={t(
+                                'components_user_allowed_domains_panel.form.default_role.label',
+                            )}
                             name="role"
-                            placeholder="Organization viewer"
+                            placeholder={t(
+                                'components_user_allowed_domains_panel.form.default_role.placeholder',
+                            )}
                             disabled={isLoading}
                             data={roleOptions}
                             itemComponent={forwardRef(
@@ -277,7 +328,9 @@ const AllowedDomainsPanel: FC = () => {
                         {form.values.role === OrganizationMemberRole.MEMBER ? (
                             <div>
                                 <Title order={5} mb="md">
-                                    Project access
+                                    {t(
+                                        'components_user_allowed_domains_panel.form_member.title',
+                                    )}
                                 </Title>
 
                                 <Stack spacing="sm" align="flex-start">
@@ -293,7 +346,9 @@ const AllowedDomainsPanel: FC = () => {
                                                     disabled={isLoading}
                                                     label={
                                                         index === 0
-                                                            ? 'Project name'
+                                                            ? t(
+                                                                  'components_user_allowed_domains_panel.form_member.project_name',
+                                                              )
                                                             : undefined
                                                     }
                                                     data={projectOptions.filter(
@@ -326,7 +381,9 @@ const AllowedDomainsPanel: FC = () => {
                                                 <Select
                                                     label={
                                                         index === 0
-                                                            ? 'Project role'
+                                                            ? t(
+                                                                  'components_user_allowed_domains_panel.form_member.project_role',
+                                                              )
                                                             : undefined
                                                     }
                                                     disabled={isLoading}
@@ -409,9 +466,9 @@ const AllowedDomainsPanel: FC = () => {
                                         withinPortal
                                         multiline
                                         disabled={canAddMoreProjects}
-                                        label={
-                                            'There are no other projects to add'
-                                        }
+                                        label={t(
+                                            'components_user_allowed_domains_panel.tooltip.label',
+                                        )}
                                     >
                                         <Button
                                             {...(!canAddMoreProjects && {
@@ -429,7 +486,9 @@ const AllowedDomainsPanel: FC = () => {
                                                 <MantineIcon icon={IconPlus} />
                                             }
                                         >
-                                            Add project
+                                            {t(
+                                                'components_user_allowed_domains_panel.tooltip.content',
+                                            )}
                                         </Button>
                                     </Tooltip>
                                 </Stack>
@@ -441,7 +500,7 @@ const AllowedDomainsPanel: FC = () => {
                 <Flex justify="flex-end" gap="sm">
                     {form.isDirty() && !isUpdateAllowedEmailDomainsLoading && (
                         <Button variant="outline" onClick={() => form.reset()}>
-                            Cancel
+                            {t('components_user_allowed_domains_panel.cancel')}
                         </Button>
                     )}
                     <Button
@@ -450,7 +509,7 @@ const AllowedDomainsPanel: FC = () => {
                         loading={isLoading}
                         disabled={!form.isDirty()}
                     >
-                        Update
+                        {t('components_user_allowed_domains_panel.update')}
                     </Button>
                 </Flex>
             </Stack>

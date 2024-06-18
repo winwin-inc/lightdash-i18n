@@ -1,6 +1,8 @@
 import { Button, Group, Stack, Title } from '@mantine/core';
 import { IconKey } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useAccessToken } from '../../../hooks/useAccessToken';
 import { EmptyState } from '../../common/EmptyState';
 import MantineIcon from '../../common/MantineIcon';
@@ -8,6 +10,7 @@ import { CreateTokenModal } from './CreateTokenModal';
 import { TokensTable } from './TokensTable';
 
 const AccessTokensPanel: FC = () => {
+    const { t } = useTranslation();
     const { data } = useAccessToken();
     const [isCreatingToken, setIsCreatingToken] = useState(false);
     const hasAvailableTokens = data && data.length > 0;
@@ -17,9 +20,15 @@ const AccessTokensPanel: FC = () => {
             {hasAvailableTokens ? (
                 <>
                     <Group position="apart">
-                        <Title order={5}>Personal access tokens</Title>
+                        <Title order={5}>
+                            {t(
+                                'components_user_settings_access_tokens_panel.personal_access_tokens',
+                            )}
+                        </Title>
                         <Button onClick={() => setIsCreatingToken(true)}>
-                            Generate new token
+                            {t(
+                                'components_user_settings_access_tokens_panel.generate_new_token',
+                            )}
                         </Button>
                     </Group>
                     <TokensTable />
@@ -34,11 +43,17 @@ const AccessTokensPanel: FC = () => {
                             size="5xl"
                         />
                     }
-                    title="No tokens"
-                    description="You haven't generated any tokens yet!, generate your first token"
+                    title={t(
+                        'components_user_settings_access_tokens_panel.no_tokens',
+                    )}
+                    description={t(
+                        'components_user_settings_access_tokens_panel.no_tokens_tip',
+                    )}
                 >
                     <Button onClick={() => setIsCreatingToken(true)}>
-                        Generate token
+                        {t(
+                            'components_user_settings_access_tokens_panel.generate_token',
+                        )}
                     </Button>
                 </EmptyState>
             )}

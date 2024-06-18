@@ -2,7 +2,9 @@ import { ProjectType } from '@lightdash/common';
 import { Button, Flex, Select, Stack } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
+
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import { useOrganizationUpdateMutation } from '../../../hooks/organization/useOrganizationUpdateMutation';
 import { useProjects } from '../../../hooks/useProjects';
@@ -17,6 +19,7 @@ const DefaultProjectPanel: FC = () => {
     const { isLoading: isOrganizationLoading, data: organizationData } =
         useOrganization();
     const { isLoading: isLoadingProjects, data: projects = [] } = useProjects();
+    const { t } = useTranslation();
 
     const {
         isLoading: isOrganizationUpdateLoading,
@@ -57,7 +60,9 @@ const DefaultProjectPanel: FC = () => {
             <Stack>
                 <Select
                     key={form.values.defaultProjectUuid}
-                    label="Project name"
+                    label={t(
+                        'components_user_settings_defaul_project_panel.form.project_name.label',
+                    )}
                     data={projects
                         .filter(({ type }) => type !== ProjectType.PREVIEW)
                         .map((project) => ({
@@ -66,7 +71,9 @@ const DefaultProjectPanel: FC = () => {
                         }))}
                     disabled={isLoading}
                     required
-                    placeholder="No project selected"
+                    placeholder={t(
+                        'components_user_settings_defaul_project_panel.form.project_name.placeholder',
+                    )}
                     dropdownPosition="bottom"
                     {...form.getInputProps('defaultProjectUuid')}
                 />
@@ -74,7 +81,9 @@ const DefaultProjectPanel: FC = () => {
                 <Flex justify="flex-end" gap="sm">
                     {form.isDirty() && !isOrganizationUpdateLoading && (
                         <Button variant="outline" onClick={() => form.reset()}>
-                            Cancel
+                            {t(
+                                'components_user_settings_defaul_project_panel.cancel',
+                            )}
                         </Button>
                     )}
                     <Button
@@ -83,7 +92,9 @@ const DefaultProjectPanel: FC = () => {
                         disabled={isLoading || !form.isDirty()}
                         loading={isLoading}
                     >
-                        Update
+                        {t(
+                            'components_user_settings_defaul_project_panel.update',
+                        )}
                     </Button>
                 </Flex>
             </Stack>

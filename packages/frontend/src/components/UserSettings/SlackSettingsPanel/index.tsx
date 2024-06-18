@@ -31,6 +31,8 @@ import {
 } from '@tabler/icons-react';
 import intersection from 'lodash/intersection';
 import { useEffect, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import {
     useDeleteSlack,
     useGetSlack,
@@ -51,6 +53,7 @@ export const hasRequiredScopes = (slackSettings: SlackSettings) => {
 const SLACK_INSTALL_URL = `/api/v1/slack/install/`;
 
 const SlackSettingsPanel: FC = () => {
+    const { t } = useTranslation();
     const { data, isError, isInitialLoading } = useGetSlack();
     const isValidSlack = data?.slackTeamName !== undefined && !isError;
     const { data: slackChannels, isInitialLoading: isLoadingSlackChannels } =
@@ -112,7 +115,11 @@ const SlackSettingsPanel: FC = () => {
                 <Box>
                     <Group spacing="sm">
                         <Avatar src={slackSvg} size="md" />
-                        <Title order={4}>Slack</Title>
+                        <Title order={4}>
+                            {t(
+                                'components_user_settings_slack_settings_panel.title',
+                            )}
+                        </Title>
                     </Group>
                 </Box>
             </Stack>
@@ -121,7 +128,11 @@ const SlackSettingsPanel: FC = () => {
                 <Stack spacing="sm">
                     {isValidSlack && (
                         <Group spacing="xs">
-                            <Text fw={500}>Added to the Slack workspace: </Text>{' '}
+                            <Text fw={500}>
+                                {t(
+                                    'components_user_settings_slack_settings_panel.add',
+                                )}
+                            </Text>{' '}
                             <Badge
                                 radius="xs"
                                 size="lg"
@@ -136,11 +147,13 @@ const SlackSettingsPanel: FC = () => {
                     )}
 
                     <Text color="dimmed" fz="xs">
-                        Sharing in Slack allows you to unfurl Lightdash URLs and
-                        schedule deliveries to specific people or channels
-                        within your Slack workspace.{' '}
+                        {t(
+                            'components_user_settings_slack_settings_panel.content.step_1',
+                        )}{' '}
                         <Anchor href="https://docs.lightdash.com/guides/sharing-in-slack">
-                            View docs
+                            {t(
+                                'components_user_settings_slack_settings_panel.content.step_2',
+                            )}
                         </Anchor>
                     </Text>
                 </Stack>
@@ -152,13 +165,17 @@ const SlackSettingsPanel: FC = () => {
                                 label={
                                     <Group spacing="two" mb="two">
                                         <Text>
-                                            Select a notification channel
+                                            {t(
+                                                'components_user_settings_slack_settings_panel.from.select.text',
+                                            )}
                                         </Text>
                                         <Tooltip
                                             multiline
                                             variant="xs"
                                             maw={250}
-                                            label="Choose a channel where to send notifications to every time a scheduled delivery fails. You have to add this Slack App to this channel to enable notifications"
+                                            label={t(
+                                                'components_user_settings_slack_settings_panel.from.select.label',
+                                            )}
                                         >
                                             <MantineIcon
                                                 icon={IconHelpCircle}
@@ -168,10 +185,14 @@ const SlackSettingsPanel: FC = () => {
                                 }
                                 disabled={isLoadingSlackChannels}
                                 size="xs"
-                                placeholder="Select a channel"
+                                placeholder={t(
+                                    'components_user_settings_slack_settings_panel.from.select.placeholder',
+                                )}
                                 searchable
                                 clearable
-                                nothingFound="No channels found"
+                                nothingFound={t(
+                                    'components_user_settings_slack_settings_panel.from.select.nothingFound',
+                                )}
                                 data={slackChannelOptions}
                                 {...form.getInputProps('notificationChannel')}
                                 onChange={(value) => {
@@ -179,7 +200,9 @@ const SlackSettingsPanel: FC = () => {
                                 }}
                             />
                             <Title order={6} fw={500}>
-                                Slack bot avatar
+                                {t(
+                                    'components_user_settings_slack_settings_panel.from.title',
+                                )}
                             </Title>
                             <Group spacing="xl">
                                 <Avatar
@@ -190,7 +213,9 @@ const SlackSettingsPanel: FC = () => {
                                 />
                                 <TextInput
                                     sx={{ flexGrow: 1 }}
-                                    label="Profile photo URL"
+                                    label={t(
+                                        'components_user_settings_slack_settings_panel.from.profile_photo_url',
+                                    )}
                                     size="xs"
                                     placeholder="https://lightdash.cloud/photo.jpg"
                                     type="url"
@@ -228,7 +253,9 @@ const SlackSettingsPanel: FC = () => {
                                             <MantineIcon icon={IconRefresh} />
                                         }
                                     >
-                                        Reinstall
+                                        {t(
+                                            'components_user_settings_slack_settings_panel.reinstall',
+                                        )}
                                     </Button>
                                 </Group>
                                 <Button
@@ -238,7 +265,9 @@ const SlackSettingsPanel: FC = () => {
                                         <MantineIcon icon={IconDeviceFloppy} />
                                     }
                                 >
-                                    Save
+                                    {t(
+                                        'components_user_settings_slack_settings_panel.save',
+                                    )}
                                 </Button>
                             </Group>
 
@@ -249,9 +278,9 @@ const SlackSettingsPanel: FC = () => {
                                         <MantineIcon icon={IconAlertCircle} />
                                     }
                                 >
-                                    Your Slack integration is not up to date,
-                                    you should reinstall the Slack integration
-                                    to guarantee the best user experience.
+                                    {t(
+                                        'components_user_settings_slack_settings_panel.tip',
+                                    )}
                                 </Alert>
                             )}
                         </Stack>
@@ -265,7 +294,9 @@ const SlackSettingsPanel: FC = () => {
                             color="blue"
                             href={SLACK_INSTALL_URL}
                         >
-                            Add to Slack
+                            {t(
+                                'components_user_settings_slack_settings_panel.add_to_slack',
+                            )}
                         </Button>
                     </Flex>
                 )}

@@ -1,7 +1,9 @@
 import { Button, Flex, Stack, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
+
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import { useOrganizationUpdateMutation } from '../../../hooks/organization/useOrganizationUpdateMutation';
 
@@ -14,6 +16,7 @@ type FormValues = z.infer<typeof validationSchema>;
 const OrganizationPanel: FC = () => {
     const { isLoading: isOrganizationLoading, data: organizationData } =
         useOrganization();
+    const { t } = useTranslation();
 
     const {
         isLoading: isOrganizationUpdateLoading,
@@ -50,9 +53,13 @@ const OrganizationPanel: FC = () => {
         <form onSubmit={handleOnSubmit}>
             <Stack>
                 <TextInput
-                    label="Organization name"
+                    label={t(
+                        'components_user_settings_organization_panel.form.organization_name.label',
+                    )}
                     required
-                    placeholder="Lightdash"
+                    placeholder={t(
+                        'components_user_settings_organization_panel.form.organization_name.placeholder',
+                    )}
                     disabled={isLoading}
                     {...form.getInputProps('organizationName')}
                 />
@@ -60,7 +67,9 @@ const OrganizationPanel: FC = () => {
                 <Flex justify="flex-end" gap="sm">
                     {form.isDirty() && !isOrganizationUpdateLoading && (
                         <Button variant="outline" onClick={() => form.reset()}>
-                            Cancel
+                            {t(
+                                'components_user_settings_organization_panel.cancel',
+                            )}
                         </Button>
                     )}
 
@@ -70,7 +79,9 @@ const OrganizationPanel: FC = () => {
                         disabled={isLoading || !form.isDirty()}
                         loading={isLoading}
                     >
-                        Update
+                        {t(
+                            'components_user_settings_organization_panel.update',
+                        )}
                     </Button>
                 </Flex>
             </Stack>

@@ -7,6 +7,7 @@ import {
 } from '@tabler/icons-react';
 import Fuse from 'fuse.js';
 import { memo, useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useParams } from 'react-router-dom';
 
 import { type SummaryExplore } from '@lightdash/common';
@@ -41,6 +42,7 @@ const BasePanel = () => {
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const [search, setSearch] = useState<string>('');
     const exploresResult = useExplores(projectUuid, true);
+    const { t } = useTranslation();
 
     const [exploreGroupMap, ungroupedExplores] = useMemo(() => {
         const validSearch = search ? search.toLowerCase() : '';
@@ -87,7 +89,7 @@ const BasePanel = () => {
         return (
             <SuboptimalState
                 icon={IconAlertCircle}
-                title="Could not load explores"
+                title={t('components_explorer_sider_bar.error')}
             />
         );
     }
@@ -98,7 +100,12 @@ const BasePanel = () => {
                 <ItemDetailProvider>
                     <PageBreadcrumbs
                         size="md"
-                        items={[{ title: 'Tables', active: true }]}
+                        items={[
+                            {
+                                title: t('components_explorer_sider_bar.title'),
+                                active: true,
+                            },
+                        ]}
                     />
 
                     <TextInput
@@ -110,7 +117,9 @@ const BasePanel = () => {
                                 </ActionIcon>
                             ) : null
                         }
-                        placeholder="Search tables"
+                        placeholder={t(
+                            'components_explorer_sider_bar.search_tables',
+                        )}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
@@ -167,7 +176,7 @@ const BasePanel = () => {
     return (
         <SuboptimalState
             icon={IconAlertTriangle}
-            title="Could not load explores"
+            title={t('components_explorer_sider_bar.error')}
         />
     );
 };

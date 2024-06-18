@@ -22,7 +22,9 @@ import {
     IconUserShield,
 } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Redirect, Route, Switch } from 'react-router-dom';
+
 import { Can } from '../components/common/Authorization';
 import ErrorState from '../components/common/ErrorState';
 import MantineIcon from '../components/common/MantineIcon';
@@ -56,6 +58,7 @@ import { EventName, PageName } from '../types/Events';
 import ProjectSettings from './ProjectSettings';
 
 const Settings: FC = () => {
+    const { t } = useTranslation();
     const isPassthroughLoginFeatureEnabled = useFeatureFlagEnabled(
         FeatureFlags.PassthroughLogin,
     );
@@ -128,11 +131,13 @@ const Settings: FC = () => {
             withSidebarFooter
             withFixedContent
             withPaddedContent
-            title="Settings"
+            title={t('pages_settings.title')}
             sidebar={
                 <Stack sx={{ flexGrow: 1, overflow: 'hidden' }}>
                     <PageBreadcrumbs
-                        items={[{ title: 'Settings', active: true }]}
+                        items={[
+                            { title: t('pages_settings.title'), active: true },
+                        ]}
                     />
                     <ScrollArea
                         variant="primary"
@@ -142,13 +147,15 @@ const Settings: FC = () => {
                         <Stack spacing="lg">
                             <Box>
                                 <Title order={6} fw={600} mb="xs">
-                                    Your settings
+                                    {t('pages_settings.scroll_area_box.title')}
                                 </Title>
 
                                 <RouterNavLink
                                     exact
                                     to="/generalSettings"
-                                    label="Profile"
+                                    label={t(
+                                        'pages_settings.scroll_area_box.navs.profile',
+                                    )}
                                     icon={<MantineIcon icon={IconUserCircle} />}
                                 />
 
@@ -156,8 +163,12 @@ const Settings: FC = () => {
                                     <RouterNavLink
                                         label={
                                             hasSocialLogin
-                                                ? 'Password & Social Logins'
-                                                : 'Password'
+                                                ? t(
+                                                      'pages_settings.scroll_area_box.navs.password.password_social_login',
+                                                  )
+                                                : t(
+                                                      'pages_settings.scroll_area_box.navs.password.password',
+                                                  )
                                         }
                                         exact
                                         to="/generalSettings/password"
@@ -167,7 +178,9 @@ const Settings: FC = () => {
 
                                 {isPassthroughLoginFeatureEnabled && (
                                     <RouterNavLink
-                                        label="My warehouse connections"
+                                        label={t(
+                                            'pages_settings.scroll_area_box.navs.warehouse_connections',
+                                        )}
                                         exact
                                         to="/generalSettings/myWarehouseConnections"
                                         icon={
@@ -178,7 +191,9 @@ const Settings: FC = () => {
                                     />
                                 )}
                                 <RouterNavLink
-                                    label="Personal access tokens"
+                                    label={t(
+                                        'pages_settings.scroll_area_box.navs.access_tokens',
+                                    )}
                                     exact
                                     to="/generalSettings/personalAccessTokens"
                                     icon={<MantineIcon icon={IconKey} />}
@@ -194,7 +209,9 @@ const Settings: FC = () => {
                             >
                                 <Box>
                                     <Title order={6} fw={600} mb="xs">
-                                        Organization settings
+                                        {t(
+                                            'pages_settings.scroll_area_box_create.title',
+                                        )}
                                     </Title>
 
                                     {user.ability.can(
@@ -202,7 +219,9 @@ const Settings: FC = () => {
                                         'Organization',
                                     ) && (
                                         <RouterNavLink
-                                            label="General"
+                                            label={t(
+                                                'pages_settings.scroll_area_box_create.navs.general',
+                                            )}
                                             to="/generalSettings/organization"
                                             exact
                                             icon={
@@ -222,8 +241,12 @@ const Settings: FC = () => {
                                         <RouterNavLink
                                             label={
                                                 isGroupManagementEnabled
-                                                    ? 'Users & groups'
-                                                    : 'User management'
+                                                    ? t(
+                                                          'pages_settings.scroll_area_box_create.navs.users.users_groups',
+                                                      )
+                                                    : t(
+                                                          'pages_settings.scroll_area_box_create.navs.users.user_management',
+                                                      )
                                             }
                                             to="/generalSettings/userManagement"
                                             exact
@@ -244,8 +267,12 @@ const Settings: FC = () => {
                                         <RouterNavLink
                                             label={
                                                 isGroupManagementEnabled
-                                                    ? 'User & group attributes'
-                                                    : 'User attributes'
+                                                    ? t(
+                                                          'pages_settings.scroll_area_box_create.navs.user_attributes.user_group_attributes',
+                                                      )
+                                                    : t(
+                                                          'pages_settings.scroll_area_box_create.navs.user_attributes.user_attributes',
+                                                      )
                                             }
                                             to="/generalSettings/userAttributes"
                                             exact
@@ -262,7 +289,9 @@ const Settings: FC = () => {
                                         'Organization',
                                     ) && (
                                         <RouterNavLink
-                                            label="Appearance"
+                                            label={t(
+                                                'pages_settings.scroll_area_box_create.navs.appearance',
+                                            )}
                                             exact
                                             to="/generalSettings/appearance"
                                             icon={
@@ -278,7 +307,9 @@ const Settings: FC = () => {
                                         'Organization',
                                     ) && (
                                         <RouterNavLink
-                                            label="Integrations"
+                                            label={t(
+                                                'pages_settings.scroll_area_box_create.navs.integrations',
+                                            )}
                                             exact
                                             to="/generalSettings/integrations"
                                             icon={
@@ -291,7 +322,9 @@ const Settings: FC = () => {
                                         !organization.needsProject &&
                                         user.ability.can('view', 'Project') && (
                                             <RouterNavLink
-                                                label="All projects"
+                                                label={t(
+                                                    'pages_settings.scroll_area_box_create.navs.all_projects',
+                                                )}
                                                 to="/generalSettings/projectManagement"
                                                 exact
                                                 icon={
@@ -317,11 +350,18 @@ const Settings: FC = () => {
                             ) ? (
                                 <Box>
                                     <Title order={6} fw={600} mb="xs">
-                                        Current project ({project?.name})
+                                        {t(
+                                            'pages_settings.scroll_area_box_update.title',
+                                            {
+                                                name: project?.name,
+                                            },
+                                        )}
                                     </Title>
 
                                     <RouterNavLink
-                                        label="Connection settings"
+                                        label={t(
+                                            'pages_settings.scroll_area_box_update.navs.connection_settings',
+                                        )}
                                         exact
                                         to={`/generalSettings/projectManagement/${project.projectUuid}/settings`}
                                         icon={
@@ -332,7 +372,9 @@ const Settings: FC = () => {
                                     />
 
                                     <RouterNavLink
-                                        label="Tables configuration"
+                                        label={t(
+                                            'pages_settings.scroll_area_box_update.navs.tables_configuration',
+                                        )}
                                         exact
                                         to={`/generalSettings/projectManagement/${project.projectUuid}/tablesConfiguration`}
                                         icon={
@@ -343,7 +385,9 @@ const Settings: FC = () => {
                                     />
 
                                     <RouterNavLink
-                                        label="Project access"
+                                        label={t(
+                                            'pages_settings.scroll_area_box_update.navs.project_access',
+                                        )}
                                         exact
                                         to={`/generalSettings/projectManagement/${project.projectUuid}/projectAccess`}
                                         icon={<MantineIcon icon={IconUsers} />}
@@ -357,7 +401,9 @@ const Settings: FC = () => {
                                         }),
                                     ) ? (
                                         <RouterNavLink
-                                            label="dbt Semantic Layer"
+                                            label={t(
+                                                'pages_settings.scroll_area_box_update.navs.dbt_semantic_layer',
+                                            )}
                                             exact
                                             to={`/generalSettings/projectManagement/${project.projectUuid}/integrations/dbtCloud`}
                                             icon={
@@ -377,7 +423,9 @@ const Settings: FC = () => {
                                         }),
                                     ) ? (
                                         <RouterNavLink
-                                            label="Usage analytics"
+                                            label={t(
+                                                'pages_settings.scroll_area_box_update.navs.usage_analytics',
+                                            )}
                                             exact
                                             to={`/generalSettings/projectManagement/${project.projectUuid}/usageAnalytics`}
                                             onClick={() => {
@@ -394,7 +442,9 @@ const Settings: FC = () => {
                                     ) : null}
 
                                     <RouterNavLink
-                                        label="Syncs & Scheduled deliveries"
+                                        label={t(
+                                            'pages_settings.scroll_area_box_update.navs.syncs_scheduled_deliveries',
+                                        )}
                                         exact
                                         to={`/generalSettings/projectManagement/${project.projectUuid}/scheduledDeliveries`}
                                         icon={
@@ -413,7 +463,9 @@ const Settings: FC = () => {
                                         }),
                                     ) ? (
                                         <RouterNavLink
-                                            label="Validator"
+                                            label={t(
+                                                'pages_settings.scroll_area_box_update.navs.validator',
+                                            )}
                                             exact
                                             to={`/generalSettings/projectManagement/${project.projectUuid}/validator`}
                                             icon={
@@ -433,7 +485,9 @@ const Settings: FC = () => {
                                         }),
                                     ) ? (
                                         <RouterNavLink
-                                            label="Data ops"
+                                            label={t(
+                                                'pages_settings.scroll_area_box_update.navs.data_ops',
+                                            )}
                                             exact
                                             to={`/generalSettings/projectManagement/${project.projectUuid}/dataOps`}
                                             icon={
@@ -446,7 +500,9 @@ const Settings: FC = () => {
 
                                     {isCustomSQLEnabled && (
                                         <RouterNavLink
-                                            label="Custom SQL"
+                                            label={t(
+                                                'pages_settings.scroll_area_box_update.navs.custom_sql',
+                                            )}
                                             exact
                                             to={`/generalSettings/projectManagement/${project.projectUuid}/customSql`}
                                             icon={
@@ -466,13 +522,21 @@ const Settings: FC = () => {
                     <Route exact path="/generalSettings/password">
                         <Stack spacing="xl">
                             <SettingsGridCard>
-                                <Title order={4}>Password settings</Title>
+                                <Title order={4}>
+                                    {t(
+                                        'pages_settings.routes.password_settings',
+                                    )}
+                                </Title>
                                 <PasswordPanel />
                             </SettingsGridCard>
 
                             {hasSocialLogin && (
                                 <SettingsGridCard>
-                                    <Title order={4}>Social logins</Title>
+                                    <Title order={4}>
+                                        {t(
+                                            'pages_settings.routes.social_logins',
+                                        )}
+                                    </Title>
                                     <SocialLoginsPanel />
                                 </SettingsGridCard>
                             )}
@@ -491,19 +555,23 @@ const Settings: FC = () => {
                     <Route exact path="/generalSettings/organization">
                         <Stack spacing="xl">
                             <SettingsGridCard>
-                                <Title order={4}>General</Title>
+                                <Title order={4}>
+                                    {t('pages_settings.routes.general')}
+                                </Title>
                                 <OrganizationPanel />
                             </SettingsGridCard>
 
                             <SettingsGridCard>
                                 <div>
                                     <Title order={4}>
-                                        Allowed email domains
+                                        {t(
+                                            'pages_settings.routes.allow.step_1',
+                                        )}
                                     </Title>
                                     <Text c="gray.6" fz="xs">
-                                        Anyone with email addresses at these
-                                        domains can automatically join the
-                                        organization.
+                                        {t(
+                                            'pages_settings.routes.allow.step_2',
+                                        )}
                                     </Text>
                                 </div>
                                 <AllowedDomainsPanel />
@@ -511,13 +579,15 @@ const Settings: FC = () => {
 
                             <SettingsGridCard>
                                 <div>
-                                    <Title order={4}>Default Project</Title>
+                                    <Title order={4}>
+                                        {t(
+                                            'pages_settings.routes.default_project.step_1',
+                                        )}
+                                    </Title>
                                     <Text c="gray.6" fz="xs">
-                                        This is the project users will see when
-                                        they log in for the first time or from a
-                                        new device. If a user does not have
-                                        access, they will see their next
-                                        accessible project.
+                                        {t(
+                                            'pages_settings.routes.default_project.step_2',
+                                        )}
                                     </Text>
                                 </div>
                                 <DefaultProjectPanel />
@@ -526,12 +596,15 @@ const Settings: FC = () => {
                             {user.ability?.can('delete', 'Organization') && (
                                 <SettingsGridCard>
                                     <div>
-                                        <Title order={4}>Danger zone </Title>
+                                        <Title order={4}>
+                                            {t(
+                                                'pages_settings.routes.danger_zone.step_1',
+                                            )}
+                                        </Title>
                                         <Text c="gray.6" fz="xs">
-                                            This action deletes the whole
-                                            workspace and all its content,
-                                            including users. This action is not
-                                            reversible.
+                                            {t(
+                                                'pages_settings.routes.danger_zone.step_2',
+                                            )}
                                         </Text>
                                     </div>
                                     <DeleteOrganizationPanel />
@@ -605,10 +678,14 @@ const Settings: FC = () => {
                 {user.ability.can('manage', 'Organization') && (
                     <Route exact path="/generalSettings/integrations">
                         <Stack>
-                            <Title order={4}>Integrations</Title>
+                            <Title order={4}>
+                                {t('pages_settings.routes.integrations')}
+                            </Title>
                             {!health.hasSlack &&
                                 !health.hasGithub &&
-                                'No integrations available'}
+                                t(
+                                    'pages_settings.routes.no_integrations_available',
+                                )}
                             {health.hasSlack && <SlackSettingsPanel />}
                             {health.hasGithub && <GithubSettingsPanel />}
                         </Stack>
@@ -617,7 +694,9 @@ const Settings: FC = () => {
 
                 <Route exact path="/generalSettings">
                     <SettingsGridCard>
-                        <Title order={4}>Profile settings</Title>
+                        <Title order={4}>
+                            {t('pages_settings.routes.profile_settings')}
+                        </Title>
                         <ProfilePanel />
                     </SettingsGridCard>
                 </Route>

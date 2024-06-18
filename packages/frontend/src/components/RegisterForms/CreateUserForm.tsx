@@ -14,7 +14,9 @@ import {
 } from '@mantine/core';
 import { useForm, zodResolver } from '@mantine/form';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
+
 import PasswordTextInput from '../PasswordTextInput';
 
 type Props = {
@@ -29,6 +31,7 @@ const validationSchema = z.object({
 });
 
 const CreateUserForm: FC<Props> = ({ isLoading, readOnlyEmail, onSubmit }) => {
+    const { t } = useTranslation();
     const form = useForm<CreateUserArgs>({
         initialValues: {
             firstName: '',
@@ -44,26 +47,38 @@ const CreateUserForm: FC<Props> = ({ isLoading, readOnlyEmail, onSubmit }) => {
             <Stack spacing="md">
                 <Flex direction="row" gap="xs">
                     <TextInput
-                        label="First name"
+                        label={t(
+                            'components_register_form.create_user_form.first_name.label',
+                        )}
                         name="firstName"
-                        placeholder="Your first name"
+                        placeholder={t(
+                            'components_register_form.create_user_form.first_name.placeholder',
+                        )}
                         disabled={isLoading}
                         required
                         {...form.getInputProps('firstName')}
                     />
                     <TextInput
-                        label="Last name"
+                        label={t(
+                            'components_register_form.create_user_form.last_name.label',
+                        )}
                         name="lastName"
-                        placeholder="Your last name"
+                        placeholder={t(
+                            'components_register_form.create_user_form.last_name.placeholder',
+                        )}
                         disabled={isLoading}
                         required
                         {...form.getInputProps('lastName')}
                     />
                 </Flex>
                 <TextInput
-                    label="Email address"
+                    label={t(
+                        'components_register_form.create_user_form.email.label',
+                    )}
                     name="email"
-                    placeholder="Your email address"
+                    placeholder={t(
+                        'components_register_form.create_user_form.email.placeholder',
+                    )}
                     required
                     {...form.getInputProps('email')}
                     disabled={isLoading || !!readOnlyEmail}
@@ -73,9 +88,13 @@ const CreateUserForm: FC<Props> = ({ isLoading, readOnlyEmail, onSubmit }) => {
                     passwordValue={form.values.password as string}
                 >
                     <PasswordInput
-                        label="Password"
+                        label={t(
+                            'components_register_form.create_user_form.password.label',
+                        )}
                         name="password"
-                        placeholder="Your password"
+                        placeholder={t(
+                            'components_register_form.create_user_form.password.placeholder',
+                        )}
                         required
                         {...form.getInputProps('password')}
                         data-cy="password-input"
@@ -88,10 +107,16 @@ const CreateUserForm: FC<Props> = ({ isLoading, readOnlyEmail, onSubmit }) => {
                     disabled={isLoading}
                     data-cy="signup-button"
                 >
-                    Sign up
+                    {t('components_register_form.create_user_form.sign_up')}
                 </Button>
                 <Text mx="auto">
-                    Already Registered? <Anchor href="/signin">Sign in</Anchor>
+                    {t(
+                        'components_register_form.create_user_form.alreday_registered',
+                    )}
+                    <Anchor href="/signin">
+                        {' '}
+                        {t('components_register_form.create_user_form.sign_in')}
+                    </Anchor>
                 </Text>
             </Stack>
         </form>

@@ -11,7 +11,9 @@ import {
 import { useForm, zodResolver } from '@mantine/form';
 import { IconAlertCircle, IconCircleCheck } from '@tabler/icons-react';
 import { useEffect, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
+
 import useToaster from '../../../hooks/toaster/useToaster';
 import {
     useEmailStatus,
@@ -36,6 +38,7 @@ const ProfilePanel: FC = () => {
         health,
     } = useApp();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
 
     const form = useForm<FormValues>({
         validate: zodResolver(validationSchema),
@@ -75,12 +78,16 @@ const ProfilePanel: FC = () => {
         useUserUpdateMutation({
             onSuccess: () => {
                 showToastSuccess({
-                    title: 'Success! User details were updated.',
+                    title: t(
+                        'components_user_settings_profile_panel.tips.success',
+                    ),
                 });
             },
             onError: ({ error }: ApiError) => {
                 showToastApiError({
-                    title: 'Failed to update user details',
+                    title: t(
+                        'components_user_settings_profile_panel.tips.error',
+                    ),
                     apiError: error,
                 });
             },
@@ -107,8 +114,12 @@ const ProfilePanel: FC = () => {
         <form onSubmit={handleOnSubmit}>
             <Stack mt="md">
                 <TextInput
-                    placeholder="First name"
-                    label="First name"
+                    placeholder={t(
+                        'components_user_settings_profile_panel.form.first_name.placeholder',
+                    )}
+                    label={t(
+                        'components_user_settings_profile_panel.form.first_name.label',
+                    )}
                     type="text"
                     required
                     disabled={isLoading}
@@ -116,8 +127,12 @@ const ProfilePanel: FC = () => {
                 />
 
                 <TextInput
-                    placeholder="Last name"
-                    label="Last name"
+                    placeholder={t(
+                        'components_user_settings_profile_panel.form.last_name.placeholder',
+                    )}
+                    label={t(
+                        'components_user_settings_profile_panel.form.last_name.label',
+                    )}
                     type="text"
                     required
                     disabled={isLoading}
@@ -125,8 +140,12 @@ const ProfilePanel: FC = () => {
                 />
 
                 <TextInput
-                    placeholder="Email"
-                    label="Email"
+                    placeholder={t(
+                        'components_user_settings_profile_panel.form.email.placeholder',
+                    )}
+                    label={t(
+                        'components_user_settings_profile_panel.form.email.label',
+                    )}
                     type="email"
                     required
                     disabled={isLoading}
@@ -139,7 +158,11 @@ const ProfilePanel: FC = () => {
                     {...form.getInputProps('email')}
                     rightSection={
                         isEmailServerConfigured && data?.isVerified ? (
-                            <Tooltip label="This e-mail has been verified">
+                            <Tooltip
+                                label={t(
+                                    'components_user_settings_profile_panel.form.email.tooltip',
+                                )}
+                            >
                                 <MantineIcon
                                     size="lg"
                                     icon={IconCircleCheck}
@@ -158,7 +181,9 @@ const ProfilePanel: FC = () => {
                     description={
                         isEmailServerConfigured && !data?.isVerified ? (
                             <Text color="dimmed">
-                                This email has not been verified.{' '}
+                                {t(
+                                    'components_user_settings_profile_panel.form.email.description.step_1',
+                                )}{' '}
                                 <Anchor
                                     component="span"
                                     onClick={() => {
@@ -168,7 +193,9 @@ const ProfilePanel: FC = () => {
                                         setShowVerifyEmailModal(true);
                                     }}
                                 >
-                                    Click here to verify it
+                                    {t(
+                                        'components_user_settings_profile_panel.form.email.description.step_2',
+                                    )}
                                 </Anchor>
                                 .
                             </Text>
@@ -179,7 +206,7 @@ const ProfilePanel: FC = () => {
                 <Flex justify="flex-end" gap="sm">
                     {form.isDirty() && !isUpdatingUser && (
                         <Button variant="outline" onClick={() => form.reset()}>
-                            Cancel
+                            {t('components_user_settings_profile_panel.cancel')}
                         </Button>
                     )}
                     <Button
@@ -188,7 +215,7 @@ const ProfilePanel: FC = () => {
                         loading={isLoading}
                         disabled={!form.isDirty()}
                     >
-                        Update
+                        {t('components_user_settings_profile_panel.update')}
                     </Button>
                 </Flex>
 

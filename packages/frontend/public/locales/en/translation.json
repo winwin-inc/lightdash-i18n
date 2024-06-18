@@ -468,15 +468,15 @@
         "query": "Run your first query!",
         "exploring": "You&apos;re ready to start exploring. Here&apos;s what you can do with Lightdash:",
         "steps": {
-            "step1": {
+            "step_1": {
                 "title": "1. Run queries",
                 "description": "to explore your data"
             },
-            "step2": {
+            "step_2": {
                 "title": "2. Create charts",
                 "description": "using your query results"
             },
-            "step3": {
+            "step_3": {
                 "title": "3. Build dashboards",
                 "description": "to share your insights"
             }
@@ -523,6 +523,181 @@
             "tip": "Pin items to the top of the homepage to guide users to relevant content!",
             "view": "View docs"
         }
+    },
+
+    "components_register_form": {
+        "create_user_form": {
+            "first_name": {
+                "label": "First name",
+                "placeholder": "Your first name"
+            },
+            "last_name": {
+                "label": "Last name",
+                "placeholder": "Your last name"
+            },
+            "email": {
+                "label": "Email address",
+                "placeholder": "Your email address"
+            },
+            "password:": {
+                "label": "Password",
+                "placeholder": "Your password"
+            }
+        },
+        "sign_up": "Sign up",
+        "alreday_registered": "Already Registered?",
+        "sign_in": "Sign in"
+    },
+    "components_user_settings_profile_panel": {
+        "tips": {
+            "success": "Success! User details were updated.",
+            "error": "Failed to update user details"
+        },
+        "form": {
+            "first_name": {
+                "label": "First name",
+                "placeholder": "Your first name"
+            },
+            "last_name": {
+                "label": "Last name",
+                "placeholder": "Your last name"
+            },
+            "email": {
+                "label": "Email address",
+                "placeholder": "Your email address",
+                "tooltip": "This e-mail has been verified",
+                "description": {
+                    "step_1": "This email has not been verified.",
+                    "step_2": "Click here to verify it"
+                }
+            }
+        },
+        "cancel": "Cancel",
+        "update": "Update"
+    },
+    "components_user_settings_password_panel": {
+        "tips": {
+            "success": "Your password has been updated",
+            "error": "Failed to update password"
+        },
+        "form": {
+            "current_password": {
+                "label": "Current password",
+                "placeholder": "Enter your password..."
+            },
+            "new_password": {
+                "label": "New password",
+                "placeholder": "Enter your new password..."
+            }
+        },
+        "cancel": "Cancel",
+        "update": "Update"
+    },
+    "components_user_settings_access_tokens_panel": {
+        "personal_access_tokens": "Personal access tokens",
+        "generate_new_token": "Generate new token",
+        "no_tokens": "No tokens",
+        "no_tokens_tip": "You haven't generated any tokens yet!, generate your first token",
+        "generate_token": "Generate token"
+    },
+    "components_user_settings_organization_panel": {
+        "form": {
+            "organization_name": {
+                "label": "Organization name",
+                "placeholder": "Lightdash"
+            }
+        },
+        "cancel": "Cancel",
+        "update": "Update"
+    },
+    "components_user_allowed_domains_panel": {
+        "role_options": {
+            "editor": {
+                "label": "Organization Editor",
+                "sub_label": "Has edit access across all projects in the org"
+            },
+            "interactive_viewer": {
+                "label": "Organization Interactive Viewer",
+                "sub_label": "Has interactive access across all projects in the org"
+            },
+            "viewer": {
+                "label": "Organization Viewer",
+                "sub_label": "Has view access across all projects in the org"
+            },
+            "member": {
+                "label": "'Organization Member",
+                "sub_label": "Has view access to selected projects only"
+            }
+        },
+        "project_options": {
+            "editor": {
+                "label": "Editor",
+                "sub_label": "Has edit access in this project"
+            },
+            "interactive_viewer": {
+                "label": "Interactive Viewer",
+                "sub_label": "Has interactive access in this project"
+            },
+            "viewer": {
+                "label": "Viewer",
+                "sub_label": "Has view access in this project"
+            }
+        },
+        "form": {
+            "email_domains": {
+                "label": "Allowed email domains",
+                "placeholder": "E.g. lightdash.com",
+                "error": "{{value}} should not contain @, eg: (lightdash.com)",
+                "create_label": "+ Add {{query}} domain"
+            },
+            "default_role": {
+                "label": "Default role",
+                "placeholder": "Organization viewer"
+            }
+        },
+        "form_member": {
+            "title": "Project access",
+            "project_name": "Project name",
+            "project_role": "Project role"
+        },
+        "tooltip": {
+            "label": "There are no other projects to add",
+            "content": "Add project"
+        },
+        "cancel": "Cancel",
+        "update": "Update"
+    },
+    "components_user_settings_defaul_project_panel": {
+        "form": {
+            "project_name": {
+                "label": "Project name",
+                "placeholder": "No project selected"
+            }
+        },
+        "cancel": "Cancel",
+        "update": "Update"
+    },
+    "components_user_settings_slack_settings_panel": {
+        "title": "Slack",
+        "add": "Added to the Slack workspace: ",
+        "content": {
+            "step_1": "Sharing in Slack allows you to unfurl Lightdash URLs and schedule deliveries to specific people or channels within your Slack workspace.",
+            "step_2": "View docs"
+        },
+        "form": {
+            "select": {
+                "text": "Select a notification channel",
+                "label": "Choose a channel where to send notifications to every time a scheduled delivery fails. You have to add this Slack App to this channel to enable notifications",
+                "placeholder": "Select a channel",
+                "nothingFound": "No channels found"
+            },
+            "title": "Slack bot avatar",
+            "profile_photo_url": "Profile photo URL"
+        },
+        "tip": "Your Slack integration is not up to date, you should reinstall the Slack integration to guarantee the best user experience.",
+        "reinstall": "Reinstall",
+        "save": "Save",
+        "add_to_slack": "Add to Slack"
     },
 
     "components_explorer_tree": {
@@ -573,6 +748,11 @@
         "add_custom_metrics": "Add custom metrics",
         "add_custom_dimensions": "Add custom dimensions",
         "view_options": "View options"
+    },
+    "components_explorer_sider_bar": {
+        "error": "Could not load explores",
+        "title": "Tables",
+        "search_tables": "Search tables"
     },
     "components_explorer_custom_dimension_modal": {
         "tips": {
@@ -1044,5 +1224,72 @@
         },
         "charts": "Charts",
         "results": "Results"
+    },
+
+    "pages_settings": {
+        "title": "Settings",
+        "scroll_area_box": {
+            "title": "Your settings",
+            "navs": {
+                "profile": "Profile",
+                "password": {
+                    "password_social_login": "Password & Social Logins",
+                    "password": "Password"
+                },
+                "warehouse_connections": "My warehouse connections",
+                "access_tokens": "Personal access tokens"
+            }
+        },
+        "scroll_area_box_create": {
+            "title": "Organization settings",
+            "navs": {
+                "general": "General",
+                "users": {
+                    "users_groups": "Users & Groups",
+                    "user_management": "User Management"
+                },
+                "user_attributes": {
+                    "user_group_attributes": "User & group attributes",
+                    "user_attributes": "User Attributes"
+                },
+                "appearance": "Appearance",
+                "integrations": "Integrations",
+                "all_projects": "All projects"
+            }
+        },
+        "scroll_area_box_update": {
+            "title": "Current project ({{name}})",
+            "navs": {
+                "connection_settings": "Connection settings",
+                "tables_configuration": "Tables configuration",
+                "project_access": "Project access",
+                "dbt_semantic_layer": "dbt Semantic Layer",
+                "usage_analytics": "Usage Analytics",
+                "syncs_scheduled_deliveries": "Syncs & Scheduled Deliveries",
+                "validator": "Validator",
+                "data_ops": "Data ops",
+                "custom_sql": "Custom SQL"
+            }
+        },
+        "routes": {
+            "password_settings": "Password settings",
+            "social_logins": "Social logins",
+            "general": "General",
+            "allow": {
+                "step_1": "Allowed email domains",
+                "step_2": "Anyone with email addresses at these domains can automatically join the organization."
+            },
+            "default_project": {
+                "step_1": "Default project",
+                "step_2": "This is the project users will see when they log in for the first time or from a new device. If a user does not have access, they will see their next accessible project."
+            },
+            "danger_zone": {
+                "step_1": "Danger zone",
+                "step_2": "This action deletes the whole workspace and all its content,including users. This action is not reversible."
+            },
+            "integrations": "Integrations",
+            "no_integrations_available": "No integrations available",
+            "profile_settings": "Profile settings"
+        }
     }
 }
