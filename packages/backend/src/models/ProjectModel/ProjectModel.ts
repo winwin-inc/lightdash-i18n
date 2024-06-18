@@ -29,7 +29,6 @@ import {
     WarehouseCredentials,
     WarehouseTypes,
 } from '@lightdash/common';
-
 import {
     WarehouseCatalog,
     warehouseClientFromCredentials,
@@ -38,11 +37,14 @@ import { Knex } from 'knex';
 import { omit } from 'lodash';
 import uniqWith from 'lodash/uniqWith';
 import { DatabaseError } from 'pg';
+import { v4 as uuidv4 } from 'uuid';
 import { LightdashConfig } from '../../config/parseConfig';
 import { CatalogTableName, DbCatalogIn } from '../../database/entities/catalog';
 import {
+    DashboardTabsTableName,
     DashboardViewsTableName,
     DbDashboard,
+    DbDashboardTabs,
 } from '../../database/entities/dashboards';
 import { OrganizationMembershipsTableName } from '../../database/entities/organizationMemberships';
 import {
@@ -70,7 +72,7 @@ import { DbSpace } from '../../database/entities/spaces';
 import { DbUser } from '../../database/entities/users';
 import { WarehouseCredentialTableName } from '../../database/entities/warehouseCredentials';
 import Logger from '../../logging/logger';
-import { wrapOtelSpan, wrapSentryTransaction } from '../../utils';
+import { wrapSentryTransaction } from '../../utils';
 import { EncryptionUtil } from '../../utils/EncryptionUtil/EncryptionUtil';
 import {
     convertExploresToCatalog,
@@ -380,7 +382,7 @@ export class ProjectModel {
                   copied_from_project_uuid?: string;
               }
         )[];
-        return wrapOtelSpan(
+        return wrapSentryTransaction(
             'ProjectModel.getWithSensitiveFields',
             {},
             async () => {
@@ -637,7 +639,7 @@ export class ProjectModel {
         projectUuid: string,
         exploreNames?: string[],
     ): Promise<Record<string, Explore | ExploreError>> {
-        return wrapOtelSpan(
+        return wrapSentryTransaction(
             'ProjectModel.findExploresFromCache',
             {
                 projectUuid,
@@ -670,7 +672,7 @@ export class ProjectModel {
         projectUuid: string,
         exploreName: string,
     ): Promise<Explore | ExploreError> {
-        return wrapOtelSpan(
+        return wrapSentryTransaction(
             'ProjectModel.getExploreFromCache',
             {},
             async (span) => {
@@ -707,7 +709,7 @@ export class ProjectModel {
         projectUuid: string,
         tableName: string,
     ): Promise<Explore | ExploreError | undefined> {
-        return wrapOtelSpan(
+        return wrapSentryTransaction(
             'ProjectModel.findExploreByTableName',
             {},
             async (span) => {
@@ -854,7 +856,7 @@ export class ProjectModel {
         projectUuid: string,
         explores: (Explore | ExploreError)[],
     ): Promise<DbCachedExplores> {
-        return wrapOtelSpan(
+        return wrapSentryTransaction(
             'ProjectModel.saveExploresToCache',
             {},
             async () => {
@@ -1639,6 +1641,36 @@ export class ProjectModel {
                 newId: newDashboardVersions[i].dashboard_version_id,
             }));
 
+            const dashboardTabs = await trx(DashboardTabsTableName).whereIn(
+                'dashboard_version_id',
+                dashboardVersionIds,
+            );
+
+            Logger.info(
+                `Duplicating ${dashboardTabs.length} dashboard tabs on ${previewProjectUuid}`,
+            );
+            let newDashboardTabs: DbDashboardTabs[] = [];
+            if (dashboardTabs.length > 0) {
+                newDashboardTabs = await trx(DashboardTabsTableName)
+                    .insert(
+                        dashboardTabs.map((d) => ({
+                            ...d,
+                            uuid: uuidv4(), // we need to generate the uuid here: https://github.com/lightdash/lightdash/issues/10408
+                            dashboard_id: dashboardMapping.find(
+                                (m) => m.id === d.dashboard_id,
+                            )?.newId!,
+                            dashboard_version_id: dashboardVersionsMapping.find(
+                                (m) => m.id === d.dashboard_version_id,
+                            )?.newId!,
+                        })),
+                    )
+                    .returning('*');
+            }
+            const dashboardTabsMapping = dashboardTabs.map((c, i) => ({
+                uuid: c.uuid,
+                newUuid: newDashboardTabs[i].uuid,
+            }));
+
             const dashboardViews = await trx(DashboardViewsTableName).whereIn(
                 'dashboard_version_id',
                 dashboardVersionIds,
@@ -1711,6 +1743,9 @@ export class ProjectModel {
                                           (m) =>
                                               m.id === d.dashboard_version_id,
                                       )?.newId!,
+                                  tab_uuid: dashboardTabsMapping.find(
+                                      (m) => m.uuid === d.tab_uuid,
+                                  )?.newUuid,
                               })),
                           )
                           .returning('*')

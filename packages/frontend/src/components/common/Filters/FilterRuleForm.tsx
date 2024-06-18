@@ -7,7 +7,7 @@ import {
     type FilterableField,
     type FilterRule,
 } from '@lightdash/common';
-import { ActionIcon, Box, Group, Menu, Select } from '@mantine/core';
+import { ActionIcon, Box, Group, Menu, Select, Tooltip } from '@mantine/core';
 import { IconDots, IconX } from '@tabler/icons-react';
 import { useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -72,6 +72,10 @@ const FilterRuleForm: FC<Props> = ({
         },
         [activeField, fields, filterRule, onChange],
     );
+    const isRequired = filterRule.required;
+    const isRequiredLabel = isRequired
+        ? "This filter is a required filter.\n It can't be deleted, but the value can be changed."
+        : '';
 
     if (!activeField) {
         return null;
@@ -132,9 +136,22 @@ const FilterRuleForm: FC<Props> = ({
 
             {isEditMode &&
                 (!onConvertToGroup ? (
-                    <ActionIcon onClick={onDelete}>
-                        <MantineIcon icon={IconX} size="sm" />
-                    </ActionIcon>
+                    <Tooltip
+                        label={isRequiredLabel}
+                        disabled={!isRequired}
+                        withinPortal
+                        variant="xs"
+                        multiline
+                    >
+                        <span>
+                            <ActionIcon
+                                onClick={onDelete}
+                                disabled={isRequired}
+                            >
+                                <MantineIcon icon={IconX} size="sm" />
+                            </ActionIcon>
+                        </span>
+                    </Tooltip>
                 ) : (
                     <Menu
                         position="bottom-end"
@@ -157,11 +174,25 @@ const FilterRuleForm: FC<Props> = ({
                                     'components_common_filters.rule_form.convert_to_group',
                                 )}
                             </Menu.Item>
-                            <Menu.Item color="red" onClick={onDelete}>
-                                {t(
-                                    'components_common_filters.rule_form.remove',
-                                )}
-                            </Menu.Item>
+                            <Tooltip
+                                label={isRequiredLabel}
+                                disabled={!isRequired}
+                                withinPortal
+                                variant="xs"
+                                multiline
+                            >
+                                <span>
+                                    <Menu.Item
+                                        color="red"
+                                        disabled={isRequired}
+                                        onClick={onDelete}
+                                    >
+                                        {t(
+                                            'components_common_filters.rule_form.remove',
+                                        )}
+                                    </Menu.Item>
+                                </span>
+                            </Tooltip>
                         </Menu.Dropdown>
                     </Menu>
                 ))}

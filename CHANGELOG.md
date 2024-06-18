@@ -1,3 +1,123 @@
+## [0.1133.12](https://github.com/lightdash/lightdash/compare/0.1133.11...0.1133.12) (2024-06-18)
+
+
+### Bug Fixes
+
+* show start of the week CLI option in project settings ([#10439](https://github.com/lightdash/lightdash/issues/10439)) ([6ae907f](https://github.com/lightdash/lightdash/commit/6ae907fb3d790f5777e1af4e402112d014b0bfb8))
+
+## [0.1133.11](https://github.com/lightdash/lightdash/compare/0.1133.10...0.1133.11) (2024-06-17)
+
+
+### Bug Fixes
+
+* ensure all trino query result chunks are fetched and processed ([#10424](https://github.com/lightdash/lightdash/issues/10424)) ([c58fb79](https://github.com/lightdash/lightdash/commit/c58fb7910dc96eba8db3db9bc256b2e0b1ee7602))
+
+## [0.1133.10](https://github.com/lightdash/lightdash/compare/0.1133.9...0.1133.10) (2024-06-17)
+
+
+### Bug Fixes
+
+* undefined error when threshold doesnt have enough results ([#10433](https://github.com/lightdash/lightdash/issues/10433)) ([b58e52e](https://github.com/lightdash/lightdash/commit/b58e52e96f33b60de2c2ad9f50c5cfd8cde23bf0))
+
+## [0.1133.9](https://github.com/lightdash/lightdash/compare/0.1133.8...0.1133.9) (2024-06-17)
+
+
+### Bug Fixes
+
+* reset required filter rules mutation part 2 ([#10435](https://github.com/lightdash/lightdash/issues/10435)) ([8dfca51](https://github.com/lightdash/lightdash/commit/8dfca51e67547da15680a2790ddf96828efbe49c))
+
+## [0.1133.8](https://github.com/lightdash/lightdash/compare/0.1133.7...0.1133.8) (2024-06-17)
+
+
+### Bug Fixes
+
+* do not add daily jobs for disabled schedulers ([#10430](https://github.com/lightdash/lightdash/issues/10430)) ([ebf9a16](https://github.com/lightdash/lightdash/commit/ebf9a168fef9f323dab24c368e84a138e7ac3c83))
+
+## [0.1133.7](https://github.com/lightdash/lightdash/compare/0.1133.6...0.1133.7) (2024-06-17)
+
+
+### Bug Fixes
+
+* update CSP allowed domains ([#10415](https://github.com/lightdash/lightdash/issues/10415)) ([9c0de98](https://github.com/lightdash/lightdash/commit/9c0de98a12ad9e3ac773bac5648d834b0ca5c943))
+
+## [0.1133.6](https://github.com/lightdash/lightdash/compare/0.1133.5...0.1133.6) (2024-06-17)
+
+
+### Bug Fixes
+
+* remove n+1 queries when saving chart ([#10426](https://github.com/lightdash/lightdash/issues/10426)) ([18fa9cf](https://github.com/lightdash/lightdash/commit/18fa9cf6179e31b5b75b6b492108bcb057479463))
+
+## [0.1133.5](https://github.com/lightdash/lightdash/compare/0.1133.4...0.1133.5) (2024-06-14)
+
+
+### Bug Fixes
+
+* reset required filter rules mutation ([#10428](https://github.com/lightdash/lightdash/issues/10428)) ([1c67a2a](https://github.com/lightdash/lightdash/commit/1c67a2a011e77c170e6134ceda99979cbf880cbc))
+
+## [0.1133.4](https://github.com/lightdash/lightdash/compare/0.1133.3...0.1133.4) (2024-06-14)
+
+
+### Bug Fixes
+
+* copy dashboard tabs ([#10410](https://github.com/lightdash/lightdash/issues/10410)) ([b4324e3](https://github.com/lightdash/lightdash/commit/b4324e351578648132595e8c58a8fec43ac749ec))
+
+## [0.1133.3](https://github.com/lightdash/lightdash/compare/0.1133.2...0.1133.3) (2024-06-14)
+
+
+### Bug Fixes
+
+* join dashboards when getting charts for validation ([#10420](https://github.com/lightdash/lightdash/issues/10420)) ([d5cee3f](https://github.com/lightdash/lightdash/commit/d5cee3fcbc9488a24103743aaad1770051ff4ad9))
+
+## [0.1133.2](https://github.com/lightdash/lightdash/compare/0.1133.1...0.1133.2) (2024-06-14)
+
+
+### Bug Fixes
+
+* list private channels that the app has joined ([#10421](https://github.com/lightdash/lightdash/issues/10421)) ([9d621be](https://github.com/lightdash/lightdash/commit/9d621be484139968c759777e8a7c829f1366acfb))
+
+## [0.1133.1](https://github.com/lightdash/lightdash/compare/0.1133.0...0.1133.1) (2024-06-14)
+
+
+### Bug Fixes
+
+* custom dimension edit re run query ([#10413](https://github.com/lightdash/lightdash/issues/10413)) ([1e45aac](https://github.com/lightdash/lightdash/commit/1e45aac3be5cb36e6d0463be9726586baaaf5213))
+* date dimension groups ([#10409](https://github.com/lightdash/lightdash/issues/10409)) ([bf31092](https://github.com/lightdash/lightdash/commit/bf3109237c1c027688554501c7f6e2edc28a55a9))
+
+# [0.1133.0](https://github.com/lightdash/lightdash/compare/0.1132.0...0.1133.0) (2024-06-14)
+
+
+### Features
+
+* sentry queue monitoring ([#10329](https://github.com/lightdash/lightdash/issues/10329)) ([562c5c4](https://github.com/lightdash/lightdash/commit/562c5c468c1a7bf5d5fc1005f2415a25fbd0ed2d))
+
+# [0.1132.0](https://github.com/lightdash/lightdash/compare/0.1131.3...0.1132.0) (2024-06-14)
+
+
+### Features
+
+* model required filters ([#10338](https://github.com/lightdash/lightdash/issues/10338)) ([2fb9b18](https://github.com/lightdash/lightdash/commit/2fb9b188f4e7041daea634a8b74d08c9a28497ce))
+
+## [0.1131.3](https://github.com/lightdash/lightdash/compare/0.1131.2...0.1131.3) (2024-06-14)
+
+
+### Bug Fixes
+
+* footer in page component ([#10412](https://github.com/lightdash/lightdash/issues/10412)) ([1f5e0fd](https://github.com/lightdash/lightdash/commit/1f5e0fd868ff2c1194b49f418fd9208028500de3))
+
+## [0.1131.2](https://github.com/lightdash/lightdash/compare/0.1131.1...0.1131.2) (2024-06-14)
+
+
+### Bug Fixes
+
+* remove otel and initiliaze sentry as early as possible ([#10403](https://github.com/lightdash/lightdash/issues/10403)) ([6af8798](https://github.com/lightdash/lightdash/commit/6af8798f3c2aa4b30686bba9090b798ab26ef4f5))
+
+## [0.1131.1](https://github.com/lightdash/lightdash/compare/0.1131.0...0.1131.1) (2024-06-14)
+
+
+### Bug Fixes
+
+* check no_changes on promote content ([#10398](https://github.com/lightdash/lightdash/issues/10398)) ([3446c66](https://github.com/lightdash/lightdash/commit/3446c66533ee6a650a2a29341b442d08ba162bcf))
+
 # [0.1131.0](https://github.com/lightdash/lightdash/compare/0.1130.1...0.1131.0) (2024-06-13)
 
 
