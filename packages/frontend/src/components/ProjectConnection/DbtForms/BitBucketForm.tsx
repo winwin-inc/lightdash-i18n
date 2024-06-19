@@ -2,6 +2,8 @@ import { DbtProjectType } from '@lightdash/common';
 import { Anchor, PasswordInput, TextInput } from '@mantine/core';
 import React, { type FC } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+
 import {
     hasNoWhiteSpaces,
     isGitRepository,
@@ -14,11 +16,17 @@ const BitBucketForm: FC<{ disabled: boolean }> = ({ disabled }) => {
     const requireSecrets: boolean =
         savedProject?.dbtConnection.type !== DbtProjectType.BITBUCKET;
     const { register } = useFormContext();
+    const { t } = useTranslation();
+
     return (
         <>
             <TextInput
-                label="Username"
-                description="This is the login name for your Bitbucket user. This is usually the same username you use to login to Bitbucket."
+                label={t(
+                    'components_project_connection_dbt_form.bit_bucket.username.label',
+                )}
+                description={t(
+                    'components_project_connection_dbt_form.bit_bucket.username.description',
+                )}
                 required
                 {...register('dbt.username', {
                     validate: {
@@ -26,39 +34,64 @@ const BitBucketForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     },
                 })}
                 disabled={disabled}
-                placeholder="BitBucket username"
+                placeholder={t(
+                    'components_project_connection_dbt_form.bit_bucket.username.placeholder',
+                )}
             />
             <PasswordInput
-                label="HTTP access token"
+                label={t(
+                    'components_project_connection_dbt_form.bit_bucket.access_token.label',
+                )}
                 description={
                     <>
                         <p>
-                            Bitbucket Cloud users should
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.access_token.description.step_1',
+                            )}
                             <Anchor
                                 href="https://support.atlassian.com/bitbucket-cloud/docs/create-an-app-password/"
                                 target="_blank"
                                 rel="noreferrer"
                             >
-                                {' '}
-                                follow instructions for creating an App Password
+                                {t(
+                                    'components_project_connection_dbt_form.bit_bucket.access_token.description.step_2',
+                                )}
                             </Anchor>
                         </p>
                         <p>
-                            Bitbucket Server users should
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.access_token.description.step_3',
+                            )}
                             <Anchor
                                 href="https://confluence.atlassian.com/bitbucketserver/http-access-tokens-939515499.html"
                                 target="_blank"
                                 rel="noreferrer"
                             >
-                                {' '}
-                                follow instructions for creating a HTTP Access
-                                Token
+                                {t(
+                                    'components_project_connection_dbt_form.bit_bucket.access_token.description.step_4',
+                                )}
                             </Anchor>
                         </p>
                         <p>
-                            Select <b>Project read</b> and{' '}
-                            <b>Repository read</b> scope when you're creating
-                            the token.
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.access_token.description.step_5',
+                            )}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.bit_bucket.access_token.description.step_6',
+                                )}
+                            </b>{' '}
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.access_token.description.step_7',
+                            )}{' '}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.bit_bucket.access_token.description.step_8',
+                                )}
+                            </b>{' '}
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.access_token.description.step_9',
+                            )}
                         </p>
                     </>
                 }
@@ -70,11 +103,27 @@ const BitBucketForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                 disabled={disabled}
             />
             <TextInput
-                label="Repository"
+                label={t(
+                    'components_project_connection_dbt_form.bit_bucket.repository.label',
+                )}
                 description={
                     <p>
-                        This should be in the format <b>my-org/my-repo</b>. e.g.{' '}
-                        <b>lightdash/lightdash-analytics</b>
+                        {t(
+                            'components_project_connection_dbt_form.bit_bucket.repository.description.step_1',
+                        )}
+                        <b>
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.repository.description.step_2',
+                            )}
+                        </b>
+                        {t(
+                            'components_project_connection_dbt_form.bit_bucket.repository.description.step_3',
+                        )}{' '}
+                        <b>
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.repository.description.step_4',
+                            )}
+                        </b>
                     </p>
                 }
                 required
@@ -85,20 +134,52 @@ const BitBucketForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     },
                 })}
                 disabled={disabled}
-                placeholder="org/project"
+                placeholder={t(
+                    'components_project_connection_dbt_form.bit_bucket.repository.placeholder',
+                )}
             />
             <TextInput
-                label="Branch"
+                label={t(
+                    'components_project_connection_dbt_form.bit_bucket.branch.label',
+                )}
                 description={
                     <>
                         <p>
-                            This is the branch in your Bitbucket repo that
-                            Lightdash should sync to. e.g. <b>main</b>,{' '}
-                            <b>master</b> or <b>dev</b>
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.branch.description.step_1',
+                            )}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.bit_bucket.branch.description.step_2',
+                                )}
+                            </b>
+                            ,{' '}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.bit_bucket.branch.description.step_3',
+                                )}
+                            </b>{' '}
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.branch.description.step_4',
+                            )}{' '}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.bit_bucket.branch.description.step_5',
+                                )}
+                            </b>
                         </p>
                         <p>
-                            By default, we've set this to <b>main</b> but you
-                            can change it to whatever you'd like.
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.branch.description.step_6',
+                            )}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.bit_bucket.branch.description.step_7',
+                                )}
+                            </b>{' '}
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.branch.description.step_8',
+                            )}
                         </p>
                     </>
                 }
@@ -112,30 +193,65 @@ const BitBucketForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                 defaultValue="main"
             />
             <TextInput
-                label="Project directory path"
+                label={t(
+                    'components_project_connection_dbt_form.bit_bucket.project_directory_path.label',
+                )}
                 description={
                     <>
                         <p>
-                            This is the folder where your <b>dbt_project.yml</b>{' '}
-                            file is found in the GitLab repository you entered
-                            above.
-                        </p>
-                        <p>
-                            If your <b>dbt_project.yml</b> file is in the main
-                            folder of your repo (e.g.{' '}
-                            <b>lightdash/lightdash-analytics/dbt_project.yml</b>
-                            ), then you don't need to change anything in here.
-                            You can just leave the default value we've put in.
-                        </p>
-                        <p>
-                            If your dbt project is in a sub-folder in your repo
-                            (e.g.{' '}
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.project_directory_path.description.step_1',
+                            )}
                             <b>
-                                lightdash/lightdash-analytics/dbt/dbt_project.yml
+                                {t(
+                                    'components_project_connection_dbt_form.bit_bucket.project_directory_path.description.step_2',
+                                )}
+                            </b>{' '}
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.project_directory_path.description.step_3',
+                            )}
+                        </p>
+                        <p>
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.project_directory_path.description.step_4',
+                            )}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.bit_bucket.project_directory_path.description.step_5',
+                                )}
+                            </b>{' '}
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.project_directory_path.description.step_6',
+                            )}{' '}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.bit_bucket.project_directory_path.description.step_7',
+                                )}
                             </b>
-                            ), then you'll need to include the path to the
-                            sub-folder where your dbt project is (e.g.
-                            <b>/dbt</b>).
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.project_directory_path.description.step_8',
+                            )}
+                        </p>
+                        <p>
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.project_directory_path.description.step_9',
+                            )}{' '}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.bit_bucket.project_directory_path.description.step_10',
+                                )}
+                            </b>
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.project_directory_path.description.step_11',
+                            )}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.bit_bucket.project_directory_path.description.step_12',
+                                )}
+                            </b>
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.project_directory_path.description.step_13',
+                            )}
                         </p>
                     </>
                 }
@@ -154,19 +270,26 @@ const BitBucketForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                 defaultValue="/"
             />
             <TextInput
-                label="Host domain (for self-hosted instances)"
+                label={t(
+                    'components_project_connection_dbt_form.bit_bucket.host_domain.label',
+                )}
                 description={
                     <p>
-                        If you've
+                        {t(
+                            'components_project_connection_dbt_form.bit_bucket.host_domain.description.step_1',
+                        )}
                         <Anchor
                             href="https://confluence.atlassian.com/bitbucketserver/specify-the-bitbucket-base-url-776640392.html"
                             target="_blank"
                             rel="noreferrer"
                         >
-                            {' '}
-                            customized the domain for your Bitbucket server{' '}
+                            {t(
+                                'components_project_connection_dbt_form.bit_bucket.host_domain.description.step_2',
+                            )}
                         </Anchor>
-                        you can add the custom domain for your project in here.
+                        {t(
+                            'components_project_connection_dbt_form.bit_bucket.host_domain.description.step_3',
+                        )}
                     </p>
                 }
                 disabled={disabled}

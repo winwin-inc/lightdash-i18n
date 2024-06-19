@@ -1494,5 +1494,330 @@
             "no_integrations_available": "没有可用的集成",
             "profile_settings": "个人资料设置"
         }
+    },
+
+    "pages_project_settings": {
+        "title": "项目设置 - Lightdash",
+        "breadcrumbs": {
+            "all_projects": "所有项目"
+        }
+    },
+
+    "components_project_connection": {
+        "generate_settings": {
+            "title": "一般设置",
+            "project_name": "项目名称"
+        },
+        "warehouse": {
+            "title": "仓库连接",
+            "static_ip": "如果需要将我们的 IP 地址添加到您的数据库的允许列表中,请使用 "
+        },
+        "dbt_connection": {
+            "title": "dbt 连接"
+        },
+        "tips_error": {
+            "title": "表单错误",
+            "subtitle": "出现意外错误,请联系支持"
+        },
+        "alert_preview": {
+            "title": "开发者预览是临时的 Lightdash 项目,无法更改设置",
+            "step_1": "阅读文档",
+            "step_2": "这里",
+            "step_3": "了解更多信息。"
+        },
+        "save_and_test": "保存并测试",
+        "test_compile_project": "测试和编译项目"
+    },
+    "components_project_connection_dbt_settings": {
+        "type": "类型",
+        "dbt_version": "dbt 版本",
+        "target_name": "目标名称",
+        "target_tip": {
+            "step_1": "目标",
+            "step_2": "是 Lightdash 将在您的数据仓库中查找您的 dbt 模型的数据集/模式。默认情况下,我们将其设置为与您在 profiles.yml 文件中的默认值相同。"
+        },
+        "environment_variables": "环境变量",
+        "advanced_configuration_options": "高级配置选项"
+    },
+    "components_project_connection_dbt_form": {
+        "azure_dev_pos": {
+            "password": {
+                "label": "个人访问令牌",
+                "description": {
+                    "step_1": "这是您用于访问 Azure Devops 的密钥令牌。请查看",
+                    "step_2": "创建个人访问令牌的说明",
+                    "step_3": "您可以在此添加项目的自定义域。",
+                    "step_4": "您必须至少指定",
+                    "step_5": "Repo:Read",
+                    "step_6": "范围。"
+                }
+            },
+            "organization": {
+                "label": "组织",
+                "description": "这是拥有您存储库的组织的名称"
+            },
+            "project": {
+                "label": "项目",
+                "description": "这是拥有您存储库的项目的名称"
+            },
+            "repository": {
+                "label": "存储库",
+                "description": "这是存储库的名称。对于许多项目来说,这与您上面的项目名称相同。"
+            },
+            "branch": {
+                "label": "分支",
+                "description": {
+                    "step_1": "这是 Lightdash 应该同步到的 Azure DevOps 存储库中的分支。例如",
+                    "step_2": "main",
+                    "step_3": "master",
+                    "step_4": "或",
+                    "step_5": "dev",
+                    "step_6": "默认情况下,我们将其设置为",
+                    "step_7": "main",
+                    "step_8": "但您可以将其更改为您想要的任何内容。"
+                }
+            },
+            "project_directory_path": {
+                "label": "项目目录路径",
+                "description": {
+                    "step_1": "这是上述您输入的 Azure DevOps 存储库中",
+                    "step_2": "dbt_project.yml",
+                    "step_3": "文件所在的文件夹。",
+                    "step_4": "如果您的 ",
+                    "step_5": "dbt_project.yml",
+                    "step_6": "文件位于存储库的主文件夹(例如",
+                    "step_7": "lightdash/lightdash-analytics/dbt_project.yml",
+                    "step_8": "), 那么您无需更改任何内容。您可以保留我们设置的默认值。",
+                    "step_9": "如果您的 dbt 项目位于存储库中的子文件夹(例如",
+                    "step_10": "lightdash/lightdash-analytics/dbt/dbt_project.yml",
+                    "step_11": "), 那么您需要包含子文件夹的路径(例如",
+                    "step_12": "/dbt",
+                    "step_13": ")."
+                }
+            }
+        },
+        "bit_bucket": {
+            "username": {
+                "label": "用户名",
+                "description": "这是您的 Bitbucket 用户登录名。通常与您用于登录 Bitbucket 的用户名相同。",
+                "placeholder": "Bitbucket 用户名"
+            },
+            "access_token": {
+                "label": "HTTP 访问令牌",
+                "description": {
+                    "step_1": "Bitbucket Cloud 用户应该",
+                    "step_2": "按照创建应用程序密码的说明操作",
+                    "step_3": "Bitbucket Server 用户应该",
+                    "step_4": "按照创建 HTTP 访问令牌的说明操作",
+                    "step_5": "选择",
+                    "step_6": "项目读取",
+                    "step_7": "和",
+                    "step_8": "存储库读取",
+                    "step_9": "作用域来创建令牌。"
+                }
+            },
+            "repository": {
+                "label": "存储库",
+                "description": {
+                    "step_1": "它应该采用以下格式",
+                    "step_2": "我的组织/我的仓库",
+                    "step_3": "例如",
+                    "step_4": "lightdash/lightdash-analytics"
+                },
+                "placeholder": "组织/项目"
+            },
+            "branch": {
+                "label": "分支",
+                "description": {
+                    "step_1": "这是 Lightdash 应该同步到的你的 Bitbucket 仓库中的分支。例如 ",
+                    "step_2": "main",
+                    "step_3": "master",
+                    "step_4": "或者",
+                    "step_5": "dev。",
+                    "step_6": "默认情况下, 我们已将其设置为",
+                    "step_7": "main, ",
+                    "step_8": "但你可以将其更改为任何你想要的。"
+                }
+            },
+            "project_directory_path": {
+                "label": "项目目录路径",
+                "description": {
+                    "step_1": "这是在上面输入的 GitLab 存储库中找到 ",
+                    "step_2": "dbt_project.yml",
+                    "step_3": "文件的文件夹。",
+                    "step_4": "如果你的 ",
+                    "step_5": "dbt_project.yml",
+                    "step_6": "文件位于存储库的主文件夹中(例如",
+                    "step_7": "lightdash/lightdash-analytics/dbt_project.yml",
+                    "step_8": "), 那么你无需在这里更改任何内容。你可以保留我们设置的默认值。",
+                    "step_9": "如果你的 dbt 项目位于存储库中的子文件夹(例如",
+                    "step_10": "lightdash/lightdash-analytics/dbt/dbt_project.yml",
+                    "step_11": "), 那么你需要包含子文件夹的路径,其中包含你的 dbt 项目(例如",
+                    "step_12": "/dbt",
+                    "step_13": ")。"
+                }
+            },
+            "host_domain": {
+                "label": "主机域(适用于自托管实例)",
+                "description": {
+                    "step_1": "如果您已",
+                    "step_2": "为您的 Bitbucket 服务器自定义了域名",
+                    "step_3": "您可以在此添加项目的自定义域名。"
+                }
+            }
+        },
+        "dbt_cloud": {
+            "alert": {
+                "title": "要求",
+                "content": {
+                    "step_1": "构建您的项目的 dbt 作业还必须生成文档,并且您的 API 密钥必须有访问发现 API 的权限。",
+                    "step_2": "您的作业完成后,需要在 Lightdash 中单击\"刷新 dbt\"按钮来同步您的项目。"
+                }
+            },
+            "api_key": {
+                "label": "API 密钥"
+            },
+            "environment": {
+                "label": "环境 ID"
+            }
+        },
+        "dbt_local": {
+            "alert_dev": {
+                "content": "此连接类型只应用于本地开发。"
+            },
+            "alert": {
+                "step_1": "在使用安装脚本时,当您被询问",
+                "step_2": "您希望如何设置 Lightdash ",
+                "step_3": "时, 选择选项",
+                "step_4": "使用本地 dbt",
+                "step_5": "并提供您的 dbt 项目的绝对路径。",
+                "step_6": "在使用安装脚本时,设置环境变量",
+                "step_7": "DBT_PROJECT_DIR",
+                "step_8": "为您的 dbt 项目的绝对路径。"
+            }
+        },
+        "dbt_none": {
+            "alert": {
+                "step_1": "此项目是从命令行界面创建的。如果您想保持 Lightdash 与您的 dbt 项目同步,您需要",
+                "step_2": "更改您的连接类型",
+                "step_3": "、设置",
+                "step_4": "GitHub 操作",
+                "step_5": "或从命令行运行",
+                "step_6": "lightdash deploy。"
+            },
+            "switch": {
+                "label": "在应用程序中隐藏刷新 dbt 按钮",
+                "description": {
+                    "step_1": "这将隐藏浏览页面上的刷新 dbt 按钮。阅读更多关于",
+                    "step_2": "刷新 dbt 的选择"
+                }
+            }
+        },
+        "github": {
+            "access_token": {
+                "label": "个人访问令牌",
+                "description": {
+                    "step_1": "这用于访问您的仓库。",
+                    "step_2": "点击打开文档"
+                }
+            },
+            "repository": {
+                "label": "仓库",
+                "description": {
+                    "step_1": "这应该采用格式 ",
+                    "step_2": "my-org/my-repo",
+                    "step_3": "。例如 ",
+                    "step_4": "lightdash/lightdash-analytics"
+                },
+                "placeholder": "组织/项目"
+            },
+            "branch": {
+                "label": "分支",
+                "description": {
+                    "step_1": "这是 Lightdash 应该同步到的您 GitHub 仓库中的分支。例如",
+                    "step_2": "main",
+                    "step_3": "master",
+                    "step_4": "或者 ",
+                    "step_5": "dev",
+                    "step_6": "默认情况下,我们已将其设置为",
+                    "step_7": "main",
+                    "step_8": "但您可以将其更改为您需要的任何内容。"
+                }
+            },
+            "project_directory_path": {
+                "label": "项目目录路径",
+                "description": {
+                    "step_1": "如果您的 ",
+                    "step_2": "dbt_project.yml",
+                    "step_3": " 文件位于您的仓库的主文件夹中(例如 lightdash/lightdash-analytics/dbt_project.yml),请输入",
+                    "step_4": "。",
+                    "step_5": "如果您的 dbt 项目位于仓库中的子文件夹中,请在此字段中包含子文件夹的路径。例如,如果我的项目位于 lightdash/lightdash-analytics/dbt/dbt_project.yml, 我将在此字段中输入",
+                    "step_6": " dbt",
+                    "step_7": "。"
+                }
+            },
+            "host_domain": {
+                "label": "主机域名(适用于 Github 企业版)",
+                "description": "如果您已自定义 Github 的域名,您可以在此处添加项目的自定义域名。"
+            }
+        },
+        "gitlab": {
+            "access_token": {
+                "label": "个人访问令牌",
+                "description": {
+                    "step_1": "这用于访问您的仓库。请参阅",
+                    "step_2": "创建个人访问令牌的说明",
+                    "step_3": "在创建令牌时,请选择 read_repository 作用域。"
+                }
+            },
+            "repository": {
+                "label": "仓库",
+                "description": {
+                    "step_1": "这应该采用格式 ",
+                    "step_2": "my-org/my-repo",
+                    "step_3": "。例如 ",
+                    "step_4": "lightdash/lightdash-analytics。"
+                },
+                "placeholder": "组织/项目"
+            },
+            "branch": {
+                "label": "分支",
+                "description": {
+                    "step_1": "这是 Lightdash 应该同步到的您 GitLab 仓库中的分支。例如 ",
+                    "step_2": "main",
+                    "step_3": "master",
+                    "step_4": " 或 ",
+                    "step_5": "dev",
+                    "step_6": "默认情况下,我们已将其设置为 ",
+                    "step_7": "main",
+                    "step_8": " 但您可以将其更改为您需要的任何内容。"
+                }
+            },
+            "project_directory_path": {
+                "label": "项目目录路径",
+                "description": {
+                    "step_1": "这是在上面输入的 GitLab 仓库中找到您的 ",
+                    "step_2": "dbt_project.yml",
+                    "step_3": "文件的文件夹。",
+                    "step_4": "如果您的 ",
+                    "step_5": "dbt_project.yml",
+                    "step_6": "文件位于您的仓库的主文件夹中(例如",
+                    "step_7": "lightdash/lightdash-analytics/dbt_project.yml",
+                    "step_8": "), 则无需在此处更改任何内容。您可以保留我们设置的默认值。",
+                    "step_9": "如果您的 dbt 项目位于仓库中的子文件夹中(例如",
+                    "step_10": "lightdash/lightdash-analytics/dbt/dbt_project.yml)",
+                    "step_11": ", 则需要包含子文件夹的路径(例如",
+                    "step_12": "/dbt",
+                    "step_13": ")。"
+                }
+            },
+            "host_domain": {
+                "label": "主机域名(适用于自托管实例)",
+                "description": {
+                    "step_1": "如果您已自定义 GitLab Pages 的域名,您可以在此处添加项目的自定义域名。默认情况下,这是",
+                    "step_2": "gitlab.io"
+                }
+            }
+        }
     }
 }

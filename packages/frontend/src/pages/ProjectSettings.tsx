@@ -1,7 +1,9 @@
 import { Stack } from '@mantine/core';
 import { type FC } from 'react';
 import { Helmet } from 'react-helmet';
+import { useTranslation } from 'react-i18next';
 import { Redirect, Route, Switch, useParams } from 'react-router-dom';
+
 import ErrorState from '../components/common/ErrorState';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
@@ -20,6 +22,7 @@ const ProjectSettings: FC = () => {
     const { projectUuid } = useParams<{
         projectUuid: string;
     }>();
+    const { t } = useTranslation();
 
     const { isInitialLoading, data: project, error } = useProject(projectUuid);
 
@@ -38,14 +41,16 @@ const ProjectSettings: FC = () => {
     return (
         <>
             <Helmet>
-                <title>Project Settings - Lightdash</title>
+                <title>{t('pages_project_settings.title')}</title>
             </Helmet>
 
             <Stack spacing="xl">
                 <PageBreadcrumbs
                     items={[
                         {
-                            title: 'All projects',
+                            title: t(
+                                'pages_project_settings.breadcrumbs.all_projects',
+                            ),
                             to: '/generalSettings/projectManagement',
                         },
                         {

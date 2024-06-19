@@ -2,6 +2,8 @@ import { DbtProjectType } from '@lightdash/common';
 import { Anchor, PasswordInput, Stack, TextInput } from '@mantine/core';
 import React, { type FC } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+
 import {
     hasNoWhiteSpaces,
     isGitRepository,
@@ -13,6 +15,7 @@ import { useProjectFormContext } from '../ProjectFormProvider';
 const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
     const { savedProject } = useProjectFormContext();
     const { register } = useFormContext();
+    const { t } = useTranslation();
 
     const requireSecrets: boolean =
         savedProject?.dbtConnection.type !== DbtProjectType.GITHUB;
@@ -20,17 +23,23 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
         <>
             <Stack style={{ marginTop: '8px' }}>
                 <PasswordInput
-                    label="Personal access token"
+                    label={t(
+                        'components_project_connection_dbt_form.github.access_token.label',
+                    )}
                     description={
                         <p>
-                            This is used to access your repo.
+                            {t(
+                                'components_project_connection_dbt_form.github.access_token.description.step_1',
+                            )}
                             <Anchor
                                 target="_blank"
                                 href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#github"
                                 rel="noreferrer"
                             >
                                 {' '}
-                                Click to open documentation
+                                {t(
+                                    'components_project_connection_dbt_form.github.access_token.description.step_2',
+                                )}
                             </Anchor>
                             .
                         </p>
@@ -54,11 +63,27 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     disabled={disabled}
                 />
                 <TextInput
-                    label="Repository"
+                    label={t(
+                        'components_project_connection_dbt_form.github.repository.label',
+                    )}
                     description={
                         <p>
-                            This should be in the format <b>my-org/my-repo</b>.
-                            e.g. <b>lightdash/lightdash-analytics</b>
+                            {t(
+                                'components_project_connection_dbt_form.github.repository.description.step_1',
+                            )}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.github.repository.description.step_2',
+                                )}
+                            </b>
+                            {t(
+                                'components_project_connection_dbt_form.github.repository.description.step_3',
+                            )}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.github.repository.description.step_4',
+                                )}
+                            </b>
                         </p>
                     }
                     required
@@ -69,20 +94,55 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                         },
                     })}
                     disabled={disabled}
-                    placeholder="org/project"
+                    placeholder={t(
+                        'components_project_connection_dbt_form.github.repository.placeholder',
+                    )}
                 />
                 <TextInput
-                    label="Branch"
+                    label={t(
+                        'components_project_connection_dbt_form.github.branch.label',
+                    )}
                     description={
                         <>
                             <p>
-                                This is the branch in your GitHub repo that
-                                Lightdash should sync to. e.g. <b>main</b>,{' '}
-                                <b>master</b> or <b>dev</b>
+                                {t(
+                                    'components_project_connection_dbt_form.github.branch.description.step_1',
+                                )}
+                                <b>
+                                    {' '}
+                                    {t(
+                                        'components_project_connection_dbt_form.github.branch.description.step_2',
+                                    )}
+                                </b>
+                                ,{' '}
+                                <b>
+                                    {' '}
+                                    {t(
+                                        'components_project_connection_dbt_form.github.branch.description.step_3',
+                                    )}
+                                </b>{' '}
+                                {t(
+                                    'components_project_connection_dbt_form.github.branch.description.step_4',
+                                )}
+                                <b>
+                                    {t(
+                                        'components_project_connection_dbt_form.github.branch.description.step_5',
+                                    )}
+                                </b>
                             </p>
                             <p>
-                                By default, we've set this to <b>main</b> but
-                                you can change it to whatever you'd like.
+                                {t(
+                                    'components_project_connection_dbt_form.github.branch.description.step_6',
+                                )}
+                                <b>
+                                    {' '}
+                                    {t(
+                                        'components_project_connection_dbt_form.github.branch.description.step_7',
+                                    )}
+                                </b>{' '}
+                                {t(
+                                    'components_project_connection_dbt_form.github.branch.description.step_8',
+                                )}
                             </p>
                         </>
                     }
@@ -96,21 +156,40 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     defaultValue="main"
                 />
                 <TextInput
-                    label="Project directory path"
+                    label={t(
+                        'components_project_connection_dbt_form.github.project_directory_path.label',
+                    )}
                     description={
                         <>
                             <p>
-                                Put <b>/</b> if your <b>dbt_project.yml</b> file
-                                is in the main folder of your repo (e.g.
-                                lightdash/lightdash-analytics/dbt_project.yml).
+                                {t(
+                                    'components_project_connection_dbt_form.github.project_directory_path.description.step_1',
+                                )}
+                                <b>/</b>
+                                {t(
+                                    'components_project_connection_dbt_form.github.project_directory_path.description.step_2',
+                                )}
+                                <b>
+                                    {t(
+                                        'components_project_connection_dbt_form.github.project_directory_path.description.step_3',
+                                    )}
+                                </b>{' '}
+                                {t(
+                                    'components_project_connection_dbt_form.github.project_directory_path.description.step_4',
+                                )}
                             </p>
                             <p>
-                                Include the path to the sub-folder where your
-                                dbt project is if your dbt project is in a
-                                sub-folder in your repo. For example, if my
-                                project was in
-                                lightdash/lightdash-analytics/dbt/dbt_project.yml,
-                                I'd write <b>/dbt</b> in this field.
+                                {t(
+                                    'components_project_connection_dbt_form.github.project_directory_path.description.step_5',
+                                )}
+                                <b>
+                                    {t(
+                                        'components_project_connection_dbt_form.github.project_directory_path.description.step_6',
+                                    )}
+                                </b>{' '}
+                                {t(
+                                    'components_project_connection_dbt_form.github.project_directory_path.description.step_7',
+                                )}
                             </p>
                         </>
                     }
@@ -129,8 +208,12 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     defaultValue="/"
                 />
                 <TextInput
-                    label="Host domain (for Github Enterprise)"
-                    description="If you've customized the domain for your Github, you can add the custom domain for your project in here."
+                    label={t(
+                        'components_project_connection_dbt_form.github.host_domain.label',
+                    )}
+                    description={t(
+                        'components_project_connection_dbt_form.github.host_domain.description',
+                    )}
                     disabled={disabled}
                     defaultValue="github.com"
                     {...register('dbt.host_domain')}

@@ -24,7 +24,9 @@ import { IconExclamationCircle } from '@tabler/icons-react';
 import { useEffect, useMemo, useState, type FC } from 'react';
 import { useForm, useFormContext, type FieldErrors } from 'react-hook-form';
 import { type SubmitErrorHandler } from 'react-hook-form/dist/types/form';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
+
 import useToaster from '../../hooks/toaster/useToaster';
 import {
     useCreateMutation,
@@ -74,18 +76,25 @@ const ProjectForm: FC<Props> = ({
     const { health } = useApp();
     const [warehouse, setWarehouse] = useState(selectedWarehouse);
     const { register } = useFormContext();
+    const { t } = useTranslation();
 
     return (
         <Stack spacing="xl">
             {showGeneralSettings && (
                 <SettingsGridCard>
                     <div>
-                        <Title order={5}>General settings</Title>
+                        <Title order={5}>
+                            {t(
+                                'components_project_connection.generate_settings.title',
+                            )}
+                        </Title>
                     </div>
 
                     <div>
                         <TextInput
-                            label="Project name"
+                            label={t(
+                                'components_project_connection.generate_settings.project_name',
+                            )}
                             required
                             disabled={disabled}
                             {...register('name')}
@@ -98,7 +107,9 @@ const ProjectForm: FC<Props> = ({
                 <div>
                     {warehouse && getWarehouseIcon(warehouse)}
                     <Flex align="center" gap={2}>
-                        <Title order={5}>Warehouse connection</Title>
+                        <Title order={5}>
+                            {t('components_project_connection.warehouse.title')}
+                        </Title>
                         <DocumentationHelpButton
                             href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#warehouse-connection"
                             pos="relative"
@@ -108,8 +119,10 @@ const ProjectForm: FC<Props> = ({
 
                     {health.data?.staticIp && (
                         <Text color="gray">
-                            If you need to add our IP address to your database's
-                            allow-list, use <b>{health.data?.staticIp}</b>
+                            {t(
+                                'components_project_connection.warehouse.static_ip',
+                            )}
+                            <b>{health.data?.staticIp}</b>
                         </Text>
                     )}
                 </div>
@@ -129,7 +142,11 @@ const ProjectForm: FC<Props> = ({
                     <Avatar size="md" src={DbtLogo} alt="dbt icon" />
 
                     <Flex align="center" gap={2}>
-                        <Title order={5}>dbt connection</Title>
+                        <Title order={5}>
+                            {t(
+                                'components_project_connection.dbt_connection.title',
+                            )}
+                        </Title>
                         <DocumentationHelpButton
                             href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project"
                             pos="relative"
@@ -152,11 +169,15 @@ const ProjectForm: FC<Props> = ({
 
 const useOnProjectError = (): SubmitErrorHandler<ProjectConnectionForm> => {
     const { showToastError } = useToaster();
+    const { t } = useTranslation();
+
     return async (errors: FieldErrors<ProjectConnectionForm>) => {
         if (!errors) {
             showToastError({
-                title: 'Form error',
-                subtitle: 'Unexpected error, please contact support',
+                title: t('components_project_connection.tips_error.title'),
+                subtitle: t(
+                    'components_project_connection.tips_error.subtitle',
+                ),
             });
         } else {
             const errorMessages: string[] = Object.values(errors).reduce<
@@ -168,7 +189,7 @@ const useOnProjectError = (): SubmitErrorHandler<ProjectConnectionForm> => {
                 return [...acc, ...sectionErrors];
             }, []);
             showToastError({
-                title: 'Form errors',
+                title: t('components_project_connection.tips_error.title'),
                 subtitle: errorMessages.join('\n\n'),
             });
         }
@@ -184,6 +205,7 @@ export const UpdateProjectConnection: FC<{
     const onError = useOnProjectError();
     const updateMutation = useUpdateMutation(projectUuid);
     const { isLoading: isSaving, mutateAsync, isIdle } = updateMutation;
+    const { t } = useTranslation();
 
     const isDisabled =
         isSaving ||
@@ -243,17 +265,17 @@ export const UpdateProjectConnection: FC<{
             <Alert
                 color="orange"
                 icon={<MantineIcon icon={IconExclamationCircle} size="lg" />}
-                title="Developer previews are temporary Lightdash projects where settings cannot be changed."
+                title={t('components_project_connection.alert_preview.title')}
             >
-                Read docs{' '}
+                {t('components_project_connection.alert_preview.step_1')}{' '}
                 <Anchor
                     href="https://docs.lightdash.com/guides/cli/how-to-use-lightdash-preview"
                     target="_blank"
                     rel="noreferrer"
                 >
-                    here
+                    {t('components_project_connection.alert_preview.step_2')}
                 </Anchor>{' '}
-                to know more.
+                {t('components_project_connection.alert_preview.step_3')}
             </Alert>
         );
     }
@@ -289,8 +311,10 @@ export const UpdateProjectConnection: FC<{
             >
                 <Button type="submit" loading={isSaving} disabled={isDisabled}>
                     {data?.dbtConnection?.type === DbtProjectType.NONE
-                        ? 'Save and test'
-                        : 'Test & compile project'}
+                        ? t('components_project_connection.save_and_test')
+                        : t(
+                              'components_project_connection.test_compile_project',
+                          )}
                 </Button>
             </Card>
         </FormContainer>

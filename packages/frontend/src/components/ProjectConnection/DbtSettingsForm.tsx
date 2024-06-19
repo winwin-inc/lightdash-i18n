@@ -11,6 +11,8 @@ import { Select, Stack, TextInput } from '@mantine/core';
 import { useFeatureFlagEnabled } from 'posthog-js/react';
 import { useEffect, useMemo, useState, type FC } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+
 import { useApp } from '../../providers/AppProvider';
 import FormSection from '../ReactHookForm/FormSection';
 import { MultiKeyValuePairsInput } from '../ReactHookForm/MultiKeyValuePairsInput';
@@ -41,6 +43,7 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
     defaultType,
     selectedWarehouse,
 }) => {
+    const { t } = useTranslation();
     const { resetField, register, unregister } = useFormContext();
     const type: DbtProjectType = useWatch({
         name: 'dbt.type',
@@ -164,7 +167,9 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                     defaultValue={DbtProjectType.GITHUB}
                     render={({ field }) => (
                         <Select
-                            label="Type"
+                            label={t(
+                                'components_project_connection_dbt_settings.type',
+                            )}
                             data={options}
                             required
                             name={field.name}
@@ -179,7 +184,9 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                     defaultValue={DefaultSupportedDbtVersion}
                     render={({ field }) => (
                         <Select
-                            label="dbt version"
+                            label={t(
+                                'components_project_connection_dbt_settings.dbt_version',
+                            )}
                             data={Object.values(SupportedDbtVersions).map(
                                 (version) => ({
                                     value: version,
@@ -199,15 +206,19 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                             <Stack style={{ marginTop: '8px' }}>
                                 <TextInput
                                     {...register('dbt.target')}
-                                    label="Target name"
+                                    label={t(
+                                        'components_project_connection_dbt_settings.target_name',
+                                    )}
                                     description={
                                         <p>
-                                            <b>target</b> is the dataset/schema
-                                            in your data warehouse that
-                                            Lightdash will look for your dbt
-                                            models. By default, we set this to
-                                            be the same value as you have as the
-                                            default in your profiles.yml file.
+                                            <b>
+                                                {t(
+                                                    'components_project_connection_dbt_settings.target_tip.step_1',
+                                                )}
+                                            </b>
+                                            {t(
+                                                'components_project_connection_dbt_settings.target_tip.step_2',
+                                            )}
                                         </p>
                                     }
                                     disabled={disabled}
@@ -223,7 +234,9 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                             <Stack style={{ marginTop: '8px' }}>
                                 <MultiKeyValuePairsInput
                                     name="dbt.environment"
-                                    label="Environment variables"
+                                    label={t(
+                                        'components_project_connection_dbt_settings.environment_variables',
+                                    )}
                                     documentationUrl={`${baseDocUrl}${typeDocUrls[type].env}`}
                                     disabled={disabled}
                                 />
@@ -233,7 +246,9 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                             isSectionOpen={isAdvancedSettingsOpen}
                             onClick={toggleAdvancedSettingsOpen}
                         >
-                            Advanced configuration options
+                            {t(
+                                'components_project_connection_dbt_settings.advanced_configuration_options',
+                            )}
                         </FormCollapseButton>
                     </>
                 )}

@@ -1484,5 +1484,331 @@
             "no_integrations_available": "No integrations available",
             "profile_settings": "Profile settings"
         }
+    },
+
+    "pages_project_settings": {
+        "title": "Project Settings - Lightdash",
+        "breadcrumbs": {
+            "all_projects": "All projects"
+        }
+    },
+
+    "components_project_connection": {
+        "generate_settings": {
+            "title": "General settings",
+            "project_name": "Project name"
+        },
+        "warehouse": {
+            "title": "Warehouse connection",
+            "static_ip": "If you need to add our IP address to your database's allow-list, use "
+        },
+        "dbt_connection": {
+            "title": "dbt connection"
+        },
+        "tips_error": {
+            "title": "Form error",
+            "subtitle": "Unexpected error, please contact support"
+        },
+        "alert_preview": {
+            "title": "Developer previews are temporary Lightdash projects where settings cannot be changed",
+            "step_1": "Read docs",
+            "step_2": "here",
+            "step_3": "to know more."
+        },
+        "save_and_test": "Save and test",
+        "test_compile_project": "Test & compile project"
+    },
+    "components_project_connection_dbt_settings": {
+        "type": "Type",
+        "dbt_version": "dbt version",
+        "target_name": "Target name",
+        "target_tip": {
+            "step_1": "target",
+            "step_2": "is the dataset/schema in your data warehouse that Lightdash will look for your dbt models. By default, we set this to be the same value as you have as the default in your profiles.yml file."
+        },
+        "environment_variables": "Environment variables",
+        "advanced_configuration_options": "Advanced configuration options"
+    },
+    "components_project_connection_dbt_form": {
+        "azure_dev_pos": {
+            "password": {
+                "label": "Personal access token",
+                "description": {
+                    "step_1": "This is your secret token used to access Azure Devops. See the",
+                    "step_2": "instructions to create a personal access token",
+                    "step_3": "you can add the custom domain for your project in here.",
+                    "step_4": "You must specify at least the ",
+                    "step_5": "Repo:Read",
+                    "step_6": "scope."
+                }
+            },
+            "organization": {
+                "label": "Organization",
+                "description": "This is the name of the organization that owns your repository"
+            },
+            "project": {
+                "label": "Project",
+                "description": "This is the name of the project that owns your repository"
+            },
+            "repository": {
+                "label": "Repository",
+                "description": "This is the name of the repository. For many projects, this is the same as your project name above."
+            },
+            "branch": {
+                "label": "Branch",
+                "description": {
+                    "step_1": "This is the branch in your Azure DevOps repo that Lightdash should sync to. e.g.",
+                    "step_2": "main",
+                    "step_3": "master",
+                    "step_4": "or",
+                    "step_5": "dev",
+                    "step_6": "By default, we've set this to",
+                    "step_7": "main",
+                    "step_8": "but you can change it to whatever you'd like."
+                }
+            },
+            "project_directory_path": {
+                "label": "Project directory path",
+                "description": {
+                    "step_1": " This is the folder where your",
+                    "step_2": "dbt_project.yml",
+                    "step_3": "file is found in the Azure DevOps repository you entered above.",
+                    "step_4": "If your ",
+                    "step_5": "dbt_project.yml",
+                    "step_6": "file is in the main folder of your repo (e.g.",
+                    "step_7": "lightdash/lightdash-analytics/dbt_project.yml",
+                    "step_8": "), then you don't need to change anything in here. You can just leave the default value we've put in.",
+                    "step_9": "If your dbt project is in a sub-folder in your repo (e.g.",
+                    "step_10": "lightdash/lightdash-analytics/dbt/dbt_project.yml",
+                    "step_11": ", then you'll need to include the path to the sub-folder where your dbt project is (e.g.",
+                    "step_12": "/dbt",
+                    "step_13": ")."
+                }
+            }
+        },
+        "bit_bucket": {
+            "username": {
+                "label": "Username",
+                "description": "This is the login name for your Bitbucket user. This is usually the same username you use to login to Bitbucket.",
+                "placeholder": "BitBucket username"
+            },
+            "access_token": {
+                "label": "HTTP access token",
+                "description": {
+                    "step_1": "Bitbucket Cloud users should",
+                    "step_2": "follow instructions for creating an App Password",
+                    "step_3": "Bitbucket Server users should",
+                    "step_4": "follow instructions for creating a HTTP Access Token",
+                    "step_5": "Select ",
+                    "step_6": "Project read",
+                    "step_7": " and",
+                    "step_8": "Repository read",
+                    "step_9": " scope when you're creating the token."
+                }
+            },
+            "repository": {
+                "label": "Repository",
+                "description": {
+                    "step_1": "This should be in the format ",
+                    "step_2": "my-org/my-repo",
+                    "step_3": ". e.g.",
+                    "step_4": "lightdash/lightdash-analytics"
+                },
+                "placeholder": "org/project"
+            },
+            "branch": {
+                "label": "Branch",
+                "description": {
+                    "step_1": "This is the branch in your Bitbucket repo that Lightdash should sync to. e.g. ",
+                    "step_2": "main",
+                    "step_3": "master",
+                    "step_4": "or",
+                    "step_5": "dev",
+                    "step_6": "By default, we've set this to ",
+                    "step_7": "main",
+                    "step_8": " but you can change it to whatever you'd like."
+                }
+            },
+            "project_directory_path": {
+                "label": "Project directory path",
+                "description": {
+                    "step_1": "This is the folder where your ",
+                    "step_2": "dbt_project.yml",
+                    "step_3": "file is found in the GitLab repository you entered above.",
+                    "step_4": "If your ",
+                    "step_5": "dbt_project.yml",
+                    "step_6": " file is in the main folder of your repo (e.g.",
+                    "step_7": "lightdash/lightdash-analytics/dbt_project.yml",
+                    "step_8": "), then you don't need to change anything in here. You can just leave the default value we've put in.",
+                    "step_9": "If your dbt project is in a sub-folder in your repo (e.g.",
+                    "step_10": "lightdash/lightdash-analytics/dbt/dbt_project.yml",
+                    "step_11": "), then you'll need to include the path to the sub-folder where your dbt project is (e.g.",
+                    "step_12": "/dbt",
+                    "step_13": ")."
+                }
+            },
+            "host_domain": {
+                "label": "Host domain (for self-hosted instances)",
+                "description": {
+                    "step_1": "If you've",
+                    "step_2": "customized the domain for your Bitbucket server",
+                    "step_3": "you can add the custom domain for your project in here."
+                }
+            }
+        },
+        "dbt_cloud": {
+            "alert": {
+                "title": "Requirements",
+                "content": {
+                    "step_1": "The dbt job that builds your project must also generate docs and your API key must have the access to the Discovery API.",
+                    "step_2": "After your job finish you need to click the \"refresh dbt\" button in Lightdash to sync your project."
+                }
+            },
+            "api_key": {
+                "label": "API key"
+            },
+            "environment": {
+                "label": "Environment ID"
+            }
+        },
+        "dbt_local": {
+            "alert_dev": {
+                "content": "This connection type should only be used for local development."
+            },
+            "alert": {
+                "step_1": "When using the install script, when you&apos;re asked",
+                "step_2": "How do you want to setup Lightdash ",
+                "step_3": ", select the option ",
+                "step_4": "with local dbt",
+                "step_5": " and then provide the absolute path to your dbt project.",
+                "step_6": "When using the install script, set the env var",
+                "step_7": "DBT_PROJECT_DIR",
+                "step_8": " with the absolute path to your dbt project."
+            }
+        },
+        "dbt_none": {
+            "alert": {
+                "step_1": "This project was created from the CLI. If you want to keep Lightdash in sync with your dbt project, you need to either",
+                "step_2": "change your connection type",
+                "step_3": ", setup a",
+                "step_4": "GitHub action",
+                "step_5": "or, run",
+                "step_6": "lightdash deploy",
+                "step_7": "from your command line."
+            },
+            "switch": {
+                "label": "Hide refresh dbt button in the app",
+                "description": {
+                    "step_1": "This will hide the refresh dbt button from the explore page. Read more about your",
+                    "step_2": "options for refreshing dbt here"
+                }
+            }
+        },
+        "github": {
+            "access_token": {
+                "label": "Personal access token",
+                "description": {
+                    "step_1": "This is used to access your repo.",
+                    "step_2": "Click to open documentation"
+                }
+            },
+            "repository": {
+                "label": "Repository",
+                "description": {
+                    "step_1": "This should be in the format ",
+                    "step_2": "my-org/my-repo",
+                    "step_3": ". e.g. ",
+                    "step_4": "lightdash/lightdash-analytics"
+                },
+                "placeholder": "org/project"
+            },
+            "branch": {
+                "label": "Branch",
+                "description": {
+                    "step_1": "This is the branch in your GitHub repo that Lightdash should sync to. e.g. ",
+                    "step_2": "main",
+                    "step_3": "master",
+                    "step_4": "or ",
+                    "step_5": "dev",
+                    "step_6": "By default, we've set this to ",
+                    "step_7": "main",
+                    "step_8": " but you can change it to whatever you'd like."
+                }
+            },
+            "project_directory_path": {
+                "label": "Project directory path",
+                "description": {
+                    "step_1": "Put ",
+                    "step_2": " if your ",
+                    "step_3": "dbt_project.yml",
+                    "step_4": " file is in the main folder of your repo (e.g. lightdash/lightdash-analytics/dbt_project.yml).",
+                    "step_5": "Include the path to the sub-folder where your dbt project is if your dbt project is in a sub-folder in your repo. For example, if my project was in lightdash/lightdash-analytics/dbt/dbt_project.yml, I'd write ",
+                    "step_6": "dbt",
+                    "step_7": " in this field."
+                }
+            },
+            "host_domain": {
+                "label": "Host domain (for Github Enterprise)",
+                "description": "If you've customized the domain for your Github, you can add the custom domain for your project in here."
+            }
+        },
+        "gitlab": {
+            "access_token": {
+                "label": "Personal access token",
+                "description": {
+                    "step_1": "This is used to access your repo. See the",
+                    "step_2": "instructions for creating a personal access token here",
+                    "step_3": "Select read_repository scope when you're creating the token."
+                }
+            },
+            "repository": {
+                "label": "Repository",
+                "description": {
+                    "step_1": "This should be in the format ",
+                    "step_2": "my-org/my-repo",
+                    "step_3": ". e.g. ",
+                    "step_4": "lightdash/lightdash-analytics"
+                },
+                "placeholder": "org/project"
+            },
+            "branch": {
+                "label": "Branch",
+                "description": {
+                    "step_1": "This is the branch in your GitLab repo that Lightdash should sync to. e.g. ",
+                    "step_2": "main",
+                    "step_3": "master",
+                    "step_4": "or ",
+                    "step_5": "dev",
+                    "step_6": "By default, we've set this to ",
+                    "step_7": "main",
+                    "step_8": " but you can change it to whatever you'd like."
+                }
+            },
+            "project_directory_path": {
+                "label": "Project directory path",
+                "description": {
+                    "step_1": "This is the folder where your ",
+                    "step_2": "dbt_project.yml",
+                    "step_3": " file is found in the GitLab repository you entered above.",
+                    "step_4": "If your ",
+                    "step_5": "dbt_project.yml",
+                    "step_6": " file is in the main folder of your repo (e.g.",
+                    "step_7": "lightdash/lightdash-analytics/dbt_project.yml",
+                    "step_8": "), then you don't need to change anything in here. You can just leave the default value we've put in.",
+                    "step_9": "If your dbt project is in a sub-folder in your repo (e.g. ",
+                    "step_10": "lightdash/lightdash-analytics/dbt/dbt_project.yml)",
+                    "step_11": ", then you'll need to include the path to the sub-folder where your dbt project is (e.g.",
+                    "step_12": "/dbt",
+                    "step_13": ")."
+                }
+            },
+            "host_domain": {
+                "label": "Host domain (for self-hosted instances)",
+                "description": {
+                    "step_1": "If you’ve customized the domain for your GitLab pages, you can add the custom domain for your project in here. By default, this is",
+                    "step_2": "gitlab.io"
+                }
+            }
+        }
     }
 }

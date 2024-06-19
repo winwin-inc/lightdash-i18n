@@ -2,6 +2,8 @@ import { DbtProjectType } from '@lightdash/common';
 import { Anchor, PasswordInput, TextInput } from '@mantine/core';
 import { type FC } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+
 import {
     hasNoWhiteSpaces,
     isGitRepository,
@@ -14,28 +16,36 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
     const requireSecrets: boolean =
         savedProject?.dbtConnection.type !== DbtProjectType.GITLAB;
     const { register } = useFormContext();
+    const { t } = useTranslation();
+
     return (
         <>
             <PasswordInput
                 {...register('dbt.personal_access_token')}
-                label="Personal access token"
+                label={t(
+                    'components_project_connection_dbt_form.gitlab.access_token.label',
+                )}
                 description={
                     <>
                         <p>
-                            This is used to access your repo. See the{' '}
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.access_token.description.step_1',
+                            )}
                             <Anchor
                                 target="_blank"
                                 href="https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html"
                                 rel="noreferrer"
                             >
-                                instructions for creating a personal access
-                                token here
+                                {t(
+                                    'components_project_connection_dbt_form.gitlab.access_token.description.step_2',
+                                )}
                             </Anchor>
                             .
                         </p>
                         <p>
-                            Select read_repository scope when you're creating
-                            the token.
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.access_token.description.step_3',
+                            )}
                         </p>
                     </>
                 }
@@ -46,11 +56,27 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                 disabled={disabled}
             />
             <TextInput
-                label="Repository"
+                label={t(
+                    'components_project_connection_dbt_form.gitlab.repository.label',
+                )}
                 description={
                     <p>
-                        This should be in the format <b>my-org/my-repo</b>. e.g.{' '}
-                        <b>lightdash/lightdash-analytics</b>
+                        {t(
+                            'components_project_connection_dbt_form.gitlab.repository.description.step_1',
+                        )}
+                        <b>
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.repository.description.step_2',
+                            )}
+                        </b>
+                        {t(
+                            'components_project_connection_dbt_form.gitlab.repository.description.step_3',
+                        )}
+                        <b>
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.repository.description.step_4',
+                            )}
+                        </b>
                     </p>
                 }
                 required
@@ -61,20 +87,52 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     },
                 })}
                 disabled={disabled}
-                placeholder="org/project"
+                placeholder={t(
+                    'components_project_connection_dbt_form.gitlab.repository.placeholder',
+                )}
             />
             <TextInput
-                label="Branch"
+                label={t(
+                    'components_project_connection_dbt_form.gitlab.branch.label',
+                )}
                 description={
                     <>
                         <p>
-                            This is the branch in your Gitlab repo that
-                            Lightdash should sync to. e.g. <b>main</b>,{' '}
-                            <b>master</b> or <b>dev</b>
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.branch.description.step_1',
+                            )}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.gitlab.branch.description.step_2',
+                                )}
+                            </b>
+                            ,{' '}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.gitlab.branch.description.step_3',
+                                )}
+                            </b>{' '}
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.branch.description.step_4',
+                            )}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.gitlab.branch.description.step_5',
+                                )}
+                            </b>
                         </p>
                         <p>
-                            By default, we've set this to <b>main</b> but you
-                            can change it to whatever you'd like.
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.branch.description.step_6',
+                            )}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.gitlab.branch.description.step_7',
+                                )}
+                            </b>{' '}
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.branch.description.step_8',
+                            )}
                         </p>
                     </>
                 }
@@ -88,31 +146,66 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                 defaultValue="main"
             />
             <TextInput
-                label="Project directory path"
+                label={t(
+                    'components_project_connection_dbt_form.gitlab.project_directory_path.label',
+                )}
                 description={
                     <>
                         <p>
-                            This is the folder where your <b>dbt_project.yml</b>{' '}
-                            file is found in the GitLab repository you entered
-                            above.
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_1',
+                            )}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_2',
+                                )}
+                            </b>{' '}
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_3',
+                            )}
                         </p>
                         <p>
-                            If your <b>dbt_project.yml</b> file is in the main
-                            folder of your repo (e.g.{' '}
-                            <b>lightdash/lightdash-analytics/dbt_project.yml</b>
-                            ), then you don't need to change anything in here.
-                            You can just leave the default value we've put in.
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_4',
+                            )}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_5',
+                                )}
+                            </b>{' '}
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_6',
+                            )}{' '}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_7',
+                                )}
+                            </b>
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_8',
+                            )}
                         </p>
 
                         <p>
-                            If your dbt project is in a sub-folder in your repo
-                            (e.g.{' '}
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_9',
+                            )}{' '}
                             <b>
-                                lightdash/lightdash-analytics/dbt/dbt_project.yml
+                                {t(
+                                    'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_10',
+                                )}
                             </b>
-                            ), then you'll need to include the path to the
-                            sub-folder where your dbt project is (e.g.
-                            <b>/dbt</b>).
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_11',
+                            )}
+                            <b>
+                                {t(
+                                    'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_12',
+                                )}
+                            </b>
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_13',
+                            )}
                         </p>
                     </>
                 }
@@ -131,19 +224,23 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                 defaultValue="/"
             />
             <TextInput
-                label="Host domain (for self-hosted instances)"
+                label={t(
+                    'components_project_connection_dbt_form.gitlab.host_domain.label',
+                )}
                 description={
                     <p>
-                        If you’ve customized the domain for your GitLab pages,
-                        you can add the custom domain for your project in here.
-                        By default, this is
+                        {t(
+                            'components_project_connection_dbt_form.gitlab.host_domain.description.step_1',
+                        )}
                         <Anchor
                             href="http://gitlab.io/"
                             target="_blank"
                             rel="noreferrer"
                         >
                             {' '}
-                            gitlab.io
+                            {t(
+                                'components_project_connection_dbt_form.gitlab.host_domain.description.step_2',
+                            )}
                         </Anchor>
                         .
                     </p>
