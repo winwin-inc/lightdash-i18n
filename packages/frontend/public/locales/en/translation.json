@@ -162,7 +162,7 @@
         }
     },
 
-    "components_refresh_buttom": {
+    "components_refresh_button": {
         "run_query": "Run query"
     },
     "components_refresh_dbt_button": {
@@ -182,6 +182,11 @@
     },
     "components_open_in_sql_runner_button": {
         "open": "Open in SQL runner"
+    },
+    "components_documentation_help_button": {
+        "tooltip": {
+            "label": "Open documentation"
+        }
     },
 
     "components_navbar_explore_menu": {

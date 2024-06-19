@@ -162,7 +162,7 @@
         }
     },
 
-    "components_refresh_buttom": {
+    "components_refresh_button": {
         "run_query": "运行查询"
     },
     "components_refresh_dbt_button": {
@@ -182,6 +182,11 @@
     },
     "components_open_in_sql_runner_button": {
         "open": "在 SQL 运行器中打开"
+    },
+    "components_documentation_help_button": {
+        "tooltip": {
+            "label": "打开文档"
+        }
     },
 
     "components_navbar_explore_menu": {

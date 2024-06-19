@@ -80,7 +80,7 @@ export const RefreshButton: FC<{ size?: MantineSize }> = memo(({ size }) => {
                     onClick={onClick}
                     sx={{ flex: 1 }}
                 >
-                    {t('components_refresh_buttom.run_query')} ({limit})
+                    {t('components_refresh_button.run_query')} ({limit})
                 </Button>
             </Tooltip>
 
