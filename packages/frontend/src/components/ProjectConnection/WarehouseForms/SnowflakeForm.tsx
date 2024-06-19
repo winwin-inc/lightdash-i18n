@@ -10,7 +10,9 @@ import {
 
 import React, { type FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
+
 import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
 import {
     hasNoWhiteSpaces,
@@ -27,10 +29,16 @@ export const SnowflakeSchemaInput: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
     const { register } = useFormContext();
+    const { t } = useTranslation();
+
     return (
         <TextInput
-            label="Schema"
-            description="This is the schema name."
+            label={t(
+                'components_project_connection_warehouse_form.snowflake.schema.label',
+            )}
+            description={t(
+                'components_project_connection_warehouse_form.snowflake.schema.description',
+            )}
             required
             {...register('warehouse.schema', {
                 validate: {
@@ -48,18 +56,24 @@ const SnowflakeForm: FC<{
     const [isOpen, toggleOpen] = useToggle(false);
     const { savedProject } = useProjectFormContext();
     const { register } = useFormContext();
+    const { t } = useTranslation();
 
     const requireSecrets: boolean =
         savedProject?.warehouseConnection?.type !== WarehouseTypes.SNOWFLAKE;
     const isPassthroughLoginFeatureEnabled = useFeatureFlagEnabled(
         FeatureFlags.PassthroughLogin,
     );
+
     return (
         <>
             <Stack style={{ marginTop: '8px' }}>
                 <TextInput
-                    label="Account"
-                    description="This is the account to connect to."
+                    label={t(
+                        'components_project_connection_warehouse_form.snowflake.account.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.snowflake.account.description',
+                    )}
                     required
                     {...register('warehouse.account', {
                         validate: {
@@ -70,8 +84,12 @@ const SnowflakeForm: FC<{
                     labelProps={{ style: { marginTop: '8px' } }}
                 />
                 <TextInput
-                    label="User"
-                    description="This is the database user name."
+                    label={t(
+                        'components_project_connection_warehouse_form.snowflake.user.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.snowflake.user.description',
+                    )}
                     required={requireSecrets}
                     {...register('warehouse.user', {
                         validate: {
@@ -86,8 +104,12 @@ const SnowflakeForm: FC<{
                     disabled={disabled}
                 />
                 <PasswordInput
-                    label="Password"
-                    description="This is the database user password."
+                    label={t(
+                        'components_project_connection_warehouse_form.snowflake.password.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.snowflake.password.description',
+                    )}
                     required={requireSecrets}
                     placeholder={
                         disabled || !requireSecrets
@@ -98,8 +120,12 @@ const SnowflakeForm: FC<{
                     disabled={disabled}
                 />
                 <TextInput
-                    label="Role"
-                    description="This is the role to assume when running queries as the specified user."
+                    label={t(
+                        'components_project_connection_warehouse_form.snowflake.role.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.snowflake.role.description',
+                    )}
                     {...register('warehouse.role', {
                         validate: {
                             hasNoWhiteSpaces: hasNoWhiteSpaces('Role'),
@@ -108,8 +134,12 @@ const SnowflakeForm: FC<{
                     disabled={disabled}
                 />
                 <TextInput
-                    label="Database"
-                    description="This is the database name."
+                    label={t(
+                        'components_project_connection_warehouse_form.snowflake.database.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.snowflake.database.description',
+                    )}
                     required
                     {...register('warehouse.database', {
                         validate: {
@@ -120,8 +150,12 @@ const SnowflakeForm: FC<{
                     disabled={disabled}
                 />
                 <TextInput
-                    label="Warehouse"
-                    description="This is the warehouse name."
+                    label={t(
+                        'components_project_connection_warehouse_form.snowflake.warehouse.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.snowflake.warehouse.description',
+                    )}
                     required
                     {...register('warehouse.warehouse', {
                         validate: {
@@ -137,7 +171,9 @@ const SnowflakeForm: FC<{
                         {isPassthroughLoginFeatureEnabled && (
                             <BooleanSwitch
                                 name="warehouse.requireUserCredentials"
-                                label="Require users to provide their own credentials"
+                                label={t(
+                                    'components_project_connection_warehouse_form.snowflake.swicth.label',
+                                )}
                                 defaultValue={false}
                                 disabled={disabled}
                             />
@@ -146,21 +182,26 @@ const SnowflakeForm: FC<{
                             name="warehouse.clientSessionKeepAlive"
                             render={({ field }) => (
                                 <Switch.Group
-                                    label="Keep client session alive"
+                                    label={t(
+                                        'components_project_connection_warehouse_form.snowflake.keep_session_alive.label',
+                                    )}
                                     description={
                                         <p>
-                                            This is intended to keep Snowflake
-                                            sessions alive beyond the typical 4
-                                            hour timeout limit You can see more
-                                            details in{' '}
+                                            {t(
+                                                'components_project_connection_warehouse_form.snowflake.keep_session_alive.description.step_1',
+                                            )}{' '}
                                             <Anchor
                                                 target="_blank"
                                                 href="https://docs.getdbt.com/reference/warehouse-profiles/snowflake-profile#client_session_keep_alive"
                                                 rel="noreferrer"
                                             >
-                                                dbt documentation
+                                                {t(
+                                                    'components_project_connection_warehouse_form.snowflake.keep_session_alive.description.step_2',
+                                                )}
                                             </Anchor>
-                                            .
+                                            {t(
+                                                'components_project_connection_warehouse_form.snowflake.keep_session_alive.description.step_3',
+                                            )}
                                         </p>
                                     }
                                     value={field.value ? ['true'] : []}
@@ -171,8 +212,12 @@ const SnowflakeForm: FC<{
                                 >
                                     <Group mt="xs">
                                         <Switch
-                                            onLabel="Yes"
-                                            offLabel="No"
+                                            onLabel={t(
+                                                'components_project_connection_warehouse_form.snowflake.keep_session_alive.yes',
+                                            )}
+                                            offLabel={t(
+                                                'components_project_connection_warehouse_form.snowflake.keep_session_alive.no',
+                                            )}
                                             value="true"
                                             disabled={disabled}
                                         />
@@ -183,32 +228,39 @@ const SnowflakeForm: FC<{
 
                         <TextInput
                             {...register('warehouse.queryTag')}
-                            label="Query tag"
+                            label={t(
+                                'components_project_connection_warehouse_form.snowflake.query_tag.label',
+                            )}
                             description={
                                 <p>
-                                    This is Snowflake query tags parameter. You
-                                    can see more details in{' '}
+                                    {t(
+                                        'components_project_connection_warehouse_form.snowflake.query_tag.description.step_1',
+                                    )}{' '}
                                     <Anchor
                                         target="_blank"
                                         href="https://docs.getdbt.com/reference/warehouse-profiles/snowflake-profile#query_tag"
                                         rel="noreferrer"
                                     >
-                                        dbt documentation
+                                        {t(
+                                            'components_project_connection_warehouse_form.snowflake.query_tag.description.step_2',
+                                        )}
                                     </Anchor>
-                                    .
+                                    {t(
+                                        'components_project_connection_warehouse_form.snowflake.query_tag.description.step_3',
+                                    )}
                                 </p>
                             }
                             disabled={disabled}
                         />
                         <TextInput
-                            label="Snowflake URL override"
+                            label={t(
+                                'components_project_connection_warehouse_form.snowflake.snowflake_url_override.label',
+                            )}
                             description={
                                 <p>
-                                    Usually Lightdash would connect to a default
-                                    url: account.snowflakecomputing.com. If
-                                    you'd like to override this (e.g. for the
-                                    dbt server) you can specify a full custom
-                                    URL here.
+                                    {t(
+                                        'components_project_connection_warehouse_form.snowflake.snowflake_url_override.description',
+                                    )}
                                 </p>
                             }
                             disabled={disabled}
@@ -231,7 +283,9 @@ const SnowflakeForm: FC<{
                     </Stack>
                 </FormSection>
                 <FormCollapseButton isSectionOpen={isOpen} onClick={toggleOpen}>
-                    Advanced configuration options
+                    {t(
+                        'components_project_connection_warehouse_form.snowflake.advanced_configuration_options',
+                    )}
                 </FormCollapseButton>
             </Stack>
         </>

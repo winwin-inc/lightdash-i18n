@@ -14,7 +14,9 @@ import {
 import { IconCheck, IconCopy } from '@tabler/icons-react';
 import React, { type FC } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
+
 import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
 import { hasNoWhiteSpaces } from '../../../utils/fieldValidators';
 import MantineIcon from '../../common/MantineIcon';
@@ -29,11 +31,16 @@ export const PostgresSchemaInput: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
     const { register } = useFormContext();
+    const { t } = useTranslation();
 
     return (
         <TextInput
-            label="Schema"
-            description="This is the schema name."
+            label={t(
+                'components_project_connection_warehouse_form.postgress.schema.label',
+            )}
+            description={t(
+                'components_project_connection_warehouse_form.postgress.schema.description',
+            )}
             required
             {...register('warehouse.schema', {
                 validate: {
@@ -48,6 +55,7 @@ export const PostgresSchemaInput: FC<{
 const PostgresForm: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
+    const { t } = useTranslation();
     const [isOpen, toggleOpen] = useToggle(false);
     const { savedProject } = useProjectFormContext();
     const requireSecrets: boolean =
@@ -80,8 +88,12 @@ const PostgresForm: FC<{
         <>
             <Stack style={{ marginTop: '8px' }}>
                 <TextInput
-                    label="Host"
-                    description="This is the host where the database is running."
+                    label={t(
+                        'components_project_connection_warehouse_form.postgress.host.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.postgress.host.description',
+                    )}
                     required
                     {...register('warehouse.host', {
                         validate: {
@@ -92,8 +104,12 @@ const PostgresForm: FC<{
                     labelProps={{ style: { marginTop: '8px' } }}
                 />
                 <TextInput
-                    label="User"
-                    description="This is the database user name."
+                    label={t(
+                        'components_project_connection_warehouse_form.postgress.user.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.postgress.user.description',
+                    )}
                     required={requireSecrets}
                     {...register('warehouse.user', {
                         validate: {
@@ -108,8 +124,12 @@ const PostgresForm: FC<{
                     disabled={disabled}
                 />
                 <PasswordInput
-                    label="Password"
-                    description="This is the database user password."
+                    label={t(
+                        'components_project_connection_warehouse_form.postgress.password.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.postgress.password.description',
+                    )}
                     required={requireSecrets}
                     placeholder={
                         disabled || !requireSecrets
@@ -120,8 +140,12 @@ const PostgresForm: FC<{
                     disabled={disabled}
                 />
                 <TextInput
-                    label="DB name"
-                    description="This is the database name."
+                    label={t(
+                        'components_project_connection_warehouse_form.postgress.db_name.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.postgress.db_name.description',
+                    )}
                     required
                     {...register('warehouse.dbname', {
                         validate: {
@@ -135,7 +159,9 @@ const PostgresForm: FC<{
                         {isPassthroughLoginFeatureEnabled && (
                             <BooleanSwitch
                                 name="warehouse.requireUserCredentials"
-                                label="Require users to provide their own credentials"
+                                label={t(
+                                    'components_project_connection_warehouse_form.postgress.switch.label',
+                                )}
                                 defaultValue={false}
                                 disabled={disabled}
                             />
@@ -146,8 +172,12 @@ const PostgresForm: FC<{
                             render={({ field }) => (
                                 <NumberInput
                                     {...field}
-                                    label="Port"
-                                    description="This is the port where the database is running."
+                                    label={t(
+                                        'components_project_connection_warehouse_form.postgress.port.label',
+                                    )}
+                                    description={t(
+                                        'components_project_connection_warehouse_form.postgress.port.description',
+                                    )}
                                     required
                                     disabled={disabled}
                                 />
@@ -159,22 +189,26 @@ const PostgresForm: FC<{
                             render={({ field }) => (
                                 <NumberInput
                                     {...field}
-                                    label="Keep alive idle (seconds)"
+                                    label={t(
+                                        'components_project_connection_warehouse_form.postgress.keep_alive_idle.label',
+                                    )}
                                     description={
                                         <p>
-                                            This specifies the amount of seconds
-                                            with no network activity after which
-                                            the operating system should send a
-                                            TCP keepalive message to the client.
-                                            You can see more details in{' '}
+                                            {t(
+                                                'components_project_connection_warehouse_form.postgress.keep_alive_idle.description.step_1',
+                                            )}{' '}
                                             <Anchor
                                                 target="_blank"
                                                 href="https://postgresqlco.nf/doc/en/param/tcp_keepalives_idle/"
                                                 rel="noreferrer"
                                             >
-                                                postgresqlco documentation
+                                                {t(
+                                                    'components_project_connection_warehouse_form.postgress.keep_alive_idle.description.step_2',
+                                                )}
                                             </Anchor>
-                                            .
+                                            {t(
+                                                'components_project_connection_warehouse_form.postgress.keep_alive_idle.description.step_3',
+                                            )}
                                         </p>
                                     }
                                     required
@@ -183,19 +217,26 @@ const PostgresForm: FC<{
                             )}
                         />
                         <TextInput
-                            label="Search path"
+                            label={t(
+                                'components_project_connection_warehouse_form.postgress.search_path.label',
+                            )}
                             description={
                                 <p>
-                                    This controls the Postgres "search path".
-                                    You can see more details in{' '}
+                                    {t(
+                                        'components_project_connection_warehouse_form.postgress.search_path.description.step_1',
+                                    )}{' '}
                                     <Anchor
                                         target="_blank"
                                         href="https://docs.getdbt.com/reference/warehouse-profiles/postgres-profile#search_path"
                                         rel="noreferrer"
                                     >
-                                        dbt documentation
+                                        {t(
+                                            'components_project_connection_warehouse_form.postgress.search_path.description.step_2',
+                                        )}
                                     </Anchor>
-                                    .
+                                    {t(
+                                        'components_project_connection_warehouse_form.postgress.search_path.description.step_3',
+                                    )}
                                 </p>
                             }
                             disabled={disabled}
@@ -207,20 +248,26 @@ const PostgresForm: FC<{
                             render={({ field }) => (
                                 <Select
                                     name={field.name}
-                                    label="SSL mode"
+                                    label={t(
+                                        'components_project_connection_warehouse_form.postgress.ssl_mode.label',
+                                    )}
                                     description={
                                         <p>
-                                            This controls how dbt connects to
-                                            Postgres databases using SSL. You
-                                            can see more details in{' '}
+                                            {t(
+                                                'components_project_connection_warehouse_form.postgress.ssl_mode.description.step_1',
+                                            )}{' '}
                                             <Anchor
                                                 target="_blank"
                                                 href="https://docs.getdbt.com/reference/warehouse-profiles/postgres-profile#sslmode"
                                                 rel="noreferrer"
                                             >
-                                                dbt documentation
+                                                {t(
+                                                    'components_project_connection_warehouse_form.postgress.ssl_mode.description.step_2',
+                                                )}
                                             </Anchor>
-                                            .
+                                            {t(
+                                                'components_project_connection_warehouse_form.postgress.ssl_mode.description.step_3',
+                                            )}
                                         </p>
                                     }
                                     data={[
@@ -239,14 +286,18 @@ const PostgresForm: FC<{
                             )}
                         />
                         <TextInput
-                            label="Role"
+                            label={t(
+                                'components_project_connection_warehouse_form.postgress.role.label',
+                            )}
                             disabled={disabled}
                             {...register('warehouse.role')}
                         />
                         <StartOfWeekSelect disabled={disabled} />
                         <BooleanSwitch
                             name="warehouse.useSshTunnel"
-                            label="Use SSH tunnel"
+                            label={t(
+                                'components_project_connection_warehouse_form.postgress.ssh_tunnel.label',
+                            )}
                             disabled={disabled}
                         />
                         <FormSection
@@ -255,7 +306,9 @@ const PostgresForm: FC<{
                         >
                             <Stack style={{ marginBottom: '8px' }}>
                                 <TextInput
-                                    label="SSH Remote Host"
+                                    label={t(
+                                        'components_project_connection_warehouse_form.postgress.ssh_remote_port.label',
+                                    )}
                                     disabled={disabled}
                                     {...register('warehouse.sshTunnelHost')}
                                 />
@@ -265,13 +318,17 @@ const PostgresForm: FC<{
                                     render={({ field }) => (
                                         <NumberInput
                                             {...field}
-                                            label="SSH Remote Port"
+                                            label={t(
+                                                'components_project_connection_warehouse_form.postgress.ssh_remote_port.label',
+                                            )}
                                             disabled={disabled}
                                         />
                                     )}
                                 />
                                 <TextInput
-                                    label="SSH Username"
+                                    label={t(
+                                        'components_project_connection_warehouse_form.postgress.ssh_username.label',
+                                    )}
                                     disabled={disabled}
                                     {...register('warehouse.sshTunnelUser')}
                                 />
@@ -281,7 +338,9 @@ const PostgresForm: FC<{
                                         {...register(
                                             'warehouse.sshTunnelPublicKey',
                                         )}
-                                        label="Generated SSH Public Key"
+                                        label={t(
+                                            'components_project_connection_warehouse_form.postgress.ssh_key.label',
+                                        )}
                                         readOnly={true}
                                         disabled={disabled}
                                         rightSection={
@@ -293,8 +352,12 @@ const PostgresForm: FC<{
                                                         <Tooltip
                                                             label={
                                                                 copied
-                                                                    ? 'Copied'
-                                                                    : 'Copy'
+                                                                    ? t(
+                                                                          'components_project_connection_warehouse_form.postgress.ssh_key.copied',
+                                                                      )
+                                                                    : t(
+                                                                          'components_project_connection_warehouse_form.postgress.ssh_key.copy',
+                                                                      )
                                                             }
                                                             withArrow
                                                             position="right"
@@ -328,15 +391,21 @@ const PostgresForm: FC<{
                                     disabled={disabled || isLoading}
                                 >
                                     {sshTunnelPublicKey
-                                        ? 'Regenerate key'
-                                        : 'Generate public key'}
+                                        ? t(
+                                              'components_project_connection_warehouse_form.postgress.regenerate_key',
+                                          )
+                                        : t(
+                                              'components_project_connection_warehouse_form.postgress.generate_public_key',
+                                          )}
                                 </Button>
                             </Stack>
                         </FormSection>
                     </Stack>
                 </FormSection>
                 <FormCollapseButton isSectionOpen={isOpen} onClick={toggleOpen}>
-                    Advanced configuration options
+                    {t(
+                        'components_project_connection_warehouse_form.postgress.advanced_configuration_options',
+                    )}
                 </FormCollapseButton>
             </Stack>
         </>

@@ -2,22 +2,28 @@ import { Alert, Select } from '@mantine/core';
 import { IconInfoCircle } from '@tabler/icons-react';
 import React, { type FC } from 'react';
 import { Controller } from 'react-hook-form';
-import MantineIcon from '../../../common/MantineIcon';
+import { useTranslation } from 'react-i18next';
 
-const daysOfWeekOptions = [
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday',
-].map((x, index) => ({ value: index.toString(), label: x }));
+import MantineIcon from '../../../common/MantineIcon';
 
 const StartOfWeekSelect: FC<{
     disabled: boolean;
     isRedeployRequired?: boolean;
 }> = ({ disabled, isRedeployRequired = true }) => {
+    const { t } = useTranslation();
+
+    const daysOfWeekOptions = [
+        t('components_project_connection_warehouse_form.days_of_week.monday'),
+        t('components_project_connection_warehouse_form.days_of_week.tuesday'),
+        t(
+            'components_project_connection_warehouse_form.days_of_week.wednesday',
+        ),
+        t('components_project_connection_warehouse_form.days_of_week.thursday'),
+        t('components_project_connection_warehouse_form.days_of_week.friday'),
+        t('components_project_connection_warehouse_form.days_of_week.saturday'),
+        t('components_project_connection_warehouse_form.days_of_week.sunday'),
+    ].map((x, index) => ({ value: index.toString(), label: x }));
+
     return (
         <Controller
             name="warehouse.startOfWeek"
@@ -25,9 +31,15 @@ const StartOfWeekSelect: FC<{
                 <>
                     <Select
                         clearable
-                        placeholder="Auto"
-                        label="Start of week"
-                        description="Will be taken into account when using 'WEEK' time interval"
+                        placeholder={t(
+                            'components_project_connection_warehouse_form.inputs.placeholder',
+                        )}
+                        label={t(
+                            'components_project_connection_warehouse_form.inputs.label',
+                        )}
+                        description={t(
+                            'components_project_connection_warehouse_form.inputs.description',
+                        )}
                         data={daysOfWeekOptions}
                         value={field.value?.toString()}
                         onChange={(value) =>
@@ -44,16 +56,25 @@ const StartOfWeekSelect: FC<{
                                     size={'md'}
                                 />
                             }
-                            title="Required CLI option"
+                            title={t(
+                                'components_project_connection_warehouse_form.inputs.alert.title',
+                            )}
                             color="blue"
                         >
-                            Going forward, if you use the CLI to deploy the
-                            project, you will need to run the deploy command
-                            with the option{' '}
+                            {t(
+                                'components_project_connection_warehouse_form.inputs.alert.content.step_1',
+                            )}{' '}
                             <b>
-                                <code>--start-of-week={field.value}</code>
+                                <code>
+                                    {t(
+                                        'components_project_connection_warehouse_form.inputs.alert.content.step_2',
+                                    )}
+                                    {field.value}
+                                </code>
                             </b>
-                            , for the changes to take effect.
+                            {t(
+                                'components_project_connection_warehouse_form.inputs.alert.content.step_3',
+                            )}
                         </Alert>
                     )}
                 </>

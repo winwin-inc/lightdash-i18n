@@ -2,7 +2,9 @@ import { WarehouseTypes } from '@lightdash/common';
 import { Anchor, PasswordInput, Stack, TextInput } from '@mantine/core';
 import React, { type FC } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
+
 import { hasNoWhiteSpaces } from '../../../utils/fieldValidators';
 import FormSection from '../../ReactHookForm/FormSection';
 import FormCollapseButton from '../FormCollapseButton';
@@ -13,23 +15,31 @@ export const DatabricksSchemaInput: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
     const { register } = useFormContext();
+    const { t } = useTranslation();
 
     return (
         <TextInput
             // this supposed to be a `schema` but changing it will break for existing customers
-
-            label="Schema"
+            label={t(
+                'components_project_connection_warehouse_form.databricks.schema.label',
+            )}
             description={
                 <p>
-                    Check out for more details in{' '}
+                    {t(
+                        'components_project_connection_warehouse_form.databricks.schema.description.step_1',
+                    )}
                     <Anchor
                         target="_blank"
                         href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project/#database-1"
                         rel="noreferrer"
                     >
-                        given documentation
+                        {t(
+                            'components_project_connection_warehouse_form.databricks.schema.description.step_2',
+                        )}
                     </Anchor>
-                    .
+                    {t(
+                        'components_project_connection_warehouse_form.databricks.schema.description.step_3',
+                    )}
                 </p>
             }
             required
@@ -51,23 +61,32 @@ const DatabricksForm: FC<{
     const requireSecrets: boolean =
         savedProject?.warehouseConnection?.type !== WarehouseTypes.DATABRICKS;
     const { register } = useFormContext();
+    const { t } = useTranslation();
 
     return (
         <>
             <Stack style={{ marginTop: '8px' }}>
                 <TextInput
-                    label="Server host name"
+                    label={t(
+                        'components_project_connection_warehouse_form.databricks.server.label',
+                    )}
                     description={
                         <p>
-                            Check out for more details in{' '}
+                            {t(
+                                'components_project_connection_warehouse_form.databricks.server.description.step_1',
+                            )}
                             <Anchor
                                 target="_blank"
                                 href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#server-hostname"
                                 rel="noreferrer"
                             >
-                                given documentation
+                                {t(
+                                    'components_project_connection_warehouse_form.databricks.server.description.step_2',
+                                )}
                             </Anchor>
-                            .
+                            {t(
+                                'components_project_connection_warehouse_form.databricks.server.description.step_3',
+                            )}
                         </p>
                     }
                     required
@@ -78,22 +97,32 @@ const DatabricksForm: FC<{
                         },
                     })}
                     disabled={disabled}
-                    placeholder="xxxx.gcp.databricks.com"
+                    placeholder={t(
+                        'components_project_connection_warehouse_form.databricks.server.placeholder',
+                    )}
                     labelProps={{ style: { marginTop: '8px' } }}
                 />
                 <TextInput
-                    label="HTTP Path"
+                    label={t(
+                        'components_project_connection_warehouse_form.databricks.http_path.label',
+                    )}
                     description={
                         <p>
-                            Check out for more details in{' '}
+                            {t(
+                                'components_project_connection_warehouse_form.databricks.http_path.description.step_1',
+                            )}
                             <Anchor
                                 target="_blank"
                                 href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#http-path"
                                 rel="noreferrer"
                             >
-                                given documentation
+                                {t(
+                                    'components_project_connection_warehouse_form.databricks.http_path.description.step_2',
+                                )}
                             </Anchor>
-                            .
+                            {t(
+                                'components_project_connection_warehouse_form.databricks.http_path.description.step_3',
+                            )}
                         </p>
                     }
                     required
@@ -103,22 +132,32 @@ const DatabricksForm: FC<{
                         },
                     })}
                     disabled={disabled}
-                    placeholder="/sql/protocolv1/o/xxxx/xxxx"
+                    placeholder={t(
+                        'components_project_connection_warehouse_form.databricks.http_path.placeholder',
+                    )}
                 />
                 <PasswordInput
                     {...register('warehouse.personalAccessToken')}
-                    label="Personal access token"
+                    label={t(
+                        'components_project_connection_warehouse_form.databricks.access_token.label',
+                    )}
                     description={
                         <p>
-                            Check out for more details in{' '}
+                            {t(
+                                'components_project_connection_warehouse_form.databricks.access_token.description.step_1',
+                            )}
                             <Anchor
                                 target="_blank"
                                 href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#personal-access-token"
                                 rel="noreferrer"
                             >
-                                given documentation
+                                {t(
+                                    'components_project_connection_warehouse_form.databricks.access_token.description.step_2',
+                                )}
                             </Anchor>
-                            .
+                            {t(
+                                'components_project_connection_warehouse_form.databricks.access_token.description.step_3',
+                            )}
                         </p>
                     }
                     required={requireSecrets}
@@ -130,8 +169,12 @@ const DatabricksForm: FC<{
                     disabled={disabled}
                 />
                 <TextInput
-                    label="Catalog name"
-                    description="This is the catalog name."
+                    label={t(
+                        'components_project_connection_warehouse_form.databricks.catalog.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.databricks.catalog.description',
+                    )}
                     required
                     {...register('warehouse.catalog', {
                         validate: {
@@ -144,7 +187,9 @@ const DatabricksForm: FC<{
                     <StartOfWeekSelect disabled={disabled} />
                 </FormSection>
                 <FormCollapseButton isSectionOpen={isOpen} onClick={toggleOpen}>
-                    Advanced configuration options
+                    {t(
+                        'components_project_connection_warehouse_form.databricks.advanced_configuration_options',
+                    )}
                 </FormCollapseButton>
             </Stack>
         </>

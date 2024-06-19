@@ -16,7 +16,9 @@ import {
 import { IconCheck, IconCopy } from '@tabler/icons-react';
 import React, { type FC } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
+
 import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
 import { hasNoWhiteSpaces } from '../../../utils/fieldValidators';
 import MantineIcon from '../../common/MantineIcon';
@@ -31,10 +33,16 @@ export const RedshiftSchemaInput: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
     const { register } = useFormContext();
+    const { t } = useTranslation();
+
     return (
         <TextInput
-            label="Schema"
-            description="This is the schema name."
+            label={t(
+                'components_project_connection_warehouse_form.redshift.schema.label',
+            )}
+            description={t(
+                'components_project_connection_warehouse_form.redshift.schema.description',
+            )}
             required
             {...register('warehouse.schema', {
                 validate: {
@@ -49,6 +57,7 @@ export const RedshiftSchemaInput: FC<{
 const RedshiftForm: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
+    const { t } = useTranslation();
     const [isOpen, toggleOpen] = useToggle(false);
     const { savedProject } = useProjectFormContext();
     const requireSecrets: boolean =
@@ -77,12 +86,17 @@ const RedshiftForm: FC<{
     const isPassthroughLoginFeatureEnabled = useFeatureFlagEnabled(
         FeatureFlags.PassthroughLogin,
     );
+
     return (
         <>
             <Stack style={{ marginTop: '8px' }}>
                 <TextInput
-                    label="Host"
-                    description="This is the host where the database is running."
+                    label={t(
+                        'components_project_connection_warehouse_form.redshift.host.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.redshift.host.description',
+                    )}
                     required
                     {...register('warehouse.host', {
                         validate: {
@@ -93,8 +107,12 @@ const RedshiftForm: FC<{
                     labelProps={{ style: { marginTop: '8px' } }}
                 />
                 <TextInput
-                    label="User"
-                    description="This is the database user name."
+                    label={t(
+                        'components_project_connection_warehouse_form.redshift.user.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.redshift.user.description',
+                    )}
                     required={requireSecrets}
                     {...register('warehouse.user', {
                         validate: {
@@ -109,8 +127,12 @@ const RedshiftForm: FC<{
                     disabled={disabled}
                 />
                 <PasswordInput
-                    label="Password"
-                    description="This is the database user password."
+                    label={t(
+                        'components_project_connection_warehouse_form.redshift.password.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.redshift.password.description',
+                    )}
                     required={requireSecrets}
                     placeholder={
                         disabled || !requireSecrets
@@ -121,8 +143,12 @@ const RedshiftForm: FC<{
                     disabled={disabled}
                 />
                 <TextInput
-                    label="DB name"
-                    description="This is the database name."
+                    label={t(
+                        'components_project_connection_warehouse_form.redshift.db_name.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.redshift.db_name.description',
+                    )}
                     required
                     {...register('warehouse.dbname', {
                         validate: {
@@ -136,7 +162,9 @@ const RedshiftForm: FC<{
                         {isPassthroughLoginFeatureEnabled && (
                             <BooleanSwitch
                                 name="warehouse.requireUserCredentials"
-                                label="Require users to provide their own credentials"
+                                label={t(
+                                    'components_project_connection_warehouse_form.redshift.switch.label',
+                                )}
                                 defaultValue={false}
                                 disabled={disabled}
                             />
@@ -147,8 +175,12 @@ const RedshiftForm: FC<{
                             render={({ field }) => (
                                 <NumberInput
                                     {...field}
-                                    label="Port"
-                                    description="This is the port where the database is running."
+                                    label={t(
+                                        'components_project_connection_warehouse_form.redshift.port.label',
+                                    )}
+                                    description={t(
+                                        'components_project_connection_warehouse_form.redshift.port.description',
+                                    )}
                                     required
                                     disabled={disabled}
                                 />
@@ -160,22 +192,26 @@ const RedshiftForm: FC<{
                             render={({ field }) => (
                                 <NumberInput
                                     {...field}
-                                    label="Keep alive idle (seconds)"
+                                    label={t(
+                                        'components_project_connection_warehouse_form.redshift.keep_alive_idle.label',
+                                    )}
                                     description={
                                         <p>
-                                            This specifies the amount of seconds
-                                            with no network activity after which
-                                            the operating system should send a
-                                            TCP keepalive message to the client.
-                                            You can see more details in{' '}
+                                            {t(
+                                                'components_project_connection_warehouse_form.redshift.keep_alive_idle.description.step_1',
+                                            )}{' '}
                                             <Anchor
                                                 target="_blank"
                                                 href="https://postgresqlco.nf/doc/en/param/tcp_keepalives_idle/"
                                                 rel="noreferrer"
                                             >
-                                                postgresqlco documentation
+                                                {t(
+                                                    'components_project_connection_warehouse_form.redshift.keep_alive_idle.description.step_2',
+                                                )}
                                             </Anchor>
-                                            .
+                                            {t(
+                                                'components_project_connection_warehouse_form.redshift.keep_alive_idle.description.step_3',
+                                            )}
                                         </p>
                                     }
                                     required
@@ -189,20 +225,26 @@ const RedshiftForm: FC<{
                             render={({ field }) => (
                                 <Select
                                     name={field.name}
-                                    label="SSL mode"
+                                    label={t(
+                                        'components_project_connection_warehouse_form.redshift.ssl_mode.label',
+                                    )}
                                     description={
                                         <p>
-                                            This controls how dbt connects to
-                                            Redshift databases using SSL. You
-                                            can see more details in{' '}
+                                            {t(
+                                                'components_project_connection_warehouse_form.redshift.ssl_mode.description.step_1',
+                                            )}{' '}
                                             <Anchor
                                                 target="_blank"
                                                 href="https://docs.getdbt.com/docs/core/connect-data-platform/redshift-setup#sslmode-change"
                                                 rel="noreferrer"
                                             >
-                                                dbt documentation
+                                                {t(
+                                                    'components_project_connection_warehouse_form.redshift.ssl_mode.description.step_2',
+                                                )}
                                             </Anchor>
-                                            .
+                                            {t(
+                                                'components_project_connection_warehouse_form.redshift.ssl_mode.description.step_3',
+                                            )}
                                         </p>
                                     }
                                     data={[
@@ -224,8 +266,12 @@ const RedshiftForm: FC<{
                             name="warehouse.ra3Node"
                             render={({ field }) => (
                                 <Switch.Group
-                                    label="Use RA3 node"
-                                    description="Allow dbt to use cross-database-resources."
+                                    label={t(
+                                        'components_project_connection_warehouse_form.redshift.ra3_node.label',
+                                    )}
+                                    description={t(
+                                        'components_project_connection_warehouse_form.redshift.ra3_node.description',
+                                    )}
                                     value={field.value ? ['true'] : []}
                                     onChange={(values) =>
                                         field.onChange(values.length > 0)
@@ -234,8 +280,12 @@ const RedshiftForm: FC<{
                                 >
                                     <Group mt="xs">
                                         <Switch
-                                            onLabel="Yes"
-                                            offLabel="No"
+                                            onLabel={t(
+                                                'components_project_connection_warehouse_form.redshift.ra3_node.yes',
+                                            )}
+                                            offLabel={t(
+                                                'components_project_connection_warehouse_form.redshift.ra3_node.no',
+                                            )}
                                             value="true"
                                             disabled={disabled}
                                         />
@@ -248,7 +298,9 @@ const RedshiftForm: FC<{
                             name="warehouse.useSshTunnel"
                             render={({ field }) => (
                                 <Switch.Group
-                                    label="Use SSH tunnel"
+                                    label={t(
+                                        'components_project_connection_warehouse_form.redshift.ssh_tunnel.label',
+                                    )}
                                     value={field.value ? ['true'] : []}
                                     onChange={(values) =>
                                         field.onChange(values.length > 0)
@@ -257,8 +309,12 @@ const RedshiftForm: FC<{
                                 >
                                     <Group mt="xs">
                                         <Switch
-                                            onLabel="Yes"
-                                            offLabel="No"
+                                            onLabel={t(
+                                                'components_project_connection_warehouse_form.redshift.ssh_tunnel.yes',
+                                            )}
+                                            offLabel={t(
+                                                'components_project_connection_warehouse_form.redshift.ssh_tunnel.no',
+                                            )}
                                             value="true"
                                             disabled={disabled}
                                         />
@@ -272,7 +328,9 @@ const RedshiftForm: FC<{
                         >
                             <Stack style={{ marginBottom: '8px' }}>
                                 <TextInput
-                                    label="SSH Remote Host"
+                                    label={t(
+                                        'components_project_connection_warehouse_form.redshift.ssh_remote_host.label',
+                                    )}
                                     disabled={disabled}
                                     {...register('warehouse.sshTunnelHost')}
                                 />
@@ -282,13 +340,17 @@ const RedshiftForm: FC<{
                                     render={({ field }) => (
                                         <NumberInput
                                             {...field}
-                                            label="SSH Remote Port"
+                                            label={t(
+                                                'components_project_connection_warehouse_form.redshift.ssh_remote_port.label',
+                                            )}
                                             disabled={disabled}
                                         />
                                     )}
                                 />
                                 <TextInput
-                                    label="SSH Username"
+                                    label={t(
+                                        'components_project_connection_warehouse_form.redshift.ssh_username.label',
+                                    )}
                                     disabled={disabled}
                                     {...register('warehouse.sshTunnelUser')}
                                 />
@@ -297,7 +359,9 @@ const RedshiftForm: FC<{
                                         {...register(
                                             'warehouse.sshTunnelPublicKey',
                                         )}
-                                        label="Generated SSH Public Key"
+                                        label={t(
+                                            'components_project_connection_warehouse_form.redshift.ssh_key.label',
+                                        )}
                                         readOnly={true}
                                         disabled={disabled}
                                         rightSection={
@@ -309,8 +373,12 @@ const RedshiftForm: FC<{
                                                         <Tooltip
                                                             label={
                                                                 copied
-                                                                    ? 'Copied'
-                                                                    : 'Copy'
+                                                                    ? t(
+                                                                          'components_project_connection_warehouse_form.redshift.ssh_key.copied',
+                                                                      )
+                                                                    : t(
+                                                                          'components_project_connection_warehouse_form.redshift.ssh_key.copy',
+                                                                      )
                                                             }
                                                             withArrow
                                                             position="right"
@@ -344,8 +412,12 @@ const RedshiftForm: FC<{
                                     disabled={disabled || isLoading}
                                 >
                                     {sshTunnelPublicKey
-                                        ? 'Regenerate key'
-                                        : 'Generate public key'}
+                                        ? t(
+                                              'components_project_connection_warehouse_form.redshift.regenerate_key',
+                                          )
+                                        : t(
+                                              'components_project_connection_warehouse_form.redshift.generate_public_key',
+                                          )}
                                 </Button>
                             </Stack>
                         </FormSection>
@@ -353,7 +425,9 @@ const RedshiftForm: FC<{
                 </FormSection>
 
                 <FormCollapseButton isSectionOpen={isOpen} onClick={toggleOpen}>
-                    Advanced configuration options
+                    {t(
+                        'components_project_connection_warehouse_form.redshift.advanced_configuration_options',
+                    )}
                 </FormCollapseButton>
             </Stack>
         </>

@@ -9,7 +9,9 @@ import {
 } from '@mantine/core';
 import { useState, type FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
+
 import { hasNoWhiteSpaces } from '../../../utils/fieldValidators';
 import FormSection from '../../ReactHookForm/FormSection';
 import Input from '../../ReactHookForm/Input';
@@ -20,23 +22,43 @@ import StartOfWeekSelect from './Inputs/StartOfWeekSelect';
 export const BigQuerySchemaInput: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
+    const { t } = useTranslation();
+
     return (
         <Input
             name="warehouse.dataset"
-            label="Data set"
+            label={t(
+                'components_project_connection_warehouse_form.big_query.dataset.label',
+            )}
             labelHelp={
                 <p>
-                    This is the name of your dbt dataset: the dataset in your
-                    warehouse where the output of your dbt models is written to.
-                    If you're not sure what this is, check out the
-                    <b> dataset </b>
-                    value{' '}
+                    {t(
+                        'components_project_connection_warehouse_form.big_query.dataset.label_help.step_1',
+                    )}
+                    <b>
+                        {t(
+                            'components_project_connection_warehouse_form.big_query.dataset.label_help.step_2',
+                        )}
+                    </b>
+                    {t(
+                        'components_project_connection_warehouse_form.big_query.dataset.label_help.step_3',
+                    )}{' '}
                     <Anchor
                         target="_blank"
                         href="https://docs.getdbt.com/reference/warehouse-profiles/bigquery-profile#:~:text=This%20connection%20method%20requires%20local%20OAuth%20via%20gcloud."
                         rel="noreferrer"
                     >
-                        you've set in your dbt <b>profiles.yml</b> file
+                        {t(
+                            'components_project_connection_warehouse_form.big_query.dataset.label_help.step_4',
+                        )}
+                        <b>
+                            {t(
+                                'components_project_connection_warehouse_form.big_query.dataset.label_help.step_5',
+                            )}
+                        </b>{' '}
+                        {t(
+                            'components_project_connection_warehouse_form.big_query.dataset.label_help.step_6',
+                        )}
                     </Anchor>
                     .
                 </p>
@@ -55,6 +77,7 @@ export const BigQuerySchemaInput: FC<{
 const BigQueryForm: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
+    const { t } = useTranslation();
     const [isOpen, toggleOpen] = useToggle(false);
     const { register } = useFormContext();
     const [temporaryFile, setTemporaryFile] = useState<File>();
@@ -66,8 +89,12 @@ const BigQueryForm: FC<{
         <>
             <Stack style={{ marginTop: '8px' }}>
                 <TextInput
-                    label="Project"
-                    description="This is the GCP project ID."
+                    label={t(
+                        'components_project_connection_warehouse_form.big_query.project.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.big_query.project.description',
+                    )}
                     required
                     {...register('warehouse.project', {
                         validate: {
@@ -79,19 +106,26 @@ const BigQueryForm: FC<{
                 />
 
                 <TextInput
-                    label="Location"
+                    label={t(
+                        'components_project_connection_warehouse_form.big_query.location.label',
+                    )}
                     description={
                         <p>
-                            The location of BigQuery datasets. You can see more
-                            details in{' '}
+                            {t(
+                                'components_project_connection_warehouse_form.big_query.location.description.step_1',
+                            )}{' '}
                             <Anchor
                                 target="_blank"
                                 href="https://docs.getdbt.com/reference/warehouse-profiles/bigquery-profile#dataset-locations"
                                 rel="noreferrer"
                             >
-                                dbt documentation
+                                {t(
+                                    'components_project_connection_warehouse_form.big_query.location.description.step_2',
+                                )}
                             </Anchor>
-                            .
+                            {t(
+                                'components_project_connection_warehouse_form.big_query.location.description.step_3',
+                            )}
                         </p>
                     }
                     {...register('warehouse.location', {
@@ -109,25 +143,35 @@ const BigQueryForm: FC<{
                     render={({ field }) => (
                         <FileInput
                             {...field}
-                            label="Key File"
+                            label={t(
+                                'components_project_connection_warehouse_form.big_query.file.label',
+                            )}
                             // FIXME: until mantine 7.4: https://github.com/mantinedev/mantine/issues/5401#issuecomment-1874906064
                             // @ts-ignore
                             placeholder={
                                 !requireSecrets
                                     ? '**************'
-                                    : 'Choose file...'
+                                    : t(
+                                          'components_project_connection_warehouse_form.big_query.file.placeholder',
+                                      )
                             }
                             description={
                                 <p>
-                                    This is the JSON key file. You can see{' '}
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.file.description.step_1',
+                                    )}{' '}
                                     <Anchor
                                         target="_blank"
                                         href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#key-file"
                                         rel="noreferrer"
                                     >
-                                        how to create a key here
+                                        {t(
+                                            'components_project_connection_warehouse_form.big_query.file.description.step_2',
+                                        )}
                                     </Anchor>
-                                    .
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.file.description.step_3',
+                                    )}
                                 </p>
                             }
                             {...register('warehouse.keyfileContents')}
@@ -165,21 +209,26 @@ const BigQueryForm: FC<{
                             render={({ field }) => (
                                 <NumberInput
                                     {...field}
-                                    label="Timeout in seconds"
+                                    label={t(
+                                        'components_project_connection_warehouse_form.big_query.timeout.label',
+                                    )}
                                     description={
                                         <p>
-                                            If a dbt model takes longer than
-                                            this timeout to complete, then
-                                            BigQuery may cancel the query. You
-                                            can see more details in{' '}
+                                            {t(
+                                                'components_project_connection_warehouse_form.big_query.timeout.description.step_1',
+                                            )}{' '}
                                             <Anchor
                                                 target="_blank"
                                                 href="https://docs.getdbt.com/reference/warehouse-profiles/bigquery-profile#timeouts"
                                                 rel="noreferrer"
                                             >
-                                                dbt documentation
+                                                {t(
+                                                    'components_project_connection_warehouse_form.big_query.timeout.description.step_2',
+                                                )}
                                             </Anchor>
-                                            .
+                                            {t(
+                                                'components_project_connection_warehouse_form.big_query.timeout.description.step_3',
+                                            )}
                                         </p>
                                     }
                                     required
@@ -192,30 +241,40 @@ const BigQueryForm: FC<{
                             defaultValue="interactive"
                             render={({ field }) => (
                                 <Select
-                                    label="Priority"
+                                    label={t(
+                                        'components_project_connection_warehouse_form.big_query.priority.label',
+                                    )}
                                     description={
                                         <p>
-                                            The priority for the BigQuery jobs
-                                            that dbt executes. You can see more
-                                            details in{' '}
+                                            {t(
+                                                'components_project_connection_warehouse_form.big_query.priority.description.step_1',
+                                            )}{' '}
                                             <Anchor
                                                 target="_blank"
                                                 href="https://docs.getdbt.com/reference/warehouse-profiles/bigquery-profile#priority"
                                                 rel="noreferrer"
                                             >
-                                                dbt documentation
+                                                {t(
+                                                    'components_project_connection_warehouse_form.big_query.priority.description.step_2',
+                                                )}
                                             </Anchor>
-                                            .
+                                            {t(
+                                                'components_project_connection_warehouse_form.big_query.priority.description.step_3',
+                                            )}
                                         </p>
                                     }
                                     data={[
                                         {
                                             value: 'interactive',
-                                            label: 'interactive',
+                                            label: t(
+                                                'components_project_connection_warehouse_form.big_query.priority.data.interactive',
+                                            ),
                                         },
                                         {
                                             value: 'batch',
-                                            label: 'batch',
+                                            label: t(
+                                                'components_project_connection_warehouse_form.big_query.priority.data.batch',
+                                            ),
                                         },
                                     ]}
                                     required
@@ -231,21 +290,26 @@ const BigQueryForm: FC<{
                             render={({ field }) => (
                                 <NumberInput
                                     {...field}
-                                    label="Retries"
+                                    label={t(
+                                        'components_project_connection_warehouse_form.big_query.retries.label',
+                                    )}
                                     description={
                                         <p>
-                                            The number of times dbt should retry
-                                            queries that result in unhandled
-                                            server errors You can see more
-                                            details in{' '}
+                                            {t(
+                                                'components_project_connection_warehouse_form.big_query.retries.description.step_1',
+                                            )}{' '}
                                             <Anchor
                                                 target="_blank"
                                                 href="https://docs.getdbt.com/reference/warehouse-profiles/bigquery-profile#retries"
                                                 rel="noreferrer"
                                             >
-                                                dbt documentation
+                                                {t(
+                                                    'components_project_connection_warehouse_form.big_query.retries.description.step_2',
+                                                )}
                                             </Anchor>
-                                            .
+                                            {t(
+                                                'components_project_connection_warehouse_form.big_query.retries.description.step_3',
+                                            )}
                                         </p>
                                     }
                                     required
@@ -258,22 +322,26 @@ const BigQueryForm: FC<{
                             render={({ field }) => (
                                 <NumberInput
                                     {...field}
-                                    label="Maximum bytes billed"
+                                    label={t(
+                                        'components_project_connection_warehouse_form.big_query.maximun_bytes_billed.label',
+                                    )}
                                     description={
                                         <p>
-                                            When a value is configured, queries
-                                            executed by dbt will fail if they
-                                            exceed the configured maximum bytes
-                                            threshold. You can see more details
-                                            in{' '}
+                                            {t(
+                                                'components_project_connection_warehouse_form.big_query.maximun_bytes_billed.description.step_1',
+                                            )}{' '}
                                             <Anchor
                                                 target="_blank"
                                                 href="https://docs.getdbt.com/reference/warehouse-profiles/bigquery-profile#maximum-bytes-billed"
                                                 rel="noreferrer"
                                             >
-                                                dbt documentation
+                                                {t(
+                                                    'components_project_connection_warehouse_form.big_query.maximun_bytes_billed.description.step_2',
+                                                )}
                                             </Anchor>
-                                            .
+                                            {t(
+                                                'components_project_connection_warehouse_form.big_query.maximun_bytes_billed.description.step_3',
+                                            )}
                                         </p>
                                     }
                                     required
@@ -285,7 +353,9 @@ const BigQueryForm: FC<{
                     </Stack>
                 </FormSection>
                 <FormCollapseButton isSectionOpen={isOpen} onClick={toggleOpen}>
-                    Advanced configuration options
+                    {t(
+                        'components_project_connection_warehouse_form.big_query.advanced_configuration_options',
+                    )}
                 </FormCollapseButton>
             </Stack>
         </>

@@ -1819,5 +1819,392 @@
                 }
             }
         }
+    },
+
+    "components_project_connection_warehouse_form": {
+        "days_of_week": {
+            "monday": "星期一",
+            "tuesday": "星期二",
+            "wednesday": "星期三",
+            "thursday": "星期四",
+            "friday": "星期五",
+            "saturday": "星期六",
+            "sunday": "星期日"
+        },
+        "inputs": {
+            "label": "周开始日",
+            "placeholder": "自动",
+            "description": "在使用 'WEEK' 时间间隔时会考虑到",
+            "alert": {
+                "title": "需要的 CLI 选项",
+                "content": {
+                    "step_1": "未来,如果您使用 CLI 部署项目,您需要运行部署命令并加上选项",
+                    "step_2": "--start-of-week=",
+                    "step_3": ", 以使更改生效。"
+                }
+            }
+        },
+        "big_query": {
+            "data_set": {
+                "label": "数据集",
+                "label_help": {
+                    "step_1": "这是您的 dbt 数据集的名称:在您的仓库中,dbt 模型的输出被写入的数据集。如果您不确定这是什么,请查看",
+                    "step_2": "数据集",
+                    "step_3": "值",
+                    "step_4": "您在 dbt",
+                    "step_5": "profiles.yml",
+                    "step_6": "文件中设置的内容"
+                }
+            },
+            "project": {
+                "label": "项目",
+                "description": "这是 GCP 项目 ID。"
+            },
+            "location": {
+                "label": "位置",
+                "description": {
+                    "step_1": "BigQuery 数据集的位置。您可以在",
+                    "step_2": "dbt 文档",
+                    "step_3": "中了解更多详细信息。"
+                }
+            },
+            "file": {
+                "label": "密钥文件",
+                "placeholder": "选择文件...",
+                "description": {
+                    "step_1": "这是 JSON 密钥文件。您可以查看",
+                    "step_2": "如何创建密钥",
+                    "step_3": "。"
+                }
+            },
+            "timeout": {
+                "label": "超时时间(秒)",
+                "description": {
+                    "step_1": "如果 dbt 模型的执行时间超过此超时时间,则 BigQuery 可能会取消查询。您可以在",
+                    "step_2": "dbt 文档",
+                    "step_3": "中了解更多详细信息。"
+                }
+            },
+            "priority": {
+                "label": "优先级",
+                "description": {
+                    "step_1": "dbt 执行的 BigQuery 作业的优先级。您可以在",
+                    "step_2": "dbt 文档",
+                    "step_3": "中了解更多详细信息。"
+                },
+                "data": {
+                    "interactive": "交互式",
+                    "batch": "批处理"
+                }
+            },
+            "retries": {
+                "label": "重试次数",
+                "description": {
+                    "step_1": "dbt 应该重试导致无法处理的服务器错误的查询的次数。您可以在",
+                    "step_2": "dbt 文档",
+                    "step_3": "中了解更多详细信息。"
+                }
+            },
+            "maximun_bytes_billed": {
+                "label": "最大计费字节数",
+                "description": {
+                    "step_1": "当设置了一个值时,如果 dbt 执行的查询超过了配置的最大字节阈值,查询将会失败。您可以在",
+                    "step_2": "dbt 文档",
+                    "step_3": "中了解更多详细信息。"
+                }
+            },
+            "advanced_configuration_options": "高级配置选项"
+        },
+        "databricks": {
+            "schema": {
+                "label": "模式",
+                "description": {
+                    "step_1": "请查看",
+                    "step_2": "相关文档",
+                    "step_3": "以了解更多详细信息。"
+                }
+            },
+            "server": {
+                "label": "服务器主机名",
+                "description": {
+                    "step_1": "请查看",
+                    "step_2": "相关文档",
+                    "step_3": "以了解更多详细信息。"
+                },
+                "placeholder": "xxxx.gcp.databricks.com"
+            },
+            "http_path": {
+                "label": "HTTP 路径",
+                "description": {
+                    "step_1": "请查看",
+                    "step_2": "相关文档",
+                    "step_3": "以了解更多详细信息。"
+                },
+                "placeholder": "/sql/protocolv1/o/xxxx/xxxx"
+            },
+            "access_token": {
+                "label": "个人访问令牌",
+                "description": {
+                    "step_1": "请查看",
+                    "step_2": "相关文档",
+                    "step_3": "以了解更多详细信息。"
+                }
+            },
+            "catalog": {
+                "label": "目录名称",
+                "description": "这是目录名称。"
+            },
+            "advanced_configuration_options": "高级配置选项"
+        },
+        "postgress": {
+            "schema": {
+                "label": "模式",
+                "description": "这是模式名称。"
+            },
+            "host": {
+                "label": "主机",
+                "description": "这是数据库运行的主机。"
+            },
+            "user": {
+                "label": "用户",
+                "description": "这是数据库用户名。"
+            },
+            "password": {
+                "label": "密码",
+                "description": "这是数据库用户密码。"
+            },
+            "db_name": {
+                "label": "数据库名称",
+                "description": "这是数据库名称。"
+            },
+            "switch": {
+                "label": "要求用户提供自己的凭证"
+            },
+            "port": {
+                "label": "端口",
+                "description": "这是数据库运行的端口。"
+            },
+            "keep_alive_idle": {
+                "label": "保持空闲连接(秒)",
+                "description": {
+                    "step_1": "这指定了在操作系统应该向客户端发送 TCP 保持活动消息之前的最长空闲时间(秒)。您可以在",
+                    "step_2": "postgresqlco 文档",
+                    "step_3": "中了解更多详细信息。"
+                }
+            },
+            "search_path": {
+                "label": "搜索路径",
+                "description": {
+                    "step_1": "这控制 Postgres \"搜索路径\"。您可以在",
+                    "step_2": "dbt 文档",
+                    "step_3": "中了解更多详细信息。"
+                }
+            },
+            "ssl_mode": {
+                "label": "SSL 模式",
+                "description": {
+                    "step_1": "这控制 dbt 如何使用 SSL 连接到 Postgres 数据库。您可以在",
+                    "step_2": "dbt 文档",
+                    "step_3": "中了解更多详细信息。"
+                }
+            },
+            "role": {
+                "label": "身份"
+            },
+            "ssh_tunnel": {
+                "label": "使用 SSH 隧道"
+            },
+            "ssh_remote_host": {
+                "label": "SSH 远程主机"
+            },
+            "ssh_remote_port": {
+                "label": "SSH 远程端口"
+            },
+            "ssh_username": {
+                "label": "SSH 用户名"
+            },
+            "ssh_key": {
+                "label": "生成的 SSH 公钥",
+                "copied": "已复制",
+                "copy": "复制"
+            },
+            "regenerate_key": "重新生成密钥",
+            "generate_public_key": "生成公钥",
+            "advanced_configuration_options": "高级配置选项"
+        },
+        "redshift": {
+            "yes": "是",
+            "no": "否",
+            "schema": {
+                "label": "模式",
+                "description": "这是模式名称。"
+            },
+            "host": {
+                "label": "主机",
+                "description": "这是数据库运行的主机。"
+            },
+            "user": {
+                "label": "用户",
+                "description": "这是数据库用户名。"
+            },
+            "password": {
+                "label": "密码",
+                "description": "这是数据库用户密码。"
+            },
+            "db_name": {
+                "label": "数据库名称",
+                "description": "这是数据库名称。"
+            },
+            "switch": {
+                "label": "要求用户提供自己的凭证"
+            },
+            "port": {
+                "label": "端口",
+                "description": "这是数据库运行的端口。"
+            },
+            "keep_alive_idle": {
+                "label": "保持空闲连接(秒)",
+                "description": {
+                    "step_1": "这指定了在操作系统应该向客户端发送 TCP 保持活动消息之前的最长空闲时间(秒)。您可以在",
+                    "step_2": "postgresqlco 文档",
+                    "step_3": "中了解更多详细信息。"
+                }
+            },
+            "ssl_mode": {
+                "label": "SSL 模式",
+                "description": {
+                    "step_1": "这控制 dbt 如何使用 SSL 连接到 Postgres 数据库。您可以在",
+                    "step_2": "dbt 文档",
+                    "step_3": "中了解更多详细信息。"
+                }
+            },
+            "ra3_node": {
+                "label": "使用 RA3 节点",
+                "description": "允许 dbt 使用跨数据库资源。",
+                "yes": "是",
+                "no": "否"
+            },
+            "ssh_tunnel": {
+                "label": "使用 SSH 隧道",
+                "yes": "是",
+                "no": "否"
+            },
+            "ssh_remote_host": {
+                "label": "SSH 远程主机"
+            },
+            "ssh_remote_port": {
+                "label": "SSH 远程端口"
+            },
+            "ssh_username": {
+                "label": "SSH 用户名"
+            },
+            "ssh_key": {
+                "label": "生成的 SSH 公钥",
+                "copied": "已复制",
+                "copy": "复制"
+            },
+            "regenerate_key": "重新生成密钥",
+            "generate_public_key": "生成公钥",
+            "advanced_configuration_options": "高级配置选项"
+        },
+        "snowflake": {
+            "schema": {
+                "label": "Schema",
+                "description": "这是 schema 的名称。"
+            },
+            "account": {
+                "label": "账户",
+                "description": "这是要连接的账户。"
+            },
+            "user": {
+                "label": "用户",
+                "description": "这是数据库用户名。"
+            },
+            "password": {
+                "label": "密码",
+                "description": "这是数据库用户的密码。"
+            },
+            "role": {
+                "label": "角色",
+                "description": "这是以指定用户身份运行查询时要使用的角色。"
+            },
+            "database": {
+                "label": "数据库",
+                "description": "这是数据库名称。"
+            },
+            "warehouse": {
+                "label": "仓库",
+                "description": "这是仓库名称。"
+            },
+            "switch": {
+                "label": "要求用户提供自己的凭证"
+            },
+            "keep_session_alive": {
+                "label": "保持客户端会话保持活跃",
+                "description": {
+                    "step_1": "这是为了让 Snowflake 会话保持活跃超过通常的 4 小时超时限制。您可以在",
+                    "step_2": "dbt 文档",
+                    "step_3": "中查看更多详细信息。"
+                },
+                "yes": "是",
+                "no": "否"
+            },
+            "query_tag": {
+                "label": "查询标签",
+                "description": {
+                    "step_1": "这是 Snowflake 查询标签参数。您可以在",
+                    "step_2": "dbt 文档",
+                    "step_3": "中查看更多详细信息。"
+                }
+            },
+            "snowflake_url_override": {
+                "label": "Snowflake URL 覆盖",
+                "description": "通常情况下,Lightdash 会连接到默认 URL: account.snowflakecomputing.com。如果您想要覆盖这个 URL(例如对于 dbt 服务器),您可以在这里指定一个完整的自定义 URL。"
+            },
+            "advanced_configuration_options": "高级配置选项"
+        },
+        "ssh_hooks": {
+            "tips": {
+                "error": "创建 SSH 密钥对失败"
+            }
+        },
+        "trino": {
+            "schema": {
+                "label": "Schema",
+                "description": "这是 schema 的名称。"
+            },
+            "host": {
+                "label": "主机",
+                "description": "这是数据库所在的主机。"
+            },
+            "user": {
+                "label": "用户",
+                "description": "这是数据库用户名。"
+            },
+            "password": {
+                "label": "密码",
+                "description": "这是数据库用户的密码。"
+            },
+            "db_name": {
+                "label": "数据库名称",
+                "description": "这是数据库名称。"
+            },
+            "switch": {
+                "label": "要求用户提供自己的凭证"
+            },
+            "port": {
+                "label": "端口",
+                "description": "这是数据库端口。"
+            },
+            "ssh_mode": {
+                "label": "SSL 模式",
+                "description": {
+                    "step_1": "这控制着 dbt 使用 SSL 连接 Trino 数据库的方式。您可以在",
+                    "step_2": "dbt 文档",
+                    "step_3": "中查看更多详细信息。"
+                }
+            },
+            "advanced_configuration_options": "高级配置选项"
+        }
     }
 }

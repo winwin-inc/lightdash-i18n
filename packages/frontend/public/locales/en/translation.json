@@ -1810,5 +1810,390 @@
                 }
             }
         }
+    },
+
+    "components_project_connection_warehouse_form": {
+        "days_of_week": {
+            "monday": "Monday",
+            "tuesday": "Tuesday",
+            "wednesday": "Wednesday",
+            "thursday": "Thursday",
+            "friday": "Friday",
+            "saturday": "Saturday",
+            "sunday": "Sunday"
+        },
+        "inputs": {
+            "label": "Start of week",
+            "placeholder": "Auto",
+            "description": "Will be taken into account when using 'WEEK' time interval",
+            "alert": {
+                "title": "Required CLI option",
+                "content": {
+                    "step_1": "Going forward, if you use the CLI to deploy the project, you will need to run the deploy command with the option",
+                    "step_2": "--start-of-week=",
+                    "step_3": ", for the changes to take effect."
+                }
+            }
+        },
+        "big_query": {
+            "data_set": {
+                "label": "Data set",
+                "label_help": {
+                    "step_1": "This is the name of your dbt dataset: the dataset in your warehouse where the output of your dbt models is written to. If you're not sure what this is, check out the",
+                    "step_2": " dataset ",
+                    "step_3": "value",
+                    "step_4": "you've set in your dbt ",
+                    "step_5": "profiles.yml",
+                    "step_6": " file"
+                }
+            },
+            "project": {
+                "label": "Project",
+                "description": "This is the GCP project ID."
+            },
+            "location": {
+                "label": "Location",
+                "description": {
+                    "step_1": "The location of BigQuery datasets. You can see more details in",
+                    "step_2": "dbt documentation",
+                    "step_3": "."
+                }
+            },
+            "file": {
+                "label": "key file",
+                "placeholder": "Choose file...",
+                "description": {
+                    "step_1": "This is the JSON key file. You can see",
+                    "step_2": "how to create a key here",
+                    "step_3": "."
+                }
+            },
+            "timeout": {
+                "label": "Timeout in seconds",
+                "description": {
+                    "step_1": "If a dbt model takes longer than this timeout to complete, then BigQuery may cancel the query. You can see more details in",
+                    "step_2": "dbt documentation",
+                    "step_3": "."
+                }
+            },
+            "priority": {
+                "label": "Priority",
+                "description": {
+                    "step_1": "The priority for the BigQuery jobs that dbt executes. You can see more details in",
+                    "step_2": "dbt documentation",
+                    "step_3": "."
+                },
+                "data": {
+                    "interactive": "interactive",
+                    "batch": "batch"
+                }
+            },
+            "retries": {
+                "label": "Retries",
+                "description": {
+                    "step_1": "The number of times dbt should retry queries that result in unhandled server errors You can see more details in",
+                    "step_2": "dbt documentation",
+                    "step_3": "."
+                }
+            },
+            "maximun_bytes_billed": {
+                "label": "Maximum bytes billed",
+                "description": {
+                    "step_1": "When a value is configured, queries executed by dbt will fail if they exceed the configured maximum bytes threshold. You can see more details in",
+                    "step_2": "dbt documentation",
+                    "step_3": "."
+                }
+            },
+            "advanced_configuration_options": "Advanced configuration options"
+        },
+        "databricks": {
+            "schema": {
+                "label": "Schema",
+                "description": {
+                    "step_1": "Check out for more details in",
+                    "step_2": "given documentation",
+                    "step_3": "."
+                }
+            },
+            "server": {
+                "label": "Server host name",
+                "description": {
+                    "step_1": "Check out for more details in",
+                    "step_2": "given documentation",
+                    "step_3": "."
+                },
+                "placeholder": "xxxx.gcp.databricks.com"
+            },
+            "http_path": {
+                "label": "HTTP path",
+                "description": {
+                    "step_1": "Check out for more details in",
+                    "step_2": "given documentation",
+                    "step_3": "."
+                },
+                "placeholder": "/sql/protocolv1/o/xxxx/xxxx"
+            },
+            "access_token": {
+                "label": "Personal access token",
+                "description": {
+                    "step_1": "Check out for more details in",
+                    "step_2": "given documentation",
+                    "step_3": "."
+                }
+            },
+            "catalog": {
+                "label": "Catalog name",
+                "description": "This is the catalog name."
+            },
+            "advanced_configuration_options": "Advanced configuration options"
+        },
+        "postgress": {
+            "schema": {
+                "label": "Schema",
+                "description": "This is the schema name."
+            },
+            "host": {
+                "label": "Host",
+                "description": "This is the host where the database is running."
+            },
+            "user": {
+                "label": "User",
+                "description": "This is the database user name."
+            },
+            "password": {
+                "label": "Password",
+                "description": "This is the database user password."
+            },
+            "db_name": {
+                "label": "DB name",
+                "description": "This is the database name."
+            },
+            "switch": {
+                "label": "Require users to provide their own credentials"
+            },
+            "port": {
+                "label": "Port",
+                "description": "This is the port where the database is running."
+            },
+            "keep_alive_idle": {
+                "label": "Keep alive idle (seconds)",
+                "description": {
+                    "step_1": "This specifies the amount of seconds with no network activity after which the operating system should send a TCP keepalive message to the client. You can see more details in",
+                    "step_2": "postgresqlco documentation",
+                    "step_3": "."
+                }
+            },
+            "search_path": {
+                "label": "Search path",
+                "description": {
+                    "step_1": "This controls the Postgres \"search path\". You can see more details in",
+                    "step_2": "dbt documentation",
+                    "step_3": "."
+                }
+            },
+            "ssl_mode": {
+                "label": "SSL mode",
+                "description": {
+                    "step_1": "This controls how dbt connects to Postgres databases using SSL. You can see more details in",
+                    "step_2": "dbt documentation",
+                    "step_3": "."
+                }
+            },
+            "role": {
+                "label": "Role"
+            },
+            "ssh_tunnel": {
+                "label": "Use SSH tunnel"
+            },
+            "ssh_remote_host": {
+                "label": "SSH Remote Host"
+            },
+            "ssh_remote_port": {
+                "label": "SSH Remote Port"
+            },
+            "ssh_username": {
+                "label": "SSH Username"
+            },
+            "ssh_key": {
+                "label": "Generated SSH Public Key",
+                "copied": "Copied",
+                "copy": "Copy"
+            },
+            "regenerate_key": "Regenerate key",
+            "generate_public_key": "Generate public key",
+            "advanced_configuration_options": "Advanced configuration options"
+        },
+        "redshift": {
+            "schema": {
+                "label": "Schema",
+                "description": "This is the schema name."
+            },
+            "host": {
+                "label": "Host",
+                "description": "This is the host where the database is running."
+            },
+            "user": {
+                "label": "User",
+                "description": "This is the database user name."
+            },
+            "password": {
+                "label": "Password",
+                "description": "This is the database user password."
+            },
+            "db_name": {
+                "label": "DB name",
+                "description": "This is the database name."
+            },
+            "switch": {
+                "label": "Require users to provide their own credentials"
+            },
+            "port": {
+                "label": "Port",
+                "description": "This is the port where the database is running."
+            },
+            "keep_alive_idle": {
+                "label": "Keep alive idle (seconds)",
+                "description": {
+                    "step_1": "This specifies the amount of seconds with no network activity after which the operating system should send a TCP keepalive message to the client. You can see more details in",
+                    "step_2": "postgresqlco documentation",
+                    "step_3": "."
+                }
+            },
+            "ssl_mode": {
+                "label": "SSL mode",
+                "description": {
+                    "step_1": "This controls how dbt connects to Postgres databases using SSL. You can see more details in",
+                    "step_2": "dbt documentation",
+                    "step_3": "."
+                }
+            },
+            "ra3_node": {
+                "label": "Use RA3 node",
+                "description": "Allow dbt to use cross-database-resources.",
+                "yes": "Yes",
+                "no": "No"
+            },
+            "ssh_tunnel": {
+                "label": "Use SSH tunnel",
+                "yes": "Yes",
+                "no": "No"
+            },
+            "ssh_remote_host": {
+                "label": "SSH Remote Host"
+            },
+            "ssh_remote_port": {
+                "label": "SSH Remote Port"
+            },
+            "ssh_username": {
+                "label": "SSH Username"
+            },
+            "ssh_key": {
+                "label": "Generated SSH Public Key",
+                "copied": "Copied",
+                "copy": "Copy"
+            },
+            "regenerate_key": "Regenerate key",
+            "generate_public_key": "Generate public key",
+            "advanced_configuration_options": "Advanced configuration options"
+        },
+        "snowflake": {
+            "schema": {
+                "label": "Schema",
+                "description": "This is the schema name."
+            },
+            "account": {
+                "label": "Account",
+                "description": "This is the account to connect to."
+            },
+            "user": {
+                "label": "User",
+                "description": "This is the database user name."
+            },
+            "password": {
+                "label": "Password",
+                "description": "This is the database user password."
+            },
+            "role": {
+                "label": "Role",
+                "description": "This is the role to assume when running queries as the specified user."
+            },
+            "database": {
+                "label": "Database",
+                "description": "This is the database name."
+            },
+            "warehouse": {
+                "label": "Warehouse",
+                "description": "This is the warehouse name."
+            },
+            "switch": {
+                "label": "Require users to provide their own credentials"
+            },
+            "keep_session_alive": {
+                "label": "Keep client session alive",
+                "description": {
+                    "step_1": "This is intended to keep Snowflake sessions alive beyond the typical 4 hour timeout limit You can see more details in",
+                    "step_2": "dbt documentation",
+                    "step_3": "."
+                },
+                "yes": "Yes",
+                "no": "No"
+            },
+            "query_tag": {
+                "label": "Query tag",
+                "description": {
+                    "step_1": "This is Snowflake query tags parameter. You can see more details in",
+                    "step_2": "dbt documentation",
+                    "step_3": "."
+                }
+            },
+            "snowflake_url_override": {
+                "label": "Snowflake URL Override",
+                "description": "Usually Lightdash would connect to a default url: account.snowflakecomputing.com. If you'd like to override this (e.g. for the dbt server) you can specify a full custom URL here."
+            },
+            "advanced_configuration_options": "Advanced configuration options"
+        },
+        "ssh_hooks": {
+            "tips": {
+                "error": "Failed to create SSH keypair"
+            }
+        },
+        "trino": {
+            "schema": {
+                "label": "Schema",
+                "description": "This is the schema name."
+            },
+            "host": {
+                "label": "Host",
+                "description": "This is the host where the database is running."
+            },
+            "user": {
+                "label": "User",
+                "description": "This is the database user name."
+            },
+            "password": {
+                "label": "Password",
+                "description": "This is the database user password."
+            },
+            "db_name": {
+                "label": "DB name",
+                "description": "This is the database name."
+            },
+            "switch": {
+                "label": "Require users to provide their own credentials"
+            },
+            "port": {
+                "label": "Port",
+                "description": "This is the database port."
+            },
+            "ssh_mode": {
+                "label": "SSL mode",
+                "description": {
+                    "step_1": "This controls how dbt connects to Trino database using SSL. You can see more details in",
+                    "step_2": "dbt documentation",
+                    "step_3": "."
+                }
+            },
+            "advanced_configuration_options": "Advanced configuration options"
+        }
     }
 }

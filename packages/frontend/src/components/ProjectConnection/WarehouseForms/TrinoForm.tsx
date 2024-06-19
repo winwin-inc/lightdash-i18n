@@ -9,7 +9,9 @@ import {
 } from '@mantine/core';
 import React, { type FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
+
 import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
 import { hasNoWhiteSpaces } from '../../../utils/fieldValidators';
 import BooleanSwitch from '../../ReactHookForm/BooleanSwitch';
@@ -22,11 +24,16 @@ export const TrinoSchemaInput: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
     const { register } = useFormContext();
+    const { t } = useTranslation();
 
     return (
         <TextInput
-            label="Schema"
-            description="This is the schema name."
+            label={t(
+                'components_project_connection_warehouse_form.trino.schema.label',
+            )}
+            description={t(
+                'components_project_connection_warehouse_form.trino.schema.description',
+            )}
             required
             {...register('warehouse.schema', {
                 validate: {
@@ -41,6 +48,7 @@ export const TrinoSchemaInput: FC<{
 const TrinoForm: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
+    const { t } = useTranslation();
     const [isOpen, toggleOpen] = useToggle(false);
     const { savedProject } = useProjectFormContext();
     const requireSecrets: boolean =
@@ -49,12 +57,17 @@ const TrinoForm: FC<{
     const isPassthroughLoginFeatureEnabled = useFeatureFlagEnabled(
         FeatureFlags.PassthroughLogin,
     );
+
     return (
         <>
             <Stack style={{ marginTop: '8px' }}>
                 <TextInput
-                    label="Host"
-                    description="This is the host where the database is running."
+                    label={t(
+                        'components_project_connection_warehouse_form.trino.host.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.trino.host.description',
+                    )}
                     required
                     {...register('warehouse.host', {
                         validate: {
@@ -65,8 +78,12 @@ const TrinoForm: FC<{
                     labelProps={{ style: { marginTop: '8px' } }}
                 />
                 <TextInput
-                    label="User"
-                    description="This is the database user name."
+                    label={t(
+                        'components_project_connection_warehouse_form.trino.user.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.trino.user.description',
+                    )}
                     required={requireSecrets}
                     {...register('warehouse.user', {
                         validate: {
@@ -81,8 +98,12 @@ const TrinoForm: FC<{
                     disabled={disabled}
                 />
                 <PasswordInput
-                    label="Password"
-                    description="This is the database user password."
+                    label={t(
+                        'components_project_connection_warehouse_form.trino.password.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.trino.password.description',
+                    )}
                     required={requireSecrets}
                     placeholder={
                         disabled || !requireSecrets
@@ -93,8 +114,12 @@ const TrinoForm: FC<{
                     disabled={disabled}
                 />
                 <TextInput
-                    label="DB name"
-                    description="This is the database name."
+                    label={t(
+                        'components_project_connection_warehouse_form.trino.db_name.label',
+                    )}
+                    description={t(
+                        'components_project_connection_warehouse_form.trino.db_name.description',
+                    )}
                     required
                     {...register('warehouse.dbname', {
                         validate: {
@@ -109,8 +134,9 @@ const TrinoForm: FC<{
                         {isPassthroughLoginFeatureEnabled && (
                             <BooleanSwitch
                                 name="warehouse.requireUserCredentials"
-                                label="Require users to provide their own credentials"
-                                defaultValue={false}
+                                label={t(
+                                    'components_project_connection_warehouse_form.trino.switch.label',
+                                )}
                                 disabled={disabled}
                             />
                         )}
@@ -120,8 +146,12 @@ const TrinoForm: FC<{
                             render={({ field }) => (
                                 <NumberInput
                                     {...field}
-                                    label="Port"
-                                    description="This is the database name."
+                                    label={t(
+                                        'components_project_connection_warehouse_form.trino.port.label',
+                                    )}
+                                    description={t(
+                                        'components_project_connection_warehouse_form.trino.port.description',
+                                    )}
                                     required
                                     disabled={disabled}
                                 />
@@ -132,20 +162,26 @@ const TrinoForm: FC<{
                             defaultValue="https"
                             render={({ field }) => (
                                 <Select
-                                    label="SSL mode"
+                                    label={t(
+                                        'components_project_connection_warehouse_form.trino.ssh_mode.label',
+                                    )}
                                     description={
                                         <p>
-                                            This controls how dbt connects to
-                                            Trino database using SSL. You can
-                                            see more details in
+                                            {t(
+                                                'components_project_connection_warehouse_form.trino.ssh_mode.description.step_1',
+                                            )}
                                             <Anchor
                                                 target="_blank"
                                                 href="https://docs.getdbt.com/reference/warehouse-setups/trino-setup#configuration"
                                                 rel="noreferrer"
                                             >
-                                                dbt documentation
+                                                {t(
+                                                    'components_project_connection_warehouse_form.trino.ssh_mode.description.step_2',
+                                                )}
                                             </Anchor>
-                                            .
+                                            {t(
+                                                'components_project_connection_warehouse_form.trino.ssh_mode.description.step_3',
+                                            )}
                                         </p>
                                     }
                                     data={['http', 'https'].map((x) => ({
@@ -163,7 +199,9 @@ const TrinoForm: FC<{
                     </Stack>
                 </FormSection>
                 <FormCollapseButton isSectionOpen={isOpen} onClick={toggleOpen}>
-                    Advanced configuration options
+                    {t(
+                        'components_project_connection_warehouse_form.trino.advanced_configuration_options',
+                    )}
                 </FormCollapseButton>
             </Stack>
         </>
