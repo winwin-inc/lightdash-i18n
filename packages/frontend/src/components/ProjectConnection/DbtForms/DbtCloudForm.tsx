@@ -27,12 +27,12 @@ const DbtCloudForm: FC<{ disabled: boolean }> = ({ disabled }) => {
             >
                 <p>
                     {t(
-                        'components_project_connection_dbt_form.dbt_cloud.alert.content.step_1',
+                        'components_project_connection_dbt_form.dbt_cloud.alert.content.part_1',
                     )}
                 </p>
                 <p>
                     {t(
-                        'components_project_connection_dbt_form.dbt_cloud.alert.content.step_2',
+                        'components_project_connection_dbt_form.dbt_cloud.alert.content.part_2',
                     )}
                 </p>
             </Alert>

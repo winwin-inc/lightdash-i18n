@@ -173,12 +173,12 @@ const SlackErrorContent: FC<{ slackState: SlackStates }> = ({ slackState }) => {
             <>
                 <Text pb="sm">
                     {t(
-                        'features_scheduler_components_scheduler_form.no_slack.step_1',
+                        'features_scheduler_components_scheduler_form.no_slack.part_1',
                     )}
                 </Text>
                 <Text>
                     {t(
-                        'features_scheduler_components_scheduler_form.no_slack.step_2',
+                        'features_scheduler_components_scheduler_form.no_slack.part_2',
                     )}
                     <Anchor
                         target="_blank"
@@ -186,11 +186,11 @@ const SlackErrorContent: FC<{ slackState: SlackStates }> = ({ slackState }) => {
                     >
                         {' '}
                         {t(
-                            'features_scheduler_components_scheduler_form.no_slack.step_3',
+                            'features_scheduler_components_scheduler_form.no_slack.part_3',
                         )}{' '}
                     </Anchor>
                     {t(
-                        'features_scheduler_components_scheduler_form.no_slack.step_4',
+                        'features_scheduler_components_scheduler_form.no_slack.part_4',
                     )}
                 </Text>
             </>
@@ -200,21 +200,21 @@ const SlackErrorContent: FC<{ slackState: SlackStates }> = ({ slackState }) => {
             <>
                 <Text pb="sm">
                     {t(
-                        'features_scheduler_components_scheduler_form.missing_scopes.step_1',
+                        'features_scheduler_components_scheduler_form.missing_scopes.part_1',
                     )}
                 </Text>
                 <Text>
                     {t(
-                        'features_scheduler_components_scheduler_form.missing_scopes.step_2',
+                        'features_scheduler_components_scheduler_form.missing_scopes.part_2',
                     )}
                     <Anchor href="/generalSettings/integrations">
                         {' '}
                         {t(
-                            'features_scheduler_components_scheduler_form.missing_scopes.step_3',
+                            'features_scheduler_components_scheduler_form.missing_scopes.part_3',
                         )}{' '}
                     </Anchor>
                     {t(
-                        'features_scheduler_components_scheduler_form.missing_scopes.step_4',
+                        'features_scheduler_components_scheduler_form.missing_scopes.part_4',
                     )}
                 </Text>
             </>
@@ -707,16 +707,16 @@ const SchedulerForm: FC<Props> = ({
                                             sx={{ alignSelf: 'start' }}
                                         >
                                             {t(
-                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.image_disabled.step_1',
+                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.image_disabled.part_1',
                                             )}
                                             <Anchor href="https://docs.lightdash.com/self-host/customize-deployment/enable-headless-browser-for-lightdash">
                                                 {' '}
                                                 {t(
-                                                    'features_scheduler_components_scheduler_form.form.tabs_panel_setup.image_disabled.step_2',
+                                                    'features_scheduler_components_scheduler_form.form.tabs_panel_setup.image_disabled.part_2',
                                                 )}{' '}
                                             </Anchor>
                                             {t(
-                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.image_disabled.step_3',
+                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.image_disabled.part_3',
                                             )}
                                         </Text>
                                     )}
@@ -945,12 +945,12 @@ const SchedulerForm: FC<Props> = ({
                                             <>
                                                 <Text pb="sm">
                                                     {t(
-                                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.step_1',
+                                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.part_1',
                                                     )}
                                                 </Text>
                                                 <Text>
                                                     {t(
-                                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.step_2',
+                                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.part_2',
                                                     )}
                                                     <Anchor
                                                         target="_blank"
@@ -958,11 +958,11 @@ const SchedulerForm: FC<Props> = ({
                                                     >
                                                         {' '}
                                                         {t(
-                                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.step_3',
+                                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.part_3',
                                                         )}{' '}
                                                     </Anchor>
                                                     {t(
-                                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.step_4',
+                                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.part_4',
                                                     )}
                                                 </Text>
                                             </>

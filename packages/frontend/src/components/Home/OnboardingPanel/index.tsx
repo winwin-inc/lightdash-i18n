@@ -17,23 +17,23 @@ const OnboardingPanel: FC<Props> = ({ projectUuid, userName }) => {
 
     const onboardingSteps = [
         {
-            title: t('components_onboarding_panel.steps.step_1.title'),
+            title: t('components_onboarding_panel.steps.part_1.title'),
             description: t(
-                'components_onboarding_panel.steps.step_1.description',
+                'components_onboarding_panel.steps.part_1.description',
             ),
             image: <img src={Step1} alt="onboarding-step-1" />,
         },
         {
-            title: t('components_onboarding_panel.steps.step_2.title'),
+            title: t('components_onboarding_panel.steps.part_2.title'),
             description: t(
-                'components_onboarding_panel.steps.step_2.description',
+                'components_onboarding_panel.steps.part_2.description',
             ),
             image: <img src={Step2} alt="onboarding-step-2" />,
         },
         {
-            title: t('components_onboarding_panel.steps.step_3.title'),
+            title: t('components_onboarding_panel.steps.part_3.title'),
             description: t(
-                'components_onboarding_panel.steps.step_3.description',
+                'components_onboarding_panel.steps.part_3.description',
             ),
             image: <img src={Step3} alt="onboarding-step-3" />,
         },

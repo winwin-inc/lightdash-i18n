@@ -26,7 +26,7 @@ export const DatabricksSchemaInput: FC<{
             description={
                 <p>
                     {t(
-                        'components_project_connection_warehouse_form.databricks.schema.description.step_1',
+                        'components_project_connection_warehouse_form.databricks.schema.description.part_1',
                     )}
                     <Anchor
                         target="_blank"
@@ -34,11 +34,11 @@ export const DatabricksSchemaInput: FC<{
                         rel="noreferrer"
                     >
                         {t(
-                            'components_project_connection_warehouse_form.databricks.schema.description.step_2',
+                            'components_project_connection_warehouse_form.databricks.schema.description.part_2',
                         )}
                     </Anchor>
                     {t(
-                        'components_project_connection_warehouse_form.databricks.schema.description.step_3',
+                        'components_project_connection_warehouse_form.databricks.schema.description.part_3',
                     )}
                 </p>
             }
@@ -73,7 +73,7 @@ const DatabricksForm: FC<{
                     description={
                         <p>
                             {t(
-                                'components_project_connection_warehouse_form.databricks.server.description.step_1',
+                                'components_project_connection_warehouse_form.databricks.server.description.part_1',
                             )}
                             <Anchor
                                 target="_blank"
@@ -81,11 +81,11 @@ const DatabricksForm: FC<{
                                 rel="noreferrer"
                             >
                                 {t(
-                                    'components_project_connection_warehouse_form.databricks.server.description.step_2',
+                                    'components_project_connection_warehouse_form.databricks.server.description.part_2',
                                 )}
                             </Anchor>
                             {t(
-                                'components_project_connection_warehouse_form.databricks.server.description.step_3',
+                                'components_project_connection_warehouse_form.databricks.server.description.part_3',
                             )}
                         </p>
                     }
@@ -109,7 +109,7 @@ const DatabricksForm: FC<{
                     description={
                         <p>
                             {t(
-                                'components_project_connection_warehouse_form.databricks.http_path.description.step_1',
+                                'components_project_connection_warehouse_form.databricks.http_path.description.part_1',
                             )}
                             <Anchor
                                 target="_blank"
@@ -117,11 +117,11 @@ const DatabricksForm: FC<{
                                 rel="noreferrer"
                             >
                                 {t(
-                                    'components_project_connection_warehouse_form.databricks.http_path.description.step_2',
+                                    'components_project_connection_warehouse_form.databricks.http_path.description.part_2',
                                 )}
                             </Anchor>
                             {t(
-                                'components_project_connection_warehouse_form.databricks.http_path.description.step_3',
+                                'components_project_connection_warehouse_form.databricks.http_path.description.part_3',
                             )}
                         </p>
                     }
@@ -144,7 +144,7 @@ const DatabricksForm: FC<{
                     description={
                         <p>
                             {t(
-                                'components_project_connection_warehouse_form.databricks.access_token.description.step_1',
+                                'components_project_connection_warehouse_form.databricks.access_token.description.part_1',
                             )}
                             <Anchor
                                 target="_blank"
@@ -152,11 +152,11 @@ const DatabricksForm: FC<{
                                 rel="noreferrer"
                             >
                                 {t(
-                                    'components_project_connection_warehouse_form.databricks.access_token.description.step_2',
+                                    'components_project_connection_warehouse_form.databricks.access_token.description.part_2',
                                 )}
                             </Anchor>
                             {t(
-                                'components_project_connection_warehouse_form.databricks.access_token.description.step_3',
+                                'components_project_connection_warehouse_form.databricks.access_token.description.part_3',
                             )}
                         </p>
                     }

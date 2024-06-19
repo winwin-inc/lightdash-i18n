@@ -182,7 +182,7 @@ const ProfilePanel: FC = () => {
                         isEmailServerConfigured && !data?.isVerified ? (
                             <Text color="dimmed">
                                 {t(
-                                    'components_user_settings_profile_panel.form.email.description.step_1',
+                                    'components_user_settings_profile_panel.form.email.description.part_1',
                                 )}{' '}
                                 <Anchor
                                     component="span"
@@ -194,7 +194,7 @@ const ProfilePanel: FC = () => {
                                     }}
                                 >
                                     {t(
-                                        'components_user_settings_profile_panel.form.email.description.step_2',
+                                        'components_user_settings_profile_panel.form.email.description.part_2',
                                     )}
                                 </Anchor>
                                 .

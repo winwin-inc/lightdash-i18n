@@ -148,11 +148,11 @@ const SlackSettingsPanel: FC = () => {
 
                     <Text color="dimmed" fz="xs">
                         {t(
-                            'components_user_settings_slack_settings_panel.content.step_1',
+                            'components_user_settings_slack_settings_panel.content.part_1',
                         )}{' '}
                         <Anchor href="https://docs.lightdash.com/guides/sharing-in-slack">
                             {t(
-                                'components_user_settings_slack_settings_panel.content.step_2',
+                                'components_user_settings_slack_settings_panel.content.part_2',
                             )}
                         </Anchor>
                     </Text>

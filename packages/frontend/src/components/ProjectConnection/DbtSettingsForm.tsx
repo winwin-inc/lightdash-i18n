@@ -213,11 +213,11 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                                         <p>
                                             <b>
                                                 {t(
-                                                    'components_project_connection_dbt_settings.target_tip.step_1',
+                                                    'components_project_connection_dbt_settings.target_tip.part_1',
                                                 )}
                                             </b>
                                             {t(
-                                                'components_project_connection_dbt_settings.target_tip.step_2',
+                                                'components_project_connection_dbt_settings.target_tip.part_2',
                                             )}
                                         </p>
                                     }

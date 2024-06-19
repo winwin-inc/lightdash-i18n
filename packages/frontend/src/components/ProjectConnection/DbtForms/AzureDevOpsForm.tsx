@@ -27,7 +27,7 @@ const AzureDevOpsForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     <>
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.password.description.step_1',
+                                'components_project_connection_dbt_form.azure_dev_pos.password.description.part_1',
                             )}
                             <Anchor
                                 href="https://docs.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate?view=azure-devops&tabs=Windows"
@@ -36,25 +36,25 @@ const AzureDevOpsForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                             >
                                 {' '}
                                 {t(
-                                    'components_project_connection_dbt_form.azure_dev_pos.password.description.step_2',
+                                    'components_project_connection_dbt_form.azure_dev_pos.password.description.part_2',
                                 )}{' '}
                             </Anchor>
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.password.description.step_3',
+                                'components_project_connection_dbt_form.azure_dev_pos.password.description.part_3',
                             )}
                         </p>
 
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.password.description.step_4',
+                                'components_project_connection_dbt_form.azure_dev_pos.password.description.part_4',
                             )}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.azure_dev_pos.password.description.step_5',
+                                    'components_project_connection_dbt_form.azure_dev_pos.password.description.part_5',
                                 )}
                             </b>{' '}
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.password.description.step_6',
+                                'components_project_connection_dbt_form.azure_dev_pos.password.description.part_6',
                             )}
                         </p>
                     </>
@@ -119,39 +119,39 @@ const AzureDevOpsForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     <>
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.branch.description.step_1',
+                                'components_project_connection_dbt_form.azure_dev_pos.branch.description.part_1',
                             )}{' '}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.azure_dev_pos.branch.description.step_2',
+                                    'components_project_connection_dbt_form.azure_dev_pos.branch.description.part_2',
                                 )}
                             </b>
                             ,{' '}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.azure_dev_pos.branch.description.step_3',
+                                    'components_project_connection_dbt_form.azure_dev_pos.branch.description.part_3',
                                 )}
                             </b>{' '}
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.branch.description.step_4',
+                                'components_project_connection_dbt_form.azure_dev_pos.branch.description.part_4',
                             )}{' '}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.azure_dev_pos.branch.description.step_5',
+                                    'components_project_connection_dbt_form.azure_dev_pos.branch.description.part_5',
                                 )}
                             </b>
                         </p>
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.branch.description.step_6',
+                                'components_project_connection_dbt_form.azure_dev_pos.branch.description.part_6',
                             )}{' '}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.azure_dev_pos.branch.description.step_7',
+                                    'components_project_connection_dbt_form.azure_dev_pos.branch.description.part_7',
                                 )}
                             </b>{' '}
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.branch.description.step_8',
+                                'components_project_connection_dbt_form.azure_dev_pos.branch.description.part_8',
                             )}
                         </p>
                     </>
@@ -173,58 +173,58 @@ const AzureDevOpsForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     <>
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.step_1',
+                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.part_1',
                             )}{' '}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.step_2',
+                                    'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.part_2',
                                 )}
                             </b>{' '}
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.step_3',
+                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.part_3',
                             )}
                         </p>
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.step_4',
+                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.part_4',
                             )}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.step_5',
+                                    'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.part_5',
                                 )}
                             </b>{' '}
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.step_6',
+                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.part_6',
                             )}{' '}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.step_7',
+                                    'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.part_7',
                                 )}
                             </b>
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.step_8',
+                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.part_8',
                             )}
                         </p>
 
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.step_9',
+                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.part_9',
                             )}{' '}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.step_10',
+                                    'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.part_10',
                                 )}
                             </b>
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.step_11',
+                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.part_11',
                             )}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.step_12',
+                                    'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.part_12',
                                 )}
                             </b>
                             {t(
-                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.step_13',
+                                'components_project_connection_dbt_form.azure_dev_pos.project_directory_path.description.part_13',
                             )}
                         </p>
                     </>

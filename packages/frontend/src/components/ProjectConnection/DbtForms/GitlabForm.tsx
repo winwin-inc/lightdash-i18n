@@ -29,7 +29,7 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     <>
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.gitlab.access_token.description.step_1',
+                                'components_project_connection_dbt_form.gitlab.access_token.description.part_1',
                             )}
                             <Anchor
                                 target="_blank"
@@ -37,14 +37,14 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                                 rel="noreferrer"
                             >
                                 {t(
-                                    'components_project_connection_dbt_form.gitlab.access_token.description.step_2',
+                                    'components_project_connection_dbt_form.gitlab.access_token.description.part_2',
                                 )}
                             </Anchor>
                             .
                         </p>
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.gitlab.access_token.description.step_3',
+                                'components_project_connection_dbt_form.gitlab.access_token.description.part_3',
                             )}
                         </p>
                     </>
@@ -62,19 +62,19 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                 description={
                     <p>
                         {t(
-                            'components_project_connection_dbt_form.gitlab.repository.description.step_1',
+                            'components_project_connection_dbt_form.gitlab.repository.description.part_1',
                         )}
                         <b>
                             {t(
-                                'components_project_connection_dbt_form.gitlab.repository.description.step_2',
+                                'components_project_connection_dbt_form.gitlab.repository.description.part_2',
                             )}
                         </b>
                         {t(
-                            'components_project_connection_dbt_form.gitlab.repository.description.step_3',
+                            'components_project_connection_dbt_form.gitlab.repository.description.part_3',
                         )}
                         <b>
                             {t(
-                                'components_project_connection_dbt_form.gitlab.repository.description.step_4',
+                                'components_project_connection_dbt_form.gitlab.repository.description.part_4',
                             )}
                         </b>
                     </p>
@@ -99,39 +99,39 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     <>
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.gitlab.branch.description.step_1',
+                                'components_project_connection_dbt_form.gitlab.branch.description.part_1',
                             )}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.gitlab.branch.description.step_2',
+                                    'components_project_connection_dbt_form.gitlab.branch.description.part_2',
                                 )}
                             </b>
                             ,{' '}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.gitlab.branch.description.step_3',
+                                    'components_project_connection_dbt_form.gitlab.branch.description.part_3',
                                 )}
                             </b>{' '}
                             {t(
-                                'components_project_connection_dbt_form.gitlab.branch.description.step_4',
+                                'components_project_connection_dbt_form.gitlab.branch.description.part_4',
                             )}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.gitlab.branch.description.step_5',
+                                    'components_project_connection_dbt_form.gitlab.branch.description.part_5',
                                 )}
                             </b>
                         </p>
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.gitlab.branch.description.step_6',
+                                'components_project_connection_dbt_form.gitlab.branch.description.part_6',
                             )}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.gitlab.branch.description.step_7',
+                                    'components_project_connection_dbt_form.gitlab.branch.description.part_7',
                                 )}
                             </b>{' '}
                             {t(
-                                'components_project_connection_dbt_form.gitlab.branch.description.step_8',
+                                'components_project_connection_dbt_form.gitlab.branch.description.part_8',
                             )}
                         </p>
                     </>
@@ -153,58 +153,58 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     <>
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_1',
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.part_1',
                             )}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_2',
+                                    'components_project_connection_dbt_form.gitlab.project_directory_path.description.part_2',
                                 )}
                             </b>{' '}
                             {t(
-                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_3',
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.part_3',
                             )}
                         </p>
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_4',
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.part_4',
                             )}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_5',
+                                    'components_project_connection_dbt_form.gitlab.project_directory_path.description.part_5',
                                 )}
                             </b>{' '}
                             {t(
-                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_6',
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.part_6',
                             )}{' '}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_7',
+                                    'components_project_connection_dbt_form.gitlab.project_directory_path.description.part_7',
                                 )}
                             </b>
                             {t(
-                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_8',
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.part_8',
                             )}
                         </p>
 
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_9',
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.part_9',
                             )}{' '}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_10',
+                                    'components_project_connection_dbt_form.gitlab.project_directory_path.description.part_10',
                                 )}
                             </b>
                             {t(
-                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_11',
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.part_11',
                             )}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_12',
+                                    'components_project_connection_dbt_form.gitlab.project_directory_path.description.part_12',
                                 )}
                             </b>
                             {t(
-                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.step_13',
+                                'components_project_connection_dbt_form.gitlab.project_directory_path.description.part_13',
                             )}
                         </p>
                     </>
@@ -230,7 +230,7 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                 description={
                     <p>
                         {t(
-                            'components_project_connection_dbt_form.gitlab.host_domain.description.step_1',
+                            'components_project_connection_dbt_form.gitlab.host_domain.description.part_1',
                         )}
                         <Anchor
                             href="http://gitlab.io/"
@@ -239,7 +239,7 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                         >
                             {' '}
                             {t(
-                                'components_project_connection_dbt_form.gitlab.host_domain.description.step_2',
+                                'components_project_connection_dbt_form.gitlab.host_domain.description.part_2',
                             )}
                         </Anchor>
                         .

@@ -28,37 +28,37 @@ const DbtLocalForm: FC = () => {
                 <Stack spacing="xs">
                     <Text color="blue">
                         {t(
-                            'components_project_connection_dbt_form.dbt_local.alert.step_1',
+                            'components_project_connection_dbt_form.dbt_local.alert.part_1',
                         )}{' '}
                         <b>
                             {t(
-                                'components_project_connection_dbt_form.dbt_local.alert.step_2',
+                                'components_project_connection_dbt_form.dbt_local.alert.part_2',
                             )}
                         </b>
                         {t(
-                            'components_project_connection_dbt_form.dbt_local.alert.step_3',
+                            'components_project_connection_dbt_form.dbt_local.alert.part_3',
                         )}
                         <b>
                             {t(
-                                'components_project_connection_dbt_form.dbt_local.alert.step_4',
+                                'components_project_connection_dbt_form.dbt_local.alert.part_4',
                             )}
                         </b>{' '}
                         {t(
-                            'components_project_connection_dbt_form.dbt_local.alert.step_5',
+                            'components_project_connection_dbt_form.dbt_local.alert.part_5',
                         )}
                     </Text>
 
                     <Text color="blue">
                         {t(
-                            'components_project_connection_dbt_form.dbt_local.alert.step_6',
+                            'components_project_connection_dbt_form.dbt_local.alert.part_6',
                         )}{' '}
                         <b>
                             {t(
-                                'components_project_connection_dbt_form.dbt_local.alert.step_7',
+                                'components_project_connection_dbt_form.dbt_local.alert.part_7',
                             )}
                         </b>{' '}
                         {t(
-                            'components_project_connection_dbt_form.dbt_local.alert.step_8',
+                            'components_project_connection_dbt_form.dbt_local.alert.part_8',
                         )}
                     </Text>
                 </Stack>

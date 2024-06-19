@@ -34,11 +34,11 @@ const InviteSuccess: FC<{
             return (
                 <>
                     {t(
-                        'components_user_settings_groups_panel_invites_success.has_email_content.step_1',
+                        'components_user_settings_groups_panel_invites_success.has_email_content.part_1',
                     )}{' '}
                     <b>{invite.email}</b>{' '}
                     {t(
-                        'components_user_settings_groups_panel_invites_success.has_email_content.step_2',
+                        'components_user_settings_groups_panel_invites_success.has_email_content.part_2',
                         { days },
                     )}
                 </>
@@ -47,11 +47,11 @@ const InviteSuccess: FC<{
         return (
             <>
                 {t(
-                    'components_user_settings_groups_panel_invites_success.no_email_content.step_1',
+                    'components_user_settings_groups_panel_invites_success.no_email_content.part_1',
                 )}{' '}
                 <b>{invite.email}</b>{' '}
                 {t(
-                    'components_user_settings_groups_panel_invites_success.no_email_content.step_2',
+                    'components_user_settings_groups_panel_invites_success.no_email_content.part_2',
                     { days },
                 )}
             </>

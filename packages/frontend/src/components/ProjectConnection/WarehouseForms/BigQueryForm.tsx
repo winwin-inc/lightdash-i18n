@@ -33,15 +33,15 @@ export const BigQuerySchemaInput: FC<{
             labelHelp={
                 <p>
                     {t(
-                        'components_project_connection_warehouse_form.big_query.dataset.label_help.step_1',
+                        'components_project_connection_warehouse_form.big_query.dataset.label_help.part_1',
                     )}
                     <b>
                         {t(
-                            'components_project_connection_warehouse_form.big_query.dataset.label_help.step_2',
+                            'components_project_connection_warehouse_form.big_query.dataset.label_help.part_2',
                         )}
                     </b>
                     {t(
-                        'components_project_connection_warehouse_form.big_query.dataset.label_help.step_3',
+                        'components_project_connection_warehouse_form.big_query.dataset.label_help.part_3',
                     )}{' '}
                     <Anchor
                         target="_blank"
@@ -49,15 +49,15 @@ export const BigQuerySchemaInput: FC<{
                         rel="noreferrer"
                     >
                         {t(
-                            'components_project_connection_warehouse_form.big_query.dataset.label_help.step_4',
+                            'components_project_connection_warehouse_form.big_query.dataset.label_help.part_4',
                         )}
                         <b>
                             {t(
-                                'components_project_connection_warehouse_form.big_query.dataset.label_help.step_5',
+                                'components_project_connection_warehouse_form.big_query.dataset.label_help.part_5',
                             )}
                         </b>{' '}
                         {t(
-                            'components_project_connection_warehouse_form.big_query.dataset.label_help.step_6',
+                            'components_project_connection_warehouse_form.big_query.dataset.label_help.part_6',
                         )}
                     </Anchor>
                     .
@@ -112,7 +112,7 @@ const BigQueryForm: FC<{
                     description={
                         <p>
                             {t(
-                                'components_project_connection_warehouse_form.big_query.location.description.step_1',
+                                'components_project_connection_warehouse_form.big_query.location.description.part_1',
                             )}{' '}
                             <Anchor
                                 target="_blank"
@@ -120,11 +120,11 @@ const BigQueryForm: FC<{
                                 rel="noreferrer"
                             >
                                 {t(
-                                    'components_project_connection_warehouse_form.big_query.location.description.step_2',
+                                    'components_project_connection_warehouse_form.big_query.location.description.part_2',
                                 )}
                             </Anchor>
                             {t(
-                                'components_project_connection_warehouse_form.big_query.location.description.step_3',
+                                'components_project_connection_warehouse_form.big_query.location.description.part_3',
                             )}
                         </p>
                     }
@@ -158,7 +158,7 @@ const BigQueryForm: FC<{
                             description={
                                 <p>
                                     {t(
-                                        'components_project_connection_warehouse_form.big_query.file.description.step_1',
+                                        'components_project_connection_warehouse_form.big_query.file.description.part_1',
                                     )}{' '}
                                     <Anchor
                                         target="_blank"
@@ -166,11 +166,11 @@ const BigQueryForm: FC<{
                                         rel="noreferrer"
                                     >
                                         {t(
-                                            'components_project_connection_warehouse_form.big_query.file.description.step_2',
+                                            'components_project_connection_warehouse_form.big_query.file.description.part_2',
                                         )}
                                     </Anchor>
                                     {t(
-                                        'components_project_connection_warehouse_form.big_query.file.description.step_3',
+                                        'components_project_connection_warehouse_form.big_query.file.description.part_3',
                                     )}
                                 </p>
                             }
@@ -215,7 +215,7 @@ const BigQueryForm: FC<{
                                     description={
                                         <p>
                                             {t(
-                                                'components_project_connection_warehouse_form.big_query.timeout.description.step_1',
+                                                'components_project_connection_warehouse_form.big_query.timeout.description.part_1',
                                             )}{' '}
                                             <Anchor
                                                 target="_blank"
@@ -223,11 +223,11 @@ const BigQueryForm: FC<{
                                                 rel="noreferrer"
                                             >
                                                 {t(
-                                                    'components_project_connection_warehouse_form.big_query.timeout.description.step_2',
+                                                    'components_project_connection_warehouse_form.big_query.timeout.description.part_2',
                                                 )}
                                             </Anchor>
                                             {t(
-                                                'components_project_connection_warehouse_form.big_query.timeout.description.step_3',
+                                                'components_project_connection_warehouse_form.big_query.timeout.description.part_3',
                                             )}
                                         </p>
                                     }
@@ -247,7 +247,7 @@ const BigQueryForm: FC<{
                                     description={
                                         <p>
                                             {t(
-                                                'components_project_connection_warehouse_form.big_query.priority.description.step_1',
+                                                'components_project_connection_warehouse_form.big_query.priority.description.part_1',
                                             )}{' '}
                                             <Anchor
                                                 target="_blank"
@@ -255,11 +255,11 @@ const BigQueryForm: FC<{
                                                 rel="noreferrer"
                                             >
                                                 {t(
-                                                    'components_project_connection_warehouse_form.big_query.priority.description.step_2',
+                                                    'components_project_connection_warehouse_form.big_query.priority.description.part_2',
                                                 )}
                                             </Anchor>
                                             {t(
-                                                'components_project_connection_warehouse_form.big_query.priority.description.step_3',
+                                                'components_project_connection_warehouse_form.big_query.priority.description.part_3',
                                             )}
                                         </p>
                                     }
@@ -296,7 +296,7 @@ const BigQueryForm: FC<{
                                     description={
                                         <p>
                                             {t(
-                                                'components_project_connection_warehouse_form.big_query.retries.description.step_1',
+                                                'components_project_connection_warehouse_form.big_query.retries.description.part_1',
                                             )}{' '}
                                             <Anchor
                                                 target="_blank"
@@ -304,11 +304,11 @@ const BigQueryForm: FC<{
                                                 rel="noreferrer"
                                             >
                                                 {t(
-                                                    'components_project_connection_warehouse_form.big_query.retries.description.step_2',
+                                                    'components_project_connection_warehouse_form.big_query.retries.description.part_2',
                                                 )}
                                             </Anchor>
                                             {t(
-                                                'components_project_connection_warehouse_form.big_query.retries.description.step_3',
+                                                'components_project_connection_warehouse_form.big_query.retries.description.part_3',
                                             )}
                                         </p>
                                     }
@@ -328,7 +328,7 @@ const BigQueryForm: FC<{
                                     description={
                                         <p>
                                             {t(
-                                                'components_project_connection_warehouse_form.big_query.maximun_bytes_billed.description.step_1',
+                                                'components_project_connection_warehouse_form.big_query.maximun_bytes_billed.description.part_1',
                                             )}{' '}
                                             <Anchor
                                                 target="_blank"
@@ -336,11 +336,11 @@ const BigQueryForm: FC<{
                                                 rel="noreferrer"
                                             >
                                                 {t(
-                                                    'components_project_connection_warehouse_form.big_query.maximun_bytes_billed.description.step_2',
+                                                    'components_project_connection_warehouse_form.big_query.maximun_bytes_billed.description.part_2',
                                                 )}
                                             </Anchor>
                                             {t(
-                                                'components_project_connection_warehouse_form.big_query.maximun_bytes_billed.description.step_3',
+                                                'components_project_connection_warehouse_form.big_query.maximun_bytes_billed.description.part_3',
                                             )}
                                         </p>
                                     }

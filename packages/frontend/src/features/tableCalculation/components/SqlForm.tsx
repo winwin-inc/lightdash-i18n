@@ -94,7 +94,7 @@ export const SqlForm: FC<Props> = ({ form, isFullScreen }) => {
                 title={
                     <Text fz="xs">
                         {t(
-                            'features_table_calculation_components_sql_form.alert.step_1',
+                            'features_table_calculation_components_sql_form.alert.part_1',
                         )}{' '}
                         <Anchor
                             target="_blank"
@@ -102,7 +102,7 @@ export const SqlForm: FC<Props> = ({ form, isFullScreen }) => {
                             rel="noreferrer"
                         >
                             {t(
-                                'features_table_calculation_components_sql_form.alert.step_2',
+                                'features_table_calculation_components_sql_form.alert.part_2',
                             )}
                         </Anchor>
                     </Text>

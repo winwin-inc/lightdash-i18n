@@ -26,8 +26,8 @@
     },
     "features_table_calculation_components_sql_form": {
         "alert": {
-            "step_1": "需要灵感?",
-            "step_2": "查看我们的模板！"
+            "part_1": "需要灵感?",
+            "part_2": "查看我们的模板！"
         }
     },
     "features_table_calculation_components_modal": {
@@ -73,15 +73,15 @@
         },
         "no_slack": {
             "stpe_1": "未找到 Slack 集成",
-            "step_2": "要创建 Slack 交付计划，您需要",
-            "step_3": "设置 Slack",
-            "step_4": "适用于您的 Lightdash 实例"
+            "part_2": "要创建 Slack 交付计划，您需要",
+            "part_3": "设置 Slack",
+            "part_4": "适用于您的 Lightdash 实例"
         },
         "missing_scopes": {
-            "step_1": "需要重新安装 Slack 集成",
-            "step_2": "要创建 Slack 交付计划，您需要",
-            "step_3": "重新安装 Slack 集成",
-            "step_4": "为您的组织"
+            "part_1": "需要重新安装 Slack 集成",
+            "part_2": "要创建 Slack 交付计划，您需要",
+            "part_3": "重新安装 Slack 集成",
+            "part_4": "为您的组织"
         },
         "validate_tips": {
             "name": "姓名为必填项",
@@ -111,9 +111,9 @@
                 "threshold_alert": "这是Lightdash查询数据变化的频率。(如果满足最新数值的条件,您将收到通知)",
                 "format": "格式",
                 "image_disabled": {
-                    "step_1": "您必须启用",
-                    "step_2": "无头浏览器",
-                    "step_3": "以发送图像"
+                    "part_1": "您必须启用",
+                    "part_2": "无头浏览器",
+                    "part_3": "以发送图像"
                 },
                 "include_image_pdf": "同时以PDF附件形式包含图像",
                 "formatting_options": "格式选项",
@@ -128,10 +128,10 @@
                 "enter_email_address": "输入电子邮件地址",
                 "enter_email_validation_error": "'{{val}}' 似乎不是有效的电子邮件地址",
                 "no_email_integration": {
-                    "step_1": "未找到电子邮件集成",
-                    "step_2": "要创建电子邮件定期推送, 您需要添加",
-                    "step_3": "SMTP 环境变量",
-                    "step_4": "到您的 Lightdash 实例"
+                    "part_1": "未找到电子邮件集成",
+                    "part_2": "要创建电子邮件定期推送, 您需要添加",
+                    "part_3": "SMTP 环境变量",
+                    "part_4": "到您的 Lightdash 实例"
                 },
                 "search_slack_channels": "搜索 Slack 频道",
                 "send_to_private_channel": "发送到私有频道 #{{query}}",
@@ -474,15 +474,15 @@
         "query": "运行您的第一个查询！",
         "exploring": "您已准备好开始探索。您可以使用 Lightdash 进行以下操作：",
         "steps": {
-            "step_1": {
+            "part_1": {
                 "title": "1. 运行查询",
                 "description": "探索你的数据"
             },
-            "step_2": {
+            "part_2": {
                 "title": "2. 创建图表",
                 "description": "使用您的查询结果"
             },
-            "step_3": {
+            "part_3": {
                 "title": "3. 构建看板",
                 "description": "分享你的见解"
             }
@@ -573,8 +573,8 @@
                 "placeholder": "您的邮箱地址",
                 "tooltip": "此电子邮件已验证",
                 "description": {
-                    "step_1": "此电子邮件尚未验证.",
-                    "step_2": "单击此处验证"
+                    "part_1": "此电子邮件尚未验证.",
+                    "part_2": "单击此处验证"
                 }
             }
         },
@@ -687,8 +687,8 @@
         "title": "Slack",
         "add": "已添加到Slack工作区: ",
         "content": {
-            "step_1": "在Slack中分享允许您解开Lightdash URL并向您的Slack工作区中的特定人员或频道安排交付。",
-            "step_2": "查看文档"
+            "part_1": "在Slack中分享允许您解开Lightdash URL并向您的Slack工作区中的特定人员或频道安排交付。",
+            "part_2": "查看文档"
         },
         "form": {
             "select": {
@@ -779,12 +779,12 @@
     },
     "components_user_settings_groups_panel_invites_success": {
         "has_email_content": {
-            "step_1": "我们刚刚向",
-            "step_2": "发送了一封包含邀请的电子邮件! 您也可以与他们分享邀请链接,以加入您的组织。此链接将在 {{days}} 天后过期。"
+            "part_1": "我们刚刚向",
+            "part_2": "发送了一封包含邀请的电子邮件! 您也可以与他们分享邀请链接,以加入您的组织。此链接将在 {{days}} 天后过期。"
         },
         "no_email_content": {
-            "step_1": "与",
-            "step_2": "分享此链接,他们就可以加入您的组织。此链接将在 {{days}} 天后过期。"
+            "part_1": "与",
+            "part_2": "分享此链接,他们就可以加入您的组织。此链接将在 {{days}} 天后过期。"
         },
         "alert": {
             "close": "关闭提醒"
@@ -916,24 +916,24 @@
         "tooltip_metrics": {
             "title": "指标",
             "label": {
-                "step_1": "您的 dbt 项目中未定义指标。",
-                "step_2": "点击",
-                "step_3": "查看文档",
-                "step_4": " 了解如何向您的项目添加指标。"
+                "part_1": "您的 dbt 项目中未定义指标。",
+                "part_2": "点击",
+                "part_3": "查看文档",
+                "part_4": " 了解如何向您的项目添加指标。"
             }
         },
         "tooltip_custom_metrics": {
             "title": "自定义指标",
             "label": {
-                "step_1": "将鼠标悬停在您选择的维度上并选择三点操作菜单来添加自定义指标。",
-                "step_2": "点击查看文档。"
+                "part_1": "将鼠标悬停在您选择的维度上并选择三点操作菜单来添加自定义指标。",
+                "part_2": "点击查看文档。"
             }
         },
         "tooltip_custom_dimensions": {
             "title": "自定义维度",
             "label": {
-                "step_1": "将鼠标悬停在您选择的尺寸上并选择三点操作菜单来添加自定义维度。",
-                "step_2": "点击查看文档。"
+                "part_1": "将鼠标悬停在您选择的尺寸上并选择三点操作菜单来添加自定义维度。",
+                "part_2": "点击查看文档。"
             }
         }
     },
@@ -1052,14 +1052,14 @@
     },
     "components_explorer_results_card_explorer_results": {
         "has_dimensions": {
-            "step_1": "选择一个或多个",
-            "step_2": "维度",
-            "step_3": "按您选择的指标进行拆分。"
+            "part_1": "选择一个或多个",
+            "part_2": "维度",
+            "part_3": "按您选择的指标进行拆分。"
         },
         "has_metrics": {
-            "step_1": "选择一个",
-            "step_2": "主题",
-            "step_3": "对您选择的维度进行计算。"
+            "part_1": "选择一个",
+            "part_2": "主题",
+            "part_3": "对您选择的维度进行计算。"
         },
         "tip": "运行查询以查看结果并将其以图表形式可视化。"
     },
@@ -1067,35 +1067,35 @@
         "empty_no_columns": {
             "title": "选择一个指标并选择其维度",
             "description": {
-                "step_1": "您的数据问题是什么？选择",
-                "step_2": "指标",
-                "step_3": "你想计算",
-                "step_4": "维度",
-                "step_5": "你想把它分成。"
+                "part_1": "您的数据问题是什么？选择",
+                "part_2": "指标",
+                "part_3": "你想计算",
+                "part_4": "维度",
+                "part_5": "你想把它分成。"
             },
             "eg_1": {
-                "step_1": "例如: 有多少",
-                "step_2": "注册人数",
-                "step_3": "每",
-                "step_4": "天"
+                "part_1": "例如: 有多少",
+                "part_2": "注册人数",
+                "part_3": "每",
+                "part_4": "天"
             },
             "eg_2": {
-                "step_1": "例如: 有多少",
-                "step_2": "总订单数",
-                "step_3": "按",
-                "step_4": "地点"
+                "part_1": "例如: 有多少",
+                "part_2": "总订单数",
+                "part_3": "按",
+                "part_4": "地点"
             },
             "eg_3": {
-                "step_1": "例如: 有多少",
-                "step_2": "新的关注者",
-                "step_3": "每",
-                "step_4": "周"
+                "part_1": "例如: 有多少",
+                "part_2": "新的关注者",
+                "part_3": "每",
+                "part_4": "周"
             },
             "eg_4": {
-                "step_1": "例如: 有多少",
-                "step_2": "总订单数",
-                "step_3": "按拆分",
-                "step_4": "状态"
+                "part_1": "例如: 有多少",
+                "part_2": "总订单数",
+                "part_3": "按拆分",
+                "part_4": "状态"
             }
         },
         "empty_no_table": {
@@ -1388,8 +1388,8 @@
             "radio_03": "自定义..."
         },
         "limit_alert_tip": {
-            "step_1": "结果被限制在",
-            "step_2": "每个文件的单元格"
+            "part_1": "结果被限制在",
+            "part_2": "每个文件的单元格"
         },
         "export_csv": "导出 CSV"
     },
@@ -1479,16 +1479,16 @@
             "social_logins": "社交登录",
             "general": "常规",
             "allow": {
-                "step_1": "允许的电子邮件域名",
-                "step_2": "这些域名的电子邮件地址拥有者可以自动加入该组织。"
+                "part_1": "允许的电子邮件域名",
+                "part_2": "这些域名的电子邮件地址拥有者可以自动加入该组织。"
             },
             "default_project": {
-                "step_1": "默认项目",
-                "step_2": "这是用户首次登录或从新设备登录时看到的项目。如果用户没有访问权限,他们会看到他们可访问的下一个项目。"
+                "part_1": "默认项目",
+                "part_2": "这是用户首次登录或从新设备登录时看到的项目。如果用户没有访问权限,他们会看到他们可访问的下一个项目。"
             },
             "danger_zone": {
-                "step_1": "危险区域",
-                "step_2": "此操作将删除整个工作区及其所有内容,包括用户。此操作不可逆。"
+                "part_1": "危险区域",
+                "part_2": "此操作将删除整个工作区及其所有内容,包括用户。此操作不可逆。"
             },
             "integrations": "集成",
             "no_integrations_available": "没有可用的集成",
@@ -1521,9 +1521,9 @@
         },
         "alert_preview": {
             "title": "开发者预览是临时的 Lightdash 项目,无法更改设置",
-            "step_1": "阅读文档",
-            "step_2": "这里",
-            "step_3": "了解更多信息。"
+            "part_1": "阅读文档",
+            "part_2": "这里",
+            "part_3": "了解更多信息。"
         },
         "save_and_test": "保存并测试",
         "test_compile_project": "测试和编译项目"
@@ -1533,8 +1533,8 @@
         "dbt_version": "dbt 版本",
         "target_name": "目标名称",
         "target_tip": {
-            "step_1": "目标",
-            "step_2": "是 Lightdash 将在您的数据仓库中查找您的 dbt 模型的数据集/模式。默认情况下,我们将其设置为与您在 profiles.yml 文件中的默认值相同。"
+            "part_1": "目标",
+            "part_2": "是 Lightdash 将在您的数据仓库中查找您的 dbt 模型的数据集/模式。默认情况下,我们将其设置为与您在 profiles.yml 文件中的默认值相同。"
         },
         "environment_variables": "环境变量",
         "advanced_configuration_options": "高级配置选项"
@@ -1544,12 +1544,12 @@
             "password": {
                 "label": "个人访问令牌",
                 "description": {
-                    "step_1": "这是您用于访问 Azure Devops 的密钥令牌。请查看",
-                    "step_2": "创建个人访问令牌的说明",
-                    "step_3": "您可以在此添加项目的自定义域。",
-                    "step_4": "您必须至少指定",
-                    "step_5": "Repo:Read",
-                    "step_6": "范围。"
+                    "part_1": "这是您用于访问 Azure Devops 的密钥令牌。请查看",
+                    "part_2": "创建个人访问令牌的说明",
+                    "part_3": "您可以在此添加项目的自定义域。",
+                    "part_4": "您必须至少指定",
+                    "part_5": "Repo:Read",
+                    "part_6": "范围。"
                 }
             },
             "organization": {
@@ -1567,32 +1567,32 @@
             "branch": {
                 "label": "分支",
                 "description": {
-                    "step_1": "这是 Lightdash 应该同步到的 Azure DevOps 存储库中的分支。例如",
-                    "step_2": "main",
-                    "step_3": "master",
-                    "step_4": "或",
-                    "step_5": "dev",
-                    "step_6": "默认情况下,我们将其设置为",
-                    "step_7": "main",
-                    "step_8": "但您可以将其更改为您想要的任何内容。"
+                    "part_1": "这是 Lightdash 应该同步到的 Azure DevOps 存储库中的分支。例如",
+                    "part_2": "main",
+                    "part_3": "master",
+                    "part_4": "或",
+                    "part_5": "dev",
+                    "part_6": "默认情况下,我们将其设置为",
+                    "part_7": "main",
+                    "part_8": "但您可以将其更改为您想要的任何内容。"
                 }
             },
             "project_directory_path": {
                 "label": "项目目录路径",
                 "description": {
-                    "step_1": "这是上述您输入的 Azure DevOps 存储库中",
-                    "step_2": "dbt_project.yml",
-                    "step_3": "文件所在的文件夹。",
-                    "step_4": "如果您的 ",
-                    "step_5": "dbt_project.yml",
-                    "step_6": "文件位于存储库的主文件夹(例如",
-                    "step_7": "lightdash/lightdash-analytics/dbt_project.yml",
-                    "step_8": "), 那么您无需更改任何内容。您可以保留我们设置的默认值。",
-                    "step_9": "如果您的 dbt 项目位于存储库中的子文件夹(例如",
-                    "step_10": "lightdash/lightdash-analytics/dbt/dbt_project.yml",
-                    "step_11": "), 那么您需要包含子文件夹的路径(例如",
-                    "step_12": "/dbt",
-                    "step_13": ")."
+                    "part_1": "这是上述您输入的 Azure DevOps 存储库中",
+                    "part_2": "dbt_project.yml",
+                    "part_3": "文件所在的文件夹。",
+                    "part_4": "如果您的 ",
+                    "part_5": "dbt_project.yml",
+                    "part_6": "文件位于存储库的主文件夹(例如",
+                    "part_7": "lightdash/lightdash-analytics/dbt_project.yml",
+                    "part_8": "), 那么您无需更改任何内容。您可以保留我们设置的默认值。",
+                    "part_9": "如果您的 dbt 项目位于存储库中的子文件夹(例如",
+                    "part_10": "lightdash/lightdash-analytics/dbt/dbt_project.yml",
+                    "part_11": "), 那么您需要包含子文件夹的路径(例如",
+                    "part_12": "/dbt",
+                    "part_13": ")."
                 }
             }
         },
@@ -1605,64 +1605,64 @@
             "access_token": {
                 "label": "HTTP 访问令牌",
                 "description": {
-                    "step_1": "Bitbucket Cloud 用户应该",
-                    "step_2": "按照创建应用程序密码的说明操作",
-                    "step_3": "Bitbucket Server 用户应该",
-                    "step_4": "按照创建 HTTP 访问令牌的说明操作",
-                    "step_5": "选择",
-                    "step_6": "项目读取",
-                    "step_7": "和",
-                    "step_8": "存储库读取",
-                    "step_9": "作用域来创建令牌。"
+                    "part_1": "Bitbucket Cloud 用户应该",
+                    "part_2": "按照创建应用程序密码的说明操作",
+                    "part_3": "Bitbucket Server 用户应该",
+                    "part_4": "按照创建 HTTP 访问令牌的说明操作",
+                    "part_5": "选择",
+                    "part_6": "项目读取",
+                    "part_7": "和",
+                    "part_8": "存储库读取",
+                    "part_9": "作用域来创建令牌。"
                 }
             },
             "repository": {
                 "label": "存储库",
                 "description": {
-                    "step_1": "它应该采用以下格式",
-                    "step_2": "我的组织/我的仓库",
-                    "step_3": "例如",
-                    "step_4": "lightdash/lightdash-analytics"
+                    "part_1": "它应该采用以下格式",
+                    "part_2": "我的组织/我的仓库",
+                    "part_3": "例如",
+                    "part_4": "lightdash/lightdash-analytics"
                 },
                 "placeholder": "组织/项目"
             },
             "branch": {
                 "label": "分支",
                 "description": {
-                    "step_1": "这是 Lightdash 应该同步到的你的 Bitbucket 仓库中的分支。例如 ",
-                    "step_2": "main",
-                    "step_3": "master",
-                    "step_4": "或者",
-                    "step_5": "dev。",
-                    "step_6": "默认情况下, 我们已将其设置为",
-                    "step_7": "main, ",
-                    "step_8": "但你可以将其更改为任何你想要的。"
+                    "part_1": "这是 Lightdash 应该同步到的你的 Bitbucket 仓库中的分支。例如 ",
+                    "part_2": "main",
+                    "part_3": "master",
+                    "part_4": "或者",
+                    "part_5": "dev。",
+                    "part_6": "默认情况下, 我们已将其设置为",
+                    "part_7": "main, ",
+                    "part_8": "但你可以将其更改为任何你想要的。"
                 }
             },
             "project_directory_path": {
                 "label": "项目目录路径",
                 "description": {
-                    "step_1": "这是在上面输入的 GitLab 存储库中找到 ",
-                    "step_2": "dbt_project.yml",
-                    "step_3": "文件的文件夹。",
-                    "step_4": "如果你的 ",
-                    "step_5": "dbt_project.yml",
-                    "step_6": "文件位于存储库的主文件夹中(例如",
-                    "step_7": "lightdash/lightdash-analytics/dbt_project.yml",
-                    "step_8": "), 那么你无需在这里更改任何内容。你可以保留我们设置的默认值。",
-                    "step_9": "如果你的 dbt 项目位于存储库中的子文件夹(例如",
-                    "step_10": "lightdash/lightdash-analytics/dbt/dbt_project.yml",
-                    "step_11": "), 那么你需要包含子文件夹的路径,其中包含你的 dbt 项目(例如",
-                    "step_12": "/dbt",
-                    "step_13": ")。"
+                    "part_1": "这是在上面输入的 GitLab 存储库中找到 ",
+                    "part_2": "dbt_project.yml",
+                    "part_3": "文件的文件夹。",
+                    "part_4": "如果你的 ",
+                    "part_5": "dbt_project.yml",
+                    "part_6": "文件位于存储库的主文件夹中(例如",
+                    "part_7": "lightdash/lightdash-analytics/dbt_project.yml",
+                    "part_8": "), 那么你无需在这里更改任何内容。你可以保留我们设置的默认值。",
+                    "part_9": "如果你的 dbt 项目位于存储库中的子文件夹(例如",
+                    "part_10": "lightdash/lightdash-analytics/dbt/dbt_project.yml",
+                    "part_11": "), 那么你需要包含子文件夹的路径,其中包含你的 dbt 项目(例如",
+                    "part_12": "/dbt",
+                    "part_13": ")。"
                 }
             },
             "host_domain": {
                 "label": "主机域(适用于自托管实例)",
                 "description": {
-                    "step_1": "如果您已",
-                    "step_2": "为您的 Bitbucket 服务器自定义了域名",
-                    "step_3": "您可以在此添加项目的自定义域名。"
+                    "part_1": "如果您已",
+                    "part_2": "为您的 Bitbucket 服务器自定义了域名",
+                    "part_3": "您可以在此添加项目的自定义域名。"
                 }
             }
         },
@@ -1670,8 +1670,8 @@
             "alert": {
                 "title": "要求",
                 "content": {
-                    "step_1": "构建您的项目的 dbt 作业还必须生成文档,并且您的 API 密钥必须有访问发现 API 的权限。",
-                    "step_2": "您的作业完成后,需要在 Lightdash 中单击\"刷新 dbt\"按钮来同步您的项目。"
+                    "part_1": "构建您的项目的 dbt 作业还必须生成文档,并且您的 API 密钥必须有访问发现 API 的权限。",
+                    "part_2": "您的作业完成后,需要在 Lightdash 中单击\"刷新 dbt\"按钮来同步您的项目。"
                 }
             },
             "api_key": {
@@ -1686,30 +1686,30 @@
                 "content": "此连接类型只应用于本地开发。"
             },
             "alert": {
-                "step_1": "在使用安装脚本时,当您被询问",
-                "step_2": "您希望如何设置 Lightdash ",
-                "step_3": "时, 选择选项",
-                "step_4": "使用本地 dbt",
-                "step_5": "并提供您的 dbt 项目的绝对路径。",
-                "step_6": "在使用安装脚本时,设置环境变量",
-                "step_7": "DBT_PROJECT_DIR",
-                "step_8": "为您的 dbt 项目的绝对路径。"
+                "part_1": "在使用安装脚本时,当您被询问",
+                "part_2": "您希望如何设置 Lightdash ",
+                "part_3": "时, 选择选项",
+                "part_4": "使用本地 dbt",
+                "part_5": "并提供您的 dbt 项目的绝对路径。",
+                "part_6": "在使用安装脚本时,设置环境变量",
+                "part_7": "DBT_PROJECT_DIR",
+                "part_8": "为您的 dbt 项目的绝对路径。"
             }
         },
         "dbt_none": {
             "alert": {
-                "step_1": "此项目是从命令行界面创建的。如果您想保持 Lightdash 与您的 dbt 项目同步,您需要",
-                "step_2": "更改您的连接类型",
-                "step_3": "、设置",
-                "step_4": "GitHub 操作",
-                "step_5": "或从命令行运行",
-                "step_6": "lightdash deploy。"
+                "part_1": "此项目是从命令行界面创建的。如果您想保持 Lightdash 与您的 dbt 项目同步,您需要",
+                "part_2": "更改您的连接类型",
+                "part_3": "、设置",
+                "part_4": "GitHub 操作",
+                "part_5": "或从命令行运行",
+                "part_6": "lightdash deploy。"
             },
             "switch": {
                 "label": "在应用程序中隐藏刷新 dbt 按钮",
                 "description": {
-                    "step_1": "这将隐藏浏览页面上的刷新 dbt 按钮。阅读更多关于",
-                    "step_2": "刷新 dbt 的选择"
+                    "part_1": "这将隐藏浏览页面上的刷新 dbt 按钮。阅读更多关于",
+                    "part_2": "刷新 dbt 的选择"
                 }
             }
         },
@@ -1717,43 +1717,43 @@
             "access_token": {
                 "label": "个人访问令牌",
                 "description": {
-                    "step_1": "这用于访问您的仓库。",
-                    "step_2": "点击打开文档"
+                    "part_1": "这用于访问您的仓库。",
+                    "part_2": "点击打开文档"
                 }
             },
             "repository": {
                 "label": "仓库",
                 "description": {
-                    "step_1": "这应该采用格式 ",
-                    "step_2": "my-org/my-repo",
-                    "step_3": "。例如 ",
-                    "step_4": "lightdash/lightdash-analytics"
+                    "part_1": "这应该采用格式 ",
+                    "part_2": "my-org/my-repo",
+                    "part_3": "。例如 ",
+                    "part_4": "lightdash/lightdash-analytics"
                 },
                 "placeholder": "组织/项目"
             },
             "branch": {
                 "label": "分支",
                 "description": {
-                    "step_1": "这是 Lightdash 应该同步到的您 GitHub 仓库中的分支。例如",
-                    "step_2": "main",
-                    "step_3": "master",
-                    "step_4": "或者 ",
-                    "step_5": "dev",
-                    "step_6": "默认情况下,我们已将其设置为",
-                    "step_7": "main",
-                    "step_8": "但您可以将其更改为您需要的任何内容。"
+                    "part_1": "这是 Lightdash 应该同步到的您 GitHub 仓库中的分支。例如",
+                    "part_2": "main",
+                    "part_3": "master",
+                    "part_4": "或者 ",
+                    "part_5": "dev",
+                    "part_6": "默认情况下,我们已将其设置为",
+                    "part_7": "main",
+                    "part_8": "但您可以将其更改为您需要的任何内容。"
                 }
             },
             "project_directory_path": {
                 "label": "项目目录路径",
                 "description": {
-                    "step_1": "如果您的 ",
-                    "step_2": "dbt_project.yml",
-                    "step_3": " 文件位于您的仓库的主文件夹中(例如 lightdash/lightdash-analytics/dbt_project.yml),请输入",
-                    "step_4": "。",
-                    "step_5": "如果您的 dbt 项目位于仓库中的子文件夹中,请在此字段中包含子文件夹的路径。例如,如果我的项目位于 lightdash/lightdash-analytics/dbt/dbt_project.yml, 我将在此字段中输入",
-                    "step_6": " dbt",
-                    "step_7": "。"
+                    "part_1": "如果您的 ",
+                    "part_2": "dbt_project.yml",
+                    "part_3": " 文件位于您的仓库的主文件夹中(例如 lightdash/lightdash-analytics/dbt_project.yml),请输入",
+                    "part_4": "。",
+                    "part_5": "如果您的 dbt 项目位于仓库中的子文件夹中,请在此字段中包含子文件夹的路径。例如,如果我的项目位于 lightdash/lightdash-analytics/dbt/dbt_project.yml, 我将在此字段中输入",
+                    "part_6": " dbt",
+                    "part_7": "。"
                 }
             },
             "host_domain": {
@@ -1765,57 +1765,57 @@
             "access_token": {
                 "label": "个人访问令牌",
                 "description": {
-                    "step_1": "这用于访问您的仓库。请参阅",
-                    "step_2": "创建个人访问令牌的说明",
-                    "step_3": "在创建令牌时,请选择 read_repository 作用域。"
+                    "part_1": "这用于访问您的仓库。请参阅",
+                    "part_2": "创建个人访问令牌的说明",
+                    "part_3": "在创建令牌时,请选择 read_repository 作用域。"
                 }
             },
             "repository": {
                 "label": "仓库",
                 "description": {
-                    "step_1": "这应该采用格式 ",
-                    "step_2": "my-org/my-repo",
-                    "step_3": "。例如 ",
-                    "step_4": "lightdash/lightdash-analytics。"
+                    "part_1": "这应该采用格式 ",
+                    "part_2": "my-org/my-repo",
+                    "part_3": "。例如 ",
+                    "part_4": "lightdash/lightdash-analytics。"
                 },
                 "placeholder": "组织/项目"
             },
             "branch": {
                 "label": "分支",
                 "description": {
-                    "step_1": "这是 Lightdash 应该同步到的您 GitLab 仓库中的分支。例如 ",
-                    "step_2": "main",
-                    "step_3": "master",
-                    "step_4": " 或 ",
-                    "step_5": "dev",
-                    "step_6": "默认情况下,我们已将其设置为 ",
-                    "step_7": "main",
-                    "step_8": " 但您可以将其更改为您需要的任何内容。"
+                    "part_1": "这是 Lightdash 应该同步到的您 GitLab 仓库中的分支。例如 ",
+                    "part_2": "main",
+                    "part_3": "master",
+                    "part_4": " 或 ",
+                    "part_5": "dev",
+                    "part_6": "默认情况下,我们已将其设置为 ",
+                    "part_7": "main",
+                    "part_8": " 但您可以将其更改为您需要的任何内容。"
                 }
             },
             "project_directory_path": {
                 "label": "项目目录路径",
                 "description": {
-                    "step_1": "这是在上面输入的 GitLab 仓库中找到您的 ",
-                    "step_2": "dbt_project.yml",
-                    "step_3": "文件的文件夹。",
-                    "step_4": "如果您的 ",
-                    "step_5": "dbt_project.yml",
-                    "step_6": "文件位于您的仓库的主文件夹中(例如",
-                    "step_7": "lightdash/lightdash-analytics/dbt_project.yml",
-                    "step_8": "), 则无需在此处更改任何内容。您可以保留我们设置的默认值。",
-                    "step_9": "如果您的 dbt 项目位于仓库中的子文件夹中(例如",
-                    "step_10": "lightdash/lightdash-analytics/dbt/dbt_project.yml)",
-                    "step_11": ", 则需要包含子文件夹的路径(例如",
-                    "step_12": "/dbt",
-                    "step_13": ")。"
+                    "part_1": "这是在上面输入的 GitLab 仓库中找到您的 ",
+                    "part_2": "dbt_project.yml",
+                    "part_3": "文件的文件夹。",
+                    "part_4": "如果您的 ",
+                    "part_5": "dbt_project.yml",
+                    "part_6": "文件位于您的仓库的主文件夹中(例如",
+                    "part_7": "lightdash/lightdash-analytics/dbt_project.yml",
+                    "part_8": "), 则无需在此处更改任何内容。您可以保留我们设置的默认值。",
+                    "part_9": "如果您的 dbt 项目位于仓库中的子文件夹中(例如",
+                    "part_10": "lightdash/lightdash-analytics/dbt/dbt_project.yml)",
+                    "part_11": ", 则需要包含子文件夹的路径(例如",
+                    "part_12": "/dbt",
+                    "part_13": ")。"
                 }
             },
             "host_domain": {
                 "label": "主机域名(适用于自托管实例)",
                 "description": {
-                    "step_1": "如果您已自定义 GitLab Pages 的域名,您可以在此处添加项目的自定义域名。默认情况下,这是",
-                    "step_2": "gitlab.io"
+                    "part_1": "如果您已自定义 GitLab Pages 的域名,您可以在此处添加项目的自定义域名。默认情况下,这是",
+                    "part_2": "gitlab.io"
                 }
             }
         }
@@ -1838,9 +1838,9 @@
             "alert": {
                 "title": "需要的 CLI 选项",
                 "content": {
-                    "step_1": "未来,如果您使用 CLI 部署项目,您需要运行部署命令并加上选项",
-                    "step_2": "--start-of-week=",
-                    "step_3": ", 以使更改生效。"
+                    "part_1": "未来,如果您使用 CLI 部署项目,您需要运行部署命令并加上选项",
+                    "part_2": "--start-of-week=",
+                    "part_3": ", 以使更改生效。"
                 }
             }
         },
@@ -1848,12 +1848,12 @@
             "data_set": {
                 "label": "数据集",
                 "label_help": {
-                    "step_1": "这是您的 dbt 数据集的名称:在您的仓库中,dbt 模型的输出被写入的数据集。如果您不确定这是什么,请查看",
-                    "step_2": "数据集",
-                    "step_3": "值",
-                    "step_4": "您在 dbt",
-                    "step_5": "profiles.yml",
-                    "step_6": "文件中设置的内容"
+                    "part_1": "这是您的 dbt 数据集的名称:在您的仓库中,dbt 模型的输出被写入的数据集。如果您不确定这是什么,请查看",
+                    "part_2": "数据集",
+                    "part_3": "值",
+                    "part_4": "您在 dbt",
+                    "part_5": "profiles.yml",
+                    "part_6": "文件中设置的内容"
                 }
             },
             "project": {
@@ -1863,34 +1863,34 @@
             "location": {
                 "label": "位置",
                 "description": {
-                    "step_1": "BigQuery 数据集的位置。您可以在",
-                    "step_2": "dbt 文档",
-                    "step_3": "中了解更多详细信息。"
+                    "part_1": "BigQuery 数据集的位置。您可以在",
+                    "part_2": "dbt 文档",
+                    "part_3": "中了解更多详细信息。"
                 }
             },
             "file": {
                 "label": "密钥文件",
                 "placeholder": "选择文件...",
                 "description": {
-                    "step_1": "这是 JSON 密钥文件。您可以查看",
-                    "step_2": "如何创建密钥",
-                    "step_3": "。"
+                    "part_1": "这是 JSON 密钥文件。您可以查看",
+                    "part_2": "如何创建密钥",
+                    "part_3": "。"
                 }
             },
             "timeout": {
                 "label": "超时时间(秒)",
                 "description": {
-                    "step_1": "如果 dbt 模型的执行时间超过此超时时间,则 BigQuery 可能会取消查询。您可以在",
-                    "step_2": "dbt 文档",
-                    "step_3": "中了解更多详细信息。"
+                    "part_1": "如果 dbt 模型的执行时间超过此超时时间,则 BigQuery 可能会取消查询。您可以在",
+                    "part_2": "dbt 文档",
+                    "part_3": "中了解更多详细信息。"
                 }
             },
             "priority": {
                 "label": "优先级",
                 "description": {
-                    "step_1": "dbt 执行的 BigQuery 作业的优先级。您可以在",
-                    "step_2": "dbt 文档",
-                    "step_3": "中了解更多详细信息。"
+                    "part_1": "dbt 执行的 BigQuery 作业的优先级。您可以在",
+                    "part_2": "dbt 文档",
+                    "part_3": "中了解更多详细信息。"
                 },
                 "data": {
                     "interactive": "交互式",
@@ -1900,17 +1900,17 @@
             "retries": {
                 "label": "重试次数",
                 "description": {
-                    "step_1": "dbt 应该重试导致无法处理的服务器错误的查询的次数。您可以在",
-                    "step_2": "dbt 文档",
-                    "step_3": "中了解更多详细信息。"
+                    "part_1": "dbt 应该重试导致无法处理的服务器错误的查询的次数。您可以在",
+                    "part_2": "dbt 文档",
+                    "part_3": "中了解更多详细信息。"
                 }
             },
             "maximun_bytes_billed": {
                 "label": "最大计费字节数",
                 "description": {
-                    "step_1": "当设置了一个值时,如果 dbt 执行的查询超过了配置的最大字节阈值,查询将会失败。您可以在",
-                    "step_2": "dbt 文档",
-                    "step_3": "中了解更多详细信息。"
+                    "part_1": "当设置了一个值时,如果 dbt 执行的查询超过了配置的最大字节阈值,查询将会失败。您可以在",
+                    "part_2": "dbt 文档",
+                    "part_3": "中了解更多详细信息。"
                 }
             },
             "advanced_configuration_options": "高级配置选项"
@@ -1919,35 +1919,35 @@
             "schema": {
                 "label": "模式",
                 "description": {
-                    "step_1": "请查看",
-                    "step_2": "相关文档",
-                    "step_3": "以了解更多详细信息。"
+                    "part_1": "请查看",
+                    "part_2": "相关文档",
+                    "part_3": "以了解更多详细信息。"
                 }
             },
             "server": {
                 "label": "服务器主机名",
                 "description": {
-                    "step_1": "请查看",
-                    "step_2": "相关文档",
-                    "step_3": "以了解更多详细信息。"
+                    "part_1": "请查看",
+                    "part_2": "相关文档",
+                    "part_3": "以了解更多详细信息。"
                 },
                 "placeholder": "xxxx.gcp.databricks.com"
             },
             "http_path": {
                 "label": "HTTP 路径",
                 "description": {
-                    "step_1": "请查看",
-                    "step_2": "相关文档",
-                    "step_3": "以了解更多详细信息。"
+                    "part_1": "请查看",
+                    "part_2": "相关文档",
+                    "part_3": "以了解更多详细信息。"
                 },
                 "placeholder": "/sql/protocolv1/o/xxxx/xxxx"
             },
             "access_token": {
                 "label": "个人访问令牌",
                 "description": {
-                    "step_1": "请查看",
-                    "step_2": "相关文档",
-                    "step_3": "以了解更多详细信息。"
+                    "part_1": "请查看",
+                    "part_2": "相关文档",
+                    "part_3": "以了解更多详细信息。"
                 }
             },
             "catalog": {
@@ -1987,25 +1987,25 @@
             "keep_alive_idle": {
                 "label": "保持空闲连接(秒)",
                 "description": {
-                    "step_1": "这指定了在操作系统应该向客户端发送 TCP 保持活动消息之前的最长空闲时间(秒)。您可以在",
-                    "step_2": "postgresqlco 文档",
-                    "step_3": "中了解更多详细信息。"
+                    "part_1": "这指定了在操作系统应该向客户端发送 TCP 保持活动消息之前的最长空闲时间(秒)。您可以在",
+                    "part_2": "postgresqlco 文档",
+                    "part_3": "中了解更多详细信息。"
                 }
             },
             "search_path": {
                 "label": "搜索路径",
                 "description": {
-                    "step_1": "这控制 Postgres \"搜索路径\"。您可以在",
-                    "step_2": "dbt 文档",
-                    "step_3": "中了解更多详细信息。"
+                    "part_1": "这控制 Postgres \"搜索路径\"。您可以在",
+                    "part_2": "dbt 文档",
+                    "part_3": "中了解更多详细信息。"
                 }
             },
             "ssl_mode": {
                 "label": "SSL 模式",
                 "description": {
-                    "step_1": "这控制 dbt 如何使用 SSL 连接到 Postgres 数据库。您可以在",
-                    "step_2": "dbt 文档",
-                    "step_3": "中了解更多详细信息。"
+                    "part_1": "这控制 dbt 如何使用 SSL 连接到 Postgres 数据库。您可以在",
+                    "part_2": "dbt 文档",
+                    "part_3": "中了解更多详细信息。"
                 }
             },
             "role": {
@@ -2065,17 +2065,17 @@
             "keep_alive_idle": {
                 "label": "保持空闲连接(秒)",
                 "description": {
-                    "step_1": "这指定了在操作系统应该向客户端发送 TCP 保持活动消息之前的最长空闲时间(秒)。您可以在",
-                    "step_2": "postgresqlco 文档",
-                    "step_3": "中了解更多详细信息。"
+                    "part_1": "这指定了在操作系统应该向客户端发送 TCP 保持活动消息之前的最长空闲时间(秒)。您可以在",
+                    "part_2": "postgresqlco 文档",
+                    "part_3": "中了解更多详细信息。"
                 }
             },
             "ssl_mode": {
                 "label": "SSL 模式",
                 "description": {
-                    "step_1": "这控制 dbt 如何使用 SSL 连接到 Postgres 数据库。您可以在",
-                    "step_2": "dbt 文档",
-                    "step_3": "中了解更多详细信息。"
+                    "part_1": "这控制 dbt 如何使用 SSL 连接到 Postgres 数据库。您可以在",
+                    "part_2": "dbt 文档",
+                    "part_3": "中了解更多详细信息。"
                 }
             },
             "ra3_node": {
@@ -2142,9 +2142,9 @@
             "keep_session_alive": {
                 "label": "保持客户端会话保持活跃",
                 "description": {
-                    "step_1": "这是为了让 Snowflake 会话保持活跃超过通常的 4 小时超时限制。您可以在",
-                    "step_2": "dbt 文档",
-                    "step_3": "中查看更多详细信息。"
+                    "part_1": "这是为了让 Snowflake 会话保持活跃超过通常的 4 小时超时限制。您可以在",
+                    "part_2": "dbt 文档",
+                    "part_3": "中查看更多详细信息。"
                 },
                 "yes": "是",
                 "no": "否"
@@ -2152,9 +2152,9 @@
             "query_tag": {
                 "label": "查询标签",
                 "description": {
-                    "step_1": "这是 Snowflake 查询标签参数。您可以在",
-                    "step_2": "dbt 文档",
-                    "step_3": "中查看更多详细信息。"
+                    "part_1": "这是 Snowflake 查询标签参数。您可以在",
+                    "part_2": "dbt 文档",
+                    "part_3": "中查看更多详细信息。"
                 }
             },
             "snowflake_url_override": {
@@ -2199,9 +2199,9 @@
             "ssh_mode": {
                 "label": "SSL 模式",
                 "description": {
-                    "step_1": "这控制着 dbt 使用 SSL 连接 Trino 数据库的方式。您可以在",
-                    "step_2": "dbt 文档",
-                    "step_3": "中查看更多详细信息。"
+                    "part_1": "这控制着 dbt 使用 SSL 连接 Trino 数据库的方式。您可以在",
+                    "part_2": "dbt 文档",
+                    "part_3": "中查看更多详细信息。"
                 }
             },
             "advanced_configuration_options": "高级配置选项"

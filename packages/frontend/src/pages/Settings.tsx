@@ -565,12 +565,12 @@ const Settings: FC = () => {
                                 <div>
                                     <Title order={4}>
                                         {t(
-                                            'pages_settings.routes.allow.step_1',
+                                            'pages_settings.routes.allow.part_1',
                                         )}
                                     </Title>
                                     <Text c="gray.6" fz="xs">
                                         {t(
-                                            'pages_settings.routes.allow.step_2',
+                                            'pages_settings.routes.allow.part_2',
                                         )}
                                     </Text>
                                 </div>
@@ -581,12 +581,12 @@ const Settings: FC = () => {
                                 <div>
                                     <Title order={4}>
                                         {t(
-                                            'pages_settings.routes.default_project.step_1',
+                                            'pages_settings.routes.default_project.part_1',
                                         )}
                                     </Title>
                                     <Text c="gray.6" fz="xs">
                                         {t(
-                                            'pages_settings.routes.default_project.step_2',
+                                            'pages_settings.routes.default_project.part_2',
                                         )}
                                     </Text>
                                 </div>
@@ -598,12 +598,12 @@ const Settings: FC = () => {
                                     <div>
                                         <Title order={4}>
                                             {t(
-                                                'pages_settings.routes.danger_zone.step_1',
+                                                'pages_settings.routes.danger_zone.part_1',
                                             )}
                                         </Title>
                                         <Text c="gray.6" fz="xs">
                                             {t(
-                                                'pages_settings.routes.danger_zone.step_2',
+                                                'pages_settings.routes.danger_zone.part_2',
                                             )}
                                         </Text>
                                     </div>

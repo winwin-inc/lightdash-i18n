@@ -62,18 +62,18 @@ const StartOfWeekSelect: FC<{
                             color="blue"
                         >
                             {t(
-                                'components_project_connection_warehouse_form.inputs.alert.content.step_1',
+                                'components_project_connection_warehouse_form.inputs.alert.content.part_1',
                             )}{' '}
                             <b>
                                 <code>
                                     {t(
-                                        'components_project_connection_warehouse_form.inputs.alert.content.step_2',
+                                        'components_project_connection_warehouse_form.inputs.alert.content.part_2',
                                     )}
                                     {field.value}
                                 </code>
                             </b>
                             {t(
-                                'components_project_connection_warehouse_form.inputs.alert.content.step_3',
+                                'components_project_connection_warehouse_form.inputs.alert.content.part_3',
                             )}
                         </Alert>
                     )}

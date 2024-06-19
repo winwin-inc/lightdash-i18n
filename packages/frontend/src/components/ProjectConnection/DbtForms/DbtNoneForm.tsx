@@ -17,7 +17,7 @@ const DbtNoneForm: FC<{ disabled: boolean }> = ({ disabled }) => {
             >
                 <Text color="orange">
                     {t(
-                        'components_project_connection_dbt_form.dbt_none.alert.step_1',
+                        'components_project_connection_dbt_form.dbt_none.alert.part_1',
                     )}{' '}
                     <Anchor
                         href={
@@ -27,11 +27,11 @@ const DbtNoneForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                         rel="noreferrer"
                     >
                         {t(
-                            'components_project_connection_dbt_form.dbt_none.alert.step_2',
+                            'components_project_connection_dbt_form.dbt_none.alert.part_2',
                         )}
                     </Anchor>
                     {t(
-                        'components_project_connection_dbt_form.dbt_none.alert.step_3',
+                        'components_project_connection_dbt_form.dbt_none.alert.part_3',
                     )}{' '}
                     <Anchor
                         href={
@@ -41,11 +41,11 @@ const DbtNoneForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                         rel="noreferrer"
                     >
                         {t(
-                            'components_project_connection_dbt_form.dbt_none.alert.step_4',
+                            'components_project_connection_dbt_form.dbt_none.alert.part_4',
                         )}
                     </Anchor>{' '}
                     {t(
-                        'components_project_connection_dbt_form.dbt_none.alert.step_5',
+                        'components_project_connection_dbt_form.dbt_none.alert.part_5',
                     )}{' '}
                     <Anchor
                         href={
@@ -55,11 +55,11 @@ const DbtNoneForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                         rel="noreferrer"
                     >
                         {t(
-                            'components_project_connection_dbt_form.dbt_none.alert.step_6',
+                            'components_project_connection_dbt_form.dbt_none.alert.part_6',
                         )}
                     </Anchor>{' '}
                     {t(
-                        'components_project_connection_dbt_form.dbt_none.alert.step_7',
+                        'components_project_connection_dbt_form.dbt_none.alert.part_7',
                     )}
                 </Text>
             </Alert>
@@ -74,7 +74,7 @@ const DbtNoneForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                         description={
                             <p>
                                 {t(
-                                    'components_project_connection_dbt_form.dbt_none.switch.description.step_1',
+                                    'components_project_connection_dbt_form.dbt_none.switch.description.part_1',
                                 )}{' '}
                                 <Anchor
                                     href={
@@ -84,7 +84,7 @@ const DbtNoneForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                                     rel="noreferrer"
                                 >
                                     {t(
-                                        'components_project_connection_dbt_form.dbt_none.switch.description.step_2',
+                                        'components_project_connection_dbt_form.dbt_none.switch.description.part_2',
                                     )}
                                 </Anchor>
                             </p>

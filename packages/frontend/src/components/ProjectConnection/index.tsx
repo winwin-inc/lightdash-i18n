@@ -267,15 +267,15 @@ export const UpdateProjectConnection: FC<{
                 icon={<MantineIcon icon={IconExclamationCircle} size="lg" />}
                 title={t('components_project_connection.alert_preview.title')}
             >
-                {t('components_project_connection.alert_preview.step_1')}{' '}
+                {t('components_project_connection.alert_preview.part_1')}{' '}
                 <Anchor
                     href="https://docs.lightdash.com/guides/cli/how-to-use-lightdash-preview"
                     target="_blank"
                     rel="noreferrer"
                 >
-                    {t('components_project_connection.alert_preview.step_2')}
+                    {t('components_project_connection.alert_preview.part_2')}
                 </Anchor>{' '}
-                {t('components_project_connection.alert_preview.step_3')}
+                {t('components_project_connection.alert_preview.part_3')}
             </Alert>
         );
     }

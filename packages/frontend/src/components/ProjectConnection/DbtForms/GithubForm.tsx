@@ -29,7 +29,7 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     description={
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.github.access_token.description.step_1',
+                                'components_project_connection_dbt_form.github.access_token.description.part_1',
                             )}
                             <Anchor
                                 target="_blank"
@@ -38,7 +38,7 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                             >
                                 {' '}
                                 {t(
-                                    'components_project_connection_dbt_form.github.access_token.description.step_2',
+                                    'components_project_connection_dbt_form.github.access_token.description.part_2',
                                 )}
                             </Anchor>
                             .
@@ -69,19 +69,19 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     description={
                         <p>
                             {t(
-                                'components_project_connection_dbt_form.github.repository.description.step_1',
+                                'components_project_connection_dbt_form.github.repository.description.part_1',
                             )}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.github.repository.description.step_2',
+                                    'components_project_connection_dbt_form.github.repository.description.part_2',
                                 )}
                             </b>
                             {t(
-                                'components_project_connection_dbt_form.github.repository.description.step_3',
+                                'components_project_connection_dbt_form.github.repository.description.part_3',
                             )}
                             <b>
                                 {t(
-                                    'components_project_connection_dbt_form.github.repository.description.step_4',
+                                    'components_project_connection_dbt_form.github.repository.description.part_4',
                                 )}
                             </b>
                         </p>
@@ -106,42 +106,42 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                         <>
                             <p>
                                 {t(
-                                    'components_project_connection_dbt_form.github.branch.description.step_1',
+                                    'components_project_connection_dbt_form.github.branch.description.part_1',
                                 )}
                                 <b>
                                     {' '}
                                     {t(
-                                        'components_project_connection_dbt_form.github.branch.description.step_2',
+                                        'components_project_connection_dbt_form.github.branch.description.part_2',
                                     )}
                                 </b>
                                 ,{' '}
                                 <b>
                                     {' '}
                                     {t(
-                                        'components_project_connection_dbt_form.github.branch.description.step_3',
+                                        'components_project_connection_dbt_form.github.branch.description.part_3',
                                     )}
                                 </b>{' '}
                                 {t(
-                                    'components_project_connection_dbt_form.github.branch.description.step_4',
+                                    'components_project_connection_dbt_form.github.branch.description.part_4',
                                 )}
                                 <b>
                                     {t(
-                                        'components_project_connection_dbt_form.github.branch.description.step_5',
+                                        'components_project_connection_dbt_form.github.branch.description.part_5',
                                     )}
                                 </b>
                             </p>
                             <p>
                                 {t(
-                                    'components_project_connection_dbt_form.github.branch.description.step_6',
+                                    'components_project_connection_dbt_form.github.branch.description.part_6',
                                 )}
                                 <b>
                                     {' '}
                                     {t(
-                                        'components_project_connection_dbt_form.github.branch.description.step_7',
+                                        'components_project_connection_dbt_form.github.branch.description.part_7',
                                     )}
                                 </b>{' '}
                                 {t(
-                                    'components_project_connection_dbt_form.github.branch.description.step_8',
+                                    'components_project_connection_dbt_form.github.branch.description.part_8',
                                 )}
                             </p>
                         </>
@@ -163,32 +163,32 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                         <>
                             <p>
                                 {t(
-                                    'components_project_connection_dbt_form.github.project_directory_path.description.step_1',
+                                    'components_project_connection_dbt_form.github.project_directory_path.description.part_1',
                                 )}
                                 <b>/</b>
                                 {t(
-                                    'components_project_connection_dbt_form.github.project_directory_path.description.step_2',
+                                    'components_project_connection_dbt_form.github.project_directory_path.description.part_2',
                                 )}
                                 <b>
                                     {t(
-                                        'components_project_connection_dbt_form.github.project_directory_path.description.step_3',
+                                        'components_project_connection_dbt_form.github.project_directory_path.description.part_3',
                                     )}
                                 </b>{' '}
                                 {t(
-                                    'components_project_connection_dbt_form.github.project_directory_path.description.step_4',
+                                    'components_project_connection_dbt_form.github.project_directory_path.description.part_4',
                                 )}
                             </p>
                             <p>
                                 {t(
-                                    'components_project_connection_dbt_form.github.project_directory_path.description.step_5',
+                                    'components_project_connection_dbt_form.github.project_directory_path.description.part_5',
                                 )}
                                 <b>
                                     {t(
-                                        'components_project_connection_dbt_form.github.project_directory_path.description.step_6',
+                                        'components_project_connection_dbt_form.github.project_directory_path.description.part_6',
                                     )}
                                 </b>{' '}
                                 {t(
-                                    'components_project_connection_dbt_form.github.project_directory_path.description.step_7',
+                                    'components_project_connection_dbt_form.github.project_directory_path.description.part_7',
                                 )}
                             </p>
                         </>

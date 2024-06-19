@@ -168,7 +168,7 @@ const TrinoForm: FC<{
                                     description={
                                         <p>
                                             {t(
-                                                'components_project_connection_warehouse_form.trino.ssh_mode.description.step_1',
+                                                'components_project_connection_warehouse_form.trino.ssh_mode.description.part_1',
                                             )}
                                             <Anchor
                                                 target="_blank"
@@ -176,11 +176,11 @@ const TrinoForm: FC<{
                                                 rel="noreferrer"
                                             >
                                                 {t(
-                                                    'components_project_connection_warehouse_form.trino.ssh_mode.description.step_2',
+                                                    'components_project_connection_warehouse_form.trino.ssh_mode.description.part_2',
                                                 )}
                                             </Anchor>
                                             {t(
-                                                'components_project_connection_warehouse_form.trino.ssh_mode.description.step_3',
+                                                'components_project_connection_warehouse_form.trino.ssh_mode.description.part_3',
                                             )}
                                         </p>
                                     }

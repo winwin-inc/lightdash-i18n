@@ -223,19 +223,19 @@ const TableTreeSections: FC<Props> = ({
                                 label: (
                                     <>
                                         {t(
-                                            'components_explorer_tree.tooltip_metrics.label.step_1',
+                                            'components_explorer_tree.tooltip_metrics.label.part_1',
                                         )}
                                         <br />
                                         {t(
-                                            'components_explorer_tree.tooltip_metrics.label.step_2',
+                                            'components_explorer_tree.tooltip_metrics.label.part_2',
                                         )}{' '}
                                         <Text component="span" fw={600}>
                                             {t(
-                                                'components_explorer_tree.tooltip_metrics.label.step_3',
+                                                'components_explorer_tree.tooltip_metrics.label.part_3',
                                             )}
                                         </Text>{' '}
                                         {t(
-                                            'components_explorer_tree.tooltip_metrics.label.step_4',
+                                            'components_explorer_tree.tooltip_metrics.label.part_4',
                                         )}
                                     </>
                                 ),
@@ -277,11 +277,11 @@ const TableTreeSections: FC<Props> = ({
                             label: (
                                 <>
                                     {t(
-                                        'components_explorer_tree.tooltip_custom_metrics.label.step_1',
+                                        'components_explorer_tree.tooltip_custom_metrics.label.part_1',
                                     )}{' '}
                                     <Text component="span" fw={600}>
                                         {t(
-                                            'components_explorer_tree.tooltip_custom_metrics.label.step_2',
+                                            'components_explorer_tree.tooltip_custom_metrics.label.part_2',
                                         )}
                                     </Text>
                                 </>
@@ -325,11 +325,11 @@ const TableTreeSections: FC<Props> = ({
                             label: (
                                 <>
                                     {t(
-                                        'components_explorer_tree.tooltip_custom_dimensions.label.step_1',
+                                        'components_explorer_tree.tooltip_custom_dimensions.label.part_1',
                                     )}{' '}
                                     <Text component="span" fw={600}>
                                         {t(
-                                            'components_explorer_tree.tooltip_custom_dimensions.label.step_2',
+                                            'components_explorer_tree.tooltip_custom_dimensions.label.part_2',
                                         )}
                                     </Text>
                                 </>

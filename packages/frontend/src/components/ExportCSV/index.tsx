@@ -214,11 +214,11 @@ const ExportCSV: FC<ExportCSVProps> = memo(
 
                     {(limit === Limit.ALL || limit === Limit.CUSTOM) && (
                         <Alert color="gray">
-                            {t('components_export_csv.limit_alert_tip.step_1')}{' '}
+                            {t('components_export_csv.limit_alert_tip.part_1')}{' '}
                             {Number(
                                 health.data?.query.csvCellsLimit || 100000,
                             ).toLocaleString()}{' '}
-                            {t('components_export_csv.limit_alert_tip.step_2')}
+                            {t('components_export_csv.limit_alert_tip.part_2')}
                         </Alert>
                     )}
                     {!isDialogBody && (

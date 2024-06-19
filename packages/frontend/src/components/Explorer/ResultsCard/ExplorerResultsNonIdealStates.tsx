@@ -92,23 +92,23 @@ export const EmptyStateNoColumns = () => {
             description={
                 <>
                     {t(
-                        'components_explorer_results_card_non_ideal_state.empty_no_columns.description.step_1',
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.description.part_1',
                     )}{' '}
                     <Text span color="yellow.9">
                         {t(
-                            'components_explorer_results_card_non_ideal_state.empty_no_columns.description.step_2',
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.description.part_2',
                         )}
                     </Text>{' '}
                     {t(
-                        'components_explorer_results_card_non_ideal_state.empty_no_columns.description.step_3',
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.description.part_3',
                     )}{' '}
                     <Text span color="blue.9">
                         {t(
-                            'components_explorer_results_card_non_ideal_state.empty_no_columns.description.step_4',
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.description.part_4',
                         )}
                     </Text>{' '}
                     {t(
-                        'components_explorer_results_card_non_ideal_state.empty_no_columns.description.step_5',
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.description.part_5',
                     )}
                 </>
             }
@@ -116,19 +116,19 @@ export const EmptyStateNoColumns = () => {
             <Text className={classes.root} color="dimmed">
                 <Text span>
                     {t(
-                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_1.step_1',
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_1.part_1',
                     )}{' '}
                     <Text span color="yellow.9">
                         {t(
-                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_1.step_2',
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_1.part_2',
                         )}
                     </Text>{' '}
                     {t(
-                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_1.step_3',
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_1.part_3',
                     )}{' '}
                     <Text span color="blue.9">
                         {t(
-                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_1.step_4',
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_1.part_4',
                         )}
                     </Text>
                     ?
@@ -136,19 +136,19 @@ export const EmptyStateNoColumns = () => {
 
                 <Text span>
                     {t(
-                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_2.step_1',
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_2.part_1',
                     )}{' '}
                     <Text span color="yellow.9">
                         {t(
-                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_2.step_2',
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_2.part_2',
                         )}
                     </Text>{' '}
                     {t(
-                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_2.step_3',
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_2.part_3',
                     )}{' '}
                     <Text span color="blue.9">
                         {t(
-                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_2.step_4',
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_2.part_4',
                         )}
                     </Text>
                     ?
@@ -156,19 +156,19 @@ export const EmptyStateNoColumns = () => {
 
                 <Text span>
                     {t(
-                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_3.step_1',
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_3.part_1',
                     )}{' '}
                     <Text span color="yellow.9">
                         {t(
-                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_3.step_2',
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_3.part_2',
                         )}
                     </Text>{' '}
                     {t(
-                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_3.step_3',
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_3.part_3',
                     )}{' '}
                     <Text span color="blue.9">
                         {t(
-                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_3.step_4',
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_3.part_4',
                         )}
                     </Text>
                     ?
@@ -176,19 +176,19 @@ export const EmptyStateNoColumns = () => {
 
                 <Text span>
                     {t(
-                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_4.step_1',
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_4.part_1',
                     )}{' '}
                     <Text span color="yellow.9">
                         {t(
-                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_4.step_2',
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_4.part_2',
                         )}
                     </Text>{' '}
                     {t(
-                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_4.step_3',
+                        'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_4.part_3',
                     )}{' '}
                     <Text span color="blue.9">
                         {t(
-                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_4.step_4',
+                            'components_explorer_results_card_non_ideal_state.empty_no_columns.eg_4.part_4',
                         )}
                     </Text>
                     ?

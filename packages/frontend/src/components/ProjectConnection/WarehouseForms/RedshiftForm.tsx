@@ -198,7 +198,7 @@ const RedshiftForm: FC<{
                                     description={
                                         <p>
                                             {t(
-                                                'components_project_connection_warehouse_form.redshift.keep_alive_idle.description.step_1',
+                                                'components_project_connection_warehouse_form.redshift.keep_alive_idle.description.part_1',
                                             )}{' '}
                                             <Anchor
                                                 target="_blank"
@@ -206,11 +206,11 @@ const RedshiftForm: FC<{
                                                 rel="noreferrer"
                                             >
                                                 {t(
-                                                    'components_project_connection_warehouse_form.redshift.keep_alive_idle.description.step_2',
+                                                    'components_project_connection_warehouse_form.redshift.keep_alive_idle.description.part_2',
                                                 )}
                                             </Anchor>
                                             {t(
-                                                'components_project_connection_warehouse_form.redshift.keep_alive_idle.description.step_3',
+                                                'components_project_connection_warehouse_form.redshift.keep_alive_idle.description.part_3',
                                             )}
                                         </p>
                                     }
@@ -231,7 +231,7 @@ const RedshiftForm: FC<{
                                     description={
                                         <p>
                                             {t(
-                                                'components_project_connection_warehouse_form.redshift.ssl_mode.description.step_1',
+                                                'components_project_connection_warehouse_form.redshift.ssl_mode.description.part_1',
                                             )}{' '}
                                             <Anchor
                                                 target="_blank"
@@ -239,11 +239,11 @@ const RedshiftForm: FC<{
                                                 rel="noreferrer"
                                             >
                                                 {t(
-                                                    'components_project_connection_warehouse_form.redshift.ssl_mode.description.step_2',
+                                                    'components_project_connection_warehouse_form.redshift.ssl_mode.description.part_2',
                                                 )}
                                             </Anchor>
                                             {t(
-                                                'components_project_connection_warehouse_form.redshift.ssl_mode.description.step_3',
+                                                'components_project_connection_warehouse_form.redshift.ssl_mode.description.part_3',
                                             )}
                                         </p>
                                     }

@@ -102,29 +102,29 @@ export const ExplorerResults = memo(() => {
             dimensions.length <= 0 ? (
                 <>
                     {t(
-                        'components_explorer_results_card_explorer_results.has_dimensions.step_1',
+                        'components_explorer_results_card_explorer_results.has_dimensions.part_1',
                     )}{' '}
                     <Text span color="blue.9">
                         {t(
-                            'components_explorer_results_card_explorer_results.has_dimensions.step_2',
+                            'components_explorer_results_card_explorer_results.has_dimensions.part_2',
                         )}
                     </Text>{' '}
                     {t(
-                        'components_explorer_results_card_explorer_results.has_dimensions.step_3',
+                        'components_explorer_results_card_explorer_results.has_dimensions.part_3',
                     )}
                 </>
             ) : metrics.length <= 0 ? (
                 <>
                     {t(
-                        'components_explorer_results_card_explorer_results.has_metrics.step_1',
+                        'components_explorer_results_card_explorer_results.has_metrics.part_1',
                     )}{' '}
                     <Text span color="yellow.9">
                         {t(
-                            'components_explorer_results_card_explorer_results.has_metrics.step_2',
+                            'components_explorer_results_card_explorer_results.has_metrics.part_2',
                         )}
                     </Text>{' '}
                     {t(
-                        'components_explorer_results_card_explorer_results.has_metrics.step_3',
+                        'components_explorer_results_card_explorer_results.has_metrics.part_3',
                     )}
                 </>
             ) : (

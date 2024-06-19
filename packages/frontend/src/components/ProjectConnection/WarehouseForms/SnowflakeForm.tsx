@@ -188,7 +188,7 @@ const SnowflakeForm: FC<{
                                     description={
                                         <p>
                                             {t(
-                                                'components_project_connection_warehouse_form.snowflake.keep_session_alive.description.step_1',
+                                                'components_project_connection_warehouse_form.snowflake.keep_session_alive.description.part_1',
                                             )}{' '}
                                             <Anchor
                                                 target="_blank"
@@ -196,11 +196,11 @@ const SnowflakeForm: FC<{
                                                 rel="noreferrer"
                                             >
                                                 {t(
-                                                    'components_project_connection_warehouse_form.snowflake.keep_session_alive.description.step_2',
+                                                    'components_project_connection_warehouse_form.snowflake.keep_session_alive.description.part_2',
                                                 )}
                                             </Anchor>
                                             {t(
-                                                'components_project_connection_warehouse_form.snowflake.keep_session_alive.description.step_3',
+                                                'components_project_connection_warehouse_form.snowflake.keep_session_alive.description.part_3',
                                             )}
                                         </p>
                                     }
@@ -234,7 +234,7 @@ const SnowflakeForm: FC<{
                             description={
                                 <p>
                                     {t(
-                                        'components_project_connection_warehouse_form.snowflake.query_tag.description.step_1',
+                                        'components_project_connection_warehouse_form.snowflake.query_tag.description.part_1',
                                     )}{' '}
                                     <Anchor
                                         target="_blank"
@@ -242,11 +242,11 @@ const SnowflakeForm: FC<{
                                         rel="noreferrer"
                                     >
                                         {t(
-                                            'components_project_connection_warehouse_form.snowflake.query_tag.description.step_2',
+                                            'components_project_connection_warehouse_form.snowflake.query_tag.description.part_2',
                                         )}
                                     </Anchor>
                                     {t(
-                                        'components_project_connection_warehouse_form.snowflake.query_tag.description.step_3',
+                                        'components_project_connection_warehouse_form.snowflake.query_tag.description.part_3',
                                     )}
                                 </p>
                             }
