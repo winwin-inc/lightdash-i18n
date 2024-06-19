@@ -10,7 +10,9 @@ import {
 } from '@mantine/core';
 import { IconCheck, IconCopy } from '@tabler/icons-react';
 import React, { useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
+
 import { useApp } from '../../../providers/AppProvider';
 import MantineIcon from '../../common/MantineIcon';
 
@@ -21,6 +23,7 @@ const InviteSuccess: FC<{
 }> = ({ invite, hasMarginTop, onClose }) => {
     const { health } = useApp();
     const [show, toggle] = useToggle(true);
+    const { t } = useTranslation();
 
     const message = useMemo(() => {
         const days = Math.ceil(
@@ -30,20 +33,30 @@ const InviteSuccess: FC<{
         if (health.data?.hasEmailClient) {
             return (
                 <>
-                    We've just sent <b>{invite.email}</b> an email with their
-                    invite! You can also share their invite link with them to
-                    join your organization. This link will expire in {days}{' '}
-                    days.
+                    {t(
+                        'components_user_settings_groups_panel_invites_success.has_email_content.step_1',
+                    )}{' '}
+                    <b>{invite.email}</b>{' '}
+                    {t(
+                        'components_user_settings_groups_panel_invites_success.has_email_content.step_2',
+                        { days },
+                    )}
                 </>
             );
         }
         return (
             <>
-                Share this link with <b>{invite.email}</b> and they can join
-                your organization. This link will expire in {days} days.
+                {t(
+                    'components_user_settings_groups_panel_invites_success.no_email_content.step_1',
+                )}{' '}
+                <b>{invite.email}</b>{' '}
+                {t(
+                    'components_user_settings_groups_panel_invites_success.no_email_content.step_2',
+                    { days },
+                )}
             </>
         );
-    }, [health.data?.hasEmailClient, invite.email, invite.expiresAt]);
+    }, [health.data?.hasEmailClient, invite.email, invite.expiresAt, t]);
 
     if (!show) {
         return null;
@@ -55,7 +68,9 @@ const InviteSuccess: FC<{
             mt={hasMarginTop ? 'md' : 0}
             color="green"
             withCloseButton={true}
-            closeButtonLabel="Close alert"
+            closeButtonLabel={t(
+                'components_user_settings_groups_panel_invites_success.alert.close',
+            )}
             onClose={() => {
                 toggle(false);
                 onClose?.();

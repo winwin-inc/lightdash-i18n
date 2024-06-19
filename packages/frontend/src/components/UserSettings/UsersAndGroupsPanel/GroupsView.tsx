@@ -21,6 +21,8 @@ import {
     IconX,
 } from '@tabler/icons-react';
 import { useCallback, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useTableStyles } from '../../../hooks/styles/useTableStyles';
 import {
     useGroupDeleteMutation,
@@ -38,6 +40,8 @@ const GroupListItem: FC<{
     onDelete: (group: GroupWithMembers) => void;
     onEdit: (group: GroupWithMembers) => void;
 }> = ({ disabled, group, onDelete, onEdit }) => {
+    const { t } = useTranslation();
+
     return (
         <tr>
             <td width={260}>
@@ -79,7 +83,9 @@ const GroupListItem: FC<{
                     </Group>
                 ) : (
                     <Text color="gray" fs="italic">
-                        No members
+                        {t(
+                            'components_user_settings_groups_panel_view.no_members',
+                        )}
                     </Text>
                 )}
             </td>
@@ -115,6 +121,8 @@ const DeleteGroupModal: FC<
         onAcceptDelete: () => void;
     }
 > = ({ opened, group, disableControls, onAcceptDelete, onClose }) => {
+    const { t } = useTranslation();
+
     return (
         <Modal
             opened={opened}
@@ -122,11 +130,22 @@ const DeleteGroupModal: FC<
             title={
                 <Group spacing="xs">
                     <MantineIcon size="lg" icon={IconAlertCircle} color="red" />
-                    <Title order={4}>Delete group {group?.name}</Title>
+                    <Title order={4}>
+                        {t(
+                            'components_user_settings_groups_panel_view.modal_delete.title',
+                            {
+                                name: group?.name,
+                            },
+                        )}
+                    </Title>
                 </Group>
             }
         >
-            <Text pb="md">Are you sure you want to delete this group?</Text>
+            <Text pb="md">
+                {t(
+                    'components_user_settings_groups_panel_view.modal_delete.content',
+                )}
+            </Text>
             <Group spacing="xs" position="right">
                 <Button
                     disabled={disableControls}
@@ -134,14 +153,18 @@ const DeleteGroupModal: FC<
                     variant="outline"
                     color="dark"
                 >
-                    Cancel
+                    {t(
+                        'components_user_settings_groups_panel_view.modal_delete.cancel',
+                    )}
                 </Button>
                 <Button
                     disabled={disableControls}
                     onClick={onAcceptDelete}
                     color="red"
                 >
-                    Delete
+                    {t(
+                        'components_user_settings_groups_panel_view.modal_delete.delete',
+                    )}
                 </Button>
             </Group>
         </Modal>
@@ -151,6 +174,7 @@ const DeleteGroupModal: FC<
 const GroupsView: FC = () => {
     const { classes } = useTableStyles();
     const { user } = useApp();
+    const { t } = useTranslation();
 
     const [showCreateAndEditModal, setShowCreateAndEditModal] = useState(false);
 
@@ -178,7 +202,11 @@ const GroupsView: FC = () => {
     }, [groupToDelete, mutate]);
 
     if (isLoadingGroups) {
-        <LoadingState title="Loading groups" />;
+        <LoadingState
+            title={t(
+                'components_user_settings_groups_panel_view.loding_groups',
+            )}
+        />;
     }
 
     return (
@@ -188,7 +216,9 @@ const GroupsView: FC = () => {
                     <Group align="center" position="apart">
                         <TextInput
                             size="xs"
-                            placeholder="Search groups by name, members or member email "
+                            placeholder={t(
+                                'components_user_settings_groups_panel_view.search_groups',
+                            )}
                             onChange={(e) => setSearch(e.target.value)}
                             value={search}
                             w={320}
@@ -206,7 +236,9 @@ const GroupsView: FC = () => {
                                 leftIcon={<MantineIcon icon={IconPlus} />}
                                 onClick={() => setShowCreateAndEditModal(true)}
                             >
-                                Add group
+                                {t(
+                                    'components_user_settings_groups_panel_view.add_group',
+                                )}
                             </Button>
                         )}
                     </Group>
@@ -214,8 +246,16 @@ const GroupsView: FC = () => {
                 <Table className={classes.root}>
                     <thead>
                         <tr>
-                            <th>Group</th>
-                            <th>Members</th>
+                            <th>
+                                {t(
+                                    'components_user_settings_groups_panel_view.table.group',
+                                )}
+                            </th>
+                            <th>
+                                {t(
+                                    'components_user_settings_groups_panel_view.table.members',
+                                )}
+                            </th>
                             <th />
                         </tr>
                     </thead>
@@ -243,7 +283,9 @@ const GroupsView: FC = () => {
                             <tr>
                                 <td colSpan={3}>
                                     <Text c="gray.6" fs="italic" ta="center">
-                                        No groups found
+                                        {t(
+                                            'components_user_settings_groups_panel_view.table.no_groups_found',
+                                        )}
                                     </Text>
                                 </td>
                             </tr>

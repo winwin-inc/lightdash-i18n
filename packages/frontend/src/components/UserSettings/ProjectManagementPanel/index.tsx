@@ -3,7 +3,9 @@ import { ProjectType, type OrganizationProject } from '@lightdash/common';
 import { Badge, Button, Group, Stack, Table, Text, Title } from '@mantine/core';
 import { IconSettings, IconTrash } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, Redirect } from 'react-router-dom';
+
 import { useTableStyles } from '../../../hooks/styles/useTableStyles';
 import {
     useActiveProject,
@@ -31,6 +33,7 @@ const ProjectListItem: FC<ProjectListItemProps> = ({
 
     const { mutate: updateActiveProjectMutation } =
         useUpdateActiveProjectMutation();
+    const { t } = useTranslation();
 
     return (
         <tr>
@@ -40,9 +43,19 @@ const ProjectListItem: FC<ProjectListItemProps> = ({
             <td>
                 <Group spacing="xs">
                     {isCurrentProject && (
-                        <Badge variant="filled">Current Project</Badge>
+                        <Badge variant="filled">
+                            {t(
+                                'components_user_settings_project_management_panel.current_project',
+                            )}
+                        </Badge>
                     )}
-                    {type === ProjectType.PREVIEW && <Badge>Preview</Badge>}
+                    {type === ProjectType.PREVIEW && (
+                        <Badge>
+                            {t(
+                                'components_user_settings_project_management_panel.preview',
+                            )}
+                        </Badge>
+                    )}
                 </Group>
             </td>
             <td width="1%">
@@ -66,7 +79,9 @@ const ProjectListItem: FC<ProjectListItemProps> = ({
                                 }
                             }}
                         >
-                            Settings
+                            {t(
+                                'components_user_settings_project_management_panel.settings',
+                            )}
                         </Button>
                     </Can>
 
@@ -97,6 +112,7 @@ const ProjectListItem: FC<ProjectListItemProps> = ({
 
 const ProjectManagementPanel: FC = () => {
     const { classes } = useTableStyles();
+    const { t } = useTranslation();
 
     const { data: projects = [], isInitialLoading: isLoadingProjects } =
         useProjects();
@@ -118,11 +134,17 @@ const ProjectManagementPanel: FC = () => {
     return (
         <Stack mb="lg">
             <Group position="apart">
-                <Title order={5}>Project management settings</Title>
+                <Title order={5}>
+                    {t(
+                        'components_user_settings_project_management_panel.project_management_settings',
+                    )}
+                </Title>
 
                 <Can I="create" a="Project">
                     <Button component={Link} to="/createProject">
-                        Create new
+                        {t(
+                            'components_user_settings_project_management_panel.create_new',
+                        )}
                     </Button>
                 </Can>
             </Group>
@@ -131,7 +153,11 @@ const ProjectManagementPanel: FC = () => {
                 <Table className={classes.root}>
                     <thead>
                         <tr>
-                            <th>Name</th>
+                            <th>
+                                {t(
+                                    'components_user_settings_project_management_panel.table.name',
+                                )}
+                            </th>
                             <th></th>
                             <th></th>
                         </tr>

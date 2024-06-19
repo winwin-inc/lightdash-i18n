@@ -705,6 +705,113 @@
         "save": "保存",
         "add_to_slack": "添加到Slack"
     },
+    "components_user_settings_project_management_panel": {
+        "current_project": "当前项目",
+        "preview": "预览",
+        "settings": "设置",
+        "project_management_settings": "项目管理设置",
+        "create_new": "创建新项目",
+        "table": {
+            "name": "名称"
+        }
+    },
+    "components_user_settings_groups_panel": {
+        "users_and_groups": "用户和群组",
+        "user_management_settings": "用户管理设置",
+        "tooltip": {
+            "label": "点击此处了解更多关于用户角色的信息"
+        },
+        "users": "用户",
+        "groups": "群组"
+    },
+    "components_user_settings_groups_panel_create": {
+        "validate": {
+            "group_name": "群组名称是必填项"
+        },
+        "modal": {
+            "title_edit": "正在编辑 {{name}}",
+            "title_create": "创建群组"
+        },
+        "form": {
+            "group_name": {
+                "label": "群组名称",
+                "placeholder": "新群组的名称"
+            },
+            "select": {
+                "label": "群组成员",
+                "placeholder": "添加用户到此群组",
+                "nothingFound": "未找到任何用户"
+            }
+        },
+        "save": "保存",
+        "create": "创建群组"
+    },
+    "components_user_settings_groups_panel_view": {
+        "no_members": "无成员",
+        "modal_delete": {
+            "title": "删除群组 {{name}}",
+            "content": "您确定要删除此群组吗?",
+            "cancel": "取消",
+            "delete": "删除"
+        },
+        "loding_groups": "正在加载群组",
+        "search_groups": "按名称、成员或成员邮箱搜索群组",
+        "add_group": "添加群组",
+        "table": {
+            "group": "群组",
+            "members": "成员",
+            "no_groups_found": "未找到任何群组"
+        }
+    },
+    "components_user_settings_groups_panel_invites": {
+        "title": "添加用户",
+        "form": {
+            "email": {
+                "label": "输入用户邮箱地址",
+                "placeholder": "example@gmail.com"
+            },
+            "select": {
+                "placeholder": "选择角色"
+            },
+            "send_invite": "发送邀请",
+            "generate_invite": "生成邀请"
+        }
+    },
+    "components_user_settings_groups_panel_invites_success": {
+        "has_email_content": {
+            "step_1": "我们刚刚向",
+            "step_2": "发送了一封包含邀请的电子邮件! 您也可以与他们分享邀请链接,以加入您的组织。此链接将在 {{days}} 天后过期。"
+        },
+        "no_email_content": {
+            "step_1": "与",
+            "step_2": "分享此链接,他们就可以加入您的组织。此链接将在 {{days}} 天后过期。"
+        },
+        "alert": {
+            "close": "关闭提醒"
+        }
+    },
+    "components_user_settings_groups_panel_users_view": {
+        "pending": "待处理",
+        "link_expired": "链接已过期",
+        "send_new_invite": "发送新邀请",
+        "get_new_link": "获取新链接",
+        "user_groups": "用户群组:",
+        "modal_delete": {
+            "title": "删除用户",
+            "content": "您确定要删除此用户吗?",
+            "cancel": "取消",
+            "delete": "删除"
+        },
+        "loading_users": "正在加载用户",
+        "paper": {
+            "search_users": "按姓名、邮箱或角色搜索用户",
+            "add_user": "添加用户",
+            "user": "用户",
+            "role": "角色",
+            "groups": "群组",
+            "no_users_found": "未找到任何用户"
+        }
+    },
 
     "components_explorer_tree": {
         "search": "搜索指标 + 维度",

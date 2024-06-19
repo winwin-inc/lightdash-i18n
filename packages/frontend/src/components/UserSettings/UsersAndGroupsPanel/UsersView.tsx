@@ -34,6 +34,8 @@ import {
 } from '@tabler/icons-react';
 import capitalize from 'lodash/capitalize';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useTableStyles } from '../../../hooks/styles/useTableStyles';
 import { useCreateInviteLinkMutation } from '../../../hooks/useInviteLink';
 import {
@@ -57,6 +59,8 @@ const UserNameDisplay: FC<{
     hasEmail?: boolean;
     onGetLink?: () => void;
 }> = ({ user, showInviteLink, hasEmail, onGetLink }) => {
+    const { t } = useTranslation();
+
     return (
         <Flex justify="space-between" align="center">
             {user.isActive ? (
@@ -92,8 +96,12 @@ const UserNameDisplay: FC<{
                         >
                             <Text fz="xs" fw={400} color="gray.8">
                                 {!user.isInviteExpired
-                                    ? 'Pending'
-                                    : 'Link expired'}
+                                    ? t(
+                                          'components_user_settings_groups_panel_users_view.pending',
+                                      )
+                                    : t(
+                                          'components_user_settings_groups_panel_users_view.link_expired',
+                                      )}
                             </Text>
                         </Badge>
                         {showInviteLink && (
@@ -103,7 +111,13 @@ const UserNameDisplay: FC<{
                                 size="xs"
                                 fw={500}
                             >
-                                {hasEmail ? 'Send new invite' : 'Get new link'}
+                                {hasEmail
+                                    ? t(
+                                          'components_user_settings_groups_panel_users_view.send_new_invite',
+                                      )
+                                    : t(
+                                          'components_user_settings_groups_panel_users_view.get_new_link',
+                                      )}
                             </Anchor>
                         )}
                     </Group>
@@ -126,6 +140,8 @@ const UserListItem: FC<{
     const { track } = useTracking();
     const { user: activeUser, health } = useApp();
     const updateUser = useUpdateUserMutation(user.userUuid);
+    const { t } = useTranslation();
+
     const handleDelete = () => mutate(user.userUuid);
 
     const getNewLink = () => {
@@ -222,7 +238,9 @@ const UserListItem: FC<{
                                                 fw={600}
                                                 color="gray.6"
                                             >
-                                                User groups:
+                                                {t(
+                                                    'components_user_settings_groups_panel_users_view.send_new_invite',
+                                                )}
                                             </Text>
                                             <List
                                                 size="xs"
@@ -267,12 +285,18 @@ const UserListItem: FC<{
                                             icon={IconAlertCircle}
                                             color="red"
                                         />
-                                        <Title order={4}>Delete user</Title>
+                                        <Title order={4}>
+                                            {t(
+                                                'components_user_settings_groups_panel_users_view.modal_delete.title',
+                                            )}
+                                        </Title>
                                     </Group>
                                 }
                             >
                                 <Text pb="md">
-                                    Are you sure you want to delete this user?
+                                    {t(
+                                        'components_user_settings_groups_panel_users_view.modal_delete.content',
+                                    )}
                                 </Text>
                                 <Card withBorder>
                                     <UserNameDisplay user={user} />
@@ -286,14 +310,18 @@ const UserListItem: FC<{
                                         variant="outline"
                                         color="dark"
                                     >
-                                        Cancel
+                                        {t(
+                                            'components_user_settings_groups_panel_users_view.modal_delete.cancel',
+                                        )}
                                     </Button>
                                     <Button
                                         onClick={handleDelete}
                                         disabled={isDeleting}
                                         color="red"
                                     >
-                                        Delete
+                                        {t(
+                                            'components_user_settings_groups_panel_users_view.modal_delete.delete',
+                                        )}
                                     </Button>
                                 </Group>
                             </Modal>
@@ -323,6 +351,7 @@ const UsersView: FC = () => {
     const [showInviteModal, setShowInviteModal] = useState(false);
     const { user, health } = useApp();
     const { classes } = useTableStyles();
+    const { t } = useTranslation();
 
     const [search, setSearch] = useState('');
 
@@ -335,7 +364,13 @@ const UsersView: FC = () => {
     const isGroupManagementEnabled = health.data.hasGroups;
 
     if (isLoadingUsers) {
-        return <LoadingState title="Loading users" />;
+        return (
+            <LoadingState
+                title={t(
+                    'components_user_settings_groups_panel_users_view.loading_users',
+                )}
+            />
+        );
     }
 
     return (
@@ -345,7 +380,9 @@ const UsersView: FC = () => {
                     <Group align="center" position="apart">
                         <TextInput
                             size="xs"
-                            placeholder="Search users by name, email, or role"
+                            placeholder={t(
+                                'components_user_settings_groups_panel_users_view.paper.search_users',
+                            )}
                             onChange={(e) => setSearch(e.target.value)}
                             value={search}
                             w={320}
@@ -363,7 +400,9 @@ const UsersView: FC = () => {
                                 leftIcon={<MantineIcon icon={IconPlus} />}
                                 onClick={() => setShowInviteModal(true)}
                             >
-                                Add user
+                                {t(
+                                    'components_user_settings_groups_panel_users_view.paper.add_user',
+                                )}
                             </Button>
                         )}
                     </Group>
@@ -371,15 +410,27 @@ const UsersView: FC = () => {
                 <Table className={classes.root}>
                     <thead>
                         <tr>
-                            <th>User</th>
+                            <th>
+                                {t(
+                                    'components_user_settings_groups_panel_users_view.paper.user',
+                                )}
+                            </th>
                             {user.data?.ability?.can(
                                 'manage',
                                 'OrganizationMemberProfile',
                             ) && (
                                 <>
-                                    <th>Role</th>
+                                    <th>
+                                        {t(
+                                            'components_user_settings_groups_panel_users_view.paper.role',
+                                        )}
+                                    </th>
                                     {isGroupManagementEnabled && (
-                                        <th>Groups</th>
+                                        <th>
+                                            {t(
+                                                'components_user_settings_groups_panel_users_view.paper.groups',
+                                            )}
+                                        </th>
                                     )}
                                     <th></th>
                                 </>
@@ -406,7 +457,9 @@ const UsersView: FC = () => {
                             <tr>
                                 <td colSpan={3}>
                                     <Text c="gray.6" fs="italic" ta="center">
-                                        No users found
+                                        {t(
+                                            'components_user_settings_groups_panel_users_view.paper.no_users_found',
+                                        )}
                                     </Text>
                                 </td>
                             </tr>

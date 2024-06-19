@@ -17,6 +17,8 @@ import {
 import { useForm } from '@mantine/form';
 import { IconUsersGroup } from '@tabler/icons-react';
 import React, { useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import {
     useGroupCreateMutation,
     useGroupUpdateMutation,
@@ -28,6 +30,7 @@ import MantineIcon from '../../common/MantineIcon';
 const CreateGroupModal: FC<
     ModalProps & { isEditing?: boolean; groupToEdit?: GroupWithMembers }
 > = ({ opened, onClose, isEditing, groupToEdit }) => {
+    const { t } = useTranslation();
     const form = useForm<CreateGroup>({
         initialValues: {
             name: groupToEdit?.name ?? '',
@@ -35,7 +38,11 @@ const CreateGroupModal: FC<
         },
         validate: {
             name: (value: string) =>
-                value.trim().length ? null : 'Group name is required',
+                value.trim().length
+                    ? null
+                    : t(
+                          'components_user_settings_groups_panel_create.validate.group_name',
+                      ),
         },
     });
 
@@ -91,8 +98,15 @@ const CreateGroupModal: FC<
                     <MantineIcon size="lg" icon={IconUsersGroup} />
                     <Title order={4}>
                         {isEditing
-                            ? `Editing ${groupToEdit?.name}`
-                            : `Create group`}
+                            ? t(
+                                  'components_user_settings_groups_panel_create.modal.title_edit',
+                                  {
+                                      name: groupToEdit?.name,
+                                  },
+                              )
+                            : t(
+                                  'components_user_settings_groups_panel_create.modal.title_create',
+                              )}
                     </Title>
                 </Group>
             }
@@ -111,8 +125,12 @@ const CreateGroupModal: FC<
             >
                 <Stack>
                     <TextInput
-                        label="Group name"
-                        placeholder="Name of the new group"
+                        label={t(
+                            'components_user_settings_groups_panel_create.form.group_name.label',
+                        )}
+                        placeholder={t(
+                            'components_user_settings_groups_panel_create.form.group_name.placeholder',
+                        )}
                         required
                         w="100%"
                         disabled={isLoading}
@@ -123,9 +141,15 @@ const CreateGroupModal: FC<
                         searchable
                         clearSearchOnChange
                         clearSearchOnBlur
-                        label="Group members"
-                        placeholder="Add users to this group"
-                        nothingFound="No users found"
+                        label={t(
+                            'components_user_settings_groups_panel_create.form.select.label',
+                        )}
+                        placeholder={t(
+                            'components_user_settings_groups_panel_create.form.select.placeholder',
+                        )}
+                        nothingFound={t(
+                            'components_user_settings_groups_panel_create.form.select.nothingFound',
+                        )}
                         rightSection={isLoadingUsers && <Loader size="sm" />}
                         data={users}
                         value={
@@ -145,7 +169,13 @@ const CreateGroupModal: FC<
                         type="submit"
                         sx={{ alignSelf: 'end' }}
                     >
-                        {isEditing ? 'Save' : 'Create group'}
+                        {isEditing
+                            ? t(
+                                  'components_user_settings_groups_panel_create.save',
+                              )
+                            : t(
+                                  'components_user_settings_groups_panel_create.create',
+                              )}
                     </Button>
                 </Stack>
             </form>

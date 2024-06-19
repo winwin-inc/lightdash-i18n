@@ -699,6 +699,113 @@
         "save": "Save",
         "add_to_slack": "Add to Slack"
     },
+    "components_user_settings_project_management_panel": {
+        "current_project": "Current project",
+        "preview": "Preview",
+        "settings": "Settings",
+        "project_management_settings": "Project management settings",
+        "create_new": "Create new",
+        "table": {
+            "name": "Name"
+        }
+    },
+    "components_user_settings_groups_panel": {
+        "users_and_groups": "Users and groups",
+        "user_management_settings": "User management settings",
+        "tooltip": {
+            "label": "Click here to learn more about user roles"
+        },
+        "users": "Users",
+        "groups": "Groups"
+    },
+    "components_user_settings_groups_panel_create": {
+        "validate": {
+            "group_name": "Group name is required"
+        },
+        "modal": {
+            "title_edit": "Editing {{name}}",
+            "title_create": "Create group"
+        },
+        "form": {
+            "group_name": {
+                "label": "Group name",
+                "placeholder": "Name of the new group"
+            },
+            "select": {
+                "label": "Group members",
+                "placeholder": "Add users to this group",
+                "nothingFound": "No users found"
+            }
+        },
+        "save": "Save",
+        "create": "Create group"
+    },
+    "components_user_settings_groups_panel_view": {
+        "no_members": "No members",
+        "modal_delete": {
+            "title": "Delete group {{name}}",
+            "content": "Are you sure you want to delete this group?",
+            "cancel": "Cancel",
+            "delete": "Delete"
+        },
+        "loding_groups": "Loading groups",
+        "search_groups": "Search groups by name, members or member email ",
+        "add_group": "Add group",
+        "table": {
+            "group": "Group",
+            "members": "Members",
+            "no_groups_found": "No groups found"
+        }
+    },
+    "components_user_settings_groups_panel_invites": {
+        "title": "Add User",
+        "form": {
+            "email": {
+                "label": "Enter user email address",
+                "placeholder": "example@gmail.com"
+            },
+            "select": {
+                "placeholder": "Select role"
+            },
+            "send_invite": "Send invite",
+            "generate_invite": "Generate invite"
+        }
+    },
+    "components_user_settings_groups_panel_invites_success": {
+        "has_email_content": {
+            "step_1": "We've just sent",
+            "step_2": "an email with their invite! You can also share their invite link with them to join your organization. This link will expire in {{days}} days."
+        },
+        "no_email_content": {
+            "step_1": "Share this link with",
+            "step_2": "and they can join your organization. This link will expire in {{days}} days."
+        },
+        "alert": {
+            "close": "Close alert"
+        }
+    },
+    "components_user_settings_groups_panel_users_view": {
+        "pending": "Pending",
+        "link_expired": "Link expired",
+        "send_new_invite": "Send new invite",
+        "get_new_link": "Get new link",
+        "user_groups": "User groups:",
+        "modal_delete": {
+            "title": "Delete user",
+            "content": "Are you sure you want to delete this user?",
+            "cancel": "Cancel",
+            "delete": "Delete"
+        },
+        "loading_users": "Loading users",
+        "paper": {
+            "search_users": "Search users by name, email, or role",
+            "add_user": "Add user",
+            "user": "User",
+            "role": "Role",
+            "groups": "Groups",
+            "no_users_found": "No users found"
+        }
+    },
 
     "components_explorer_tree": {
         "search": "Search metrics + dimensions",

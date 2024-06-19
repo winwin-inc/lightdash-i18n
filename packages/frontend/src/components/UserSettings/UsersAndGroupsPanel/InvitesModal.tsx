@@ -7,7 +7,9 @@ import { Button, Group, Modal, Select, TextInput, Title } from '@mantine/core';
 import { useForm, zodResolver } from '@mantine/form';
 import { IconUser } from '@tabler/icons-react';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
+
 import { useCreateInviteLinkMutation } from '../../../hooks/useInviteLink';
 import { useApp } from '../../../providers/AppProvider';
 import { TrackPage, useTracking } from '../../../providers/TrackingProvider';
@@ -44,6 +46,8 @@ const InvitesModal: FC<{
         mutateAsync,
         isLoading,
     } = useCreateInviteLinkMutation();
+    const { t } = useTranslation();
+
     const handleSubmit = async (data: SendInviteFormProps) => {
         track({
             name: EventName.INVITE_BUTTON_CLICKED,
@@ -59,7 +63,11 @@ const InvitesModal: FC<{
             title={
                 <Group spacing="xs">
                     <MantineIcon size="lg" icon={IconUser} />
-                    <Title order={4}>Add user</Title>
+                    <Title order={4}>
+                        {t(
+                            'components_user_settings_groups_panel_invites.title',
+                        )}
+                    </Title>
                 </Group>
             }
             size="lg"
@@ -81,8 +89,12 @@ const InvitesModal: FC<{
                     >
                         <TextInput
                             name="email"
-                            label="Enter user email address"
-                            placeholder="example@gmail.com"
+                            label={t(
+                                'components_user_settings_groups_panel_invites.form.email.label',
+                            )}
+                            placeholder={t(
+                                'components_user_settings_groups_panel_invites.form.email.placeholder',
+                            )}
                             required
                             disabled={isLoading}
                             w="43%"
@@ -105,7 +117,9 @@ const InvitesModal: FC<{
                                     }))}
                                     disabled={isLoading}
                                     required
-                                    placeholder="Select role"
+                                    placeholder={t(
+                                        'components_user_settings_groups_panel_invites.form.select.placeholder',
+                                    )}
                                     dropdownPosition="bottom"
                                     withinPortal
                                     {...form.getInputProps('role')}
@@ -113,8 +127,12 @@ const InvitesModal: FC<{
                             )}
                             <Button disabled={isLoading} type="submit">
                                 {health.data?.hasEmailClient
-                                    ? 'Send invite'
-                                    : 'Generate invite'}
+                                    ? t(
+                                          'components_user_settings_groups_panel_invites.form.send_invite',
+                                      )
+                                    : t(
+                                          'components_user_settings_groups_panel_invites.form.generate_invite',
+                                      )}
                             </Button>
                         </Group>
                     </Group>
