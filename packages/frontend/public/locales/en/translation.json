@@ -806,6 +806,92 @@
             "no_users_found": "No users found"
         }
     },
+    "components_user_settings_attributes_panel": {
+        "user": "user",
+        "group": "group",
+        "modal_delete": {
+            "title": "Delete",
+            "content": "Are you sure you want to delete this user attribute ?",
+            "cancel": "Cancel",
+            "delete": "Delete"
+        },
+        "loading": "Loading user attributes",
+        "user_and_group_attributes": "User and group attributes",
+        "user_attributes": "User Attributes",
+        "tooltip": {
+            "label": "User attributes are metadata defined by your organization. They can be used to control and cutomize the user experience through data access and personalization. Learn more about using user attributes by clicking on this icon."
+        },
+        "add_new_attribute": "Add new attribute",
+        "no_attributes": "You don't have any attributes defined",
+        "table": {
+            "attribute_name": "Attribute Name"
+        }
+    },
+    "components_user_settings_attributes_panel_create": {
+        "validate": {
+            "name": "Invalid attribute name. Attribute name must contain only lowercase characters, '_' or numbers and it can't start with a number",
+            "same_name": "Attribute with the same name already exists",
+            "duplicate_users": "Duplicated users",
+            "duplicate_groups": "Duplicated groups"
+        },
+        "title": {
+            "update": "Update user attribute",
+            "add": "Add user attribute"
+        },
+        "form": {
+            "name": {
+                "label": "Attribute name",
+                "placeholder": "E.g. user_country"
+            },
+            "description": {
+                "label": "Description",
+                "placeholder": "E.g. The country where the user is querying data from."
+            },
+            "email": {
+                "label": "User email",
+                "placeholder": "E.g. test@lightdash.com"
+            },
+            "value": {
+                "label": "Value",
+                "placeholder": "E.g. US"
+            },
+            "group_name": {
+                "label": "Group name",
+                "placeholder": "E.g. Marketing, Product"
+            }
+        },
+        "default_value": "Default value",
+        "assign_to_users": "Assign to users",
+        "add_user": "Add user",
+        "add_group": "Add group",
+        "assign_to_groups": "Assign to groups",
+        "cancel": "Cancel",
+        "update": "Update",
+        "add": "Add"
+    },
+    "components_user_settings_appearance_settings_panel": {
+        "color_palettes": {
+            "default_colors": "Default colors",
+            "lightdash_of_colors": "Lightdash of colors",
+            "sunrise_erenity": "Sunrise Erenity",
+            "autumn_sunset": "Autumn Sunset",
+            "oceanic_bules": "Oceanic Bules",
+            "data_matrix": "Data Matrix"
+        },
+        "use_theme": "Use theme",
+        "validate": {
+            "hex": "Invalid color, ensure it is in hex format (e.g. #ff000 or #fff)'"
+        },
+        "color": "color {{index}}",
+        "restore_default_color": "Restore default color",
+        "default_chart_colors": "Default chart colors",
+        "start": "Start from a pre-defined theme, or create your own color palette.",
+        "color_themes": "Color themes",
+        "cancel": "Cancel",
+        "save": "Save changes",
+        "appearance_settings": "Appearance settings",
+        "customizing": "Click here to learn more about customizing the appearance of your project"
+    },
 
     "components_explorer_tree": {
         "search": "Search metrics + dimensions",

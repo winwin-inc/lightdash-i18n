@@ -18,6 +18,8 @@ import {
 import { useForm } from '@mantine/form';
 import { IconTrash, IconUserPlus, IconUsersPlus } from '@tabler/icons-react';
 import { useEffect, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useOrganizationGroups } from '../../../hooks/useOrganizationGroups';
 import { useOrganizationUsers } from '../../../hooks/useOrganizationUsers';
 import {
@@ -34,6 +36,7 @@ const UserAttributeModal: FC<{
     onClose: () => void;
 }> = ({ opened, userAttribute, allUserAttributes, onClose }) => {
     const { health } = useApp();
+    const { t } = useTranslation();
 
     const form = useForm<CreateUserAttribute>({
         initialValues: {
@@ -46,7 +49,9 @@ const UserAttributeModal: FC<{
         validate: {
             name: (value: string) => {
                 if (!/^[a-z_][a-z0-9_]*$/.test(value)) {
-                    return `Invalid attribute name. Attribute name must contain only lowercase characters, '_' or numbers and it can't start with a number`;
+                    return t(
+                        'components_user_settings_attributes_panel_create.validate.name',
+                    );
                 }
                 if (
                     allUserAttributes.some(
@@ -55,7 +60,9 @@ const UserAttributeModal: FC<{
                             attr.uuid !== userAttribute?.uuid,
                     )
                 ) {
-                    return `Attribute with the same name already exists`;
+                    return t(
+                        'components_user_settings_attributes_panel_create.validate.same_name',
+                    );
                 }
                 return null;
             },
@@ -72,7 +79,9 @@ const UserAttributeModal: FC<{
                         false,
                     )
                 ) {
-                    return `Duplicated users`;
+                    return t(
+                        'components_user_settings_attributes_panel_create.validate.duplicate_users',
+                    );
                 }
                 return null;
             },
@@ -89,7 +98,9 @@ const UserAttributeModal: FC<{
                         false,
                     )
                 ) {
-                    return `Duplicated groups`;
+                    return t(
+                        'components_user_settings_attributes_panel_create.validate.duplicate_groups',
+                    );
                 }
                 return null;
             },
@@ -142,7 +153,13 @@ const UserAttributeModal: FC<{
             onClose={handleClose}
             title={
                 <Title order={4}>
-                    {userAttribute ? 'Update' : 'Add'} user attribute
+                    {userAttribute
+                        ? t(
+                              'components_user_settings_attributes_panel_create.title.update',
+                          )
+                        : t(
+                              'components_user_settings_attributes_panel_create.title.add',
+                          )}
                 </Title>
             }
             yOffset={65}
@@ -161,8 +178,12 @@ const UserAttributeModal: FC<{
                 <Stack spacing="xs" p="md">
                     <TextInput
                         name="name"
-                        label="Attribute name"
-                        placeholder="E.g. user_country"
+                        label={t(
+                            'components_user_settings_attributes_panel_create.form.name.label',
+                        )}
+                        placeholder={t(
+                            'components_user_settings_attributes_panel_create.form.name.placeholder',
+                        )}
                         required
                         {...form.getInputProps('name')}
                     />
@@ -172,12 +193,20 @@ const UserAttributeModal: FC<{
 
                     <Textarea
                         name="description"
-                        label="Description"
-                        placeholder="E.g. The country where the user is querying data from."
+                        label={t(
+                            'components_user_settings_attributes_panel_create.form.description.label',
+                        )}
+                        placeholder={t(
+                            'components_user_settings_attributes_panel_create.form.description.placeholder',
+                        )}
                         {...form.getInputProps('description')}
                     />
                     <Stack spacing="xxs">
-                        <Text fw={500}>Default value</Text>
+                        <Text fw={500}>
+                            {t(
+                                'components_user_settings_attributes_panel_create.default_value',
+                            )}
+                        </Text>
 
                         <Group h={36}>
                             <Switch
@@ -197,7 +226,9 @@ const UserAttributeModal: FC<{
                                 <TextInput
                                     size="xs"
                                     name={`attributeDefault`}
-                                    placeholder="E.g. US"
+                                    placeholder={t(
+                                        'components_user_settings_attributes_panel_create.form.value.placeholder',
+                                    )}
                                     required
                                     {...form.getInputProps('attributeDefault')}
                                 />
@@ -206,7 +237,11 @@ const UserAttributeModal: FC<{
                     </Stack>
                     <Stack>
                         <Stack spacing="xs">
-                            <Text fw={500}>Assign to users</Text>
+                            <Text fw={500}>
+                                {t(
+                                    'components_user_settings_attributes_panel_create.assign_to_users',
+                                )}
+                            </Text>
                             {!form.isValid('users') && (
                                 <Text color="red" size="xs">
                                     {form.errors.users}
@@ -221,11 +256,15 @@ const UserAttributeModal: FC<{
                                             sx={{ flexGrow: 1 }}
                                             label={
                                                 index === 0
-                                                    ? 'User email'
+                                                    ? t(
+                                                          'components_user_settings_attributes_panel_create.form.email.label',
+                                                      )
                                                     : undefined
                                             }
                                             name={`users.${index}.userUuid`}
-                                            placeholder="E.g. test@lightdash.com"
+                                            placeholder={t(
+                                                'components_user_settings_attributes_panel_create.form.email.placeholder',
+                                            )}
                                             required
                                             searchable
                                             {...form.getInputProps(
@@ -244,11 +283,15 @@ const UserAttributeModal: FC<{
                                             sx={{ flexGrow: 1 }}
                                             label={
                                                 index === 0
-                                                    ? 'Value'
+                                                    ? t(
+                                                          'components_user_settings_attributes_panel_create.form.value.label',
+                                                      )
                                                     : undefined
                                             }
                                             name={`users.${index}.value`}
-                                            placeholder="E.g. US"
+                                            placeholder={t(
+                                                'components_user_settings_attributes_panel_create.form.value.placeholder',
+                                            )}
                                             required
                                             {...form.getInputProps(
                                                 `users.${index}.value`,
@@ -284,13 +327,19 @@ const UserAttributeModal: FC<{
                                     ]);
                                 }}
                             >
-                                Add user
+                                {t(
+                                    'components_user_settings_attributes_panel_create.add_user',
+                                )}
                             </Button>
                         </Stack>
 
                         {isGroupManagementEnabled && (
                             <Stack spacing="xs">
-                                <Text fw={500}>Assign to groups</Text>
+                                <Text fw={500}>
+                                    {t(
+                                        'components_user_settings_attributes_panel_create.assign_to_groups',
+                                    )}
+                                </Text>
                                 {!form.isValid('groups') && (
                                     <Text color="red" size="xs">
                                         {form.errors.groups}
@@ -304,11 +353,15 @@ const UserAttributeModal: FC<{
                                                 sx={{ flexGrow: 1 }}
                                                 label={
                                                     index === 0
-                                                        ? 'Group name'
+                                                        ? t(
+                                                              'components_user_settings_attributes_panel_create.form.group_name.label',
+                                                          )
                                                         : undefined
                                                 }
                                                 name={`groups.${index}.groupUuid`}
-                                                placeholder="E.g. Marketing, Product"
+                                                placeholder={t(
+                                                    'components_user_settings_attributes_panel_create.form.group_name.placeholder',
+                                                )}
                                                 required
                                                 searchable
                                                 {...form.getInputProps(
@@ -329,11 +382,15 @@ const UserAttributeModal: FC<{
                                                 sx={{ flexGrow: 1 }}
                                                 label={
                                                     index === 0
-                                                        ? 'Value'
+                                                        ? t(
+                                                              'components_user_settings_attributes_panel_create.form.value.label',
+                                                          )
                                                         : undefined
                                                 }
                                                 name={`groups.${index}.value`}
-                                                placeholder="E.g. US"
+                                                placeholder={t(
+                                                    'components_user_settings_attributes_panel_create.form.value.placeholder',
+                                                )}
                                                 required
                                                 {...form.getInputProps(
                                                     `groups.${index}.value`,
@@ -374,7 +431,9 @@ const UserAttributeModal: FC<{
                                         });
                                     }}
                                 >
-                                    Add group
+                                    {t(
+                                        'components_user_settings_attributes_panel_create.add_group',
+                                    )}
                                 </Button>
                             </Stack>
                         )}
@@ -398,10 +457,18 @@ const UserAttributeModal: FC<{
                         }}
                         variant="outline"
                     >
-                        Cancel
+                        {t(
+                            'components_user_settings_attributes_panel_create.cancel',
+                        )}
                     </Button>
                     <Button type="submit">
-                        {userAttribute ? 'Update' : 'Add'}
+                        {userAttribute
+                            ? t(
+                                  'components_user_settings_attributes_panel_create.update',
+                              )
+                            : t(
+                                  'components_user_settings_attributes_panel_create.add',
+                              )}
                     </Button>
                 </Group>
             </form>

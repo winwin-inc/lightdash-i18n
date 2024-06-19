@@ -812,6 +812,92 @@
             "no_users_found": "未找到任何用户"
         }
     },
+    "components_user_settings_attributes_panel": {
+        "user": "用户",
+        "group": "群组",
+        "modal_delete": {
+            "title": "删除",
+            "content": "您确定要删除此用户属性吗?",
+            "cancel": "取消",
+            "delete": "删除"
+        },
+        "loading": "正在加载用户属性",
+        "user_and_group_attributes": "用户和群组属性",
+        "user_attributes": "用户属性",
+        "tooltip": {
+            "label": "用户属性是您的组织定义的元数据。它们可用于通过数据访问和个性化来控制和自定义用户体验。点击此图标了解更多关于使用用户属性的信息。"
+        },
+        "add_new_attribute": "添加新属性",
+        "no_attributes": "您没有定义任何属性",
+        "table": {
+            "attribute_name": "属性名称"
+        }
+    },
+    "components_user_settings_attributes_panel_create": {
+        "validate": {
+            "name": "无效的属性名称。属性名称必须仅包含小写字符、'_'或数字,且不能以数字开头",
+            "same_name": "已存在同名属性",
+            "duplicate_users": "重复的用户",
+            "duplicate_groups": "重复的群组"
+        },
+        "title": {
+            "update": "更新用户属性",
+            "add": "添加用户属性"
+        },
+        "form": {
+            "name": {
+                "label": "属性名称",
+                "placeholder": "例如: user_country"
+            },
+            "description": {
+                "label": "描述",
+                "placeholder": "例如: 用户数据查询的国家。"
+            },
+            "email": {
+                "label": "用户邮箱",
+                "placeholder": "例如: test@lightdash.com"
+            },
+            "value": {
+                "label": "值",
+                "placeholder": "例如: US"
+            },
+            "group_name": {
+                "label": "群组名称",
+                "placeholder": "例如: 营销, 产品"
+            }
+        },
+        "default_value": "默认值",
+        "assign_to_users": "分配给用户",
+        "add_user": "添加用户",
+        "add_group": "添加群组",
+        "assign_to_groups": "分配给群组",
+        "cancel": "取消",
+        "update": "更新",
+        "add": "添加"
+    },
+    "components_user_settings_appearance_settings_panel": {
+        "color_palettes": {
+            "default_colors": "默认颜色",
+            "lightdash_of_colors": "Lightdash 颜色",
+            "sunrise_erenity": "日出宁静",
+            "autumn_sunset": "秋日日落",
+            "oceanic_bules": "海洋蓝",
+            "data_matrix": "数据矩阵"
+        },
+        "use_theme": "使用主题",
+        "validate": {
+            "hex": "无效的颜色,请确保其为十六进制格式(例如: #ff000 或 #fff)"
+        },
+        "color": "颜色 {{index}}",
+        "restore_default_color": "恢复默认颜色",
+        "default_chart_colors": "默认图表颜色",
+        "start": "从预定义的主题开始,或创建自己的调色板。",
+        "color_themes": "颜色主题",
+        "cancel": "取消",
+        "save": "保存更改",
+        "appearance_settings": "外观设置",
+        "customizing": "点击这里了解更多关于自定义项目外观的信息"
+    },
 
     "components_explorer_tree": {
         "search": "搜索指标 + 维度",

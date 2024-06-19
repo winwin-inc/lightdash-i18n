@@ -21,6 +21,8 @@ import {
     IconTrash,
 } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import { useTableStyles } from '../../../hooks/styles/useTableStyles';
 import {
@@ -41,6 +43,7 @@ const UserListItem: FC<{
 }> = ({ orgUserAttribute, onEdit, isGroupManagementEnabled }) => {
     const [isDeleteDialogOpen, deleteDialog] = useDisclosure(false);
     const { mutate: deleteUserAttribute } = useUserAttributesDeleteMutation();
+    const { t } = useTranslation();
 
     return (
         <tr>
@@ -64,12 +67,18 @@ const UserListItem: FC<{
                     </Group>
                     <Group spacing="sm">
                         <Text fz="xs" color="gray.6">
-                            {orgUserAttribute.users.length} user
+                            {orgUserAttribute.users.length}{' '}
+                            {t(
+                                'components_user_settings_attributes_panel.user',
+                            )}
                             {orgUserAttribute.users.length !== 1 ? 's' : ''}
                         </Text>
                         {isGroupManagementEnabled && (
                             <Text fz="xs" color="gray.6">
-                                {orgUserAttribute.groups.length} group
+                                {orgUserAttribute.groups.length}{' '}
+                                {t(
+                                    'components_user_settings_attributes_panel.group',
+                                )}
                                 {orgUserAttribute.groups.length !== 1
                                     ? 's'
                                     : ''}
@@ -106,13 +115,18 @@ const UserListItem: FC<{
                                     icon={IconAlertCircle}
                                     color="red"
                                 />
-                                <Title order={4}>Delete</Title>
+                                <Title order={4}>
+                                    {t(
+                                        'components_user_settings_attributes_panel.modal_delete.delete',
+                                    )}
+                                </Title>
                             </Group>
                         }
                     >
                         <Text pb="md">
-                            Are you sure you want to delete this user attribute
-                            ?
+                            {t(
+                                'components_user_settings_attributes_panel.modal_delete.content',
+                            )}
                         </Text>
                         <Group spacing="xs" position="right">
                             <Button
@@ -120,7 +134,9 @@ const UserListItem: FC<{
                                 variant="outline"
                                 color="dark"
                             >
-                                Cancel
+                                {t(
+                                    'components_user_settings_attributes_panel.modal_delete.cancel',
+                                )}
                             </Button>
                             <Button
                                 onClick={() => {
@@ -128,7 +144,9 @@ const UserListItem: FC<{
                                 }}
                                 color="red"
                             >
-                                Delete
+                                {t(
+                                    'components_user_settings_attributes_panel.modal_delete.delete',
+                                )}
                             </Button>
                         </Group>
                     </Modal>
@@ -142,6 +160,7 @@ const UserAttributesPanel: FC = () => {
     const { classes } = useTableStyles();
     const { user, health } = useApp();
     const [showAddAttributeModal, addAttributeModal] = useDisclosure(false);
+    const { t } = useTranslation();
 
     const [editAttribute, setEditAttribute] = useState<
         UserAttribute | undefined
@@ -161,7 +180,11 @@ const UserAttributesPanel: FC = () => {
     }
 
     if (isInitialLoading)
-        return <LoadingState title="Loading user attributes" />;
+        return (
+            <LoadingState
+                title={t('components_user_settings_attributes_panel.loading')}
+            />
+        );
 
     if (!user.data || !health.data) return null;
 
@@ -173,8 +196,12 @@ const UserAttributesPanel: FC = () => {
                 <Group spacing="two">
                     <Title order={5}>
                         {isGroupManagementEnabled
-                            ? 'User and group attributes'
-                            : 'User attributes'}
+                            ? t(
+                                  'components_user_settings_attributes_panel.user_and_group_attributes',
+                              )
+                            : t(
+                                  'components_user_settings_attributes_panel.user_attributes',
+                              )}
                     </Title>
                     <Tooltip
                         multiline
@@ -182,11 +209,9 @@ const UserAttributesPanel: FC = () => {
                         withArrow
                         label={
                             <Box>
-                                User attributes are metadata defined by your
-                                organization. They can be used to control and
-                                cutomize the user experience through data access
-                                and personalization. Learn more about using user
-                                attributes by clicking on this icon.
+                                {t(
+                                    'components_user_settings_attributes_panel.tooltip.label',
+                                )}
                             </Box>
                         }
                     >
@@ -206,7 +231,9 @@ const UserAttributesPanel: FC = () => {
                         leftIcon={<MantineIcon icon={IconPlus} />}
                         onClick={addAttributeModal.open}
                     >
-                        Add new attribute
+                        {t(
+                            'components_user_settings_attributes_panel.add_new_attribute',
+                        )}
                     </Button>
                     <UserAttributeModal
                         opened={showAddAttributeModal}
@@ -217,17 +244,27 @@ const UserAttributesPanel: FC = () => {
             </Group>
 
             {isInitialLoading ? (
-                <LoadingState title="Loading user attributes" />
+                <LoadingState
+                    title={t(
+                        'components_user_settings_attributes_panel.loading',
+                    )}
+                />
             ) : orgUserAttributes?.length === 0 ? (
                 <SettingsCard shadow="none">
-                    You don't have any attributes defined
+                    {t(
+                        'components_user_settings_attributes_panel.no_attributes',
+                    )}
                 </SettingsCard>
             ) : (
                 <SettingsCard shadow="none" p={0}>
                     <Table className={classes.root}>
                         <thead>
                             <tr>
-                                <th>Attribute name</th>
+                                <th>
+                                    {t(
+                                        'components_user_settings_attributes_panel.table.attribute_name',
+                                    )}
+                                </th>
 
                                 <th></th>
                             </tr>
