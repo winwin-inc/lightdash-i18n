@@ -2,12 +2,14 @@ import { type Space } from '@lightdash/common';
 import { Avatar, Flex, Group, Select, Stack, Text } from '@mantine/core';
 import { IconLock, IconUsers } from '@tabler/icons-react';
 import { forwardRef, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useProject } from '../../../hooks/useProject';
 import { useUpdateMutation } from '../../../hooks/useSpaces';
 import MantineIcon from '../MantineIcon';
 import {
-    SpaceAccessOptions,
     SpaceAccessType,
+    useSpaceAccessOptions,
     type AccessOption,
 } from './ShareSpaceSelect';
 
@@ -42,6 +44,8 @@ export const ShareSpaceAccessType: FC<ShareSpaceAccessTypeProps> = ({
     selectedAccess,
     setSelectedAccess,
 }) => {
+    const { t } = useTranslation();
+    const SpaceAccessOptions = useSpaceAccessOptions();
     const { data: project } = useProject(projectUuid);
 
     const { mutate: spaceMutation } = useUpdateMutation(
@@ -71,7 +75,9 @@ export const ShareSpaceAccessType: FC<ShareSpaceAccessTypeProps> = ({
 
                 <Stack spacing={2}>
                     <Text fw={600} fz="sm">
-                        Members of {project?.name}
+                        {t('components_common_share_space_modal.members_of', {
+                            name: project?.name,
+                        })}
                     </Text>
                     <Text c="gray.6" fz="xs">
                         {selectedAccess.description}

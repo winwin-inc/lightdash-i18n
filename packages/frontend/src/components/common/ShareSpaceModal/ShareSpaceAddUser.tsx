@@ -12,6 +12,8 @@ import {
 } from '@mantine/core';
 import { IconUsers } from '@tabler/icons-react';
 import { forwardRef, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useOrganizationGroups } from '../../../hooks/useOrganizationGroups';
 import { useOrganizationUsers } from '../../../hooks/useOrganizationUsers';
 import { useProjectAccess } from '../../../hooks/useProjectAccess';
@@ -20,7 +22,7 @@ import {
     useAddSpaceShareMutation,
 } from '../../../hooks/useSpaces';
 import MantineIcon from '../MantineIcon';
-import { UserAccessOptions } from './ShareSpaceSelect';
+import { useUserAccessOptions } from './ShareSpaceSelect';
 import { getInitials, getUserNameOrEmail } from './Utils';
 
 interface ShareSpaceAddUserProps {
@@ -32,6 +34,9 @@ export const ShareSpaceAddUser: FC<ShareSpaceAddUserProps> = ({
     space,
     projectUuid,
 }) => {
+    const { t } = useTranslation();
+    const UserAccessOptions = useUserAccessOptions();
+
     const [usersSelected, setUsersSelected] = useState<string[]>([]);
     const [searchQuery, setSearchQuery] = useState<string>('');
     const { data: projectAccess } = useProjectAccess(projectUuid);
@@ -86,10 +91,15 @@ export const ShareSpaceAddUser: FC<ShareSpaceAddUserProps> = ({
             const currentSpaceRoleTitle = spaceAccess
                 ? UserAccessOptions.find(
                       (option) => option.value === spaceAccess.role,
-                  )?.title ?? 'No access'
-                : 'No access';
+                  )?.title ?? t('components_common_share_space_modal.no_access')
+                : t('components_common_share_space_modal.no_access');
 
-            const spaceRoleInheritanceInfo = `Access inherited from their ${spaceAccess?.inheritedFrom} role`;
+            const spaceRoleInheritanceInfo = t(
+                'components_common_share_space_modal.space_role_inheritance_info',
+                {
+                    inheritedFrom: spaceAccess?.inheritedFrom,
+                },
+            );
 
             return (
                 <Group ref={ref} {...props} position={'apart'}>
@@ -131,7 +141,7 @@ export const ShareSpaceAddUser: FC<ShareSpaceAddUserProps> = ({
                 </Group>
             );
         });
-    }, [organizationUsers, space.access]);
+    }, [organizationUsers, space.access, UserAccessOptions, t]);
 
     const data = useMemo(() => {
         const usersSet = userUuids.map((userUuid): SelectItem | null => {
@@ -194,8 +204,12 @@ export const ShareSpaceAddUser: FC<ShareSpaceAddUserProps> = ({
                 clearable
                 clearSearchOnChange
                 clearSearchOnBlur
-                placeholder="Select users to share this space with"
-                nothingFound="No users found"
+                placeholder={t(
+                    'components_common_share_space_modal.select_users.placeholder',
+                )}
+                nothingFound={t(
+                    'components_common_share_space_modal.select_users.nothingFound',
+                )}
                 searchValue={searchQuery}
                 onSearchChange={setSearchQuery}
                 value={usersSelected}
@@ -220,7 +234,7 @@ export const ShareSpaceAddUser: FC<ShareSpaceAddUserProps> = ({
                     setUsersSelected([]);
                 }}
             >
-                Share
+                {t('components_common_share_space_modal.share')}
             </Button>
         </Group>
     );

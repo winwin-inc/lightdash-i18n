@@ -161,6 +161,156 @@
             }
         }
     },
+    "components_common_share_space_modal": {
+        "share": "Share",
+        "share_space": "Share \"{{name}}\" space",
+        "private": {
+            "part_1": "Can't find a user? Spaces can only be shared with",
+            "part_2": "existing project members",
+            "part_3": ".",
+            "part_4": "Learn more about permissions in our",
+            "part_5": "docs",
+            "part_6": "."
+        },
+        "members_of": "Members of {{name}}",
+        "no_access": "No access",
+        "space_role_inheritance_info": "Access inherited from their {{inheritedFrom}} role",
+        "select_users": {
+            "placeholder": "Select users to share this space with",
+            "nothingFound": "No users found"
+        },
+        "space_access_options": {
+            "restricted_access": {
+                "title": "Restricted access",
+                "description": "Only invited members and admins can access",
+                "select_description": "Only invited members and admins can access"
+            },
+            "public_access": {
+                "title": "Public access",
+                "description": "All project members can access",
+                "select_description": "All project members can access with their project permissions"
+            }
+        },
+        "user_access_options": {
+            "can_view": {
+                "title": "Can view",
+                "select_description": "View space contents."
+            },
+            "can_edit": {
+                "title": "Can edit",
+                "select_description": "Edit space contents."
+            },
+            "full_access": {
+                "title": "Full access",
+                "select_description": "Manage space access and content."
+            },
+            "no_access": {
+                "title": "No access",
+                "select_description": "Remove user's access"
+            }
+        },
+        "reset_access": {
+            "title": "Reset access",
+            "select_description": "Reset user's access"
+        },
+        "you": "you",
+        "tooltip_user": {
+            "label": "User needs to be promoted to interactive viewer to have this space access"
+        },
+        "access_delete": {
+            "remove_access": "Remove access",
+            "reset_access": "Reset access",
+            "remove_group_access": "Remove group's access",
+            "reset": "Reset group's access"
+        },
+        "toast_error_update_user": {
+            "title": "Failed to update user access",
+            "subtitle": "An admin can not be a space {{userAccessOption}}"
+        },
+        "inherited_access": "Inherited access",
+        "from_organisation": "From organisation",
+        "from_project": "From project",
+        "group_access": "Group access",
+        "user_access": "User access"
+    },
+
+    "components_project_tables_configuration": {
+        "table_selection": "Table Selection",
+        "tip": {
+            "part_1": "You have selected ",
+            "part_2": " models",
+            "part_3": "hide",
+            "part_4": "show",
+            "part_5": "list"
+        },
+        "radio_groups": {
+            "label": "Table selection",
+            "radio_all": {
+                "label": "Show entire project",
+                "description": "Show all of the models in your dbt project in Lightdash."
+            },
+            "radio_with_tags": {
+                "label": "Show models with any of these tags",
+                "description": "Write a list of tags you want to include, separated by commas.",
+                "select": {
+                    "label": "Tags",
+                    "placeholder": "e.g lightdash, prod",
+                    "nothingFound": {
+                        "loading": "Loading...",
+                        "no_results": "No results found"
+                    },
+                    "error": "Your dbt project has no tags available"
+                }
+            },
+            "radio_with_names": {
+                "label": "Show models in this list",
+                "description": "Write a list of models you want to include, separated by commas.",
+                "select": {
+                    "label": "Names",
+                    "placeholder": "e.g users, orders",
+                    "nothingFound": {
+                        "loading": "Loading...",
+                        "no_results": "No results found"
+                    }
+                }
+            }
+        },
+        "cancel": "Cancel",
+        "save_changes": "Save changes"
+    },
+
+    "components_react_hook_form": {
+        "key": "Key",
+        "value": "Value",
+        "add_variable": "Add variable",
+        "password": {
+            "placeholder": "Enter your password..."
+        },
+        "frequency_items": {
+            "hourly": "Hourly",
+            "daily": "Daily",
+            "weekly": "Weekly",
+            "monthly": "Monthly",
+            "custom_cron_expression": "Custom cron expression"
+        },
+        "at_minute": "at minute",
+        "on": "on",
+        "on_day": "on day",
+        "at": "at",
+        "switch": {
+            "yes": "Yes",
+            "no": "No"
+        },
+        "options": {
+            "sunday": "Sunday",
+            "monday": "Monday",
+            "tuesday": "Tuesday",
+            "wednesday": "Wednesday",
+            "thursday": "Thursday",
+            "friday": "Friday",
+            "saturday": "Saturday"
+        }
+    },
 
     "components_refresh_button": {
         "run_query": "Run query"
@@ -1841,7 +1991,7 @@
             }
         },
         "big_query": {
-            "data_set": {
+            "dataset": {
                 "label": "Data set",
                 "label_help": {
                     "part_1": "This is the name of your dbt dataset: the dataset in your warehouse where the output of your dbt models is written to. If you're not sure what this is, check out the",

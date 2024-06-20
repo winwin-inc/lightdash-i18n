@@ -9,6 +9,8 @@ import {
 import { IconHelpCircle, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../common/MantineIcon';
 import DocumentationHelpButton from '../DocumentationHelpButton';
 
@@ -28,6 +30,7 @@ export const MultiKeyValuePairsInput = ({
 }: Props) => {
     const { control } = useFormContext();
     const { fields, remove, append } = useFieldArray({ name, control });
+    const { t } = useTranslation();
 
     const [isLabelInfoOpen, setIsLabelInfoOpen] = useState<boolean>(false);
 
@@ -68,13 +71,13 @@ export const MultiKeyValuePairsInput = ({
                     <Flex key={field.id} gap="xs" align="center">
                         <TextInput
                             {...control.register(`${name}.${index}.key`)}
-                            placeholder="Key"
+                            placeholder={t('components_react_hook_form.key')}
                             disabled={disabled}
                         />
 
                         <TextInput
                             {...control.register(`${name}.${index}.value`)}
-                            placeholder="Value"
+                            placeholder={t('components_react_hook_form.value')}
                             disabled={disabled}
                         />
 
@@ -93,7 +96,7 @@ export const MultiKeyValuePairsInput = ({
                     leftIcon={<MantineIcon icon={IconPlus} />}
                     disabled={disabled}
                 >
-                    Add variable
+                    {t('components_react_hook_form.add_variable')}
                 </Button>
             </Stack>
         </Input.Wrapper>

@@ -161,6 +161,156 @@
             }
         }
     },
+    "components_common_share_space_modal": {
+        "share": "共享",
+        "share_space": "共享 \"{{name}}\" 空间",
+        "private": {
+            "part_1": "找不到用户? 只能与",
+            "part_2": "现有的项目成员",
+            "part_3": "共享空间。",
+            "part_4": "在我们的",
+            "part_5": "文档",
+            "part_6": "中了解更多关于权限的信息。"
+        },
+        "members_of": "{{name}} 的成员",
+        "no_access": "无访问权限",
+        "space_role_inheritance_info": "继承自他们的 {{inheritedFrom}} 角色的访问权限",
+        "select_users": {
+            "placeholder": "选择要与之共享此空间的用户",
+            "nothingFound": "未找到用户"
+        },
+        "space_access_options": {
+            "restricted_access": {
+                "title": "受限访问",
+                "description": "只有被邀请的成员和管理员可以访问",
+                "select_description": "只有被邀请的成员和管理员可以访问"
+            },
+            "public_access": {
+                "title": "公共访问",
+                "description": "所有项目成员都可以访问",
+                "select_description": "所有项目成员都可以根据他们的项目权限访问"
+            }
+        },
+        "user_access_options": {
+            "can_view": {
+                "title": "可查看",
+                "select_description": "查看空间内容。"
+            },
+            "can_edit": {
+                "title": "可编辑",
+                "select_description": "编辑空间内容。"
+            },
+            "full_access": {
+                "title": "完全访问",
+                "select_description": "管理空间访问和内容。"
+            },
+            "no_access": {
+                "title": "无访问权限",
+                "select_description": "移除用户的访问权限"
+            }
+        },
+        "reset_access": {
+            "title": "重置访问权限",
+            "select_description": "重置用户的访问权限"
+        },
+        "you": "您",
+        "tooltip_user": {
+            "label": "用户需要被晋升为交互式查看者才能拥有此空间的访问权限"
+        },
+        "access_delete": {
+            "remove_access": "移除访问权限",
+            "reset_access": "重置访问权限",
+            "remove_group_access": "移除组的访问权限",
+            "reset": "重置组的访问权限"
+        },
+        "toast_error_update_user": {
+            "title": "无法更新用户访问权限",
+            "subtitle": "管理员不能成为 {{userAccessOption}} 空间的用户"
+        },
+        "inherited_access": "继承的访问权限",
+        "from_organisation": "来自组织",
+        "from_project": "来自项目",
+        "group_access": "组访问权限",
+        "user_access": "用户访问权限"
+    },
+
+    "components_project_tables_configuration": {
+        "table_selection": "表格选择",
+        "tip": {
+            "part_1": "您已选择了 ",
+            "part_2": " 个模型",
+            "part_3": "隐藏",
+            "part_4": "显示",
+            "part_5": "列表"
+        },
+        "radio_groups": {
+            "label": "表格选择",
+            "radio_all": {
+                "label": "显示整个项目",
+                "description": "在 Lightdash 中显示您的 dbt 项目中的所有模型。"
+            },
+            "radio_with_tags": {
+                "label": "显示带有这些标签的模型",
+                "description": "编写您想要包含的标签列表, 用逗号分隔。",
+                "select": {
+                    "label": "标签",
+                    "placeholder": "例如 lightdash, prod",
+                    "nothingFound": {
+                        "loading": "正在加载...",
+                        "no_results": "没有找到结果"
+                    },
+                    "error": "您的 dbt 项目没有可用的标签"
+                }
+            },
+            "radio_with_names": {
+                "label": "显示这个列表中的模型",
+                "description": "编写您想要包含的模型列表, 用逗号分隔。",
+                "select": {
+                    "label": "名称",
+                    "placeholder": "例如 users, orders",
+                    "nothingFound": {
+                        "loading": "正在加载...",
+                        "no_results": "没有找到结果"
+                    }
+                }
+            }
+        },
+        "cancel": "取消",
+        "save_changes": "保存更改"
+    },
+
+    "components_react_hook_form": {
+        "key": "字段",
+        "value": "值",
+        "add_variable": "添加变量",
+        "password": {
+            "placeholder": "输入您的密码..."
+        },
+        "frequency_items": {
+            "hourly": "每小时",
+            "daily": "每日",
+            "weekly": "每周",
+            "monthly": "每月",
+            "custom_cron_expression": "自定义Cron表达式"
+        },
+        "at_minute": "在分钟",
+        "on": "在",
+        "on_day": "在日",
+        "at": "在",
+        "switch": {
+            "yes": "是",
+            "no": "否"
+        },
+        "options": {
+            "sunday": "星期日",
+            "monday": "星期一",
+            "tuesday": "星期二",
+            "wednesday": "星期三",
+            "thursday": "星期四",
+            "friday": "星期五",
+            "saturday": "星期六"
+        }
+    },
 
     "components_refresh_button": {
         "run_query": "运行查询"
@@ -1850,7 +2000,7 @@
             }
         },
         "big_query": {
-            "data_set": {
+            "dataset": {
                 "label": "数据集",
                 "label_help": {
                     "part_1": "这是您的 dbt 数据集的名称:在您的仓库中,dbt 模型的输出被写入的数据集。如果您不确定这是什么,请查看",

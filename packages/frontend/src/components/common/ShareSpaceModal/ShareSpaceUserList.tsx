@@ -30,6 +30,8 @@ import {
     type Icon as TablerIconType,
 } from '@tabler/icons-react';
 import { forwardRef, useCallback, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import useToaster from '../../../hooks/toaster/useToaster';
 import {
     useAddGroupSpaceShareMutation,
@@ -40,7 +42,7 @@ import {
 import MantineIcon from '../MantineIcon';
 import {
     UserAccessAction,
-    UserAccessOptions,
+    useUserAccessOptions,
     type AccessOption,
 } from './ShareSpaceSelect';
 import { getInitials, getUserNameOrEmail } from './Utils';
@@ -152,6 +154,9 @@ const UserAccessList: FC<UserAccessListProps> = ({
     sessionUser,
     onAccessChange,
 }) => {
+    const UserAccessOptions = useUserAccessOptions();
+    const { t } = useTranslation();
+
     return (
         <Stack spacing="sm">
             {accessList
@@ -172,8 +177,12 @@ const UserAccessList: FC<UserAccessListProps> = ({
                         !isPrivate
                             ? {
                                   ...accessType,
-                                  title: 'Reset access',
-                                  selectDescription: `Reset user's access`,
+                                  title: t(
+                                      'components_common_share_space_modal.reset_access.title',
+                                  ),
+                                  selectDescription: t(
+                                      'components_common_share_space_modal.reset_access.select_description',
+                                  ),
                               }
                             : accessType,
                     );
@@ -210,7 +219,11 @@ const UserAccessList: FC<UserAccessListProps> = ({
                                     {isSessionUser ? (
                                         <Text fw={400} span c="gray.6">
                                             {' '}
-                                            (you)
+                                            (
+                                            {t(
+                                                'components_common_share_space_modal.you',
+                                            )}
+                                            )
                                         </Text>
                                     ) : null}
                                 </Text>
@@ -236,7 +249,9 @@ const UserAccessList: FC<UserAccessListProps> = ({
                                         !needsToBePromotedToInteractiveViewer
                                     }
                                     withinPortal
-                                    label="User needs to be promoted to interactive viewer to have this space access"
+                                    label={t(
+                                        'components_common_share_space_modal.tooltip_user.label',
+                                    )}
                                     maw={350}
                                     multiline
                                 >
@@ -302,6 +317,9 @@ const GroupsAccessList: FC<GroupAccessListProps> = ({
     onAccessChange,
     groupsAccess,
 }) => {
+    const UserAccessOptions = useUserAccessOptions();
+    const { t } = useTranslation();
+
     return (
         <Stack spacing="sm">
             {groupsAccess.map((group) => {
@@ -310,11 +328,19 @@ const GroupsAccessList: FC<GroupAccessListProps> = ({
                         ? {
                               ...accessType,
                               title: { isPrivate }
-                                  ? 'Remove access'
-                                  : 'Reset access',
+                                  ? t(
+                                        'components_common_share_space_modal.access_delete.remove_access',
+                                    )
+                                  : t(
+                                        'components_common_share_space_modal.access_delete.reset_access',
+                                    ),
                               selectDescription: { isPrivate }
-                                  ? `Remove group's access`
-                                  : `Reset group's access`,
+                                  ? t(
+                                        'components_common_share_space_modal.access_delete.remove_group_access',
+                                    )
+                                  : t(
+                                        'components_common_share_space_modal.access_delete.reset',
+                                    ),
                           }
                         : accessType,
                 );
@@ -390,6 +416,7 @@ export const ShareSpaceUserList: FC<ShareSpaceUserListProps> = ({
         projectUuid,
         space.uuid,
     );
+    const { t } = useTranslation();
 
     const { mutate: shareSpaceMutation } = useAddSpaceShareMutation(
         projectUuid,
@@ -414,8 +441,13 @@ export const ShareSpaceUserList: FC<ShareSpaceUserListProps> = ({
                     userAccessOption !== UserAccessAction.ADMIN
                 ) {
                     showToastError({
-                        title: `Failed to update user access`,
-                        subtitle: `An admin can not be a space ${userAccessOption}`,
+                        title: t(
+                            'components_common_share_space_modal.toast_error_update_user.title',
+                        ),
+                        subtitle: t(
+                            'components_common_share_space_modal.toast_error_update_user.subtitle',
+                            { userAccessOption },
+                        ),
                     });
                     return;
                 }
@@ -428,7 +460,7 @@ export const ShareSpaceUserList: FC<ShareSpaceUserListProps> = ({
                 ]);
             }
         },
-        [unshareSpaceMutation, shareSpaceMutation, showToastError],
+        [unshareSpaceMutation, shareSpaceMutation, showToastError, t],
     );
 
     const handleGroupAccessChange = useCallback(
@@ -441,8 +473,13 @@ export const ShareSpaceUserList: FC<ShareSpaceUserListProps> = ({
                     userAccessOption !== UserAccessAction.ADMIN
                 ) {
                     showToastError({
-                        title: `Failed to update user access`,
-                        subtitle: `An admin can not be a space ${userAccessOption}`,
+                        title: t(
+                            'components_common_share_space_modal.toast_error_update_user.title',
+                        ),
+                        subtitle: t(
+                            'components_common_share_space_modal.toast_error_update_user.subtitle',
+                            { userAccessOption },
+                        ),
                     });
                     return;
                 }
@@ -459,6 +496,7 @@ export const ShareSpaceUserList: FC<ShareSpaceUserListProps> = ({
             unshareGroupSpaceAccessMutation,
             shareGroupSpaceMutation,
             showToastError,
+            t,
         ],
     );
 
@@ -487,13 +525,15 @@ export const ShareSpaceUserList: FC<ShareSpaceUserListProps> = ({
             {(accessByType.organisation.length > 0 ||
                 accessByType.project.length > 0) && (
                 <Text fw={400} span c="gray.6">
-                    Inherited access
+                    {t('components_common_share_space_modal.inherited_access')}
                 </Text>
             )}
             {accessByType.organisation.length > 0 && (
                 <ListCollapse
                     icon={IconBuildingBank}
-                    label="From organisation"
+                    label={t(
+                        'components_common_share_space_modal.from_organisation',
+                    )}
                     accessCount={accessByType.organisation.length}
                 >
                     <UserAccessList
@@ -507,7 +547,9 @@ export const ShareSpaceUserList: FC<ShareSpaceUserListProps> = ({
             {accessByType.project.length > 0 && (
                 <ListCollapse
                     icon={IconDatabase}
-                    label="From project"
+                    label={t(
+                        'components_common_share_space_modal.from_project',
+                    )}
                     accessCount={accessByType.project.length}
                 >
                     <UserAccessList
@@ -521,7 +563,7 @@ export const ShareSpaceUserList: FC<ShareSpaceUserListProps> = ({
             {space.access.length > 0 && (
                 <>
                     <Text fw={400} span c="gray.6">
-                        Group access
+                        {t('components_common_share_space_modal.group_access')}
                     </Text>
                     <GroupsAccessList
                         isPrivate={space.isPrivate}
@@ -533,7 +575,7 @@ export const ShareSpaceUserList: FC<ShareSpaceUserListProps> = ({
             {accessByType.direct.length > 0 && (
                 <>
                     <Text fw={400} span c="gray.6">
-                        User access
+                        {t('components_common_share_space_modal.user_access')}
                     </Text>
                     <UserAccessList
                         isPrivate={space.isPrivate}

@@ -6,8 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { useProject } from '../../../hooks/useProject';
 import MantineIcon from '../MantineIcon';
 import {
-    SpaceAccessOptions,
     SpaceAccessType,
+    useSpaceAccessOptions,
     type AccessOption,
 } from '../ShareSpaceModal/ShareSpaceSelect';
 
@@ -42,6 +42,7 @@ export const CreateSpaceSelectAccessType: FC<ShareSpaceAccessTypeProps> = ({
 }) => {
     const { data: project } = useProject(projectUuid);
     const { t } = useTranslation();
+    const SpaceAccessOptions = useSpaceAccessOptions();
 
     return (
         <Group position="apart">

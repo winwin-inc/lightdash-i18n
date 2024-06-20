@@ -13,9 +13,9 @@ import { type CreateSpaceModalBody } from '.';
 import { useProjectAccess } from '../../../hooks/useProjectAccess';
 import { useApp } from '../../../providers/AppProvider';
 import {
-    SpaceAccessOptions,
     SpaceAccessType,
     SpacePrivateAccessType,
+    useSpaceAccessOptions,
     type AccessOption,
 } from '../ShareSpaceModal/ShareSpaceSelect';
 import { CreateSpaceAddUser } from './CreateSpaceAddUser';
@@ -67,6 +67,8 @@ const CreateSpaceModalContent: FC<CreateSpaceModalBody> = ({
     const {
         user: { data: sessionUser },
     } = useApp();
+
+    const SpaceAccessOptions = useSpaceAccessOptions();
     const [selectedAccess, setSelectedAccess] = useState<AccessOption>(
         SpaceAccessOptions[0],
     );

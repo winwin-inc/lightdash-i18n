@@ -1,5 +1,7 @@
 import { Group, Input, NumberInput } from '@mantine/core';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { getHourlyCronExpression, parseCronExpression } from './cronInputUtils';
 
 const HourlyInputs: FC<{
@@ -7,6 +9,8 @@ const HourlyInputs: FC<{
     cronExpression: string;
     onChange: (value: string) => void;
 }> = ({ disabled, cronExpression, onChange }) => {
+    const { t } = useTranslation();
+
     const minutes = parseCronExpression(cronExpression).minutes;
 
     const onMinuteChange = (valueAsNumber: number) => {
@@ -21,7 +25,9 @@ const HourlyInputs: FC<{
 
     return (
         <Group spacing="sm">
-            <Input.Label>at minute</Input.Label>
+            <Input.Label>
+                {t('components_react_hook_form.at_minute')}
+            </Input.Label>
             <NumberInput
                 value={minutes}
                 onChange={onMinuteChange}

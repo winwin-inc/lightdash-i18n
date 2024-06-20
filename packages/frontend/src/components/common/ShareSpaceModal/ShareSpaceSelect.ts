@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 export interface AccessOption {
     title: string;
     description?: string;
@@ -15,21 +17,36 @@ export const enum SpaceAccessType {
     PUBLIC = 'public',
 }
 
-export const SpaceAccessOptions: AccessOption[] = [
-    {
-        title: 'Restricted access',
-        description: 'Only invited members and admins can access',
-        selectDescription: 'Only invited members and admins can access',
-        value: SpaceAccessType.PRIVATE,
-    },
-    {
-        title: 'Public access',
-        description: 'All project members can access',
-        selectDescription:
-            'All project members can access with their project permissions',
-        value: SpaceAccessType.PUBLIC,
-    },
-];
+export const useSpaceAccessOptions = () => {
+    const { t } = useTranslation();
+
+    return [
+        {
+            title: t(
+                'components_common_share_space_modal.space_access_options.restricted_access.title',
+            ),
+            description: t(
+                'components_common_share_space_modal.space_access_options.restricted_access.description',
+            ),
+            selectDescription: t(
+                'components_common_share_space_modal.space_access_options.restricted_access.select_description',
+            ),
+            value: SpaceAccessType.PRIVATE,
+        },
+        {
+            title: t(
+                'components_common_share_space_modal.space_access_options.public_access.title',
+            ),
+            description: t(
+                'components_common_share_space_modal.space_access_options.public_access.description',
+            ),
+            selectDescription: t(
+                'components_common_share_space_modal.space_access_options.public_access.select_description',
+            ),
+            value: SpaceAccessType.PUBLIC,
+        },
+    ] as AccessOption[];
+};
 
 export const enum UserAccessAction {
     DELETE = 'delete',
@@ -38,25 +55,45 @@ export const enum UserAccessAction {
     ADMIN = 'admin',
 }
 
-export const UserAccessOptions: AccessOption[] = [
-    {
-        title: 'Can view',
-        selectDescription: `View space contents.`,
-        value: UserAccessAction.VIEWER,
-    },
-    {
-        title: 'Can edit',
-        selectDescription: `Edit space contents.`,
-        value: UserAccessAction.EDITOR,
-    },
-    {
-        title: 'Full access',
-        selectDescription: `Manage space access and content.`,
-        value: UserAccessAction.ADMIN,
-    },
-    {
-        title: 'No access',
-        selectDescription: `Remove user's access`,
-        value: UserAccessAction.DELETE,
-    },
-];
+export const useUserAccessOptions = () => {
+    const { t } = useTranslation();
+
+    return [
+        {
+            title: t(
+                'components_common_share_space_modal.user_access_options.can_view.title',
+            ),
+            selectDescription: t(
+                'components_common_share_space_modal.user_access_options.can_view.select_description',
+            ),
+            value: UserAccessAction.VIEWER,
+        },
+        {
+            title: t(
+                'components_common_share_space_modal.user_access_options.can_edit.title',
+            ),
+            selectDescription: t(
+                'components_common_share_space_modal.user_access_options.can_edit.select_description',
+            ),
+            value: UserAccessAction.EDITOR,
+        },
+        {
+            title: t(
+                'components_common_share_space_modal.user_access_options.full_access.title',
+            ),
+            selectDescription: t(
+                'components_common_share_space_modal.user_access_options.full_access.select_description',
+            ),
+            value: UserAccessAction.ADMIN,
+        },
+        {
+            title: t(
+                'components_common_share_space_modal.user_access_options.no_access.title',
+            ),
+            selectDescription: t(
+                'components_common_share_space_modal.user_access_options.no_access.select_description',
+            ),
+            value: UserAccessAction.DELETE,
+        },
+    ] as AccessOption[];
+};

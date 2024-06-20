@@ -1,5 +1,7 @@
 import { Group, Input, NumberInput } from '@mantine/core';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import {
     getMonthlyCronExpression,
     parseCronExpression,
@@ -11,6 +13,8 @@ const MonthlyInputs: FC<{
     cronExpression: string;
     onChange: (value: string) => void;
 }> = ({ disabled, cronExpression, onChange }) => {
+    const { t } = useTranslation();
+
     const { minutes, hours, day } = parseCronExpression(cronExpression);
 
     const onDayChange = (newDay: number) => {
@@ -25,7 +29,7 @@ const MonthlyInputs: FC<{
 
     return (
         <Group spacing="sm">
-            <Input.Label>on day</Input.Label>
+            <Input.Label>{t('components_react_hook_form.on_day')}</Input.Label>
             <NumberInput
                 value={day}
                 onChange={onDayChange}
@@ -34,7 +38,7 @@ const MonthlyInputs: FC<{
                 min={1}
                 max={31}
             />
-            <Input.Label>at</Input.Label>
+            <Input.Label>{t('components_react_hook_form.at')}</Input.Label>
 
             <TimePicker
                 disabled={disabled}

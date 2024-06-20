@@ -12,14 +12,16 @@ import {
 } from '@mantine/core';
 import { IconFolderShare, IconLock, IconUsers } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+
 import { useApp } from '../../../providers/AppProvider';
 import MantineIcon from '../MantineIcon';
 import { ShareSpaceAccessType } from './ShareSpaceAccessType';
 import { ShareSpaceAddUser } from './ShareSpaceAddUser';
 import {
-    SpaceAccessOptions,
     SpaceAccessType,
+    useSpaceAccessOptions,
     type AccessOption,
 } from './ShareSpaceSelect';
 import { ShareSpaceUserList } from './ShareSpaceUserList';
@@ -31,10 +33,12 @@ export interface ShareSpaceProps {
 
 const ShareSpaceModal: FC<ShareSpaceProps> = ({ space, projectUuid }) => {
     const theme = useMantineTheme();
+    const SpaceAccessOptions = useSpaceAccessOptions();
     const [selectedAccess, setSelectedAccess] = useState<AccessOption>(
         space.isPrivate ? SpaceAccessOptions[0] : SpaceAccessOptions[1],
     );
     const { user: sessionUser } = useApp();
+    const { t } = useTranslation();
 
     const [isOpen, setIsOpen] = useState<boolean>(false);
 
@@ -53,7 +57,7 @@ const ShareSpaceModal: FC<ShareSpaceProps> = ({ space, projectUuid }) => {
                 }}
                 variant="default"
             >
-                Share
+                {t('components_common_share_space_modal.share')}
             </Button>
 
             <Modal
@@ -61,7 +65,11 @@ const ShareSpaceModal: FC<ShareSpaceProps> = ({ space, projectUuid }) => {
                 title={
                     <Group spacing="xs">
                         <MantineIcon size="lg" icon={IconFolderShare} />
-                        <Title order={4}>Share "{space.name}" space</Title>
+                        <Title order={4}>
+                            {t('components_common_share_space_modal.share', {
+                                name: space.name,
+                            })}
+                        </Title>
                     </Group>
                 }
                 opened={isOpen}
@@ -108,27 +116,38 @@ const ShareSpaceModal: FC<ShareSpaceProps> = ({ space, projectUuid }) => {
                                 'InviteLink',
                             ) ? (
                                 <>
-                                    Can't find a user? Spaces can only be shared
-                                    with{' '}
+                                    {t(
+                                        'components_common_share_space_modal.private.part_1',
+                                    )}{' '}
                                     <Anchor
                                         component={Link}
                                         to={`/generalSettings/projectManagement/${projectUuid}/projectAccess`}
                                     >
-                                        existing project members
+                                        {t(
+                                            'components_common_share_space_modal.private.part_2',
+                                        )}
                                     </Anchor>
-                                    .
+                                    {t(
+                                        'components_common_share_space_modal.private.part_3',
+                                    )}
                                 </>
                             ) : (
                                 <>
-                                    Learn more about permissions in our{' '}
+                                    {t(
+                                        'components_common_share_space_modal.private.part_4',
+                                    )}{' '}
                                     <Anchor
                                         href="https://docs.lightdash.com/references/roles"
                                         target="_blank"
                                         rel="noreferrer"
                                     >
-                                        docs
+                                        {t(
+                                            'components_common_share_space_modal.private.part_5',
+                                        )}
                                     </Anchor>
-                                    .
+                                    {t(
+                                        'components_common_share_space_modal.private.part_6',
+                                    )}
                                 </>
                             )}
                         </Text>
