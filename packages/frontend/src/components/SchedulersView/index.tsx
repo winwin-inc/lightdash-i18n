@@ -2,6 +2,8 @@ import { ActionIcon, Group, Tabs, Title, Tooltip } from '@mantine/core';
 import { IconClock, IconRefresh, IconSend } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useSchedulerLogs } from '../../features/scheduler/hooks/useScheduler';
 import { useTableTabStyles } from '../../hooks/styles/useTableTabStyles';
 import useToaster from '../../hooks/toaster/useToaster';
@@ -17,17 +19,18 @@ const SchedulersView: FC<{ projectUuid: string }> = ({ projectUuid }) => {
     const tableTabStyles = useTableTabStyles();
     const queryClient = useQueryClient();
     const { showToastSuccess } = useToaster();
+    const { t } = useTranslation();
 
     const handleRefresh = async () => {
         await queryClient.invalidateQueries(['schedulerLogs']);
 
         showToastSuccess({
-            title: 'Scheduled deliveries refreshed successfully',
+            title: t('components_schedulers_view.toast.success'),
         });
     };
 
     if (isInitialLoading) {
-        return <LoadingState title="Loading scheduled deliveries" />;
+        return <LoadingState title={t('components_schedulers_view.loading')} />;
     }
     return (
         <SettingsCard style={{ overflow: 'visible' }} p={0} shadow="none">
@@ -56,7 +59,9 @@ const SchedulersView: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                             }
                         >
                             <Title order={6} fw={500} color="gray.7">
-                                All schedulers
+                                {t(
+                                    'components_schedulers_view.tabs.all_schedulers',
+                                )}
                             </Title>
                         </Tabs.Tab>
                         <Tabs.Tab
@@ -70,11 +75,17 @@ const SchedulersView: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                             }
                         >
                             <Title order={6} fw={500} color="gray.7">
-                                Run history
+                                {t(
+                                    'components_schedulers_view.tabs.run_history',
+                                )}
                             </Title>
                         </Tabs.Tab>
                     </Tabs.List>
-                    <Tooltip label="Click to refresh the status of the scheduled deliveries">
+                    <Tooltip
+                        label={t(
+                            'components_schedulers_view.tabs.tooltip_refresh.label',
+                        )}
+                    >
                         <ActionIcon ml="auto" onClick={handleRefresh}>
                             <MantineIcon
                                 icon={IconRefresh}
@@ -90,8 +101,12 @@ const SchedulersView: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                         <Schedulers {...data} projectUuid={projectUuid} />
                     ) : (
                         <ResourceEmptyState
-                            title="No scheduled deliveries on this project"
-                            description="Go to a chart or dashboard to set up your first scheduled delivery"
+                            title={t(
+                                'components_schedulers_view.tabs.no_schedulers_deliver.title',
+                            )}
+                            description={t(
+                                'components_schedulers_view.tabs.no_schedulers_deliver.description',
+                            )}
                         />
                     )}
                 </Tabs.Panel>
@@ -101,14 +116,22 @@ const SchedulersView: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                             <Logs {...data} projectUuid={projectUuid} />
                         ) : (
                             <ResourceEmptyState
-                                title="Scheduled deliveries have not run any jobs as of now"
-                                description="Check in later of hit the refresh button to see if any jobs have run"
+                                title={t(
+                                    'components_schedulers_view.tabs.no_schedulers_jobs.title',
+                                )}
+                                description={t(
+                                    'components_schedulers_view.tabs.no_schedulers_jobs.description',
+                                )}
                             />
                         )
                     ) : (
                         <ResourceEmptyState
-                            title="No scheduled deliveries on this project"
-                            description="Go to a chart or dashboard to set up your first scheduled delivery"
+                            title={t(
+                                'components_schedulers_view.tabs.no_schedulers_deliver.title',
+                            )}
+                            description={t(
+                                'components_schedulers_view.tabs.no_schedulers_deliver.description',
+                            )}
                         />
                     )}
                 </Tabs.Panel>

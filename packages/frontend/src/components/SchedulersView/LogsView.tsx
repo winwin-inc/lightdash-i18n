@@ -14,7 +14,9 @@ import { IconChevronDown } from '@tabler/icons-react';
 import capitalize from 'lodash/capitalize';
 import groupBy from 'lodash/groupBy';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+
 import { useTableStyles } from '../../hooks/styles/useTableStyles';
 import MantineIcon from '../common/MantineIcon';
 import {
@@ -69,6 +71,7 @@ const Logs: FC<LogsProps> = ({
         },
         [openedUuids],
     );
+    const { t } = useTranslation();
 
     const groupedLogs = useMemo(
         () => Object.entries(groupBy(logs, 'jobGroup')),
@@ -79,7 +82,7 @@ const Logs: FC<LogsProps> = ({
         return [
             {
                 id: 'name',
-                label: 'Name',
+                label: t('components_schedulers_view_logs_table.name.label'),
                 cell: (item) => {
                     const user = users.find(
                         (u) => u.userUuid === item.createdBy,
@@ -110,15 +113,23 @@ const Logs: FC<LogsProps> = ({
                                         label={
                                             <Stack spacing="two" fz="xs">
                                                 <Text color="gray.5">
-                                                    Schedule type:{' '}
+                                                    {t(
+                                                        'components_schedulers_view_logs_table.groups.schedule_type',
+                                                    )}{' '}
                                                     <Text color="white" span>
                                                         {item.format === 'csv'
-                                                            ? 'CSV'
-                                                            : 'Image'}
+                                                            ? t(
+                                                                  'components_schedulers_view_logs_table.groups.csv',
+                                                              )
+                                                            : t(
+                                                                  'components_schedulers_view_logs_table.groups.image',
+                                                              )}
                                                     </Text>
                                                 </Text>
                                                 <Text color="gray.5">
-                                                    Created by:{' '}
+                                                    {t(
+                                                        'components_schedulers_view_logs_table.groups.created_by',
+                                                    )}{' '}
                                                     <Text color="white" span>
                                                         {user?.firstName}{' '}
                                                         {user?.lastName}
@@ -156,16 +167,23 @@ const Logs: FC<LogsProps> = ({
             },
             {
                 id: 'jobs',
-                label: 'Job',
+                label: t('components_schedulers_view_logs_table.job.label'),
                 cell: (_item, currentLogs, jobGroup) => {
                     return currentLogs.length === 0 ? (
                         <Text fz="xs" fw={500}>
-                            No jobs yet
+                            {t(
+                                'components_schedulers_view_logs_table.groups.no_jobs_yet',
+                            )}
                         </Text>
                     ) : (
                         <Stack spacing="md" fz="xs" fw={500}>
                             <Group spacing="two">
-                                <Text>All jobs</Text>
+                                <Text>
+                                    {' '}
+                                    {t(
+                                        'components_schedulers_view_logs_table.groups.all_jobs',
+                                    )}
+                                </Text>
                                 <ActionIcon
                                     onClick={() => handleTogle(jobGroup)}
                                     size="sm"
@@ -197,7 +215,9 @@ const Logs: FC<LogsProps> = ({
             },
             {
                 id: 'deliveryScheduled',
-                label: 'Delivery scheduled',
+                label: t(
+                    'components_schedulers_view_logs_table.delivery_scheduled.label',
+                ),
                 cell: (_item, currentLogs, jobGroup) => {
                     return currentLogs.length === 0 ? (
                         <Text fz="xs" color="gray.6">
@@ -223,7 +243,9 @@ const Logs: FC<LogsProps> = ({
             },
             {
                 id: 'deliveryStarted',
-                label: 'Delivery start',
+                label: t(
+                    'components_schedulers_view_logs_table.delivery_started.label',
+                ),
                 cell: (_item, currentLogs, jobGroup) => {
                     return currentLogs.length === 0 ? (
                         <Text fz="xs" color="gray.6">
@@ -249,7 +271,7 @@ const Logs: FC<LogsProps> = ({
             },
             {
                 id: 'status',
-                label: 'Status',
+                label: t('components_schedulers_view_logs_table.status.label'),
                 cell: (_item, currentLogs, jobGroup) => {
                     return (
                         <Center fz="xs" fw={500}>
@@ -283,6 +305,7 @@ const Logs: FC<LogsProps> = ({
         theme,
         handleTogle,
         openedUuids,
+        t,
     ]);
 
     return (

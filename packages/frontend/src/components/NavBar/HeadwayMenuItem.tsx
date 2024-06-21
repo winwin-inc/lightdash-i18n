@@ -70,7 +70,7 @@ const HeadwayMenuItem: FC<Props> = ({ projectUuid }) => {
     return (
         <Tooltip
             color="dark"
-            label={t('components_navbar_headway_menu.tooltip_label')}
+            label={t('components_navbar_headway_menu.tooltip.label')}
             withinPortal
         >
             <Button

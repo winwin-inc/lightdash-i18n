@@ -97,9 +97,9 @@
             },
             "tabs_panel_setup": {
                 "alter_me": "提醒我",
-                "delivery_name": "推送名称",
+                "delivery_name": "交付名称",
                 "name_your_alert": "命名您的提醒",
-                "nmae_your_delivery": "命名您的推送",
+                "nmae_your_delivery": "命名您的交付",
                 "alert_field": "提醒字段",
                 "no_fields": "没有可用的数字字段。您必须至少有一个数字指标或计算才能设置提醒。",
                 "condition": "条件",
@@ -107,7 +107,7 @@
                 "notify_me_only_once": "只通知我一次",
                 "trigger_notification": "每当达到阈值条件时,您将按指定频率收到通知",
                 "run_frequency": "运行频率",
-                "delivery_frequency": "推送频率",
+                "delivery_frequency": "交付频率",
                 "threshold_alert": "这是Lightdash查询数据变化的频率。(如果满足最新数值的条件,您将收到通知)",
                 "format": "格式",
                 "image_disabled": {
@@ -129,7 +129,7 @@
                 "enter_email_validation_error": "'{{val}}' 似乎不是有效的电子邮件地址",
                 "no_email_integration": {
                     "part_1": "未找到电子邮件集成",
-                    "part_2": "要创建电子邮件定期推送, 您需要添加",
+                    "part_2": "要创建电子邮件定期交付, 您需要添加",
                     "part_3": "SMTP 环境变量",
                     "part_4": "到您的 Lightdash 实例"
                 },
@@ -138,7 +138,7 @@
                 "add_slack_disabled": "如果要投放到私有 Slack 频道, 请在输入框中准确输入该频道在 Slack 中的名称。同时确保您已邀请 Lightdash Slackbot 加入该频道。"
             },
             "tabs_panel_customization": {
-                "title": "自定义推送消息体"
+                "title": "自定义交付消息体"
             }
         }
     },
@@ -290,6 +290,119 @@
         "from_project": "来自项目",
         "group_access": "组访问权限",
         "user_access": "用户访问权限"
+    },
+
+    "components_dbt_cloud_settings": {
+        "schema_valdation": {
+            "server_token": "需要服务令牌",
+            "job_id": "需要 Job ID"
+        },
+        "form": {
+            "title": "dbt 语义层",
+            "content": {
+                "part_1": "dbt 语义层现在已在 Lightdash Cloud 中推出。要进行设置,请联系您的 Lightdash 支持代表或发送电子邮件至 support@lightdash.com, 以便在您的帐户中启用此功能。",
+                "part_2": "在我们的",
+                "part_3": "文档指南中了解更多关于使用 dbt 语义层的信息"
+            },
+            "password": {
+                "label": "服务令牌",
+                "tooltip": {
+                    "label": "您可以在 dbt Cloud 帐户设置中找到服务令牌:https://cloud.getdbt.com/next/settings - 令牌需要至少具有'仅限语义层'权限。"
+                }
+            },
+            "environment": {
+                "label": "环境 ID",
+                "tooltip": {
+                    "label": "dbt 生产环境的唯一标识符,您可以从 dbt Cloud URL 中检索此信息,方法是导航到'部署'下的'环境'。如果您的 URL 以 .../environments/222222 结尾,则您的 environmentId 是 222222"
+                }
+            },
+            "clear": "清除",
+            "save": "保存"
+        }
+    },
+
+    "components_schedulers_view": {
+        "toast": {
+            "success": "计划交付已成功刷新"
+        },
+        "loading": "正在加载计划交付",
+        "tabs": {
+            "all_schedulers": "所有调度程序",
+            "run_history": "运行历史记录",
+            "tooltip_refresh": {
+                "label": "点击刷新计划交付的状态"
+            },
+            "no_schedulers_deliver": {
+                "title": "此项目没有计划的交付",
+                "description": "转到图表或看板以设置您的第一个计划交付"
+            },
+            "no_schedulers_jobs": {
+                "title": "目前还没有计划的交付运行任何作业",
+                "description": "稍后检查或点击刷新按钮,看看是否有任何作业已运行"
+            }
+        }
+    },
+    "components_schedulers_view_logs_table": {
+        "name": {
+            "label": "名称",
+            "groups": {
+                "schedule_type": "计划类型:",
+                "csv": "CSV",
+                "image": "图像",
+                "created_by": "创建者:"
+            }
+        },
+        "job": {
+            "label": "作业",
+            "groups": {
+                "no_jobs_yet": "没有作业",
+                "all_jobs": "所有作业"
+            }
+        },
+        "delivery_scheduled": {
+            "label": "计划交付"
+        },
+        "delivery_started": {
+            "label": "交付开始"
+        },
+        "status": {
+            "label": "状态"
+        }
+    },
+    "components_schedulers_view_table": {
+        "name": {
+            "label": "名称",
+            "groups": {
+                "csv": "CSV",
+                "image": "图像",
+                "google_sheets": "Google Sheets",
+                "schedule_type": "计划类型:",
+                "created_by": "创建者:"
+            }
+        },
+        "destinations": {
+            "label": "目的地",
+            "groups": {
+                "email": "电子邮件",
+                "slack": "Slack",
+                "google_sheets": "Google Sheets"
+            },
+            "no_destinations": "没有目的地"
+        },
+        "frequency": {
+            "label": "频率"
+        },
+        "last_deliver_start": {
+            "label": "上次交付开始",
+            "no_deliveries_started": "尚未开始任何交付"
+        }
+    },
+    "components_schedulers_view_action_menu": {
+        "edit_schedule": "编辑计划",
+        "go_to": "转到",
+        "chart": "图表",
+        "dashboard": "看板",
+        "delete_schedule": "删除计划"
     },
 
     "components_project_access": {
@@ -529,7 +642,9 @@
         }
     },
     "components_navbar_headway_menu": {
-        "tooltip_label": "有什么新闻吗?"
+        "tooltip": {
+            "label": "有什么新闻吗?"
+        }
     },
     "components_navbar_user_menu": {
         "menus": {
@@ -1411,7 +1526,7 @@
             "google_sheets_sync": "Google 表格同步",
             "add_custom_metrics": "向 dbt 项目添加自定义指标",
             "tooltip_can_manage": {
-                "label": "可以从仪表板中删除此图表",
+                "label": "可以从看板中删除此图表",
                 "content": "删除"
             }
         }
@@ -1734,7 +1849,7 @@
                 "project_access": "项目权限",
                 "dbt_semantic_layer": "dbt 语义层",
                 "usage_analytics": "使用分析",
-                "syncs_scheduled_deliveries": "同步与定时推送",
+                "syncs_scheduled_deliveries": "同步与定时交付",
                 "validator": "验证器",
                 "data_ops": "数据操作",
                 "custom_sql": "自定义 SQL"

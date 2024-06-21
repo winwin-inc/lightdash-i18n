@@ -7,7 +7,9 @@ import {
 } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+
 import { SchedulerDeleteModal } from '../../features/scheduler';
 import MantineIcon from '../common/MantineIcon';
 import {
@@ -28,6 +30,7 @@ const SchedulersViewActionMenu: FC<SchedulersViewActionMenuProps> = ({
     item,
     projectUuid,
 }) => {
+    const { t } = useTranslation();
     const [isDeleting, setIsDeleting] = React.useState(false);
     const queryClient = useQueryClient();
 
@@ -67,7 +70,9 @@ const SchedulersViewActionMenu: FC<SchedulersViewActionMenuProps> = ({
                         icon={<IconEdit size={18} />}
                         to={getSchedulerLink(item, projectUuid)}
                     >
-                        Edit schedule
+                        {t(
+                            'components_schedulers_view_action_menu.edit_schedule',
+                        )}
                     </Menu.Item>
                     <Menu.Item
                         component={Link}
@@ -75,7 +80,12 @@ const SchedulersViewActionMenu: FC<SchedulersViewActionMenuProps> = ({
                         icon={<IconSquarePlus size={18} />}
                         to={getItemLink(item, projectUuid)}
                     >
-                        Go to {item.savedChartUuid ? 'chart' : 'dashboard'}
+                        {t('components_schedulers_view_action_menu.go_to')}
+                        {item.savedChartUuid
+                            ? t('components_schedulers_view_action_menu.chart')
+                            : t(
+                                  'components_schedulers_view_action_menu.dashboard',
+                              )}
                     </Menu.Item>
                     <Menu.Divider />
                     <Menu.Item
@@ -85,7 +95,9 @@ const SchedulersViewActionMenu: FC<SchedulersViewActionMenuProps> = ({
                         icon={<MantineIcon icon={IconTrash} size={18} />}
                         onClick={() => setIsDeleting(true)}
                     >
-                        Delete schedule
+                        {t(
+                            'components_schedulers_view_action_menu.delete_schedule',
+                        )}
                     </Menu.Item>
                 </Menu.Dropdown>
             </Menu>

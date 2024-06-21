@@ -7,7 +7,9 @@ import {
 } from '@lightdash/common';
 import { Anchor, Box, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { useCallback, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+
 import { useSlackChannels } from '../../hooks/slack/useSlack';
 import { useTableStyles } from '../../hooks/styles/useTableStyles';
 import SchedulersViewActionMenu from './SchedulersViewActionMenu';
@@ -47,6 +49,7 @@ const Schedulers: FC<SchedulersProps> = ({
 }) => {
     const { classes, theme } = useTableStyles();
     const { data: allSlackChannels } = useSlackChannels();
+    const { t } = useTranslation();
 
     const getSlackChannelName = useCallback(
         (channelId: string) => {
@@ -64,7 +67,7 @@ const Schedulers: FC<SchedulersProps> = ({
         () => [
             {
                 id: 'name',
-                label: 'Name',
+                label: t('components_schedulers_view_table.name.label'),
                 cell: (item) => {
                     const user = users.find(
                         (u) => u.userUuid === item.createdBy,
@@ -82,11 +85,17 @@ const Schedulers: FC<SchedulersProps> = ({
                     const format = () => {
                         switch (item.format) {
                             case SchedulerFormat.CSV:
-                                return 'CSV';
+                                return t(
+                                    'components_schedulers_view_table.name.groups.csv',
+                                );
                             case SchedulerFormat.IMAGE:
-                                return 'Image';
+                                return t(
+                                    'components_schedulers_view_table.name.groups.image',
+                                );
                             case SchedulerFormat.GSHEETS:
-                                return 'Google Sheets';
+                                return t(
+                                    'components_schedulers_view_table.name.groups.google_sheets',
+                                );
                         }
                     };
                     return (
@@ -103,13 +112,17 @@ const Schedulers: FC<SchedulersProps> = ({
                                         label={
                                             <Stack spacing="two" fz="xs">
                                                 <Text color="gray.5">
-                                                    Schedule type:{' '}
+                                                    {t(
+                                                        'components_schedulers_view_table.name.groups.schedule_type',
+                                                    )}{' '}
                                                     <Text color="white" span>
                                                         {format()}
                                                     </Text>
                                                 </Text>
                                                 <Text color="gray.5">
-                                                    Created by:{' '}
+                                                    {t(
+                                                        'components_schedulers_view_table.name.groups.created_by"',
+                                                    )}{' '}
                                                     <Text color="white" span>
                                                         {user?.firstName}{' '}
                                                         {user?.lastName}
@@ -147,20 +160,20 @@ const Schedulers: FC<SchedulersProps> = ({
             },
             {
                 id: 'destinations',
-                label: 'Destinations',
+                label: t('components_schedulers_view_table.destinations.label'),
                 cell: (item) => {
                     const currentTargets = item.targets.filter(
                         (target) => target.schedulerUuid === item.schedulerUuid,
                     );
                     let emails: string[] = [];
                     let slackChannels: string[] = [];
-                    currentTargets.map((t) => {
-                        if (isSlackTarget(t)) {
+                    currentTargets.map((target) => {
+                        if (isSlackTarget(target)) {
                             return slackChannels.push(
-                                getSlackChannelName(t.channel),
+                                getSlackChannelName(target.channel),
                             );
                         } else {
-                            return emails.push(t.recipient);
+                            return emails.push(target.recipient);
                         }
                     });
                     return (
@@ -175,8 +188,12 @@ const Schedulers: FC<SchedulersProps> = ({
                                 >
                                     <Text fz="xs" color="gray.6" underline>
                                         {slackChannels.length > 0
-                                            ? 'Email,'
-                                            : 'Email'}
+                                            ? t(
+                                                  'components_schedulers_view_table.destinations.groups.email',
+                                              ) + ','
+                                            : t(
+                                                  'components_schedulers_view_table.destinations.groups.email',
+                                              )}
                                     </Text>
                                 </Tooltip>
                             )}
@@ -189,7 +206,9 @@ const Schedulers: FC<SchedulersProps> = ({
                                     ))}
                                 >
                                     <Text fz="xs" color="gray.6" underline>
-                                        Slack
+                                        {t(
+                                            'components_schedulers_view_table.destinations.groups.slack',
+                                        )}
                                     </Text>
                                 </Tooltip>
                             )}
@@ -206,7 +225,9 @@ const Schedulers: FC<SchedulersProps> = ({
                                                 textDecoration: 'underline',
                                             }}
                                         >
-                                            Google Sheets
+                                            {t(
+                                                'components_schedulers_view_table.destinations.groups.google_sheets',
+                                            )}
                                         </Anchor>
                                     </Tooltip>
                                 )}
@@ -214,7 +235,9 @@ const Schedulers: FC<SchedulersProps> = ({
                                 slackChannels.length === 0 &&
                                 emails.length === 0 && (
                                     <Text fz="xs" color="gray.6">
-                                        No destinations
+                                        {t(
+                                            'components_schedulers_view_table.destinations.no_destinations',
+                                        )}
                                     </Text>
                                 )}
                         </Group>
@@ -228,7 +251,7 @@ const Schedulers: FC<SchedulersProps> = ({
             },
             {
                 id: 'frequency',
-                label: 'Frequency',
+                label: t('components_schedulers_view_table.frequency.label'),
                 cell: (item) => {
                     return (
                         <Text fz="xs" color="gray.6">
@@ -240,7 +263,9 @@ const Schedulers: FC<SchedulersProps> = ({
             },
             {
                 id: 'lastDelivery',
-                label: 'Last delivery start',
+                label: t(
+                    'components_schedulers_view_table.last_deliver_start.label',
+                ),
                 cell: (item) => {
                     const currentLogs = logs.filter(
                         (log) => log.schedulerUuid === item.schedulerUuid,
@@ -254,7 +279,9 @@ const Schedulers: FC<SchedulersProps> = ({
                         </Group>
                     ) : (
                         <Text fz="xs" color="gray.6">
-                            No deliveries started
+                            {t(
+                                'components_schedulers_view_table.last_deliver_start.no_deliveries_started',
+                            )}
                         </Text>
                     );
                 },
@@ -291,6 +318,7 @@ const Schedulers: FC<SchedulersProps> = ({
             logs,
             theme,
             getSlackChannelName,
+            t,
         ],
     );
 

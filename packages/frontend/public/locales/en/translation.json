@@ -292,6 +292,119 @@
         "user_access": "User access"
     },
 
+    "components_dbt_cloud_settings": {
+        "schema_valdation": {
+            "server_token": "Service token is required",
+            "job_id": "Job ID is required"
+        },
+        "form": {
+            "title": "dbt Semantic Layer",
+            "content": {
+                "part_1": "dbt Semantic Layer is available now in Lightdash Cloud. To get setup, reach out to your Lightdash support rep or email support@lightdash.com to have this activated in your account.",
+                "part_2": "Read more about using dbt Semantic Layer in our",
+                "part_3": "docs guide"
+            },
+            "password": {
+                "label": " Service Token",
+                "tooltip": {
+                    "label": "Service tokens can be found in your dbt Cloud account settings: https://cloud.getdbt.com/next/settings - token needs at least 'semantic layer only' permissions."
+                }
+            },
+            "environment": {
+                "label": "Environment ID",
+                "tooltip": {
+                    "label": "The unique identifier for the dbt production environment, you can retrieve this from the dbt Cloud URL when you navigate to Environments under Deploy. If your URL ends with .../environments/222222, your environmentId is 222222"
+                }
+            },
+            "clear": "Clear",
+            "save": "Save"
+        }
+    },
+
+    "components_schedulers_view": {
+        "toast": {
+            "success": "Scheduled deliveries refreshed successfully"
+        },
+        "loading": "Loading scheduled deliveries",
+        "tabs": {
+            "all_schedulers": "ALl schedulers",
+            "run_history": "Run history",
+            "tooltip_refresh": {
+                "label": "Click to refresh the status of the scheduled deliveries"
+            },
+            "no_schedulers_deliver": {
+                "title": "No scheduled deliveries on this project",
+                "description": "Go to a chart or dashboard to set up your first scheduled delivery"
+            },
+            "no_schedulers_jobs": {
+                "title": "Scheduled deliveries have not run any jobs as of now",
+                "description": "Check in later of hit the refresh button to see if any jobs have run"
+            }
+        }
+    },
+    "components_schedulers_view_logs_table": {
+        "name": {
+            "label": "Name",
+            "groups": {
+                "csv": "CSV",
+                "image": "Image",
+                "schedule_type": "Schedule type:",
+                "created_by": "Created by:"
+            }
+        },
+        "job": {
+            "label": "Job",
+            "groups": {
+                "no_jobs_yet": "No jobs",
+                "all_jobs": "All jobs"
+            }
+        },
+        "delivery_scheduled": {
+            "label": "Delivery scheduled"
+        },
+        "delivery_started": {
+            "label": "Delivery start"
+        },
+        "status": {
+            "label": "Status"
+        }
+    },
+    "components_schedulers_view_table": {
+        "name": {
+            "label": "Name",
+            "groups": {
+                "csv": "CSV",
+                "image": "Image",
+                "google_sheets": "Google Sheets",
+                "schedule_type": "Schedule type:",
+                "created_by": "Created by:"
+            }
+        },
+        "destinations": {
+            "label": "Destinations",
+            "groups": {
+                "email": "Email",
+                "slack": "Slack",
+                "google_sheets": "Google Sheets"
+            },
+            "no_destinations": "No destinations"
+        },
+        "frequency": {
+            "label": "Frequency"
+        },
+        "last_deliver_start": {
+            "label": "Last delivery start",
+            "no_deliveries_started": "No deliveries started"
+        }
+    },
+    "components_schedulers_view_action_menu": {
+        "edit_schedule": "Edit schedule",
+        "go_to": "Go to ",
+        "chart": "chart",
+        "dashboard": "dashboard",
+        "delete_schedule": "Delete schedule"
+    },
+
     "components_project_access": {
         "loading": "Loading user access",
         "search_users": "Search users by name, email, or role",
@@ -529,7 +642,9 @@
         }
     },
     "components_navbar_headway_menu": {
-        "tooltip_label": "What's new?"
+        "tooltip": {
+            "label": "What's new?"
+        }
     },
     "components_navbar_user_menu": {
         "menus": {

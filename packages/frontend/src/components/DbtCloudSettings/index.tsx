@@ -13,7 +13,9 @@ import {
 import { useForm, zodResolver } from '@mantine/form';
 import { IconAlertCircle, IconHelp } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
+
 import {
     useProjectDbtCloud,
     useProjectDbtCloudDeleteMutation,
@@ -27,16 +29,20 @@ interface DbtCloudSettingsProps {
     projectUuid: string;
 }
 
-const schema = z.object({
-    serviceToken: z.string().nonempty({
-        message: 'Service token is required',
-    }),
-    metricsJobId: z.string().nonempty({
-        message: 'Job ID is required',
-    }),
-});
-
 const DbtCloudSettings: FC<DbtCloudSettingsProps> = ({ projectUuid }) => {
+    const { t } = useTranslation();
+
+    const schema = z.object({
+        serviceToken: z.string().nonempty({
+            message: t(
+                'components_dbt_cloud_settings.schema_valdation.server_token',
+            ),
+        }),
+        metricsJobId: z.string().nonempty({
+            message: t('components_dbt_cloud_settings.schema_valdation.job_id'),
+        }),
+    });
+
     const form = useForm<CreateDbtCloudIntegration>({
         validate: zodResolver(schema),
         initialValues: {
@@ -71,18 +77,23 @@ const DbtCloudSettings: FC<DbtCloudSettingsProps> = ({ projectUuid }) => {
             ) : (
                 <SettingsGridCard>
                     <Stack spacing="sm">
-                        <Title order={4}>dbt Semantic Layer</Title>
+                        <Title order={4}>
+                            {t('components_dbt_cloud_settings.form.title')}
+                        </Title>
 
                         <Text color="dimmed">
-                            dbt Semantic Layer is available now in Lightdash
-                            Cloud. To get setup, reach out to your Lightdash
-                            support rep or email support@lightdash.com to have
-                            this activated in your account.
+                            {t(
+                                'components_dbt_cloud_settings.form.content.part_1',
+                            )}
                         </Text>
                         <Text color="dimmed">
-                            Read more about using dbt Semantic Layer in our{' '}
+                            {t(
+                                'components_dbt_cloud_settings.form.content.part_2',
+                            )}{' '}
                             <Anchor href="https://docs.lightdash.com/guides/dbt-semantic-layer">
-                                docs guide
+                                {t(
+                                    'components_dbt_cloud_settings.form.content.part_3',
+                                )}
                             </Anchor>
                         </Text>
                     </Stack>
@@ -92,10 +103,14 @@ const DbtCloudSettings: FC<DbtCloudSettingsProps> = ({ projectUuid }) => {
                             {...form.getInputProps('serviceToken')}
                             label={
                                 <Group display="inline-flex" spacing="xs">
-                                    Service Token
+                                    {t(
+                                        'components_dbt_cloud_settings.form.password.label',
+                                    )}
                                     <Tooltip
                                         maw={400}
-                                        label="Service tokens can be found in your dbt Cloud account settings: https://cloud.getdbt.com/next/settings - token needs at least 'semantic layer only' permissions."
+                                        label={t(
+                                            'components_dbt_cloud_settings.form.password.tooltip.label',
+                                        )}
                                         multiline
                                     >
                                         <MantineIcon
@@ -113,10 +128,14 @@ const DbtCloudSettings: FC<DbtCloudSettingsProps> = ({ projectUuid }) => {
                             {...form.getInputProps('metricsJobId')}
                             label={
                                 <Group display="inline-flex" spacing="xs">
-                                    Environment ID
+                                    {t(
+                                        'components_dbt_cloud_settings.form.environment.label',
+                                    )}
                                     <Tooltip
                                         maw={400}
-                                        label="The unique identifier for the dbt production environment, you can retrieve this from the dbt Cloud URL when you navigate to Environments under Deploy. If your URL ends with .../environments/222222, your environmentId is 222222"
+                                        label={t(
+                                            'components_dbt_cloud_settings.form.environment.tooltip.label',
+                                        )}
                                         multiline
                                     >
                                         <MantineIcon
@@ -137,7 +156,9 @@ const DbtCloudSettings: FC<DbtCloudSettingsProps> = ({ projectUuid }) => {
                                     variant="default"
                                     onClick={() => handleClear()}
                                 >
-                                    Clear
+                                    {t(
+                                        'components_dbt_cloud_settings.form.clear',
+                                    )}
                                 </Button>
                             )}
 
@@ -146,7 +167,7 @@ const DbtCloudSettings: FC<DbtCloudSettingsProps> = ({ projectUuid }) => {
                                 disabled
                                 loading={dbtCloudSettings.isInitialLoading}
                             >
-                                Save
+                                {t('components_dbt_cloud_settings.form.save')}
                             </Button>
                         </Group>
                     </Stack>
