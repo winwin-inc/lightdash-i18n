@@ -55,6 +55,7 @@ import {
 } from './services/ServiceRepository';
 import { UtilProviderMap, UtilRepository } from './utils/UtilRepository';
 import { VERSION } from './version';
+import PrometheusMetrics from './prometheus';
 
 // We need to override this interface to have our user typing
 declare global {
@@ -155,6 +156,8 @@ export default class App {
 
     private readonly schedulerWorkerFactory: typeof schedulerWorkerFactory;
 
+    private readonly prometheusMetrics: PrometheusMetrics;
+
     constructor(args: AppArguments) {
         this.lightdashConfig = args.lightdashConfig;
         this.port = args.port;
@@ -208,9 +211,13 @@ export default class App {
         this.slackBotFactory = args.slackBotFactory || slackBotFactory;
         this.schedulerWorkerFactory =
             args.schedulerWorkerFactory || schedulerWorkerFactory;
+        this.prometheusMetrics = new PrometheusMetrics(
+            this.lightdashConfig.prometheus,
+        );
     }
 
     async start() {
+        this.prometheusMetrics.start();
         // @ts-ignore
         // eslint-disable-next-line no-extend-native, func-names
         BigInt.prototype.toJSON = function () {
@@ -237,6 +244,9 @@ export default class App {
 
         if (this.lightdashConfig.scheduler?.enabled) {
             this.initSchedulerWorker();
+            this.prometheusMetrics.monitorQueues(
+                this.clients.getSchedulerClient(),
+            );
         }
     }
 
@@ -254,18 +264,28 @@ export default class App {
             express.json({ limit: this.lightdashConfig.maxPayloadSize }),
         );
 
-        let reportUri: URL | undefined;
+        const reportUris: URL[] = [];
         try {
-            reportUri = new URL(
-                this.lightdashConfig.sentry.backend.securityReportUri,
-            );
-            reportUri.searchParams.set(
-                'sentry_environment',
-                this.environment === 'development'
-                    ? 'development'
-                    : this.lightdashConfig.mode,
-            );
-            reportUri.searchParams.set('sentry_release', VERSION);
+            if (this.lightdashConfig.sentry.backend.securityReportUri) {
+                const sentryReportUri = new URL(
+                    this.lightdashConfig.sentry.backend.securityReportUri,
+                );
+                sentryReportUri.searchParams.set(
+                    'sentry_environment',
+                    this.environment === 'development'
+                        ? 'development'
+                        : this.lightdashConfig.mode,
+                );
+                sentryReportUri.searchParams.set('sentry_release', VERSION);
+                reportUris.push(sentryReportUri);
+            }
+            if (this.lightdashConfig.security.contentSecurityPolicy.reportUri) {
+                reportUris.push(
+                    new URL(
+                        this.lightdashConfig.security.contentSecurityPolicy.reportUri,
+                    ),
+                );
+            }
         } catch (e) {
             Logger.warn('Invalid security report URI', e);
         }
@@ -287,7 +307,7 @@ export default class App {
             'https://apis.google.com',
             'https://accounts.google.com',
             'https://vega.github.io',
-            'https://cdn.jsdelivr.net/npm/monaco-editor',
+            'https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/',
             ...this.lightdashConfig.security.contentSecurityPolicy
                 .allowedDomains,
         ];
@@ -318,9 +338,11 @@ export default class App {
                             "'unsafe-inline'",
                             ...contentSecurityPolicyAllowedDomains,
                         ],
-                        'report-uri': reportUri ? [reportUri.href] : [],
+                        'report-uri': reportUris.map((uri) => uri.href),
                     },
-                    reportOnly: true,
+                    reportOnly:
+                        this.lightdashConfig.security.contentSecurityPolicy
+                            .reportOnly,
                 },
                 strictTransportSecurity: {
                     maxAge: 31536000,
@@ -577,6 +599,7 @@ export default class App {
     }
 
     async stop() {
+        this.prometheusMetrics.stop();
         if (this.schedulerWorker && this.schedulerWorker.runner) {
             try {
                 await this.schedulerWorker.runner.stop();
