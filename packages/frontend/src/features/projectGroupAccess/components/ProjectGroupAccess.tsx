@@ -2,6 +2,8 @@ import { type CreateProjectGroupAccess } from '@lightdash/common';
 import { Box, Paper, Table } from '@mantine/core';
 import { IconUsersGroup } from '@tabler/icons-react';
 import { useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import SuboptimalState from '../../../components/common/SuboptimalState/SuboptimalState';
 import { useTableStyles } from '../../../hooks/styles/useTableStyles';
 import useToaster from '../../../hooks/toaster/useToaster';
@@ -26,6 +28,7 @@ const ProjectGroupAccess: FC<ProjectGroupAccessProps> = ({
     isAddingProjectGroupAccess,
     onAddProjectGroupAccessClose,
 }) => {
+    const { t } = useTranslation();
     const { cx, classes } = useTableStyles();
 
     const { showToastSuccess } = useToaster();
@@ -40,7 +43,9 @@ const ProjectGroupAccess: FC<ProjectGroupAccessProps> = ({
         formData: CreateProjectGroupAccess,
     ) => {
         await addProjectGroupAccess(formData);
-        showToastSuccess({ title: 'Group access added' });
+        showToastSuccess({
+            title: t('features_project_group_access.toast.success'),
+        });
         onAddProjectGroupAccessClose();
     };
 
@@ -73,10 +78,12 @@ const ProjectGroupAccess: FC<ProjectGroupAccessProps> = ({
                 <Box mt="4xl">
                     <SuboptimalState
                         icon={IconUsersGroup}
-                        title="No group found with access to this project"
-                        description={
-                            'Click "Add group access" to add a group to this project'
-                        }
+                        title={t(
+                            'features_project_group_access.no_group_found.title',
+                        )}
+                        description={t(
+                            'features_project_group_access.no_group_found.description',
+                        )}
                     />
                 </Box>
             ) : (
@@ -86,8 +93,17 @@ const ProjectGroupAccess: FC<ProjectGroupAccessProps> = ({
                     >
                         <thead>
                             <tr>
-                                <th>Group Name</th>
-                                <th>Group Role</th>
+                                <th>
+                                    {t(
+                                        'features_project_group_access.table.group_name',
+                                    )}
+                                </th>
+                                <th>
+                                    {' '}
+                                    {t(
+                                        'features_project_group_access.table.group_role',
+                                    )}
+                                </th>
                                 <th></th>
                             </tr>
                         </thead>

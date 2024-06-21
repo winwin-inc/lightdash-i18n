@@ -6,6 +6,8 @@ import {
 import { ActionIcon, Group, Text } from '@mantine/core';
 import { IconEdit, IconTrash } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import useToaster from '../../../hooks/toaster/useToaster';
 import {
@@ -24,6 +26,8 @@ const ProjectGroupAccessItem: FC<ProjectGroupAccessItemProps> = ({
     group,
     access,
 }) => {
+    const { t } = useTranslation();
+
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
@@ -39,7 +43,9 @@ const ProjectGroupAccessItem: FC<ProjectGroupAccessItemProps> = ({
         updatedAccess: UpdateProjectGroupAccess,
     ) => {
         await updateProjectGroupAccess(updatedAccess);
-        showToastSuccess({ title: 'Group access updated' });
+        showToastSuccess({
+            title: t('features_project_group_access_item.toast.updated'),
+        });
         setIsEditDialogOpen(false);
     };
 
@@ -48,7 +54,9 @@ const ProjectGroupAccessItem: FC<ProjectGroupAccessItemProps> = ({
             projectUuid: access.projectUuid,
             groupUuid: access.groupUuid,
         });
-        showToastSuccess({ title: 'Group access removed' });
+        showToastSuccess({
+            title: t('features_project_group_access_item.toast.removed'),
+        });
         setIsDeleteDialogOpen(false);
     };
 

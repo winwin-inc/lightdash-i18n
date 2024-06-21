@@ -2,6 +2,8 @@ import { type OrganizationMemberProfile } from '@lightdash/common';
 import { Button, Group, Modal, Text, Title } from '@mantine/core';
 import { IconKey } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../common/MantineIcon';
 
 type Props = {
@@ -11,6 +13,8 @@ type Props = {
 };
 
 const RemoveProjectAccessModal: FC<Props> = ({ user, onDelete, onClose }) => {
+    const { t } = useTranslation();
+
     return (
         <Modal
             opened
@@ -18,20 +22,22 @@ const RemoveProjectAccessModal: FC<Props> = ({ user, onDelete, onClose }) => {
             title={
                 <Group spacing="xs">
                     <MantineIcon size="lg" icon={IconKey} color="red" />
-                    <Title order={4}>Revoke project access</Title>
+                    <Title order={4}>
+                        {t('components_project_access_remove_modal.title')}
+                    </Title>
                 </Group>
             }
         >
             <Text pb="md">
-                Are you sure you want to revoke project access for this user{' '}
+                {t('components_project_access_remove_modal.content')}{' '}
                 {user.email} ?
             </Text>
             <Group spacing="xs" position="right">
                 <Button variant="outline" onClick={onClose} color="dark">
-                    Cancel
+                    {t('components_project_access_remove_modal.cancel')}
                 </Button>
                 <Button color="red" onClick={onDelete}>
-                    Delete
+                    {t('components_project_access_remove_modal.delete')}
                 </Button>
             </Group>
         </Modal>

@@ -18,6 +18,8 @@ import {
 import { IconInfoCircle, IconTrash } from '@tabler/icons-react';
 import { capitalize } from 'lodash';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import {
     useCreateProjectAccessMutation,
     useRevokeProjectAccessMutation,
@@ -39,6 +41,8 @@ const ProjectAccessRow: FC<Props> = ({
     user,
     inheritedRoles,
 }) => {
+    const { t } = useTranslation();
+
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
     const { mutate: createAccess, isLoading: isCreatingAccess } =
@@ -121,7 +125,9 @@ const ProjectAccessRow: FC<Props> = ({
                             disabled={hasProjectRole}
                             label={
                                 <Text>
-                                    User inherits this role from{' '}
+                                    {t(
+                                        'components_project_access_row.tooltip_user.label',
+                                    )}{' '}
                                     <Text span fw={600}>
                                         {capitalize(highestRole.type)}
                                     </Text>
@@ -161,7 +167,9 @@ const ProjectAccessRow: FC<Props> = ({
                                     color="orange"
                                 />
                                 <Text color="orange" size="xs">
-                                    User inherits higher role{' '}
+                                    {t(
+                                        'components_project_access_row.higher_role.part_1',
+                                    )}{' '}
                                     <Text span fw={600}>
                                         {
                                             ProjectMemberRoleLabels[
@@ -169,7 +177,9 @@ const ProjectAccessRow: FC<Props> = ({
                                             ]
                                         }
                                     </Text>{' '}
-                                    from{' '}
+                                    {t(
+                                        'components_project_access_row.higher_role.part_2',
+                                    )}{' '}
                                     <Text span fw={600}>
                                         {capitalize(highestRole.type)}
                                     </Text>
@@ -184,10 +194,15 @@ const ProjectAccessRow: FC<Props> = ({
                         position="top"
                         label={
                             hasProjectRole
-                                ? 'Revoke project access'
-                                : `Cannot revoke inherited access from ${capitalize(
-                                      highestRole.type,
-                                  )}`
+                                ? t(
+                                      'components_project_access_row.tooltip_project_role.remove',
+                                  )
+                                : t(
+                                      'components_project_access_row.tooltip_project_role.remove',
+                                      {
+                                          type: capitalize(highestRole.type),
+                                      },
+                                  )
                         }
                     >
                         <div>

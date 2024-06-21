@@ -2,6 +2,8 @@ import { subject } from '@casl/ability';
 import { Anchor, Button, Group, Stack, Tabs, Text } from '@mantine/core';
 import { IconPlus, IconUser, IconUsersGroup } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { ProjectGroupAccess } from '../../features/projectGroupAccess';
 import { useApp } from '../../providers/AppProvider';
 import { Can } from '../common/Authorization';
@@ -14,6 +16,7 @@ interface ProjectUserAccessProps {
 
 const ProjectUserAccess: FC<ProjectUserAccessProps> = ({ projectUuid }) => {
     const { user, health } = useApp();
+    const { t } = useTranslation();
 
     const [showProjectAccessAdd, setShowProjectAccessAdd] = useState(false);
     const [showProjectGroupAccessAdd, setShowProjectGroupAccessAdd] =
@@ -27,14 +30,14 @@ const ProjectUserAccess: FC<ProjectUserAccessProps> = ({ projectUuid }) => {
         <Stack>
             <Group position="apart">
                 <Text color="dimmed">
-                    Learn more about permissions in our{' '}
+                    {t('components_project_access_user.learn.part_1')}{' '}
                     <Anchor
                         role="button"
                         href="https://docs.lightdash.com/references/roles"
                         target="_blank"
                         rel="noreferrer"
                     >
-                        docs
+                        {t('components_project_access_user.learn.part_2')}
                     </Anchor>
                 </Text>
             </Group>
@@ -47,7 +50,7 @@ const ProjectUserAccess: FC<ProjectUserAccessProps> = ({ projectUuid }) => {
                                 icon={<MantineIcon icon={IconUser} size="sm" />}
                                 value="users"
                             >
-                                Users
+                                {t('components_project_access_user.tabs.users')}
                             </Tabs.Tab>
                             <Tabs.Tab
                                 icon={
@@ -58,7 +61,9 @@ const ProjectUserAccess: FC<ProjectUserAccessProps> = ({ projectUuid }) => {
                                 }
                                 value="groups"
                             >
-                                Groups
+                                {t(
+                                    'components_project_access_user.tabs.groups',
+                                )}
                             </Tabs.Tab>
                         </Tabs.List>
                     )}
@@ -81,7 +86,9 @@ const ProjectUserAccess: FC<ProjectUserAccessProps> = ({ projectUuid }) => {
                                     }
                                     size="xs"
                                 >
-                                    Add user access
+                                    {t(
+                                        'components_project_access_user.tabs.add_user_access',
+                                    )}
                                 </Button>
                             </Can>
 
@@ -113,7 +120,9 @@ const ProjectUserAccess: FC<ProjectUserAccessProps> = ({ projectUuid }) => {
                                     }
                                     size="xs"
                                 >
-                                    Add group access
+                                    {t(
+                                        'components_project_access_user.tabs.add_group_access',
+                                    )}
                                 </Button>
                             </Can>
 

@@ -143,6 +143,64 @@
         }
     },
 
+    "features_project_group_access": {
+        "toast": {
+            "success": "Group access added"
+        },
+        "no_group_found": {
+            "title": "No group found with access to this project",
+            "description": "Click \"Add group access\" to add a group to this project'"
+        },
+        "table": {
+            "group_name": "Group Name",
+            "group_role": "Group Role"
+        }
+    },
+    "features_project_group_access_item": {
+        "toast": {
+            "updated": "Group access updated",
+            "removed": "Goup access removed"
+        }
+    },
+    "features_project_group_access_add_modal": {
+        "title": "Add group access",
+        "no_groups_available": {
+            "title": "No groups available",
+            "description_of_groups": "You've already given access to all groups",
+            "description": {
+                "part_1": "Your organization doesn't have any groups yet. Go to",
+                "part_2": "\"Organization settings\" &gt; \"Users & Groups\"",
+                "part_3": "to create a group"
+            }
+        },
+        "form": {
+            "select_group": {
+                "label": "Select group",
+                "placeholder": "Click here to select group",
+                "nothingFound": "NO groups found"
+            },
+            "select_role": {
+                "placeholder": "Select role"
+            },
+            "give_access": "Give access"
+        }
+    },
+    "features_project_group_access_edit_modal": {
+        "title": "Update group access",
+        "form": {
+            "select_role": {
+                "placeholder": "Select role"
+            },
+            "update_access": "Update access"
+        }
+    },
+    "features_project_group_access_revoke_modal": {
+        "title": "Revoke group project access",
+        "content": "Are you sure you want to revoke project access for this group ",
+        "cancel": "Cancel",
+        "revoke": "Revoke"
+    },
+
     "components_common_filters": {
         "tried_to_reference": "Tried to reference field with unknown id:",
         "add_filter": "Add filter",
@@ -232,6 +290,59 @@
         "from_project": "From project",
         "group_access": "Group access",
         "user_access": "User access"
+    },
+
+    "components_project_access": {
+        "loading": "Loading user access",
+        "search_users": "Search users by name, email, or role",
+        "table": {
+            "name": "Name",
+            "role": "Role"
+        }
+    },
+    "components_project_access_row": {
+        "tooltip_user": {
+            "label": "User inherits this role from"
+        },
+        "higher_role": {
+            "part_1": "User inherits higher role",
+            "part_2": "from"
+        },
+        "tooltip_project_role": {
+            "remove": "Revoke project access",
+            "cannot": "Cannot revoke inherited access from {{type}}"
+        }
+    },
+    "components_project_access_user": {
+        "learn": {
+            "part_1": "Learn more about permissions in our",
+            "part_2": "docs"
+        },
+        "tabs": {
+            "users": "Users",
+            "groups": "Groups",
+            "add_user_access": "Add user access",
+            "add_group_access": "Add group access"
+        }
+    },
+    "components_project_access_create_modal": {
+        "title": "Add user access",
+        "select_email": {
+            "label": "Enter user email address",
+            "placeholder": "example@gmail.com",
+            "nothingFound": "Nothing found",
+            "create_label": "Invite \"{{query}}\" as new member of this organization"
+        },
+        "select_role": {
+            "placeholder": "Select role"
+        },
+        "give_access": "Give access"
+    },
+    "components_project_access_remove_modal": {
+        "title": "Revoke project access",
+        "content": "Are you sure you want to revoke project access for this user",
+        "cancel": "Cancel",
+        "delete": "Delete"
     },
 
     "components_project_tables_configuration": {

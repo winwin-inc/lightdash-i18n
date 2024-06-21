@@ -8,6 +8,8 @@ import { Button, Group, Modal, Select, Text, Title } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { IconUsersGroup } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import { TrackPage } from '../../../providers/TrackingProvider';
 import { CategoryName, PageName, PageType } from '../../../types/Events';
@@ -28,6 +30,8 @@ const EditProjectGroupAccessModal: FC<EditProjectGroupAccessModalProps> = ({
     onClose,
     onUpdate,
 }) => {
+    const { t } = useTranslation();
+
     const form = useForm<UpdateProjectGroupAccess>({
         initialValues: {
             projectUuid: access.projectUuid,
@@ -48,7 +52,9 @@ const EditProjectGroupAccessModal: FC<EditProjectGroupAccessModalProps> = ({
             title={
                 <Group spacing="xs">
                     <MantineIcon size="lg" icon={IconUsersGroup} />
-                    <Title order={4}>Update group access</Title>
+                    <Title order={4}>
+                        {t('features_project_group_access_edit_modal.title')}
+                    </Title>
                 </Group>
             }
             size="lg"
@@ -75,14 +81,18 @@ const EditProjectGroupAccessModal: FC<EditProjectGroupAccessModalProps> = ({
                                 }),
                             )}
                             required
-                            placeholder="Select role"
+                            placeholder={t(
+                                'features_project_group_access_edit_modal.form.select_role.placeholder',
+                            )}
                             dropdownPosition="bottom"
                             withinPortal
                             {...form.getInputProps('role')}
                         />
 
                         <Button disabled={isSubmitting} type="submit">
-                            Update access
+                            {t(
+                                'features_project_group_access_edit_modal.form.update_access',
+                            )}
                         </Button>
                     </Group>
                 </form>

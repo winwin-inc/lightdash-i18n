@@ -9,6 +9,8 @@ import { Button, Group, Modal, Select, Title } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { IconUserPlus } from '@tabler/icons-react';
 import { useEffect, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useCreateInviteLinkMutation } from '../../hooks/useInviteLink';
 import { useOrganizationUsers } from '../../hooks/useOrganizationUsers';
 import { useCreateProjectAccessMutation } from '../../hooks/useProjectAccess';
@@ -32,6 +34,7 @@ const CreateProjectAccessModal: FC<Props> = ({ projectUuid, onClose }) => {
     const { data: organizationUsers } = useOrganizationUsers();
     const { mutateAsync: createMutation, isLoading } =
         useCreateProjectAccessMutation(projectUuid);
+    const { t } = useTranslation();
 
     const {
         mutateAsync: inviteMutation,
@@ -94,7 +97,9 @@ const CreateProjectAccessModal: FC<Props> = ({ projectUuid, onClose }) => {
             title={
                 <Group spacing="xs">
                     <MantineIcon size="lg" icon={IconUserPlus} />
-                    <Title order={4}>Add user access</Title>
+                    <Title order={4}>
+                        {t('components_project_access_create_modal.title')}
+                    </Title>
                 </Group>
             }
             size="lg"
@@ -115,16 +120,27 @@ const CreateProjectAccessModal: FC<Props> = ({ projectUuid, onClose }) => {
                         <Select
                             name={'email'}
                             withinPortal
-                            label="Enter user email address"
-                            placeholder="example@gmail.com"
-                            nothingFound="Nothing found"
+                            label={t(
+                                'components_project_access_create_modal.select_email.label',
+                            )}
+                            placeholder={t(
+                                'components_project_access_create_modal.select_email.placeholder',
+                            )}
+                            nothingFound={t(
+                                'components_project_access_create_modal.select_email.nothingFound',
+                            )}
                             searchable
                             creatable
                             required
                             disabled={isLoading}
                             getCreateLabel={(query) =>
                                 validateEmail(query)
-                                    ? `Invite "${query}" as new member of this organization`
+                                    ? t(
+                                          'components_project_access_create_modal.select_email.create_label',
+                                          {
+                                              query,
+                                          },
+                                      )
                                     : null
                             }
                             onCreate={(query) => {
@@ -150,7 +166,9 @@ const CreateProjectAccessModal: FC<Props> = ({ projectUuid, onClose }) => {
                             )}
                             disabled={isLoading}
                             required
-                            placeholder="Select role"
+                            placeholder={t(
+                                'components_project_access_create_modal.select_role.placeholder',
+                            )}
                             dropdownPosition="bottom"
                             withinPortal
                             {...form.getInputProps('role')}
@@ -159,7 +177,9 @@ const CreateProjectAccessModal: FC<Props> = ({ projectUuid, onClose }) => {
                             disabled={isLoading || isInvitationLoading}
                             type="submit"
                         >
-                            Give access
+                            {t(
+                                'components_project_access_create_modal.give_access',
+                            )}
                         </Button>
                     </Group>
                 </form>

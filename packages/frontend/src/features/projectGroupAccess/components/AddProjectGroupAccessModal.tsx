@@ -7,6 +7,8 @@ import { Box, Button, Group, Modal, Select, Text, Title } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { IconUsersGroup } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import SuboptimalState from '../../../components/common/SuboptimalState/SuboptimalState';
 import { TrackPage } from '../../../providers/TrackingProvider';
@@ -29,6 +31,8 @@ const AddProjectGroupAccessModal: FC<AddProjectGroupAccessModalProps> = ({
     onSubmit,
     onClose,
 }) => {
+    const { t } = useTranslation();
+
     const form = useForm<CreateProjectGroupAccess>({
         initialValues: {
             projectUuid,
@@ -49,7 +53,9 @@ const AddProjectGroupAccessModal: FC<AddProjectGroupAccessModalProps> = ({
             title={
                 <Group spacing="xs">
                     <MantineIcon size="lg" icon={IconUsersGroup} />
-                    <Title order={4}>Add group access</Title>
+                    <Title order={4}>
+                        {t('features_project_group_access_add_modal.title')}
+                    </Title>
                 </Group>
             }
             size="lg"
@@ -63,19 +69,27 @@ const AddProjectGroupAccessModal: FC<AddProjectGroupAccessModalProps> = ({
                     <Box mb="lg">
                         <SuboptimalState
                             icon={IconUsersGroup}
-                            title="No groups available"
+                            title={t(
+                                'features_project_group_access_add_modal.no_groups_available.title',
+                            )}
                             description={
                                 totalNumberOfGroups ? (
-                                    "You've already given access to all groups"
+                                    t(
+                                        'features_project_group_access_add_modal.no_groups_available.description_of_groups',
+                                    )
                                 ) : (
                                     <Text w="70%">
-                                        Your organization doesn't have any
-                                        groups yet. Go to{' '}
+                                        {t(
+                                            'features_project_group_access_add_modal.no_groups_available.description.part_1',
+                                        )}{' '}
                                         <Text span fw={500}>
-                                            "Organization settings" &gt; "Users
-                                            & Groups"{' '}
+                                            {t(
+                                                'features_project_group_access_add_modal.no_groups_available.description.part_2',
+                                            )}{' '}
                                         </Text>{' '}
-                                        to create a group
+                                        {t(
+                                            'features_project_group_access_add_modal.no_groups_available.description.part_3',
+                                        )}
                                     </Text>
                                 )
                             }
@@ -90,9 +104,15 @@ const AddProjectGroupAccessModal: FC<AddProjectGroupAccessModalProps> = ({
                             <Select
                                 name="groupUuid"
                                 withinPortal
-                                label="Select group"
-                                placeholder="Click here to select group"
-                                nothingFound="No groups found"
+                                label={t(
+                                    'features_project_group_access_add_modal.form.select_group.label',
+                                )}
+                                placeholder={t(
+                                    'features_project_group_access_add_modal.form.select_group.placeholder',
+                                )}
+                                nothingFound={t(
+                                    'features_project_group_access_add_modal.form.select_group.nothingFound',
+                                )}
                                 searchable
                                 required
                                 data={
@@ -112,14 +132,18 @@ const AddProjectGroupAccessModal: FC<AddProjectGroupAccessModalProps> = ({
                                     }),
                                 )}
                                 required
-                                placeholder="Select role"
+                                placeholder={t(
+                                    'features_project_group_access_add_modal.form.select_role.placeholder',
+                                )}
                                 dropdownPosition="bottom"
                                 withinPortal
                                 {...form.getInputProps('role')}
                             />
 
                             <Button disabled={isSubmitting} type="submit">
-                                Give access
+                                {t(
+                                    'features_project_group_access_add_modal.form.give_access',
+                                )}
                             </Button>
                         </Group>
                     </form>

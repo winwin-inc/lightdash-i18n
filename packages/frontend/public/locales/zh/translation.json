@@ -143,6 +143,64 @@
         }
     },
 
+    "features_project_group_access": {
+        "toast": {
+            "success": "组访问权限已添加"
+        },
+        "no_group_found": {
+            "title": "未找到有权访问该项目的组",
+            "description": "点击 \"添加组访问权限\" 添加一个组到该项目"
+        },
+        "table": {
+            "group_name": "组名称",
+            "group_role": "组角色"
+        }
+    },
+    "features_project_group_access_item": {
+        "toast": {
+            "updated": "组访问权限已更新",
+            "removed": "组访问权限已移除"
+        }
+    },
+    "features_project_group_access_add_modal": {
+        "title": "添加组访问权限",
+        "no_groups_available": {
+            "title": "没有可用的组",
+            "description_of_groups": "您已经为所有组授予了访问权限",
+            "description": {
+                "part_1": "您的组织还没有任何组。请前往",
+                "part_2": "\"组织设置\" > \"用户和组\"",
+                "part_3": "创建一个组"
+            }
+        },
+        "form": {
+            "select_group": {
+                "label": "选择组",
+                "placeholder": "点击这里选择组",
+                "nothingFound": "没有找到任何组"
+            },
+            "select_role": {
+                "placeholder": "选择角色"
+            },
+            "give_access": "授予访问权限"
+        }
+    },
+    "features_project_group_access_edit_modal": {
+        "title": "更新组访问权限",
+        "form": {
+            "select_role": {
+                "placeholder": "选择角色"
+            },
+            "update_access": "更新访问权限"
+        }
+    },
+    "features_project_group_access_revoke_modal": {
+        "title": "撤销组项目访问权限",
+        "content": "您确定要撤销该组的项目访问权限吗?",
+        "cancel": "取消",
+        "revoke": "撤销"
+    },
+
     "components_common_filters": {
         "tried_to_reference": "尝试引用未知 ID 的字段:",
         "add_filter": "添加筛选器",
@@ -232,6 +290,59 @@
         "from_project": "来自项目",
         "group_access": "组访问权限",
         "user_access": "用户访问权限"
+    },
+
+    "components_project_access": {
+        "loading": "正在加载用户访问权限",
+        "search_users": "通过姓名、电子邮件或角色搜索用户",
+        "table": {
+            "name": "名称",
+            "role": "角色"
+        }
+    },
+    "components_project_access_row": {
+        "tooltip_user": {
+            "label": "用户继承了此角色"
+        },
+        "higher_role": {
+            "part_1": "用户继承了更高的角色",
+            "part_2": "从"
+        },
+        "tooltip_project_role": {
+            "remove": "撤销项目访问权限",
+            "cannot": "无法撤销从 {{type}} 继承的访问权限"
+        }
+    },
+    "components_project_access_user": {
+        "learn": {
+            "part_1": "了解有关权限的更多信息,请查看我们的",
+            "part_2": "文档"
+        },
+        "tabs": {
+            "users": "用户",
+            "groups": "组",
+            "add_user_access": "添加用户访问权限",
+            "add_group_access": "添加组访问权限"
+        }
+    },
+    "components_project_access_create_modal": {
+        "title": "添加用户访问权限",
+        "select_email": {
+            "label": "输入用户电子邮件地址",
+            "placeholder": "example@gmail.com",
+            "nothingFound": "没有找到",
+            "create_label": "邀请 \"{{query}}\" 作为该组织的新成员"
+        },
+        "select_role": {
+            "placeholder": "选择角色"
+        },
+        "give_access": "授予访问权限"
+    },
+    "components_project_access_remove_modal": {
+        "title": "撤销项目访问权限",
+        "content": "您确定要撤销此用户的项目访问权限吗?",
+        "cancel": "取消",
+        "delete": "删除"
     },
 
     "components_project_tables_configuration": {

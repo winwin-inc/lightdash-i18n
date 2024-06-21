@@ -8,6 +8,8 @@ import {
 import { ActionIcon, Paper, Table, TextInput } from '@mantine/core';
 import { IconX } from '@tabler/icons-react';
 import { useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useProjectGroupAccessList } from '../../features/projectGroupAccess/hooks/useProjectGroupAccess';
 import { useTableStyles } from '../../hooks/styles/useTableStyles';
 import { useOrganizationGroups } from '../../hooks/useOrganizationGroups';
@@ -34,6 +36,7 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
 }) => {
     const { user } = useApp();
     const ability = useAbilityContext();
+    const { t } = useTranslation();
 
     const { cx, classes } = useTableStyles();
 
@@ -127,7 +130,7 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
     );
 
     if (isProjectAccessLoading || isOrganizationUsersLoading) {
-        return <LoadingState title="Loading user access" />;
+        return <LoadingState title={t('components_project_access.loading')} />;
     }
 
     return (
@@ -136,7 +139,9 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
                 <Paper p="sm">
                     <TextInput
                         size="xs"
-                        placeholder="Search users by name, email, or role"
+                        placeholder={t(
+                            'components_project_access.search_users',
+                        )}
                         onChange={(e) => setSearch(e.target.value)}
                         value={search}
                         w={320}
@@ -153,8 +158,8 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
                 <Table className={cx(classes.root, classes.alignLastTdRight)}>
                     <thead>
                         <tr>
-                            <th>Name</th>
-                            <th>Role</th>
+                            <th>{t('components_project_access.table.name')}</th>
+                            <th>{t('components_project_access.table.role')}</th>
                             <th></th>
                         </tr>
                     </thead>
