@@ -7,6 +7,7 @@ import {
 } from '@lightdash/common';
 import { Mark, Stack, Text } from '@mantine/core';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const CustomMark: FC<React.PropsWithChildren<{}>> = ({ children }) => (
     <Mark
@@ -26,11 +27,15 @@ const CustomMark: FC<React.PropsWithChildren<{}>> = ({ children }) => (
 const ErrorMessageByType: FC<{
     validationError: ValidationResponse;
 }> = ({ validationError }) => {
+    const { t } = useTranslation();
+
     if (isChartValidationError(validationError)) {
         return (
             <Text>
-                <CustomMark>{validationError.fieldName}</CustomMark> no longer
-                exists
+                <CustomMark>{validationError.fieldName}</CustomMark>
+                {t(
+                    'components_settings_validator_table.error.no_longer_exists',
+                )}
             </Text>
         );
     }
@@ -40,13 +45,17 @@ const ErrorMessageByType: FC<{
             <Text>
                 {validationError.fieldName ? (
                     <>
-                        <CustomMark>{validationError.fieldName}</CustomMark> no
-                        longer exists
+                        <CustomMark>{validationError.fieldName}</CustomMark>
+                        {t(
+                            'components_settings_validator_table.error.no_longer_exists',
+                        )}
                     </>
                 ) : (
                     <>
-                        <CustomMark>{validationError.chartName}</CustomMark> is
-                        broken
+                        <CustomMark>{validationError.chartName}</CustomMark>
+                        {t(
+                            'components_settings_validator_table.error.is_broken',
+                        )}
                     </>
                 )}
             </Text>
@@ -63,13 +72,15 @@ const ErrorMessageByType: FC<{
 export const ErrorMessage: FC<{ validationError: ValidationResponse }> = ({
     validationError,
 }) => {
+    const { t } = useTranslation();
+
     return (
         <Stack spacing={4}>
             <Text fw={600} color="red.6" fz={11}>
                 {validationError.errorType
                     ? friendlyName(validationError.errorType)
                     : ''}{' '}
-                error
+                {t('components_settings_validator_table.error.error')}
             </Text>
             <ErrorMessageByType validationError={validationError} />
         </Stack>

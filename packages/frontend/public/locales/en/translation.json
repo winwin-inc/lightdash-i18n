@@ -321,6 +321,54 @@
         }
     },
 
+    "components_settings_usage_analytics": {
+        "tip": "Lightdash curated dashboards that show usage and performance information about your project.",
+        "user_activity": "User Activity"
+    },
+    "components_settings_validator": {
+        "tip": "Use the project validator to check what content is broken in your project.",
+        "run_validation": "Run validation",
+        "no_validation_errors_found": "No validation errors found"
+    },
+    "components_settings_validator_table": {
+        "tooltip_delete": {
+            "chart": "This chart has been deleted",
+            "dashboard": "This dashboard has been deleted"
+        },
+        "last_edited_by": "Last edited by",
+        "tooltip_dismiss_error": {
+            "label": "Dismiss error"
+        },
+        "table_columns": {
+            "name": "Name",
+            "error": "Error"
+        },
+        "error": {
+            "no_longer_exists": "no longer exists",
+            "is_broken": "is broken",
+            "error": "error"
+        }
+    },
+
+    "components_data_pos": {
+        "tip": "Perform data operations between on this project",
+        "promote": {
+            "title": "Promote content",
+            "desc": "Developers and admins on this organization can copy content from this project into the selected upstream project, overriding its defaults or creating new content if it is new."
+        },
+        "select": {
+            "label": "Upstream project"
+        },
+        "update": "Update",
+        "toast_success": {
+            "title": "Project updated",
+            "subtitle": "Project upstream project updated successfully"
+        },
+        "toast_error": {
+            "title": "Failed to update project"
+        }
+    },
+
     "components_schedulers_view": {
         "toast": {
             "success": "Scheduled deliveries refreshed successfully"

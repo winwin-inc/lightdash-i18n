@@ -8,6 +8,8 @@ import {
 } from '@mantine/core';
 import { IconCheck } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import {
     useValidation,
     useValidationMutation,
@@ -24,6 +26,7 @@ export const SettingsValidator: FC<{ projectUuid: string }> = ({
 }) => {
     const theme = useMantineTheme();
     const [isValidating, setIsValidating] = useState(false);
+    const { t } = useTranslation();
 
     const { user } = useApp();
     const { data } = useValidation(projectUuid, user, true); // Note: Users that land on this page can always manage validations
@@ -35,10 +38,7 @@ export const SettingsValidator: FC<{ projectUuid: string }> = ({
 
     return (
         <>
-            <Text color="dimmed">
-                Use the project validator to check what content is broken in
-                your project.
-            </Text>
+            <Text color="dimmed">{t('components_settings_validator.tip')}</Text>
 
             <Paper withBorder shadow="sm">
                 <Group
@@ -64,7 +64,7 @@ export const SettingsValidator: FC<{ projectUuid: string }> = ({
                         }}
                         loading={isValidating}
                     >
-                        Run validation
+                        {t('components_settings_validator.run_validation')}
                     </Button>
                 </Group>
                 <Box
@@ -85,7 +85,9 @@ export const SettingsValidator: FC<{ projectUuid: string }> = ({
                         <Group position="center" spacing="xs" p="md">
                             <MantineIcon icon={IconCheck} color="green" />
                             <Text fw={500} c="gray.7">
-                                No validation errors found
+                                {t(
+                                    'components_settings_validator.no_validation_errors_found',
+                                )}
                             </Text>
                         </Group>
                     )}

@@ -1,7 +1,9 @@
 import { Card, Group, Text } from '@mantine/core';
 import { IconLayoutDashboard } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+
 import MantineIcon from '../common/MantineIcon';
 
 interface ProjectUserAccessProps {
@@ -11,11 +13,12 @@ interface ProjectUserAccessProps {
 const SettingsUsageAnalytics: FC<ProjectUserAccessProps> = ({
     projectUuid,
 }) => {
+    const { t } = useTranslation();
+
     return (
         <>
             <Text color="dimmed">
-                Lightdash curated dashboards that show usage and performance
-                information about your project.
+                {t('components_settings_usage_analytics.tip')}
             </Text>
 
             <Card
@@ -32,7 +35,7 @@ const SettingsUsageAnalytics: FC<ProjectUserAccessProps> = ({
                         color="gray"
                     />
                     <Text fw={600} fz="lg">
-                        User Activity
+                        {t('components_settings_usage_analytics.user_activity')}
                     </Text>
                 </Group>
             </Card>

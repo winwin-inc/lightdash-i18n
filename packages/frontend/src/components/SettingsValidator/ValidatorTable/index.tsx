@@ -27,7 +27,9 @@ import {
     type ReactNode,
     type RefObject,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
+
 import { useTableStyles } from '../../../hooks/styles/useTableStyles';
 import { useDeleteValidation } from '../../../hooks/validation/useValidation';
 import MantineIcon from '../../common/MantineIcon';
@@ -116,6 +118,7 @@ const TableValidationItem = forwardRef<
         validationError: ValidationResponse;
     }
 >(({ projectUuid, validationError }, ref) => {
+    const { t } = useTranslation();
     const { mutate: deleteValidation } = useDeleteValidation(projectUuid);
 
     const { hovered, ref: isHoveredRef } = useHover<HTMLTableRowElement>();
@@ -133,11 +136,15 @@ const TableValidationItem = forwardRef<
                         <Stack spacing={4}>
                             {isDeleted(validationError) ? (
                                 <Tooltip
-                                    label={`This ${
+                                    label={
                                         isChartValidationError(validationError)
-                                            ? 'chart'
-                                            : 'dashboard'
-                                    } has been deleted`}
+                                            ? t(
+                                                  'components_settings_validator_table.tooltp_delete.chart',
+                                              )
+                                            : t(
+                                                  'components_settings_validator_table.tooltp_delete.dashboard',
+                                              )
+                                    }
                                 >
                                     <Text fw={600} color={'gray.6'}>
                                         {getErrorName(validationError)}
@@ -160,7 +167,9 @@ const TableValidationItem = forwardRef<
                                         {validationError.lastUpdatedBy ? (
                                             <>
                                                 {' • '}
-                                                Last edited by{' '}
+                                                {t(
+                                                    'components_settings_validator_table.last_edited_by',
+                                                )}{' '}
                                                 <Text span fw={500}>
                                                     {
                                                         validationError.lastUpdatedBy
@@ -183,7 +192,12 @@ const TableValidationItem = forwardRef<
                 </AnchorToResource>
             </td>
             <td>
-                <Tooltip label="Dismiss error" position="top">
+                <Tooltip
+                    label={t(
+                        'components_settings_validator_table.tooltip_dismiss_error.label',
+                    )}
+                    position="top"
+                >
                     <Box w={24}>
                         {hovered && (
                             <ActionIcon
@@ -214,6 +228,7 @@ export const ValidatorTable: FC<{
 }> = ({ data, projectUuid }) => {
     const { cx, classes } = useTableStyles();
     const { colors } = useMantineTheme();
+    const { t } = useTranslation();
 
     const location = useLocation<{ validationId: number }>();
     const searchParams = new URLSearchParams(location.search);
@@ -242,8 +257,16 @@ export const ValidatorTable: FC<{
         >
             <thead>
                 <tr>
-                    <th>Name</th>
-                    <th>Error</th>
+                    <th>
+                        {t(
+                            'components_settings_validator_table.table_columns.name',
+                        )}
+                    </th>
+                    <th>
+                        {t(
+                            'components_settings_validator_table.table_columns.error',
+                        )}
+                    </th>
                     <th></th>
                 </tr>
             </thead>

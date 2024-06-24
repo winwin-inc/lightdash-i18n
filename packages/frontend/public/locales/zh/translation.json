@@ -321,6 +321,54 @@
         }
     },
 
+    "components_settings_usage_analytics": {
+        "tip": "Lightdash 精选的看板,显示有关您项目的使用和性能信息。",
+        "user_activity": "用户活动"
+    },
+    "components_settings_validator": {
+        "tip": "使用项目验证器检查项目中哪些内容已损坏。",
+        "run_validation": "运行验证",
+        "no_validation_errors_found": "未发现验证错误"
+    },
+    "components_settings_validator_table": {
+        "tooltip_delete": {
+            "chart": "此图表已被删除",
+            "dashboard": "此仪表板已被删除"
+        },
+        "last_edited_by": "最后编辑者",
+        "tooltip_dismiss_error": {
+            "label": "忽略错误"
+        },
+        "table_columns": {
+            "name": "名称",
+            "error": "错误"
+        },
+        "error": {
+            "no_longer_exists": "不再存在",
+            "is_broken": "已损坏",
+            "error": "错误"
+        }
+    },
+
+    "components_data_pos": {
+        "tip": "在此项目上执行数据操作",
+        "promote": {
+            "title": "提升内容",
+            "desc": "此组织的开发人员和管理员可以将内容从此项目复制到所选的上游项目中,覆盖其默认值或创建新内容(如果是新的)。"
+        },
+        "select": {
+            "label": "上游项目"
+        },
+        "update": "更新",
+        "toast_success": {
+            "title": "项目已更新",
+            "subtitle": "项目上游项目更新成功"
+        },
+        "toast_error": {
+            "title": "无法更新项目"
+        }
+    },
+
     "components_schedulers_view": {
         "toast": {
             "success": "计划交付已成功刷新"

@@ -1,6 +1,8 @@
 import { ProjectType } from '@lightdash/common';
 import { Button, Flex, Select, Text, Title } from '@mantine/core';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useProject } from '../../hooks/useProject';
 import { useProjects } from '../../hooks/useProjects';
 import { SettingsGridCard } from '../common/Settings/SettingsCard';
@@ -13,20 +15,19 @@ export const DataOps: FC<{ projectUuid: string }> = ({ projectUuid }) => {
     const [selectedProject, setSelectedProject] = useState<string | null>(
         currentProject?.upstreamProjectUuid || null,
     );
+    const { t } = useTranslation();
+
     return (
         <>
-            <Text color="dimmed">
-                Perform data operations between on this project
-            </Text>
+            <Text color="dimmed">{t('components_data_pos.tip')}</Text>
 
             <SettingsGridCard>
                 <div>
-                    <Title order={4}>Promote content</Title>
+                    <Title order={4}>
+                        {t('components_data_pos.promote.title')}
+                    </Title>
                     <Text c="gray.6" fz="xs">
-                        Developers and admins on this organization can copy
-                        content from this project into the selected upstream
-                        project, overriding its defaults or creating new content
-                        if it is new.
+                        {t('components_data_pos.promote.desc')}
                     </Text>
                 </div>
                 <div>
@@ -49,7 +50,7 @@ export const DataOps: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                                         currentProject?.upstreamProjectUuid,
                                 })) || []
                         }
-                        label="Upstream project"
+                        label={t('components_data_pos.select.label')}
                         onChange={(value) => {
                             setSelectedProject(value || null);
                         }}
@@ -68,7 +69,7 @@ export const DataOps: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                                 });
                             }}
                         >
-                            Update
+                            {t('components_data_pos.update')}
                         </Button>
                     </Flex>
                 </div>
