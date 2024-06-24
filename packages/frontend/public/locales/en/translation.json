@@ -1,6 +1,36 @@
 {
     "welcome": "Welcome",
 
+    "hooks_pinning": {
+        "toast_chart_pinned": {
+            "success": {
+                "pinned": "Success! Chart was pinned to homepage",
+                "unpinned": "Success! Chart was unpinned from homepage"
+            },
+            "error": "Failed to pin chart"
+        },
+        "toast_dashboard_pinned": {
+            "success": {
+                "pinned": "Success! Dashboard was pinned to homepage",
+                "unpinned": "Success! Dashboard was unpinned from homepage"
+            },
+            "error": "Failed to pin dashboard"
+        },
+        "toast_pinned_items": {
+            "error": "Could not re-order pinned items"
+        },
+        "toast_space": {
+            "success": {
+                "pinned": "Success! Space was pinned to homepage",
+                "unpinned": "Success! Space was unpinned from homepage"
+            },
+            "error": "Failed to pin space"
+        }
+    },
+    "hooks_async_clipboard": {
+        "toast_copied": "Copied to clipboard"
+    },
+
     "features_users": {
         "title": "Sign in",
         "user_no_auth_tip": "Failed to authenticate",
@@ -143,6 +173,62 @@
         }
     },
 
+    "features_omnibar": {
+        "search_project": {
+            "part_1": "Search {{name}} ",
+            "part_2": "your project"
+        },
+        "search_in_project": {
+            "part_1": "Search {{name}} ",
+            "part_2": "in your project"
+        },
+        "no_entered_query": {
+            "part_1": "Start typing to search for everything in ",
+            "part_2": "your project"
+        },
+        "no_query_length": {
+            "part_1": "Keep typing to search for everything in ",
+            "part_2": "your project"
+        },
+        "search": "Searching...",
+        "no_results": "No results found."
+    },
+    "features_omnibar_filter": {
+        "item_type": "Item type",
+        "clear": "Clear",
+        "created_by": "Created by",
+        "select_user": "Select a user",
+        "clear_filters": "Clear filters"
+    },
+    "features_omnibar_item_icon": {
+        "tooltip_can_manage": {
+            "part_1": "This content is broken. Learn more about the validation error(s)",
+            "part_2": "here",
+            "part_3": "."
+        },
+        "tooltip_error": "There's an error with this {{type}}"
+    },
+    "features_omnibar_labels": {
+        "errors": {
+            "filed": "field",
+            "dashboard": "dashboard",
+            "chart": "chart"
+        },
+        "items": {
+            "field": "Fields",
+            "dashboard": "Dashboards",
+            "chart": "Charts",
+            "space": "Spaces",
+            "table": "Tables",
+            "page": "Pages"
+        },
+        "date": {
+            "from": "From",
+            "to": "To",
+            "date": "Date"
+        }
+    },
+
     "features_project_group_access": {
         "toast": {
             "success": "Group access added"
@@ -256,6 +342,13 @@
         "use_table": "Use table"
     },
 
+    "components_common_dashboard_share": {
+        "toast_co": "Link copied to clipboard"
+    },
+    "components_common_page_header": {
+        "last_edited": "Last edited",
+        "by": "by"
+    },
     "components_common_filters": {
         "tried_to_reference": "Tried to reference field with unknown id:",
         "add_filter": "Add filter",
@@ -1377,6 +1470,9 @@
         "customizing": "Click here to learn more about customizing the appearance of your project"
     },
 
+    "components_explorer_here": {
+        "explore_from_here": "Explore from here"
+    },
     "components_explorer_tree": {
         "search": "Search metrics + dimensions",
         "no_fields": "No fields found...",
@@ -1596,6 +1692,10 @@
         }
     },
     "components_explorer_save_charts_header": {
+        "space_type_labels": {
+            "shared_with_me": "Shared with me",
+            "admin_content_view": "Public content view"
+        },
         "create_success": "Success! Create branch with changes: ",
         "create_error": "Failed to create pull request",
         "check_reload_message": "You have unsaved changes to your dashboard! Are you sure you want to leave without saving?",
@@ -1606,6 +1706,7 @@
         },
         "edit_chart": "Edit chart",
         "cancel": "Cancel",
+        "move_to_space": "Move to space",
         "menus": {
             "save_chart_as": "Save chart as",
             "duplicate": "Duplicate",

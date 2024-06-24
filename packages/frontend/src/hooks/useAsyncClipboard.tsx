@@ -1,4 +1,6 @@
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import useToaster from './toaster/useToaster';
 
 /**
@@ -13,6 +15,7 @@ export const useAsyncClipboard = (
 ) => {
     const { showToastSuccess } = useToaster();
     const [copied, setCopied] = useState(false);
+    const { t } = useTranslation();
 
     const handleCopy = useCallback(async () => {
         if ('clipboard' in navigator) {
@@ -35,13 +38,16 @@ export const useAsyncClipboard = (
             }
 
             setCopied(true);
-            showToastSuccess({ title: 'Link copied to clipboard' });
+            showToastSuccess({
+                title: t('hooks_async_clipboard.toast_copied'),
+            });
             setTimeout(() => setCopied(false), 1000);
         }
-    }, [asyncOperation, showToastSuccess]);
+    }, [asyncOperation, showToastSuccess, t]);
 
     return {
         copied,
         handleCopy,
+        t,
     };
 };

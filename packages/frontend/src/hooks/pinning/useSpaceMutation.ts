@@ -1,5 +1,7 @@
 import { type ApiError, type Space } from '@lightdash/common';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+
 import { lightdashApi } from '../../api';
 import useToaster from '../toaster/useToaster';
 
@@ -13,6 +15,8 @@ const updateSpacePinning = async (projectUuid: string, spaceUuid: string) =>
 export const useSpacePinningMutation = (projectUuid: string) => {
     const queryClient = useQueryClient();
     const { showToastApiError, showToastSuccess } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<Space, ApiError, string>(
         (spaceUuid) => updateSpacePinning(projectUuid, spaceUuid),
         {
@@ -39,17 +43,17 @@ export const useSpacePinningMutation = (projectUuid: string) => {
 
                 if (space.pinnedListUuid) {
                     showToastSuccess({
-                        title: 'Success! Space was pinned to homepage',
+                        title: t('hooks_pinning.toast_space.success.pinned'),
                     });
                 } else {
                     showToastSuccess({
-                        title: 'Success! Space was unpinned from homepage',
+                        title: t('hooks_pinning.toast_space.success.unpinned'),
                     });
                 }
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: 'Failed to pin space',
+                    title: t('hooks_pinning.toast_space.error'),
                     apiError: error,
                 });
             },

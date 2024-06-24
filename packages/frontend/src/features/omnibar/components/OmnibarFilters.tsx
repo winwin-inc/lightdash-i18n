@@ -21,11 +21,13 @@ import {
     IconX,
 } from '@tabler/icons-react';
 import { useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useOrganizationUsers } from '../../../hooks/useOrganizationUsers';
 import { allSearchItemTypes } from '../types/searchItem';
-import { getDateFilterLabel } from '../utils/getDateFilterLabel';
-import { getSearchItemLabel } from '../utils/getSearchItemLabel';
+import { useDateFilterLabel } from '../utils/getDateFilterLabel';
+import { useSearchItemLabel } from '../utils/getSearchItemLabel';
 import { getOmnibarItemColor } from './OmnibarItemIcon';
 
 const getOmnibarItemIcon = (itemType: SearchItemType) => {
@@ -78,6 +80,9 @@ const OmnibarFilters: FC<Props> = ({ filters, onSearchFilterChange }) => {
     const [isDateMenuOpen, dateMenuHandlers] = useDisclosure(false);
     const [isCreatedByMenuOpen, createdByMenuHelpers] = useDisclosure(false);
     const { data: organizationUsers } = useOrganizationUsers();
+    const { t } = useTranslation();
+    const getSearchItemLabel = useSearchItemLabel();
+    const getDateFilterLabel = useDateFilterLabel();
 
     const canClearFilters = useMemo(() => {
         return (
@@ -109,7 +114,7 @@ const OmnibarFilters: FC<Props> = ({ filters, onSearchFilterChange }) => {
                     >
                         {filters?.type
                             ? getSearchItemLabel(filters.type as SearchItemType)
-                            : 'Item type'}
+                            : t('features_omnibar_filter.item_type')}
                     </Button>
                 </Menu.Target>
 
@@ -206,7 +211,7 @@ const OmnibarFilters: FC<Props> = ({ filters, onSearchFilterChange }) => {
                                 });
                             }}
                         >
-                            Clear
+                            {t('features_omnibar_filter.clear')}
                         </Button>
                     </Flex>
                 </Menu.Dropdown>
@@ -236,13 +241,13 @@ const OmnibarFilters: FC<Props> = ({ filters, onSearchFilterChange }) => {
                                   filters.createdByUuid,
                                   organizationUsers,
                               )
-                            : 'Created by'}
+                            : t('features_omnibar_filter.created_by')}
                     </Button>
                 </Menu.Target>
 
                 <Menu.Dropdown>
                     <Select
-                        placeholder="Select a user"
+                        placeholder={t('features_omnibar_filter.select_user')}
                         searchable
                         withinPortal
                         value={filters?.createdByUuid}
@@ -278,7 +283,7 @@ const OmnibarFilters: FC<Props> = ({ filters, onSearchFilterChange }) => {
                         onSearchFilterChange({});
                     }}
                 >
-                    Clear filters
+                    {t('features_omnibar_filter.clear_filters')}
                 </Button>
             )}
         </Group>

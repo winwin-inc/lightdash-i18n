@@ -30,7 +30,9 @@ import {
     type FC,
     type MouseEventHandler,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import { PAGE_CONTENT_WIDTH } from '../../../components/common/Page/Page';
 import { useProject } from '../../../hooks/useProject';
@@ -55,6 +57,7 @@ interface Props {
 }
 
 const Omnibar: FC<Props> = ({ projectUuid }) => {
+    const { t } = useTranslation();
     const history = useHistory();
     const location = useLocation();
     const { data: projectData } = useProject(projectUuid);
@@ -196,9 +199,14 @@ const Omnibar: FC<Props> = ({ projectUuid }) => {
             >
                 {(style) => (
                     <OmnibarTarget
-                        placeholder={`Search ${
-                            projectData?.name ?? 'your project'
-                        }`}
+                        placeholder={t(
+                            'features_omnibar.search_project.part_1',
+                            {
+                                name:
+                                    projectData?.name ??
+                                    t('features_omnibar.search_project.part_2'),
+                            },
+                        )}
                         style={style}
                         onOpen={handleOmnibarOpenInputClick}
                     />
@@ -246,9 +254,16 @@ const Omnibar: FC<Props> = ({ projectUuid }) => {
                                     </ActionIcon>
                                 ) : null
                             }
-                            placeholder={`Search ${
-                                projectData?.name ?? 'in your project'
-                            }...`}
+                            placeholder={t(
+                                'features_omnibar.search_in_project.part_1',
+                                {
+                                    name:
+                                        projectData?.name ??
+                                        t(
+                                            'features_omnibar.search_in_project.part_2',
+                                        ),
+                                },
+                            )}
                             styles={{
                                 wrapper: {
                                     position: 'sticky',
@@ -276,20 +291,38 @@ const Omnibar: FC<Props> = ({ projectUuid }) => {
 
                         {!hasEnteredQuery ? (
                             <OmnibarEmptyState
-                                message={`Start typing to search for everything in ${
-                                    projectData?.name ?? 'your project'
-                                }.`}
+                                message={t(
+                                    'features_omnibar.no_entered_query.part_1',
+                                    {
+                                        name:
+                                            projectData?.name ??
+                                            t(
+                                                'features_omnibar.no_entered_query.part_2',
+                                            ),
+                                    },
+                                )}
                             />
                         ) : !hasEnteredMinQueryLength ? (
                             <OmnibarEmptyState
-                                message={`Keep typing to search for everything in ${
-                                    projectData?.name ?? 'your project'
-                                }.`}
+                                message={t(
+                                    'features_omnibar.no_query_length.part_1',
+                                    {
+                                        name:
+                                            projectData?.name ??
+                                            t(
+                                                'features_omnibar.no_query_length.part_2',
+                                            ),
+                                    },
+                                )}
                             />
                         ) : !searchResults ? (
-                            <OmnibarEmptyState message="Searching..." />
+                            <OmnibarEmptyState
+                                message={t('features_omnibar.search')}
+                            />
                         ) : !hasSearchResults ? (
-                            <OmnibarEmptyState message="No results found." />
+                            <OmnibarEmptyState
+                                message={t('features_omnibar.no_results')}
+                            />
                         ) : (
                             <OmnibarItemGroups
                                 projectUuid={projectUuid}

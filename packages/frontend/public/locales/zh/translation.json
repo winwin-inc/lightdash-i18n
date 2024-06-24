@@ -1,6 +1,36 @@
 {
     "welcome": "欢迎您",
 
+    "hooks_pinning": {
+        "toast_chart_pinned": {
+            "success": {
+                "pinned": "成功! 图表已固定到首页",
+                "unpinned": "成功! 图表已从首页取消固定"
+            },
+            "error": "固定图表失败"
+        },
+        "toast_dashboard_pinned": {
+            "success": {
+                "pinned": "成功! 看板已固定到首页",
+                "unpinned": "成功! 看板已从首页取消固定"
+            },
+            "error": "固定看板失败"
+        },
+        "toast_pinned_items": {
+            "error": "无法重新排序固定项目"
+        },
+        "toast_space": {
+            "success": {
+                "pinned": "成功! 空间已固定到首页",
+                "unpinned": "成功! 空间已从首页取消固定"
+            },
+            "error": "固定空间失败"
+        }
+    },
+    "hooks_async_clipboard": {
+        "toast_copied": "链接已复制到剪贴板"
+    },
+
     "features_users": {
         "title": "登录",
         "user_no_auth_tip": "身份验证失败",
@@ -143,6 +173,62 @@
         }
     },
 
+    "features_omnibar": {
+        "search_project": {
+            "part_1": "搜索 {{name}} ",
+            "part_2": "你的项目"
+        },
+        "search_in_project": {
+            "part_1": "在 {{name}} ",
+            "part_2": "中搜索你的项目"
+        },
+        "no_entered_query": {
+            "part_1": "开始输入以搜索",
+            "part_2": "你的项目中的所有内容"
+        },
+        "no_query_length": {
+            "part_1": "继续输入以搜索",
+            "part_2": "你的项目中的所有内容"
+        },
+        "search": "搜索中...",
+        "no_results": "未找到结果。"
+    },
+    "features_omnibar_filter": {
+        "item_type": "项目类型",
+        "clear": "清除",
+        "created_by": "创建者",
+        "select_user": "选择用户",
+        "clear_filters": "清除过滤器"
+    },
+    "features_omnibar_item_icon": {
+        "tooltip_can_manage": {
+            "part_1": "这个内容存在问题。了解更多关于验证错误的信息",
+            "part_2": "点击这里",
+            "part_3": "。"
+        },
+        "tooltip_error": "这个 {{type}} 存在错误"
+    },
+    "features_omnibar_labels": {
+        "errors": {
+            "filed": "字段",
+            "dashboard": "看板",
+            "chart": "图表"
+        },
+        "items": {
+            "field": "字段",
+            "dashboard": "看板",
+            "chart": "图表",
+            "space": "空间",
+            "table": "表格",
+            "page": "页面"
+        },
+        "date": {
+            "from": "从",
+            "to": "到",
+            "date": "日期"
+        }
+    },
+
     "features_project_group_access": {
         "toast": {
             "success": "组访问权限已添加"
@@ -256,6 +342,13 @@
         "use_table": "使用表"
     },
 
+    "components_common_dashboard_share": {
+        "toast_copied": "链接已复制到剪贴板"
+    },
+    "components_common_page_header": {
+        "last_edited": "最后编辑于",
+        "by": "由"
+    },
     "components_common_filters": {
         "tried_to_reference": "尝试引用未知 ID 的字段:",
         "add_filter": "添加筛选器",
@@ -1383,6 +1476,9 @@
         "customizing": "点击这里了解更多关于自定义项目外观的信息"
     },
 
+    "components_explorer_here": {
+        "explore_from_here": "从这里探索"
+    },
     "components_explorer_tree": {
         "search": "搜索指标 + 维度",
         "no_fields": "未找到任何字段...",
@@ -1601,6 +1697,10 @@
         }
     },
     "components_explorer_save_charts_header": {
+        "space_type_labels": {
+            "shared_with_me": "与我分享",
+            "admin_content_view": "公开内容视图"
+        },
         "create_success": "成功！创建包含变更的分支：",
         "create_error": "无法创建拉取请求",
         "check_reload_message": "您的仪表盘上有未保存的更改！您确定要离开而不保存吗？",
@@ -1611,6 +1711,7 @@
         },
         "edit_chart": "编辑图表",
         "cancel": "取消",
+        "move_to_space": "移动到空间",
         "menus": {
             "save_chart_as": "将图表另存为",
             "duplicate": "复制",

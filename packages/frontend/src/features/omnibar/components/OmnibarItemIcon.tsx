@@ -14,14 +14,16 @@ import {
     IconTable,
 } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+
 import {
     getChartIcon,
     IconBox,
     ResourceIndicator,
 } from '../../../components/common/ResourceIcon';
 import { type SearchItem } from '../types/searchItem';
-import { getSearchItemErrorLabel } from '../utils/getSearchItemLabel';
+import { useSearchItemErrorLabel } from '../utils/getSearchItemLabel';
 
 type Props = {
     item: SearchItem;
@@ -95,8 +97,11 @@ type OmnibarItemIconWithIndicatorProps = {
 
 export const OmnibarItemIconWithIndicator: FC<
     OmnibarItemIconWithIndicatorProps
-> = ({ item, projectUuid, canUserManageValidation }) =>
-    item.item && 'validationErrors' in item.item ? (
+> = ({ item, projectUuid, canUserManageValidation }) => {
+    const { t } = useTranslation();
+    const getSearchItemErrorLabel = useSearchItemErrorLabel();
+
+    return item.item && 'validationErrors' in item.item ? (
         <ResourceIndicator
             iconProps={{
                 color: 'red',
@@ -112,8 +117,9 @@ export const OmnibarItemIconWithIndicator: FC<
             tooltipLabel={
                 canUserManageValidation ? (
                     <>
-                        This content is broken. Learn more about the validation
-                        error(s){' '}
+                        {t(
+                            'features_omnibar_item_icon.tooltip_can_manage.part_1',
+                        )}{' '}
                         <Anchor
                             component={Link}
                             fw={600}
@@ -124,17 +130,22 @@ export const OmnibarItemIconWithIndicator: FC<
                             }}
                             color="blue.4"
                         >
-                            here
+                            {t(
+                                'features_omnibar_item_icon.tooltip_can_manage.part_2',
+                            )}
                         </Anchor>
-                        .
+                        {t(
+                            'features_omnibar_item_icon.tooltip_can_manage.part_3',
+                        )}
                     </>
                 ) : (
-                    `There's an error with this ${getSearchItemErrorLabel(
-                        item.type,
-                    )}`
+                    t('features_omnibar_item_icon.tooltip_error', {
+                        type: getSearchItemErrorLabel(item.type),
+                    })
                 )
             }
         >
             <OmnibarItemIcon item={item} />
         </ResourceIndicator>
     ) : null;
+};

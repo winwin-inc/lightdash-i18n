@@ -1,39 +1,48 @@
 import { assertUnreachable, SearchItemType } from '@lightdash/common';
+import { useTranslation } from 'react-i18next';
 
-export const getSearchItemLabel = (itemType: SearchItemType) => {
-    switch (itemType) {
-        case SearchItemType.FIELD:
-            return 'Fields';
-        case SearchItemType.DASHBOARD:
-            return 'Dashboards';
-        case SearchItemType.CHART:
-            return 'Charts';
-        case SearchItemType.SPACE:
-            return 'Spaces';
-        case SearchItemType.TABLE:
-            return 'Tables';
-        case SearchItemType.PAGE:
-            return 'Pages';
-        default:
-            return assertUnreachable(
-                itemType,
-                `Unknown search item type: ${itemType}`,
-            );
-    }
+export const useSearchItemLabel = () => {
+    const { t } = useTranslation();
+
+    return (itemType: SearchItemType) => {
+        switch (itemType) {
+            case SearchItemType.FIELD:
+                return t('features_omnibar_labels.items.field');
+            case SearchItemType.DASHBOARD:
+                return t('features_omnibar_labels.items.dashboard');
+            case SearchItemType.CHART:
+                return t('features_omnibar_labels.items.chart');
+            case SearchItemType.SPACE:
+                return t('features_omnibar_labels.items.space');
+            case SearchItemType.TABLE:
+                return t('features_omnibar_labels.items.table');
+            case SearchItemType.PAGE:
+                return t('features_omnibar_labels.items.page');
+            default:
+                return assertUnreachable(
+                    itemType,
+                    `Unknown search item type: ${itemType}`,
+                );
+        }
+    };
 };
 
-export const getSearchItemErrorLabel = (itemType: SearchItemType) => {
-    switch (itemType) {
-        case SearchItemType.FIELD:
-            return 'field';
-        case SearchItemType.DASHBOARD:
-            return 'dashboard';
-        case SearchItemType.CHART:
-            return 'chart';
-        case SearchItemType.SPACE:
-        case SearchItemType.TABLE:
-        case SearchItemType.PAGE:
-        default:
-            return new Error(`Unknown error item type: ${itemType}`);
-    }
+export const useSearchItemErrorLabel = () => {
+    const { t } = useTranslation();
+
+    return (itemType: SearchItemType) => {
+        switch (itemType) {
+            case SearchItemType.FIELD:
+                return t('features_omnibar_labels.errors.field');
+            case SearchItemType.DASHBOARD:
+                return t('features_omnibar_labels.errors.dashboard');
+            case SearchItemType.CHART:
+                return t('features_omnibar_labels.errors.chart');
+            case SearchItemType.SPACE:
+            case SearchItemType.TABLE:
+            case SearchItemType.PAGE:
+            default:
+                return new Error(`Unknown error item type: ${itemType}`);
+        }
+    };
 };

@@ -98,9 +98,17 @@ enum SpaceType {
     AdminContentView,
 }
 
-const SpaceTypeLabels = {
-    [SpaceType.SharedWithMe]: 'Shared with me',
-    [SpaceType.AdminContentView]: 'Public content view',
+const useSpaceTypeLabels = () => {
+    const { t } = useTranslation();
+
+    return {
+        [SpaceType.SharedWithMe]: t(
+            'components_explorer_save_charts_header.space_type_labels.shared_with_me',
+        ),
+        [SpaceType.AdminContentView]: t(
+            'components_explorer_save_charts_header.space_type_labels.admin_content_view',
+        ),
+    };
 };
 
 const getGitIntegration = async (projectUuid: string) =>
@@ -187,6 +195,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
     const isFromDashboard = !!dashboardUuid;
     const spaceUuid = useSearchParams('fromSpace');
     const { t } = useTranslation();
+    const SpaceTypeLabels = useSpaceTypeLabels();
 
     const userTimeZonesEnabled = useFeatureFlagEnabled(
         FeatureFlags.EnableUserTimezones,
@@ -720,7 +729,9 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                                             e.stopPropagation()
                                                         }
                                                     >
-                                                        Move to space
+                                                        {t(
+                                                            'components_explorer_save_charts_header.move_to_space',
+                                                        )}
                                                         <MantineIcon
                                                             icon={
                                                                 IconChevronRight

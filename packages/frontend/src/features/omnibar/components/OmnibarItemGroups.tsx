@@ -2,7 +2,7 @@ import { type SearchItemType } from '@lightdash/common';
 import { Accordion, Text } from '@mantine/core';
 import { useEffect, type FC, type MutableRefObject } from 'react';
 import { type FocusedItemIndex, type SearchItem } from '../types/searchItem';
-import { getSearchItemLabel } from '../utils/getSearchItemLabel';
+import { useSearchItemLabel } from '../utils/getSearchItemLabel';
 import OmnibarItem from './OmnibarItem';
 
 type Props = {
@@ -26,6 +26,8 @@ const OmnibarItemGroups: FC<Props> = ({
     focusedItemIndex,
     scrollRef,
 }) => {
+    const getSearchItemLabel = useSearchItemLabel();
+
     useEffect(() => {
         if (scrollRef?.current && focusedItemIndex) {
             scrollRef.current.scrollIntoView({

@@ -2,7 +2,9 @@ import { subject } from '@casl/ability';
 import { Button } from '@mantine/core';
 import { IconTelescope } from '@tabler/icons-react';
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
+
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
 import { getExplorerUrlFromCreateSavedChartVersion } from '../../hooks/useExplorerRoute';
 import { useCreateShareMutation } from '../../hooks/useShare';
@@ -11,6 +13,7 @@ import { useExplorerContext } from '../../providers/ExplorerProvider';
 import MantineIcon from '../common/MantineIcon';
 
 const ExploreFromHereButton = () => {
+    const { t } = useTranslation();
     const savedChart = useExplorerContext(
         (context) => context.state.savedChart,
     );
@@ -58,7 +61,7 @@ const ExploreFromHereButton = () => {
             leftIcon={<MantineIcon icon={IconTelescope} />}
             onClick={() => handleCreateShareUrl()}
         >
-            Explore from here
+            {t('components_explorer_here.explore_from_here')}
         </Button>
     );
 };
