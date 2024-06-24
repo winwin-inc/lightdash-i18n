@@ -201,6 +201,61 @@
         "revoke": "撤销"
     },
 
+    "features_catalog_meta_data": {
+        "close": "关闭",
+        "errors_loading_metadata": "加载此表的元数据时出错:",
+        "tabs": {
+            "overview": "概览",
+            "usage_analytics": "使用分析"
+        },
+        "groups": {
+            "source": "源",
+            "joins": "连接",
+            "select_table": "选择表",
+            "navigate": "导航"
+        },
+        "table_columns": {
+            "field": "字段",
+            "type": "类型"
+        }
+    },
+    "features_catalog_analytics_charts": {
+        "no_charts_found": "未找到任何图表"
+    },
+    "features_catalog_panel": {
+        "start_exploring": "开始探索",
+        "select_table": "选择一个表或字段开始探索。",
+        "search_input": {
+            "placeholder": "搜索",
+            "description": "输入至少 3 个字符进行搜索"
+        },
+        "filters": {
+            "filter": "过滤",
+            "dimensions": "维度",
+            "metrics": "指标",
+            "hide_grouped_tables": "隐藏分组表",
+            "result_type": "结果类型",
+            "close": "关闭"
+        },
+        "no_results_tables": {
+            "title": "此项目中找不到任何表",
+            "description": "表是任何数据探索的起点。它们来自在 dbt 项目的 .yml 文件中定义的 dbt 模型。",
+            "learn_more": "了解更多"
+        },
+        "no_results_search": {
+            "title": "没有搜索结果",
+            "description": "尝试使用不同的关键字或调整您的过滤器。",
+            "clear_search": "清除搜索"
+        }
+    },
+    "features_catalog_table_list_item": {
+        "tooltip": {
+            "label": "{{countJoinedTables}} 个连接表"
+        },
+        "previewing": "正在预览",
+        "use_table": "使用表"
+    },
+
     "components_common_filters": {
         "tried_to_reference": "尝试引用未知 ID 的字段:",
         "add_filter": "添加筛选器",
@@ -333,7 +388,7 @@
     "components_settings_validator_table": {
         "tooltip_delete": {
             "chart": "此图表已被删除",
-            "dashboard": "此仪表板已被删除"
+            "dashboard": "此看板已被删除"
         },
         "last_edited_by": "最后编辑者",
         "tooltip_dismiss_error": {
@@ -1922,6 +1977,45 @@
             "integrations": "集成",
             "no_integrations_available": "没有可用的集成",
             "profile_settings": "个人资料设置"
+        }
+    },
+
+    "pages_user_activity": {
+        "chart_weekly": {
+            "num_users": "用户数",
+            "users": "% 用户",
+            "number_of_querying_users": "每周查询用户数",
+            "querying_users": "每周查询用户占比",
+            "weekly_average": "每周每个用户的平均查询次数"
+        },
+        "title": "{{name}} 的用户活动",
+        "items": {
+            "usage_analytics": "使用分析",
+            "user_activity": "{{name}} 的用户活动"
+        },
+        "total_users": "项目总用户数",
+        "numbers_of_viewers": "查看者数量",
+        "numbers_of_interactive_viewers": "交互式查看者数量",
+        "numbers_of_editors": "编辑者数量",
+        "numbers_of_admins": "管理员数量",
+        "users_viewd": "在过去 7 天内查看过图表的用户",
+        "users_query": "本项目有多少用户进行周查询?",
+        "users_running": "用户平均每周运行多少查询?",
+        "most_queries": "在过去 7 天中运行最多查询的用户是谁?",
+        "most_updates_charts": "在过去 7 天内对图表进行最多更新的用户有哪些?(前 10 名)",
+        "run_queries_90_days": "在过去 90 天内没有运行过查询的用户有哪些?",
+        "users_most_viewed_dashboard": "用户查看次数最多的看板",
+        "dashboard_views_top_20": "看板查看次数(前 20 名)",
+        "charts_views_top_20": "图表查看次数(前 20 名)",
+        "table_columns": {
+            "first_name": "名",
+            "last_name": "姓",
+            "number_of_chart_updates": "图表更新次数",
+            "days_since_last_query": "上次查询的天数",
+            "dashboard_name": "看板名称",
+            "number_if_view": "查看次数",
+            "chart_name": "图表名称",
+            "views": "查看"
         }
     },
 

@@ -201,6 +201,61 @@
         "revoke": "Revoke"
     },
 
+    "features_catalog_meta_data": {
+        "close": "Close",
+        "errors_loading_metadata": "There was an error loading the metadata for this table:",
+        "tabs": {
+            "overview": "Overview",
+            "usage_analytics": "Usage Analytics"
+        },
+        "groups": {
+            "source": "Source",
+            "joins": "Joins",
+            "select_table": "Select table",
+            "navigate": "Navigate"
+        },
+        "table_columns": {
+            "iield": "Field",
+            "type": "Type"
+        }
+    },
+    "features_catalog_analytics_charts": {
+        "no_charts_found": "No charts found"
+    },
+    "features_catalog_panel": {
+        "start_exploring": "Start exploring",
+        "select_table": "Select a table or field to start exploring.",
+        "search_input": {
+            "placeholder": "Search",
+            "description": "Enter at least 3 characters to search"
+        },
+        "filters": {
+            "filter": "Filter",
+            "dimensions": "Dimensions",
+            "metrics": "Metrics",
+            "hide_grouped_tables": "Hide grouped tables",
+            "result_type": "Result type",
+            "close": "Close"
+        },
+        "no_results_tables": {
+            "title": "No tables found in this project",
+            "description": "Tables are the starting point to any data exploration in Lightdash. They come from dbt models that have been defined in your dbt project's .yml files.",
+            "learn_more": "Learn more"
+        },
+        "no_results_search": {
+            "title": "No search results",
+            "description": "Try using different keywords or adjusting your filters.",
+            "clear_search": "CLear search"
+        }
+    },
+    "features_catalog_table_list_item": {
+        "tooltip": {
+            "label": "{{countJoinedTables}} joined table(s)"
+        },
+        "previewing": "previewing",
+        "use_table": "Use table"
+    },
+
     "components_common_filters": {
         "tried_to_reference": "Tried to reference field with unknown id:",
         "add_filter": "Add filter",
@@ -1919,6 +1974,45 @@
         "title": "Project Settings - Lightdash",
         "breadcrumbs": {
             "all_projects": "All projects"
+        }
+    },
+
+    "pages_user_activity": {
+        "chart_weekly": {
+            "num_users": "Num users",
+            "users": "% users",
+            "number_of_querying_users": "Number of weekly querying users",
+            "querying_users": "% of weekly querying users",
+            "weekly_average": "Weekly average number of\nqueries per user"
+        },
+        "title": "User activity for {{name}}",
+        "items": {
+            "usage_analytics": "Usage Analytics",
+            "user_activity": "User activity for {{name}}"
+        },
+        "total_users": "Total users in project",
+        "numbers_of_viewers": "Number of viewers",
+        "numbers_of_interactive_viewers": "Number of interactive viewers",
+        "numbers_of_editors": "Number of editors",
+        "numbers_of_admins": "Number of admins",
+        "users_viewd": "Users that viewed a chart in the last 7 days",
+        "users_query": "How many users are querying this project, weekly?",
+        "users_running": "How many queries are users running each week, on average?",
+        "most_queries": "Which users have run the most queries in the last 7 days?",
+        "most_updates_charts": "Which users have made the most updates to charts in the last 7 days? (top 10)",
+        "run_queries_90_days": "Which users have not run queries in the last 90 days?",
+        "users_most_viewed_dashboard": "User's most viewed dashboard",
+        "dashboard_views_top_20": "Dashboard views (top 20)",
+        "charts_views_top_20": "Chart views (top 20)",
+        "table_columns": {
+            "first_name": "First Name",
+            "last_name": "Last Name",
+            "number_of_chart_updates": "Number of chart updates",
+            "days_since_last_query": "Days since last query",
+            "dashboard_name": "Dashboard name",
+            "number_if_view": "Number of views",
+            "chart_name": "Chart name",
+            "views": "Views"
         }
     },
 

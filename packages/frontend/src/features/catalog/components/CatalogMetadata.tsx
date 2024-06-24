@@ -28,7 +28,9 @@ import {
 import { useIsMutating } from '@tanstack/react-query';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 import { useEffect, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useTableStyles } from '../../../hooks/styles/useTableStyles';
 import { useIsTruncated } from '../../../hooks/useIsTruncated';
@@ -39,6 +41,7 @@ import { CatalogAnalyticCharts } from './CatalogAnalyticCharts';
 
 export const CatalogMetadata: FC = () => {
     const history = useHistory();
+    const { t } = useTranslation();
 
     const { classes, cx } = useTableStyles();
     const { colors } = useMantineTheme();
@@ -125,7 +128,7 @@ export const CatalogMetadata: FC = () => {
                     borderBottomLeftRadius: 0,
                 }}
             >
-                Close
+                {t('features_catalog_meta_data.close')}
             </Button>
 
             <Group spacing="xs" mt="lg">
@@ -187,7 +190,9 @@ export const CatalogMetadata: FC = () => {
             {metadataErrors && metadataErrors.length > 0 ? (
                 <Stack>
                     <Text fw={500} c="gray.7">
-                        There was an error loading the metadata for this table:
+                        {t(
+                            'features_catalog_meta_data.errors_loading_metadata',
+                        )}
                     </Text>
                     <Box
                         p="sm"
@@ -245,10 +250,14 @@ export const CatalogMetadata: FC = () => {
                         })}
                     >
                         <Tabs.List>
-                            <Tabs.Tab value={'overview'}>Overview</Tabs.Tab>
+                            <Tabs.Tab value={'overview'}>
+                                {t('features_catalog_meta_data.tabs.overview')}
+                            </Tabs.Tab>
                             <Tabs.Tab value={'analytics'}>
                                 <Group spacing="xs">
-                                    Usage Analytics
+                                    {t(
+                                        'features_catalog_meta_data.tabs.usage_analytics',
+                                    )}
                                     <Avatar
                                         radius="xl"
                                         size="xs"
@@ -313,7 +322,9 @@ export const CatalogMetadata: FC = () => {
                                             icon={IconDatabase}
                                         />
                                         <Text fw={500} fz={13} c="gray.7">
-                                            Source
+                                            {t(
+                                                'features_catalog_meta_data.groups.source',
+                                            )}
                                         </Text>
                                     </Group>
                                     <Text fw={500} fz={13} c="gray.7">
@@ -328,7 +339,9 @@ export const CatalogMetadata: FC = () => {
                                             icon={IconLink}
                                         />
                                         <Text fw={500} fz={13} c="gray.7">
-                                            Joins
+                                            {t(
+                                                'features_catalog_meta_data.groups.joins',
+                                            )}
                                         </Text>
                                     </Group>
 
@@ -380,8 +393,16 @@ export const CatalogMetadata: FC = () => {
                                             >
                                                 <thead>
                                                     <tr>
-                                                        <th>Field</th>
-                                                        <th>Type</th>
+                                                        <th>
+                                                            {t(
+                                                                'features_catalog_meta_data.table_columns.field',
+                                                            )}
+                                                        </th>
+                                                        <th>
+                                                            {t(
+                                                                'features_catalog_meta_data.table_columns.type',
+                                                            )}
+                                                        </th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -492,7 +513,9 @@ export const CatalogMetadata: FC = () => {
                                         />
                                     </Paper>
                                     <Text fz="xs" fw={500} c="gray.6">
-                                        Select Table
+                                        {t(
+                                            'features_catalog_meta_data.groups.select_table',
+                                        )}
                                     </Text>
                                 </Group>
 
@@ -521,7 +544,9 @@ export const CatalogMetadata: FC = () => {
                                         <MantineIcon icon={IconArrowUp} />
                                     </Paper>
                                     <Text fz="xs" fw={500} c="gray.6">
-                                        Navigate
+                                        {t(
+                                            'features_catalog_meta_data.groups.navigate',
+                                        )}
                                     </Text>
                                 </Group>
                             </Group>
@@ -539,7 +564,9 @@ export const CatalogMetadata: FC = () => {
                                     );
                                 }}
                             >
-                                Select table
+                                {t(
+                                    'features_catalog_meta_data.groups.select_table',
+                                )}
                             </Button>
                         </Group>
                     </Stack>

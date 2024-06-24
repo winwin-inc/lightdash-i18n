@@ -2,6 +2,8 @@ import { type ApiCatalogAnalyticsResults } from '@lightdash/common';
 import { Avatar, Group, Paper, Stack, Text } from '@mantine/core';
 import { IconFolder, IconLayoutDashboard } from '@tabler/icons-react';
 import { useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import { getChartIcon } from '../../../components/common/ResourceIcon';
 import RouterNavLink from '../../../components/common/RouterNavLink';
@@ -15,6 +17,8 @@ export const CatalogAnalyticCharts: FC<React.PropsWithChildren<Props>> = ({
     projectUuid,
     analyticResults: { charts },
 }) => {
+    const { t } = useTranslation();
+
     /**
      * Sort charts by space name, then by whether they are part of a dashboard, then by name
      */
@@ -38,7 +42,11 @@ export const CatalogAnalyticCharts: FC<React.PropsWithChildren<Props>> = ({
     );
 
     if (charts.length === 0) {
-        return <Text>No charts found</Text>;
+        return (
+            <Text>
+                {t('features_catalog_analytics_charts.no_charts_found')}
+            </Text>
+        );
     }
 
     return (

@@ -12,7 +12,9 @@ import {
 } from '@mantine/core';
 import { IconLayersIntersect, IconTable } from '@tabler/icons-react';
 import React, { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import MantineLinkButton from '../../../components/common/MantineLinkButton';
 import { useIsTruncated } from '../../../hooks/useIsTruncated';
@@ -39,6 +41,7 @@ export const CatalogTableListItem: FC<React.PropsWithChildren<Props>> = ({
     onClick,
     children,
 }) => {
+    const { t } = useTranslation();
     const [isOpen, toggleOpen] = useToggle(startOpen);
     const [hovered, setHovered] = useState<boolean | undefined>(false);
     const { ref, isTruncated: isNameTruncated } =
@@ -112,7 +115,10 @@ export const CatalogTableListItem: FC<React.PropsWithChildren<Props>> = ({
                     <Tooltip
                         variant="xs"
                         disabled={countJoinedTables === 0}
-                        label={`${countJoinedTables} joined table(s)`}
+                        label={t(
+                            'features_catalog_table_list_item.tooltip.label',
+                            { countJoinedTables },
+                        )}
                     >
                         <Group noWrap spacing="one">
                             <MantineIcon
@@ -145,7 +151,9 @@ export const CatalogTableListItem: FC<React.PropsWithChildren<Props>> = ({
                             {table.description || ''}
                         </Highlight>
                     ) : (
-                        <Badge color="violet">previewing</Badge>
+                        <Badge color="violet">
+                            {t('features_catalog_table_list_item.previewing')}
+                        </Badge>
                     )}
                 </Grid.Col>
 
@@ -170,7 +178,7 @@ export const CatalogTableListItem: FC<React.PropsWithChildren<Props>> = ({
                             })}
                             onClick={(e) => e.stopPropagation()}
                         >
-                            Use table
+                            {t('features_catalog_table_list_item.use_table')}
                         </MantineLinkButton>
                     </Box>
                 )}

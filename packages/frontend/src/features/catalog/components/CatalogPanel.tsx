@@ -29,7 +29,9 @@ import {
     IconX,
 } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, useTransition, type FC } from 'react';
+import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
+
 import LinkButton from '../../../components/common/LinkButton';
 import MantineIcon from '../../../components/common/MantineIcon';
 import SuboptimalState from '../../../components/common/SuboptimalState/SuboptimalState';
@@ -119,6 +121,8 @@ type FilterState = {
 
 export const CatalogPanel: FC = () => {
     const [, startTransition] = useTransition();
+    const { t } = useI18nTranslation();
+
     const {
         setMetadata,
         setMetadataErrors,
@@ -487,9 +491,13 @@ export const CatalogPanel: FC = () => {
                             </Paper>
 
                             <Box>
-                                <Title order={4}>Start exploring</Title>
+                                <Title order={4}>
+                                    {t(
+                                        'features_catalog_panel.start_exploring',
+                                    )}
+                                </Title>
                                 <Text color="gray.6" fw={500}>
-                                    Select a table or field to start exploring.
+                                    {t('features_catalog_panel.select_table')}
                                 </Text>
                             </Box>
                         </Group>
@@ -509,8 +517,12 @@ export const CatalogPanel: FC = () => {
                                 </ActionIcon>
                             ) : null
                         }
-                        placeholder="Search"
-                        description={'Enter at least 3 characters to search'}
+                        placeholder={t(
+                            'features_catalog_panel.search_input.placeholder',
+                        )}
+                        description={t(
+                            'features_catalog_panel.search_input.description',
+                        )}
                         value={search}
                         inputWrapperOrder={[
                             'label',
@@ -554,7 +566,11 @@ export const CatalogPanel: FC = () => {
                                         }}
                                     >
                                         <Group noWrap spacing="xs">
-                                            <Text>Filter</Text>
+                                            <Text>
+                                                {t(
+                                                    'features_catalog_panel.search_input.filters.filter',
+                                                )}
+                                            </Text>
                                             {filters.dimensions && (
                                                 <Badge
                                                     fw={500}
@@ -568,7 +584,9 @@ export const CatalogPanel: FC = () => {
                                                         },
                                                     }}
                                                 >
-                                                    Dimensions
+                                                    {t(
+                                                        'features_catalog_panel.search_input.filters.dimensions',
+                                                    )}
                                                 </Badge>
                                             )}
                                             {filters.metrics && (
@@ -583,7 +601,9 @@ export const CatalogPanel: FC = () => {
                                                         },
                                                     }}
                                                 >
-                                                    Metrics
+                                                    {t(
+                                                        'features_catalog_panel.search_input.filters.metrics',
+                                                    )}
                                                 </Badge>
                                             )}
 
@@ -599,7 +619,9 @@ export const CatalogPanel: FC = () => {
                                                         },
                                                     }}
                                                 >
-                                                    Hide grouped tables
+                                                    {t(
+                                                        'features_catalog_panel.search_input.filters.hide_grouped_tables',
+                                                    )}
                                                 </Badge>
                                             )}
                                         </Group>
@@ -625,7 +647,9 @@ export const CatalogPanel: FC = () => {
                             <Popover.Dropdown fz="xs">
                                 <Stack spacing="sm">
                                     <Text c="gray.6" fw={500}>
-                                        Result type
+                                        {t(
+                                            'features_catalog_panel.search_input.filters.result_type',
+                                        )}
                                     </Text>
                                     <Stack spacing="xs">
                                         <Checkbox
@@ -647,7 +671,9 @@ export const CatalogPanel: FC = () => {
                                                         },
                                                     }}
                                                 >
-                                                    Dimensions
+                                                    {t(
+                                                        'features_catalog_panel.search_input.filters.dimensions',
+                                                    )}
                                                 </Badge>
                                             }
                                         />
@@ -670,7 +696,9 @@ export const CatalogPanel: FC = () => {
                                                         },
                                                     }}
                                                 >
-                                                    Metrics
+                                                    {t(
+                                                        'features_catalog_panel.search_input.filters.metrics',
+                                                    )}
                                                 </Badge>
                                             }
                                         />
@@ -691,7 +719,9 @@ export const CatalogPanel: FC = () => {
                                                     fw={500}
                                                     c="gray.7"
                                                 >
-                                                    Hide grouped tables
+                                                    {t(
+                                                        'features_catalog_panel.search_input.filters.hide_grouped_tables',
+                                                    )}
                                                 </Text>
                                             }
                                         />
@@ -710,7 +740,9 @@ export const CatalogPanel: FC = () => {
                                         })}
                                         onClick={() => setFiltersOpen(false)}
                                     >
-                                        Close
+                                        {t(
+                                            'features_catalog_panel.search_input.filters.close',
+                                        )}
                                     </Button>
                                 </Stack>
                             </Popover.Dropdown>
@@ -731,10 +763,12 @@ export const CatalogPanel: FC = () => {
                     {noTables ? (
                         <SuboptimalState
                             icon={IconTable}
-                            title="No tables found in this project"
-                            description={
-                                "Tables are the starting point to any data exploration in Lightdash. They come from dbt models that have been defined in your dbt project's .yml files."
-                            }
+                            title={t(
+                                'features_catalog_panel.search_input.no_results_tables.title',
+                            )}
+                            description={t(
+                                'features_catalog_panel.search_input.no_results_tables.description',
+                            )}
                             action={
                                 <LinkButton
                                     href="https://docs.lightdash.com/guides/adding-tables-to-lightdash"
@@ -749,17 +783,21 @@ export const CatalogPanel: FC = () => {
                                         },
                                     })}
                                 >
-                                    Learn more
+                                    {t(
+                                        'features_catalog_panel.search_input.no_results_tables.learn_more',
+                                    )}
                                 </LinkButton>
                             }
                         />
                     ) : (
                         <SuboptimalState
                             icon={IconSearch}
-                            title="No search results"
-                            description={
-                                'Try using different keywords or adjusting your filters.'
-                            }
+                            title={t(
+                                'features_catalog_panel.search_input.no_results_search.title',
+                            )}
+                            description={t(
+                                'features_catalog_panel.search_input.no_results_search.description',
+                            )}
                             action={
                                 <Button
                                     variant="default"
@@ -767,7 +805,9 @@ export const CatalogPanel: FC = () => {
                                     mt="sm"
                                     radius="md"
                                 >
-                                    Clear search
+                                    {t(
+                                        'features_catalog_panel.search_input.no_results_search.clear_search',
+                                    )}
                                 </Button>
                             }
                         />

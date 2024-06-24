@@ -7,6 +7,7 @@ import { Box, Card, Group, Stack, Table, Text, Title } from '@mantine/core';
 import { IconUsers } from '@tabler/icons-react';
 import EChartsReact from 'echarts-for-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 
 import MantineIcon from '../components/common/MantineIcon';
@@ -93,91 +94,101 @@ const showTableBodyWithUsers = (key: string, userList: UserWithCount[]) => {
     );
 };
 
-const chartWeeklyQueryingUsers = (
-    data: UserActivityResponse['chartWeeklyQueryingUsers'],
-) => ({
-    grid: {
-        height: '250px',
-        top: '90',
-    },
-    xAxis: {
-        type: 'time',
-    },
-    yAxis: [
-        {
-            type: 'value',
-            name: 'Num users',
-            nameLocation: 'center',
-            nameGap: '40',
-        },
-        {
-            type: 'value',
-            name: '% users',
-            nameLocation: 'center',
-            nameGap: '40',
-            nameRotate: -90,
-        },
-    ],
-    legend: { top: '40' },
-    series: [
-        {
-            name: 'Number of weekly querying users',
-            data: data.map((queries: any) => [
-                queries.date,
-                queries.num_7d_active_users,
-            ]),
-            type: 'bar',
-            color: '#d7c1fa',
-        },
-        {
-            name: '% of weekly querying users',
-            yAxisIndex: 1,
-            data: data.map((queries: any) => [
-                queries.date,
-                queries.percent_7d_active_users,
-            ]),
-            type: 'line',
-            symbol: 'none',
-            smooth: true,
-            color: '#7262ff',
-        },
-    ],
-});
+const useChartWeeklyQueryingUsers = () => {
+    const { t } = useTranslation();
 
-const chartWeeklyAverageQueries = (
-    data: UserActivityResponse['chartWeeklyAverageQueries'],
-) => ({
-    grid: {
-        height: '280px',
-    },
-    xAxis: {
-        type: 'time',
-    },
-    yAxis: {
-        type: 'value',
-        name: 'Weekly average number of\nqueries per user',
-        nameLocation: 'center',
-        nameGap: '25',
-    },
-    series: [
-        {
-            data: data.map((queries) => [
-                queries.date,
-                queries.average_number_of_weekly_queries_per_user,
-            ]),
-            type: 'line',
-            symbol: 'none',
-            smooth: true,
-            color: '#16df95',
+    return (data: UserActivityResponse['chartWeeklyQueryingUsers']) => ({
+        grid: {
+            height: '250px',
+            top: '90',
         },
-    ],
-});
+        xAxis: {
+            type: 'time',
+        },
+        yAxis: [
+            {
+                type: 'value',
+                name: t('pages_user_activity.chart_weekly.num_users'),
+                nameLocation: 'center',
+                nameGap: '40',
+            },
+            {
+                type: 'value',
+                name: t('pages_user_activity.chart_weekly.users'),
+                nameLocation: 'center',
+                nameGap: '40',
+                nameRotate: -90,
+            },
+        ],
+        legend: { top: '40' },
+        series: [
+            {
+                name: t(
+                    'pages_user_activity.chart_weekly.number_of_querying_users',
+                ),
+                data: data.map((queries: any) => [
+                    queries.date,
+                    queries.num_7d_active_users,
+                ]),
+                type: 'bar',
+                color: '#d7c1fa',
+            },
+            {
+                name: t('pages_user_activity.chart_weekly.querying_users'),
+                yAxisIndex: 1,
+                data: data.map((queries: any) => [
+                    queries.date,
+                    queries.percent_7d_active_users,
+                ]),
+                type: 'line',
+                symbol: 'none',
+                smooth: true,
+                color: '#7262ff',
+            },
+        ],
+    });
+};
+
+const useChartWeeklyAverageQueries = () => {
+    const { t } = useTranslation();
+
+    return (data: UserActivityResponse['chartWeeklyAverageQueries']) => ({
+        grid: {
+            height: '280px',
+        },
+        xAxis: {
+            type: 'time',
+        },
+        yAxis: {
+            type: 'value',
+            name: t('pages_user_activity.chart_weekly.weekly_average'),
+            nameLocation: 'center',
+            nameGap: '25',
+        },
+        series: [
+            {
+                data: data.map((queries) => [
+                    queries.date,
+                    queries.average_number_of_weekly_queries_per_user,
+                ]),
+                type: 'line',
+                symbol: 'none',
+                smooth: true,
+                color: '#16df95',
+            },
+        ],
+    });
+};
 
 const UserActivity: FC = () => {
     const params = useParams<{ projectUuid: string }>();
     const { data: project } = useProject(params.projectUuid);
     const { user: sessionUser } = useApp();
     const { data: health } = useHealth();
+
+    const { t } = useTranslation();
+    const chartWeeklyQueryingUsers = useChartWeeklyQueryingUsers();
+    const chartWeeklyAverageQueries = useChartWeeklyAverageQueries();
 
     const { data, isInitialLoading } = useUserActivity(params.projectUuid);
     if (sessionUser.data?.ability?.cannot('view', 'Analytics')) {
@@ -193,12 +204,19 @@ const UserActivity: FC = () => {
     }
 
     return (
-        <Page title={`User activity for ${project?.name}`} withFitContent>
+        <Page
+            title={t('pages_user_activity.title', {
+                name: project?.name,
+            })}
+            withFitContent
+        >
             <Box mt={10} mb={30}>
                 <PageBreadcrumbs
                     items={[
                         {
-                            title: 'Usage analytics',
+                            title: t(
+                                'pages_user_activity.items.usage_analytics',
+                            ),
                             to: `/generalSettings/projectManagement/${params.projectUuid}/usageAnalytics`,
                         },
                         {
@@ -211,7 +229,12 @@ const UserActivity: FC = () => {
                                     }}
                                 >
                                     <MantineIcon icon={IconUsers} size={20} />{' '}
-                                    User activity for {project?.name}
+                                    {t(
+                                        'pages_user_activity.items.user_activity',
+                                        {
+                                            name: project?.name,
+                                        },
+                                    )}
                                 </Group>
                             ),
                             active: true,
@@ -237,47 +260,46 @@ const UserActivity: FC = () => {
                 <VisualizationCard grid="total-users">
                     <BigNumberVis
                         value={data.numberUsers}
-                        label="Total users in project"
+                        label={t('pages_user_activity.total_users')}
                     />
                 </VisualizationCard>
                 <VisualizationCard grid="viewers">
                     <BigNumberVis
                         value={data.numberViewers}
-                        label="Number of viewers"
+                        label={t('pages_user_activity.numbers_of_viewers')}
                     />
                 </VisualizationCard>
                 <VisualizationCard grid="interactive-viewers">
                     <BigNumberVis
                         value={data.numberInteractiveViewers}
-                        label="
-                        Number of interactive viewers
-                    "
+                        label={t(
+                            'pages_user_activity.numbers_of_interactive_viewers',
+                        )}
                     />
                 </VisualizationCard>
                 <VisualizationCard grid="editors">
                     <BigNumberVis
                         value={data.numberEditors}
-                        label="Number of editors"
+                        label={t('pages_user_activity.numbers_of_editors')}
                     />
                 </VisualizationCard>
 
                 <VisualizationCard grid="admins">
                     <BigNumberVis
                         value={data.numberAdmins}
-                        label="Number of admins"
+                        label={t('pages_user_activity.numbers_of_admins')}
                     />
                 </VisualizationCard>
                 <VisualizationCard grid="weekly-active">
                     <BigNumberVis
                         value={`${data.numberWeeklyQueryingUsers}%`}
-                        label="Users that viewed a chart in the last 7 days"
+                        label={t('pages_user_activity.users_viewd')}
                     />
                 </VisualizationCard>
 
                 <VisualizationCard
                     grid="chart-active-users"
-                    description="
-                        How many users are querying this project, weekly?"
+                    description={t('pages_user_activity.users_query')}
                 >
                     <EChartsReact
                         style={{ height: '100%' }}
@@ -290,9 +312,7 @@ const UserActivity: FC = () => {
 
                 <VisualizationCard
                     grid="queries-per-user"
-                    description="
-                        How many queries are users running each week, on
-                        average?"
+                    description={t('pages_user_activity.users_running')}
                 >
                     <EChartsReact
                         style={{ height: '100%' }}
@@ -305,16 +325,26 @@ const UserActivity: FC = () => {
 
                 <VisualizationCard
                     grid="table-most-queries"
-                    description="
-                        Which users have run the most queries in the last 7
-                        days?"
+                    description={t('pages_user_activity.most_queries')}
                 >
                     <Table withColumnBorders ta="left">
                         <thead>
                             <tr>
-                                <th>First Name</th>
-                                <th>Last Name</th>
-                                <th>Number of Queries</th>
+                                <th>
+                                    {t(
+                                        'pages_user_activity.table_columns.first_name',
+                                    )}
+                                </th>
+                                <th>
+                                    {t(
+                                        'pages_user_activity.table_columns.last_name',
+                                    )}
+                                </th>
+                                <th>
+                                    {t(
+                                        'pages_user_activity.table_columns.number_of_chart_updates',
+                                    )}
+                                </th>
                             </tr>
                         </thead>
                         {showTableBodyWithUsers(
@@ -325,16 +355,26 @@ const UserActivity: FC = () => {
                 </VisualizationCard>
                 <VisualizationCard
                     grid="table-most-charts"
-                    description="
-                        Which users have made the most updates to charts in the
-                        last 7 days? (top 10)"
+                    description={t('pages_user_activity.most_updates_charts')}
                 >
                     <Table withColumnBorders ta="left">
                         <thead>
                             <tr>
-                                <th>First Name</th>
-                                <th>Last Name</th>
-                                <th>Number of chart updates</th>
+                                <th>
+                                    {t(
+                                        'pages_user_activity.table_columns.first_name',
+                                    )}
+                                </th>
+                                <th>
+                                    {t(
+                                        'pages_user_activity.table_columns.last_name',
+                                    )}
+                                </th>
+                                <th>
+                                    {t(
+                                        'pages_user_activity.table_columns.number_of_chart_updates',
+                                    )}
+                                </th>
                             </tr>
                         </thead>
                         {showTableBodyWithUsers(
@@ -345,14 +385,26 @@ const UserActivity: FC = () => {
                 </VisualizationCard>
                 <VisualizationCard
                     grid="table-not-logged-in"
-                    description="Which users have not run queries in the last 90 days?"
+                    description={t('pages_user_activity.run_queries_90_days')}
                 >
                     <Table withColumnBorders ta="left">
                         <thead>
                             <tr>
-                                <th>First Name</th>
-                                <th>Last Name</th>
-                                <th>Days since last query</th>
+                                <th>
+                                    {t(
+                                        'pages_user_activity.table_columns.first_name',
+                                    )}
+                                </th>
+                                <th>
+                                    {t(
+                                        'pages_user_activity.table_columns.last_name',
+                                    )}
+                                </th>
+                                <th>
+                                    {t(
+                                        'pages_user_activity.table_columns.days_since_last_query',
+                                    )}
+                                </th>
                             </tr>
                         </thead>
                         {showTableBodyWithUsers(
@@ -364,15 +416,33 @@ const UserActivity: FC = () => {
 
                 <VisualizationCard
                     grid="table-most-viewed"
-                    description="User's most viewed dashboard"
+                    description={t(
+                        'pages_user_activity.users_most_viewed_dashboard',
+                    )}
                 >
                     <Table withColumnBorders ta="left">
                         <thead>
                             <tr>
-                                <th>First Name</th>
-                                <th>Last Name</th>
-                                <th>Dashboard name</th>
-                                <th>Number of views</th>
+                                <th>
+                                    {t(
+                                        'pages_user_activity.table_columns.first_name',
+                                    )}
+                                </th>
+                                <th>
+                                    {t(
+                                        'pages_user_activity.table_columns.last_name',
+                                    )}
+                                </th>
+                                <th>
+                                    {t(
+                                        'pages_user_activity.table_columns.dashboard_name',
+                                    )}
+                                </th>
+                                <th>
+                                    {t(
+                                        'pages_user_activity.table_columns.views',
+                                    )}
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -396,13 +466,23 @@ const UserActivity: FC = () => {
                     <>
                         <VisualizationCard
                             grid="table-dashboard-views"
-                            description="Dashboard views (top 20)"
+                            description={t(
+                                'pages_user_activity.dashboard_views_top_20',
+                            )}
                         >
                             <Table withColumnBorders ta="left">
                                 <thead>
                                     <tr>
-                                        <th>Dashboard name</th>
-                                        <th>Views</th>
+                                        <th>
+                                            {t(
+                                                'pages_user_activity.table_columns.dashboard_name',
+                                            )}
+                                        </th>
+                                        <th>
+                                            {t(
+                                                'pages_user_activity.table_columns.views',
+                                            )}
+                                        </th>
                                     </tr>
                                 </thead>
                                 {showTableViews(
@@ -413,13 +493,23 @@ const UserActivity: FC = () => {
                         </VisualizationCard>
                         <VisualizationCard
                             grid="table-chart-views"
-                            description="Chart views (top 20)"
+                            description={t(
+                                'pages_user_activity.charts_views_top_20',
+                            )}
                         >
                             <Table withColumnBorders ta="left">
                                 <thead>
                                     <tr>
-                                        <th>Chart name</th>
-                                        <th>Views</th>
+                                        <th>
+                                            {t(
+                                                'pages_user_activity.table_columns.chart_name',
+                                            )}
+                                        </th>
+                                        <th>
+                                            {t(
+                                                'pages_user_activity.table_columns.views',
+                                            )}
+                                        </th>
                                     </tr>
                                 </thead>
                                 {showTableViews('chart-views', data.chartViews)}
