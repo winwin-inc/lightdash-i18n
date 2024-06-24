@@ -1,3 +1,25 @@
+# [0.1138.0](https://github.com/lightdash/lightdash/compare/0.1137.1...0.1138.0) (2024-06-21)
+
+
+### Features
+
+* display table labels in catalog ([#10474](https://github.com/lightdash/lightdash/issues/10474)) ([6ac31d3](https://github.com/lightdash/lightdash/commit/6ac31d3a8959c8d462ae443ecce9dff2b975c7f9))
+
+## [0.1137.1](https://github.com/lightdash/lightdash/compare/0.1137.0...0.1137.1) (2024-06-21)
+
+
+### Bug Fixes
+
+* get correct response pattern for explore screenshots ([#10463](https://github.com/lightdash/lightdash/issues/10463)) ([d513b48](https://github.com/lightdash/lightdash/commit/d513b48e510fd1d3169d013d7102393d663f7195))
+* wait for `.loading_chart` regardless of scheduled delivery ([#10480](https://github.com/lightdash/lightdash/issues/10480)) ([c12d457](https://github.com/lightdash/lightdash/commit/c12d457e5e9130083110b5d62972220438329351))
+
+# [0.1137.0](https://github.com/lightdash/lightdash/compare/0.1136.0...0.1137.0) (2024-06-21)
+
+
+### Features
+
+* funnel chart ([#10445](https://github.com/lightdash/lightdash/issues/10445)) ([fef286b](https://github.com/lightdash/lightdash/commit/fef286bdd8e84daa038ecb7d7a274b29ae4f5501))
+
 # [0.1136.0](https://github.com/lightdash/lightdash/compare/0.1135.3...0.1136.0) (2024-06-20)
 
 
