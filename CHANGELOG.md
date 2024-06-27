@@ -1,3 +1,99 @@
+# [0.1145.0](https://github.com/lightdash/lightdash/compare/0.1144.1...0.1145.0) (2024-06-26)
+
+
+### Features
+
+* allow select field to explore in catalog ([#10509](https://github.com/lightdash/lightdash/issues/10509)) ([6f0cdc8](https://github.com/lightdash/lightdash/commit/6f0cdc8926ad107558b3df33f3e6bf17c57b9505))
+
+## [0.1144.1](https://github.com/lightdash/lightdash/compare/0.1144.0...0.1144.1) (2024-06-26)
+
+
+### Bug Fixes
+
+* don't cache max value when fields change in funnel chart ([#10523](https://github.com/lightdash/lightdash/issues/10523)) ([32af5c4](https://github.com/lightdash/lightdash/commit/32af5c4542e01d5eff666a643d7239a89f17de78))
+
+# [0.1144.0](https://github.com/lightdash/lightdash/compare/0.1143.2...0.1144.0) (2024-06-26)
+
+
+### Features
+
+* display field descriptions ([#10531](https://github.com/lightdash/lightdash/issues/10531)) ([ef497bd](https://github.com/lightdash/lightdash/commit/ef497bdcffec75094df6b1ca8967c25749ef7713))
+
+## [0.1143.2](https://github.com/lightdash/lightdash/compare/0.1143.1...0.1143.2) (2024-06-26)
+
+
+### Bug Fixes
+
+* wait for `loading_chart_overlay` before screenshotting dashboard ([#10527](https://github.com/lightdash/lightdash/issues/10527)) ([3e96d62](https://github.com/lightdash/lightdash/commit/3e96d629bf253d306c97f7a115154cd6f9eb23cd))
+
+## [0.1143.1](https://github.com/lightdash/lightdash/compare/0.1143.0...0.1143.1) (2024-06-25)
+
+
+### Bug Fixes
+
+* support dbt_project flags ([#10519](https://github.com/lightdash/lightdash/issues/10519)) ([86a58b3](https://github.com/lightdash/lightdash/commit/86a58b3fc6b361c2783e84f9238f7f1498d570c0))
+
+# [0.1143.0](https://github.com/lightdash/lightdash/compare/0.1142.0...0.1143.0) (2024-06-25)
+
+
+### Bug Fixes
+
+* get correct table label and label on metadata ([#10518](https://github.com/lightdash/lightdash/issues/10518)) ([59b2c29](https://github.com/lightdash/lightdash/commit/59b2c29128545d3dd581251fbd67e5f582b01878))
+
+
+### Features
+
+* add label placement, value and percentage to funnel chart ([#10497](https://github.com/lightdash/lightdash/issues/10497)) ([d25eadd](https://github.com/lightdash/lightdash/commit/d25eaddb15a63fda6c136017e3cf77ff8a1f29be))
+
+# [0.1142.0](https://github.com/lightdash/lightdash/compare/0.1141.0...0.1142.0) (2024-06-25)
+
+
+### Features
+
+* analytics events dashboard id ([#10511](https://github.com/lightdash/lightdash/issues/10511)) ([33a50dd](https://github.com/lightdash/lightdash/commit/33a50ddfba283680eb7da970e504ef3e8ce0a9c6))
+
+# [0.1141.0](https://github.com/lightdash/lightdash/compare/0.1140.2...0.1141.0) (2024-06-25)
+
+
+### Features
+
+* hide hidden catalog fields ([#10490](https://github.com/lightdash/lightdash/issues/10490)) ([b7296c3](https://github.com/lightdash/lightdash/commit/b7296c39f0d20a67ef4bfbec4b7489add59d2e5c))
+
+## [0.1140.2](https://github.com/lightdash/lightdash/compare/0.1140.1...0.1140.2) (2024-06-25)
+
+
+### Bug Fixes
+
+* safari child src fallback ([#10510](https://github.com/lightdash/lightdash/issues/10510)) ([0371634](https://github.com/lightdash/lightdash/commit/0371634b0727163e8997aa68499f3385c7b50923))
+
+## [0.1140.1](https://github.com/lightdash/lightdash/compare/0.1140.0...0.1140.1) (2024-06-25)
+
+
+### Bug Fixes
+
+* log unexpected errors in backend ([#10506](https://github.com/lightdash/lightdash/issues/10506)) ([c1906a3](https://github.com/lightdash/lightdash/commit/c1906a3ea77f8d930c9a2cd2bb5761fbd894b856))
+
+# [0.1140.0](https://github.com/lightdash/lightdash/compare/0.1139.0...0.1140.0) (2024-06-25)
+
+
+### Features
+
+* hide explore errors in catalog ([#10491](https://github.com/lightdash/lightdash/issues/10491)) ([1ff32a6](https://github.com/lightdash/lightdash/commit/1ff32a613647e2332e1e8712174af68ca14be40a))
+
+# [0.1139.0](https://github.com/lightdash/lightdash/compare/0.1138.1...0.1139.0) (2024-06-24)
+
+
+### Features
+
+* display field labels in catalog metadata ([#10485](https://github.com/lightdash/lightdash/issues/10485)) ([2b0c048](https://github.com/lightdash/lightdash/commit/2b0c04813758b269bbab59269630ab80e6852551))
+
+## [0.1138.1](https://github.com/lightdash/lightdash/compare/0.1138.0...0.1138.1) (2024-06-24)
+
+
+### Bug Fixes
+
+* queue monitoring sql ([#10487](https://github.com/lightdash/lightdash/issues/10487)) ([6760632](https://github.com/lightdash/lightdash/commit/6760632af24c6c16d4a41e2f45d6643286226c69))
+
 # [0.1138.0](https://github.com/lightdash/lightdash/compare/0.1137.1...0.1138.0) (2024-06-21)
 
 

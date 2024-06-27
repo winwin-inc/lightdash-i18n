@@ -3,6 +3,7 @@
 import './sentry'; // Sentry has to be initialized before anything else
 
 import {
+    LightdashError,
     LightdashMode,
     SessionUser,
     UnexpectedServerError,
@@ -328,6 +329,12 @@ export default class App {
                             'blob:',
                             ...contentSecurityPolicyAllowedDomains,
                         ],
+                        'child-src': [
+                            // Fallback of worker-src for safari older than 15.5
+                            "'self'",
+                            'blob:',
+                            ...contentSecurityPolicyAllowedDomains,
+                        ],
                         'script-src': [
                             "'self'",
                             "'unsafe-eval'",
@@ -483,7 +490,10 @@ export default class App {
         expressApp.use(
             (error: Error, req: Request, res: Response, _: NextFunction) => {
                 const errorResponse = errorHandler(error);
-                if (error instanceof UnexpectedServerError) {
+                if (
+                    error instanceof UnexpectedServerError ||
+                    !(error instanceof LightdashError)
+                ) {
                     console.error(error); // Log original error for debug purposes
                 }
                 Logger.error(

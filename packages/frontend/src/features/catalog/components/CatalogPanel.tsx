@@ -125,7 +125,6 @@ export const CatalogPanel: FC = () => {
 
     const {
         setMetadata,
-        setMetadataErrors,
         isSidebarOpen,
         setAnalyticsResults,
         setSidebarOpen,
@@ -280,9 +279,7 @@ export const CatalogPanel: FC = () => {
                         groupName !== 'Ungrouped tables' &&
                         filters.hideGroupedTables
                     ) {
-                        {
-                            return acc;
-                        }
+                        return acc;
                     }
                     // Add to the tree if not filtered out
                     if (!acc[groupName]) {
@@ -293,6 +290,7 @@ export const CatalogPanel: FC = () => {
                             name: item.tableName,
                             type: CatalogType.Table,
                             fields: [],
+                            label: item.tableLabel,
                         };
                     }
                     acc[groupName].tables[item.tableName].fields.push(item);
@@ -318,28 +316,15 @@ export const CatalogPanel: FC = () => {
         (selectedItem: CatalogSelection) => {
             if (!selectedItem.table) return;
 
-            // Reset metadata errors when selecting a new item
-            setMetadataErrors(undefined);
-
             if (selectedItem.group === TABLES_WITH_ERRORS_GROUP_NAME) {
                 if (!isSidebarOpen) {
                     setSidebarOpen(true);
                 }
 
-                const errors =
-                    catalogTree &&
-                    catalogTree[TABLES_WITH_ERRORS_GROUP_NAME].tables[
-                        selectedItem.table
-                    ].errors;
-
                 setSelection({
                     table: selectedItem.table,
                     group: selectedItem.group,
                 });
-
-                if (errors) {
-                    setMetadataErrors(errors);
-                }
 
                 return; // no metadata for tables with errors
             }
@@ -376,8 +361,6 @@ export const CatalogPanel: FC = () => {
             isSidebarOpen,
             setSelection,
             catalogResults,
-            catalogTree,
-            setMetadataErrors,
             setSidebarOpen,
             getMetadata,
             getAnalytics,

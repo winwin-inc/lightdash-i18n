@@ -1,7 +1,10 @@
-import { type CatalogMetadata as CatalogMetadataType } from '@lightdash/common';
+import {
+    FieldType,
+    getItemId,
+    type CatalogMetadata as CatalogMetadataType,
+} from '@lightdash/common';
 import {
     Avatar,
-    Badge,
     Box,
     Button,
     Divider,
@@ -10,7 +13,6 @@ import {
     LoadingOverlay,
     Paper,
     Stack,
-    Table,
     Tabs,
     Text,
     Tooltip,
@@ -32,18 +34,21 @@ import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 
 import MantineIcon from '../../../components/common/MantineIcon';
-import { useTableStyles } from '../../../hooks/styles/useTableStyles';
+import {
+    DEFAULT_EMPTY_EXPLORE_CONFIG,
+    getExplorerUrlFromCreateSavedChartVersion,
+} from '../../../hooks/useExplorerRoute';
 import { useIsTruncated } from '../../../hooks/useIsTruncated';
 import { useCatalogContext } from '../context/CatalogProvider';
 import { useCatalogAnalytics } from '../hooks/useCatalogAnalytics';
 import { useCatalogMetadata } from '../hooks/useCatalogMetadata';
 import { CatalogAnalyticCharts } from './CatalogAnalyticCharts';
+import { CatalogMetadataFieldsTable } from './CatalogMetadataFieldsTable';
 
 export const CatalogMetadata: FC = () => {
     const history = useHistory();
     const { t } = useTranslation();
 
-    const { classes, cx } = useTableStyles();
     const { colors } = useMantineTheme();
     const { ref, isTruncated } = useIsTruncated<HTMLDivElement>();
 
@@ -56,8 +61,6 @@ export const CatalogMetadata: FC = () => {
         selection,
         setAnalyticsResults,
         setSelection,
-        metadataErrors,
-        setMetadataErrors,
     } = useCatalogContext();
     const { reset: resetMetadata } = useCatalogMetadata(projectUuid);
     const isMutatingAnalytics = useIsMutating([
@@ -69,6 +72,8 @@ export const CatalogMetadata: FC = () => {
     const [selectedFieldInTable, setSelectedFieldInTable] = useState<
         string | undefined
     >();
+
+    const isViewingField = selectedFieldInTable || selection?.field;
 
     useEffect(() => {
         setSelectedFieldInTable(undefined);
@@ -84,23 +89,25 @@ export const CatalogMetadata: FC = () => {
     );
 
     const metadata = useMemo(() => {
-        const fieldSelected = selection?.field || selectedFieldInTable;
-        if (fieldSelected && metadataResults) {
+        if (metadataResults && (selectedFieldInTable || selection?.field)) {
             const field = metadataResults?.fields?.find(
-                (f) => f.name === fieldSelected,
+                (f) => f.name === (selectedFieldInTable || selection?.field),
             );
             if (!field) return undefined;
             const catalogMetadata: CatalogMetadataType = {
                 ...metadataResults,
                 name: field.name,
+                label: field.label,
+                tableLabel: field.tableLabel,
                 description: field.description,
                 fields: [],
+                fieldType: field.fieldType,
             };
             return catalogMetadata;
         } else {
             return metadataResults;
         }
-    }, [metadataResults, selection, selectedFieldInTable]);
+    }, [metadataResults, selectedFieldInTable, selection?.field]);
 
     return (
         <Stack h="100vh" spacing="xl">
@@ -115,7 +122,6 @@ export const CatalogMetadata: FC = () => {
                 onClick={() => {
                     setSidebarOpen(false);
                     setSelection(undefined);
-                    setMetadataErrors(undefined);
 
                     if (metadata) {
                         resetMetadata();
@@ -162,416 +168,337 @@ export const CatalogMetadata: FC = () => {
                             }}
                         >
                             {' '}
-                            {selection?.table}
+                            {metadata?.tableLabel}
                         </Text>
                         {' / '}
                     </>
                 )}
-                <Tooltip
-                    variant="xs"
-                    label={metadata?.modelName}
-                    disabled={!!metadataErrors}
-                >
+                <Tooltip variant="xs" label={metadata?.name}>
                     <Text
                         fz="lg"
                         fw={600}
                         onDoubleClick={() => {
-                            if (metadataErrors) return;
                             history.push(
                                 `/projects/${projectUuid}/tables/${metadata?.modelName}`,
                             );
                         }}
                     >
-                        {metadataErrors ? selection?.table : metadata?.name}
+                        {metadata?.label}
                     </Text>
                 </Tooltip>
             </Group>
 
-            {metadataErrors && metadataErrors.length > 0 ? (
-                <Stack>
-                    <Text fw={500} c="gray.7">
-                        {t(
-                            'features_catalog_meta_data.errors_loading_metadata',
-                        )}
-                    </Text>
-                    <Box
-                        p="sm"
-                        sx={{
-                            border: `1px solid ${colors.red[5]}`,
-                            borderRadius: 4,
-                            backgroundColor: colors.red[0],
-                        }}
-                    >
-                        {metadataErrors.map((error) => (
-                            <Text key={error.message} color="red">
-                                {error.message}
-                            </Text>
-                        ))}
-                    </Box>
-                </Stack>
-            ) : (
-                <>
-                    <LoadingOverlay
-                        loaderProps={{
-                            size: 'sm',
-                            color: 'gray.7',
-                            pos: 'absolute',
-                            variant: 'dots',
-                        }}
-                        visible={!metadata || !!isMutatingMetadata}
-                        transitionDuration={1000}
-                    />
+            <LoadingOverlay
+                loaderProps={{
+                    size: 'sm',
+                    color: 'gray.7',
+                    pos: 'absolute',
+                    variant: 'dots',
+                }}
+                visible={!metadata || !!isMutatingMetadata}
+                transitionDuration={1000}
+            />
 
-                    <Tabs
-                        color="dark"
-                        defaultValue="overview"
-                        styles={(theme) => ({
-                            tabsList: {
-                                borderBottom: `1px solid ${theme.colors.gray[3]}`,
-                            },
-                            panel: {
-                                paddingTop: theme.spacing.xl,
-                                height: `calc(100vh - 260px)`,
-                                overflowY: 'scroll',
-                            },
-                            tab: {
-                                paddingRight: theme.spacing.sm,
-                                paddingLeft: 0,
-                                fontSize: theme.fontSizes.sm,
-                                fontWeight: 500,
-                                '&[data-active="true"]': {
-                                    color: theme.colors.gray[9],
-                                },
+            <Tabs
+                color="dark"
+                defaultValue="overview"
+                styles={(theme) => ({
+                    tabsList: {
+                        borderBottom: `1px solid ${theme.colors.gray[3]}`,
+                    },
+                    panel: {
+                        paddingTop: theme.spacing.xl,
+                        height: `calc(100vh - 260px)`,
+                        overflowY: 'scroll',
+                    },
+                    tab: {
+                        paddingRight: theme.spacing.sm,
+                        paddingLeft: 0,
+                        fontSize: theme.fontSizes.sm,
+                        fontWeight: 500,
+                        '&[data-active="true"]': {
+                            color: theme.colors.gray[9],
+                        },
 
-                                '&:not([data-active])': {
-                                    color: theme.colors.gray[6],
-                                },
-                            },
-                        })}
-                    >
-                        <Tabs.List>
-                            <Tabs.Tab value={'overview'}>
-                                {t('features_catalog_meta_data.tabs.overview')}
-                            </Tabs.Tab>
-                            <Tabs.Tab value={'analytics'}>
-                                <Group spacing="xs">
-                                    {t(
-                                        'features_catalog_meta_data.tabs.usage_analytics',
-                                    )}
-                                    <Avatar
-                                        radius="xl"
-                                        size="xs"
-                                        fz="md"
-                                        styles={(theme) => ({
-                                            placeholder: {
-                                                fontSize: theme.fontSizes.xs,
-                                                color: theme.colors.gray[7],
-                                                backgroundColor:
-                                                    theme.colors.gray[1],
-                                            },
-                                        })}
-                                    >
-                                        {isMutatingAnalytics ? (
-                                            <Loader
-                                                color="gray"
-                                                size={8}
-                                                speed={1}
-                                                radius="xl"
-                                            />
-                                        ) : (
-                                            analyticsResults?.charts.length ||
-                                            '0'
-                                        )}
-                                    </Avatar>
-                                </Group>
-                            </Tabs.Tab>
-                        </Tabs.List>
-
-                        <Tabs.Panel value="overview">
-                            <Stack>
-                                {metadata?.description && (
-                                    <>
-                                        <Box
-                                            sx={(theme) => ({
-                                                padding: theme.spacing.sm,
-                                                border: `1px solid ${theme.colors.gray[3]}`,
-                                                borderRadius: theme.radius.sm,
-                                                backgroundColor:
-                                                    theme.colors.gray[0],
-                                                fontSize: theme.fontSizes.sm,
-                                            })}
-                                        >
-                                            <MarkdownPreview
-                                                style={{
-                                                    backgroundColor:
-                                                        colors.gray[0],
-                                                    fontSize: 'small',
-                                                }}
-                                                source={metadata?.description}
-                                            />
-                                        </Box>
-
-                                        <Divider />
-                                    </>
-                                )}
-
-                                <Group position="apart">
-                                    <Group spacing="xs">
-                                        <MantineIcon
-                                            color={colors.gray[5]}
-                                            icon={IconDatabase}
-                                        />
-                                        <Text fw={500} fz={13} c="gray.7">
-                                            {t(
-                                                'features_catalog_meta_data.groups.source',
-                                            )}
-                                        </Text>
-                                    </Group>
-                                    <Text fw={500} fz={13} c="gray.7">
-                                        {metadata?.source}
-                                    </Text>
-                                </Group>
-
-                                <Group position="apart" noWrap>
-                                    <Group spacing="xs" noWrap>
-                                        <MantineIcon
-                                            color={colors.gray[5]}
-                                            icon={IconLink}
-                                        />
-                                        <Text fw={500} fz={13} c="gray.7">
-                                            {t(
-                                                'features_catalog_meta_data.groups.joins',
-                                            )}
-                                        </Text>
-                                    </Group>
-
-                                    <Tooltip
-                                        multiline
-                                        maw={300}
-                                        variant="xs"
-                                        label={metadata?.joinedTables.join(
-                                            ', ',
-                                        )}
-                                        disabled={
-                                            !isTruncated ||
-                                            !metadata?.joinedTables ||
-                                            metadata.joinedTables.length === 0
-                                        }
-                                    >
-                                        <Text
-                                            ref={ref}
-                                            fw={500}
-                                            fz={13}
-                                            c={
-                                                metadata?.joinedTables &&
-                                                metadata.joinedTables.length > 0
-                                                    ? 'blue'
-                                                    : 'gray.7'
-                                            }
-                                            truncate
-                                        >
-                                            {metadata?.joinedTables &&
-                                            metadata?.joinedTables.length > 0
-                                                ? metadata?.joinedTables.join(
-                                                      ', ',
-                                                  )
-                                                : 'None'}
-                                        </Text>
-                                    </Tooltip>
-                                </Group>
-
-                                <Divider />
-
-                                {selection?.field === undefined &&
-                                    !selectedFieldInTable && (
-                                        <Paper withBorder>
-                                            <Table
-                                                className={cx(
-                                                    classes.root,
-                                                    classes.smallPadding,
-                                                )}
-                                            >
-                                                <thead>
-                                                    <tr>
-                                                        <th>
-                                                            {t(
-                                                                'features_catalog_meta_data.table_columns.field',
-                                                            )}
-                                                        </th>
-                                                        <th>
-                                                            {t(
-                                                                'features_catalog_meta_data.table_columns.type',
-                                                            )}
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {metadata?.fields?.map(
-                                                        (field) => (
-                                                            <tr
-                                                                key={field.name}
-                                                                style={{
-                                                                    border:
-                                                                        selection?.field ===
-                                                                        field.name
-                                                                            ? `2px solid ${colors.blue[6]}`
-                                                                            : undefined,
-                                                                }}
-                                                            >
-                                                                <td
-                                                                    style={{
-                                                                        color: `${colors.blue[6]}`,
-                                                                        cursor: 'pointer',
-                                                                    }}
-                                                                    onClick={() => {
-                                                                        setSelectedFieldInTable(
-                                                                            field.name,
-                                                                        );
-                                                                        if (
-                                                                            selection?.table
-                                                                        )
-                                                                            getAnalytics(
-                                                                                {
-                                                                                    table: selection.table,
-                                                                                    field: field.name,
-                                                                                },
-                                                                            );
-                                                                    }}
-                                                                >
-                                                                    {field.name}
-                                                                </td>
-                                                                <td>
-                                                                    <Badge
-                                                                        color="gray.4"
-                                                                        radius="lg"
-                                                                        size="xs"
-                                                                        fz="xs"
-                                                                        fw={500}
-                                                                        style={{
-                                                                            textTransform:
-                                                                                'none',
-                                                                            color: colors
-                                                                                .gray[6],
-                                                                        }}
-                                                                    >
-                                                                        {
-                                                                            field.basicType
-                                                                        }
-                                                                    </Badge>
-                                                                </td>
-                                                            </tr>
-                                                        ),
-                                                    )}
-                                                </tbody>
-                                            </Table>
-                                        </Paper>
-                                    )}
-                            </Stack>
-                        </Tabs.Panel>
-                        <Tabs.Panel value="analytics">
-                            <>
-                                {analyticsResults && (
-                                    <CatalogAnalyticCharts
-                                        projectUuid={projectUuid}
-                                        analyticResults={analyticsResults}
-                                    />
-                                )}
-                            </>
-                        </Tabs.Panel>
-                    </Tabs>
-
-                    <Stack
-                        h={72}
-                        justify="center"
-                        p="sm"
-                        c="gray"
-                        w="100%"
-                        pos="absolute"
-                        bottom={0}
-                        left={0}
-                        sx={(theme) => ({
-                            backgroundColor: theme.colors.gray[0],
-                            border: `1px solid ${theme.colors.gray[4]}`,
-                            borderLeft: 0,
-                            borderRight: 0,
-                        })}
-                    >
-                        <Group position="apart">
-                            <Group>
-                                <Group spacing="xs">
-                                    <Paper
-                                        withBorder
-                                        sx={(theme) => ({
-                                            backgroundColor: 'white',
-                                            border: `1px solid ${theme.colors.gray[9]}`,
-                                            borderRadius: theme.radius.sm,
-                                            padding: 4,
-                                        })}
-                                    >
-                                        <MantineIcon
-                                            icon={IconCornerDownLeft}
-                                        />
-                                    </Paper>
-                                    <Text fz="xs" fw={500} c="gray.6">
-                                        {t(
-                                            'features_catalog_meta_data.groups.select_table',
-                                        )}
-                                    </Text>
-                                </Group>
-
-                                <Group spacing="xs">
-                                    <Paper
-                                        withBorder
-                                        sx={(theme) => ({
-                                            backgroundColor: 'white',
-                                            border: `1px solid ${theme.colors.gray[9]}`,
-                                            borderRadius: theme.radius.sm,
-                                            padding: 4,
-                                        })}
-                                    >
-                                        <MantineIcon icon={IconArrowDown} />
-                                    </Paper>
-
-                                    <Paper
-                                        withBorder
-                                        sx={(theme) => ({
-                                            backgroundColor: 'white',
-                                            border: `1px solid ${theme.colors.gray[9]}`,
-                                            borderRadius: theme.radius.sm,
-                                            padding: 4,
-                                        })}
-                                    >
-                                        <MantineIcon icon={IconArrowUp} />
-                                    </Paper>
-                                    <Text fz="xs" fw={500} c="gray.6">
-                                        {t(
-                                            'features_catalog_meta_data.groups.navigate',
-                                        )}
-                                    </Text>
-                                </Group>
-                            </Group>
-                            <Button
-                                size="sm"
-                                sx={(theme) => ({
-                                    backgroundColor: theme.colors.gray[8],
-                                    '&:hover': {
-                                        backgroundColor: theme.colors.gray[9],
+                        '&:not([data-active])': {
+                            color: theme.colors.gray[6],
+                        },
+                    },
+                })}
+            >
+                <Tabs.List>
+                    <Tabs.Tab value={'overview'}>
+                        {t('features_catalog_meta_data.tabs.overview')}
+                    </Tabs.Tab>
+                    <Tabs.Tab value={'analytics'}>
+                        <Group spacing="xs">
+                            {t(
+                                'features_catalog_meta_data.tabs.usage_analytics',
+                            )}
+                            <Avatar
+                                radius="xl"
+                                size="xs"
+                                fz="md"
+                                styles={(theme) => ({
+                                    placeholder: {
+                                        fontSize: theme.fontSizes.xs,
+                                        color: theme.colors.gray[7],
+                                        backgroundColor: theme.colors.gray[1],
                                     },
                                 })}
-                                onClick={() => {
-                                    history.push(
-                                        `/projects/${projectUuid}/tables/${metadata?.modelName}`,
-                                    );
-                                }}
                             >
+                                {isMutatingAnalytics ? (
+                                    <Loader
+                                        color="gray"
+                                        size={8}
+                                        speed={1}
+                                        radius="xl"
+                                    />
+                                ) : (
+                                    analyticsResults?.charts.length || '0'
+                                )}
+                            </Avatar>
+                        </Group>
+                    </Tabs.Tab>
+                </Tabs.List>
+
+                <Tabs.Panel value="overview">
+                    <Stack>
+                        {metadata?.description && (
+                            <>
+                                <Box
+                                    sx={(theme) => ({
+                                        padding: theme.spacing.sm,
+                                        border: `1px solid ${theme.colors.gray[3]}`,
+                                        borderRadius: theme.radius.sm,
+                                        backgroundColor: theme.colors.gray[0],
+                                        fontSize: theme.fontSizes.sm,
+                                    })}
+                                >
+                                    <MarkdownPreview
+                                        style={{
+                                            backgroundColor: colors.gray[0],
+                                            fontSize: 'small',
+                                        }}
+                                        source={metadata?.description}
+                                    />
+                                </Box>
+
+                                <Divider />
+                            </>
+                        )}
+
+                        <Group position="apart">
+                            <Group spacing="xs">
+                                <MantineIcon
+                                    color={colors.gray[5]}
+                                    icon={IconDatabase}
+                                />
+                                <Text fw={500} fz={13} c="gray.7">
+                                    {t(
+                                        'features_catalog_meta_data.groups.source',
+                                    )}
+                                </Text>
+                            </Group>
+                            <Text fw={500} fz={13} c="gray.7">
+                                {metadata?.source}
+                            </Text>
+                        </Group>
+
+                        <Group position="apart" noWrap>
+                            <Group spacing="xs" noWrap>
+                                <MantineIcon
+                                    color={colors.gray[5]}
+                                    icon={IconLink}
+                                />
+                                <Text fw={500} fz={13} c="gray.7">
+                                    {t(
+                                        'features_catalog_meta_data.groups.joins',
+                                    )}
+                                </Text>
+                            </Group>
+
+                            <Tooltip
+                                multiline
+                                maw={300}
+                                variant="xs"
+                                label={metadata?.joinedTables.join(', ')}
+                                disabled={
+                                    !isTruncated ||
+                                    !metadata?.joinedTables ||
+                                    metadata.joinedTables.length === 0
+                                }
+                            >
+                                <Text
+                                    ref={ref}
+                                    fw={500}
+                                    fz={13}
+                                    c={
+                                        metadata?.joinedTables &&
+                                        metadata.joinedTables.length > 0
+                                            ? 'blue'
+                                            : 'gray.7'
+                                    }
+                                    truncate
+                                >
+                                    {metadata?.joinedTables &&
+                                    metadata?.joinedTables.length > 0
+                                        ? metadata?.joinedTables.join(', ')
+                                        : 'None'}
+                                </Text>
+                            </Tooltip>
+                        </Group>
+
+                        <Divider />
+
+                        {selection?.field === undefined &&
+                            !selectedFieldInTable && (
+                                <CatalogMetadataFieldsTable
+                                    selection={selection}
+                                    metadata={metadata}
+                                    getAnalytics={getAnalytics}
+                                    setSelectedFieldInTable={
+                                        setSelectedFieldInTable
+                                    }
+                                />
+                            )}
+                    </Stack>
+                </Tabs.Panel>
+                <Tabs.Panel value="analytics">
+                    <>
+                        {analyticsResults && (
+                            <CatalogAnalyticCharts
+                                projectUuid={projectUuid}
+                                analyticResults={analyticsResults}
+                            />
+                        )}
+                    </>
+                </Tabs.Panel>
+            </Tabs>
+
+            <Stack
+                h={72}
+                justify="center"
+                p="sm"
+                c="gray"
+                w="100%"
+                pos="absolute"
+                bottom={0}
+                left={0}
+                sx={(theme) => ({
+                    backgroundColor: theme.colors.gray[0],
+                    border: `1px solid ${theme.colors.gray[4]}`,
+                    borderLeft: 0,
+                    borderRight: 0,
+                })}
+            >
+                <Group position="apart">
+                    <Group>
+                        <Group spacing="xs">
+                            <Paper
+                                withBorder
+                                sx={(theme) => ({
+                                    backgroundColor: 'white',
+                                    border: `1px solid ${theme.colors.gray[9]}`,
+                                    borderRadius: theme.radius.sm,
+                                    padding: 4,
+                                })}
+                            >
+                                <MantineIcon icon={IconCornerDownLeft} />
+                            </Paper>
+                            <Text fz="xs" fw={500} c="gray.6">
                                 {t(
                                     'features_catalog_meta_data.groups.select_table',
                                 )}
-                            </Button>
+                            </Text>
                         </Group>
-                    </Stack>
-                </>
-            )}
+
+                        <Group spacing="xs">
+                            <Paper
+                                withBorder
+                                sx={(theme) => ({
+                                    backgroundColor: 'white',
+                                    border: `1px solid ${theme.colors.gray[9]}`,
+                                    borderRadius: theme.radius.sm,
+                                    padding: 4,
+                                })}
+                            >
+                                <MantineIcon icon={IconArrowDown} />
+                            </Paper>
+
+                            <Paper
+                                withBorder
+                                sx={(theme) => ({
+                                    backgroundColor: 'white',
+                                    border: `1px solid ${theme.colors.gray[9]}`,
+                                    borderRadius: theme.radius.sm,
+                                    padding: 4,
+                                })}
+                            >
+                                <MantineIcon icon={IconArrowUp} />
+                            </Paper>
+                            <Text fz="xs" fw={500} c="gray.6">
+                                {t(
+                                    'features_catalog_meta_data.groups.navigate',
+                                )}
+                            </Text>
+                        </Group>
+                    </Group>
+                    <Button
+                        size="sm"
+                        sx={(theme) => ({
+                            backgroundColor: theme.colors.gray[8],
+                            '&:hover': {
+                                backgroundColor: theme.colors.gray[9],
+                            },
+                        })}
+                        onClick={() => {
+                            if (metadata && isViewingField) {
+                                const fieldToExplore = getItemId({
+                                    name: metadata.name,
+                                    table: metadata.modelName,
+                                });
+                                return history.push(
+                                    getExplorerUrlFromCreateSavedChartVersion(
+                                        projectUuid,
+                                        {
+                                            ...DEFAULT_EMPTY_EXPLORE_CONFIG,
+                                            tableName: metadata.modelName,
+                                            metricQuery: {
+                                                ...DEFAULT_EMPTY_EXPLORE_CONFIG.metricQuery,
+                                                exploreName: metadata.modelName,
+                                                ...(metadata.fieldType ===
+                                                FieldType.DIMENSION
+                                                    ? {
+                                                          dimensions: [
+                                                              fieldToExplore,
+                                                          ],
+                                                      }
+                                                    : metadata.fieldType ===
+                                                      FieldType.METRIC
+                                                    ? {
+                                                          metrics: [
+                                                              fieldToExplore,
+                                                          ],
+                                                      }
+                                                    : {}),
+                                            },
+                                        },
+                                    ),
+                                );
+                            }
+
+                            return history.push(
+                                `/projects/${projectUuid}/tables/${metadata?.modelName}`,
+                            );
+                        }}
+                    >
+                        {isViewingField
+                            ? t('features_catalog_meta_data.buttons.field')
+                            : t('features_catalog_meta_data.buttons.table')}
+                    </Button>
+                </Group>
+            </Stack>
         </Stack>
     );
 };

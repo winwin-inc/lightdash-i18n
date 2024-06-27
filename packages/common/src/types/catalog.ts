@@ -7,6 +7,7 @@ import {
     type CompiledMetric,
     type Dimension,
     type Field,
+    type FieldType,
 } from './field';
 import { type ChartSummary } from './savedCharts';
 import { type TableBase } from './table';
@@ -28,7 +29,7 @@ export type ApiCatalogSearch = {
 };
 export type CatalogField = Pick<
     Field,
-    'name' | 'fieldType' | 'tableLabel' | 'description'
+    'name' | 'label' | 'fieldType' | 'tableLabel' | 'description'
 > &
     Pick<Dimension, 'requiredAttributes'> & {
         type: CatalogType.Field;
@@ -55,11 +56,14 @@ export type ApiCatalogResults = CatalogItem[];
 export type CatalogMetadata = {
     name: string;
     description: string | undefined;
+    label: string;
     // TODO Tags
     modelName: string;
     source: string | undefined;
     fields: CatalogField[];
     joinedTables: string[];
+    tableLabel?: string;
+    fieldType?: FieldType;
 };
 export type ApiCatalogMetadataResults = CatalogMetadata;
 

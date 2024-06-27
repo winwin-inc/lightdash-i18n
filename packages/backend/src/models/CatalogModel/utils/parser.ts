@@ -16,6 +16,7 @@ const parseFieldFromMetricOrDimension = (
     tags: string[],
 ): CatalogField => ({
     name: field.name,
+    label: field.label,
     description: field.description,
     tableLabel: field.tableLabel,
     tableName: table.name,
@@ -31,9 +32,9 @@ export const parseFieldsFromCompiledTable = (
     table: CompiledTable,
 ): CatalogField[] => {
     const tableFields = [
-        ...Object.values(table.dimensions),
+        ...Object.values(table.dimensions).filter((d) => !d.isIntervalBase),
         ...Object.values(table.metrics),
-    ];
+    ].filter((f) => !f.hidden); // Filter out hidden fields from catalog
     return tableFields.map((field) =>
         parseFieldFromMetricOrDimension(table, field, []),
     );

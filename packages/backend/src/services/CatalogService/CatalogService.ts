@@ -11,6 +11,7 @@ import {
     ExploreError,
     ForbiddenError,
     hasIntersection,
+    InlineErrorType,
     isExploreError,
     SessionUser,
     SummaryExplore,
@@ -127,6 +128,15 @@ export class CatalogService<
             await this.projectModel.getTablesConfiguration(projectUuid);
         return explores.reduce<CatalogTable[]>((acc, explore) => {
             if (isExploreError(explore)) {
+                // If no dimensions found, we don't show the explore error
+                if (
+                    explore.errors.every(
+                        (error) =>
+                            error.type === InlineErrorType.NO_DIMENSIONS_FOUND,
+                    )
+                )
+                    return acc;
+
                 return [
                     ...acc,
                     {
@@ -256,6 +266,16 @@ export class CatalogService<
         const filteredExplores = explores.reduce<(Explore | ExploreError)[]>(
             (acc, explore) => {
                 if (isExploreError(explore)) {
+                    // If no dimensions found, we don't show the explore error
+                    if (
+                        explore.errors.every(
+                            (error) =>
+                                error.type ===
+                                InlineErrorType.NO_DIMENSIONS_FOUND,
+                        )
+                    )
+                        return acc;
+
                     return [...acc, explore];
                 }
                 if (
@@ -326,7 +346,8 @@ export class CatalogService<
         );
 
         const metadata: CatalogMetadata = {
-            name: explore.label,
+            name: explore.name,
+            label: explore.label,
             description: baseTable.description,
             modelName: explore.name,
             source: explore.ymlPath,

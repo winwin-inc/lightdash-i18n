@@ -1,5 +1,6 @@
 import {
     FunnelChartDataInput,
+    FunnelChartLabelPosition,
     isField,
     isMetric,
     isTableCalculation,
@@ -12,7 +13,7 @@ import {
     type TableCalculation,
     type TableCalculationMetadata,
 } from '@lightdash/common';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { type FunnelSeriesDataPoint } from './echarts/useEchartsFunnelConfig';
 
 type FunnelChartConfig = {
@@ -25,6 +26,10 @@ type FunnelChartConfig = {
 
     dataInput: FunnelChartDataInput;
     setDataInput: (dataInput: FunnelChartDataInput) => void;
+
+    label: FunnelChart['label'];
+
+    onLabelChange: (newLabel: FunnelChart['label']) => void;
 
     data: FunnelSeriesDataPoint[];
 };
@@ -54,9 +59,13 @@ const useFunnelChartConfig: FunnelChartConfigFn = (
         funnelChartConfig?.dataInput ?? FunnelChartDataInput.ROW,
     );
 
-    // The value at the top of the funnel. This is used to calculate
-    // the percentage of the funnel that each step represents
-    const maxValue = useRef(0);
+    const [label, setLabel] = useState<FunnelChart['label']>(
+        funnelChartConfig?.label ?? {
+            position: FunnelChartLabelPosition.INSIDE,
+            showValue: true,
+            showPercentage: false,
+        },
+    );
 
     const allNumericFieldIds = useMemo(
         () => Object.keys(numericFields),
@@ -97,15 +106,25 @@ const useFunnelChartConfig: FunnelChartConfigFn = (
         setFieldId(allNumericFieldIds[0] ?? null);
     }, [allNumericFieldIds, fieldId, isLoading, tableCalculationsMetadata]);
 
-    const data: FunnelSeriesDataPoint[] = useMemo(() => {
+    // Max value is the value at the top of the funnel. This is used to calculate
+    // the percentage of the funnel that each step represents
+    const {
+        data,
+        maxValue = 0,
+    }: {
+        data: FunnelSeriesDataPoint[];
+        maxValue: number;
+    } = useMemo(() => {
         if (
             !resultsData ||
             !fieldId ||
             !selectedField ||
             resultsData.rows.length === 0
         ) {
-            return [];
+            return { data: [], maxValue: 0 };
         }
+
+        let dataMaxValue = 0;
 
         if (dataInput === FunnelChartDataInput.COLUMN) {
             const fieldIndex = Object.keys(resultsData.rows[0]).findIndex(
@@ -115,67 +134,82 @@ const useFunnelChartConfig: FunnelChartConfigFn = (
             );
 
             if (fieldIndex === -1) {
-                return [];
+                return { data: [], maxValue: 0 };
             }
 
-            return resultsData.rows.map<FunnelSeriesDataPoint>((row) => {
-                const rowValues = Object.values(row).map((col) => col.value);
+            return {
+                data: resultsData.rows.map<FunnelSeriesDataPoint>((row) => {
+                    const rowValues = Object.values(row).map(
+                        (col) => col.value,
+                    );
 
-                const dataValue = Number(rowValues[fieldIndex].raw);
-                if (dataValue > maxValue.current) {
-                    maxValue.current = dataValue;
-                }
-                return {
-                    name: rowValues[0].formatted,
-                    value: dataValue,
-                    meta: {
-                        value: rowValues[fieldIndex],
-                        rows: [row],
-                    },
-                };
-            });
-        } else {
-            return allNumericFieldIds.reduce<FunnelSeriesDataPoint[]>(
-                (acc, id) => {
-                    if (resultsData.rows[0][id]) {
-                        const dataValue = Number(
-                            resultsData.rows[0][id].value.raw,
-                        );
-                        if (dataValue > maxValue.current) {
-                            maxValue.current = dataValue;
-                        }
-                        acc.push({
-                            name: id,
-                            value: dataValue,
-                            meta: {
-                                value: resultsData.rows[0][id].value,
-                                rows: resultsData.rows,
-                            },
-                        });
+                    const dataValue = Number(rowValues[fieldIndex].raw);
+                    if (dataValue > dataMaxValue) {
+                        dataMaxValue = dataValue;
                     }
-                    return acc;
-                },
-                [],
-            );
+                    return {
+                        name: rowValues[0].formatted,
+                        value: dataValue,
+                        meta: {
+                            value: rowValues[fieldIndex],
+                            rows: [row],
+                        },
+                    };
+                }),
+                maxValue: dataMaxValue,
+            };
+        } else {
+            return {
+                data: allNumericFieldIds.reduce<FunnelSeriesDataPoint[]>(
+                    (acc, id) => {
+                        if (resultsData.rows[0][id]) {
+                            const dataValue = Number(
+                                resultsData.rows[0][id].value.raw,
+                            );
+                            if (dataValue > dataMaxValue) {
+                                dataMaxValue = dataValue;
+                            }
+                            acc.push({
+                                name: id,
+                                value: dataValue,
+                                meta: {
+                                    value: resultsData.rows[0][id].value,
+                                    rows: resultsData.rows,
+                                },
+                            });
+                        }
+                        return acc;
+                    },
+                    [],
+                ),
+                maxValue: dataMaxValue,
+            };
         }
     }, [allNumericFieldIds, dataInput, fieldId, resultsData, selectedField]);
+
+    const onLabelChange = (labelProps: FunnelChart['label']) => {
+        setLabel((prevLabel) => ({ ...prevLabel, ...labelProps }));
+    };
 
     const validConfig: FunnelChart = useMemo(
         () => ({
             dataInput: dataInput,
             fieldId: fieldId ?? undefined,
+            label,
         }),
-        [dataInput, fieldId],
+        [dataInput, fieldId, label],
     );
 
     return {
         validConfig,
         selectedField,
         fieldId,
-        maxValue: maxValue.current,
+        maxValue: maxValue,
         onFieldChange: setFieldId,
         dataInput,
         setDataInput,
+        label,
+        onLabelChange,
         colorPalette,
         data,
     };
