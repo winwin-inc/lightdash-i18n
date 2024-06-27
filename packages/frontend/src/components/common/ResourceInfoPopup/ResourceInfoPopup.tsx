@@ -2,6 +2,8 @@ import { Group, HoverCard, Stack, Text, Tooltip } from '@mantine/core';
 import { IconEye, IconInfoCircle } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../MantineIcon';
 import { DashboardList } from './DashboardList';
 
@@ -22,11 +24,13 @@ export const ResourceInfoPopup: FC<Props> = ({
     firstViewedAt,
     withChartData = false,
 }) => {
+    const { t } = useTranslation();
+
     const label =
         firstViewedAt && viewStats
-            ? `${viewStats} views since ${dayjs(firstViewedAt).format(
-                  'MMM D, YYYY h:mm A',
-              )}`
+            ? `${viewStats} ${t(
+                  'components_common_resource_info_popup.views_since',
+              )} ${dayjs(firstViewedAt).format('MMM D, YYYY h:mm A')}`
             : undefined;
 
     return (
@@ -45,7 +49,10 @@ export const ResourceInfoPopup: FC<Props> = ({
                     {viewStats && (
                         <Stack spacing="two">
                             <Text fz="xs" fw={600} color="gray.6">
-                                Views:
+                                {t(
+                                    'components_common_resource_info_popup.views',
+                                )}
+                                :
                             </Text>
                             <Tooltip
                                 position="top-start"
@@ -62,7 +69,10 @@ export const ResourceInfoPopup: FC<Props> = ({
                     {description && (
                         <Stack spacing="two">
                             <Text fz="xs" fw={600} color="gray.6">
-                                Description:{' '}
+                                {t(
+                                    'components_common_resource_info_popup.description',
+                                )}
+                                :{' '}
                             </Text>
                             <Text fz="xs">{description}</Text>
                         </Stack>

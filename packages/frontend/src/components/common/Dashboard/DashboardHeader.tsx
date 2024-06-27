@@ -35,8 +35,10 @@ import {
 } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation, useParams } from 'react-router-dom';
 import { useToggle } from 'react-use';
+
 import { PromotionConfirmDialog } from '../../../features/promotion/components/PromotionConfirmDialog';
 import {
     usePromoteDashboardDiffMutation,
@@ -111,6 +113,7 @@ const DashboardHeader = ({
     setAddingTab,
     onTogglePin,
 }: DashboardHeaderProps) => {
+    const { t } = useTranslation();
     const { search } = useLocation();
     const { projectUuid, dashboardUuid } = useParams<{
         projectUuid: string;
@@ -263,7 +266,7 @@ const DashboardHeader = ({
                     mr="sm"
                     sx={{ fontSize: '11px', textAlign: 'end' }}
                 >
-                    Dashboard uses cached data from
+                    {t('components_common_dashboard_header.oldest_cache_time')}
                     <Text fw={700}>
                         {dayjs(oldestCacheTime).format('MMM D, YYYY h:mm A')}{' '}
                     </Text>
@@ -283,7 +286,9 @@ const DashboardHeader = ({
                         fz="xs"
                         withinPortal
                         position="bottom"
-                        label="No changes to save"
+                        label={t(
+                            'components_common_dashboard_header.tooltip_no_change.no_change',
+                        )}
                         disabled={hasDashboardChanged}
                     >
                         <Box>
@@ -294,7 +299,9 @@ const DashboardHeader = ({
                                 onClick={onSaveDashboard}
                                 color="green.7"
                             >
-                                Save changes
+                                {t(
+                                    'components_common_dashboard_header.tooltip_no_change.save_changes',
+                                )}
                             </Button>
                         </Box>
                     </Tooltip>
@@ -304,7 +311,7 @@ const DashboardHeader = ({
                         disabled={isSaving}
                         onClick={onCancel}
                     >
-                        Cancel
+                        {t('components_common_dashboard_header.cancel')}
                     </Button>
                 </PageActionsContainer>
             ) : (
@@ -315,8 +322,12 @@ const DashboardHeader = ({
                         <Tooltip
                             label={
                                 isFullscreen
-                                    ? 'Exit Fullscreen Mode'
-                                    : 'Enter Fullscreen Mode'
+                                    ? t(
+                                          'components_common_dashboard_header.tooltip_fullscreen.exit_fullscreen_mode',
+                                      )
+                                    : t(
+                                          'components_common_dashboard_header.tooltip_fullscreen.enter_fullscreen_mode',
+                                      )
                             }
                             withinPortal
                             position="bottom"
@@ -338,7 +349,9 @@ const DashboardHeader = ({
 
                     {!!userCanManageDashboard && !isFullscreen && (
                         <Tooltip
-                            label="Edit dashboard"
+                            label={t(
+                                'components_common_dashboard_header.tooltip_eidt_dashboard.edit_dashboard',
+                            )}
                             withinPortal
                             position="bottom"
                         >
@@ -384,7 +397,9 @@ const DashboardHeader = ({
                                             }
                                             onClick={onDuplicate}
                                         >
-                                            Duplicate
+                                            {t(
+                                                'components_common_dashboard_header.menus.duplicate',
+                                            )}
                                         </Menu.Item>
 
                                         <Menu.Item
@@ -411,7 +426,9 @@ const DashboardHeader = ({
                                                         justify="space-between"
                                                         align="center"
                                                     >
-                                                        Move to space
+                                                        {t(
+                                                            'components_common_dashboard_header.menus.move_to_space',
+                                                        )}
                                                         <MantineIcon
                                                             icon={
                                                                 IconChevronRight
@@ -509,7 +526,9 @@ const DashboardHeader = ({
                                                                 );
                                                             }}
                                                         >
-                                                            Create new space
+                                                            {t(
+                                                                'components_common_dashboard_header.menus.create_new_space',
+                                                            )}
                                                         </Menu.Item>
                                                     </Can>
                                                 </Menu.Dropdown>
@@ -534,8 +553,12 @@ const DashboardHeader = ({
                                         onClick={onTogglePin}
                                     >
                                         {isPinned
-                                            ? 'Unpin from homepage'
-                                            : 'Pin to homepage'}
+                                            ? t(
+                                                  'components_common_dashboard_header.menus.unpin_from_homepage',
+                                              )
+                                            : t(
+                                                  'components_common_dashboard_header.menus.pin_to_homepage',
+                                              )}
                                     </Menu.Item>
                                 )}
 
@@ -548,13 +571,17 @@ const DashboardHeader = ({
                                             );
                                         }}
                                     >
-                                        Scheduled deliveries
+                                        {t(
+                                            'components_common_dashboard_header.menus.scheduled_delivery',
+                                        )}
                                     </Menu.Item>
                                 )}
 
                                 {userCanPromoteDashboard && (
                                     <Tooltip
-                                        label="You must enable first an upstream project in settings > Data ops"
+                                        label={t(
+                                            'components_common_dashboard_header.tooltip_upstream.upstream_project',
+                                        )}
                                         disabled={
                                             project?.upstreamProjectUuid !==
                                             undefined
@@ -580,7 +607,9 @@ const DashboardHeader = ({
                                                     )
                                                 }
                                             >
-                                                Promote dashboard
+                                                {t(
+                                                    'components_common_dashboard_header.tooltip_upstream.prompte_dashboard',
+                                                )}
                                             </Menu.Item>
                                         </div>
                                     </Tooltip>
@@ -592,7 +621,9 @@ const DashboardHeader = ({
                                         icon={<MantineIcon icon={IconUpload} />}
                                         onClick={onExport}
                                     >
-                                        Export dashboard{' '}
+                                        {t(
+                                            'components_common_dashboard_header.menus.export_dashboard',
+                                        )}{' '}
                                     </Menu.Item>
                                 )}
                                 {userCanManageDashboard && (
@@ -608,7 +639,9 @@ const DashboardHeader = ({
                                             onClick={onDelete}
                                             color="red"
                                         >
-                                            Delete
+                                            {t(
+                                                'components_common_dashboard_header.menus.delete',
+                                            )}
                                         </Menu.Item>{' '}
                                     </>
                                 )}
@@ -620,7 +653,9 @@ const DashboardHeader = ({
                         <SpaceActionModal
                             projectUuid={projectUuid}
                             actionType={ActionType.CREATE}
-                            title="Create new space"
+                            title={t(
+                                'components_common_dashboard_header.menus.create_new_space',
+                            )}
                             confirmButtonLabel="Create"
                             icon={IconFolderPlus}
                             onClose={() => setIsCreatingNewSpace(false)}

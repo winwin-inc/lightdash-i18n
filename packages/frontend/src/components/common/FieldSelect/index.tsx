@@ -14,6 +14,8 @@ import {
     type SelectProps,
 } from '@mantine/core';
 import { forwardRef, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import FieldIcon from '../Filters/FieldIcon';
 
 interface ItemComponentProps extends React.ComponentPropsWithoutRef<'div'> {
@@ -88,6 +90,8 @@ const FieldSelect = <T extends Item = Item>({
     hasGrouping = false,
     ...rest
 }: FieldSelectProps<T>): JSX.Element => {
+    const { t } = useTranslation();
+
     const sortedItems = useMemo(() => {
         return items.sort((a, b) =>
             getLabel(a, hasGrouping).localeCompare(getLabel(b, hasGrouping)),
@@ -124,7 +128,10 @@ const FieldSelect = <T extends Item = Item>({
             dropdownComponent="div"
             itemComponent={ItemComponent}
             icon={item ? <FieldIcon item={item} /> : undefined}
-            placeholder={rest.placeholder ?? 'Search field...'}
+            placeholder={
+                rest.placeholder ??
+                t('components_common_field_select.search_field')
+            }
             allowDeselect={false}
             {...rest}
             value={selectedItemId}

@@ -341,9 +341,6 @@
         "use_table": "使用表"
     },
 
-    "components_common_dashboard_share": {
-        "toast_copied": "链接已复制到剪贴板"
-    },
     "components_common_page_header": {
         "last_edited": "最后编辑于",
         "by": "由"
@@ -437,6 +434,66 @@
         "from_project": "来自项目",
         "group_access": "组访问权限",
         "user_access": "用户访问权限"
+    },
+    "components_common_resource_info_popup": {
+        "view_since": "浏览次数 (自从)",
+        "views": "浏览量",
+        "description": "描述"
+    },
+    "components_common_dashboard_share": {
+        "toast_copied": "链接已复制到剪贴板"
+    },
+    "components_common_dashboard_header": {
+        "oldest_cache_time": "看板使用缓存数据时间为",
+        "tooltip_no_change": {
+            "no_change": "没有需要保存的更改",
+            "save_changes": "保存更改"
+        },
+        "cancel": "取消",
+        "tooltip_fullscreen": {
+            "exit_fullscreen_mode": "退出全屏模式",
+            "enter_fullscreen_mode": "进入全屏模式"
+        },
+        "tooltip_eidt_dashboard": {
+            "edit_dashboard": "编辑看板"
+        },
+        "menus": {
+            "duplicate": "复制",
+            "move_to_space": "移动到空间",
+            "create_new_space": "创建新空间",
+            "unpin_from_homepage": "从主页上取消固定",
+            "pin_to_homepage": "固定到主页",
+            "scheduled_delivery": "定期推送",
+            "export_dashboard": "导出看板",
+            "delete": "删除"
+        },
+        "tooltip_upstream": {
+            "upstream_project": "您必须先在设置 > 数据操作中启用上游项目",
+            "prompte_dashboard": "提升看板"
+        }
+    },
+    "components_common_dashboard_refresh_button": {
+        "last_refreshed": "上次刷新时间",
+        "never": "从未",
+        "every": "每隔",
+        "auto_refresh": "自动刷新",
+        "off": "关闭",
+        "toast_refresh": "您的看板将每 "
+    },
+    "components_common_error_state": {
+        "error_props": {
+            "title": "发生意外错误",
+            "description": "请联系支持人员"
+        },
+        "description": "您可以使用以下错误 ID 联系支持人员",
+        "errors": {
+            "need_access": "您需要获得访问权限",
+            "authorization_error": "授权错误",
+            "not_found": "未找到"
+        }
+    },
+    "components_common_field_select": {
+        "search_field": "搜索字段..."
     },
 
     "components_dbt_cloud_settings": {

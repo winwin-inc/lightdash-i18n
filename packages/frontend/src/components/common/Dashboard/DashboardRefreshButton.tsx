@@ -2,6 +2,8 @@ import { Button, Menu, Text, Tooltip } from '@mantine/core';
 import { useInterval } from '@mantine/hooks';
 import { IconChevronDown, IconRefresh } from '@tabler/icons-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useDashboardRefresh } from '../../../hooks/dashboard/useDashboardRefresh';
 import useToaster from '../../../hooks/toaster/useToaster';
 import { useDashboardContext } from '../../../providers/DashboardProvider';
@@ -31,6 +33,7 @@ const REFRESH_INTERVAL_OPTIONS = [
 ];
 
 export const DashboardRefreshButton = () => {
+    const { t } = useTranslation();
     const { showToastSuccess } = useToaster();
     const [isOpen, setIsOpen] = useState(false);
     const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
@@ -69,10 +72,15 @@ export const DashboardRefreshButton = () => {
                 position="bottom"
                 label={
                     <Text>
-                        Last refreshed at:{' '}
+                        {t(
+                            'components_common_dashboard_refresh_button.last_refreshed',
+                        )}
+                        :{' '}
                         {lastRefreshTime
                             ? lastRefreshTime.toLocaleTimeString()
-                            : 'Never'}
+                            : t(
+                                  'components_common_dashboard_refresh_button.never',
+                              )}
                     </Text>
                 }
             >
@@ -91,7 +99,9 @@ export const DashboardRefreshButton = () => {
                             mr="xs"
                             c={isOneAtLeastFetching ? 'transparent' : 'gray.7'}
                         >
-                            Every{' '}
+                            {t(
+                                'components_common_dashboard_refresh_button.every',
+                            )}{' '}
                             {
                                 REFRESH_INTERVAL_OPTIONS.find(
                                     ({ value }) => refreshInterval === +value,
@@ -127,7 +137,11 @@ export const DashboardRefreshButton = () => {
                     </Button>
                 </Menu.Target>
                 <Menu.Dropdown>
-                    <Menu.Label>Auto-refresh</Menu.Label>
+                    <Menu.Label>
+                        {t(
+                            'components_common_dashboard_refresh_button.auto_refresh',
+                        )}
+                    </Menu.Label>
                     <Menu.Item
                         fz="xs"
                         onClick={() => {
@@ -144,7 +158,7 @@ export const DashboardRefreshButton = () => {
                             },
                         }}
                     >
-                        Off
+                        {t('components_common_dashboard_refresh_button.off')}
                     </Menu.Item>
                     {REFRESH_INTERVAL_OPTIONS.map(({ value, label }) => (
                         <Menu.Item
@@ -153,7 +167,9 @@ export const DashboardRefreshButton = () => {
                             onClick={() => {
                                 setRefreshInterval(+value);
                                 showToastSuccess({
-                                    title: `Your dashboard will refresh every ${
+                                    title: `${t(
+                                        'components_common_dashboard_refresh_button.toast_refresh',
+                                    )} ${
                                         REFRESH_INTERVAL_OPTIONS.find(
                                             (option) => value === option.value,
                                         )?.label

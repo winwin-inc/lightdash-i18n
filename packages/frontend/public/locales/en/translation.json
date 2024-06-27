@@ -341,9 +341,6 @@
         "use_table": "Use table"
     },
 
-    "components_common_dashboard_share": {
-        "toast_co": "Link copied to clipboard"
-    },
     "components_common_page_header": {
         "last_edited": "Last edited",
         "by": "by"
@@ -437,6 +434,66 @@
         "from_project": "From project",
         "group_access": "Group access",
         "user_access": "User access"
+    },
+    "components_common_resource_info_popup": {
+        "view_since": "views since",
+        "views": "Views",
+        "description": "Description"
+    },
+    "components_common_dashboard_share": {
+        "toast_co": "Link copied to clipboard"
+    },
+    "components_common_dashboard_header": {
+        "oldest_cache_time": "Dashboard uses cached data from",
+        "tooltip_no_change": {
+            "no_change": "No changes to save",
+            "save_changes": "Save changes"
+        },
+        "cancel": "Cancel",
+        "tooltip_fullscreen": {
+            "exit_fullscreen_mode": "Exit Fullscreen Mode",
+            "enter_fullscreen_mode": "Enter Fullscreen Mode"
+        },
+        "tooltip_eidt_dashboard": {
+            "edit_dashboard": "Edit dashboard"
+        },
+        "menus": {
+            "duplicate": "Duplicate",
+            "move_to_space": "Move to space",
+            "create_new_space": "Create new space",
+            "unpin_from_homepage": "Unpin from homepage",
+            "pin_to_homepage": "Pin to homepage",
+            "scheduled_delivery": "Scheduled delivery",
+            "export_dashboard": "Export dashboard",
+            "delete": "Delete"
+        },
+        "tooltip_upstream": {
+            "upstream_project": "You must enable first an upstream project in settings > Data ops",
+            "prompte_dashboard": "Prompte dashboard"
+        }
+    },
+    "components_common_dashboard_refresh_button": {
+        "last_refreshed": "Last refreshed at",
+        "never": "Never",
+        "every": "Every",
+        "auto_refresh": "Auto-refresh",
+        "off": "Off",
+        "toast_refresh": "Your dashboard will refresh every "
+    },
+    "components_common_error_state": {
+        "error_props": {
+            "title": "Unexpected error",
+            "description": "Please contact support"
+        },
+        "description": "You can contact support with the following error ID",
+        "errors": {
+            "need_access": "You need access",
+            "authorization_error": "Authorization error",
+            "not_found": "Not found"
+        }
+    },
+    "components_common_field_select": {
+        "search_field": "Search field..."
     },
 
     "components_dbt_cloud_settings": {
