@@ -9,7 +9,9 @@ import { ActionIcon, Group, Stack, TextInput } from '@mantine/core';
 import { IconFolders, IconSearch, IconX } from '@tabler/icons-react';
 import Fuse from 'fuse.js';
 import { useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import LoadingState from '../components/common/LoadingState';
 import MantineIcon from '../components/common/MantineIcon';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
@@ -21,6 +23,7 @@ import { useSpaceSummaries } from '../hooks/useSpaces';
 import { useApp } from '../providers/AppProvider';
 
 const MobileSpaces: FC = () => {
+    const { t } = useTranslation();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { data: spaces = [], isInitialLoading: spaceIsLoading } =
         useSpaceSummaries(projectUuid, true);
@@ -60,7 +63,7 @@ const MobileSpaces: FC = () => {
     }
 
     if (isLoading && !userCannotViewSpace) {
-        return <LoadingState title="Loading spaces" />;
+        return <LoadingState title={t('pages_mobile_spaces.loading_spaces')} />;
     }
 
     return (
@@ -69,8 +72,16 @@ const MobileSpaces: FC = () => {
                 <Group position="apart">
                     <PageBreadcrumbs
                         items={[
-                            { to: '/home', title: 'Home' },
-                            { title: 'All Spaces', active: true },
+                            {
+                                to: '/home',
+                                title: t('pages_mobile_spaces.groups.home'),
+                            },
+                            {
+                                title: t(
+                                    'pages_mobile_spaces.groups.all_spaces',
+                                ),
+                                active: true,
+                            },
                         ]}
                     />
                 </Group>
@@ -83,7 +94,7 @@ const MobileSpaces: FC = () => {
                             </ActionIcon>
                         ) : null
                     }
-                    placeholder="Search"
+                    placeholder={t('pages_mobile_spaces.search')}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                 />
@@ -99,7 +110,7 @@ const MobileSpaces: FC = () => {
                     }}
                     emptyStateProps={{
                         icon: <IconFolders size={30} />,
-                        title: 'No spaces added yet',
+                        title: t('pages_mobile_spaces.no_spaces_added_yet'),
                     }}
                 />
             </Stack>

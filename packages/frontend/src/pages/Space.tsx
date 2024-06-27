@@ -14,7 +14,9 @@ import {
     IconSquarePlus,
 } from '@tabler/icons-react';
 import { useCallback, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation, useParams } from 'react-router-dom';
+
 import { Can } from '../components/common/Authorization';
 import ErrorState from '../components/common/ErrorState';
 import LoadingState from '../components/common/LoadingState';
@@ -42,6 +44,7 @@ import { useSpace } from '../hooks/useSpaces';
 import { useApp } from '../providers/AppProvider';
 
 const Space: FC = () => {
+    const { t } = useTranslation();
     const { projectUuid, spaceUuid } = useParams<{
         projectUuid: string;
         spaceUuid: string;
@@ -75,7 +78,7 @@ const Space: FC = () => {
     );
 
     if (isInitialLoading || chartsLoading || dashboardsLoading) {
-        return <LoadingState title="Loading space" />;
+        return <LoadingState title={t('pages_space.loading')} />;
     }
 
     if (error) {
@@ -86,8 +89,10 @@ const Space: FC = () => {
         return (
             <div style={{ marginTop: '20px' }}>
                 <SuboptimalState
-                    title="Space does not exist"
-                    description={`We could not find space with uuid ${spaceUuid}`}
+                    title={t('pages_space.no_space.title')}
+                    description={t('pages_space.no_space.description', {
+                        spaceUuid,
+                    })}
                 />
             </div>
         );
@@ -121,7 +126,7 @@ const Space: FC = () => {
                     <PageBreadcrumbs
                         items={[
                             {
-                                title: 'Spaces',
+                                title: t('pages_space.bread_crumbs.spaces'),
                                 to: `/projects/${projectUuid}/spaces`,
                             },
                             {
@@ -161,7 +166,9 @@ const Space: FC = () => {
                                         {userCanCreateDashboards ? (
                                             <>
                                                 <Menu.Label>
-                                                    Add dashboard
+                                                    {t(
+                                                        'pages_space.menus.add_dashboard',
+                                                    )}
                                                 </Menu.Label>
 
                                                 {dashboards.length > 0 ? (
@@ -179,7 +186,9 @@ const Space: FC = () => {
                                                             );
                                                         }}
                                                     >
-                                                        Add existing dashboard
+                                                        {t(
+                                                            'pages_space.menus.add_existing_dashboard',
+                                                        )}
                                                     </Menu.Item>
                                                 ) : null}
                                                 <Menu.Item
@@ -194,7 +203,9 @@ const Space: FC = () => {
                                                         );
                                                     }}
                                                 >
-                                                    Create new dashboard
+                                                    {t(
+                                                        'pages_space.menus.create_new_dashboard',
+                                                    )}
                                                 </Menu.Item>
                                             </>
                                         ) : null}
@@ -207,7 +218,9 @@ const Space: FC = () => {
                                         {userCanCreateCharts ? (
                                             <>
                                                 <Menu.Label>
-                                                    Add chart
+                                                    {t(
+                                                        'pages_space.menus.add_chart',
+                                                    )}
                                                 </Menu.Label>
 
                                                 {savedCharts.length > 0 ? (
@@ -225,7 +238,9 @@ const Space: FC = () => {
                                                             );
                                                         }}
                                                     >
-                                                        Add existing chart
+                                                        {t(
+                                                            'pages_space.menus.add_existing_chart',
+                                                        )}
                                                     </Menu.Item>
                                                 ) : null}
 
@@ -241,7 +256,9 @@ const Space: FC = () => {
                                                         );
                                                     }}
                                                 >
-                                                    Create new chart
+                                                    {t(
+                                                        'pages_space.menus.create_new_chart',
+                                                    )}
                                                 </Menu.Item>
                                             </>
                                         ) : null}
@@ -318,7 +335,7 @@ const Space: FC = () => {
                                     type={ResourceViewItemType.DASHBOARD}
                                 />
                             ),
-                            name: 'Dashboards',
+                            name: t('pages_space.tabs.dashboards'),
                             filter: (item) =>
                                 item.type === ResourceViewItemType.DASHBOARD,
                         },
@@ -329,18 +346,18 @@ const Space: FC = () => {
                                     type={ResourceViewItemType.CHART}
                                 />
                             ),
-                            name: 'Charts',
+                            name: t('pages_space.tabs.charts'),
                             filter: (item) =>
                                 item.type === ResourceViewItemType.CHART,
                         },
                         {
                             id: 'all-items',
-                            name: 'All items',
+                            name: t('pages_space.tabs.all_items'),
                         },
                     ]}
                     emptyStateProps={{
                         icon: <IconLayoutDashboard size={30} />,
-                        title: 'No items added yet',
+                        title: t('pages_space.tabs.no_items'),
                     }}
                 />
 

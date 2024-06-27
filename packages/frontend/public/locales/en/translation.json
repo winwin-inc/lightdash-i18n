@@ -289,7 +289,6 @@
 
     "features_catalog_meta_data": {
         "close": "Close",
-        "errors_loading_metadata": "There was an error loading the metadata for this table:",
         "tabs": {
             "overview": "Overview",
             "usage_analytics": "Usage Analytics"
@@ -300,9 +299,9 @@
             "select_table": "Select table",
             "navigate": "Navigate"
         },
-        "table_columns": {
-            "iield": "Field",
-            "type": "Type"
+        "buttons": {
+            "field": "Select field",
+            "table": "Select table"
         }
     },
     "features_catalog_analytics_charts": {
@@ -2115,6 +2114,58 @@
             "chart_name": "Chart name",
             "views": "Views"
         }
+    },
+
+    "pages_space": {
+        "loading": "Loading space",
+        "no_space": {
+            "title": "Space does not exist",
+            "description": "We could not find space with uuid {{spaceUuid}}"
+        },
+        "bread_crumbs": {
+            "spaces": "Spaces"
+        },
+        "menus": {
+            "add_dashboard": "Add dashboard",
+            "add_existing_dashboard": "Add existing dashboard",
+            "create_new_dashboard": "Create new dashboard",
+            "add_chart": "Add chart",
+            "add_existing_chart": "Add existing chart",
+            "create_new_chart": "Create new chart"
+        },
+        "tabs": {
+            "dashboards": "Dashboards",
+            "charts": "Charts",
+            "all_items": "All items",
+            "no_items": "No items added yet"
+        }
+    },
+    "pages_spaces": {
+        "loading_spaces": "Loading spaces",
+        "groups": {
+            "home": "Home",
+            "all_spaces": "All Spaces",
+            "create_space": "Create space"
+        },
+        "tabs": {
+            "shared_with_me": "Shared with me",
+            "admin_content_view": "Admin content view",
+            "view_all_spaces": "View all public and private spaces in your organization",
+            "spaces": "Spaces",
+            "no_spaces": "No spaces added yet",
+            "create_space": "Create space"
+        },
+        "create_new_space": "Create new space",
+        "create": "Create"
+    },
+    "pages_mobile_spaces": {
+        "loading_spaces": "Loading spaces",
+        "groups": {
+            "home": "Home",
+            "all_spaces": "All Spaces"
+        },
+        "search": "Search",
+        "no_spaces_added_yet": "No spaces added yet"
     },
 
     "components_project_connection": {

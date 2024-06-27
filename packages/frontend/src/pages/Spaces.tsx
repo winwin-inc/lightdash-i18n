@@ -8,7 +8,9 @@ import {
 import { Button, Group, Stack } from '@mantine/core';
 import { IconFolderPlus, IconFolders, IconPlus } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import LoadingState from '../components/common/LoadingState';
 import Page from '../components/common/Page/Page';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
@@ -25,6 +27,7 @@ import { useApp } from '../providers/AppProvider';
 import { PinnedItemsProvider } from '../providers/PinnedItemsProvider';
 
 const Spaces: FC = () => {
+    const { t } = useTranslation();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
     const { data: spaces = [], isInitialLoading: spaceIsLoading } =
@@ -69,7 +72,7 @@ const Spaces: FC = () => {
     }
 
     if (isLoading && !userCannotViewSpace) {
-        return <LoadingState title="Loading spaces" />;
+        return <LoadingState title={t('pages_spaces.loading_spaces')} />;
     }
 
     return (
@@ -78,8 +81,14 @@ const Spaces: FC = () => {
                 <Group position="apart">
                     <PageBreadcrumbs
                         items={[
-                            { to: '/home', title: 'Home' },
-                            { title: 'All Spaces', active: true },
+                            {
+                                to: '/home',
+                                title: t('pages_spaces.groups.home'),
+                            },
+                            {
+                                title: t('pages_spaces.groups.all_spaces'),
+                                active: true,
+                            },
                         ]}
                     />
 
@@ -88,7 +97,7 @@ const Spaces: FC = () => {
                             leftIcon={<IconPlus size={18} />}
                             onClick={handleCreateSpace}
                         >
-                            Create space
+                            {t('pages_spaces.groups.create_space')}
                         </Button>
                     )}
                 </Group>
@@ -109,7 +118,9 @@ const Spaces: FC = () => {
                                 ? [
                                       {
                                           id: 'shared',
-                                          name: 'Shared with me',
+                                          name: t(
+                                              'pages_spaces.tabs.shared_with_me',
+                                          ),
                                           filter: (item) =>
                                               item.type ===
                                                   ResourceViewItemType.SPACE &&
@@ -121,9 +132,12 @@ const Spaces: FC = () => {
                                       },
                                       {
                                           id: 'all',
-                                          name: 'Admin Content View',
-                                          infoTooltipText:
-                                              'View all public and private spaces in your organization',
+                                          name: t(
+                                              'pages_spaces.tabs.admin_content_view',
+                                          ),
+                                          infoTooltipText: t(
+                                              'pages_spaces.tabs.view_all_spaces',
+                                          ),
                                       },
                                   ]
                                 : []
@@ -131,17 +145,17 @@ const Spaces: FC = () => {
                         headerProps={
                             !userCanManageProject
                                 ? {
-                                      title: 'Spaces',
+                                      title: t('pages_spaces.tabs.spaces'),
                                   }
                                 : undefined
                         }
                         emptyStateProps={{
                             icon: <IconFolders size={30} />,
-                            title: 'No spaces added yet',
+                            title: t('pages_spaces.tabs.no_spaces'),
                             action:
                                 !isDemo && userCanManageSpace ? (
                                     <Button onClick={handleCreateSpace}>
-                                        Create space
+                                        {t('pages_spaces.tabs.create_space')}
                                     </Button>
                                 ) : undefined,
                         }}
@@ -153,8 +167,8 @@ const Spaces: FC = () => {
                 <SpaceActionModal
                     projectUuid={projectUuid}
                     actionType={ActionType.CREATE}
-                    title="Create new space"
-                    confirmButtonLabel="Create"
+                    title={t('pages_spaces.create_new_space')}
+                    confirmButtonLabel={t('pages_spaces.create')}
                     icon={IconFolderPlus}
                     onClose={() => setIsCreateModalOpen(false)}
                 />

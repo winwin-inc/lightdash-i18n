@@ -289,20 +289,19 @@
 
     "features_catalog_meta_data": {
         "close": "关闭",
-        "errors_loading_metadata": "加载此表的元数据时出错:",
         "tabs": {
             "overview": "概览",
             "usage_analytics": "使用分析"
         },
         "groups": {
-            "source": "源",
+            "source": "来源",
             "joins": "连接",
-            "select_table": "选择表",
+            "select_table": "选择表格",
             "navigate": "导航"
         },
-        "table_columns": {
-            "field": "字段",
-            "type": "类型"
+        "buttons": {
+            "field": "选择字段",
+            "table": "选择表格"
         }
     },
     "features_catalog_analytics_charts": {
@@ -2118,6 +2117,58 @@
             "chart_name": "图表名称",
             "views": "查看"
         }
+    },
+
+    "pages_space": {
+        "loading": "正在加载空间",
+        "no_space": {
+            "title": "空间不存在",
+            "description": "我们找不到 uuid 为 {{spaceUuid}} 的空间"
+        },
+        "bread_crumbs": {
+            "spaces": "空间"
+        },
+        "menus": {
+            "add_dashboard": "添加看板",
+            "add_existing_dashboard": "添加现有看板",
+            "create_new_dashboard": "创建新看板",
+            "add_chart": "添加图表",
+            "add_existing_chart": "添加现有图表",
+            "create_new_chart": "创建新图表"
+        },
+        "tabs": {
+            "dashboards": "看板",
+            "charts": "图表",
+            "all_items": "所有项目",
+            "no_items": "尚未添加任何项目"
+        }
+    },
+    "pages_spaces": {
+        "loading_spaces": "正在加载空间",
+        "groups": {
+            "home": "首页",
+            "all_spaces": "所有空间",
+            "create_space": "创建空间"
+        },
+        "tabs": {
+            "shared_with_me": "与我共享",
+            "admin_content_view": "管理员内容视图",
+            "view_all_spaces": "查看您所在组织中所有公开和私有的空间",
+            "spaces": "空间",
+            "no_spaces": "尚未添加任何空间",
+            "create_space": "创建空间"
+        },
+        "create_new_space": "创建新空间",
+        "create": "创建"
+    },
+    "pages_mobile_spaces": {
+        "loading_spaces": "正在加载空间",
+        "groups": {
+            "home": "首页",
+            "all_spaces": "所有空间"
+        },
+        "search": "搜索",
+        "no_spaces_added_yet": "尚未添加任何空间"
     },
 
     "pages_project_settings": {
