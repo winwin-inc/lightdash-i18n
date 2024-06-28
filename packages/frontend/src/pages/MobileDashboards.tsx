@@ -7,7 +7,9 @@ import { ActionIcon, Group, Stack, TextInput } from '@mantine/core';
 import { IconLayoutDashboard, IconSearch, IconX } from '@tabler/icons-react';
 import Fuse from 'fuse.js';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import LoadingState from '../components/common/LoadingState';
 import MantineIcon from '../components/common/MantineIcon';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
@@ -16,6 +18,7 @@ import { SortDirection } from '../components/common/ResourceView/ResourceViewLis
 import { useDashboards } from '../hooks/dashboard/useDashboards';
 
 const MobileDashboards = () => {
+    const { t } = useTranslation();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { isInitialLoading, data: dashboards = [] } =
         useDashboards(projectUuid);
@@ -40,7 +43,11 @@ const MobileDashboards = () => {
     }, [dashboards, search]);
 
     if (isInitialLoading) {
-        return <LoadingState title="Loading dashboards" />;
+        return (
+            <LoadingState
+                title={t('pages_mobile_dashboards.loading_dashboards')}
+            />
+        );
     }
 
     return (
@@ -48,8 +55,18 @@ const MobileDashboards = () => {
             <Group position="apart">
                 <PageBreadcrumbs
                     items={[
-                        { title: 'Home', to: '/home' },
-                        { title: 'All dashboards', active: true },
+                        {
+                            title: t(
+                                'pages_mobile_dashboards.bread_crumbs.home',
+                            ),
+                            to: '/home',
+                        },
+                        {
+                            title: t(
+                                'pages_mobile_dashboards.bread_crumbs.all_dashboards',
+                            ),
+                            active: true,
+                        },
                     ]}
                 />
             </Group>
@@ -62,7 +79,7 @@ const MobileDashboards = () => {
                         </ActionIcon>
                     ) : null
                 }
-                placeholder="Search"
+                placeholder={t('pages_mobile_dashboards.search')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
             />
@@ -78,7 +95,7 @@ const MobileDashboards = () => {
                 }}
                 emptyStateProps={{
                     icon: <IconLayoutDashboard size={30} />,
-                    title: 'No dashboards added yet',
+                    title: t('pages_mobile_dashboards.no_dashboards_added_yet'),
                 }}
             />
         </Stack>

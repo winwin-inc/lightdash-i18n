@@ -33,7 +33,10 @@ const ProjectSettings: FC = () => {
     if (isInitialLoading || !project) {
         return (
             <div style={{ marginTop: '20px' }}>
-                <SuboptimalState title="Loading project" loading />
+                <SuboptimalState
+                    title={t('pages_project_settings.loading_project')}
+                    loading
+                />
             </div>
         );
     }
@@ -49,7 +52,7 @@ const ProjectSettings: FC = () => {
                     items={[
                         {
                             title: t(
-                                'pages_project_settings.breadcrumbs.all_projects',
+                                'pages_project_settings.bread_crumbs.all_projects',
                             ),
                             to: '/generalSettings/projectManagement',
                         },

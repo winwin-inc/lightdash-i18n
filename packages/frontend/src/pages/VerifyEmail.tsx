@@ -12,8 +12,10 @@ import {
 } from '@mantine/core';
 import { IconCircleCheckFilled } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import { useIntercom } from 'react-use-intercom';
+
 import Page from '../components/common/Page/Page';
 import PageSpinner from '../components/PageSpinner';
 import { SuccessIconBounce } from '../components/RegisterForms/ProjectConnectFlow.styles';
@@ -28,6 +30,8 @@ const VerificationSuccess: FC<{
     onContinue: () => void;
 }> = ({ isOpen, onClose, onContinue }) => {
     const theme = useMantineTheme();
+    const { t } = useTranslation();
+
     return (
         <Modal
             size="sm"
@@ -36,7 +40,7 @@ const VerificationSuccess: FC<{
             withCloseButton={false}
         >
             <Stack align="center" my="md">
-                <Title order={3}>Great, you're verified! 🎉</Title>
+                <Title order={3}>{t('pages_verify_email.great_tip')}</Title>
 
                 <SuccessIconBounce
                     icon={IconCircleCheckFilled}
@@ -45,13 +49,16 @@ const VerificationSuccess: FC<{
                         color: theme.colors.green[6],
                     }}
                 />
-                <Button onClick={onContinue}>Continue</Button>
+                <Button onClick={onContinue}>
+                    {t('pages_verify_email.continue')}
+                </Button>
             </Stack>
         </Modal>
     );
 };
 
 const VerifyEmailPage: FC = () => {
+    const { t } = useTranslation();
     const { health } = useApp();
     const { data, isInitialLoading: statusLoading } = useEmailStatus();
     const { show: showIntercom } = useIntercom();
@@ -62,7 +69,11 @@ const VerifyEmailPage: FC = () => {
     }
 
     return (
-        <Page title="Verify your email" withCenteredContent withNavbar={false}>
+        <Page
+            title={t('pages_verify_email.verify_your_email')}
+            withCenteredContent
+            withNavbar={false}
+        >
             <Stack w={400} mt="4xl">
                 <Image
                     src={LightdashLogo}
@@ -75,10 +86,9 @@ const VerifyEmailPage: FC = () => {
                     <VerifyEmailForm />
                 </Card>
                 <Text color="gray.6" ta="center" px="xs">
-                    You need to verify your email to get access to Lightdash. If
-                    you need help, you can{' '}
+                    {t('pages_verify_email.should_tip.part_1')}{' '}
                     <Anchor onClick={() => showIntercom()}>
-                        chat to support here.
+                        {t('pages_verify_email.should_tip.part_2')}
                     </Anchor>
                 </Text>
                 {data && (

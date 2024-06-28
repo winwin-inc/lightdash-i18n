@@ -47,7 +47,7 @@
             },
             "btn": {
                 "sign_in": "登录",
-                "sign_up": "报名",
+                "sign_up": "注册",
                 "continue": "继续",
                 "or": "或者",
                 "no_account": "没有账户?"
@@ -1367,7 +1367,7 @@
                 "label": "邮箱地址",
                 "placeholder": "您的邮箱地址"
             },
-            "password:": {
+            "password": {
                 "label": "密码",
                 "placeholder": "您的密码"
             }
@@ -2480,6 +2480,7 @@
             "querying_users": "每周查询用户占比",
             "weekly_average": "每周每个用户的平均查询次数"
         },
+        "loading": "正在加载...",
         "title": "{{name}} 的用户活动",
         "items": {
             "usage_analytics": "使用分析",
@@ -2564,8 +2565,9 @@
     },
 
     "pages_project_settings": {
+        "loading_project": "正在加载项目",
         "title": "项目设置 - Lightdash",
-        "breadcrumbs": {
+        "bread_crumbs": {
             "all_projects": "所有项目"
         }
     },
@@ -3272,6 +3274,257 @@
                 }
             },
             "advanced_configuration_options": "高级配置选项"
+        }
+    },
+
+    "pages_chart_history": {
+        "title": "图表版本历史记录",
+        "bread_crumbs": {
+            "chart": "图表",
+            "version_history": "版本历史"
+        },
+        "updated_by": "更新者",
+        "tooltip_current": {
+            "label": "这是当前版本。",
+            "current": "当前"
+        },
+        "menus": {
+            "restore_this_version": "恢复此版本"
+        },
+        "alert": {
+            "title": "数据新鲜度",
+            "content": "版本历史记录预览会更改图表配置和设置,但始终查询数据本身的最新版本。"
+        },
+        "empty": {
+            "title": "选择一个版本"
+        },
+        "modal": {
+            "title": "恢复图表版本",
+            "content": "通过恢复到此图表版本,将生成并保存一个新版本。所有先前的版本都已安全存储,并可随时恢复。",
+            "cancel": "取消",
+            "restore": "恢复"
+        }
+    },
+    "pages_create_project": {
+        "title": "创建项目"
+    },
+    "pages_create_project_settings": {
+        "title": "您的项目已成功连接!",
+        "content": "在开始探索您的数据之前,请选择您希望在 Lightdash 中显示为表格的 dbt 模型。您随后可以在项目设置中随时调整此设置。"
+    },
+    "pages_dashboard": {
+        "toast_chart_error": {
+            "title": "解析图表时出错",
+            "subtitle": "无法将图表保存到看板中"
+        },
+        "toast_tabs_error": {
+            "title": "解析标签页时出错",
+            "subtitle": "无法将标签页保存到看板中"
+        },
+        "reload_message": "您的看板上有未保存的更改!您确定要离开而不保存吗?",
+        "modal": {
+            "content": "您的看板上有未保存的更改!您确定要离开而不保存吗?",
+            "stay": "保留",
+            "leave": "离开"
+        }
+    },
+    "pages_explorer": {
+        "tables": "表格"
+    },
+    "pages_invite": {
+        "title": "您已被邀请!",
+        "content": {
+            "part_1": "您的队友",
+            "part_2": "在",
+            "part_3": "正在使用 Lightdash 发现和分享数据洞见。在接下来的 72 小时内点击下面的链接加入您的团队,开始探索您的数据!"
+        },
+        "join_your_team": "加入您的团队",
+        "not_you": {
+            "part_1": "不是",
+            "part_2": "您的邀请",
+            "part_3": "忽略此邀请链接,并联系您的工作区管理员。"
+        },
+        "error_card": {
+            "content": "请联系与您分享该链接的人,看是否有新的链接可用。"
+        },
+        "toast_authenticate_error": {
+            "title": "身份验证失败"
+        },
+        "toast_user_error": {
+            "title": "创建用户失败"
+        },
+        "or": "或",
+        "invite_link_error": {
+            "title": "此邀请链接已过期 🙈"
+        },
+        "is_link_email": {
+            "title": "注册",
+            "content": {
+                "part_1": "通过创建账户,您同意",
+                "part_2": "我们的",
+                "part_3": "隐私政策",
+                "part_4": "和我们的",
+                "part_5": "服务条款。"
+            }
+        }
+    },
+    "pages_join_organization": {
+        "title": "加入工作区",
+        "cancel_registration": "取消注册",
+        "join_a_workspace": "加入工作区",
+        "workspace": {
+            "part_1": "以下工作区对任何拥有",
+            "part_2": "域名"
+        },
+        "members": "成员",
+        "join": "加入",
+        "create_a_new_workspace": "创建新的工作区"
+    },
+    "pages_login": {
+        "title": "登录"
+    },
+    "pages_minimal_dashboard": {
+        "loading": "正在加载...",
+        "no_tiles": "没有图块"
+    },
+    "pages_mobile_charts": {
+        "loading_charts": "正在加载图表",
+        "bread_crumbs": {
+            "home": "首页",
+            "all_saved_charts": "所有保存的图表"
+        },
+        "search": "搜索",
+        "no_charts_added_yet": "还没有添加任何图表"
+    },
+    "pages_mobile_dashboards": {
+        "loading_dashboards": "正在加载看板",
+        "bread_crumbs": {
+            "home": "首页",
+            "all_dashboards": "所有看板"
+        },
+        "search": "搜索",
+        "no_dashboards_added_yet": "还没有添加任何看板"
+    },
+    "pages_mobile_home": {
+        "welcome": {
+            "part_1": "欢迎",
+            "part_2": "使用 Lightdash"
+        },
+        "tabs": {
+            "pinned": "已固定",
+            "most_popular": "最受欢迎"
+        },
+        "empty": "还没有添加任何项目"
+    },
+    "pages_mobile_space": {
+        "loading_space": "正在加载空间",
+        "no_space": {
+            "title": "空间不存在",
+            "description": "我们找不到 uuid 为 {{spaceUuid}} 的空间"
+        },
+        "bread_crumbs": {
+            "spaces": "空间"
+        },
+        "search": "搜索",
+        "empty": "还没有添加任何项目"
+    },
+    "pages_password_recovery": {
+        "recover_password": "找回密码"
+    },
+    "pages_password_recovery_form": {
+        "forgot_password": "忘记密码了?",
+        "reset_tip": "请输入您的电子邮件地址,我们会向您发送密码重置链接",
+        "form": {
+            "email": {
+                "label": "电子邮件地址",
+                "placeholder": "您的电子邮件地址"
+            },
+            "send_reset_email": "发送重置邮件",
+            "back_to_sign_in": "返回登录"
+        },
+        "check_your_inbox": "检查您的收件箱",
+        "check_tip": "我们已经向您发送了关于如何重置密码的说明。还没有收到任何东西?",
+        "lists": {
+            "spam_folder": "尝试检查您的垃圾邮件文件夹",
+            "reset": {
+                "part_1": "尝试",
+                "part_2": "重新提交密码重置",
+                "part_3": "请求,",
+                "part_4": "确保没有任何错字!"
+            }
+        },
+        "back_to_sign_in": "返回登录"
+    },
+    "pages_password_reset": {
+        "reset_password": "重置密码",
+        "reset_your_password": "重置您的密码",
+        "form": {
+            "password": {
+                "label": "密码",
+                "placeholder": "输入新密码"
+            },
+            "save": "保存",
+            "cancel": "取消"
+        },
+        "success": {
+            "title": "成功!",
+            "content": {
+                "part_1": "您的密码已成功更新",
+                "part_2": "使用您的新密码登录"
+            },
+            "log_in": "登录"
+        }
+    },
+    "pages_register": {
+        "toast_authenticate_error": "认证失败",
+        "toast_user_error": "创建用户失败",
+        "or": "或",
+        "sign_up": "注册",
+        "tip": {
+            "part_1": "通过创建帐户, 您同意我们的",
+            "part_2": "",
+            "part_3": "隐私政策",
+            "part_4": "和我们的",
+            "part_5": "服务条款。"
+        }
+    },
+    "pages_saved_dashboards": {
+        "loading_dashboards": "正在加载看板",
+        "bread_crumbs": {
+            "home": "首页",
+            "all_dashboards": "所有看板"
+        },
+        "create_dashbord": "创建看板",
+        "no_dashboards_added_yet": "还没有添加任何看板",
+        "tooltip_create": {
+            "label": "你必须先为此看板创建一个空间",
+            "content": "创建看板"
+        }
+    },
+    "pages_saved_explorer": {
+        "loading": "正在加载..."
+    },
+    "pages_saved_queries": {
+        "loading_charts": "正在加载图表",
+        "saved_charts": "已保存的图表",
+        "bread_crumbs": {
+            "home": "首页",
+            "all_saved_charts": "所有已保存的图表"
+        },
+        "create_chart": "创建图表",
+        "no_charts_added_yet": "还没有添加任何图表"
+    },
+    "pages_share_redirect": {
+        "shared_link": "共享链接不存在",
+        "loading": "正在加载..."
+    },
+    "pages_verify_email": {
+        "great_tip": "Great, you're verified! 🎉",
+        "continue": "Continue",
+        "verify_your_email": "Verify your email",
+        "should_tip": {
+            "part_1": "You need to verify your email to get access to Lightdash. If you need help, you can",
+            "part_2": "chat to support here."
         }
     }
 }

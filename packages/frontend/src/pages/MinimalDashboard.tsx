@@ -5,7 +5,9 @@ import {
 } from '@lightdash/common';
 import { useMemo, type FC } from 'react';
 import { Responsive, WidthProvider, type Layout } from 'react-grid-layout';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import ChartTile from '../components/DashboardTiles/DashboardChartTile';
 import LoomTile from '../components/DashboardTiles/DashboardLoomTile';
 import MarkdownTile from '../components/DashboardTiles/DashboardMarkdownTile';
@@ -24,6 +26,7 @@ import '../styles/react-grid.css';
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
 const MinimalDashboard: FC = () => {
+    const { t } = useTranslation();
     const { dashboardUuid } = useParams<{ dashboardUuid: string }>();
     const schedulerUuid = useSearchParams('schedulerUuid');
     const sendNowchedulerFilters = useSearchParams('sendNowchedulerFilters');
@@ -59,15 +62,15 @@ const MinimalDashboard: FC = () => {
     }
 
     if (!dashboard) {
-        return <>Loading...</>;
+        return <>{t('pages_minimal_dashboard.loading')}</>;
     }
 
     if (schedulerUuid && !scheduler) {
-        return <>Loading...</>;
+        return <>{t('pages_minimal_dashboard.loading')}</>;
     }
 
     if (dashboard.tiles.length === 0) {
-        return <>No tiles</>;
+        return <>{t('pages_minimal_dashboard.no_tiles')}</>;
     }
 
     const layouts = {

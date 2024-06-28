@@ -12,7 +12,9 @@ import { captureException, useProfiler } from '@sentry/react';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
 import { type Layout } from 'react-grid-layout';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useParams } from 'react-router-dom';
+
 import DashboardHeader from '../components/common/Dashboard/DashboardHeader';
 import ErrorState from '../components/common/ErrorState';
 import MantineIcon from '../components/common/MantineIcon';
@@ -81,6 +83,7 @@ export const getResponsiveGridLayoutProps = ({
 });
 
 const Dashboard: FC = () => {
+    const { t } = useTranslation();
     const history = useHistory();
     const { projectUuid, dashboardUuid, mode, tabUuid } = useParams<{
         projectUuid: string;
@@ -222,8 +225,8 @@ const Dashboard: FC = () => {
                 setHaveTilesChanged(!!unsavedDashboardTiles);
             } catch {
                 showToastError({
-                    title: 'Error parsing chart',
-                    subtitle: 'Unable to save chart in dashboard',
+                    title: t('pages_dashboard.toast_chart_error.title'),
+                    subtitle: t('pages_dashboard.toast_chart_error.subtitle'),
                 });
                 captureException(
                     `Error parsing chart in dashboard. Attempted to parse: ${unsavedDashboardTilesRaw} `,
@@ -254,8 +257,8 @@ const Dashboard: FC = () => {
                 }
             } catch {
                 showToastError({
-                    title: 'Error parsing tabs',
-                    subtitle: 'Unable to save tabs in dashboard',
+                    title: t('pages_dashboard.toast_tabs_error.title'),
+                    subtitle: t('pages_dashboard.toast_tabs_error.subtitle'),
                 });
                 captureException(
                     `Error parsing tabs in dashboard. Attempted to parse: ${unsavedDashboardTabsRaw} `,
@@ -272,6 +275,7 @@ const Dashboard: FC = () => {
         setHaveTabsChanged,
         clearIsEditingDashboardChart,
         showToastError,
+        t,
     ]);
 
     const [gridWidth, setGridWidth] = useState(0);
@@ -446,9 +450,9 @@ const Dashboard: FC = () => {
             ) {
                 const isChartNew =
                     (dashboard?.tiles || []).find(
-                        (t) =>
-                            isDashboardChartTileType(t) &&
-                            t.properties.savedChartUuid ===
+                        (_t) =>
+                            isDashboardChartTileType(_t) &&
+                            _t.properties.savedChartUuid ===
                                 tile.properties.savedChartUuid,
                     ) === undefined;
 
@@ -512,15 +516,14 @@ const Dashboard: FC = () => {
     useEffect(() => {
         const checkReload = (event: BeforeUnloadEvent) => {
             if (isEditMode && (haveTilesChanged || haveFiltersChanged)) {
-                const message =
-                    'You have unsaved changes to your dashboard! Are you sure you want to leave without saving?';
+                const message = t('pages_dashboard.reload_message');
                 event.returnValue = message;
                 return message;
             }
         };
         window.addEventListener('beforeunload', checkReload);
         return () => window.removeEventListener('beforeunload', checkReload);
-    }, [haveTilesChanged, haveFiltersChanged, isEditMode]);
+    }, [haveTilesChanged, haveFiltersChanged, isEditMode, t]);
 
     useEffect(() => {
         // Check if in edit mode and changes have been made
@@ -599,14 +602,13 @@ const Dashboard: FC = () => {
                             size={50}
                         />
                         <Text fw={500}>
-                            You have unsaved changes to your dashboard! Are you
-                            sure you want to leave without saving?
+                            {t('pages_dashboard.modal.content')}
                         </Text>
                     </Group>
 
                     <Group position="right">
                         <Button onClick={saveWarningModalHandlers.close}>
-                            Stay
+                            {t('pages_dashboard.modal.stay')}
                         </Button>
                         <Button
                             color="red"
@@ -616,7 +618,7 @@ const Dashboard: FC = () => {
                                     history.push(blockedNavigationLocation);
                             }}
                         >
-                            Leave
+                            {t('pages_dashboard.modal.leave')}
                         </Button>
                     </Group>
                 </Stack>

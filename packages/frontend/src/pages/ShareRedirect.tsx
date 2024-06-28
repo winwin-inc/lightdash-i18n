@@ -1,11 +1,14 @@
 import { Box } from '@mantine/core';
 import { IconLinkOff } from '@tabler/icons-react';
 import { useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useParams } from 'react-router-dom';
+
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
 import { useGetShare } from '../hooks/useShare';
 
 const ShareRedirect: FC = () => {
+    const { t } = useTranslation();
     const { shareNanoid } = useParams<{ shareNanoid: string }>();
     const { data, error } = useGetShare(shareNanoid);
     const history = useHistory();
@@ -20,7 +23,7 @@ const ShareRedirect: FC = () => {
         return (
             <Box mt={50}>
                 <SuboptimalState
-                    title={`Shared link does not exist`}
+                    title={t('pages_share_redirect.shared_link')}
                     icon={IconLinkOff}
                 />
             </Box>
@@ -28,7 +31,10 @@ const ShareRedirect: FC = () => {
     }
     return (
         <Box mt={50}>
-            <SuboptimalState title="Loading..." loading />
+            <SuboptimalState
+                title={t('pages_share_redirect.loading')}
+                loading
+            />
         </Box>
     );
 };

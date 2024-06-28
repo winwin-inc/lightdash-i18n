@@ -107,15 +107,13 @@ const CreateUserForm: FC<Props> = ({ isLoading, readOnlyEmail, onSubmit }) => {
                     disabled={isLoading}
                     data-cy="signup-button"
                 >
-                    {t('components_register_form.create_user_form.sign_up')}
+                    {t('components_register_form.sign_up')}
                 </Button>
                 <Text mx="auto">
-                    {t(
-                        'components_register_form.create_user_form.alreday_registered',
-                    )}
+                    {t('components_register_form.alreday_registered')}
                     <Anchor href="/signin">
                         {' '}
-                        {t('components_register_form.create_user_form.sign_in')}
+                        {t('components_register_form.sign_in')}
                     </Anchor>
                 </Text>
             </Stack>

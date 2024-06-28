@@ -1,5 +1,6 @@
 import { Card, Image, Stack } from '@mantine/core';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Redirect } from 'react-router-dom';
 
 import Page from '../components/common/Page/Page';
@@ -9,6 +10,7 @@ import LightdashLogo from '../svgs/lightdash-black.svg';
 import { PasswordRecoveryForm } from './PasswordRecoveryForm';
 
 const PasswordRecovery: FC = () => {
+    const { t } = useTranslation();
     const { health } = useApp();
 
     if (health.isInitialLoading) {
@@ -20,7 +22,11 @@ const PasswordRecovery: FC = () => {
     }
 
     return (
-        <Page title="Recover password" withCenteredContent withNavbar={false}>
+        <Page
+            title={t('pages_password_recovery.recover_password')}
+            withCenteredContent
+            withNavbar={false}
+        >
             {/* FIXME: use Mantine sizes for width */}
             <Stack w={400} mt="4xl">
                 <Image

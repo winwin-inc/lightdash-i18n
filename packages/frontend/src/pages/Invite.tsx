@@ -17,6 +17,7 @@ import {
 } from '@mantine/core';
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Redirect, useLocation, useParams } from 'react-router-dom';
 
 import { lightdashApi } from '../api';
@@ -39,6 +40,7 @@ interface WelcomeCardProps {
 
 const WelcomeCard: FC<WelcomeCardProps> = ({ email, setReadyToJoin }) => {
     const { data: org } = useOrganization();
+    const { t } = useTranslation();
 
     return (
         <>
@@ -50,42 +52,46 @@ const WelcomeCard: FC<WelcomeCardProps> = ({ email, setReadyToJoin }) => {
                 data-cy="welcome-user"
             >
                 <Stack spacing="md" align="center">
-                    <Title order={3}>You’ve been invited!</Title>
+                    <Title order={3}>{t('pages_invite.title')}</Title>
                     {email && (
                         <Text fw="600" size="md">
                             {email}
                         </Text>
                     )}
                     <Text color="gray.6" ta="center">
-                        {`Your teammates ${
-                            org?.name ? `at ${org.name}` : ''
-                        } are using Lightdash to discover
-                    and share data insights. Click on the link below within the
-                    next 72 hours to join your team and start exploring your
-                    data!`}
+                        {`${t('pages_invite.content.part_1')} ${
+                            org?.name
+                                ? `${t('pages_invite.content.part_2')} ${
+                                      org.name
+                                  }`
+                                : ''
+                        } ${t('pages_invite.content.part_3')}`}
                     </Text>
                     <Button onClick={() => setReadyToJoin(true)}>
-                        Join your team
+                        {t('pages_invite.join_your_team')}
                     </Button>
                 </Stack>
             </Card>
             <Text color="gray.6" ta="center">
-                {`Not ${email ? email : 'for you'}?`}
+                {`${t('pages_invite.not_you.part_1')} ${
+                    email ? email : t('pages_invite.not_you.part_2')
+                }?`}
                 <br />
-                Ignore this invite link and contact your workspace admin.
+                {t('pages_invite.not_you.part_3')}
             </Text>
         </>
     );
 };
 
 const ErrorCard: FC<{ title: string }> = ({ title }) => {
+    const { t } = useTranslation();
+
     return (
         <Card p="xl" radius="xs" withBorder shadow="xs" data-cy="welcome-user">
             <Stack spacing="md" align="center">
                 <Title order={3}>{title}</Title>
                 <Text color="gray.7" ta="center">
-                    Please check with the person who shared it with you to see
-                    if there’s a new link available.
+                    {t('pages_invite.error_card.content')}
                 </Text>
             </Stack>
         </Card>
@@ -104,15 +110,16 @@ const Invite: FC = () => {
     const { health } = useApp();
     const { showToastError, showToastApiError } = useToaster();
     const flashMessages = useFlashMessages();
+    const { t } = useTranslation();
 
     useEffect(() => {
         if (flashMessages.data?.error) {
             showToastError({
-                title: 'Failed to authenticate',
+                title: t('pages_invite.toast_authenticate_error.title'),
                 subtitle: flashMessages.data.error.join('\n'),
             });
         }
-    }, [flashMessages.data, showToastError]);
+    }, [flashMessages.data, showToastError, t]);
     const { search } = useLocation();
     const { identify } = useTracking();
     const redirectUrl = '/';
@@ -129,7 +136,7 @@ const Invite: FC = () => {
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to create user`,
+                title: t('pages_invite.toast_user_error.title'),
                 apiError: error,
             });
         },
@@ -196,7 +203,7 @@ const Invite: FC = () => {
                     labelPosition="center"
                     label={
                         <Text color="gray.5" size="sm" fw={500}>
-                            OR
+                            {t('pages_invite.or')}
                         </Text>
                     }
                 />
@@ -219,7 +226,7 @@ const Invite: FC = () => {
                     <ErrorCard
                         title={
                             inviteLinkQuery.error.error.name === 'ExpiredError'
-                                ? 'This invite link has expired 🙈'
+                                ? t('pages_invite.invite_link_error.title')
                                 : inviteLinkQuery.error.error.message
                         }
                     />
@@ -227,26 +234,28 @@ const Invite: FC = () => {
                     <>
                         <Card p="xl" radius="xs" withBorder shadow="xs">
                             <Title order={3} ta="center" mb="md">
-                                Sign up
+                                {t('pages_invite.is_link_email.title')}
                             </Title>
                             {logins}
                         </Card>
                         <Text color="gray.6" ta="center">
-                            By creating an account, you agree to
+                            {t('pages_invite.is_link_email.content.part_1')}
                             <br />
-                            our{' '}
+                            {t(
+                                'pages_invite.is_link_email.content.part_2',
+                            )}{' '}
                             <Anchor
                                 href="https://www.lightdash.com/privacy-policy"
                                 target="_blank"
                             >
-                                Privacy Policy
+                                {t('pages_invite.is_link_email.content.part_3')}
                             </Anchor>{' '}
-                            and our{' '}
+                            {t('pages_invite.is_link_email.content.part_4')}{' '}
                             <Anchor
                                 href="https://www.lightdash.com/terms-of-service"
                                 target="_blank"
                             >
-                                Terms of Service.
+                                {t('pages_invite.is_link_email.content.part_5')}
                             </Anchor>
                         </Text>
                     </>

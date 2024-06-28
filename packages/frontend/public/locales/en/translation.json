@@ -1361,7 +1361,7 @@
                 "label": "Email address",
                 "placeholder": "Your email address"
             },
-            "password:": {
+            "password": {
                 "label": "Password",
                 "placeholder": "Your password"
             }
@@ -2463,8 +2463,9 @@
     },
 
     "pages_project_settings": {
+        "loading_project": "Loading project",
         "title": "Project Settings - Lightdash",
-        "breadcrumbs": {
+        "bread_crumbs": {
             "all_projects": "All projects"
         }
     },
@@ -2477,6 +2478,7 @@
             "querying_users": "% of weekly querying users",
             "weekly_average": "Weekly average number of\nqueries per user"
         },
+        "loading": "Loading...",
         "title": "User activity for {{name}}",
         "items": {
             "usage_analytics": "Usage Analytics",
@@ -2549,15 +2551,6 @@
         },
         "create_new_space": "Create new space",
         "create": "Create"
-    },
-    "pages_mobile_spaces": {
-        "loading_spaces": "Loading spaces",
-        "groups": {
-            "home": "Home",
-            "all_spaces": "All Spaces"
-        },
-        "search": "Search",
-        "no_spaces_added_yet": "No spaces added yet"
     },
 
     "components_project_connection": {
@@ -3261,6 +3254,266 @@
                 }
             },
             "advanced_configuration_options": "Advanced configuration options"
+        }
+    },
+
+    "pages_chart_history": {
+        "title": "Charts version history",
+        "bread_crumbs": {
+            "chart": "Chart",
+            "version_history": "Version history"
+        },
+        "updated_by": "Updated by",
+        "tooltip_current": {
+            "label": "This is the current version.",
+            "current": "current"
+        },
+        "menus": {
+            "restore_this_version": "Restore this version"
+        },
+        "alert": {
+            "title": "Data freshness",
+            "content": "Version history preview changes chart configuration and setup, but always queries the latest version of the data itself"
+        },
+        "empty": {
+            "title": "Select a version"
+        },
+        "modal": {
+            "title": "Restore chart version",
+            "content": "By restoring to this chart version, a new version will be generated and saved. All previous versions are still safely stored and can be restored at any time.",
+            "cancel": "Cancel",
+            "restore": "Restore"
+        }
+    },
+    "pages_create_project": {
+        "title": "Create project"
+    },
+    "pages_create_project_settings": {
+        "title": "Your project has connected successfully!",
+        "content": "Before you start exploring your data, pick the dbt models you want to appear as tables in Lightdash. You can always adjust this in your project settings later."
+    },
+    "pages_dashboard": {
+        "toast_chart_error": {
+            "title": "Error parsing chart",
+            "subtitle": "Unable to save chart in dashboard"
+        },
+        "toast_tabs_error": {
+            "title": "Error parsing tabs",
+            "subtitle": "Unable to save tabs in dashboard"
+        },
+        "reload_message": "You have unsaved changes to your dashboard! Are you sure you want to leave without saving?",
+        "modal": {
+            "content": "You have unsaved changes to your dashboard! Are you sure you want to leave without saving?",
+            "stay": "Stay",
+            "leave": "Leave"
+        }
+    },
+    "pages_explorer": {
+        "tables": "Tables"
+    },
+    "pages_invite": {
+        "title": "You’ve been invited!",
+        "content": {
+            "part_1": "Your teammates ",
+            "part_2": "at",
+            "part_3": "are using Lightdash to discover and share data insights. Click on the link below within the next 72 hours to join your team and start exploring your data!"
+        },
+        "join_your_team": "Join your team",
+        "not_you": {
+            "part_1": "Not",
+            "part_2": "for you",
+            "part_3": "Ignore this invite link and contact your workspace admin."
+        },
+        "error_card": {
+            "content": "Please check with the person who shared it with you to see if there’s a new link available."
+        },
+        "toast_authenticate_error": {
+            "title": "Failed to authenticate"
+        },
+        "toast_user_error": {
+            "title": "Failed to create user"
+        },
+        "or": "OR",
+        "invite_link_error": {
+            "title": "This invite link has expired 🙈"
+        },
+        "is_link_email": {
+            "title": "sign up",
+            "content": {
+                "part_1": "By creating an account, you agree to",
+                "part_2": "our",
+                "part_3": "Privacy Policy",
+                "part_4": "and our",
+                "part_5": "Terms of Service."
+            }
+        }
+    },
+    "pages_join_organization": {
+        "title": "Join a workspace",
+        "cancel_registration": "Cancel registration",
+        "join_a_workspace": "Join a workspace",
+        "workspace": {
+            "part_1": "The workspaces below are open to anyone with a",
+            "part_2": "domain"
+        },
+        "members": "members",
+        "join": "Join",
+        "create_a_new_workspace": "Create a new workspace"
+    },
+    "pages_login": {
+        "title": "Login"
+    },
+    "pages_minimal_dashboard": {
+        "loading": "Loading...",
+        "no_tiles": "No tiles"
+    },
+    "pages_mobile_charts": {
+        "loading_charts": "Loading charts",
+        "bread_crumbs": {
+            "home": "Home",
+            "all_saved_charts": "All saved charts"
+        },
+        "search": "Search",
+        "no_charts_added_yet": "No charts added yet"
+    },
+    "pages_mobile_dashboards": {
+        "loading_dashboards": "Loading dashboards",
+        "bread_crumbs": {
+            "home": "Home",
+            "all_dashboards": "All dashboards"
+        },
+        "search": "Search",
+        "no_dashboards_added_yet": "No dashboards added yet"
+    },
+    "pages_mobile_home": {
+        "welcome": {
+            "part_1": "Welcome",
+            "part_2": " to Lightdash"
+        },
+        "tabs": {
+            "pinned": "Pinned",
+            "most_popular": "Most popular"
+        },
+        "empty": "No items added yet"
+    },
+    "pages_mobile_space": {
+        "loading_space": "Loading space",
+        "no_space": {
+            "title": "Space does not exist",
+            "description": "We could not find space with uuid {{spaceUuid}}"
+        },
+        "bread_crumbs": {
+            "spaces": "Spaces"
+        },
+        "search": "Search",
+        "empty": "No items added yet"
+    },
+    "pages_mobile_spaces": {
+        "loading_spaces": "Loading spaces",
+        "groups": {
+            "home": "Home",
+            "all_spaces": "All Spaces"
+        },
+        "search": "Search",
+        "no_spaces_added_yet": "No spaces added yet"
+    },
+    "pages_password_recovery": {
+        "recover_password": "Recover password"
+    },
+    "pages_password_recovery_form": {
+        "forgot_password": "Forgot your password?",
+        "reset_tip": "Enter your email address and we’ll send you a password reset link",
+        "form": {
+            "email": {
+                "label": "Email address",
+                "placeholder": "Your email address"
+            },
+            "send_reset_email": "Send reset email",
+            "back_to_sign_in": "Back to sign in"
+        },
+        "check_your_inbox": "Check your inbox",
+        "check_tip": "We have emailed you instructions about how to reset your password. Haven’t received anything yet?",
+        "lists": {
+            "spam_folder": "Try checking your spam folder",
+            "reset": {
+                "part_1": "Try",
+                "part_2": "resubmitting a password reset",
+                "part_3": "request,",
+                "part_4": "ensuring that there are no typos!"
+            }
+        },
+        "back_to_sign_in": "Back to sign in"
+    },
+    "pages_password_reset": {
+        "reset_password": "Reset password",
+        "reset_your_password": "Reset your password",
+        "form": {
+            "password": {
+                "label": "Password",
+                "placeholder": "Enter a new password"
+            },
+            "save": "Save",
+            "cancel": "Cancel"
+        },
+        "success": {
+            "title": "Success!",
+            "content": {
+                "part_1": "Your password has been successfully updated.",
+                "part_2": "Use your new password to log in."
+            },
+            "log_in": "Log in"
+        }
+    },
+    "pages_register": {
+        "toast_authenticate_error": "Failed to authenticate",
+        "toast_user_error": "Failed to create user",
+        "or": "OR",
+        "sign_up": "Sign up",
+        "tip": {
+            "part_1": "By creating an account, you agree to",
+            "part_2": "our",
+            "part_3": "Privacy Policy",
+            "part_4": "and our",
+            "part_5": "Terms of Service."
+        }
+    },
+    "pages_saved_dashboards": {
+        "loading_dashboards": "Loading dashboards",
+        "bread_crumbs": {
+            "home": "Home",
+            "all_dashboards": "All dashboards"
+        },
+        "create_dashbord": "Create dashboard",
+        "no_dashboards_added_yet": "No dashboards added yet",
+        "tooltip_create": {
+            "label": "First you must create a space for this dashboard",
+            "content": "Create dashboard"
+        }
+    },
+    "pages_saved_explorer": {
+        "loading": "Loading..."
+    },
+    "pages_saved_queries": {
+        "loading_charts": "Loading charts",
+        "saved_charts": "Saved charts",
+        "bread_crumbs": {
+            "home": "Home",
+            "all_saved_charts": "All saved charts"
+        },
+        "create_chart": "Create chart",
+        "no_charts_added_yet": "No charts added yet"
+    },
+    "pages_share_redirect": {
+        "shared_link": "Shared link does not exist",
+        "loading": "Loading..."
+    },
+    "pages_verify_email": {
+        "great_tip": "Great, you're verified! 🎉",
+        "continue": "Continue",
+        "verify_your_email": "Verify your email",
+        "should_tip": {
+            "part_1": "You need to verify your email to get access to Lightdash. If you need help, you can",
+            "part_2": "chat to support here."
         }
     }
 }

@@ -22,7 +22,9 @@ import {
     IconInfoCircle,
 } from '@tabler/icons-react';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useParams } from 'react-router-dom';
+
 import { Can } from '../components/common/Authorization';
 import { EmptyState } from '../components/common/EmptyState';
 import ErrorState from '../components/common/ErrorState';
@@ -45,6 +47,7 @@ import {
 import NoTableIcon from '../svgs/emptystate-no-table.svg?react';
 
 const ChartHistory = () => {
+    const { t } = useTranslation();
     const history = useHistory();
     const { savedQueryUuid, projectUuid } = useParams<{
         savedQueryUuid: string;
@@ -99,7 +102,7 @@ const ChartHistory = () => {
 
     return (
         <Page
-            title="Chart version history"
+            title={t('pages_chart_history.title')}
             withSidebarFooter
             withFullHeight
             withPaddedContent
@@ -113,10 +116,17 @@ const ChartHistory = () => {
                         <PageBreadcrumbs
                             items={[
                                 {
-                                    title: 'Chart',
+                                    title: t(
+                                        'pages_chart_history.bread_crumbs.chart',
+                                    ),
                                     to: `/projects/${projectUuid}/saved/${savedQueryUuid}/view`,
                                 },
-                                { title: 'Version history', active: true },
+                                {
+                                    title: t(
+                                        'pages_chart_history.bread_crumbs.version_history',
+                                    ),
+                                    active: true,
+                                },
                             ]}
                         />
                     </Flex>
@@ -134,7 +144,7 @@ const ChartHistory = () => {
                                 )}
                                 description={
                                     <Text>
-                                        Updated by:{' '}
+                                        {t('pages_chart_history.updated_by')}{' '}
                                         {version.createdBy?.firstName}{' '}
                                         {version.createdBy?.lastName}
                                     </Text>
@@ -143,14 +153,18 @@ const ChartHistory = () => {
                                     <>
                                         {index === 0 && (
                                             <Tooltip
-                                                label={`This is the current version.`}
+                                                label={t(
+                                                    'pages_chart_history.tooltip_current.label',
+                                                )}
                                             >
                                                 <Badge
                                                     size="xs"
                                                     variant="light"
                                                     color="green"
                                                 >
-                                                    current
+                                                    {t(
+                                                        'pages_chart_history.tooltip_current.current',
+                                                    )}
                                                 </Badge>
                                             </Tooltip>
                                         )}
@@ -214,8 +228,9 @@ const ChartHistory = () => {
                                                                     );
                                                                 }}
                                                             >
-                                                                Restore this
-                                                                version
+                                                                {t(
+                                                                    'pages_chart_history.menus.restore_this_version',
+                                                                )}
                                                             </Menu.Item>
                                                         </Menu.Dropdown>
                                                     </Menu>
@@ -231,15 +246,11 @@ const ChartHistory = () => {
                     </Stack>
                     <Alert
                         icon={<MantineIcon icon={IconInfoCircle} size={'md'} />}
-                        title="Data freshness"
+                        title={t('pages_chart_history.alert.title')}
                         color="gray"
                         variant="light"
                     >
-                        <p>
-                            Version history preview changes chart configuration
-                            and setup, but always queries the latest version of
-                            the data itself
-                        </p>
+                        <p>{t('pages_chart_history.alert.content')}</p>
                     </Alert>
                 </Stack>
             }
@@ -248,7 +259,7 @@ const ChartHistory = () => {
                 <EmptyState
                     maw={500}
                     icon={<NoTableIcon />}
-                    title="Select a version"
+                    title={t('pages_chart_history.empty.title')}
                 />
             )}
             {chartVersionQuery.data && (
@@ -282,23 +293,21 @@ const ChartHistory = () => {
                 title={
                     <Group spacing="xs">
                         <MantineIcon icon={IconHistory} size="lg" />
-                        <Title order={4}>Restore chart version</Title>
+                        <Title order={4}>
+                            {t('pages_chart_history.modal.title')}
+                        </Title>
                     </Group>
                 }
             >
                 <Stack>
-                    <Text>
-                        By restoring to this chart version, a new version will
-                        be generated and saved. All previous versions are still
-                        safely stored and can be restored at any time.
-                    </Text>
+                    <Text>{t('pages_chart_history.modal.content')}</Text>
                     <Group position="right" spacing="xs">
                         <Button
                             variant="outline"
                             disabled={rollbackMutation.isLoading}
                             onClick={() => setIsRollbackModalOpen(false)}
                         >
-                            Cancel
+                            {t('pages_chart_history.modal.cancel')}
                         </Button>
                         <Button
                             loading={rollbackMutation.isLoading}
@@ -308,7 +317,7 @@ const ChartHistory = () => {
                             }
                             type="submit"
                         >
-                            Restore
+                            {t('pages_chart_history.modal.restore')}
                         </Button>
                     </Group>
                 </Stack>

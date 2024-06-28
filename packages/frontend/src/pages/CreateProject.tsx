@@ -1,5 +1,7 @@
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useParams } from 'react-router-dom';
+
 import Page from '../components/common/Page/Page';
 import PageSpinner from '../components/PageSpinner';
 import ConnectManually from '../components/ProjectConnection/ProjectConnectFlow/ConnectManually';
@@ -22,6 +24,7 @@ export enum ConnectMethod {
 }
 
 const CreateProject: FC = () => {
+    const { t } = useTranslation();
     const history = useHistory();
     const { isInitialLoading: isLoadingOrganization, data: organization } =
         useOrganization();
@@ -43,7 +46,11 @@ const CreateProject: FC = () => {
 
     return (
         <ProjectFormProvider>
-            <Page title="Create project" withFixedContent withPaddedContent>
+            <Page
+                title={t('pages_create_project.title')}
+                withFixedContent
+                withPaddedContent
+            >
                 {method && projectUuid ? (
                     <ConnectSuccess projectUuid={projectUuid} />
                 ) : (

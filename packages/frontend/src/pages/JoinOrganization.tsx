@@ -11,6 +11,7 @@ import {
     Title,
 } from '@mantine/core';
 import { useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 
 import { IconAlertCircle } from '@tabler/icons-react';
@@ -25,6 +26,7 @@ import { useApp } from '../providers/AppProvider';
 import LightdashLogo from '../svgs/lightdash-black.svg';
 
 const JoinOrganizationPage: FC = () => {
+    const { t } = useTranslation();
     const { health, user } = useApp();
     const history = useHistory();
     const { isInitialLoading: isLoadingAllowedOrgs, data: allowedOrgs } =
@@ -78,7 +80,11 @@ const JoinOrganizationPage: FC = () => {
     const disabled = isCreatingOrg || isJoiningOrg;
 
     return (
-        <Page title="Join a workspace" withCenteredContent withNavbar={false}>
+        <Page
+            title={t('pages_join_organization.title')}
+            withCenteredContent
+            withNavbar={false}
+        >
             {createOrgError ? (
                 <Stack mt="4xl">
                     <SuboptimalState
@@ -87,7 +93,9 @@ const JoinOrganizationPage: FC = () => {
                         description={createOrgError.error.message}
                         action={
                             <Button onClick={() => deleteUser()}>
-                                Cancel registration
+                                {t(
+                                    'pages_join_organization.cancel_registration',
+                                )}
                             </Button>
                         }
                     />
@@ -104,14 +112,14 @@ const JoinOrganizationPage: FC = () => {
                     <Card p="xl" radius="xs" withBorder shadow="xs">
                         <Stack justify="center" spacing="md" mb="xs">
                             <Title order={3} ta="center">
-                                Join a workspace
+                                {t('pages_join_organization.join_a_workspace')}
                             </Title>
                             <Text color="gray.6" ta="center">
-                                The workspaces below are open to anyone with a{' '}
+                                {t('pages_join_organization.workspace.part_1')}{' '}
                                 <Text span fw={600}>
                                     @{emailDomain}:
                                 </Text>{' '}
-                                domain
+                                {t('pages_join_organization.workspace.part_2')}
                             </Text>
                             {allowedOrgs?.map((org) => (
                                 <Card key={org.organizationUuid} withBorder>
@@ -129,7 +137,10 @@ const JoinOrganizationPage: FC = () => {
                                                     {org.name}
                                                 </Text>
                                                 <Text fz="xs" c="gray">
-                                                    {org.membersCount} members
+                                                    {org.membersCount}{' '}
+                                                    {t(
+                                                        'pages_join_organization.members',
+                                                    )}
                                                 </Text>
                                             </Stack>
                                         </Group>
@@ -139,7 +150,7 @@ const JoinOrganizationPage: FC = () => {
                                             }
                                             loading={isJoiningOrg}
                                         >
-                                            Join
+                                            {t('pages_join_organization.join')}
                                         </Button>
                                     </Group>
                                 </Card>
@@ -164,7 +175,7 @@ const JoinOrganizationPage: FC = () => {
                                 : {}
                         }
                     >
-                        Create a new workspace
+                        {t('pages_join_organization.create_a_new_workspace')}
                     </Anchor>
                 </Stack>
             )}

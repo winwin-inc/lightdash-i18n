@@ -1,6 +1,8 @@
 import { Stack, Title } from '@mantine/core';
 import { useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import ErrorState from '../components/common/ErrorState';
 import ForbiddenPanel from '../components/ForbiddenPanel';
 import PageSpinner from '../components/PageSpinner';
@@ -22,6 +24,7 @@ import {
 import { useApp } from '../providers/AppProvider';
 
 const MobileHome: FC = () => {
+    const { t } = useTranslation();
     const params = useParams<{ projectUuid: string }>();
     const selectedProjectUuid = params.projectUuid;
     const savedChartStatus = useProjectSavedChartStatus(selectedProjectUuid);
@@ -84,10 +87,10 @@ const MobileHome: FC = () => {
         <Stack spacing="md" m="lg">
             <Stack justify="flex-start" spacing="xs">
                 <Title order={3}>
-                    {`Welcome${
+                    {`${t('pages_mobile_home.welcome.part_1')}${
                         user.data?.firstName
                             ? ', ' + user.data?.firstName
-                            : ' to Lightdash'
+                            : t('pages_mobile_home.welcome.part_2')
                     }!`}{' '}
                     ⚡️
                 </Title>
@@ -99,7 +102,7 @@ const MobileHome: FC = () => {
                         ? [
                               {
                                   id: 'pinned',
-                                  name: 'Pinned',
+                                  name: t('pages_mobile_home.tabs.pinned'),
                                   filter: (item) =>
                                       'category' in item &&
                                       item.category ===
@@ -107,7 +110,9 @@ const MobileHome: FC = () => {
                               },
                               {
                                   id: 'most-popular',
-                                  name: 'Most popular',
+                                  name: t(
+                                      'pages_mobile_home.tabs.most_popular',
+                                  ),
                                   filter: (item) =>
                                       'category' in item &&
                                       item.category ===
@@ -126,7 +131,7 @@ const MobileHome: FC = () => {
                 }}
                 emptyStateProps={{
                     icon: <IconLayoutDashboard size={30} />,
-                    title: 'No items added yet',
+                    title: t('pages_mobile_home.empty'),
                 }}
             />
         </Stack>

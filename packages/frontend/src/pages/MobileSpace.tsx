@@ -7,7 +7,9 @@ import { ActionIcon, Group, Stack, TextInput } from '@mantine/core';
 import { IconLayoutDashboard, IconSearch, IconX } from '@tabler/icons-react';
 import Fuse from 'fuse.js';
 import { useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import ErrorState from '../components/common/ErrorState';
 import LoadingState from '../components/common/LoadingState';
 import MantineIcon from '../components/common/MantineIcon';
@@ -20,6 +22,7 @@ import { useSpace } from '../hooks/useSpaces';
 import { useApp } from '../providers/AppProvider';
 
 const MobileSpace: FC = () => {
+    const { t } = useTranslation();
     const { projectUuid, spaceUuid } = useParams<{
         projectUuid: string;
         spaceUuid: string;
@@ -60,7 +63,7 @@ const MobileSpace: FC = () => {
     }
 
     if (isInitialLoading) {
-        return <LoadingState title="Loading space" />;
+        return <LoadingState title={t('pages_mobile_space.loading_space')} />;
     }
 
     if (error) {
@@ -71,8 +74,10 @@ const MobileSpace: FC = () => {
         return (
             <div style={{ marginTop: '20px' }}>
                 <SuboptimalState
-                    title="Space does not exist"
-                    description={`We could not find space with uuid ${spaceUuid}`}
+                    title={t('pages_mobile_space.no_space.title')}
+                    description={t('pages_mobile_space.no_space.description', {
+                        spaceUuid,
+                    })}
                 />
             </div>
         );
@@ -84,7 +89,9 @@ const MobileSpace: FC = () => {
                 <PageBreadcrumbs
                     items={[
                         {
-                            title: 'Spaces',
+                            title: t('pages_mobile_space.bread_crumbs.spaces', {
+                                spaceUuid,
+                            }),
                             to: `/projects/${projectUuid}/spaces`,
                         },
                         {
@@ -103,7 +110,7 @@ const MobileSpace: FC = () => {
                         </ActionIcon>
                     ) : null
                 }
-                placeholder="Search"
+                placeholder={t('pages_mobile_space.search')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
             />
@@ -119,7 +126,7 @@ const MobileSpace: FC = () => {
                 }}
                 emptyStateProps={{
                     icon: <IconLayoutDashboard size={30} />,
-                    title: 'No items added yet',
+                    title: t('pages_mobile_space.empty'),
                 }}
             />
         </Stack>

@@ -2,6 +2,8 @@ import { useParams } from 'react-router-dom';
 
 import { ResourceViewItemType } from '@lightdash/common';
 import { useCallback, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import ErrorState from '../components/common/ErrorState';
 import Page from '../components/common/Page/Page';
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
@@ -19,6 +21,7 @@ import {
 } from '../providers/ExplorerProvider';
 
 const SavedExplorer = () => {
+    const { t } = useTranslation();
     const { savedQueryUuid, mode, projectUuid } = useParams<{
         savedQueryUuid: string;
         projectUuid: string;
@@ -72,7 +75,10 @@ const SavedExplorer = () => {
     if (isInitialLoading) {
         return (
             <div style={{ marginTop: '20px' }}>
-                <SuboptimalState title="Loading..." loading />
+                <SuboptimalState
+                    title={t('pages_saved_explorer.loading')}
+                    loading
+                />
             </div>
         );
     }

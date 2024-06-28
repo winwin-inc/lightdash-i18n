@@ -198,7 +198,10 @@ const UserActivity: FC = () => {
     if (isInitialLoading || data === undefined) {
         return (
             <div style={{ marginTop: '20px' }}>
-                <SuboptimalState title="Loading..." loading />
+                <SuboptimalState
+                    title={t('pages_user_activity.loading')}
+                    loading
+                />
             </div>
         );
     }

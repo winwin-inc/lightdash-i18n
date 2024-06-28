@@ -1,8 +1,9 @@
 import { subject } from '@casl/ability';
+import { useHotkeys } from '@mantine/hooks';
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 
-import { useHotkeys } from '@mantine/hooks';
 import Page from '../components/common/Page/Page';
 import Explorer from '../components/Explorer';
 import ExploreSideBar from '../components/Explorer/ExploreSideBar/index';
@@ -21,6 +22,8 @@ import {
 } from '../providers/ExplorerProvider';
 
 const ExplorerWithUrlParams = memo(() => {
+    const { t } = useTranslation();
+
     useExplorerRoute();
     const tableId = useExplorerContext(
         (context) => context.state.unsavedChartVersion.tableName,
@@ -34,7 +37,7 @@ const ExplorerWithUrlParams = memo(() => {
 
     return (
         <Page
-            title={data ? data?.label : 'Tables'}
+            title={data ? data?.label : t('pages_explorer.tables')}
             sidebar={<ExploreSideBar />}
             withFullHeight
             withPaddedContent

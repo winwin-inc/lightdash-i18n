@@ -11,6 +11,7 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useHistory, useParams } from 'react-router-dom';
 
 import ErrorState from '../components/common/ErrorState';
@@ -26,6 +27,7 @@ import LightdashLogo from '../svgs/lightdash-black.svg';
 type ResetPasswordForm = { password: string };
 
 const PasswordReset: FC = () => {
+    const { t } = useTranslation();
     const history = useHistory();
     const { code } = useParams<{ code: string }>();
     const { health } = useApp();
@@ -43,7 +45,11 @@ const PasswordReset: FC = () => {
     }
 
     return (
-        <Page title="Reset password" withCenteredContent withNavbar={false}>
+        <Page
+            title={t('pages_password_reset.reset_password')}
+            withCenteredContent
+            withNavbar={false}
+        >
             {/* FIXME: use Mantine sizes for width */}
             <Stack w={400} mt="4xl">
                 <Image
@@ -61,7 +67,9 @@ const PasswordReset: FC = () => {
                             {!passwordResetMutation.isSuccess ? (
                                 <>
                                     <Title order={3} ta="center" mb="md">
-                                        Reset your password
+                                        {t(
+                                            'pages_password_reset.reset_your_password',
+                                        )}
                                     </Title>
                                     <form
                                         name="password-reset"
@@ -75,9 +83,13 @@ const PasswordReset: FC = () => {
                                     >
                                         <Stack spacing="lg">
                                             <PasswordInput
-                                                label="Password"
+                                                label={t(
+                                                    'pages_password_reset.form.password.label',
+                                                )}
                                                 name="password"
-                                                placeholder="Enter a new password"
+                                                placeholder={t(
+                                                    'pages_password_reset.form.password.placeholder',
+                                                )}
                                                 disabled={
                                                     passwordResetMutation.isLoading
                                                 }
@@ -93,7 +105,9 @@ const PasswordReset: FC = () => {
                                                     passwordResetMutation.isLoading
                                                 }
                                             >
-                                                Save
+                                                {t(
+                                                    'pages_password_reset.form.save',
+                                                )}
                                             </Button>
 
                                             <Center>
@@ -101,7 +115,9 @@ const PasswordReset: FC = () => {
                                                     component={Link}
                                                     to="/login"
                                                 >
-                                                    Cancel
+                                                    {t(
+                                                        'pages_password_reset.form.cancel',
+                                                    )}
                                                 </Anchor>
                                             </Center>
                                         </Stack>
@@ -110,19 +126,25 @@ const PasswordReset: FC = () => {
                             ) : (
                                 <>
                                     <Title order={3} ta="center" mb="md">
-                                        Success!
+                                        {t(
+                                            'pages_password_reset.success.title',
+                                        )}
                                     </Title>
                                     <Text ta="center" mb="lg" color="dimmed">
-                                        Your password has been successfully
-                                        updated.
-                                        <br /> Use your new password to log in.
+                                        {t(
+                                            'pages_password_reset.content.part_1',
+                                        )}
+                                        <br />{' '}
+                                        {t(
+                                            'pages_password_reset.content.part_2',
+                                        )}
                                     </Text>
 
                                     <Button
                                         fullWidth
                                         onClick={() => history.push('/login')}
                                     >
-                                        Log in
+                                        {t('pages_password_reset.login_in')}
                                     </Button>
                                 </>
                             )}

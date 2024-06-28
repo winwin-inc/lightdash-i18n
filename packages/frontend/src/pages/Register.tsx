@@ -15,7 +15,9 @@ import {
 } from '@mantine/core';
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
+
 import { lightdashApi } from '../api';
 import Page from '../components/common/Page/Page';
 import { ThirdPartySignInButton } from '../components/common/ThirdPartySignInButton';
@@ -35,6 +37,7 @@ const registerQuery = async (data: CreateUserArgs) =>
     });
 
 const Register: FC = () => {
+    const { t } = useTranslation();
     const location = useLocation<{ from?: Location } | undefined>();
     const { health } = useApp();
     const { showToastError, showToastApiError } = useToaster();
@@ -43,11 +46,11 @@ const Register: FC = () => {
     useEffect(() => {
         if (flashMessages.data?.error) {
             showToastError({
-                title: 'Failed to authenticate',
+                title: t('pages_register.toast_authenticate_error'),
                 subtitle: flashMessages.data.error.join('\n'),
             });
         }
-    }, [flashMessages.data, showToastError]);
+    }, [flashMessages.data, showToastError, t]);
     const allowPasswordAuthentication =
         !health.data?.auth.disablePasswordAuthentication;
     const { identify } = useTracking();
@@ -66,7 +69,7 @@ const Register: FC = () => {
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to create user`,
+                title: t('pages_register.toast_user_error'),
                 apiError: error,
             });
         },
@@ -110,7 +113,7 @@ const Register: FC = () => {
                     labelPosition="center"
                     label={
                         <Text color="gray.5" size="sm" fw={500}>
-                            OR
+                            {t('pages_register.or')}
                         </Text>
                     }
                 />
@@ -130,26 +133,26 @@ const Register: FC = () => {
                 />
                 <Card p="xl" radius="xs" withBorder shadow="xs">
                     <Title order={3} ta="center" mb="md">
-                        Sign up
+                        {t('pages_register.sign_up')}
                     </Title>
                     {logins}
                 </Card>
                 <Text color="gray.6" ta="center">
-                    By creating an account, you agree to
+                    {t('pages_register.tip.part_1')}
                     <br />
-                    our{' '}
+                    {t('pages_register.tip.part_2')}{' '}
                     <Anchor
                         href="https://www.lightdash.com/privacy-policy"
                         target="_blank"
                     >
-                        Privacy Policy
+                        {t('pages_register.tip.part_3')}
                     </Anchor>{' '}
-                    and our{' '}
+                    {t('pages_register.tip.part_4')}{' '}
                     <Anchor
                         href="https://www.lightdash.com/terms-of-service"
                         target="_blank"
                     >
-                        Terms of Service.
+                        {t('pages_register.tip.part_5')}
                     </Anchor>
                 </Text>
             </Stack>

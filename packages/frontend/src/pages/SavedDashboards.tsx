@@ -6,6 +6,7 @@ import {
 import { Button, Group, Stack, Tooltip } from '@mantine/core';
 import { IconLayoutDashboard, IconPlus } from '@tabler/icons-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useParams } from 'react-router-dom';
 
 import LoadingState from '../components/common/LoadingState';
@@ -23,6 +24,7 @@ export const DEFAULT_DASHBOARD_NAME = 'Untitled dashboard';
 
 const SavedDashboards = () => {
     const history = useHistory();
+    const { t } = useTranslation();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { isInitialLoading, data: dashboards = [] } =
         useDashboards(projectUuid);
@@ -41,7 +43,11 @@ const SavedDashboards = () => {
     );
 
     if (isInitialLoading || isLoadingSpaces) {
-        return <LoadingState title="Loading dashboards" />;
+        return (
+            <LoadingState
+                title={t('pages_saved_dashboards.loading_dashboards')}
+            />
+        );
     }
 
     const handleCreateDashboard = () => {
@@ -54,8 +60,18 @@ const SavedDashboards = () => {
                 <Group position="apart">
                     <PageBreadcrumbs
                         items={[
-                            { title: 'Home', to: '/home' },
-                            { title: 'All dashboards', active: true },
+                            {
+                                title: t(
+                                    'pages_saved_dashboards.bread_crumbs.home',
+                                ),
+                                to: '/home',
+                            },
+                            {
+                                title: t(
+                                    'pages_saved_dashboards.bread_crumbs.all_dashboards',
+                                ),
+                                active: true,
+                            },
                         ]}
                     />
 
@@ -67,7 +83,7 @@ const SavedDashboards = () => {
                                 onClick={handleCreateDashboard}
                                 disabled={hasNoSpaces}
                             >
-                                Create dashboard
+                                {t('pages_saved_dashboards.create_dashbord')}
                             </Button>
                         )}
                 </Group>
@@ -82,19 +98,27 @@ const SavedDashboards = () => {
                     }}
                     emptyStateProps={{
                         icon: <IconLayoutDashboard size={30} />,
-                        title: 'No dashboards added yet',
+                        title: t(
+                            'pages_saved_dashboards.no_dashboards_added_yet',
+                        ),
                         action:
                             userCanCreateDashboards &&
                             !isDemo &&
                             hasNoSpaces ? (
-                                <Tooltip label="First you must create a space for this dashboard">
+                                <Tooltip
+                                    label={t(
+                                        'pages_saved_dashboards.tooltip_create.label',
+                                    )}
+                                >
                                     <div>
                                         <Button
                                             leftIcon={<IconPlus size={18} />}
                                             onClick={handleCreateDashboard}
                                             disabled={hasNoSpaces}
                                         >
-                                            Create dashboard
+                                            {t(
+                                                'pages_saved_dashboards.tooltip_create.content',
+                                            )}
                                         </Button>
                                     </div>
                                 </Tooltip>
@@ -104,7 +128,9 @@ const SavedDashboards = () => {
                                     onClick={handleCreateDashboard}
                                     disabled={hasNoSpaces}
                                 >
-                                    Create dashboard
+                                    {t(
+                                        'pages_saved_dashboards.create_dashbord',
+                                    )}
                                 </Button>
                             ) : undefined,
                     }}
