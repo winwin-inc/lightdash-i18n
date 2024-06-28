@@ -2,6 +2,8 @@ import { type UserWarehouseCredentials } from '@lightdash/common/src/types/userW
 import { Button, Group, Stack, Text, Title } from '@mantine/core';
 import { IconDatabaseCog, IconPlus } from '@tabler/icons-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useUserWarehouseCredentials } from '../../../hooks/userWarehouseCredentials/useUserWarehouseCredentials';
 import { EmptyState } from '../../common/EmptyState';
 import MantineIcon from '../../common/MantineIcon';
@@ -11,6 +13,7 @@ import { DeleteCredentialsModal } from './DeleteCredentialsModal';
 import { EditCredentialsModal } from './EditCredentialsModal';
 
 export const MyWarehouseConnectionsPanel = () => {
+    const { t } = useTranslation();
     const { data: credentials } = useUserWarehouseCredentials();
     const [isCreatingCredentials, setIsCreatingCredentials] = useState(false);
     const [warehouseCredentialsToBeEdited, setWarehouseCredentialsToBeEdited] =
@@ -28,11 +31,14 @@ export const MyWarehouseConnectionsPanel = () => {
                         <Group position="apart">
                             <Stack spacing="one">
                                 <Title order={5}>
-                                    My Warehouse connections
+                                    {t(
+                                        'components_user_settings_my_warehouse_connections_panel.groups.my_warehouse_connections',
+                                    )}
                                 </Title>
                                 <Text c="gray.6" fz="xs">
-                                    Add credentials to connect to your
-                                    warehouse.
+                                    {t(
+                                        'components_user_settings_my_warehouse_connections_panel.groups.add_credentials',
+                                    )}
                                 </Text>
                             </Stack>
                             <Button
@@ -40,7 +46,9 @@ export const MyWarehouseConnectionsPanel = () => {
                                 leftIcon={<MantineIcon icon={IconPlus} />}
                                 onClick={() => setIsCreatingCredentials(true)}
                             >
-                                Add new credentials
+                                {t(
+                                    'components_user_settings_my_warehouse_connections_panel.groups.add_new_credentials',
+                                )}
                             </Button>
                         </Group>
                         <CredentialsTable
@@ -63,11 +71,17 @@ export const MyWarehouseConnectionsPanel = () => {
                                 size="5xl"
                             />
                         }
-                        title="No credentials"
-                        description="You haven't created any personal warehouse connections yet!"
+                        title={t(
+                            'components_user_settings_my_warehouse_connections_panel.empty.title',
+                        )}
+                        description={t(
+                            'components_user_settings_my_warehouse_connections_panel.empty.description',
+                        )}
                     >
                         <Button onClick={() => setIsCreatingCredentials(true)}>
-                            Add new credentials
+                            {t(
+                                'components_user_settings_my_warehouse_connections_panel.empty.add_new_credentials',
+                            )}
                         </Button>
                     </EmptyState>
                 )}

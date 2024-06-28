@@ -10,6 +10,8 @@ import {
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import { useDeleteOrganizationMutation } from '../../../hooks/organization/useOrganizationDeleteMultation';
 import MantineIcon from '../../common/MantineIcon';
@@ -17,6 +19,8 @@ import MantineIcon from '../../common/MantineIcon';
 export const OrganizationDeleteModal: FC<
     Pick<ModalProps, 'opened' | 'onClose'>
 > = ({ opened, onClose }) => {
+    const { t } = useTranslation();
+
     const { isInitialLoading, data: organization } = useOrganization();
     const { mutateAsync, isLoading: isDeleting } =
         useDeleteOrganizationMutation();
@@ -42,17 +46,24 @@ export const OrganizationDeleteModal: FC<
             title={
                 <Group spacing="xs">
                     <MantineIcon size="lg" icon={IconAlertCircle} color="red" />
-                    <Title order={4}>Delete Organization</Title>
+                    <Title order={4}>
+                        {t(
+                            'components_user_settings_delete_organization_modal.delete_organization',
+                        )}
+                    </Title>
                 </Group>
             }
             onClose={handleOnClose}
         >
             <Stack>
                 <Text>
-                    Type the name of this organization{' '}
-                    <b>{organization.name}</b> to confirm you want to delete
-                    this organization and its users. This action is not
-                    reversible.
+                    {t(
+                        'components_user_settings_delete_organization_modal.content.part_1',
+                    )}{' '}
+                    <b>{organization.name}</b>{' '}
+                    {t(
+                        'components_user_settings_delete_organization_modal.content.part_2',
+                    )}
                 </Text>
 
                 <TextInput
@@ -68,7 +79,9 @@ export const OrganizationDeleteModal: FC<
                         onClick={handleOnClose}
                         color="dark"
                     >
-                        Cancel
+                        {t(
+                            'components_user_settings_delete_organization_modal.cancel',
+                        )}
                     </Button>
 
                     <Button
@@ -81,7 +94,9 @@ export const OrganizationDeleteModal: FC<
                         onClick={() => handleConfirm()}
                         type="submit"
                     >
-                        Delete
+                        {t(
+                            'components_user_settings_delete_organization_modal.delete',
+                        )}
                     </Button>
                 </Group>
             </Stack>

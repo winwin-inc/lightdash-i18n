@@ -10,6 +10,8 @@ import {
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useUserWarehouseCredentialsDeleteMutation } from '../../../hooks/userWarehouseCredentials/useUserWarehouseCredentials';
 import MantineIcon from '../../common/MantineIcon';
 
@@ -22,16 +24,22 @@ export const DeleteCredentialsModal: FC<Props> = ({
     onClose,
     warehouseCredentialsToBeDeleted,
 }) => {
+    const { t } = useTranslation();
     const { mutateAsync, isLoading: isDeleting } =
         useUserWarehouseCredentialsDeleteMutation(
             warehouseCredentialsToBeDeleted.uuid,
         );
+
     return (
         <Modal
             title={
                 <Group spacing="xs">
                     <MantineIcon size="lg" icon={IconAlertCircle} color="red" />
-                    <Title order={4}>Delete credentials</Title>
+                    <Title order={4}>
+                        {t(
+                            'components_user_settings_my_warehouse_connections_panel.delete_credentials.delete_credentials',
+                        )}
+                    </Title>
                 </Group>
             }
             opened={opened}
@@ -39,7 +47,9 @@ export const DeleteCredentialsModal: FC<Props> = ({
         >
             <Stack>
                 <Text fz="sm">
-                    Are you sure you want to delete credentials:{' '}
+                    {t(
+                        'components_user_settings_my_warehouse_connections_panel.delete_credentials.content.part_1',
+                    )}{' '}
                     <b>{warehouseCredentialsToBeDeleted.name}</b>?
                 </Text>
 
@@ -51,7 +61,9 @@ export const DeleteCredentialsModal: FC<Props> = ({
                         color="dark"
                         disabled={isDeleting}
                     >
-                        Cancel
+                        {t(
+                            'components_user_settings_my_warehouse_connections_panel.delete_credentials.cancel',
+                        )}
                     </Button>
 
                     <Button
@@ -64,7 +76,9 @@ export const DeleteCredentialsModal: FC<Props> = ({
                         type="submit"
                         disabled={isDeleting}
                     >
-                        Delete
+                        {t(
+                            'components_user_settings_my_warehouse_connections_panel.delete_credentials.delete',
+                        )}
                     </Button>
                 </Group>
             </Stack>

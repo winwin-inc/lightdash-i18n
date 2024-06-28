@@ -5,11 +5,14 @@ import {
 import { PasswordInput, TextInput } from '@mantine/core';
 import { type UseFormReturnType } from '@mantine/form';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export const WarehouseFormInputs: FC<{
     disabled: boolean;
     form: UseFormReturnType<UpsertUserWarehouseCredentials>;
 }> = ({ form, disabled }) => {
+    const { t } = useTranslation();
+
     switch (form.values.credentials.type) {
         case WarehouseTypes.REDSHIFT:
         case WarehouseTypes.SNOWFLAKE:
@@ -20,14 +23,18 @@ export const WarehouseFormInputs: FC<{
                     <TextInput
                         required
                         size="xs"
-                        label="Username/email"
+                        label={t(
+                            'components_user_settings_my_warehouse_connections_panel.warehouse_form.username',
+                        )}
                         disabled={disabled}
                         {...form.getInputProps('credentials.user')}
                     />
                     <PasswordInput
                         required
                         size="xs"
-                        label="Password"
+                        label={t(
+                            'components_user_settings_my_warehouse_connections_panel.warehouse_form.password',
+                        )}
                         disabled={disabled}
                         {...form.getInputProps('credentials.password')}
                     />

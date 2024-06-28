@@ -15,6 +15,8 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useUserWarehouseCredentialsCreateMutation } from '../../../hooks/userWarehouseCredentials/useUserWarehouseCredentials';
 import { getWarehouseLabel } from '../../ProjectConnection/ProjectConnectFlow/SelectWarehouse';
 import { WarehouseFormInputs } from './WarehouseFormInputs';
@@ -70,6 +72,7 @@ export const CreateCredentialsModal: FC<Props> = ({
     warehouseType,
     onSuccess,
 }) => {
+    const { t } = useTranslation();
     const { mutateAsync, isLoading: isSaving } =
         useUserWarehouseCredentialsCreateMutation({
             onSuccess,
@@ -83,7 +86,15 @@ export const CreateCredentialsModal: FC<Props> = ({
     });
     return (
         <Modal
-            title={title || <Title order={4}>Add new credentials</Title>}
+            title={
+                title || (
+                    <Title order={4}>
+                        {t(
+                            'components_user_settings_my_warehouse_connections_panel.create_credentials.add_new_credentials',
+                        )}
+                    </Title>
+                )
+            }
             opened={opened}
             onClose={onClose}
         >
@@ -103,7 +114,9 @@ export const CreateCredentialsModal: FC<Props> = ({
                         <TextInput
                             required
                             size="xs"
-                            label="Name"
+                            label={t(
+                                'components_user_settings_my_warehouse_connections_panel.create_credentials.form.name.label',
+                            )}
                             disabled={isSaving}
                             {...form.getInputProps('name')}
                         />
@@ -112,7 +125,9 @@ export const CreateCredentialsModal: FC<Props> = ({
                     {!warehouseType && (
                         <Select
                             required
-                            label="Warehouse"
+                            label={t(
+                                'components_user_settings_my_warehouse_connections_panel.create_credentials.form.warehouse.label',
+                            )}
                             size="xs"
                             disabled={isSaving}
                             data={Object.values(WarehouseTypes).map((type) => {
@@ -147,11 +162,15 @@ export const CreateCredentialsModal: FC<Props> = ({
                             onClick={onClose}
                             disabled={isSaving}
                         >
-                            Cancel
+                            {t(
+                                'components_user_settings_my_warehouse_connections_panel.create_credentials.cancel',
+                            )}
                         </Button>
 
                         <Button size="xs" type="submit" disabled={isSaving}>
-                            Save
+                            {t(
+                                'components_user_settings_my_warehouse_connections_panel.create_credentials.save',
+                            )}
                         </Button>
                     </Group>
                 </Stack>

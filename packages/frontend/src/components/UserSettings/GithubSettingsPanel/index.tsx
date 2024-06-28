@@ -14,6 +14,8 @@ import {
 import { IconAlertCircle, IconRefresh, IconTrash } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { lightdashApi } from '../../../api';
 import useToaster from '../../../hooks/toaster/useToaster';
 import githubIcon from '../../../svgs/github-icon.svg';
@@ -44,6 +46,8 @@ const deleteGithubInstallation = async () =>
 const useDeleteGithubInstallationMutation = () => {
     const { showToastSuccess, showToastApiError } = useToaster();
     const queryClient = useQueryClient();
+    const { t } = useTranslation();
+
     return useMutation<null, ApiError>(
         ['delete_github_installation'],
         () => deleteGithubInstallation(),
@@ -51,14 +55,19 @@ const useDeleteGithubInstallationMutation = () => {
             onSuccess: async () => {
                 await queryClient.invalidateQueries(['github_branches']);
                 showToastSuccess({
-                    title: 'GitHub integration deleted',
-                    subtitle:
-                        'You have successfully deleted your GitHub integration.',
+                    title: t(
+                        'components_user_settings_github_settings_panel.toast_success.title',
+                    ),
+                    subtitle: t(
+                        'components_user_settings_github_settings_panel.toast_success.subtitle',
+                    ),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: 'Failed to delete GitHub integration',
+                    title: t(
+                        'components_user_settings_github_settings_panel.toast_error.title',
+                    ),
                     apiError: error,
                 });
             },
@@ -69,6 +78,7 @@ const useDeleteGithubInstallationMutation = () => {
 const GITHUB_INSTALL_URL = `/api/v1/github/install`;
 
 const GithubSettingsPanel: FC = () => {
+    const { t } = useTranslation();
     const { data, isError, isInitialLoading } = useGitHubRepositories();
     const deleteGithubInstallationMutation =
         useDeleteGithubInstallationMutation();
@@ -82,14 +92,19 @@ const GithubSettingsPanel: FC = () => {
             <Box>
                 <Group spacing="sm">
                     <Avatar src={githubIcon} size="md" />
-                    <Title order={4}>Github</Title>
+                    <Title order={4}>
+                        {t(
+                            'components_user_settings_github_settings_panel.title',
+                        )}
+                    </Title>
                 </Group>
             </Box>
 
             <Stack>
                 <Text color="dimmed" fz="xs">
-                    Installing GitHub App allows Lightdash to access your GitHub
-                    repositories and create pull requests.
+                    {t(
+                        'components_user_settings_github_settings_panel.content.part_1',
+                    )}
                 </Text>
 
                 {isValidGithubInstallation && data.length === 0 && (
@@ -97,14 +112,16 @@ const GithubSettingsPanel: FC = () => {
                         color="blue"
                         icon={<MantineIcon icon={IconAlertCircle} />}
                     >
-                        Your GitHub integration doesn't have access to any
-                        repository.
+                        {t(
+                            'components_user_settings_github_settings_panel.content.part_2',
+                        )}
                     </Alert>
                 )}
                 {isValidGithubInstallation && data && data.length > 0 && (
                     <Text color="dimmed" fz="xs">
-                        Your GitHub integration has access to the following
-                        repositories:
+                        {t(
+                            'components_user_settings_github_settings_panel.content.part_3',
+                        )}
                         <ul>
                             {data.map((repo) => (
                                 <li key={repo.fullName}>{repo.fullName}</li>
@@ -124,7 +141,9 @@ const GithubSettingsPanel: FC = () => {
                                 href={GITHUB_INSTALL_URL}
                                 leftIcon={<MantineIcon icon={IconRefresh} />}
                             >
-                                Reinstall
+                                {t(
+                                    'components_user_settings_github_settings_panel.reinstall',
+                                )}
                             </Button>
                             <Button
                                 size="xs"
@@ -136,7 +155,9 @@ const GithubSettingsPanel: FC = () => {
                                 }
                                 leftIcon={<MantineIcon icon={IconTrash} />}
                             >
-                                Delete
+                                {t(
+                                    'components_user_settings_github_settings_panel.delete',
+                                )}
                             </Button>
                         </Group>
                     </Stack>
@@ -149,7 +170,9 @@ const GithubSettingsPanel: FC = () => {
                             color="blue"
                             href={GITHUB_INSTALL_URL}
                         >
-                            Install
+                            {t(
+                                'components_user_settings_github_settings_panel.install',
+                            )}
                         </Button>
                     </Flex>
                 )}

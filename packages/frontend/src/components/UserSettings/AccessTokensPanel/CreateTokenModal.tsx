@@ -14,6 +14,8 @@ import {
 import { useForm } from '@mantine/form';
 import { IconAlertCircle, IconCheck, IconCopy } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import useHealth from '../../../hooks/health/useHealth';
 import { useCreateAccessToken } from '../../../hooks/useAccessToken';
 import MantineIcon from '../../common/MantineIcon';
@@ -21,6 +23,7 @@ import MantineIcon from '../../common/MantineIcon';
 export const CreateTokenModal: FC<{
     onBackClick: () => void;
 }> = ({ onBackClick }) => {
+    const { t } = useTranslation();
     const health = useHealth();
 
     const {
@@ -39,23 +42,33 @@ export const CreateTokenModal: FC<{
 
     const expireOptions = [
         {
-            label: 'No expiration',
+            label: t(
+                'components_user_settings_access_tokens_panel_create_token.expire_options.no_expiration',
+            ),
             value: '',
         },
         {
-            label: '7 days',
+            label: t(
+                'components_user_settings_access_tokens_panel_create_token.expire_options.days_7',
+            ),
             value: '7',
         },
         {
-            label: '30 days',
+            label: t(
+                'components_user_settings_access_tokens_panel_create_token.expire_options.days_30',
+            ),
             value: '30',
         },
         {
-            label: '60 days',
+            label: t(
+                'components_user_settings_access_tokens_panel_create_token.expire_options.days_60',
+            ),
             value: '60',
         },
         {
-            label: '90 days',
+            label: t(
+                'components_user_settings_access_tokens_panel_create_token.expire_options.days_90',
+            ),
             value: '90',
         },
     ];
@@ -86,7 +99,13 @@ export const CreateTokenModal: FC<{
             }}
             title={
                 <Title order={4}>
-                    {data ? 'Your token has been generated' : 'New token'}
+                    {data
+                        ? t(
+                              'components_user_settings_access_tokens_panel_create_token.title.has_been_generated',
+                          )
+                        : t(
+                              'components_user_settings_access_tokens_panel_create_token.title.new_token',
+                          )}
                 </Title>
             }
         >
@@ -94,9 +113,13 @@ export const CreateTokenModal: FC<{
                 <form onSubmit={handleOnSubmit}>
                     <Stack spacing="md">
                         <TextInput
-                            label="What’s this token for?"
+                            label={t(
+                                'components_user_settings_access_tokens_panel_create_token.form.token_for.label',
+                            )}
                             disabled={isLoading}
-                            placeholder="Description"
+                            placeholder={t(
+                                'components_user_settings_access_tokens_panel_create_token.form.token_for.description',
+                            )}
                             required
                             {...form.getInputProps('description')}
                         />
@@ -104,7 +127,9 @@ export const CreateTokenModal: FC<{
                         <Select
                             withinPortal
                             defaultValue={expireOptions[0].value}
-                            label="Expiration"
+                            label={t(
+                                'components_user_settings_access_tokens_panel_create_token.form.expiration.label',
+                            )}
                             data={expireOptions}
                             required
                             disabled={isLoading}
@@ -112,7 +137,9 @@ export const CreateTokenModal: FC<{
                         ></Select>
 
                         <Button type="submit" ml="auto" loading={isLoading}>
-                            Generate token
+                            {t(
+                                'components_user_settings_access_tokens_panel_create_token.form.generate_token',
+                            )}
                         </Button>
                     </Stack>
                 </form>
@@ -120,7 +147,9 @@ export const CreateTokenModal: FC<{
                 <Stack spacing="md">
                     <TextInput
                         id="invite-link-input"
-                        label="Token"
+                        label={t(
+                            'components_user_settings_access_tokens_panel_create_token.form.token.label',
+                        )}
                         readOnly
                         className="sentry-block ph-no-capture"
                         value={data.token}
@@ -128,7 +157,15 @@ export const CreateTokenModal: FC<{
                             <CopyButton value={data.token}>
                                 {({ copied, copy }) => (
                                     <Tooltip
-                                        label={copied ? 'Copied' : 'Copy'}
+                                        label={
+                                            copied
+                                                ? t(
+                                                      'components_user_settings_access_tokens_panel_create_token.form.copied',
+                                                  )
+                                                : t(
+                                                      'components_user_settings_access_tokens_panel_create_token.form.copy',
+                                                  )
+                                        }
                                         withArrow
                                         position="right"
                                     >
@@ -151,17 +188,33 @@ export const CreateTokenModal: FC<{
                     />
                     <TextInput
                         id="invite-link-input"
-                        label="CLI Authentication code"
+                        label={t(
+                            'components_user_settings_access_tokens_panel_create_token.form.authentication.label',
+                        )}
                         className="sentry-block ph-no-capture"
                         readOnly
                         value={`lightdash login ${health.data?.siteUrl} --token ${data.token}`}
                         rightSection={
                             <CopyButton
-                                value={`lightdash login ${health.data?.siteUrl} --token ${data.token}`}
+                                value={t(
+                                    'components_user_settings_access_tokens_panel_create_token.form.authentication.value',
+                                    {
+                                        siteUrl: health.data?.siteUrl,
+                                        token: data.token,
+                                    },
+                                )}
                             >
                                 {({ copied, copy }) => (
                                     <Tooltip
-                                        label={copied ? 'Copied' : 'Copy'}
+                                        label={
+                                            copied
+                                                ? t(
+                                                      'components_user_settings_access_tokens_panel_create_token.form.copied',
+                                                  )
+                                                : t(
+                                                      'components_user_settings_access_tokens_panel_create_token.form.copy',
+                                                  )
+                                        }
                                         withArrow
                                         position="right"
                                     >
@@ -184,10 +237,13 @@ export const CreateTokenModal: FC<{
                     />
                     <Alert icon={<MantineIcon icon={IconAlertCircle} />}>
                         {data.expiresAt &&
-                            `This token will expire on
+                            `${t(
+                                'components_user_settings_access_tokens_panel_create_token.alert.part_1',
+                            )}
                         ${formatTimestamp(data.expiresAt)} `}
-                        Make sure to copy your personal access token now. You
-                        won’t be able to see it again!
+                        {t(
+                            'components_user_settings_access_tokens_panel_create_token.alert.part_2',
+                        )}
                     </Alert>
                 </Stack>
             )}

@@ -10,6 +10,8 @@ import {
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useDeleteActiveProjectMutation } from '../../../hooks/useActiveProject';
 import { useProject } from '../../../hooks/useProject';
 import { useDeleteProjectMutation } from '../../../hooks/useProjects';
@@ -21,6 +23,7 @@ export const ProjectDeleteModal: FC<
         isCurrentProject: boolean;
     }
 > = ({ opened, onClose, projectUuid, isCurrentProject }) => {
+    const { t } = useTranslation();
     const { isInitialLoading, data: project } = useProject(projectUuid);
     const { mutateAsync, isLoading: isDeleting } = useDeleteProjectMutation();
     const { mutate: deleteActiveProjectMutation } =
@@ -50,19 +53,26 @@ export const ProjectDeleteModal: FC<
             title={
                 <Group spacing="xs">
                     <MantineIcon size="lg" icon={IconAlertCircle} color="red" />
-                    <Title order={4}>Delete Project</Title>
+                    <Title order={4}>
+                        {t(
+                            'components_user_settings_delete_project_modal.delete_project',
+                        )}
+                    </Title>
                 </Group>
             }
             onClose={handleOnClose}
         >
             <Stack>
                 <Text>
-                    Type the name of this project{' '}
+                    {t(
+                        'components_user_settings_delete_project_modal.content.part_1',
+                    )}{' '}
                     <Text span fw={600}>
                         {project.name}
                     </Text>{' '}
-                    to confirm you want to delete this project and its users.
-                    This action is not reversible.
+                    {t(
+                        'components_user_settings_delete_project_modal.content.part_2',
+                    )}
                 </Text>
 
                 <TextInput
@@ -74,7 +84,9 @@ export const ProjectDeleteModal: FC<
 
                 <Group position="right" spacing="xs">
                     <Button variant="outline" onClick={handleOnClose}>
-                        Cancel
+                        {t(
+                            'components_user_settings_delete_project_modal.cancel',
+                        )}
                     </Button>
 
                     <Button
@@ -87,7 +99,9 @@ export const ProjectDeleteModal: FC<
                         onClick={() => handleConfirm()}
                         type="submit"
                     >
-                        Delete
+                        {t(
+                            'components_user_settings_delete_project_modal.delete',
+                        )}
                     </Button>
                 </Group>
             </Stack>

@@ -84,37 +84,37 @@ const AllowedDomainsPanel: FC = () => {
         {
             value: OrganizationMemberRole.EDITOR,
             label: t(
-                'components_user_allowed_domains_panel.role_options.editor.label',
+                'components_user_settings_allowed_domains_panel.role_options.editor.label',
             ),
             subLabel: t(
-                'components_user_allowed_domains_panel.role_options.editor.sub_label',
+                'components_user_settings_allowed_domains_panel.role_options.editor.sub_label',
             ),
         },
         {
             value: OrganizationMemberRole.INTERACTIVE_VIEWER,
             label: t(
-                'components_user_allowed_domains_panel.role_options.interactive_viewer.label',
+                'components_user_settings_allowed_domains_panel.role_options.interactive_viewer.label',
             ),
             subLabel: t(
-                'components_user_allowed_domains_panel.role_options.interactive_viewer.sub_label',
+                'components_user_settings_allowed_domains_panel.role_options.interactive_viewer.sub_label',
             ),
         },
         {
             value: OrganizationMemberRole.VIEWER,
             label: t(
-                'components_user_allowed_domains_panel.role_options.viewer.label',
+                'components_user_settings_allowed_domains_panel.role_options.viewer.label',
             ),
             subLabel: t(
-                'components_user_allowed_domains_panel.role_options.viewer.sub_label',
+                'components_user_settings_allowed_domains_panel.role_options.viewer.sub_label',
             ),
         },
         {
             value: OrganizationMemberRole.MEMBER,
             label: t(
-                'components_user_allowed_domains_panel.role_options.member.label',
+                'components_user_settings_allowed_domains_panel.role_options.member.label',
             ),
             subLabel: t(
-                'components_user_allowed_domains_panel.role_options.member.sub_label',
+                'components_user_settings_allowed_domains_panel.role_options.member.sub_label',
             ),
         },
     ];
@@ -127,28 +127,28 @@ const AllowedDomainsPanel: FC = () => {
         {
             value: ProjectMemberRole.EDITOR,
             label: t(
-                'components_user_allowed_domains_panel.project_options.editor.label',
+                'components_user_settings_allowed_domains_panel.project_options.editor.label',
             ),
             subLabel: t(
-                'components_user_allowed_domains_panel.project_options.editor.sub_label',
+                'components_user_settings_allowed_domains_panel.project_options.editor.sub_label',
             ),
         },
         {
             value: ProjectMemberRole.INTERACTIVE_VIEWER,
             label: t(
-                'components_user_allowed_domains_panel.project_options.interactive_viewer.label',
+                'components_user_settings_allowed_domains_panel.project_options.interactive_viewer.label',
             ),
             subLabel: t(
-                'components_user_allowed_domains_panel.project_options.interactive_viewer.sub_label',
+                'components_user_settings_allowed_domains_panel.project_options.interactive_viewer.sub_label',
             ),
         },
         {
             value: ProjectMemberRole.VIEWER,
             label: t(
-                'components_user_allowed_domains_panel.project_options.viewer.label',
+                'components_user_settings_allowed_domains_panel.project_options.viewer.label',
             ),
             subLabel: t(
-                'components_user_allowed_domains_panel.project_options.viewer.sub_label',
+                'components_user_settings_allowed_domains_panel.project_options.viewer.sub_label',
             ),
         },
     ];
@@ -226,10 +226,10 @@ const AllowedDomainsPanel: FC = () => {
                     searchable
                     name="emailDomains"
                     label={t(
-                        'components_user_allowed_domains_panel.form.email_domains.label',
+                        'components_user_settings_allowed_domains_panel.form.email_domains.label',
                     )}
                     placeholder={t(
-                        'components_user_allowed_domains_panel.form.email_domains.placeholder',
+                        'components_user_settings_allowed_domains_panel.form.email_domains.placeholder',
                     )}
                     disabled={isLoading}
                     data={form.values.emailDomains.map((emailDomain) => ({
@@ -241,7 +241,7 @@ const AllowedDomainsPanel: FC = () => {
                             form.setFieldError(
                                 'emailDomains',
                                 t(
-                                    'components_user_allowed_domains_panel.form.email_domains.error',
+                                    'components_user_settings_allowed_domains_panel.form.email_domains.error',
                                     {
                                         value,
                                     },
@@ -267,7 +267,7 @@ const AllowedDomainsPanel: FC = () => {
                     }}
                     getCreateLabel={(query: string) =>
                         t(
-                            'components_user_allowed_domains_panel.form.email_domains.create_label',
+                            'components_user_settings_allowed_domains_panel.form.email_domains.create_label',
                             {
                                 query,
                             },
@@ -281,11 +281,11 @@ const AllowedDomainsPanel: FC = () => {
                     <>
                         <Select
                             label={t(
-                                'components_user_allowed_domains_panel.form.default_role.label',
+                                'components_user_settings_allowed_domains_panel.form.default_role.label',
                             )}
                             name="role"
                             placeholder={t(
-                                'components_user_allowed_domains_panel.form.default_role.placeholder',
+                                'components_user_settings_allowed_domains_panel.form.default_role.placeholder',
                             )}
                             disabled={isLoading}
                             data={roleOptions}
@@ -329,7 +329,7 @@ const AllowedDomainsPanel: FC = () => {
                             <div>
                                 <Title order={5} mb="md">
                                     {t(
-                                        'components_user_allowed_domains_panel.form_member.title',
+                                        'components_user_settings_allowed_domains_panel.form_member.title',
                                     )}
                                 </Title>
 
@@ -347,7 +347,7 @@ const AllowedDomainsPanel: FC = () => {
                                                     label={
                                                         index === 0
                                                             ? t(
-                                                                  'components_user_allowed_domains_panel.form_member.project_name',
+                                                                  'components_user_settings_allowed_domains_panel.form_member.project_name',
                                                               )
                                                             : undefined
                                                     }
@@ -382,7 +382,7 @@ const AllowedDomainsPanel: FC = () => {
                                                     label={
                                                         index === 0
                                                             ? t(
-                                                                  'components_user_allowed_domains_panel.form_member.project_role',
+                                                                  'components_user_settings_allowed_domains_panel.form_member.project_role',
                                                               )
                                                             : undefined
                                                     }
@@ -467,7 +467,7 @@ const AllowedDomainsPanel: FC = () => {
                                         multiline
                                         disabled={canAddMoreProjects}
                                         label={t(
-                                            'components_user_allowed_domains_panel.tooltip.label',
+                                            'components_user_settings_allowed_domains_panel.tooltip.label',
                                         )}
                                     >
                                         <Button
@@ -487,7 +487,7 @@ const AllowedDomainsPanel: FC = () => {
                                             }
                                         >
                                             {t(
-                                                'components_user_allowed_domains_panel.tooltip.content',
+                                                'components_user_settings_allowed_domains_panel.tooltip.content',
                                             )}
                                         </Button>
                                     </Tooltip>
@@ -500,7 +500,9 @@ const AllowedDomainsPanel: FC = () => {
                 <Flex justify="flex-end" gap="sm">
                     {form.isDirty() && !isUpdateAllowedEmailDomainsLoading && (
                         <Button variant="outline" onClick={() => form.reset()}>
-                            {t('components_user_allowed_domains_panel.cancel')}
+                            {t(
+                                'components_user_settings_allowed_domains_panel.cancel',
+                            )}
                         </Button>
                     )}
                     <Button
@@ -509,7 +511,9 @@ const AllowedDomainsPanel: FC = () => {
                         loading={isLoading}
                         disabled={!form.isDirty()}
                     >
-                        {t('components_user_allowed_domains_panel.update')}
+                        {t(
+                            'components_user_settings_allowed_domains_panel.update',
+                        )}
                     </Button>
                 </Flex>
             </Stack>

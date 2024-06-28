@@ -14,6 +14,8 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useUserWarehouseCredentialsUpdateMutation } from '../../../hooks/userWarehouseCredentials/useUserWarehouseCredentials';
 import { WarehouseFormInputs } from './WarehouseFormInputs';
 
@@ -49,6 +51,7 @@ export const EditCredentialsModal: FC<
         userCredentials: UserWarehouseCredentials;
     }
 > = ({ opened, onClose, userCredentials }) => {
+    const { t } = useTranslation();
     const { mutateAsync, isLoading: isSaving } =
         useUserWarehouseCredentialsUpdateMutation(userCredentials.uuid);
     const form = useForm<UpsertUserWarehouseCredentials>({
@@ -62,7 +65,13 @@ export const EditCredentialsModal: FC<
 
     return (
         <Modal
-            title={<Title order={4}>Edit credentials</Title>}
+            title={
+                <Title order={4}>
+                    {t(
+                        'components_user_settings_my_warehouse_connections_panel.edit_credentials.edit_credentials',
+                    )}
+                </Title>
+            }
             opened={opened}
             onClose={onClose}
         >
@@ -76,7 +85,9 @@ export const EditCredentialsModal: FC<
                     <TextInput
                         required
                         size="xs"
-                        label="Name"
+                        label={t(
+                            'components_user_settings_my_warehouse_connections_panel.edit_credentials.form.label.name',
+                        )}
                         disabled={isSaving}
                         {...form.getInputProps('name')}
                     />
@@ -91,11 +102,15 @@ export const EditCredentialsModal: FC<
                             onClick={onClose}
                             disabled={isSaving}
                         >
-                            Cancel
+                            {t(
+                                'components_user_settings_my_warehouse_connections_panel.edit_credentials.cancel',
+                            )}
                         </Button>
 
                         <Button size="xs" type="submit" disabled={isSaving}>
-                            Save
+                            {t(
+                                'components_user_settings_my_warehouse_connections_panel.edit_credentials.save',
+                            )}
                         </Button>
                     </Group>
                 </Stack>

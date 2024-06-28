@@ -1428,6 +1428,58 @@
         "no_tokens_tip": "您还没有生成任何令牌! 生成您的第一个令牌",
         "generate_token": "生成令牌"
     },
+    "components_user_settings_access_tokens_panel_create_token": {
+        "expire_options": {
+            "no_expiration": "无到期日",
+            "days_7": "7 天",
+            "days_30": "30 天",
+            "days_60": "60 天",
+            "days_90": "90 天"
+        },
+        "title": {
+            "has_been_generated": "您的令牌已生成",
+            "new_token": "新令牌"
+        },
+        "form": {
+            "token_for": {
+                "label": "这个令牌是用于什么?",
+                "placeholder": "描述"
+            },
+            "expiration": {
+                "label": "到期时间"
+            },
+            "token": {
+                "label": "令牌"
+            },
+            "authentication": {
+                "label": "CLI 认证代码",
+                "value": "lightdash login {{siteUrl}} --token {{token}}"
+            },
+            "generate_token": "生成令牌",
+            "copied": "已复制",
+            "copy": "复制"
+        },
+        "alert": {
+            "part_1": "此令牌将于",
+            "part_2": "请务必立即复制您的个人访问令牌。您将无法再次查看它!"
+        }
+    },
+    "components_user_settings_access_tokens_panel_tokens_table": {
+        "no_expiration_date": "无到期日",
+        "table_columns": {
+            "name": "名称",
+            "expiration_date": "到期日期"
+        },
+        "modal": {
+            "delete_token": "删除令牌",
+            "content": {
+                "part_1": "确定要删除吗? 这将永久删除",
+                "part_2": "令牌。"
+            },
+            "cancel": "取消",
+            "delete": "删除"
+        }
+    },
     "components_user_settings_organization_panel": {
         "form": {
             "organization_name": {
@@ -1438,7 +1490,7 @@
         "cancel": "取消",
         "update": "更新"
     },
-    "components_user_allowed_domains_panel": {
+    "components_user_settings_allowed_domains_panel": {
         "role_options": {
             "editor": {
                 "label": "组织编辑者",
@@ -1495,7 +1547,7 @@
         "cancel": "取消",
         "update": "更新"
     },
-    "components_user_settings_defaul_project_panel": {
+    "components_user_settings_default_project_panel": {
         "form": {
             "project_name": {
                 "label": "项目名称",
@@ -1610,6 +1662,10 @@
         },
         "alert": {
             "close": "关闭提醒"
+        },
+        "tooltip": {
+            "copied": "已复制",
+            "copy": "复制"
         }
     },
     "components_user_settings_groups_panel_users_view": {
@@ -1719,6 +1775,96 @@
         "save": "保存更改",
         "appearance_settings": "外观设置",
         "customizing": "点击这里了解更多关于自定义项目外观的信息"
+    },
+    "components_user_settings_delete_organization_modal": {
+        "delete_organization": "删除组织",
+        "content": {
+            "part_1": "输入此组织的名称",
+            "part_2": "以确认您要删除此组织及其用户。此操作不可逆。"
+        },
+        "cancel": "取消",
+        "delete": "删除"
+    },
+    "components_user_settings_delete_project_modal": {
+        "delete_project": "删除项目",
+        "content": {
+            "part_1": "输入此项目的名称",
+            "part_2": "以确认您要删除此项目及其用户。此操作不可逆。"
+        },
+        "cancel": "取消",
+        "delete": "删除"
+    },
+    "components_user_settings_github_settings_panel": {
+        "toast_success": {
+            "title": "GitHub集成已删除",
+            "subtitle": "您已成功删除了 GitHub 集成。"
+        },
+        "toast_error": {
+            "title": "删除 GitHub 集成失败"
+        },
+        "title": "GitHub",
+        "content": {
+            "part_1": "安装 GitHub 应用程序允许 Lightdash 访问您的 GitHub 存储库并创建拉取请求。",
+            "part_2": "您的 GitHub 集成没有访问任何存储库的权限。",
+            "part_3": "您的 GitHub 集成有权访问以下存储库:"
+        },
+        "reinstall": "重新安装",
+        "delete": "删除",
+        "install": "安装"
+    },
+    "components_user_settings_my_warehouse_connections_panel": {
+        "create_credentials": {
+            "add_new_credentials": "添加新凭据",
+            "form": {
+                "name": {
+                    "label": "名称"
+                },
+                "warehouse": {
+                    "label": "仓库"
+                }
+            },
+            "cancel": "取消",
+            "save": "保存"
+        },
+        "credentials_table": {
+            "name": "名称",
+            "warehouse": "仓库"
+        },
+        "delete_credentials": {
+            "delete_credentials": "删除凭据",
+            "content": {
+                "part_1": "确定要删除以下凭据吗:"
+            },
+            "cancel": "取消",
+            "delete": "删除"
+        },
+        "edit_credentials": {
+            "edit_credentials": "编辑凭据",
+            "form": {
+                "name": {
+                    "label": "名称"
+                }
+            },
+            "cancel": "取消",
+            "save": "保存"
+        },
+        "groups": {
+            "my_warehouse_connections": "我的仓库连接",
+            "add_credentials": "添加凭据以连接到您的仓库。",
+            "add_new_credentials": "添加新凭据"
+        },
+        "empty": {
+            "title": "无凭据",
+            "description": "您还没有创建任何个人仓库连接!",
+            "add_new_credentials": "添加新凭据"
+        },
+        "warehouse_form": {
+            "username": "用户名/电子邮件",
+            "password": "密码"
+        }
+    },
+    "components_user_settings_social_logins_panel": {
+        "toast_error": "身份验证失败"
     },
 
     "components_explorer_here": {

@@ -87,7 +87,15 @@ const InviteSuccess: FC<{
                         <CopyButton value={invite.inviteUrl}>
                             {({ copied, copy }) => (
                                 <Tooltip
-                                    label={copied ? 'Copied' : 'Copy'}
+                                    label={
+                                        copied
+                                            ? t(
+                                                  'components_user_settings_groups_panel_invites_success.tooltip.copied',
+                                              )
+                                            : t(
+                                                  'components_user_settings_groups_panel_invites_success.tooltip.copy',
+                                              )
+                                    }
                                     withArrow
                                     position="right"
                                 >

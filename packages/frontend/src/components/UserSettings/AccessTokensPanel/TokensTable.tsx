@@ -20,6 +20,8 @@ import {
     type FC,
     type SetStateAction,
 } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useTableStyles } from '../../../hooks/styles/useTableStyles';
 import {
     useAccessToken,
@@ -34,6 +36,7 @@ const TokenItem: FC<{
     >;
 }> = ({ token, setTokenToDelete }) => {
     const { description, expiresAt } = token;
+    const { t } = useTranslation();
 
     return (
         <>
@@ -43,7 +46,11 @@ const TokenItem: FC<{
                 </Text>
 
                 <td>
-                    {expiresAt ? formatDate(expiresAt) : 'No expiration date'}
+                    {expiresAt
+                        ? formatDate(expiresAt)
+                        : t(
+                              'components_user_settings_access_tokens_panel_tokens_table.no_expiration_date',
+                          )}
                 </td>
                 <td width="1%">
                     <Button
@@ -63,6 +70,7 @@ const TokenItem: FC<{
 
 export const TokensTable = () => {
     const { data } = useAccessToken();
+    const { t } = useTranslation();
 
     const { cx, classes } = useTableStyles();
 
@@ -83,8 +91,16 @@ export const TokensTable = () => {
                 <Table className={cx(classes.root, classes.alignLastTdRight)}>
                     <thead>
                         <tr>
-                            <th>Name</th>
-                            <th>Expiration date</th>
+                            <th>
+                                {t(
+                                    'components_user_settings_access_tokens_panel_tokens_table.table_columns.name',
+                                )}
+                            </th>
+                            <th>
+                                {t(
+                                    'components_user_settings_access_tokens_panel_tokens_table.table_columns.expiration_date',
+                                )}
+                            </th>
                             <th></th>
                         </tr>
                     </thead>
@@ -105,18 +121,25 @@ export const TokensTable = () => {
                 onClose={() => !isDeleting && setTokenToDelete(undefined)}
                 title={
                     <Title order={4}>
-                        Delete token {tokenToDelete?.description}
+                        {t(
+                            'components_user_settings_access_tokens_panel_tokens_table.modal.delete_token',
+                        )}{' '}
+                        {tokenToDelete?.description}
                     </Title>
                 }
             >
                 <Stack spacing="xl">
                     <Text>
-                        Are you sure? This will permanently delete the
+                        {t(
+                            'components_user_settings_access_tokens_panel_tokens_table.modal.content.part_1',
+                        )}
                         <Text fw={600} component="span">
                             {' '}
                             {tokenToDelete?.description}{' '}
                         </Text>
-                        token.
+                        {t(
+                            'components_user_settings_access_tokens_panel_tokens_table.modal.content.part_2',
+                        )}
                     </Text>
 
                     <Flex gap="sm" justify="flex-end">
@@ -126,7 +149,9 @@ export const TokensTable = () => {
                             disabled={isDeleting}
                             onClick={() => setTokenToDelete(undefined)}
                         >
-                            Cancel
+                            {t(
+                                'components_user_settings_access_tokens_panel_tokens_table.modal.cancel',
+                            )}
                         </Button>
                         <Button
                             color="red"
@@ -135,7 +160,9 @@ export const TokensTable = () => {
                                 mutate(tokenToDelete?.uuid ?? '');
                             }}
                         >
-                            Delete
+                            {t(
+                                'components_user_settings_access_tokens_panel_tokens_table.modal.delete',
+                            )}
                         </Button>
                     </Flex>
                 </Stack>

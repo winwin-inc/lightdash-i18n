@@ -2,6 +2,8 @@ import { type UserWarehouseCredentials } from '@lightdash/common';
 import { ActionIcon, Group, Paper, Table, Text } from '@mantine/core';
 import { IconEdit, IconTrash } from '@tabler/icons-react';
 import { type Dispatch, type FC, type SetStateAction } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useTableStyles } from '../../../hooks/styles/useTableStyles';
 import MantineIcon from '../../common/MantineIcon';
 import { getWarehouseLabel } from '../../ProjectConnection/ProjectConnectFlow/SelectWarehouse';
@@ -67,6 +69,7 @@ export const CredentialsTable: FC<CredentialsTableProps> = ({
     setWarehouseCredentialsToBeEdited,
     setWarehouseCredentialsToBeDeleted,
 }) => {
+    const { t } = useTranslation();
     const { cx, classes } = useTableStyles();
 
     return (
@@ -77,8 +80,16 @@ export const CredentialsTable: FC<CredentialsTableProps> = ({
             >
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Warehouse</th>
+                        <th>
+                            {t(
+                                'components_user_settings_my_warehouse_connections_panel.credentials_table.name',
+                            )}
+                        </th>
+                        <th>
+                            {t(
+                                'components_user_settings_my_warehouse_connections_panel.credentials_table.warehouse',
+                            )}
+                        </th>
                         <th></th>
                     </tr>
                 </thead>

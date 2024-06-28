@@ -1422,6 +1422,58 @@
         "no_tokens_tip": "You haven't generated any tokens yet!, generate your first token",
         "generate_token": "Generate token"
     },
+    "components_user_settings_access_tokens_panel_create_token": {
+        "expire_options": {
+            "no_expiration": "No expiration",
+            "days_7": "7 days",
+            "days_30": "30 days",
+            "days_60": "60 days",
+            "days_90": "90 days"
+        },
+        "title": {
+            "has_been_generated": "Your token has been generated",
+            "new_token": "New token"
+        },
+        "form": {
+            "token_for": {
+                "label": "What’s this token for?",
+                "placeholder": "Description"
+            },
+            "expiration": {
+                "label": "Expiration"
+            },
+            "token": {
+                "label": "Token"
+            },
+            "authentication": {
+                "label": "CLI Authentication code",
+                "value": "lightdash login {{siteUrl}} --token {{token}}"
+            },
+            "generate_token": "Generate token",
+            "copied": "Copied",
+            "copy": "Copy"
+        },
+        "alert": {
+            "part_1": "This token will expire on",
+            "part_2": "Make sure to copy your personal access token now. You won’t be able to see it again!"
+        }
+    },
+    "components_user_settings_access_tokens_panel_tokens_table": {
+        "no_expiration_date": "No expiration date",
+        "table_columns": {
+            "name": "Name",
+            "expiration_date": "Expiration date"
+        },
+        "modal": {
+            "delete_token": "Delete token",
+            "content": {
+                "part_1": "Are you sure? This will permanently delete the",
+                "part_2": "token."
+            },
+            "cancel": "Cancel",
+            "delete": "Delete"
+        }
+    },
     "components_user_settings_organization_panel": {
         "form": {
             "organization_name": {
@@ -1432,7 +1484,7 @@
         "cancel": "Cancel",
         "update": "Update"
     },
-    "components_user_allowed_domains_panel": {
+    "components_user_settings_allowed_domains_panel": {
         "role_options": {
             "editor": {
                 "label": "Organization Editor",
@@ -1489,7 +1541,7 @@
         "cancel": "Cancel",
         "update": "Update"
     },
-    "components_user_settings_defaul_project_panel": {
+    "components_user_settings_default_project_panel": {
         "form": {
             "project_name": {
                 "label": "Project name",
@@ -1604,6 +1656,10 @@
         },
         "alert": {
             "close": "Close alert"
+        },
+        "tooltip": {
+            "copied": "Copied",
+            "copy": "Copy"
         }
     },
     "components_user_settings_groups_panel_users_view": {
@@ -1713,6 +1769,96 @@
         "save": "Save changes",
         "appearance_settings": "Appearance settings",
         "customizing": "Click here to learn more about customizing the appearance of your project"
+    },
+    "components_user_settings_delete_organization_modal": {
+        "delete_organization": "Delete organization",
+        "content": {
+            "part_1": "Type the name of this organization",
+            "part_2": "to confirm you want to delete this organization and its users. This action is not reversible."
+        },
+        "cancel": "Cancel",
+        "delete": "Delete"
+    },
+    "components_user_settings_delete_project_modal": {
+        "delete_project": "Delete project",
+        "content": {
+            "part_1": "Type the name of this project",
+            "part_2": "to confirm you want to delete this project and its users. This action is not reversible."
+        },
+        "cancel": "Cancel",
+        "delete": "Delete"
+    },
+    "components_user_settings_github_settings_panel": {
+        "toast_success": {
+            "title": "GitHub integration deleted",
+            "subtitle": "You have successfully deleted your GitHub integration."
+        },
+        "toast_error": {
+            "title": "Failed to delete GitHub integration"
+        },
+        "title": "GitHub",
+        "content": {
+            "part_1": "Installing GitHub App allows Lightdash to access your GitHub repositories and create pull requests.",
+            "part_2": "Your GitHub integration doesn't have access to any repository.",
+            "part_3": "Your GitHub integration has access to the following repositories:"
+        },
+        "reinstall": "Reinstall",
+        "delete": "Delete",
+        "install": "Install"
+    },
+    "components_user_settings_my_warehouse_connections_panel": {
+        "create_credentials": {
+            "add_new_credentials": "Add new credentials",
+            "form": {
+                "name": {
+                    "label": "Name"
+                },
+                "warehouse": {
+                    "label": "Warehouse"
+                }
+            },
+            "cancel": "Cancel",
+            "save": "Save"
+        },
+        "credentials_table": {
+            "name": "Name",
+            "warehouse": "Warehouse"
+        },
+        "delete_credentials": {
+            "delete_credentials": "Delete credentials",
+            "content": {
+                "part_1": "Are you sure you want to delete credentials:"
+            },
+            "cancel": "Cancel",
+            "delete": "Delete"
+        },
+        "edit_credentials": {
+            "edit_credentials": "Edit credentials",
+            "form": {
+                "name": {
+                    "label": "Name"
+                }
+            },
+            "cancel": "Cancel",
+            "save": "Save"
+        },
+        "groups": {
+            "my_warehouse_connections": "My warehouse connections",
+            "add_credentials": "Add credentials to connect to your warehouse.",
+            "add_new_credentials": "Add new credentials"
+        },
+        "empty": {
+            "title": "No credentials",
+            "description": "You haven't created any personal warehouse connections yet!",
+            "add_new_credentials": "Add new credentials"
+        },
+        "warehouse_form": {
+            "username": "Username/email",
+            "password": "Password"
+        }
+    },
+    "components_user_settings_social_logins_panel": {
+        "toast_error": "Failed to authenticate"
     },
 
     "components_explorer_here": {

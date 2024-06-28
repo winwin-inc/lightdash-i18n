@@ -61,7 +61,7 @@ const DefaultProjectPanel: FC = () => {
                 <Select
                     key={form.values.defaultProjectUuid}
                     label={t(
-                        'components_user_settings_defaul_project_panel.form.project_name.label',
+                        'components_user_settings_default_project_panel.form.project_name.label',
                     )}
                     data={projects
                         .filter(({ type }) => type !== ProjectType.PREVIEW)
@@ -72,7 +72,7 @@ const DefaultProjectPanel: FC = () => {
                     disabled={isLoading}
                     required
                     placeholder={t(
-                        'components_user_settings_defaul_project_panel.form.project_name.placeholder',
+                        'components_user_settings_default_project_panel.form.project_name.placeholder',
                     )}
                     dropdownPosition="bottom"
                     {...form.getInputProps('defaultProjectUuid')}
@@ -82,7 +82,7 @@ const DefaultProjectPanel: FC = () => {
                     {form.isDirty() && !isOrganizationUpdateLoading && (
                         <Button variant="outline" onClick={() => form.reset()}>
                             {t(
-                                'components_user_settings_defaul_project_panel.cancel',
+                                'components_user_settings_default_project_panel.cancel',
                             )}
                         </Button>
                     )}
@@ -93,7 +93,7 @@ const DefaultProjectPanel: FC = () => {
                         loading={isLoading}
                     >
                         {t(
-                            'components_user_settings_defaul_project_panel.update',
+                            'components_user_settings_default_project_panel.update',
                         )}
                     </Button>
                 </Flex>

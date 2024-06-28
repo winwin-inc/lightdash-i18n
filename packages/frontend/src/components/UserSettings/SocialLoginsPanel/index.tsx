@@ -7,7 +7,9 @@ import {
 import { ActionIcon, Card, Group, Stack, Text } from '@mantine/core';
 import { IconTrash } from '@tabler/icons-react';
 import { useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { type Entries } from 'type-fest';
+
 import useHealth from '../../../hooks/health/useHealth';
 import useToaster from '../../../hooks/toaster/useToaster';
 import { useFlashMessages } from '../../../hooks/useFlashMessages';
@@ -47,15 +49,18 @@ const SocialLoginsPanel: FC = () => {
     const deleteMutation = useDeleteOpenIdentityMutation();
     const { showToastError } = useToaster();
     const flashMessages = useFlashMessages();
+    const { t } = useTranslation();
 
     useEffect(() => {
         if (flashMessages.data?.error) {
             showToastError({
-                title: 'Failed to authenticate',
+                title: t(
+                    'components_user_settings_social_logins_panel.toast_error',
+                ),
                 subtitle: flashMessages.data.error.join('\n'),
             });
         }
-    }, [flashMessages.data, showToastError]);
+    }, [flashMessages.data, showToastError, t]);
 
     if (!health) return null;
 
