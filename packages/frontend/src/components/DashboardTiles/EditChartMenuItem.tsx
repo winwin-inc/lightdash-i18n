@@ -1,7 +1,9 @@
 import { type DashboardChartTile } from '@lightdash/common';
 import { IconFilePencil } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
 import { useApp } from '../../providers/AppProvider';
 import { useDashboardContext } from '../../providers/DashboardProvider';
@@ -14,6 +16,7 @@ type Props = LinkMenuItemProps & {
 
 const EditChartMenuItem: FC<Props> = ({ tile, ...props }) => {
     const { user } = useApp();
+    const { t } = useTranslation();
     const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
     const filtersFromContext = useDashboardContext((c) => c.dashboardFilters);
     const haveTilesChanged = useDashboardContext((c) => c.haveTilesChanged);
@@ -49,7 +52,7 @@ const EditChartMenuItem: FC<Props> = ({ tile, ...props }) => {
             href={`/projects/${projectUuid}/saved/${tile.properties.savedChartUuid}/edit?fromDashboard=${dashboardUuid}`}
             {...props}
         >
-            Edit chart
+            {t('components_dashboard_tiles_edit_chart_menu.edit_chart')}
         </LinkMenuItem>
     );
 };

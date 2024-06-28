@@ -17,8 +17,10 @@ import {
 import { useForm } from '@mantine/form';
 import { IconChartAreaLine } from '@tabler/icons-react';
 import React, { forwardRef, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { v4 as uuid4 } from 'uuid';
+
 import { useChartSummaries } from '../../../hooks/useChartSummaries';
 import { useDashboardContext } from '../../../providers/DashboardProvider';
 import MantineIcon from '../../common/MantineIcon';
@@ -50,6 +52,7 @@ const SelectItem = forwardRef<HTMLDivElement, ItemProps>(
 );
 
 const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
+    const { t } = useTranslation();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { data: savedCharts, isInitialLoading } =
         useChartSummaries(projectUuid);
@@ -83,11 +86,13 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
                 label: name,
                 group: spaceName,
                 description: alreadyAddedChart
-                    ? 'This chart has already been added to this dashboard'
+                    ? t(
+                          'components_dashboard_tiles_forms_add_chart.already_added_chart',
+                      )
                     : undefined,
             };
         });
-    }, [dashboardTiles, savedCharts, dashboard?.spaceUuid]);
+    }, [dashboardTiles, savedCharts, dashboard?.spaceUuid, t]);
 
     const handleSubmit = form.onSubmit(({ savedChartsUuids }) => {
         onAddTiles(
@@ -123,7 +128,11 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
                         color="blue.8"
                     />
 
-                    <Title order={4}>Add saved charts</Title>
+                    <Title order={4}>
+                        {t(
+                            'components_dashboard_tiles_forms_add_chart.add_saved_charts',
+                        )}
+                    </Title>
                 </Flex>
             }
             withCloseButton
@@ -147,11 +156,15 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
                             },
                         })}
                         id="saved-charts"
-                        label={`Select the charts you want to add to this dashboard`}
+                        label={t(
+                            'components_dashboard_tiles_forms_add_chart.form.saved_charts.label',
+                        )}
                         data={allSavedCharts}
                         disabled={isInitialLoading}
                         defaultValue={[]}
-                        placeholder="Search..."
+                        placeholder={t(
+                            'components_dashboard_tiles_forms_add_chart.form.saved_charts.placeholder',
+                        )}
                         required
                         searchable
                         withinPortal
@@ -165,10 +178,14 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
                             }}
                             variant="outline"
                         >
-                            Cancel
+                            {t(
+                                'components_dashboard_tiles_forms_add_chart.cancel',
+                            )}
                         </Button>
                         <Button type="submit" disabled={isInitialLoading}>
-                            Add
+                            {t(
+                                'components_dashboard_tiles_forms_add_chart.add',
+                            )}
                         </Button>
                     </Group>
                 </form>

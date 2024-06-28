@@ -6,7 +6,9 @@ import {
     IconPlayerPlay,
 } from '@tabler/icons-react';
 import { SetStateAction, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import { useChartSummaries } from '../../../hooks/useChartSummaries';
 import useCreateInAnySpaceAccess from '../../../hooks/user/useCreateInAnySpaceAccess';
 import { useApp } from '../../../providers/AppProvider';
@@ -35,6 +37,7 @@ const EmptyStateNoTiles: FC<SavedChartsAvailableProps> = ({
     activeTabUuid,
     dashboardTabs,
 }) => {
+    const { t } = useTranslation();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { user } = useApp();
     const savedChartsRequest = useChartSummaries(projectUuid);
@@ -51,14 +54,18 @@ const EmptyStateNoTiles: FC<SavedChartsAvailableProps> = ({
         switch (emptyContainerType) {
             case 'dashboard':
                 return userCanCreateDashboard
-                    ? 'Start building your dashboard!'
-                    : 'Dashboard is empty.';
+                    ? t(
+                          'components_dashboard_tile_empty_state.dashboard.start_building',
+                      )
+                    : t(
+                          'components_dashboard_tile_empty_state.dashboard.is_empty',
+                      );
             case 'tab':
                 return userCanCreateDashboard
-                    ? 'Add tiles to this tab'
-                    : 'Tab is empty';
+                    ? t('components_dashboard_tile_empty_state.tab.add_tiles')
+                    : t('components_dashboard_tile_empty_state.tab.is_empty');
             default:
-                return 'Dashboard is empty.';
+                return t('components_dashboard_tile_empty_state.is_empty');
         }
     };
 
@@ -83,7 +90,7 @@ const EmptyStateNoTiles: FC<SavedChartsAvailableProps> = ({
                 ) : (
                     <SuboptimalState
                         icon={IconChartBarOff}
-                        title="You haven’t saved any charts yet."
+                        title={t('components_dashboard_tile_empty_state.title')}
                         action={
                             <Can
                                 I="manage"
@@ -100,7 +107,9 @@ const EmptyStateNoTiles: FC<SavedChartsAvailableProps> = ({
                                     }
                                     href={`/projects/${projectUuid}/tables`}
                                 >
-                                    Run a query
+                                    {t(
+                                        'components_dashboard_tile_empty_state.run_a_query',
+                                    )}
                                 </MantineLinkButton>
                             </Can>
                         }

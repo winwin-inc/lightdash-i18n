@@ -13,7 +13,9 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { IconChartAreaLine, IconEye, IconEyeOff } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import { useChartSummaries } from '../../../hooks/useChartSummaries';
 import MantineIcon from '../../common/MantineIcon';
 
@@ -35,6 +37,7 @@ const ChartUpdateModal = ({
     tile,
     ...modalProps
 }: ChartUpdateModalProps) => {
+    const { t } = useTranslation();
     const form = useForm({
         initialValues: {
             uuid: tile.properties.savedChartUuid,
@@ -68,7 +71,11 @@ const ChartUpdateModal = ({
                         size="lg"
                         color="blue.8"
                     />
-                    <Title order={4}>Edit tile content</Title>
+                    <Title order={4}>
+                        {t(
+                            'components_dashboard_tiles_forms_update_chart.edit_tile_content',
+                        )}
+                    </Title>
                 </Flex>
             }
             withCloseButton
@@ -118,7 +125,9 @@ const ChartUpdateModal = ({
                             })}
                             id="savedChartUuid"
                             name="savedChartUuid"
-                            label="Select chart"
+                            label={t(
+                                'components_dashboard_tiles_forms_update_chart.select_chart',
+                            )}
                             data={(savedCharts || []).map(
                                 ({ uuid, name, spaceName }) => {
                                     return {
@@ -132,14 +141,23 @@ const ChartUpdateModal = ({
                             withinPortal
                             {...form.getInputProps('uuid')}
                             searchable
-                            placeholder="Search..."
+                            placeholder={t(
+                                'components_dashboard_tiles_forms_update_chart.search',
+                            )}
                         />
                     )}
                     <Group spacing="xs" position="right" mt="md">
                         <Button onClick={() => onClose?.()} variant="outline">
-                            Cancel
+                            {t(
+                                'components_dashboard_tiles_forms_update_chart.cancel',
+                            )}
                         </Button>
-                        <Button type="submit">Update</Button>
+                        <Button type="submit">
+                            {' '}
+                            {t(
+                                'components_dashboard_tiles_forms_update_chart.update',
+                            )}
+                        </Button>
                     </Group>
                 </Stack>
             </form>

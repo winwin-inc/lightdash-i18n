@@ -24,6 +24,8 @@ import {
     IconTrash,
 } from '@tabler/icons-react';
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../common/MantineIcon';
 import DeleteChartTileThatBelongsToDashboardModal from '../../common/modal/DeleteChartTileThatBelongsToDashboardModal';
 import ChartUpdateModal from '../TileForms/ChartUpdateModal';
@@ -78,6 +80,7 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
     tabs,
     lockHeaderVisibility = false,
 }: Props<T>) => {
+    const { t } = useTranslation();
     const [isEditingTileContent, setIsEditingTileContent] = useState(false);
     const [isMovingTabs, setIsMovingTabs] = useState(false);
 
@@ -234,7 +237,9 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
                                                             )
                                                         }
                                                     >
-                                                        Edit tile content
+                                                        {t(
+                                                            'components_dashboard_tiles_base.edit_tile_content',
+                                                        )}
                                                     </Menu.Item>
                                                 </Box>
                                                 {tabs && tabs.length > 1 && (
@@ -252,7 +257,9 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
                                                             )
                                                         }
                                                     >
-                                                        Move to another tab
+                                                        {t(
+                                                            'components_dashboard_tiles_base.move_to_another_tab',
+                                                        )}
                                                     </Menu.Item>
                                                 )}
                                                 <Menu.Divider />
@@ -265,7 +272,9 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
                                                             )
                                                         }
                                                     >
-                                                        Delete chart
+                                                        {t(
+                                                            'components_dashboard_tiles_base.delete_chart',
+                                                        )}
                                                     </Menu.Item>
                                                 ) : (
                                                     <Menu.Item
@@ -279,7 +288,9 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
                                                             onDelete(tile)
                                                         }
                                                     >
-                                                        Remove tile
+                                                        {t(
+                                                            'components_dashboard_tiles_base.remove_tile',
+                                                        )}
                                                     </Menu.Item>
                                                 )}
                                             </>

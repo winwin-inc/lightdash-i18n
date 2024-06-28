@@ -7,6 +7,7 @@ import {
 import { Stack, TextInput } from '@mantine/core';
 import { type UseFormReturnType } from '@mantine/form';
 import MDEditor from '@uiw/react-md-editor';
+import { useTranslation } from 'react-i18next';
 
 interface MarkdownTileFormProps {
     form: UseFormReturnType<DashboardMarkdownTileProperties['properties']>;
@@ -22,23 +23,31 @@ export const markdownTileContentTransform = (
     content: sanitizeHtml(values.content, HTML_SANITIZE_MARKDOWN_TILE_RULES),
 });
 
-const MarkdownTileForm = ({ form }: MarkdownTileFormProps) => (
-    <Stack spacing="md">
-        <TextInput
-            label="Title"
-            placeholder="Tile title"
-            {...form.getInputProps('title')}
-        />
+const MarkdownTileForm = ({ form }: MarkdownTileFormProps) => {
+    const { t } = useTranslation();
 
-        <MDEditor
-            preview="edit"
-            maxHeight={300}
-            minHeight={100}
-            visibleDragbar
-            overflow={false}
-            {...form.getInputProps('content')}
-        />
-    </Stack>
-);
+    return (
+        <Stack spacing="md">
+            <TextInput
+                label={t(
+                    'components_dashboard_tiles_forms_markdown_tile.title.label',
+                )}
+                placeholder={t(
+                    'components_dashboard_tiles_forms_markdown_tile.title.placeholder',
+                )}
+                {...form.getInputProps('title')}
+            />
+
+            <MDEditor
+                preview="edit"
+                maxHeight={300}
+                minHeight={100}
+                visibleDragbar
+                overflow={false}
+                {...form.getInputProps('content')}
+            />
+        </Stack>
+    );
+};
 
 export default MarkdownTileForm;

@@ -573,6 +573,120 @@
         }
     },
 
+    "components_dashboard_tile_empty_state": {
+        "dashboard": {
+            "start_building": "开始构建您的看板!",
+            "is_empty": "看板为空。"
+        },
+        "tab": {
+            "add_tiles": "向此标签页添加图块",
+            "is_empty": "标签页为空"
+        },
+        "is_empty": "看板为空。",
+        "title": "您还没有保存任何图表。",
+        "run_a_query": "运行查询"
+    },
+    "components_dashboard_tiles_base": {
+        "edit_tile_content": "编辑图块内容",
+        "move_to_another_tab": "移动到另一个标签页",
+        "delete_chart": "删除图表",
+        "remove_tile": "移除图块"
+    },
+    "components_dashboard_tiles_forms_add_chart": {
+        "already_added_chart": "此图表已添加到此看板",
+        "add_saved_charts": "添加已保存的图表",
+        "form": {
+            "saved_charts": {
+                "label": "选择要添加到此看板的图表",
+                "placeholder": "搜索..."
+            },
+            "cancel": "取消",
+            "add": "添加"
+        }
+    },
+    "components_dashboard_tiles_forms_update_chart": {
+        "edit_tile_content": "编辑图块内容",
+        "select_chart": "选择图表",
+        "search": "搜索中...",
+        "cancel": "取消",
+        "update": "更新"
+    },
+    "components_dashboard_tiles_forms_loom_tile": {
+        "title": {
+            "label": "标题",
+            "placeholder": "图块标题"
+        },
+        "url": {
+            "label": "Loom 链接",
+            "placeholder": "例如 https://www.loom.com/share/1234567890"
+        }
+    },
+    "components_dashboard_tiles_forms_markdown_tile": {
+        "title": {
+            "label": "标题",
+            "placeholder": "图块标题"
+        }
+    },
+    "components_dashboard_tiles_forms_move_tile": {
+        "move_tile": "将图块移动到另一个标签页",
+        "tabs": {
+            "select_tab": "选择要将此图块移动到的标签页",
+            "pick_a_tab": "选择一个标签页",
+            "no_tabs_available": "没有可用的标签页"
+        },
+        "cancel": "取消",
+        "move": "移动"
+    },
+    "components_dashboard_tiles_forms_add_tile": {
+        "validator": {
+            "url": "Loom 链接无效",
+            "title": "必填字段"
+        },
+        "error_tip": "标题或内容是必填的",
+        "add_tile": "添加 {{type}} 图块",
+        "cancel": "取消",
+        "add": "添加"
+    },
+    "components_dashboard_tiles_forms_update_tile": {
+        "validator": {
+            "url": "Loom 链接无效",
+            "title": "必填字段"
+        },
+        "edit_tile": "编辑 {{type}} 图块",
+        "cancel": "取消",
+        "save": "保存"
+    },
+    "components_dashboard_tiles_add_tile_button": {
+        "add_tile": "添加图块",
+        "saved_chart": "已保存的图表",
+        "new_chart": "新建图表",
+        "tooltip_new_chart": "在此生成的图表仅适用于此看板",
+        "markdown": "Markdown",
+        "loom_video": "Loom 视频",
+        "add_tab": "添加标签页"
+    },
+    "components_dashboard_tiles_chart_title": {
+        "copied": "已复制到剪贴板!",
+        "duplicated_and_added": "图表已复制并添加到此看板的底部",
+        "dashboard_filter": "应用了看板筛选条件:",
+        "tried_to_reference": "尝试引用未知 ID 为 {{fieldId}} 的字段",
+        "is_any_value": "是任意值",
+        "tooltip_editing_actions": "完成看板编辑后才能使用这些操作",
+        "menus": {
+            "explore_from_here": "从这里开始探索",
+            "export_csv": "导出 CSV",
+            "move_to_space": "移动到空间",
+            "duplicate_chart": "复制图表",
+            "copy_value": "复制值",
+            "view_underlying_data": "查看基础数据"
+        },
+        "tooltip_editing_chart": "完成看板编辑后才能编辑此图表",
+        "no_data_available": "无可用数据"
+    },
+    "components_dashboard_tiles_edit_chart_menu": {
+        "edit_chart": "编辑图表"
+    },
+
     "components_schedulers_view": {
         "toast": {
             "success": "计划交付已成功刷新"

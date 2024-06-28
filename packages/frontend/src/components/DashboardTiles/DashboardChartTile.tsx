@@ -54,8 +54,10 @@ import React, {
     useState,
     type FC,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { v4 as uuid4 } from 'uuid';
+
 import { downloadCsv } from '../../api/csv';
 import { DashboardTileComments } from '../../features/comments';
 import { DateZoomInfoOnTile } from '../../features/dateZoom';
@@ -287,6 +289,8 @@ interface DashboardChartTileMainProps
 }
 
 const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
+    const { t } = useTranslation();
+
     const { showToastSuccess } = useToaster();
     const clipboard = useClipboard({ timeout: 200 });
     const { track } = useTracking();
@@ -382,8 +386,10 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
         const value = viewUnderlyingDataOptions.value.formatted;
 
         clipboard.copy(value);
-        showToastSuccess({ title: 'Copied to clipboard!' });
-    }, [viewUnderlyingDataOptions, clipboard, showToastSuccess]);
+        showToastSuccess({
+            title: t('components_dashboard_tiles_chart_title.copied'),
+        });
+    }, [viewUnderlyingDataOptions, clipboard, showToastSuccess, t]);
 
     const {
         data: duplicatedChart,
@@ -392,7 +398,9 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
     } = useDuplicateChartMutation({
         showRedirectButton: false,
         autoRedirect: false,
-        successMessage: `Chart duplicated and added at the bottom of this dashboard`,
+        successMessage: t(
+            'components_dashboard_tiles_chart_title.duplicated_and_added',
+        ),
     });
 
     useEffect(() => {
@@ -611,11 +619,16 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                 <HoverCard.Dropdown>
                                     <Stack spacing="xs" align="flex-start">
                                         <Text color="gray.7" fw={500}>
-                                            Dashboard filter
-                                            {appliedFilterRules.length > 1
-                                                ? 's'
-                                                : ''}{' '}
-                                            applied:
+                                            {t(
+                                                'components_dashboard_tiles_chart_title.dashboard_filter',
+                                                {
+                                                    suffix:
+                                                        appliedFilterRules.length >
+                                                        1
+                                                            ? 's'
+                                                            : '',
+                                                },
+                                            )}
                                         </Text>
 
                                         {appliedFilterRules.map(
@@ -637,7 +650,15 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                                     !field ||
                                                     !isFilterableField(field)
                                                 )
-                                                    return `Tried to reference field with unknown id: ${filterRule.target.fieldId}`;
+                                                    return t(
+                                                        'components_dashboard_tiles_chart_title.tried_to_reference',
+                                                        {
+                                                            fieldId:
+                                                                filterRule
+                                                                    .target
+                                                                    .fieldId,
+                                                        },
+                                                    );
 
                                                 const filterRuleLabels =
                                                     getConditionalRuleLabel(
@@ -666,7 +687,11 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                                             :
                                                         </Text>{' '}
                                                         {filterRule.disabled ? (
-                                                            <>is any value</>
+                                                            <>
+                                                                {t(
+                                                                    'components_dashboard_tiles_chart_title.is_any_value',
+                                                                )}
+                                                            </>
                                                         ) : (
                                                             <>
                                                                 {
@@ -721,7 +746,9 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                         <>
                             <Tooltip
                                 disabled={!isEditMode}
-                                label="Finish editing dashboard to use these actions"
+                                label={t(
+                                    'components_dashboard_tiles_chart_title.tooltip_editing_actions',
+                                )}
                             >
                                 <Box>
                                     {userCanManageChart && (
@@ -746,7 +773,9 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                                 )
                                             }
                                         >
-                                            Explore from here
+                                            {t(
+                                                'components_dashboard_tiles_chart_title.menus.explore_from_here',
+                                            )}
                                         </Menu.Item>
                                     )}
 
@@ -762,7 +791,9 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                                 setIsCSVExportModalOpen(true)
                                             }
                                         >
-                                            Export CSV
+                                            {t(
+                                                'components_dashboard_tiles_chart_title.menus.export_csv',
+                                            )}
                                         </Menu.Item>
                                     )}
                                     {chart.chartConfig.type ===
@@ -788,7 +819,9 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                             }
                                             disabled={isEditMode}
                                         >
-                                            Move to space
+                                            {t(
+                                                'components_dashboard_tiles_chart_title.menus.move_to_space',
+                                            )}
                                         </Menu.Item>
                                     )}
                                 </Box>
@@ -805,7 +838,9 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                     }
                                     disabled={!isEditMode}
                                 >
-                                    Duplicate chart
+                                    {t(
+                                        'components_dashboard_tiles_chart_title.menus.duplicate_chart',
+                                    )}
                                 </Menu.Item>
                             )}
                         </>
@@ -846,7 +881,9 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                     icon={<MantineIcon icon={IconCopy} />}
                                     onClick={handleCopyToClipboard}
                                 >
-                                    Copy value
+                                    {t(
+                                        'components_dashboard_tiles_chart_title.menus.copy_value',
+                                    )}
                                 </Menu.Item>
                             )}
                             <Can
@@ -862,7 +899,9 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                         icon={<MantineIcon icon={IconStack} />}
                                         onClick={handleViewUnderlyingData}
                                     >
-                                        View underlying data
+                                        {t(
+                                            'components_dashboard_tiles_chart_title.menus.view_underlying_data',
+                                        )}
                                     </Menu.Item>
                                 )}
                             </Can>
@@ -1000,6 +1039,7 @@ export const GenericDashboardChartTile: FC<
     error,
     ...rest
 }) => {
+    const { t } = useTranslation();
     const { projectUuid } = useParams<{
         projectUuid: string;
         dashboardUuid: string;
@@ -1043,7 +1083,9 @@ export const GenericDashboardChartTile: FC<
                     tile.properties.savedChartUuid && (
                         <Tooltip
                             disabled={!isEditMode}
-                            label="Finish editing dashboard to edit this chart"
+                            label={t(
+                                'components_dashboard_tiles_chart_title.tooltip_editing_chart',
+                            )}
                         >
                             <Box>
                                 <EditChartMenuItem
@@ -1058,7 +1100,12 @@ export const GenericDashboardChartTile: FC<
             >
                 <SuboptimalState
                     icon={IconAlertCircle}
-                    title={error?.error?.message || 'No data available'}
+                    title={
+                        error?.error?.message ||
+                        t(
+                            'components_dashboard_tiles_chart_title.no_data_available',
+                        )
+                    }
                 ></SuboptimalState>
             </TileBase>
         );

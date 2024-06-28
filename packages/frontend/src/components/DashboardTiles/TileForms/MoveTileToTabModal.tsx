@@ -11,6 +11,7 @@ import {
 } from '@mantine/core';
 import { IconArrowAutofitContent } from '@tabler/icons-react';
 import { useCallback, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../common/MantineIcon';
 
@@ -28,6 +29,7 @@ const MoveTileToTabModal: FC<Props> = ({
     onConfirm,
     ...modalProps
 }) => {
+    const { t } = useTranslation();
     const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
 
     const handleConfirm = useCallback(() => {
@@ -49,7 +51,11 @@ const MoveTileToTabModal: FC<Props> = ({
                         color="blue.8"
                         icon={IconArrowAutofitContent}
                     />
-                    <Title order={4}>Move tile to another tab</Title>
+                    <Title order={4}>
+                        {t(
+                            'components_dashboard_tiles_forms_move_tile.move_tile',
+                        )}
+                    </Title>
                 </Group>
             }
             {...modalProps}
@@ -58,9 +64,13 @@ const MoveTileToTabModal: FC<Props> = ({
             <Stack spacing="lg" pt="sm">
                 {tabs && tabs.length ? (
                     <Select
-                        label="Select tab to move this tile to"
+                        label={t(
+                            'components_dashboard_tiles_forms_move_tile.tabs.select_tab',
+                        )}
                         value={selectedTabId}
-                        placeholder="Pick a tab"
+                        placeholder={t(
+                            'components_dashboard_tiles_forms_move_tile.tabs.pick_a_tab',
+                        )}
                         data={tabs
                             .filter((tab) => tab.uuid !== tile.tabUuid)
                             .map((tab) => ({
@@ -71,16 +81,20 @@ const MoveTileToTabModal: FC<Props> = ({
                         onChange={(value) => setSelectedTabId(value)}
                     />
                 ) : (
-                    <Text>No tabs available</Text>
+                    <Text>
+                        {t(
+                            'components_dashboard_tiles_forms_move_tile.tabs.no_tabs_available',
+                        )}
+                    </Text>
                 )}
 
                 <Group position="right" mt="sm">
                     <Button variant="outline" onClick={onClose}>
-                        Cancel
+                        {t('components_dashboard_tiles_forms_move_tile.cancel')}
                     </Button>
 
                     <Button onClick={handleConfirm} disabled={!selectedTabId}>
-                        Move
+                        {t('components_dashboard_tiles_forms_move_tile.move')}
                     </Button>
                 </Group>
             </Stack>

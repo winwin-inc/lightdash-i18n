@@ -18,7 +18,9 @@ import {
 import { useForm, type UseFormReturnType } from '@mantine/form';
 import { IconMarkdown, IconVideo } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { v4 as uuid4 } from 'uuid';
+
 import MantineIcon from '../../common/MantineIcon';
 import LoomTileForm, { getLoomId } from './LoomTileForm';
 import MarkdownTileForm, {
@@ -39,16 +41,25 @@ export const TileAddModal: FC<AddProps> = ({
     onConfirm,
     ...modalProps
 }) => {
+    const { t } = useTranslation();
     const [errorMessage, setErrorMessage] = useState<string>();
 
     const getValidators = () => {
         const urlValidator = {
             url: (value: string | undefined) =>
-                getLoomId(value) ? null : 'Loom url not valid',
+                getLoomId(value)
+                    ? null
+                    : t(
+                          'components_dashboard_tiles_forms_add_tile.validator.url',
+                      ),
         };
         const titleValidator = {
             title: (value: string | undefined) =>
-                !value || !value.length ? 'Required field' : null,
+                !value || !value.length
+                    ? t(
+                          'components_dashboard_tiles_forms_add_tile.validator.title',
+                      )
+                    : null,
         };
         if (type === DashboardTileTypes.LOOM)
             return { ...urlValidator, ...titleValidator };
@@ -74,7 +85,9 @@ export const TileAddModal: FC<AddProps> = ({
         if (type === DashboardTileTypes.MARKDOWN) {
             const markdownForm = properties as any;
             if (!markdownForm.title && !markdownForm.content) {
-                setErrorMessage('Title or content is required');
+                setErrorMessage(
+                    t('components_dashboard_tiles_forms_add_tile.error_tip'),
+                );
                 return;
             }
         }
@@ -109,7 +122,14 @@ export const TileAddModal: FC<AddProps> = ({
                                 : IconVideo
                         }
                     />
-                    <Title order={4}>Add {type} tile</Title>
+                    <Title order={4}>
+                        {t(
+                            'components_dashboard_tiles_forms_add_tile.add_tile',
+                            {
+                                type,
+                            },
+                        )}
+                    </Title>
                 </Group>
             }
             {...modalProps}
@@ -143,11 +163,13 @@ export const TileAddModal: FC<AddProps> = ({
 
                     <Group position="right" mt="sm">
                         <Button variant="outline" onClick={handleClose}>
-                            Cancel
+                            {t(
+                                'components_dashboard_tiles_forms_add_tile.cancel',
+                            )}
                         </Button>
 
                         <Button type="submit" disabled={!form.isValid()}>
-                            Add
+                            {t('components_dashboard_tiles_forms_add_tile.add')}
                         </Button>
                     </Group>
                 </Stack>

@@ -17,6 +17,8 @@ import {
 import { useForm, type UseFormReturnType } from '@mantine/form';
 import { IconMarkdown, IconVideo } from '@tabler/icons-react';
 import produce from 'immer';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../common/MantineIcon';
 import LoomTileForm, { getLoomId } from './LoomTileForm';
 import MarkdownTileForm, {
@@ -37,14 +39,24 @@ const TileUpdateModal = <T extends Tile>({
     onConfirm,
     ...modalProps
 }: TileUpdateModalProps<T>) => {
+    const { t } = useTranslation();
+
     const getValidators = () => {
         const urlValidator = {
             url: (value: string | undefined) =>
-                getLoomId(value) ? null : 'Loom url not valid',
+                getLoomId(value)
+                    ? null
+                    : t(
+                          'components_dashboard_tiles_forms_update_tile.validator.url',
+                      ),
         };
         const titleValidator = {
             title: (value: string | undefined) => {
-                return !value || !value.length ? 'Required field' : null;
+                return !value || !value.length
+                    ? t(
+                          'components_dashboard_tiles_forms_update_tile.validator.title',
+                      )
+                    : null;
             },
         };
 
@@ -90,6 +102,14 @@ const TileUpdateModal = <T extends Tile>({
                         }
                     />
                     <Title order={4}>Edit {tile.type} tile</Title>
+                    <Title order={4}>
+                        {t(
+                            'components_dashboard_tiles_forms_update_tile.edit_tile',
+                            {
+                                type: tile.type,
+                            },
+                        )}
+                    </Title>
                 </Group>
             }
             {...modalProps}
@@ -122,11 +142,15 @@ const TileUpdateModal = <T extends Tile>({
 
                     <Group position="right" mt="sm">
                         <Button variant="outline" onClick={() => onClose?.()}>
-                            Cancel
+                            {t(
+                                'components_dashboard_tiles_forms_update_tile.cancel',
+                            )}
                         </Button>
 
                         <Button type="submit" disabled={!form.isValid()}>
-                            Save
+                            {t(
+                                'components_dashboard_tiles_forms_update_tile.save',
+                            )}
                         </Button>
                     </Group>
                 </Stack>

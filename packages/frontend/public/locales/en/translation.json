@@ -573,6 +573,120 @@
         }
     },
 
+    "components_dashboard_tile_empty_state": {
+        "dashboard": {
+            "start_building": "Start building your dashboard!",
+            "is_empty": "Dashboard is empty."
+        },
+        "tab": {
+            "add_tiles": "Add tiles to this tab",
+            "is_empty": "Tab is empty"
+        },
+        "is_empty": "Dashboard is empty.",
+        "title": "You haven’t saved any charts yet.",
+        "run_a_query": "Run a query"
+    },
+    "components_dashboard_tiles_base": {
+        "edit_tile_content": "Edit tile content",
+        "move_to_another_tab": "Move to another tab",
+        "delete_chart": "Delete chart",
+        "remove_tile": "Remove tile"
+    },
+    "components_dashboard_tiles_forms_add_chart": {
+        "already_added_chart": "This chart has already been added to this dashboard",
+        "add_saved_charts": "Add saved charts",
+        "form": {
+            "saved_charts": {
+                "label": "Select the charts you want to add to this dashboard",
+                "placeholder": "Search..."
+            },
+            "cancel": "Cancel",
+            "add": "Add"
+        }
+    },
+    "components_dashboard_tiles_forms_update_chart": {
+        "edit_tile_content": "Edit tile content",
+        "select_chart": "Select chart",
+        "search": "Searching...",
+        "cancel": "Cancel",
+        "update": "Update"
+    },
+    "components_dashboard_tiles_forms_loom_tile": {
+        "title": {
+            "label": "Title",
+            "placeholder": "Tile title"
+        },
+        "url": {
+            "label": "Loom url",
+            "placeholder": "e.g https://www.loom.com/share/1234567890"
+        }
+    },
+    "components_dashboard_tiles_forms_markdown_tile": {
+        "title": {
+            "label": "Title",
+            "placeholder": "Tile title"
+        }
+    },
+    "components_dashboard_tiles_forms_move_tile": {
+        "move_tile": "Move tile to another tab",
+        "tabs": {
+            "select_tab": "Select tab to move this tile to",
+            "pick_a_tab": "Pick a tab",
+            "no_tabs_available": "No tabs available"
+        },
+        "cancel": "Cancel",
+        "move": "Move"
+    },
+    "components_dashboard_tiles_forms_add_tile": {
+        "validator": {
+            "url": "Loom url not valid",
+            "title": "Required field"
+        },
+        "error_tip": "Title or content is required",
+        "add_tile": "Add {{type}} tile",
+        "cancel": "Cancel",
+        "add": "Add"
+    },
+    "components_dashboard_tiles_forms_update_tile": {
+        "validator": {
+            "url": "Loom url not valid",
+            "title": "Required field"
+        },
+        "edit_tile": "Edit {{type}} tile",
+        "cancel": "Cancel",
+        "save": "Save"
+    },
+    "components_dashboard_tiles_add_tile_button": {
+        "add_tile": "Add tile",
+        "saved_chart": "Saved chart",
+        "new_chart": "New chart",
+        "tooltip_new_chart": "Charts generated from here are exclusive to this dashboard",
+        "markdown": "Markdown",
+        "loom_video": "Loom video",
+        "add_tab": "Add tab"
+    },
+    "components_dashboard_tiles_chart_title": {
+        "copied": "Copied to clipboard!",
+        "duplicated_and_added": "Chart duplicated and added at the bottom of this dashboard",
+        "dashboard_filter": "Dashboard filter{{suffix}} applied:",
+        "tried_to_reference": "Tried to reference field with unknown id: {{fieldId}}",
+        "is_any_value": "is any value",
+        "tooltip_editing_actions": "Finish editing dashboard to use these actions",
+        "menus": {
+            "explore_from_here": "Explore from here",
+            "export_csv": "Export CSV",
+            "move_to_space": "Move to space",
+            "duplicate_chart": "Duplicate chart",
+            "copy_value": "Copy value",
+            "view_underlying_data": "View underlying data"
+        },
+        "tooltip_editing_chart": "Finish editing dashboard to edit this chart",
+        "no_data_available": "No data available"
+    },
+    "components_dashboard_tiles_edit_chart_menu": {
+        "edit_chart": "Edit chart"
+    },
+
     "components_schedulers_view": {
         "toast": {
             "success": "Scheduled deliveries refreshed successfully"

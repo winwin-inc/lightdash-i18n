@@ -21,7 +21,9 @@ import {
 } from '@tabler/icons-react';
 import { useFeatureFlagEnabled } from 'posthog-js/react';
 import { useCallback, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useParams } from 'react-router-dom';
+
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
 import { useDashboardContext } from '../../providers/DashboardProvider';
 import MantineIcon from '../common/MantineIcon';
@@ -42,6 +44,7 @@ const AddTileButton: FC<Props> = ({
     activeTabUuid,
     dashboardTabs,
 }) => {
+    const { t } = useTranslation();
     const [addTileType, setAddTileType] = useState<DashboardTileTypes>();
     const [isAddChartTilesModalOpen, setIsAddChartTilesModalOpen] =
         useState<boolean>(false);
@@ -83,7 +86,9 @@ const AddTileButton: FC<Props> = ({
                         disabled={disabled}
                         leftIcon={<MantineIcon icon={IconPlus} />}
                     >
-                        Add tile
+                        {t(
+                            'components_dashboard_tiles_add_tile_button.add_tile',
+                        )}
                     </Button>
                 </Menu.Target>
                 <Menu.Dropdown>
@@ -91,7 +96,9 @@ const AddTileButton: FC<Props> = ({
                         onClick={() => setIsAddChartTilesModalOpen(true)}
                         icon={<MantineIcon icon={IconChartBar} />}
                     >
-                        Saved chart
+                        {t(
+                            'components_dashboard_tiles_add_tile_button.saved_chart',
+                        )}
                     </Menu.Item>
 
                     <Menu.Item
@@ -111,8 +118,16 @@ const AddTileButton: FC<Props> = ({
                         icon={<MantineIcon icon={IconPlus} />}
                     >
                         <Group spacing="xxs">
-                            <Text>New chart</Text>
-                            <Tooltip label="Charts generated from here are exclusive to this dashboard">
+                            <Text>
+                                {t(
+                                    'components_dashboard_tiles_add_tile_button.new_chart',
+                                )}
+                            </Text>
+                            <Tooltip
+                                label={t(
+                                    'components_dashboard_tiles_add_tile_button.tooltip_new_chart',
+                                )}
+                            >
                                 <MantineIcon
                                     icon={IconInfoCircle}
                                     color="gray.6"
@@ -127,21 +142,27 @@ const AddTileButton: FC<Props> = ({
                         }
                         icon={<MantineIcon icon={IconMarkdown} />}
                     >
-                        Markdown
+                        {t(
+                            'components_dashboard_tiles_add_tile_button.markdown',
+                        )}
                     </Menu.Item>
 
                     <Menu.Item
                         onClick={() => setAddTileType(DashboardTileTypes.LOOM)}
                         icon={<MantineIcon icon={IconVideo} />}
                     >
-                        Loom video
+                        {t(
+                            'components_dashboard_tiles_add_tile_button.loom_video',
+                        )}
                     </Menu.Item>
                     {isDashboardTabsEnabled && (
                         <Menu.Item
                             onClick={() => setAddingTab(true)}
                             icon={<MantineIcon icon={IconNewSection} />}
                         >
-                            Add tab
+                            {t(
+                                'components_dashboard_tiles_add_tile_button.add_tab',
+                            )}
                         </Menu.Item>
                     )}
                 </Menu.Dropdown>
