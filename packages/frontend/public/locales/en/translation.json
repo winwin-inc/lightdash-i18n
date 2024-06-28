@@ -1029,6 +1029,25 @@
         "cancel": "Cancel",
         "delete": "Delete"
     },
+    "components_modal_chart_delete_belongs_dashboard": {
+        "delete_chart": "Delete chart",
+        "content": {
+            "part_1": "Are you sure you want to delete the chart ",
+            "part_2": "This chart was created from within the dashboard, so removing the tile will also result in the permanent deletion of the chart."
+        },
+        "cancel": "Cancel",
+        "delete": "Delete"
+    },
+    "components_modal_chart_move_belongs_dashboard": {
+        "content": {
+            "part_1": "Are you sure you want to move the chart",
+            "part_2": "to the space",
+            "part_3": "This chart was created from within the dashboard, moving the chart to the space will make it available in chart lists across the app.",
+            "part_4": "This change cannot be undone."
+        },
+        "cancel": "Cancel",
+        "move": "Move"
+    },
     "components_modal_dashboard_create": {
         "title": "Create Dashboard",
         "form_dashboard": {
@@ -1049,6 +1068,62 @@
         },
         "cancel": "Cancel",
         "create": "Create"
+    },
+    "components_modal_dashboard_delete": {
+        "delete_dashboard": "Delete dashboard",
+        "has_charts": {
+            "part_1": "Are you sure you want to delete the dashboard",
+            "part_2": "This action will also permanently delete the following charts that were created from within it:"
+        },
+        "no_charts": "Are you sure you want to delete the dashboard",
+        "cancel": "Cancel",
+        "delete": "Delete"
+    },
+    "components_modal_dashboard_duplicate": {
+        "copy_of": "Copy of",
+        "duplicate_dashboard": "Duplicate dashboard",
+        "form": {
+            "title": "Duplicate Dashboard",
+            "dashboards": {
+                "label": "Enter a memorable name for your dashboard",
+                "placeholder": "eg. KPI Dashboards"
+            },
+            "description": {
+                "label": "Description",
+                "placeholder": "A few words to give your team some context"
+            },
+            "cancel": "Cancel",
+            "create_duplicate": "Create duplicate"
+        }
+    },
+    "components_modal_dashboard_export": {
+        "alert": "Your CSV export will include data for the selected date zoom granularity.",
+        "tooltip_export": {
+            "label": "Export results in table for all charts in a zip file",
+            "button": "Export CSV"
+        },
+        "cancel": "Cancel",
+        "export_dashboard": "Export dashboard"
+    },
+    "components_modal_dashboard_update": {
+        "update_dashboard": "Update dashboard",
+        "form": {
+            "title": "Update Dashboard",
+            "dashboards": {
+                "label": "Enter a memorable name for your dashboard",
+                "placeholder": "eg. KPI Dashboards"
+            },
+            "description": {
+                "label": "Description",
+                "placeholder": "A few words to give your team some context"
+            },
+            "cancel": "Cancel",
+            "save": "Save"
+        }
+    },
+    "components_modal_dashboard_locked": {
+        "part_1": "Set filter values to get started",
+        "part_2": "This dashboard cannot be run without setting the filter values that are required"
     },
 
     "components_space_action_modal_common": {

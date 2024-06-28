@@ -13,7 +13,9 @@ import {
 } from '@mantine/core';
 import { IconCsv, IconEyeCog, IconFileExport } from '@tabler/icons-react';
 import { useCallback, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
+
 import { PreviewAndCustomizeScreenshot } from '../../../features/preview';
 import { CUSTOM_WIDTH_OPTIONS } from '../../../features/scheduler/constants';
 import {
@@ -36,29 +38,32 @@ const CsvExport: FC<CsvExportProps & Pick<ModalProps, 'onClose'>> = ({
     dashboard,
     onClose,
 }) => {
+    const { t } = useTranslation();
     const exportCsvDashboardMutation = useExportCsvDashboard();
     const dashboardFilters = useDashboardContext((c) => c.allFilters);
     const dateZoomGranularity = useDashboardContext(
         (c) => c.dateZoomGranularity,
     );
+
     return (
         <Stack p="md">
             {!!dateZoomGranularity && (
                 <Alert title="Date zoom is enabled" color="blue" mb="md">
-                    Your CSV export will include data for the selected date zoom
-                    granularity.
+                    {t('components_modal_dashboard_export.alert')}
                 </Alert>
             )}
             <Group position="right" pb="md" px="md" spacing="lg">
                 <Button variant="outline" onClick={onClose}>
-                    Cancel
+                    {t('components_modal_dashboard_export.cancel')}
                 </Button>
 
                 <Group spacing="xs">
                     <Tooltip
                         withinPortal
                         position="bottom"
-                        label="Export results in table for all charts in a zip file"
+                        label={t(
+                            'components_modal_dashboard_export.tooltip.label',
+                        )}
                     >
                         <Button
                             onClick={() => {
@@ -71,7 +76,9 @@ const CsvExport: FC<CsvExportProps & Pick<ModalProps, 'onClose'>> = ({
                             }}
                             leftIcon={<MantineIcon icon={IconCsv} />}
                         >
-                            Export CSV
+                            {t(
+                                'components_modal_dashboard_export.tooltip.button',
+                            )}
                         </Button>
                     </Tooltip>
                 </Group>
@@ -85,6 +92,7 @@ const ImageExport: FC<Props & Pick<ModalProps, 'onClose'>> = ({
     gridWidth,
     dashboard,
 }) => {
+    const { t } = useTranslation();
     const [previews, setPreviews] = useState<Record<string, string>>({});
     const [previewChoice, setPreviewChoice] = useState<
         typeof CUSTOM_WIDTH_OPTIONS[number]['value'] | undefined
@@ -143,7 +151,7 @@ const ImageExport: FC<Props & Pick<ModalProps, 'onClose'>> = ({
 
             <Group position="right" pb="md" px="md" spacing="lg">
                 <Button variant="outline" onClick={onClose}>
-                    Cancel
+                    {t('components_modal_dashboard_export.cancel')}
                 </Button>
 
                 <Group spacing="xs">
@@ -158,7 +166,9 @@ const ImageExport: FC<Props & Pick<ModalProps, 'onClose'>> = ({
                             />
                         }
                     >
-                        Export dashboard
+                        {t(
+                            'components_modal_dashboard_export.export_dashboard',
+                        )}
                     </Button>
                 </Group>
             </Group>

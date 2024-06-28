@@ -11,6 +11,7 @@ import {
 } from '@mantine/core';
 import { IconTrash } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     useDashboardDeleteMutation,
     useDashboardQuery,
@@ -27,6 +28,7 @@ const DashboardDeleteModal: FC<DashboardDeleteModalProps> = ({
     onConfirm,
     ...modalProps
 }) => {
+    const { t } = useTranslation();
     const { data: dashboard, isInitialLoading } = useDashboardQuery(uuid);
     const { mutateAsync: deleteDashboard, isLoading: isDeleting } =
         useDashboardDeleteMutation();
@@ -49,7 +51,11 @@ const DashboardDeleteModal: FC<DashboardDeleteModalProps> = ({
             title={
                 <Group spacing="xs">
                     <MantineIcon icon={IconTrash} color="red" size="lg" />
-                    <Title order={4}>Delete dashboard</Title>
+                    <Title order={4}>
+                        {t(
+                            'components_modal_dashboard_delete.delete_dashboard',
+                        )}
+                    </Title>
                 </Group>
             }
             {...modalProps}
@@ -58,12 +64,15 @@ const DashboardDeleteModal: FC<DashboardDeleteModalProps> = ({
                 {hasChartsInDashboard(dashboard) ? (
                     <Stack>
                         <Text>
-                            Are you sure you want to delete the dashboard{' '}
+                            {t(
+                                'components_modal_dashboard_delete.has_charts.part_1',
+                            )}
                             <b>"{dashboard.name}"</b>?
                         </Text>
                         <Text>
-                            This action will also permanently delete the
-                            following charts that were created from within it:
+                            {t(
+                                'components_modal_dashboard_delete.has_charts.part_2',
+                            )}
                         </Text>
                         <List size="sm">
                             {chartsInDashboardTiles.map(
@@ -80,7 +89,7 @@ const DashboardDeleteModal: FC<DashboardDeleteModalProps> = ({
                     </Stack>
                 ) : (
                     <Text>
-                        Are you sure you want to delete the dashboard{' '}
+                        {t('components_modal_dashboard_delete.no_charts')}{' '}
                         <b>"{dashboard.name}"</b>?
                     </Text>
                 )}
@@ -91,7 +100,7 @@ const DashboardDeleteModal: FC<DashboardDeleteModalProps> = ({
                         variant="outline"
                         onClick={modalProps.onClose}
                     >
-                        Cancel
+                        {t('components_modal_dashboard_delete.cancel')}
                     </Button>
 
                     <Button
@@ -100,7 +109,7 @@ const DashboardDeleteModal: FC<DashboardDeleteModalProps> = ({
                         onClick={handleConfirm}
                         type="submit"
                     >
-                        Delete
+                        {t('components_modal_dashboard_delete.delete')}
                     </Button>
                 </Group>
             </Stack>

@@ -11,6 +11,8 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import {
     useDashboardQuery,
     useDuplicateDashboardMutation,
@@ -28,6 +30,8 @@ const DashboardDuplicateModal: FC<DashboardDuplicateModalProps> = ({
     onConfirm,
     ...modalProps
 }) => {
+    const { t } = useTranslation();
+
     const { mutateAsync: duplicateDashboard, isLoading: isUpdating } =
         useDuplicateDashboardMutation({
             showRedirectButton: true,
@@ -40,7 +44,9 @@ const DashboardDuplicateModal: FC<DashboardDuplicateModalProps> = ({
         if (!dashboard) return;
 
         const initialValues = {
-            name: `Copy of ${dashboard.name}`,
+            name: `${t('components_modal_dashboard_duplicate.copy_of')} ${
+                dashboard.name
+            }`,
             description: dashboard.description ?? '',
         };
 
@@ -69,23 +75,40 @@ const DashboardDuplicateModal: FC<DashboardDuplicateModalProps> = ({
 
     return (
         <Modal
-            title={<Title order={4}>Duplicate Dashboard</Title>}
+            title={
+                <Title order={4}>
+                    {t(
+                        'components_modal_dashboard_duplicate.duplicate_dashboard',
+                    )}
+                </Title>
+            }
             {...modalProps}
         >
-            <form title="Duplicate Dashboard" onSubmit={handleConfirm}>
+            <form
+                title={t('components_modal_dashboard_duplicate.form.title')}
+                onSubmit={handleConfirm}
+            >
                 <Stack spacing="lg" pt="sm">
                     <TextInput
-                        label="Enter a memorable name for your dashboard"
+                        label={t(
+                            'components_modal_dashboard_duplicate.form.dashboards.label',
+                        )}
                         required
-                        placeholder="eg. KPI Dashboards"
+                        placeholder={t(
+                            'components_modal_dashboard_duplicate.form.dashboards.placeholder',
+                        )}
                         disabled={isLoading}
                         {...form.getInputProps('name')}
                         value={form.values.name ?? ''}
                     />
 
                     <Textarea
-                        label="Description"
-                        placeholder="A few words to give your team some context"
+                        label={t(
+                            'components_modal_dashboard_duplicate.form.description.label',
+                        )}
+                        placeholder={t(
+                            'components_modal_dashboard_duplicate.form.description.placeholder',
+                        )}
                         disabled={isLoading}
                         autosize
                         maxRows={3}
@@ -95,7 +118,9 @@ const DashboardDuplicateModal: FC<DashboardDuplicateModalProps> = ({
 
                     <Group position="right" mt="sm">
                         <Button variant="outline" onClick={modalProps.onClose}>
-                            Cancel
+                            {t(
+                                'components_modal_dashboard_duplicate.form.cancel',
+                            )}
                         </Button>
 
                         <Button
@@ -103,7 +128,9 @@ const DashboardDuplicateModal: FC<DashboardDuplicateModalProps> = ({
                             loading={isLoading}
                             type="submit"
                         >
-                            Create duplicate
+                            {t(
+                                'components_modal_dashboard_duplicate.form.create_duplicate',
+                            )}
                         </Button>
                     </Group>
                 </Stack>

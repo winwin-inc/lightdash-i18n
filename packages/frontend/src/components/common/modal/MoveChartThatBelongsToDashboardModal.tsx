@@ -10,6 +10,8 @@ import {
 } from '@mantine/core';
 import { IconFolders } from '@tabler/icons-react';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useMoveChartMutation } from '../../../hooks/useSavedQuery';
 import MantineIcon from '../MantineIcon';
 
@@ -29,6 +31,7 @@ const MoveChartThatBelongsToDashboardModal: FC<Props> = ({
     onConfirm,
     ...modalProps
 }) => {
+    const { t } = useTranslation();
     const { mutate: moveChartToSpace } = useMoveChartMutation({
         onSuccess: async () => {
             onConfirm();
@@ -44,7 +47,9 @@ const MoveChartThatBelongsToDashboardModal: FC<Props> = ({
                     <MantineIcon icon={IconFolders} size="lg" />
                     <Title order={5}>
                         <Text span fw={400}>
-                            Move{' '}
+                            {t(
+                                'components_modal_chart_move_belongs_dashboard.cancel',
+                            )}{' '}
                         </Text>
                         {name}
                     </Title>
@@ -54,26 +59,36 @@ const MoveChartThatBelongsToDashboardModal: FC<Props> = ({
         >
             <Stack mt="sm">
                 <Text>
-                    Are you sure you want to move the chart{' '}
+                    {t(
+                        'components_modal_chart_move_belongs_dashboard.content.part_1',
+                    )}{' '}
                     <Text fw={600} span>
                         {name}
                     </Text>{' '}
-                    to the space{' '}
+                    {t(
+                        'components_modal_chart_move_belongs_dashboard.content.part_2',
+                    )}{' '}
                     <Text fw={600} span>
                         {spaceName}
                     </Text>
                     ?
                 </Text>
                 <Text>
-                    This chart was created from within the dashboard, moving the
-                    chart to the space will make it available in chart lists
-                    across the app.
+                    {t(
+                        'components_modal_chart_move_belongs_dashboard.content.part_3',
+                    )}
                 </Text>
-                <Text fw={600}>This change cannot be undone.</Text>
+                <Text fw={600}>
+                    {t(
+                        'components_modal_chart_move_belongs_dashboard.content.part_4',
+                    )}
+                </Text>
 
                 <Group position="right" spacing="xs">
                     <Button variant="outline" onClick={modalProps.onClose}>
-                        Cancel
+                        {t(
+                            'components_modal_chart_move_belongs_dashboard.cancel',
+                        )}
                     </Button>
 
                     <Button
@@ -85,7 +100,9 @@ const MoveChartThatBelongsToDashboardModal: FC<Props> = ({
                         }}
                         type="submit"
                     >
-                        Move
+                        {t(
+                            'components_modal_chart_move_belongs_dashboard.move',
+                        )}
                     </Button>
                 </Group>
             </Stack>

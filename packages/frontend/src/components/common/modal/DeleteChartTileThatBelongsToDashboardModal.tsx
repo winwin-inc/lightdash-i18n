@@ -9,6 +9,8 @@ import {
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../MantineIcon';
 
 interface Props extends ModalProps {
@@ -20,42 +22,57 @@ const DeleteChartTileThatBelongsToDashboardModal: FC<Props> = ({
     name,
     onConfirm,
     ...modalProps
-}) => (
-    <Modal
-        size="md"
-        title={
-            <Group spacing="xs">
-                <MantineIcon size="lg" icon={IconAlertCircle} color="red" />
-                <Title order={4}>Delete chart</Title>
-            </Group>
-        }
-        {...modalProps}
-    >
-        <Stack>
-            <Text>
-                Are you sure you want to delete the chart <b>{name}</b>?
-            </Text>
-            <Text>
-                This chart was created from within the dashboard, so removing
-                the tile will also result in the permanent deletion of the
-                chart.
-            </Text>
+}) => {
+    const { t } = useTranslation();
 
-            <Group position="right" spacing="xs">
-                <Button
-                    variant="outline"
-                    color="dark"
-                    onClick={modalProps.onClose}
-                >
-                    Cancel
-                </Button>
+    return (
+        <Modal
+            size="md"
+            title={
+                <Group spacing="xs">
+                    <MantineIcon size="lg" icon={IconAlertCircle} color="red" />
+                    <Title order={4}>
+                        {t(
+                            'components_modal_chart_delete_belongs_dashboard.delete_chart',
+                        )}
+                    </Title>
+                </Group>
+            }
+            {...modalProps}
+        >
+            <Stack>
+                <Text>
+                    {t(
+                        'components_modal_chart_delete_belongs_dashboard.content.part_1',
+                    )}
+                    <b>{name}</b>?
+                </Text>
+                <Text>
+                    {t(
+                        'components_modal_chart_delete_belongs_dashboard.content.part_2',
+                    )}
+                </Text>
 
-                <Button color="red" onClick={onConfirm} type="submit">
-                    Delete
-                </Button>
-            </Group>
-        </Stack>
-    </Modal>
-);
+                <Group position="right" spacing="xs">
+                    <Button
+                        variant="outline"
+                        color="dark"
+                        onClick={modalProps.onClose}
+                    >
+                        {t(
+                            'components_modal_chart_delete_belongs_dashboard.cancel',
+                        )}
+                    </Button>
+
+                    <Button color="red" onClick={onConfirm} type="submit">
+                        {t(
+                            'components_modal_chart_delete_belongs_dashboard.delete',
+                        )}
+                    </Button>
+                </Group>
+            </Stack>
+        </Modal>
+    );
+};
 
 export default DeleteChartTileThatBelongsToDashboardModal;

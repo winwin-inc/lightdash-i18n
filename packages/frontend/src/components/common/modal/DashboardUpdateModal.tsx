@@ -11,6 +11,8 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import {
     useDashboardQuery,
     useUpdateDashboard,
@@ -28,6 +30,7 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
     onConfirm,
     ...modalProps
 }) => {
+    const { t } = useTranslation();
     const { data: dashboard, isInitialLoading } = useDashboardQuery(uuid);
     const { mutateAsync, isLoading: isUpdating } = useUpdateDashboard(uuid);
 
@@ -63,22 +66,37 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
 
     return (
         <Modal
-            title={<Title order={4}>Update Dashboard</Title>}
+            title={
+                <Title order={4}>
+                    {t('components_modal_dashboard_update.update_dashboard')}
+                </Title>
+            }
             {...modalProps}
         >
-            <form title="Update Dashboard" onSubmit={handleConfirm}>
+            <form
+                title={t('components_modal_dashboard_update.form.title')}
+                onSubmit={handleConfirm}
+            >
                 <Stack spacing="lg" pt="sm">
                     <TextInput
-                        label="Enter a memorable name for your dashboard"
+                        label={t(
+                            'components_modal_dashboard_update.form.dashboards.label',
+                        )}
                         required
-                        placeholder="eg. KPI Dashboards"
+                        placeholder={t(
+                            'components_modal_dashboard_update.form.dashboards.placeholder',
+                        )}
                         disabled={isUpdating}
                         {...form.getInputProps('name')}
                     />
 
                     <Textarea
-                        label="Description"
-                        placeholder="A few words to give your team some context"
+                        label={t(
+                            'components_modal_dashboard_update.form.description.label',
+                        )}
+                        placeholder={t(
+                            'components_modal_dashboard_update.form.description.placeholder',
+                        )}
                         disabled={isUpdating}
                         autosize
                         maxRows={3}
@@ -87,7 +105,7 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
 
                     <Group position="right" mt="sm">
                         <Button variant="outline" onClick={modalProps.onClose}>
-                            Cancel
+                            {t('components_modal_dashboard_update.form.cancel')}
                         </Button>
 
                         <Button
@@ -95,7 +113,7 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
                             loading={isUpdating}
                             type="submit"
                         >
-                            Save
+                            {t('components_modal_dashboard_update.form.save')}
                         </Button>
                     </Group>
                 </Stack>

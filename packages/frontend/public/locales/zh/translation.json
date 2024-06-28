@@ -1035,6 +1035,25 @@
         "cancel": "取消",
         "delete": "删除"
     },
+    "components_modal_chart_delete_belongs_dashboard": {
+        "delete_chart": "删除图表",
+        "content": {
+            "part_1": "您确定要删除图表",
+            "part_2": "此图表是从看板中创建的,因此删除图块也将导致图表永久删除。"
+        },
+        "cancel": "取消",
+        "delete": "删除"
+    },
+    "components_modal_chart_move_belongs_dashboard": {
+        "content": {
+            "part_1": "您确定要将图表",
+            "part_2": "移动到空间",
+            "part_3": "此图表是从看板创建的,将图表移动到空间后,它将在应用程序的所有图表列表中可用。",
+            "part_4": "此更改无法撤消。"
+        },
+        "cancel": "取消",
+        "move": "移动"
+    },
     "components_modal_dashboard_create": {
         "title": "创建看板",
         "form": {
@@ -1055,6 +1074,62 @@
         },
         "cancel": "取消",
         "create": "创建"
+    },
+    "components_modal_dashboard_delete": {
+        "delete_dashboard": "删除看板",
+        "has_charts": {
+            "part_1": "您确定要删除看板",
+            "part_2": "此操作还将永久删除从中创建的以下图表:"
+        },
+        "no_charts": "您确定要删除看板吗",
+        "cancel": "取消",
+        "delete": "删除"
+    },
+    "components_modal_dashboard_duplicate": {
+        "copy_of": "副本 - ",
+        "duplicate_dashboard": "复制看板",
+        "form": {
+            "title": "复制看板",
+            "dashboards": {
+                "label": "为您的看板输入一个容易记住的名称",
+                "placeholder": "例如: KPI 看板"
+            },
+            "description": {
+                "label": "描述",
+                "placeholder": "几句话为您的团队提供一些背景信息"
+            },
+            "cancel": "取消",
+            "create_duplicate": "创建副本"
+        }
+    },
+    "components_modal_dashboard_export": {
+        "alert": "您的 CSV 导出将包括所选日期缩放粒度的数据。",
+        "tooltip_export": {
+            "label": "以 zip 文件形式导出所有图表的表格结果",
+            "button": "导出 CSV"
+        },
+        "cancel": "取消",
+        "export_dashboard": "导出看板"
+    },
+    "components_modal_dashboard_update": {
+        "update_dashboard": "更新仪看板",
+        "form": {
+            "title": "更新仪看板",
+            "dashboards": {
+                "label": "为您的仪看板输入一个容易记住的名称",
+                "placeholder": "例如: KPI 仪看板"
+            },
+            "description": {
+                "label": "描述",
+                "placeholder": "几句话为您的团队提供一些背景信息"
+            },
+            "cancel": "取消",
+            "save": "保存"
+        }
+    },
+    "components_modal_dashboard_locked": {
+        "part_1": "设置筛选值以开始使用",
+        "part_2": "此看板在未设置所需的筛选值的情况下无法运行"
     },
 
     "components_space_action_modal_common": {
