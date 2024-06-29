@@ -10,7 +10,9 @@ import {
     type FC,
 } from 'react';
 import { type FormState } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import * as rudderSDK from 'rudder-sdk-js';
+
 import {
     PageType,
     type CategoryName,
@@ -341,9 +343,10 @@ export function useTracking<S extends boolean = false>(
     failSilently?: S,
 ): S extends false ? TrackingContext : TrackingContext | undefined {
     const context = useContext(Context);
+    const { t } = useTranslation();
 
     if (context === undefined && failSilently !== true) {
-        throw new Error('useTracking must be used within a TrackingProvider');
+        throw new Error(t('providers_tracking.tracking_used'));
     }
 
     return context;

@@ -1,8 +1,10 @@
 import { type ApiError, type HealthState } from '@lightdash/common';
 import { type UseQueryResult } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { useToggle } from 'react-use';
+
 import useHealth from '../hooks/health/useHealth';
 import useUser, { type UserWithAbility } from '../hooks/user/useUser';
 
@@ -42,9 +44,10 @@ export const AppProvider: FC<React.PropsWithChildren<{}>> = ({ children }) => {
 };
 
 export function useApp(): AppContext {
+    const { t } = useTranslation();
     const context = useContext(AppProviderContext);
     if (context === undefined) {
-        throw new Error('useApp must be used within a AppProvider');
+        throw new Error(t('providers_app.app_used'));
     }
     return context;
 }

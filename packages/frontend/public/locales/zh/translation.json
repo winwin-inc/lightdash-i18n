@@ -31,6 +31,27 @@
         "toast_copied": "链接已复制到剪贴板"
     },
 
+    "providers_active_job": {
+        "toast_refresh_error": "刷新服务器失败",
+        "active_job_used": "必须在 ActiveJobProvider 内部使用 useActiveJob"
+    },
+    "providers_app": {
+        "app_used": "必须在 AppProvider 内部使用 useApp"
+    },
+    "providers_dashboard": {
+        "dashboard_used": "必须在 DashboardProvider 内部使用 useDashboardContext"
+    },
+    "providers_explorer": {
+        "is_exists": "ID: \"{{name}}\" 已经存在。",
+        "explorer_used": "必须在 ExplorerProvider 内部使用 useExplorer"
+    },
+    "providers_pinned_items": {
+        "pinned_items_used": "必须在 PinnedItemsContext 内部使用 usePinnedItemsContext"
+    },
+    "providers_tracking": {
+        "tracking_used": "必须在 TrackingProvider 内部使用 useTracking"
+    },
+
     "features_users": {
         "title": "登录",
         "user_no_auth_tip": "身份验证失败",

@@ -2,6 +2,8 @@ import { subject } from '@casl/ability';
 import { type ApiError, type PinnedItems } from '@lightdash/common';
 import { type UseMutateFunction } from '@tanstack/react-query';
 import React, { createContext, useContext } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useReorder } from '../hooks/pinning/usePinnedItems';
 import { useApp } from './AppProvider';
 
@@ -53,10 +55,9 @@ export const PinnedItemsProvider: React.FC<
 
 export const usePinnedItemsContext = (): PinnedItemsContext => {
     const context = useContext(Context);
+    const { t } = useTranslation();
     if (!context) {
-        throw new Error(
-            'usePinnedItemsContext must be used within a PinnedItemsContext',
-        );
+        throw new Error(t('providers_pinned_items.pinned_items_used'));
     }
     return context;
 };

@@ -17,6 +17,8 @@ import {
     type FC,
     type SetStateAction,
 } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import useToaster from '../hooks/toaster/useToaster';
 import {
     jobStatusLabel,
@@ -39,6 +41,7 @@ const Context = createContext<ContextType>(undefined as any);
 export const ActiveJobProvider: FC<React.PropsWithChildren<{}>> = ({
     children,
 }) => {
+    const { t } = useTranslation();
     const [isJobsDrawerOpen, setIsJobsDrawerOpen] = useState(false);
     const [activeJobId, setActiveJobId] = useState();
     const queryClient = useQueryClient();
@@ -93,7 +96,7 @@ export const ActiveJobProvider: FC<React.PropsWithChildren<{}>> = ({
     const toastJobError = ({ error }: ApiError) => {
         showToastApiError({
             key: TOAST_KEY_FOR_REFRESH_JOB,
-            title: 'Failed to refresh server',
+            title: t('providers_active_job.toast_refresh_error'),
             apiError: error,
         });
     };
@@ -140,9 +143,10 @@ export const ActiveJobProvider: FC<React.PropsWithChildren<{}>> = ({
 };
 
 export function useActiveJob(): ContextType {
+    const { t } = useTranslation();
     const context = useContext(Context);
     if (context === undefined) {
-        throw new Error('useActiveJob must be used within a ActiveJobProvider');
+        throw new Error(t('providers_active_job.active_job_used'));
     }
     return context;
 }

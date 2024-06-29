@@ -31,6 +31,27 @@
         "toast_copied": "Copied to clipboard"
     },
 
+    "providers_active_job": {
+        "toast_refresh_error": "Failed to refresh server",
+        "active_job_used": "useActiveJob must be used within a ActiveJobProvider"
+    },
+    "providers_app": {
+        "app_used": "useApp must be used within a AppProvider"
+    },
+    "providers_dashboard": {
+        "dashboard_used": "useDashboardContext must be used within a DashboardProvider"
+    },
+    "providers_explorer": {
+        "is_exists": "Id: \"{{name}}\" already exists.",
+        "explorer_used": "'useExplorer must be used within a ExplorerProvider"
+    },
+    "providers_pinned_items": {
+        "pinned_items_used": "usePinnedItemsContext must be used within a PinnedItemsContext"
+    },
+    "providers_tracking": {
+        "tracking_used": "useTracking must be used within a TrackingProvider"
+    },
+
     "features_users": {
         "title": "Sign in",
         "user_no_auth_tip": "Failed to authenticate",

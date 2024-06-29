@@ -118,7 +118,7 @@ export const CreateTokenModal: FC<{
                             )}
                             disabled={isLoading}
                             placeholder={t(
-                                'components_user_settings_access_tokens_panel_create_token.form.token_for.description',
+                                'components_user_settings_access_tokens_panel_create_token.form.token_for.placeholder',
                             )}
                             required
                             {...form.getInputProps('description')}

@@ -40,7 +40,9 @@ import {
     useRef,
     type FC,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
+
 import { createContext, useContextSelector } from 'use-context-selector';
 import { EMPTY_CARTESIAN_CHART_CONFIG } from '../hooks/cartesianChartConfig/useCartesianChartConfig';
 import useDefaultSortField from '../hooks/useDefaultSortField';
@@ -1324,6 +1326,7 @@ export const ExplorerProvider: FC<
     children,
     queryResults,
 }) => {
+    const { t } = useTranslation();
     const [reducerState, dispatch] = useReducer(
         reducer,
         initialState || defaultState,
@@ -1583,7 +1586,9 @@ export const ExplorerProvider: FC<
                 ) > -1
             ) {
                 throw new Error(
-                    `Table calculation ID "${tableCalculation.name}" already exists.`,
+                    t('providers_explorer.is_exists', {
+                        name: tableCalculation.name,
+                    }),
                 );
             }
             dispatch({
@@ -1594,7 +1599,7 @@ export const ExplorerProvider: FC<
                 },
             });
         },
-        [unsavedChartVersion],
+        [unsavedChartVersion, t],
     );
     const updateTableCalculation = useCallback(
         (oldName: string, tableCalculation: TableCalculation) => {
@@ -1605,7 +1610,9 @@ export const ExplorerProvider: FC<
                 ) > -1
             ) {
                 throw new Error(
-                    `Id: "${tableCalculation.name}" already exists.`,
+                    t('providers_explorer.is_exists', {
+                        name: tableCalculation.name,
+                    }),
                 );
             }
             dispatch({
@@ -1616,7 +1623,7 @@ export const ExplorerProvider: FC<
                 },
             });
         },
-        [unsavedChartVersion],
+        [unsavedChartVersion, t],
     );
     const deleteTableCalculation = useCallback((name: string) => {
         dispatch({
@@ -1875,11 +1882,10 @@ export const ExplorerProvider: FC<
 export function useExplorerContext<Selected>(
     selector: (value: ExplorerContext) => Selected,
 ) {
+    const { t } = useTranslation();
     return useContextSelector(Context, (context) => {
         if (context === undefined) {
-            throw new Error(
-                'useExplorer must be used within a ExplorerProvider',
-            );
+            throw new Error(t('providers_explorer.explorer_used'));
         }
         return selector(context);
     });

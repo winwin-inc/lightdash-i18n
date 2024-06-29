@@ -24,9 +24,11 @@ import React, {
     type Dispatch,
     type SetStateAction,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation, useParams } from 'react-router-dom';
 import { useMount } from 'react-use';
 import { createContext, useContextSelector } from 'use-context-selector';
+
 import { getConditionalRuleLabel } from '../components/common/Filters/FilterInputs';
 import { hasSavedFilterValueChanged } from '../components/DashboardFilter/FilterConfiguration/utils';
 import {
@@ -661,11 +663,10 @@ export const DashboardProvider: React.FC<
 export function useDashboardContext<Selected>(
     selector: (value: DashboardContext) => Selected,
 ) {
+    const { t } = useTranslation();
     return useContextSelector(Context, (context) => {
         if (context === undefined) {
-            throw new Error(
-                'useDashboardContext must be used within a DashboardProvider',
-            );
+            throw new Error(t('providers_dashboard.dashboard_used'));
         }
         return selector(context);
     });
