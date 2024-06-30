@@ -14,8 +14,13 @@ import {
 import { IconEye, IconEyeClosed } from '@tabler/icons-react';
 import { type UseMutationResult } from '@tanstack/react-query';
 import { useState, type Dispatch, type FC, type SetStateAction } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
-import { CUSTOM_WIDTH_OPTIONS } from '../../scheduler/constants';
+import {
+    useCustomWidthOptions,
+    type CUSTOM_WIDTH_OPTIONS,
+} from '../../scheduler/constants';
 
 type PreviewAndCustomizeScreenshotProps = {
     containerWidth?: number | undefined;
@@ -48,6 +53,8 @@ export const PreviewAndCustomizeScreenshot: FC<
     setPreviewChoice,
     onPreviewClick,
 }) => {
+    const { t } = useTranslation();
+    const customWidthOptions = useCustomWidthOptions();
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
     return (
@@ -58,7 +65,7 @@ export const PreviewAndCustomizeScreenshot: FC<
                 <Flex align="flex-start" justify="space-between">
                     <Radio.Group
                         name="customWidth"
-                        label="Custom width configuration"
+                        label={t('features_preview.custom_width')}
                         defaultValue=""
                         onChange={(value) => {
                             setPreviewChoice(value);
@@ -66,23 +73,27 @@ export const PreviewAndCustomizeScreenshot: FC<
                         value={previewChoice}
                     >
                         <Flex direction="column" gap="sm" pt="sm">
-                            {CUSTOM_WIDTH_OPTIONS.concat(
-                                containerWidth
-                                    ? [
-                                          {
-                                              label: `Current view (${containerWidth}px)`,
-                                              value: containerWidth.toString(),
-                                          },
-                                      ]
-                                    : [],
-                            ).map((option) => (
-                                <Radio
-                                    key={option.value}
-                                    value={option.value}
-                                    label={option.label}
-                                    checked={previewChoice === option.value}
-                                />
-                            ))}
+                            {customWidthOptions
+                                .concat(
+                                    containerWidth
+                                        ? [
+                                              {
+                                                  label: `${t(
+                                                      'features_preview.current_view',
+                                                  )} (${containerWidth}px)`,
+                                                  value: containerWidth.toString(),
+                                              },
+                                          ]
+                                        : [],
+                                )
+                                .map((option) => (
+                                    <Radio
+                                        key={option.value}
+                                        value={option.value}
+                                        label={option.label}
+                                        checked={previewChoice === option.value}
+                                    />
+                                ))}
                         </Flex>
                     </Radio.Group>
 
@@ -121,7 +132,11 @@ export const PreviewAndCustomizeScreenshot: FC<
                                             size={30}
                                         />
 
-                                        <Text>No preview yet</Text>
+                                        <Text>
+                                            {t(
+                                                'features_preview.no_preview_yet',
+                                            )}
+                                        </Text>
                                     </Flex>
                                 }
                             />
@@ -135,7 +150,7 @@ export const PreviewAndCustomizeScreenshot: FC<
                             disabled={!previewChoice}
                             onClick={onPreviewClick}
                         >
-                            Generate preview
+                            {t('features_preview.generate_preview')}
                         </Button>
                     </Stack>
                 </Flex>

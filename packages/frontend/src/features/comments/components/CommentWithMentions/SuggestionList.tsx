@@ -1,6 +1,8 @@
 import { Button, Card, List, Tooltip } from '@mantine/core';
 import { type SuggestionProps } from '@tiptap/suggestion';
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { type SuggestionsItem } from '../../types';
 
 export type SuggestionListRef = {
@@ -11,6 +13,7 @@ export const SuggestionList = forwardRef<
     SuggestionListRef,
     SuggestionProps<SuggestionsItem>
 >((props, ref) => {
+    const { t } = useTranslation();
     const [selectedIndex, setSelectedIndex] = useState(0);
 
     const selectItem = (index: number) => {
@@ -83,7 +86,9 @@ export const SuggestionList = forwardRef<
                     <List.Item key={index} fz="xs">
                         <Tooltip
                             fz="xs"
-                            label="User doesn't have access to this Dashboard's space"
+                            label={t(
+                                'features_comments_components_comment_mentions.tooltip_user.label',
+                            )}
                             disabled={!item.disabled}
                             withinPortal
                             position="right"

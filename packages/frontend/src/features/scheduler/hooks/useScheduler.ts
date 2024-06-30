@@ -15,6 +15,8 @@ import {
     type UseQueryOptions,
 } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { lightdashApi } from '../../../api';
 import useToaster from '../../../hooks/toaster/useToaster';
 
@@ -97,6 +99,8 @@ export const pollJobStatus = async (jobId: string) => {
 
 export const useSendNowScheduler = () => {
     const queryClient = useQueryClient();
+    const { t } = useTranslation();
+
     const {
         showToastError,
         showToastInfo,
@@ -112,7 +116,7 @@ export const useSendNowScheduler = () => {
         (res) => {
             showToastInfo({
                 key: 'toast-info-job-status',
-                title: 'Processing job...',
+                title: t('features_scheduler_hooks.scheduler.processing_job'),
                 loading: true,
                 autoClose: false,
             });
@@ -123,7 +127,9 @@ export const useSendNowScheduler = () => {
             onSuccess: () => {},
             onError: ({ error }) => {
                 showToastApiError({
-                    title: 'Failed to process job',
+                    title: t(
+                        'features_scheduler_hooks.scheduler.failed_to_process_job',
+                    ),
                     apiError: error,
                 });
             },
@@ -160,14 +166,18 @@ export const useSendNowScheduler = () => {
                 if (data) {
                     showToastInfo({
                         key: 'toast-info-job-scheduled-delivery-status',
-                        title: 'Processing Scheduled delivery...',
+                        title: t(
+                            'features_scheduler_hooks.scheduler.process_scheduled_delivery',
+                        ),
                         loading: true,
                         autoClose: false,
                     });
                 }
                 if (data?.status === SchedulerJobStatus.COMPLETED) {
                     showToastSuccess({
-                        title: 'Scheduled delivery sent successfully',
+                        title: t(
+                            'features_scheduler_hooks.scheduler.scheduleed_successfully',
+                        ),
                     });
 
                     return setTimeout(
@@ -180,7 +190,9 @@ export const useSendNowScheduler = () => {
                 }
                 if (data?.status === SchedulerJobStatus.ERROR) {
                     showToastError({
-                        title: 'Failed to send scheduled delivery',
+                        title: t(
+                            'features_scheduler_hooks.scheduler.send_scheduled_delivery_failed',
+                        ),
                         ...(data?.details?.error && {
                             subtitle: data.details.error,
                         }),
@@ -196,7 +208,9 @@ export const useSendNowScheduler = () => {
             },
             onError: async ({ error }) => {
                 showToastApiError({
-                    title: 'Error polling job status',
+                    title: t(
+                        'features_scheduler_hooks.scheduler.polling_job_status_error',
+                    ),
                     apiError: error,
                 });
 

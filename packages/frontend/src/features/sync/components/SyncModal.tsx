@@ -1,7 +1,9 @@
 import { Flex, Modal, Title, type ModalProps } from '@mantine/core';
 import { IconTrash } from '@tabler/icons-react';
 import { useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
+
 import { GSheetsIcon } from '../../../components/common/GSheetsIcon';
 import MantineIcon from '../../../components/common/MantineIcon';
 import { getSchedulerUuidFromUrlParams } from '../../../features/scheduler/utils';
@@ -17,6 +19,7 @@ import { SyncModalView } from './SyncModalView';
 type Props = { chartUuid: string } & Pick<ModalProps, 'opened' | 'onClose'>;
 
 const SyncModalBaseAndManager: FC<Props> = ({ chartUuid, opened, onClose }) => {
+    const { t } = useTranslation();
     const { search, pathname } = useLocation();
     const history = useHistory();
     const { action, setAction, setCurrentSchedulerUuid } = useSyncModal();
@@ -31,17 +34,17 @@ const SyncModalBaseAndManager: FC<Props> = ({ chartUuid, opened, onClose }) => {
         }
     }, [history, pathname, search, setAction, setCurrentSchedulerUuid]);
 
-    let modalTitle = 'Sync with Google Sheets';
+    let modalTitle = t('features_sync.modal.title.sync_with_google_sheets');
     let headerIcon: typeof GSheetsIcon | typeof IconTrash = GSheetsIcon;
     let headerIconColor = 'black';
 
     if (action === SyncModalAction.CREATE) {
-        modalTitle = 'Create a new Sync';
+        modalTitle = t('features_sync.modal.title.create_new_sync');
     } else if (action === SyncModalAction.EDIT) {
-        modalTitle = 'Edit Sync';
+        modalTitle = t('features_sync.modal.title.edit_sync');
     } else if (action === SyncModalAction.DELETE) {
         headerIcon = IconTrash;
-        modalTitle = 'Delete Sync';
+        modalTitle = t('features_sync.modal.title.delete_sync');
         headerIconColor = 'red';
     }
 

@@ -10,6 +10,8 @@ import {
 } from '@mantine/core';
 import { IconTrash } from '@tabler/icons-react';
 import React, { useCallback, useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import ErrorState from '../../../components/common/ErrorState';
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useScheduler } from '../hooks/useScheduler';
@@ -26,8 +28,10 @@ export const SchedulerDeleteModal: FC<DashboardDeleteModalProps> = ({
     onClose,
     opened,
 }) => {
+    const { t } = useTranslation();
     const scheduler = useScheduler(schedulerUuid);
     const mutation = useSchedulersDeleteMutation();
+
     useEffect(() => {
         if (mutation.isSuccess) {
             onConfirm();
@@ -44,7 +48,9 @@ export const SchedulerDeleteModal: FC<DashboardDeleteModalProps> = ({
             title={
                 <Group spacing="xs">
                     <MantineIcon icon={IconTrash} size="lg" color="red" />
-                    <Text fw={600}>Delete scheduled delivery</Text>
+                    <Text fw={600}>
+                        {t('feature_scheduler_delete_modal.title')}
+                    </Text>
                 </Group>
             }
             onClose={onClose}
@@ -56,14 +62,16 @@ export const SchedulerDeleteModal: FC<DashboardDeleteModalProps> = ({
             <Box px="md" py="xl">
                 {scheduler.isInitialLoading ? (
                     <Stack h={300} w="100%" align="center">
-                        <Text fw={600}>Loading schedulers</Text>
+                        <Text fw={600}>
+                            {t('feature_scheduler_delete_modal.content.part_1')}
+                        </Text>
                         <Loader />
                     </Stack>
                 ) : scheduler.isError ? (
                     <ErrorState error={scheduler.error.error} />
                 ) : (
                     <Text span>
-                        Are you sure you want to delete{' '}
+                        {t('feature_scheduler_delete_modal.content.part_2')}{' '}
                         <Text fw={700} span>
                             "{scheduler.data?.name}"
                         </Text>
@@ -79,7 +87,7 @@ export const SchedulerDeleteModal: FC<DashboardDeleteModalProps> = ({
                 })}
             >
                 <Button onClick={onClose} color="dark" variant="outline">
-                    Cancel
+                    {t('feature_scheduler_delete_modal.cancel')}
                 </Button>
                 {scheduler.isSuccess && (
                     <Button
@@ -87,7 +95,7 @@ export const SchedulerDeleteModal: FC<DashboardDeleteModalProps> = ({
                         onClick={handleConfirm}
                         color="red"
                     >
-                        Delete
+                        {t('feature_scheduler_delete_modal.delete')}
                     </Button>
                 )}
             </Group>

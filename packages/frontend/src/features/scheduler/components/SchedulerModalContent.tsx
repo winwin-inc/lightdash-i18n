@@ -12,7 +12,9 @@ import {
     type UseQueryResult,
 } from '@tanstack/react-query';
 import { useCallback, useEffect, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
+
 import ErrorState from '../../../components/common/ErrorState';
 import useUser from '../../../hooks/user/useUser';
 import { useTracking } from '../../../providers/TrackingProvider';
@@ -43,6 +45,8 @@ const ListStateContent: FC<{
     onConfirm,
     onEdit,
 }) => {
+    const { t } = useTranslation();
+
     return (
         <>
             <Box
@@ -58,7 +62,7 @@ const ListStateContent: FC<{
                 />
             </Box>
             <SchedulersModalFooter
-                confirmText="Create new"
+                confirmText={t('features_scheduler_modal_content.create_new')}
                 onConfirm={onConfirm}
                 onCancel={onClose}
             />
@@ -85,6 +89,8 @@ const CreateStateContent: FC<{
     itemsMap,
     onBack,
 }) => {
+    const { t } = useTranslation();
+
     useEffect(() => {
         if (createMutation.isSuccess) {
             createMutation.reset();
@@ -143,7 +149,9 @@ const CreateStateContent: FC<{
                 }
                 onSubmit={handleSubmit}
                 confirmText={
-                    isThresholdAlert ? 'Create alert' : 'Create schedule'
+                    isThresholdAlert
+                        ? t('features_scheduler_modal_content.create_alert')
+                        : t('features_scheduler_modal_content.create_schedule')
                 }
                 onBack={onBack}
                 onSendNow={handleSendNow}
@@ -161,6 +169,7 @@ const UpdateStateContent: FC<{
     onBack: () => void;
     isThresholdAlert?: boolean;
 }> = ({ schedulerUuid, itemsMap, onBack, isThresholdAlert }) => {
+    const { t } = useTranslation();
     const scheduler = useScheduler(schedulerUuid);
 
     const mutation = useSchedulersUpdateMutation(schedulerUuid);
@@ -206,7 +215,11 @@ const UpdateStateContent: FC<{
                 <Box m="xl">
                     {scheduler.isInitialLoading ? (
                         <Stack h={300} w="100%" align="center">
-                            <Text fw={600}>Loading scheduler</Text>
+                            <Text fw={600}>
+                                {t(
+                                    'features_scheduler_modal_content.loading_scheduler',
+                                )}
+                            </Text>
                             <Loader size="lg" />
                         </Stack>
                     ) : scheduler.error ? (

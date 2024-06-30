@@ -1,6 +1,8 @@
 import { friendlyName, type ApiError } from '@lightdash/common';
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { type ComponentProps } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import {
     createMetricFlowQuery,
     getMetricFlowQueryResults,
@@ -37,6 +39,7 @@ const useMetricFlowQueryResults = (
         ApiError
     >,
 ): ApiRequestsState => {
+    const { t } = useTranslation();
     const metricFlowQuery = useQuery<CreateMetricFlowQueryResponse, ApiError>({
         queryKey: ['metric_flow_query', projectUuid, query],
         enabled: !!projectUuid && !!Object.keys(query?.metrics ?? {}).length,
@@ -82,15 +85,18 @@ const useMetricFlowQueryResults = (
 
     if (metricFlowQueryResultsQuery.data?.query.status === QueryStatus.FAILED) {
         let errorMessage =
-            metricFlowQueryResultsQuery.data.query.error || 'Unknown error';
+            metricFlowQueryResultsQuery.data.query.error ||
+            t('features_mertic_flow.hooks.unknown_error');
 
         const requiredDimension = errorMessage.match(
             /group-by-items do not include '(.*)'/,
         );
         if (requiredDimension && requiredDimension[1]) {
-            errorMessage = `The "${friendlyName(
-                requiredDimension[1],
-            )}" dimension is required to calculate metrics values.`;
+            errorMessage = `${t(
+                'features_mertic_flow.hooks.tips.part_1',
+            )} "${friendlyName(requiredDimension[1])}" ${t(
+                'features_mertic_flow.hooks.tips.part_2',
+            )}}`;
         }
 
         return {

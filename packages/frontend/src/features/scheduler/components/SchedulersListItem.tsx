@@ -14,6 +14,8 @@ import {
 } from '@mantine/core';
 import { IconCircleFilled, IconPencil, IconTrash } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useSchedulersEnabledUpdateMutation } from '../hooks/useSchedulersUpdateMutation';
 
@@ -28,8 +30,10 @@ const SchedulersListItem: FC<SchedulersListItemProps> = ({
     onEdit,
     onDelete,
 }) => {
+    const { t } = useTranslation();
     const { mutate: mutateSchedulerEnabled } =
         useSchedulersEnabledUpdateMutation(scheduler.schedulerUuid);
+
     return (
         <Paper p="sm" mb="xs" withBorder sx={{ overflow: 'hidden' }}>
             <Group noWrap position="apart">
@@ -56,7 +60,8 @@ const SchedulersListItem: FC<SchedulersListItemProps> = ({
                         </Box>
 
                         <Text color="gray" size={12}>
-                            {scheduler.targets.length} recipients
+                            {scheduler.targets.length}{' '}
+                            {t('features_scheduler_list_item.recipients')}
                         </Text>
                     </Group>
                 </Stack>
@@ -64,8 +69,12 @@ const SchedulersListItem: FC<SchedulersListItemProps> = ({
                     <Tooltip
                         label={
                             scheduler.enabled
-                                ? 'Toggle off to temporarily pause notifications'
-                                : 'Notifications paused. Toggle on to resume'
+                                ? t(
+                                      'features_scheduler_list_item.tooltip_scheduler.enabled',
+                                  )
+                                : t(
+                                      'features_scheduler_list_item.tooltip_scheduler.disabled',
+                                  )
                         }
                     >
                         <Box>
@@ -80,7 +89,7 @@ const SchedulersListItem: FC<SchedulersListItemProps> = ({
                             />
                         </Box>
                     </Tooltip>
-                    <Tooltip label="Edit">
+                    <Tooltip label={t('features_scheduler_list_item.edit')}>
                         <ActionIcon
                             variant="light"
                             onClick={() => onEdit(scheduler.schedulerUuid)}

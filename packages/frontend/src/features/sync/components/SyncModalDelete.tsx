@@ -1,5 +1,7 @@
 import { Button, Group, Stack, Text } from '@mantine/core';
 import { useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import ErrorState from '../../../components/common/ErrorState';
 import SuboptimalState from '../../../components/common/SuboptimalState/SuboptimalState';
 import { useScheduler } from '../../../features/scheduler/hooks/useScheduler';
@@ -7,6 +9,7 @@ import { useSchedulersDeleteMutation } from '../../../features/scheduler/hooks/u
 import { SyncModalAction, useSyncModal } from '../providers/SyncModalProvider';
 
 export const SyncModalDelete = () => {
+    const { t } = useTranslation();
     const { currentSchedulerUuid, setAction } = useSyncModal();
     const scheduler = useScheduler(currentSchedulerUuid ?? '');
     const {
@@ -27,7 +30,12 @@ export const SyncModalDelete = () => {
     }, [deleteScheduler, currentSchedulerUuid]);
 
     if (scheduler.isInitialLoading) {
-        return <SuboptimalState title="Loading sync" loading />;
+        return (
+            <SuboptimalState
+                title={t('features_sync.modal_delete.loading_sync')}
+                loading
+            />
+        );
     }
 
     if (scheduler.error) {
@@ -37,7 +45,8 @@ export const SyncModalDelete = () => {
     return (
         <Stack spacing="lg">
             <Text>
-                Are you sure you want to delete <b>"{scheduler.data?.name}"</b>?
+                {t('features_sync.modal_delete.content')}{' '}
+                <b>"{scheduler.data?.name}"</b>?
             </Text>
 
             <Group position="apart">
@@ -46,7 +55,7 @@ export const SyncModalDelete = () => {
                     color="dark"
                     onClick={() => setAction(SyncModalAction.VIEW)}
                 >
-                    Cancel
+                    {t('features_sync.modal_delete.cancel')}
                 </Button>
 
                 {scheduler.isSuccess && (
@@ -55,7 +64,7 @@ export const SyncModalDelete = () => {
                         loading={isLoading}
                         onClick={handleConfirm}
                     >
-                        Delete
+                        {t('features_sync.modal_delete.delete')}
                     </Button>
                 )}
             </Group>

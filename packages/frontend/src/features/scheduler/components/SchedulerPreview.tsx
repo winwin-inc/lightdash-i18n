@@ -7,10 +7,12 @@ import {
 import { Group, Stack, Text, Tooltip } from '@mantine/core';
 import { IconInfoCircle } from '@tabler/icons-react';
 import { useCallback, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useExportDashboard } from '../../../hooks/dashboard/useDashboard';
 import { PreviewAndCustomizeScreenshot } from '../../preview';
-import { CUSTOM_WIDTH_OPTIONS } from '../constants';
+import { useCustomWidthOptions } from '../constants';
 
 type Props = {
     dashboard: Dashboard;
@@ -25,10 +27,13 @@ export const SchedulerPreview: FC<Props> = ({
     customViewportWidth,
     onChange,
 }) => {
+    const { t } = useTranslation();
+    const customWidthOptions = useCustomWidthOptions();
+
     const [previews, setPreviews] = useState<Record<string, string>>({});
     const [previewChoice, setPreviewChoice] = useState<
-        typeof CUSTOM_WIDTH_OPTIONS[number]['value'] | undefined
-    >(customViewportWidth?.toString() ?? CUSTOM_WIDTH_OPTIONS[1].value);
+        typeof customWidthOptions[number]['value'] | undefined
+    >(customViewportWidth?.toString() ?? customWidthOptions[1].value);
     const exportDashboardMutation = useExportDashboard();
 
     const getSchedulerFilterOverridesQueryString = useCallback(() => {
@@ -72,15 +77,12 @@ export const SchedulerPreview: FC<Props> = ({
     return (
         <Stack p="md">
             <Group spacing="xs">
-                <Text fw={600}>
-                    Preview your Scheduled Delivery and Customize
-                </Text>
+                <Text fw={600}>{t('features_scheduler_preview.title')}</Text>
                 <Tooltip
                     multiline
                     withinPortal
                     maw={350}
-                    label="You can preview your Scheduled Delivery below. You are also
-                able to customize the size of the Scheduled Delivery to ensure it is sent as expected. The filters you have applied to this scheduled delivery will be applied to the preview."
+                    label={t('features_scheduler_preview.tooltip.label')}
                 >
                     <MantineIcon icon={IconInfoCircle} />
                 </Tooltip>
@@ -93,9 +95,7 @@ export const SchedulerPreview: FC<Props> = ({
                 setPreviewChoice={(pc: string | undefined) => {
                     setPreviewChoice(() => {
                         onChange(
-                            pc === CUSTOM_WIDTH_OPTIONS[1].value
-                                ? undefined
-                                : pc,
+                            pc === customWidthOptions[1].value ? undefined : pc,
                         );
                         return pc;
                     });

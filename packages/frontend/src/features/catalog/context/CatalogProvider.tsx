@@ -11,6 +11,7 @@ import {
     type FC,
     type SetStateAction,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 
 type CatalogContextValues = {
     projectUuid: string;
@@ -61,11 +62,10 @@ export const CatalogProvider: FC<
 };
 
 export const useCatalogContext = () => {
+    const { t } = useTranslation();
     const context = useContext(CatalogContext);
     if (!context) {
-        throw new Error(
-            'useCatalogContext must be used within a CatalogProvider',
-        );
+        throw new Error(t('features_catalog_context.catalog_context_used'));
     }
     return context;
 };

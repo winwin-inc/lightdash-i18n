@@ -3,6 +3,8 @@ import { Loader } from '@mantine/core';
 import { Prism } from '@mantine/prism';
 import { type useQuery } from '@tanstack/react-query';
 import React, { type ComponentProps, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { EmptyState } from '../../../components/common/EmptyState';
 import ErrorState from '../../../components/common/ErrorState';
 import type Table from '../../../components/common/Table';
@@ -14,9 +16,11 @@ interface Props {
 }
 
 const MetricFlowSqlCode: FC<Props> = ({ status, sql, error }) => {
+    const { t } = useTranslation();
+
     if (status === 'loading') {
         return (
-            <EmptyState title="Loading sql">
+            <EmptyState title={t('features_mertic_flow.loading_sql')}>
                 <Loader color="gray" />
             </EmptyState>
         );
@@ -26,7 +30,11 @@ const MetricFlowSqlCode: FC<Props> = ({ status, sql, error }) => {
         return <ErrorState error={error?.error} />;
     }
 
-    return <Prism language="sql">{sql || '# no sql available'}</Prism>;
+    return (
+        <Prism language="sql">
+            {sql || t('features_mertic_flow.no_sql_available')}
+        </Prism>
+    );
 };
 
 export default MetricFlowSqlCode;

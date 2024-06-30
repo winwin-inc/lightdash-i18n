@@ -15,12 +15,14 @@ import {
     Title,
 } from '@mantine/core';
 import { useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
     IconChartAreaLine,
     IconFolder,
     IconLayoutDashboard,
 } from '@tabler/icons-react';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 
 type Props = {
@@ -43,13 +45,16 @@ const PromotionChangesAccordion: FC<{
         deleted: PromotionChange[];
     };
 }> = ({ type, items }) => {
+    const { t } = useTranslation();
+
     return (
         <Accordion variant="contained">
             {items.created.length > 0 && (
                 <Accordion.Item key={`${type}-created`} value={'created'}>
                     <Accordion.Control>
                         <Text size="sm">
-                            To be created ({items.created.length})
+                            {t('feature_promotion.to_be_created')} (
+                            {items.created.length})
                         </Text>
                     </Accordion.Control>
                     <Accordion.Panel>
@@ -69,7 +74,8 @@ const PromotionChangesAccordion: FC<{
                 <Accordion.Item key={`${type}-updated`} value={'updated'}>
                     <Accordion.Control>
                         <Text size="sm">
-                            To be updated ({items.updated.length})
+                            {t('feature_promotion.to_be_updated')} (
+                            {items.updated.length})
                         </Text>
                     </Accordion.Control>
                     <Accordion.Panel>
@@ -88,7 +94,10 @@ const PromotionChangesAccordion: FC<{
             {items.deleted.length > 0 && (
                 <Accordion.Item key={`${type}-deleted`} value={'deleted'}>
                     <Accordion.Control>
-                        <Text size="sm">Deleted {items.deleted.length}</Text>
+                        <Text size="sm">
+                            {t('feature_promotion.deleted')}{' '}
+                            {items.deleted.length}
+                        </Text>
                     </Accordion.Control>
                     <Accordion.Panel>
                         <ul>
@@ -113,6 +122,8 @@ export const PromotionConfirmDialog: FC<Props> = ({
     onConfirm,
     onClose,
 }) => {
+    const { t } = useTranslation();
+
     const { groupedChanges, totalChanges, withoutChanges } = useMemo(() => {
         if (promotionChanges === undefined) return {};
         const changes = {
@@ -185,23 +196,29 @@ export const PromotionConfirmDialog: FC<Props> = ({
     return (
         <Modal
             size="lg"
-            title={<Title order={4}>Promoting {type}</Title>}
+            title={
+                <Title order={4}>
+                    {t('feature_promotion.modal.title')} {type}
+                </Title>
+            }
             opened={true}
             onClose={onClose}
         >
             <Stack spacing="lg" pt="sm">
                 <Text>
-                    Are you sure you want to promote this {type}{' '}
+                    {t('feature_promotion.modal.content.part_1')} {type}{' '}
                     <Text span fw={600}>
                         {resourceName}
                     </Text>
                     ?
                 </Text>
-                These changes will be applied:
+                {t('feature_promotion.modal.content.part_2')}:
                 {groupedChanges === undefined ? (
                     <Flex gap="sm" align="center">
                         <Loader color="gray" size={'sm'} speed={1} />
-                        <Text>Loading differences...</Text>
+                        <Text>
+                            {t('feature_promotion.modal.content.part_3')}
+                        </Text>
                     </Flex>
                 ) : (
                     <Stack>
@@ -212,7 +229,12 @@ export const PromotionConfirmDialog: FC<Props> = ({
                                         icon={IconFolder}
                                         color="violet.8"
                                     />{' '}
-                                    <Text fw={600}>Spaces: </Text>{' '}
+                                    <Text fw={600}>
+                                        {t(
+                                            'feature_promotion.modal.goups.spaces',
+                                        )}
+                                        :{' '}
+                                    </Text>{' '}
                                 </Flex>
                                 <PromotionChangesAccordion
                                     type="spaces"
@@ -229,7 +251,10 @@ export const PromotionConfirmDialog: FC<Props> = ({
                                         color="green.8"
                                     />{' '}
                                     <Text ml={10} fw={600}>
-                                        Dashboards:{' '}
+                                        {t(
+                                            'feature_promotion.modal.goups.dashboards',
+                                        )}
+                                        :{' '}
                                     </Text>{' '}
                                 </Flex>
                                 <PromotionChangesAccordion
@@ -246,7 +271,10 @@ export const PromotionConfirmDialog: FC<Props> = ({
                                         color="blue.7"
                                     />{' '}
                                     <Text ml={10} fw={600}>
-                                        Charts:{' '}
+                                        {t(
+                                            'feature_promotion.modal.goups.charts',
+                                        )}
+                                        :{' '}
                                     </Text>{' '}
                                 </Flex>
                                 <PromotionChangesAccordion
@@ -258,20 +286,19 @@ export const PromotionConfirmDialog: FC<Props> = ({
 
                         {totalChanges === 0 && (
                             <Text color="yellow.9" fw={600}>
-                                No changes to promote
+                                {t('feature_promotion.modal.no_changes')}
                             </Text>
                         )}
                         {totalChanges !== 0 && withoutChanges > 0 && (
                             <Text color="yellow.9" fw={600}>
-                                We only promote content that is more recent in
-                                this project.
+                                {t('feature_promotion.modal.without_changes')}
                             </Text>
                         )}
                     </Stack>
                 )}
                 <Group position="right" mt="sm">
                     <Button color="dark" variant="outline" onClick={onClose}>
-                        Cancel
+                        {t('feature_promotion.modal.cancel')}
                     </Button>
 
                     <Button
@@ -282,7 +309,7 @@ export const PromotionConfirmDialog: FC<Props> = ({
                             onClose();
                         }}
                     >
-                        Promote
+                        {t('feature_promotion.modal.promote')}
                     </Button>
                 </Group>
             </Stack>

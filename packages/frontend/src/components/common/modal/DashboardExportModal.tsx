@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 
 import { PreviewAndCustomizeScreenshot } from '../../../features/preview';
-import { CUSTOM_WIDTH_OPTIONS } from '../../../features/scheduler/constants';
+import { useCustomWidthOptions } from '../../../features/scheduler/constants';
 import {
     useExportCsvDashboard,
     useExportDashboard,
@@ -93,10 +93,12 @@ const ImageExport: FC<Props & Pick<ModalProps, 'onClose'>> = ({
     dashboard,
 }) => {
     const { t } = useTranslation();
+    const customWidthOptions = useCustomWidthOptions();
+
     const [previews, setPreviews] = useState<Record<string, string>>({});
     const [previewChoice, setPreviewChoice] = useState<
-        typeof CUSTOM_WIDTH_OPTIONS[number]['value'] | undefined
-    >(CUSTOM_WIDTH_OPTIONS[1].value);
+        typeof customWidthOptions[number]['value'] | undefined
+    >(customWidthOptions[1].value);
     const location = useLocation();
     const exportDashboardMutation = useExportDashboard();
 

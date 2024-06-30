@@ -75,13 +75,13 @@
             }
         }
     },
-    "features_table_calculation_components_sql_form": {
+    "features_table_calculation_sql_form": {
         "alert": {
             "part_1": "需要灵感?",
             "part_2": "查看我们的模板！"
         }
     },
-    "features_table_calculation_components_modal": {
+    "features_table_calculation_modal": {
         "tips": {
             "invalid": "具有该标签的表计算/维度已存在",
             "error": "保存错误",
@@ -107,90 +107,12 @@
             "save": "保存"
         }
     },
-    "features_table_calculation_components_modal_delete": {
+    "features_table_calculation_modal_delete": {
         "modal": {
             "title": "删除表计算",
             "content": "确实要删除此表计算吗？",
             "cancel": "取消",
             "delete": "删除"
-        }
-    },
-    "features_scheduler_components_scheduler_form": {
-        "threshold_operator_options": {
-            "is_greater_than": "大于",
-            "is_less_than": "小于",
-            "increased_by": "增加了",
-            "decreased_by": "减少了"
-        },
-        "no_slack": {
-            "stpe_1": "未找到 Slack 集成",
-            "part_2": "要创建 Slack 交付计划，您需要",
-            "part_3": "设置 Slack",
-            "part_4": "适用于您的 Lightdash 实例"
-        },
-        "missing_scopes": {
-            "part_1": "需要重新安装 Slack 集成",
-            "part_2": "要创建 Slack 交付计划，您需要",
-            "part_3": "重新安装 Slack 集成",
-            "part_4": "为您的组织"
-        },
-        "validate_tips": {
-            "name": "姓名为必填项",
-            "custom_limit": "自定义限制必须是整数"
-        },
-        "form": {
-            "tabs_list": {
-                "setup": "设置",
-                "filters": "筛选器",
-                "alert_message": "提醒消息",
-                "customization": "定制",
-                "preview_and_size": "预览和尺寸"
-            },
-            "tabs_panel_setup": {
-                "alter_me": "提醒我",
-                "delivery_name": "交付名称",
-                "name_your_alert": "命名您的提醒",
-                "nmae_your_delivery": "命名您的交付",
-                "alert_field": "提醒字段",
-                "no_fields": "没有可用的数字字段。您必须至少有一个数字指标或计算才能设置提醒。",
-                "condition": "条件",
-                "threshold": "阈值",
-                "notify_me_only_once": "只通知我一次",
-                "trigger_notification": "每当达到阈值条件时,您将按指定频率收到通知",
-                "run_frequency": "运行频率",
-                "delivery_frequency": "交付频率",
-                "threshold_alert": "这是Lightdash查询数据变化的频率。(如果满足最新数值的条件,您将收到通知)",
-                "format": "格式",
-                "image_disabled": {
-                    "part_1": "您必须启用",
-                    "part_2": "无头浏览器",
-                    "part_3": "以发送图像"
-                },
-                "include_image_pdf": "同时以PDF附件形式包含图像",
-                "formatting_options": "格式选项",
-                "formatted": "格式化",
-                "raw": "原始",
-                "limit": "限制",
-                "results_in_table": "结果以表格形式显示",
-                "all_results": "全部结果",
-                "custom": "自定义...",
-                "results_are_limited": "每个文件的结果被限制在 {{limit}} 个单元格内",
-                "destinations": "目标",
-                "enter_email_address": "输入电子邮件地址",
-                "enter_email_validation_error": "'{{val}}' 似乎不是有效的电子邮件地址",
-                "no_email_integration": {
-                    "part_1": "未找到电子邮件集成",
-                    "part_2": "要创建电子邮件定期交付, 您需要添加",
-                    "part_3": "SMTP 环境变量",
-                    "part_4": "到您的 Lightdash 实例"
-                },
-                "search_slack_channels": "搜索 Slack 频道",
-                "send_to_private_channel": "发送到私有频道 #{{query}}",
-                "add_slack_disabled": "如果要投放到私有 Slack 频道, 请在输入框中准确输入该频道在 Slack 中的名称。同时确保您已邀请 Lightdash Slackbot 加入该频道。"
-            },
-            "tabs_panel_customization": {
-                "title": "自定义交付消息体"
-            }
         }
     },
 
@@ -360,6 +282,343 @@
         },
         "previewing": "正在预览",
         "use_table": "使用表"
+    },
+    "features_catalog_field_list_item": {
+        "previewing": "预览中",
+        "use_field": "使用字段"
+    },
+    "features_catalog_context": {
+        "catalog_context_used": "必须在 CatalogProvider 内部使用 useCatalogContext"
+    },
+
+    "features_comments_components_comment_mentions": {
+        "add_comment": "添加评论 (输入 @ 可标记某人)",
+        "tooltip_user": {
+            "label": "用户没有权限访问此看板的空间"
+        }
+    },
+    "features_comments_components_comment_detail": {
+        "tooltip_reply": {
+            "label": "回复"
+        },
+        "delete": "删除"
+    },
+    "features_comments_components_comment_form": {
+        "cancel": "取消",
+        "reply": "回复",
+        "add_comment": "添加评论"
+    },
+    "features_comments_components_comment_dashboard_replies": {
+        "reply": "回复",
+        "replies": "回复"
+    },
+
+    "features_date_zoom": {
+        "date_zoom": "日期缩放",
+        "guanularity": "粒度",
+        "default": "默认",
+        "delete_zoom": "删除缩放",
+        "on": "在"
+    },
+
+    "features_error_boundary": {
+        "something_went_wrong": "出现了问题",
+        "tip": {
+            "part_1": "您可以联系支持人员并提供以下错误 ID",
+            "part_2": "错误 ID"
+        }
+    },
+
+    "features_mertic_flow": {
+        "time_granularity": "时间粒度",
+        "sql": "SQL",
+        "open_in_sql_runner": "在 SQL Runner 中打开",
+        "loading_sql": "正在加载 SQL",
+        "no_sql_available": "# 没有可用的 SQL",
+        "hooks": {
+            "unknown_error": "未知错误",
+            "error": {
+                "part_1": "计算指标值需要",
+                "part_2": "维度"
+            }
+        }
+    },
+
+    "features_export": {
+        "no_google_drive": "在没有 Google Drive API 密钥的情况下使用 ExportGsheets",
+        "export_google_sheets": "导出到 Google 表格",
+        "google_sheets": "Google 表格",
+        "toast_info": {
+            "title": "正在导出 Google 表格",
+            "subtitle": "这可能需要几分钟..."
+        },
+        "toast_error": {
+            "upload": "无法上传到 Google 表格",
+            "export": "无法导出到 Google 表格"
+        },
+        "tips": {
+            "create_scheduler": "无法创建 Google 表格导出的调度作业"
+        }
+    },
+
+    "features_preview": {
+        "custom_width": "自定义宽度配置",
+        "current_view": "当前视图",
+        "no_preview_yet": "还没有预览",
+        "generate_preview": "生成预览"
+    },
+
+    "feature_promotion": {
+        "to_be_created": "待创建",
+        "to_be_updated": "待更新",
+        "deleted": "已删除",
+        "modal": {
+            "title": "正在升级",
+            "content": {
+                "part_1": "您确定要升级这个",
+                "part_2": "将应用以下更改：",
+                "part_3": "正在加载差异..."
+            },
+            "groups": {
+                "spaces": "空间",
+                "dashboards": "看板",
+                "charts": "图表"
+            },
+            "no_changes": "没有需要升级的内容",
+            "without_changes": "我们只升级此项目中最新的内容。",
+            "cancel": "取消",
+            "promote": "升级"
+        },
+        "toast_chart_success": {
+            "promoted": "成功！图表已升级。"
+        },
+        "toast_chart_error": {
+            "promote_chart": "升级图表失败",
+            "diff_from_chart": "获取图表差异失败"
+        },
+        "toast_dashboard_success": {
+            "promoted": "成功！看板已升级。"
+        },
+        "toast_dashboard_error": {
+            "promote_dashboard": "升级看板失败",
+            "diff_from_dashboard": "获取看板差异失败"
+        }
+    },
+
+    "feature_scheduler_delete_modal": {
+        "title": "删除已计划的交付",
+        "content": {
+            "part_1": "正在加载调度程序",
+            "part_2": "您确定要删除吗"
+        },
+        "cancel": "取消",
+        "delete": "删除"
+    },
+    "feature_scheduler_filters": {
+        "is_any_value": "任何值",
+        "invalid_filter": "无效的筛选器",
+        "toast_referernce": "尝试引用未知 ID 的字段",
+        "tooltip_filter": {
+            "label": "将筛选器重置为原始状态"
+        },
+        "loading_dashboard_filters": "正在加载仪表板筛选器...",
+        "no_filters": "此仪表板未定义任何筛选器。"
+    },
+    "features_scheduler_form": {
+        "threshold_operator_options": {
+            "is_greater_than": "大于",
+            "is_less_than": "小于",
+            "increased_by": "增加了",
+            "decreased_by": "减少了"
+        },
+        "no_slack": {
+            "stpe_1": "未找到 Slack 集成",
+            "part_2": "要创建 Slack 交付计划，您需要",
+            "part_3": "设置 Slack",
+            "part_4": "适用于您的 Lightdash 实例"
+        },
+        "missing_scopes": {
+            "part_1": "需要重新安装 Slack 集成",
+            "part_2": "要创建 Slack 交付计划，您需要",
+            "part_3": "重新安装 Slack 集成",
+            "part_4": "为您的组织"
+        },
+        "validate_tips": {
+            "name": "姓名为必填项",
+            "custom_limit": "自定义限制必须是整数"
+        },
+        "form": {
+            "tabs_list": {
+                "setup": "设置",
+                "filters": "筛选器",
+                "alert_message": "提醒消息",
+                "customization": "定制",
+                "preview_and_size": "预览和尺寸"
+            },
+            "tabs_panel_setup": {
+                "alter_me": "提醒我",
+                "delivery_name": "交付名称",
+                "name_your_alert": "命名您的提醒",
+                "nmae_your_delivery": "命名您的交付",
+                "alert_field": "提醒字段",
+                "no_fields": "没有可用的数字字段。您必须至少有一个数字指标或计算才能设置提醒。",
+                "condition": "条件",
+                "threshold": "阈值",
+                "notify_me_only_once": "只通知我一次",
+                "trigger_notification": "每当达到阈值条件时,您将按指定频率收到通知",
+                "run_frequency": "运行频率",
+                "delivery_frequency": "交付频率",
+                "threshold_alert": "这是Lightdash查询数据变化的频率。(如果满足最新数值的条件,您将收到通知)",
+                "format": "格式",
+                "image_disabled": {
+                    "part_1": "您必须启用",
+                    "part_2": "无头浏览器",
+                    "part_3": "以发送图像"
+                },
+                "include_image_pdf": "同时以PDF附件形式包含图像",
+                "formatting_options": "格式选项",
+                "formatted": "格式化",
+                "raw": "原始",
+                "limit": "限制",
+                "results_in_table": "结果以表格形式显示",
+                "all_results": "全部结果",
+                "custom": "自定义...",
+                "results_are_limited": "每个文件的结果被限制在 {{limit}} 个单元格内",
+                "destinations": "目标",
+                "enter_email_address": "输入电子邮件地址",
+                "enter_email_validation_error": "'{{val}}' 似乎不是有效的电子邮件地址",
+                "no_email_integration": {
+                    "part_1": "未找到电子邮件集成",
+                    "part_2": "要创建电子邮件定期交付, 您需要添加",
+                    "part_3": "SMTP 环境变量",
+                    "part_4": "到您的 Lightdash 实例"
+                },
+                "search_slack_channels": "搜索 Slack 频道",
+                "send_to_private_channel": "发送到私有频道 #{{query}}",
+                "add_slack_disabled": "如果要投放到私有 Slack 频道, 请在输入框中准确输入该频道在 Slack 中的名称。同时确保您已邀请 Lightdash Slackbot 加入该频道。"
+            },
+            "tabs_panel_customization": {
+                "title": "自定义交付消息体"
+            }
+        }
+    },
+    "features_scheduler_modal": {
+        "alerts": "提醒",
+        "scheduled_deliveries": "已计划的交付"
+    },
+    "features_scheduler_modal_content": {
+        "create_new": "创建新的",
+        "create_alert": "创建提醒",
+        "create_schedule": "创建计划",
+        "loading_scheduler": "正在加载调度程序"
+    },
+    "features_scheduler_modal_footer": {
+        "back": "返回",
+        "cancel": "取消",
+        "send_now": "立即发送"
+    },
+    "features_scheduler_preview": {
+        "title": "预览您的已计划交付并进行定制",
+        "tooltip": {
+            "label": "您可以在下面预览您的已计划交付。您还可以自定义已计划交付的大小,以确保它能按预期发送。您应用于此已计划交付的筛选器将应用于预览。"
+        }
+    },
+    "features_scheduler_list": {
+        "loading_schedulers": "正在加载调度程序",
+        "no_schedulers": {
+            "part_1": "目前没有现有的",
+            "part_2": "提醒",
+            "part_3": "已计划的交付",
+            "part_4": "点击下方的 \"创建新的\" 添加一个"
+        }
+    },
+    "features_scheduler_list_item": {
+        "recipients": "收件人",
+        "tooltip_scheduler": {
+            "enabled": "切换关闭以暂时暂停通知",
+            "disabled": "通知已暂停。切换开启以恢复"
+        },
+        "edit": "编辑"
+    },
+    "features_scheduler_constants": {
+        "tablet": "平板电脑 (1000px)",
+        "laptop_screen": "笔记本电脑屏幕 (1400px)",
+        "external_monitor": "外部显示器 (1500px)",
+        "tv_screen": "电视屏幕 (1600px)"
+    },
+    "features_scheduler_hooks": {
+        "create_chart": {
+            "success": "成功! 已创建已计划的交付。",
+            "error": "创建已计划的交付失败"
+        },
+        "dashboard_schedulers": {
+            "success": "成功! 已创建已计划的交付。",
+            "error": "创建已计划的交付失败"
+        },
+        "scheduler": {
+            "processing_job": "正在处理任务...",
+            "failed_to_process_job": "处理任务失败",
+            "scheduleed_successfully": "已计划的交付发送成功",
+            "process_scheduled_delivery": "正在处理已计划的交付...",
+            "send_scheduled_delivery_failed": "发送已计划的交付失败",
+            "polling_job_status_error": "轮询任务状态时出错"
+        },
+        "delete_mutation": {
+            "success": "成功! 已删除已计划的交付",
+            "error": "删除已计划的交付失败"
+        },
+        "schedules_update_mutation": {
+            "success": "成功! 已更新已计划的交付。",
+            "error": "更新已计划的交付失败"
+        }
+    },
+
+    "features_sync": {
+        "select_google_sheet": "通过 Google 驱动程序选择 Google 表格",
+        "modal": {
+            "title": {
+                "sync_with_google_sheets": "与 Google 表格同步",
+                "create_new_sync": "创建新的同步",
+                "edit_sync": "编辑同步",
+                "delete_sync": "删除同步"
+            }
+        },
+        "modal_delete": {
+            "loading_sync": "正在加载同步",
+            "content": "您确定要删除吗",
+            "cancel": "取消",
+            "delete": "删除"
+        },
+        "form": {
+            "loading_sync": "正在加载同步",
+            "name": {
+                "label": "命名您的同步"
+            },
+            "frequency": {
+                "label": "设置频率"
+            },
+            "cancel": "取消",
+            "save_changes": "保存更改",
+            "sync": "同步"
+        },
+        "modal_view": {
+            "edit": "编辑",
+            "delete": "删除",
+            "tip_create_new": {
+                "part_1": "此图表尚未设置任何同步",
+                "part_2": "单击 \"创建新同步\" 开始将图表数据无缝集成到 Google 表格中"
+            },
+            "user_data_policy": "Google API 服务用户数据政策",
+            "tip_user_data_policy": {
+                "part_1": "Lightdash 使用和传输从 Google API 接收的信息遵守",
+                "part_2": "Google API 服务用户数据政策",
+                "part_3": "，包括有限使用要求。"
+            },
+            "create_new_sync": "创建新的同步"
+        },
+        "modal_provide": {
+            "error": "useSyncWithGoogleSheets 必须在 SyncModalProvider 内使用"
+        }
     },
 
     "components_common_page_header": {

@@ -6,6 +6,8 @@ import {
     IconChevronUp,
 } from '@tabler/icons-react';
 import { useEffect, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useDashboardContext } from '../../../providers/DashboardProvider';
 import { useTracking } from '../../../providers/TrackingProvider';
@@ -16,6 +18,7 @@ type Props = {
 };
 
 export const DateZoom: FC<Props> = ({ isEditMode }) => {
+    const { t } = useTranslation();
     const theme = useMantineTheme();
     const [showOpenIcon, setShowOpenIcon] = useState(false);
 
@@ -63,8 +66,8 @@ export const DateZoom: FC<Props> = ({ isEditMode }) => {
                         />
                     }
                 >
+                    {t('features_date_zoom.date_zoom')}
                     <Text>
-                        Date Zoom
                         {dateZoomGranularity ? `:` : null}{' '}
                         {dateZoomGranularity ? (
                             <Text span fw={500}>
@@ -75,7 +78,9 @@ export const DateZoom: FC<Props> = ({ isEditMode }) => {
                 </Button>
             </Menu.Target>
             <Menu.Dropdown>
-                <Menu.Label fz={10}>Granularity</Menu.Label>
+                <Menu.Label fz={10}>
+                    {t('features_date_zoom.guanularity')}
+                </Menu.Label>
                 <Menu.Item
                     fz="xs"
                     onClick={() => {
@@ -103,7 +108,7 @@ export const DateZoom: FC<Props> = ({ isEditMode }) => {
                         },
                     }}
                 >
-                    Default
+                    {t('features_date_zoom.default')}
                 </Menu.Item>
                 {Object.values(DateGranularity).map((granularity) => (
                     <Menu.Item

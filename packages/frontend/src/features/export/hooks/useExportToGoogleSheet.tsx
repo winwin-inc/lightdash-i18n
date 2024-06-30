@@ -4,6 +4,8 @@ import {
     type ApiError,
     type ApiScheduledDownloadCsv,
 } from '@lightdash/common';
+import { useTranslation } from 'react-i18next';
+
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { getCsvFileUrl } from '../../../api/csv';
@@ -14,6 +16,7 @@ const useExportToGoogleSheetStart = ({
 }: {
     getGsheetLink: () => Promise<ApiScheduledDownloadCsv>;
 }) => {
+    const { t } = useTranslation();
     const { showToastApiError, showToastInfo } = useToaster();
 
     return useMutation<ApiScheduledDownloadCsv | undefined, ApiError>(
@@ -22,8 +25,8 @@ const useExportToGoogleSheetStart = ({
         {
             onMutate: () => {
                 showToastInfo({
-                    title: 'Exporting Google Sheets',
-                    subtitle: 'This may take a few minutes...',
+                    title: t('features_export.toast_info.title'),
+                    subtitle: t('features_export.toast_info.subtitle'),
                     loading: true,
                     key: 'exporting-gsheets',
                     autoClose: false,
@@ -32,7 +35,7 @@ const useExportToGoogleSheetStart = ({
             onError: ({ error }) => {
                 notifications.hide('exporting-gsheets');
                 showToastApiError({
-                    title: `Unable to upload to Google Sheets`,
+                    title: t('features_export.toast_error.upload'),
                     apiError: error,
                 });
             },
@@ -45,6 +48,7 @@ export const useExportToGoogleSheet = ({
 }: {
     getGsheetLink: () => Promise<ApiScheduledDownloadCsv>;
 }) => {
+    const { t } = useTranslation();
     const { showToastApiError } = useToaster();
 
     const exportToGoogleSheetStartMutation = useExportToGoogleSheetStart({
@@ -65,14 +69,14 @@ export const useExportToGoogleSheet = ({
                 ? getCsvFileUrl(startGoogleSheetExportData)
                 : Promise.reject({
                       error: new Error(
-                          "Couldn't create scheduler job for google sheets export",
+                          t('features_export.tips.create_scheduler'),
                       ),
                   }),
         retry: (failureCount, { error }) => {
             if (failureCount === 5) {
                 resetStartGoogleSheetExport();
                 showToastApiError({
-                    title: 'Unable to export to Google Sheets',
+                    title: t('features_export.toast_error.export'),
                     apiError: error,
                 });
                 return false;

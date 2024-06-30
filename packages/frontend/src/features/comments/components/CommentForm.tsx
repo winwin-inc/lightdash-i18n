@@ -3,6 +3,8 @@ import { Avatar, Button, Grid, Group, Stack } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { type Editor, type JSONContent } from '@tiptap/react';
 import { useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useOrganizationUsers } from '../../../hooks/useOrganizationUsers';
 import { useSpace } from '../../../hooks/useSpaces';
 import { useDashboardContext } from '../../../providers/DashboardProvider';
@@ -40,6 +42,7 @@ export const CommentForm: FC<Props> = ({
     onCancel,
     mode = 'new',
 }) => {
+    const { t } = useTranslation();
     const projectUuid = useDashboardContext((c) => c.projectUuid);
     const spaceUuid = useDashboardContext((c) => c.dashboard?.spaceUuid);
     const { data: listUsers, isSuccess } = useOrganizationUsers();
@@ -112,7 +115,9 @@ export const CommentForm: FC<Props> = ({
                             size="xs"
                             onClick={onCancel}
                         >
-                            Cancel
+                            {t(
+                                'features_comments_components_comment_form.cancel',
+                            )}
                         </Button>
                     )}
 
@@ -125,7 +130,13 @@ export const CommentForm: FC<Props> = ({
                         }}
                         type="submit"
                     >
-                        {mode === 'reply' ? 'Reply' : 'Add comment'}
+                        {mode === 'reply'
+                            ? t(
+                                  'features_comments_components_comment_form.reply',
+                              )
+                            : t(
+                                  'features_comments_components_comment_form.add_comment',
+                              )}
                     </Button>
                 </Group>
             </Stack>

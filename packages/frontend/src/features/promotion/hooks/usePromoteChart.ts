@@ -5,6 +5,8 @@ import {
 } from '@lightdash/common';
 import { IconArrowRight } from '@tabler/icons-react';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+
 import { lightdashApi } from '../../../api';
 import useToaster from '../../../hooks/toaster/useToaster';
 
@@ -18,13 +20,15 @@ const promoteChart = async (chartUuid: string): Promise<SavedChart> => {
 
 export const usePromoteMutation = () => {
     const { showToastSuccess, showToastError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<SavedChart, ApiError, string>(
         (data) => promoteChart(data),
         {
             mutationKey: ['promote_chart'],
             onSuccess: (data) => {
                 showToastSuccess({
-                    title: `Success! Chart was promoted.`,
+                    title: t('feature_promotion.toast_chart_success.promoted'),
                     action: {
                         children: 'Open chart',
                         icon: IconArrowRight,
@@ -39,7 +43,9 @@ export const usePromoteMutation = () => {
             },
             onError: (error) => {
                 showToastError({
-                    title: `Failed to promote chart`,
+                    title: t(
+                        'feature_promotion.toast_chart_error.promote_chart',
+                    ),
                     subtitle: error.error.message,
                 });
             },
@@ -59,6 +65,8 @@ const getPromoteChartDiff = async (
 
 export const usePromoteChartDiffMutation = () => {
     const { showToastError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<PromotionChanges, ApiError, string>(
         (data) => getPromoteChartDiff(data),
         {
@@ -68,7 +76,9 @@ export const usePromoteChartDiffMutation = () => {
             },
             onError: (error) => {
                 showToastError({
-                    title: `Failed to get diff from chart`,
+                    title: t(
+                        'feature_promotion.toast_chart_error.diff_from_chart',
+                    ),
                     subtitle: error.error.message,
                 });
             },

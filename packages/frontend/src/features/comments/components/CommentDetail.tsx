@@ -12,6 +12,8 @@ import {
 import { useHover } from '@mantine/hooks';
 import { IconDotsVertical, IconMessage, IconTrash } from '@tabler/icons-react';
 import { useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import { getNameInitials } from '../utils';
 import { CommentTimestamp } from './CommentTimestamp';
@@ -31,6 +33,7 @@ export const CommentDetail: FC<Props> = ({
     canReply,
     onReply,
 }) => {
+    const { t } = useTranslation();
     const { ref, hovered } = useHover();
 
     /**
@@ -61,7 +64,11 @@ export const CommentDetail: FC<Props> = ({
 
                         <Group spacing="two" opacity={hovered ? 1 : 0}>
                             {canReply && onReply && (
-                                <Tooltip label="Reply">
+                                <Tooltip
+                                    label={t(
+                                        'features_comments_components_comment_detail.tooltip_reply.label',
+                                    )}
+                                >
                                     <ActionIcon
                                         size="xs"
                                         onClick={() => onReply()}
@@ -97,7 +104,9 @@ export const CommentDetail: FC<Props> = ({
                                             }
                                             onClick={() => onRemove()}
                                         >
-                                            Delete
+                                            {t(
+                                                'features_comments_components_comment_detail.delete',
+                                            )}
                                         </Menu.Item>
                                     </Menu.Dropdown>
                                 </Menu>

@@ -2,6 +2,8 @@ import { FieldType, getItemId, type CatalogField } from '@lightdash/common';
 import { Badge, Box, Grid, Highlight } from '@mantine/core';
 import { Icon123, IconAbc } from '@tabler/icons-react';
 import React, { useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import MantineLinkButton from '../../../components/common/MantineLinkButton';
 import {
@@ -24,6 +26,7 @@ export const CatalogFieldListItem: FC<React.PropsWithChildren<Props>> = ({
     isSelected = false,
     onClick,
 }) => {
+    const { t } = useTranslation();
     const [hovered, setHovered] = useState<boolean | undefined>(false);
     const { projectUuid } = useCatalogContext();
 
@@ -119,7 +122,9 @@ export const CatalogFieldListItem: FC<React.PropsWithChildren<Props>> = ({
                         {field.description || ''}
                     </Highlight>
                 ) : (
-                    <Badge color="violet">previewing</Badge>
+                    <Badge color="violet">
+                        {t('features_catalog_field_list_item.previewing')}
+                    </Badge>
                 )}
             </Grid.Col>
             {(hovered || isSelected) && (
@@ -143,7 +148,7 @@ export const CatalogFieldListItem: FC<React.PropsWithChildren<Props>> = ({
                         })}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        Use field
+                        {t('features_catalog_field_list_item.use_field')}
                     </MantineLinkButton>
                 </Box>
             )}

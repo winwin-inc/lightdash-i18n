@@ -172,26 +172,18 @@ const SlackErrorContent: FC<{ slackState: SlackStates }> = ({ slackState }) => {
         return (
             <>
                 <Text pb="sm">
-                    {t(
-                        'features_scheduler_components_scheduler_form.no_slack.part_1',
-                    )}
+                    {t('features_scheduler_form.no_slack.part_1')}
                 </Text>
                 <Text>
-                    {t(
-                        'features_scheduler_components_scheduler_form.no_slack.part_2',
-                    )}
+                    {t('features_scheduler_form.no_slack.part_2')}
                     <Anchor
                         target="_blank"
                         href="https://docs.lightdash.com/self-host/customize-deployment/configure-a-slack-app-for-lightdash"
                     >
                         {' '}
-                        {t(
-                            'features_scheduler_components_scheduler_form.no_slack.part_3',
-                        )}{' '}
+                        {t('features_scheduler_form.no_slack.part_3')}{' '}
                     </Anchor>
-                    {t(
-                        'features_scheduler_components_scheduler_form.no_slack.part_4',
-                    )}
+                    {t('features_scheduler_form.no_slack.part_4')}
                 </Text>
             </>
         );
@@ -199,23 +191,17 @@ const SlackErrorContent: FC<{ slackState: SlackStates }> = ({ slackState }) => {
         return (
             <>
                 <Text pb="sm">
-                    {t(
-                        'features_scheduler_components_scheduler_form.missing_scopes.part_1',
-                    )}
+                    {t('features_scheduler_form.missing_scopes.part_1')}
                 </Text>
                 <Text>
-                    {t(
-                        'features_scheduler_components_scheduler_form.missing_scopes.part_2',
-                    )}
+                    {t('features_scheduler_form.missing_scopes.part_2')}
                     <Anchor href="/generalSettings/integrations">
                         {' '}
                         {t(
-                            'features_scheduler_components_scheduler_form.missing_scopes.part_3',
+                            'features_scheduler_form.missing_scopes.part_3',
                         )}{' '}
                     </Anchor>
-                    {t(
-                        'features_scheduler_components_scheduler_form.missing_scopes.part_4',
-                    )}
+                    {t('features_scheduler_form.missing_scopes.part_4')}
                 </Text>
             </>
         );
@@ -256,25 +242,25 @@ const SchedulerForm: FC<Props> = ({
     const thresholdOperatorOptions = [
         {
             label: t(
-                'features_scheduler_components_scheduler_form.threshold_operator_options.is_greater_than',
+                'features_scheduler_form.threshold_operator_options.is_greater_than',
             ),
             value: ThresholdOperator.GREATER_THAN,
         },
         {
             label: t(
-                'features_scheduler_components_scheduler_form.threshold_operator_options.is_less_than',
+                'features_scheduler_form.threshold_operator_options.is_less_than',
             ),
             value: ThresholdOperator.LESS_THAN,
         },
         {
             label: t(
-                'features_scheduler_components_scheduler_form.threshold_operator_options.increased_by',
+                'features_scheduler_form.threshold_operator_options.increased_by',
             ),
             value: ThresholdOperator.INCREASED_BY,
         },
         {
             label: t(
-                'features_scheduler_components_scheduler_form.threshold_operator_options.decreased_by',
+                'features_scheduler_form.threshold_operator_options.decreased_by',
             ),
             value: ThresholdOperator.DECREASED_BY,
         },
@@ -293,16 +279,14 @@ const SchedulerForm: FC<Props> = ({
             name: (value) => {
                 return value.length > 0
                     ? null
-                    : t(
-                          'features_scheduler_components_scheduler_form.validate_tips.name',
-                      );
+                    : t('features_scheduler_form.validate_tips.name');
             },
             options: {
                 customLimit: (value, values) => {
                     return values.options.limit === Limit.CUSTOM &&
                         !Number.isInteger(value)
                         ? t(
-                              'features_scheduler_components_scheduler_form.validate_tips.custom_limit',
+                              'features_scheduler_form.validate_tips.custom_limit',
                           )
                         : null;
                 },
@@ -449,14 +433,12 @@ const SchedulerForm: FC<Props> = ({
             <Tabs defaultValue="setup">
                 <Tabs.List mt="sm" mb={0}>
                     <Tabs.Tab value="setup" ml="md">
-                        {t(
-                            'features_scheduler_components_scheduler_form.form.tabs_list.setup',
-                        )}
+                        {t('features_scheduler_form.form.tabs_list.setup')}
                     </Tabs.Tab>
                     {isDashboard && dashboard ? (
                         <Tabs.Tab value="filters">
                             {t(
-                                'features_scheduler_components_scheduler_form.form.tabs_list.filters',
+                                'features_scheduler_form.form.tabs_list.filters',
                             )}
                         </Tabs.Tab>
                     ) : null}
@@ -466,10 +448,10 @@ const SchedulerForm: FC<Props> = ({
                             <Tabs.Tab value="customization">
                                 {isThresholdAlert
                                     ? t(
-                                          'features_scheduler_components_scheduler_form.form.tabs_list.alert_message',
+                                          'features_scheduler_form.form.tabs_list.alert_message',
                                       )
                                     : t(
-                                          'features_scheduler_components_scheduler_form.form.tabs_list.customization',
+                                          'features_scheduler_form.form.tabs_list.customization',
                                       )}
                             </Tabs.Tab>
                             <Tabs.Tab
@@ -480,7 +462,7 @@ const SchedulerForm: FC<Props> = ({
                                 value="preview"
                             >
                                 {t(
-                                    'features_scheduler_components_scheduler_form.form.tabs_list.preview_and_size',
+                                    'features_scheduler_form.form.tabs_list.preview_and_size',
                                 )}
                             </Tabs.Tab>
                         </>
@@ -500,19 +482,19 @@ const SchedulerForm: FC<Props> = ({
                             label={
                                 isThresholdAlert
                                     ? t(
-                                          'features_scheduler_components_scheduler_form.form.tabs_panel_setup.alter_me',
+                                          'features_scheduler_form.form.tabs_panel_setup.alter_me',
                                       )
                                     : t(
-                                          'features_scheduler_components_scheduler_form.form.tabs_panel_setup.delivery_name',
+                                          'features_scheduler_form.form.tabs_panel_setup.delivery_name',
                                       )
                             }
                             placeholder={
                                 isThresholdAlert
                                     ? t(
-                                          'features_scheduler_components_scheduler_form.form.tabs_panel_setup.name_your_alert',
+                                          'features_scheduler_form.form.tabs_panel_setup.name_your_alert',
                                       )
                                     : t(
-                                          'features_scheduler_components_scheduler_form.form.tabs_panel_setup.nmae_your_delivery',
+                                          'features_scheduler_form.form.tabs_panel_setup.nmae_your_delivery',
                                       )
                             }
                             required
@@ -522,7 +504,7 @@ const SchedulerForm: FC<Props> = ({
                             <Stack spacing="xs">
                                 <FieldSelect
                                     label={t(
-                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.alert_field',
+                                        'features_scheduler_form.form.tabs_panel_setup.alert_field',
                                     )}
                                     required
                                     disabled={isThresholdAlertWithNoFields}
@@ -558,14 +540,14 @@ const SchedulerForm: FC<Props> = ({
                                 {isThresholdAlertWithNoFields && (
                                     <Text color="red" size="xs" mb="sm">
                                         {t(
-                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_fields',
+                                            'features_scheduler_form.form.tabs_panel_setup.no_fields',
                                         )}
                                     </Text>
                                 )}
                                 <Group noWrap grow>
                                     <Select
                                         label={t(
-                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.condition',
+                                            'features_scheduler_form.form.tabs_panel_setup.condition',
                                         )}
                                         data={thresholdOperatorOptions}
                                         {...form.getInputProps(
@@ -574,7 +556,7 @@ const SchedulerForm: FC<Props> = ({
                                     />
                                     <FilterNumberInput
                                         label={t(
-                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.threshold',
+                                            'features_scheduler_form.form.tabs_panel_setup.threshold',
                                         )}
                                         size="sm"
                                         {...form.getInputProps(
@@ -595,7 +577,7 @@ const SchedulerForm: FC<Props> = ({
                                 <Stack spacing="xs" mt="xs">
                                     <Checkbox
                                         label={t(
-                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.notify_me_only_once',
+                                            'features_scheduler_form.form.tabs_panel_setup.notify_me_only_once',
                                         )}
                                         {...{
                                             ...form.getInputProps(
@@ -626,7 +608,7 @@ const SchedulerForm: FC<Props> = ({
                                                 fs="italic"
                                             >
                                                 {t(
-                                                    'features_scheduler_components_scheduler_form.form.tabs_panel_setup.trigger_notification',
+                                                    'features_scheduler_form.form.tabs_panel_setup.trigger_notification',
                                                 )}
                                             </Text>
                                         )}
@@ -637,10 +619,10 @@ const SchedulerForm: FC<Props> = ({
                             label={
                                 isThresholdAlert
                                     ? t(
-                                          'features_scheduler_components_scheduler_form.form.tabs_panel_setup.run_frequency',
+                                          'features_scheduler_form.form.tabs_panel_setup.run_frequency',
                                       )
                                     : t(
-                                          'features_scheduler_components_scheduler_form.form.tabs_panel_setup.delivery_frequency',
+                                          'features_scheduler_form.form.tabs_panel_setup.delivery_frequency',
                                       )
                             }
                         >
@@ -650,7 +632,7 @@ const SchedulerForm: FC<Props> = ({
                                     maw={400}
                                     multiline
                                     label={t(
-                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.threshold_alert',
+                                        'features_scheduler_form.form.tabs_panel_setup.threshold_alert',
                                     )}
                                     position="top"
                                 >
@@ -679,7 +661,7 @@ const SchedulerForm: FC<Props> = ({
                             <Stack spacing={0}>
                                 <Input.Label>
                                     {t(
-                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.format',
+                                        'features_scheduler_form.form.tabs_panel_setup.format',
                                     )}
                                 </Input.Label>
                                 <Group spacing="xs" noWrap>
@@ -707,16 +689,16 @@ const SchedulerForm: FC<Props> = ({
                                             sx={{ alignSelf: 'start' }}
                                         >
                                             {t(
-                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.image_disabled.part_1',
+                                                'features_scheduler_form.form.tabs_panel_setup.image_disabled.part_1',
                                             )}
                                             <Anchor href="https://docs.lightdash.com/self-host/customize-deployment/enable-headless-browser-for-lightdash">
                                                 {' '}
                                                 {t(
-                                                    'features_scheduler_components_scheduler_form.form.tabs_panel_setup.image_disabled.part_2',
+                                                    'features_scheduler_form.form.tabs_panel_setup.image_disabled.part_2',
                                                 )}{' '}
                                             </Anchor>
                                             {t(
-                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.image_disabled.part_3',
+                                                'features_scheduler_form.form.tabs_panel_setup.image_disabled.part_3',
                                             )}
                                         </Text>
                                     )}
@@ -727,7 +709,7 @@ const SchedulerForm: FC<Props> = ({
                                     <Checkbox
                                         h={26}
                                         label={t(
-                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.include_image_pdf',
+                                            'features_scheduler_form.form.tabs_panel_setup.include_image_pdf',
                                         )}
                                         labelPosition="left"
                                         {...form.getInputProps(
@@ -764,7 +746,7 @@ const SchedulerForm: FC<Props> = ({
                                             }
                                         >
                                             {t(
-                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.formatting_options',
+                                                'features_scheduler_form.form.tabs_panel_setup.formatting_options',
                                             )}
                                         </Button>
                                         <Collapse in={showFormatting} pl="md">
@@ -781,7 +763,7 @@ const SchedulerForm: FC<Props> = ({
                                                     >
                                                         <Radio
                                                             label={t(
-                                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.formatted',
+                                                                'features_scheduler_form.form.tabs_panel_setup.formatted',
                                                             )}
                                                             value={
                                                                 Values.FORMATTED
@@ -789,7 +771,7 @@ const SchedulerForm: FC<Props> = ({
                                                         />
                                                         <Radio
                                                             label={t(
-                                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.raw',
+                                                                'features_scheduler_form.form.tabs_panel_setup.raw',
                                                             )}
                                                             value={Values.RAW}
                                                         />
@@ -798,7 +780,7 @@ const SchedulerForm: FC<Props> = ({
                                                 <Stack spacing="xs">
                                                     <Radio.Group
                                                         label={t(
-                                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.limit',
+                                                            'features_scheduler_form.form.tabs_panel_setup.limit',
                                                         )}
                                                         {...form.getInputProps(
                                                             'options.limit',
@@ -810,7 +792,7 @@ const SchedulerForm: FC<Props> = ({
                                                         >
                                                             <Radio
                                                                 label={t(
-                                                                    'features_scheduler_components_scheduler_form.form.tabs_panel_setup.results_in_table',
+                                                                    'features_scheduler_form.form.tabs_panel_setup.results_in_table',
                                                                 )}
                                                                 value={
                                                                     Limit.TABLE
@@ -818,7 +800,7 @@ const SchedulerForm: FC<Props> = ({
                                                             />
                                                             <Radio
                                                                 label={t(
-                                                                    'features_scheduler_components_scheduler_form.form.tabs_panel_setup.all_results',
+                                                                    'features_scheduler_form.form.tabs_panel_setup.all_results',
                                                                 )}
                                                                 value={
                                                                     Limit.ALL
@@ -826,7 +808,7 @@ const SchedulerForm: FC<Props> = ({
                                                             />
                                                             <Radio
                                                                 label={t(
-                                                                    'features_scheduler_components_scheduler_form.form.tabs_panel_setup.custom',
+                                                                    'features_scheduler_form.form.tabs_panel_setup.custom',
                                                                 )}
                                                                 value={
                                                                     Limit.CUSTOM
@@ -853,7 +835,7 @@ const SchedulerForm: FC<Props> = ({
                                                             Limit.CUSTOM) && (
                                                         <i>
                                                             {t(
-                                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.results_are_limited',
+                                                                'features_scheduler_form.form.tabs_panel_setup.results_are_limited',
                                                                 {
                                                                     limit: Number(
                                                                         health
@@ -876,7 +858,7 @@ const SchedulerForm: FC<Props> = ({
 
                         <Input.Wrapper
                             label={t(
-                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.destinations',
+                                'features_scheduler_form.form.tabs_panel_setup.destinations',
                             )}
                         >
                             <Stack mt="sm">
@@ -901,7 +883,7 @@ const SchedulerForm: FC<Props> = ({
                                                         null
                                                     }
                                                     placeholder={t(
-                                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.enter_email_address',
+                                                        'features_scheduler_form.form.tabs_panel_setup.enter_email_address',
                                                     )}
                                                     disabled={
                                                         isAddEmailDisabled
@@ -922,7 +904,7 @@ const SchedulerForm: FC<Props> = ({
                                                     onValidationReject={(val) =>
                                                         setEmailValidationError(
                                                             t(
-                                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.enter_email_validation_error',
+                                                                'features_scheduler_form.form.tabs_panel_setup.enter_email_validation_error',
                                                                 {
                                                                     val,
                                                                 },
@@ -945,12 +927,12 @@ const SchedulerForm: FC<Props> = ({
                                             <>
                                                 <Text pb="sm">
                                                     {t(
-                                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.part_1',
+                                                        'features_scheduler_form.form.tabs_panel_setup.no_email_integration.part_1',
                                                     )}
                                                 </Text>
                                                 <Text>
                                                     {t(
-                                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.part_2',
+                                                        'features_scheduler_form.form.tabs_panel_setup.no_email_integration.part_2',
                                                     )}
                                                     <Anchor
                                                         target="_blank"
@@ -958,11 +940,11 @@ const SchedulerForm: FC<Props> = ({
                                                     >
                                                         {' '}
                                                         {t(
-                                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.part_3',
+                                                            'features_scheduler_form.form.tabs_panel_setup.no_email_integration.part_3',
                                                         )}{' '}
                                                     </Anchor>
                                                     {t(
-                                                        'features_scheduler_components_scheduler_form.form.tabs_panel_setup.no_email_integration.part_4',
+                                                        'features_scheduler_form.form.tabs_panel_setup.no_email_integration.part_4',
                                                     )}
                                                 </Text>
                                             </>
@@ -988,7 +970,7 @@ const SchedulerForm: FC<Props> = ({
                                                 <Box w="100%">
                                                     <MultiSelect
                                                         placeholder={t(
-                                                            'features_scheduler_components_scheduler_form.form.tabs_panel_setup.search_slack_channels',
+                                                            'features_scheduler_form.form.tabs_panel_setup.search_slack_channels',
                                                         )}
                                                         data={slackChannels}
                                                         searchable
@@ -1010,7 +992,7 @@ const SchedulerForm: FC<Props> = ({
                                                             query,
                                                         ) =>
                                                             t(
-                                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.send_to_private_channel',
+                                                                'features_scheduler_form.form.tabs_panel_setup.send_to_private_channel',
                                                                 {
                                                                     query,
                                                                 },
@@ -1048,7 +1030,7 @@ const SchedulerForm: FC<Props> = ({
                                     {!isAddSlackDisabled && (
                                         <Text size="xs" color="gray.6" ml="3xl">
                                             {t(
-                                                'features_scheduler_components_scheduler_form.form.tabs_panel_setup.add_slack_disabled',
+                                                'features_scheduler_form.form.tabs_panel_setup.add_slack_disabled',
                                             )}
                                         </Text>
                                     )}
@@ -1074,7 +1056,7 @@ const SchedulerForm: FC<Props> = ({
                     <Stack p="md">
                         <Text fw={600}>
                             {t(
-                                'features_scheduler_components_scheduler_form.form.tabs_panel_customization.title',
+                                'features_scheduler_form.form.tabs_panel_customization.title',
                             )}
                         </Text>
 

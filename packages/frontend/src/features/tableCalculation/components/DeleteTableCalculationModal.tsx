@@ -41,29 +41,25 @@ export const DeleteTableCalculationModal: FC<Props> = ({
             opened
             title={
                 <Title order={4}>
-                    {t(
-                        'features_table_calculation_components_modal_delete.modal.title',
-                    )}
+                    {t('features_table_calculation_modal_delete.modal.title')}
                 </Title>
             }
             onClose={onClose}
         >
             <Stack spacing="lg" pt="sm">
                 <Text>
-                    {t(
-                        'features_table_calculation_components_modal_delete.modal.content',
-                    )}
+                    {t('features_table_calculation_modal_delete.modal.content')}
                 </Text>
 
                 <Group position="right" mt="sm">
                     <Button variant="outline" color="dark" onClick={onClose}>
                         {t(
-                            'features_table_calculation_components_modal_delete.modal.cancel',
+                            'features_table_calculation_modal_delete.modal.cancel',
                         )}
                     </Button>
                     <Button color="red" onClick={onConfirm}>
                         {t(
-                            'features_table_calculation_components_modal_delete.modal.delete',
+                            'features_table_calculation_modal_delete.modal.delete',
                         )}
                     </Button>
                 </Group>

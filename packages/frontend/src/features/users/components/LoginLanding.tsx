@@ -49,7 +49,7 @@ const Login: FC<{}> = () => {
     useEffect(() => {
         if (flashMessages.data?.error) {
             showToastError({
-                title: t('Failed to authenticate.user_no_auth_tip'),
+                title: t('features_users.user_no_auth_tip'),
                 subtitle: flashMessages.data.error.join('\n'),
             });
         }
@@ -99,7 +99,7 @@ const Login: FC<{}> = () => {
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: t('Failed to authenticate.user_no_login_tip'),
+                title: t('features_users.user_no_login_tip'),
                 apiError: error,
             });
         },

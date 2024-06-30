@@ -5,6 +5,8 @@ import {
 } from '@lightdash/common';
 import { IconArrowRight } from '@tabler/icons-react';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+
 import { lightdashApi } from '../../../api';
 import useToaster from '../../../hooks/toaster/useToaster';
 
@@ -17,14 +19,18 @@ const promoteDashboard = async (dashboardUuid: string): Promise<Dashboard> => {
 };
 
 export const usePromoteDashboardMutation = () => {
+    const { t } = useTranslation();
     const { showToastSuccess, showToastError } = useToaster();
+
     return useMutation<Dashboard, ApiError, string>(
         (data) => promoteDashboard(data),
         {
             mutationKey: ['promote_dashboard'],
             onSuccess: (data) => {
                 showToastSuccess({
-                    title: `Success! Dashboard was promoted.`,
+                    title: t(
+                        'feature_promotion.toast_dashboard_success.promoted',
+                    ),
                     action: {
                         children: 'Open dashboard',
                         icon: IconArrowRight,
@@ -39,7 +45,9 @@ export const usePromoteDashboardMutation = () => {
             },
             onError: (error) => {
                 showToastError({
-                    title: `Failed to promote dashboard`,
+                    title: t(
+                        'feature_promotion.toast_dashboard_error.promote_dashboard',
+                    ),
                     subtitle: error.error.message,
                 });
             },
@@ -59,6 +67,8 @@ const getPromoteDashboardDiff = async (
 
 export const usePromoteDashboardDiffMutation = () => {
     const { showToastError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<PromotionChanges, ApiError, string>(
         (data) => getPromoteDashboardDiff(data),
         {
@@ -68,7 +78,9 @@ export const usePromoteDashboardDiffMutation = () => {
             },
             onError: (error) => {
                 showToastError({
-                    title: `Failed to get diff from dashboard`,
+                    title: t(
+                        'feature_promotion.toast_dashboard_error.diff_from_dashboard',
+                    ),
                     subtitle: error.error.message,
                 });
             },

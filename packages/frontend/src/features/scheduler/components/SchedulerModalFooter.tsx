@@ -1,6 +1,8 @@
 import { Box, Button, Group } from '@mantine/core';
 import { IconChevronLeft, IconSend } from '@tabler/icons-react';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 
 interface FooterProps {
@@ -24,6 +26,8 @@ const SchedulersModalFooter = ({
     onConfirm,
     loading,
 }: FooterProps) => {
+    const { t } = useTranslation();
+
     return (
         <Group
             position="apart"
@@ -42,7 +46,7 @@ const SchedulersModalFooter = ({
                     variant="subtle"
                     leftIcon={<MantineIcon icon={IconChevronLeft} />}
                 >
-                    Back
+                    {t('features_scheduler_modal_footer.back')}
                 </Button>
             ) : (
                 <Box />
@@ -50,7 +54,7 @@ const SchedulersModalFooter = ({
             <Group>
                 {!!onCancel && (
                     <Button onClick={onCancel} variant="outline">
-                        Cancel
+                        {t('features_scheduler_modal_footer.cancel')}
                     </Button>
                 )}
                 {!!onSendNow && (
@@ -60,7 +64,7 @@ const SchedulersModalFooter = ({
                         onClick={onSendNow}
                         disabled={loading || !canSendNow}
                     >
-                        Send now
+                        {t('features_scheduler_modal_footer.send_now')}
                     </Button>
                 )}
                 {!!confirmText && (

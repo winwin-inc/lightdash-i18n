@@ -6,6 +6,8 @@ import {
 import { Loader, Stack, Text, Title } from '@mantine/core';
 import { type UseQueryResult } from '@tanstack/react-query';
 import React, { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import ErrorState from '../../../components/common/ErrorState';
 import { SchedulerDeleteModal } from './SchedulerDeleteModal';
 import SchedulersListItem from './SchedulersListItem';
@@ -21,6 +23,7 @@ const SchedulersList: FC<Props> = ({
     onEdit,
     isThresholdAlertList,
 }) => {
+    const { t } = useTranslation();
     const { data: schedulers, isInitialLoading, error } = schedulersQuery;
     const [schedulerUuid, setSchedulerUuid] = useState<string>();
 
@@ -42,7 +45,9 @@ const SchedulersList: FC<Props> = ({
     if (isInitialLoading) {
         return (
             <Stack h={300} w="100%" align="center">
-                <Text fw={600}>Loading schedulers</Text>
+                <Text fw={600}>
+                    {t('features_scheduler_list.loading_schedulers')}
+                </Text>
                 <Loader size="lg" />
             </Stack>
         );
@@ -57,12 +62,14 @@ const SchedulersList: FC<Props> = ({
         return (
             <Stack color="gray" align="center" mt="xxl">
                 <Title order={4} color="gray.6">
-                    {`There are no existing ${
-                        isThresholdAlertList ? 'alerts' : 'scheduled deliveries'
+                    {`${t('features_scheduler_list.no_schedulers.part_1')} ${
+                        isThresholdAlertList
+                            ? t('features_scheduler_list.no_schedulers.part_2')
+                            : t('features_scheduler_list.no_schedulers.part_3')
                     }`}
                 </Title>
                 <Text color="gray.6">
-                    Add one by clicking on "Create new" below
+                    {t('features_scheduler_list.no_schedulers.part_4')}
                 </Text>
             </Stack>
         );

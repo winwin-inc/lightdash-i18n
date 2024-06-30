@@ -75,13 +75,13 @@
             }
         }
     },
-    "features_table_calculation_components_sql_form": {
+    "features_table_calculation_sql_form": {
         "alert": {
             "part_1": "Need inspiration?",
             "part_2": "Check out our templates!"
         }
     },
-    "features_table_calculation_components_modal": {
+    "features_table_calculation_modal": {
         "tips": {
             "invalid": "Table calculation/Dimension with this label already exists",
             "error": "Error saving",
@@ -107,90 +107,12 @@
             "save": "Save"
         }
     },
-    "features_table_calculation_components_modal_delete": {
+    "features_table_calculation_modal_delete": {
         "modal": {
             "title": "Delete Table Calculation",
             "content": "Are you sure you want to delete this table calculation?",
             "cancel": "Cancel",
             "delete": "Delete"
-        }
-    },
-    "features_scheduler_components_scheduler_form": {
-        "threshold_operator_options": {
-            "is_greater_than": "is greater than",
-            "is_less_than": "is less than",
-            "increased_by": "increased by",
-            "decreased_by": "decreased by"
-        },
-        "no_slack": {
-            "stpe_1": "No Slack integration found",
-            "part_2": "To create a slack scheduled delivery, you need to",
-            "part_3": "setup Slack",
-            "part_4": "for your Lightdash instance"
-        },
-        "missing_scopes": {
-            "part_1": "Slack integration needs to be reinstalled",
-            "part_2": "To create a slack scheduled delivery, you need to",
-            "part_3": "reinstall the Slack integration",
-            "part_4": "for your organization"
-        },
-        "validate_tips": {
-            "name": "Name is required",
-            "custom_limit": "Custom limit must be an integer"
-        },
-        "form": {
-            "tabs_list": {
-                "setup": "Setup",
-                "filters": "Filters",
-                "alert_message": "Alert message",
-                "customization": "Customization",
-                "preview_and_size": "Preview and size"
-            },
-            "tabs_panel_setup": {
-                "alter_me": "Alert me",
-                "delivery_name": "Delivery name",
-                "name_your_alert": "Name your alert",
-                "nmae_your_delivery": "Name your delivery",
-                "alert_field": "Alert field",
-                "no_fields": "No numeric fields available. You must have at least one numeric metric or calculation to set an alert.",
-                "condition": "Condition",
-                "threshold": "Threshold",
-                "notify_me_only_once": "Notify me only once",
-                "trigger_notification": "You will be notified at the specified frequency whenever the threshold conditions are met",
-                "run_frequency": "Run frequency",
-                "delivery_frequency": "Delivery frequency",
-                "threshold_alert": " This is the frequency at which Lightdash runs a query to check your data for changes. (You will be notified if the conditions on the latest value are met) ",
-                "format": "Format",
-                "image_disabled": {
-                    "part_1": "You must enable the",
-                    "part_2": "headless browser",
-                    "part_3": "to send images"
-                },
-                "include_image_pdf": "Also include image as PDF attachment",
-                "formatting_options": "Formatting options",
-                "formatted": "Formatted",
-                "raw": "Raw",
-                "limit": "Limit",
-                "results_in_table": "Results in table",
-                "all_results": "All results",
-                "custom": "Custom...",
-                "results_are_limited": "Results are limited to {{limit}} cells for each file",
-                "destinations": "Destinations",
-                "enter_email_address": "Enter email addresses",
-                "enter_email_validation_error": "'{{val}}' doesn't appear to be an email address",
-                "no_email_integration": {
-                    "part_1": "No Email integration found",
-                    "part_2": "To create an email scheduled delivery, you need to add",
-                    "part_3": "SMTP environment variables",
-                    "part_4": "for your Lightdash instance"
-                },
-                "search_slack_channels": "Search Slack channels",
-                "send_to_private_channel": "Send to private channel #{{query}}",
-                "add_slack_disabled": "If delivering to a private Slack channel, please type the name of the channel in the input box exactly as it appears in Slack. Also ensure you invite the Lightdash Slackbot into that channel."
-            },
-            "tabs_panel_customization": {
-                "title": "Customize delivery message body"
-            }
         }
     },
 
@@ -360,6 +282,343 @@
         },
         "previewing": "previewing",
         "use_table": "Use table"
+    },
+    "features_catalog_field_list_item": {
+        "previewing": "prevziewing",
+        "use_field": "Use field"
+    },
+    "features_catalog_context": {
+        "catalog_context_used": "useCatalogContext must be used within a CatalogProvider"
+    },
+
+    "features_comments_components_comment_mentions": {
+        "add_comment": "Add comment (type @ to tag someone)",
+        "tooltip_user": {
+            "label": "User doesn't have access to this Dashboard's space"
+        }
+    },
+    "features_comments_components_comment_detail": {
+        "tooltip_reply": {
+            "label": "Reply"
+        },
+        "delete": "Delete"
+    },
+    "features_comments_components_comment_form": {
+        "cancel": "Cancel",
+        "reply": "Reply",
+        "add_comment": "Add comment"
+    },
+    "features_comments_components_comment_dashboard_replies": {
+        "reply": "reply",
+        "replies": "replies"
+    },
+
+    "features_date_zoom": {
+        "date_zoom": "Date zoom",
+        "guanularity": "Granularity",
+        "default": "Default",
+        "delete_zoom": "Delete zoom",
+        "on": "On"
+    },
+
+    "features_error_boundary": {
+        "something_went_wrong": "Something went wrong",
+        "tip": {
+            "part_1": "You can contact support with the following error ID",
+            "part_2": "Error ID"
+        }
+    },
+
+    "features_mertic_flow": {
+        "time_granularity": "Time granularity",
+        "sql": "SQL",
+        "open_in_sql_runner": "Open in SQL Runner",
+        "loading_sql": "Loading SQL",
+        "no_sql_available": "# no sql available",
+        "hooks": {
+            "unknown_error": "Unknown error",
+            "error": {
+                "part_1": "The",
+                "part_2": "dimension is required to calculate metrics values."
+            }
+        }
+    },
+
+    "features_export": {
+        "no_google_drive": "Using ExportGsheets without Google Drive API keys",
+        "export_google_sheets": "Export to Google Sheets",
+        "google_sheets": "Google Sheets",
+        "toast_info": {
+            "title": "Exporting Google Sheets",
+            "subtitle": "This may take a few minutes..."
+        },
+        "toast_error": {
+            "upload": "Unable to upload to Google Sheets",
+            "export": "Unable to export to Google Sheets"
+        },
+        "tips": {
+            "create_scheduler": "Couldn't create scheduler job for google sheets export"
+        }
+    },
+
+    "features_preview": {
+        "custom_width": "Custom width configuration",
+        "current_view": "Current view",
+        "no_preview_yet": "No preview yet",
+        "generate_preview": "Generate preview"
+    },
+
+    "feature_promotion": {
+        "to_be_created": "To be created",
+        "to_be_updated": "To be updated",
+        "deleted": "Deleted",
+        "modal": {
+            "title": "Promoting",
+            "content": {
+                "part_1": "Are you sure you want to promote this",
+                "part_2": "These changes will be applied:",
+                "part_3": "Loading differences..."
+            },
+            "groups": {
+                "spaces": "Spaces",
+                "dashboards": "Dashboards",
+                "charts": "Charts"
+            },
+            "no_changes": "No changes to promote",
+            "without_changes": "We only promote content that is more recent in this project.",
+            "cancel": "Cancel",
+            "promote": "Promote"
+        },
+        "toast_chart_success": {
+            "promoted": "Success! Chart was promoted."
+        },
+        "toast_chart_error": {
+            "promote_chart": "Failed to promote chart",
+            "diff_from_chart": "Failed to get diff from chart"
+        },
+        "toast_dashboard_success": {
+            "promoted": "Success! Dashboard was promoted."
+        },
+        "toast_dashboard_error": {
+            "promote_dashboard": "Failed to promote dashboard",
+            "diff_from_dashboard": "Failed to get diff from dashboard"
+        }
+    },
+
+    "feature_scheduler_delete_modal": {
+        "title": "Delete scheduled delivery",
+        "content": {
+            "part_1": "Loading schedulers",
+            "part_2": "Are you sure you want to delete"
+        },
+        "cancel": "Cancel",
+        "delete": "Delete"
+    },
+    "feature_scheduler_filters": {
+        "is_any_value": "is any value",
+        "invalid_filter": "Invalid filter",
+        "toast_referernce": "Tried to reference field with unknown id",
+        "tooltip_filter": {
+            "label": "Reset filter back to original"
+        },
+        "loading_dashboard_filters": "Loading dashboard filters...",
+        "no_filters": "No filters defined for this dashboard."
+    },
+    "features_scheduler_form": {
+        "threshold_operator_options": {
+            "is_greater_than": "is greater than",
+            "is_less_than": "is less than",
+            "increased_by": "increased by",
+            "decreased_by": "decreased by"
+        },
+        "no_slack": {
+            "stpe_1": "No Slack integration found",
+            "part_2": "To create a slack scheduled delivery, you need to",
+            "part_3": "setup Slack",
+            "part_4": "for your Lightdash instance"
+        },
+        "missing_scopes": {
+            "part_1": "Slack integration needs to be reinstalled",
+            "part_2": "To create a slack scheduled delivery, you need to",
+            "part_3": "reinstall the Slack integration",
+            "part_4": "for your organization"
+        },
+        "validate_tips": {
+            "name": "Name is required",
+            "custom_limit": "Custom limit must be an integer"
+        },
+        "form": {
+            "tabs_list": {
+                "setup": "Setup",
+                "filters": "Filters",
+                "alert_message": "Alert message",
+                "customization": "Customization",
+                "preview_and_size": "Preview and size"
+            },
+            "tabs_panel_setup": {
+                "alter_me": "Alert me",
+                "delivery_name": "Delivery name",
+                "name_your_alert": "Name your alert",
+                "nmae_your_delivery": "Name your delivery",
+                "alert_field": "Alert field",
+                "no_fields": "No numeric fields available. You must have at least one numeric metric or calculation to set an alert.",
+                "condition": "Condition",
+                "threshold": "Threshold",
+                "notify_me_only_once": "Notify me only once",
+                "trigger_notification": "You will be notified at the specified frequency whenever the threshold conditions are met",
+                "run_frequency": "Run frequency",
+                "delivery_frequency": "Delivery frequency",
+                "threshold_alert": " This is the frequency at which Lightdash runs a query to check your data for changes. (You will be notified if the conditions on the latest value are met) ",
+                "format": "Format",
+                "image_disabled": {
+                    "part_1": "You must enable the",
+                    "part_2": "headless browser",
+                    "part_3": "to send images"
+                },
+                "include_image_pdf": "Also include image as PDF attachment",
+                "formatting_options": "Formatting options",
+                "formatted": "Formatted",
+                "raw": "Raw",
+                "limit": "Limit",
+                "results_in_table": "Results in table",
+                "all_results": "All results",
+                "custom": "Custom...",
+                "results_are_limited": "Results are limited to {{limit}} cells for each file",
+                "destinations": "Destinations",
+                "enter_email_address": "Enter email addresses",
+                "enter_email_validation_error": "'{{val}}' doesn't appear to be an email address",
+                "no_email_integration": {
+                    "part_1": "No Email integration found",
+                    "part_2": "To create an email scheduled delivery, you need to add",
+                    "part_3": "SMTP environment variables",
+                    "part_4": "for your Lightdash instance"
+                },
+                "search_slack_channels": "Search Slack channels",
+                "send_to_private_channel": "Send to private channel #{{query}}",
+                "add_slack_disabled": "If delivering to a private Slack channel, please type the name of the channel in the input box exactly as it appears in Slack. Also ensure you invite the Lightdash Slackbot into that channel."
+            },
+            "tabs_panel_customization": {
+                "title": "Customize delivery message body"
+            }
+        }
+    },
+    "features_scheduler_modal": {
+        "alerts": "Alerts",
+        "scheduled_deliveries": "Scheduled deliveries"
+    },
+    "features_scheduler_modal_content": {
+        "create_new": "Create new",
+        "create_alert": "Create alert",
+        "create_schedule": "Create schedule",
+        "loading_scheduler": "Loading scheduler"
+    },
+    "features_scheduler_modal_footer": {
+        "back": "Back",
+        "cancel": "Cancel",
+        "send_now": "Send now"
+    },
+    "features_scheduler_preview": {
+        "title": "Preview your Scheduled Delivery and Customize",
+        "tooltip": {
+            "label": "You can preview your Scheduled Delivery below. You are also able to customize the size of the Scheduled Delivery to ensure it is sent as expected. The filters you have applied to this scheduled delivery will be applied to the preview."
+        }
+    },
+    "features_scheduler_list": {
+        "loading_schedulers": "Loading schedulers",
+        "no_schedulers": {
+            "part_1": "There are no existing",
+            "part_2": "alerts",
+            "part_3": "scheduled deliveries",
+            "part_4": "Add one by clicking on \"Create new\" below"
+        }
+    },
+    "features_scheduler_list_item": {
+        "recipients": "Recipients",
+        "tooltip_scheduler": {
+            "enabled": "Toggle off to temporarily pause notifications",
+            "disabled": "Notifications paused. Toggle on to resume"
+        },
+        "edit": "Edit"
+    },
+    "features_scheduler_constants": {
+        "tablet": "Tablet (1000px)",
+        "laptop_screen": "Laptop screen (1400px)",
+        "external_monitor": "External monitor (1500px)",
+        "tv_screen": "TV screen (1600px)"
+    },
+    "features_scheduler_hooks": {
+        "create_chart": {
+            "success": "Success! Scheduled delivery was created.",
+            "error": "Failed to create scheduled delivery"
+        },
+        "dashboard_schedulers": {
+            "success": "Success! Scheduled delivery was created.",
+            "error": "Failed to create scheduled delivery"
+        },
+        "scheduler": {
+            "processing_job": "Processing job...",
+            "failed_to_process_job": "Failed to process job",
+            "scheduleed_successfully": "Scheduled delivery sent successfully",
+            "process_scheduled_delivery": "Processing scheduled delivery...",
+            "send_scheduled_delivery_failed": "Failed to send scheduled delivery",
+            "polling_job_status_error": "Error polling job status"
+        },
+        "delete_mutation": {
+            "success": "Success! Scheduled delivery was deleted",
+            "error": "Failed to delete scheduled delivery"
+        },
+        "schedules_update_mutation": {
+            "success": "Success! Scheduled delivery was updated.",
+            "error": "Failed to update scheduled delivery"
+        }
+    },
+
+    "features_sync": {
+        "select_google_sheet": "Select Google Sheet via Google drive",
+        "modal": {
+            "title": {
+                "sync_with_google_sheets": "Sync with Google Sheets",
+                "create_new_sync": "Create a new sync",
+                "edit_sync": "Edit sync",
+                "delete_sync": "Delete sync"
+            }
+        },
+        "modal_delete": {
+            "loading_sync": "Loading sync",
+            "content": "Are you sure you want to delete",
+            "cancel": "Cancel",
+            "delete": "Delete"
+        },
+        "form": {
+            "loading_sync": "Loading sync",
+            "name": {
+                "label": "Name your Sync"
+            },
+            "frequency": {
+                "label": "Set the frequency"
+            },
+            "cancel": "Cancel",
+            "save_changes": "Save changes",
+            "sync": "Sync"
+        },
+        "modal_view": {
+            "edit": "Edit",
+            "delete": "Delete",
+            "tip_create_new": {
+                "part_1": "This chart has no Syncs set up yet",
+                "part_2": "Get started by clicking 'Create new Sync' to seamlessly integrate your chart data with Google Sheets"
+            },
+            "user_data_policy": "Google API Services User Data Policy",
+            "tip_user_data_policy": {
+                "part_1": "Lightdash's use and transfer of information received from Google APIs adhere to",
+                "part_2": "Google API Services User Data Policy",
+                "part_3": ", including the Limited Use requirements."
+            },
+            "create_new_sync": "Create new sync"
+        },
+        "modal_provide": {
+            "error": "useSyncWithGoogleSheets must be used within a SyncModalProvider"
+        }
     },
 
     "components_common_page_header": {

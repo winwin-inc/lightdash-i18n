@@ -2,6 +2,8 @@ import { type CompiledDimension } from '@lightdash/common';
 import { Text, Tooltip } from '@mantine/core';
 import { IconCalendarSearch } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useDashboardContext } from '../../../providers/DashboardProvider';
 
@@ -11,6 +13,8 @@ type Props = {
 };
 
 export const DateZoomInfoOnTile: FC<Props> = ({ chartUuid, dateDimension }) => {
+    const { t } = useTranslation();
+
     const dateZoomGranularity = useDashboardContext(
         (c) => c.dateZoomGranularity,
     );
@@ -25,13 +29,13 @@ export const DateZoomInfoOnTile: FC<Props> = ({ chartUuid, dateDimension }) => {
             label={
                 <>
                     <Text fz="xs">
-                        Date zoom:{' '}
+                        {t('features_date_zoom.delete_zoom')}:{' '}
                         <Text span fw={500}>
                             {dateZoomGranularity}
                         </Text>
                     </Text>
                     <Text fz="xs">
-                        On:{' '}
+                        {t('features_date_zoom.on')}:{' '}
                         <Text span fw={500}>
                             {dateDimension?.label}
                         </Text>

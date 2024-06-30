@@ -25,6 +25,8 @@ import {
     IconRotate2,
 } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import FieldIcon from '../../../components/common/Filters/FieldIcon';
 import FieldLabel from '../../../components/common/Filters/FieldLabel';
 import {
@@ -50,11 +52,13 @@ const FilterSummaryLabel: FC<
         boolean
     >
 > = ({ filterSummary, isDisabled }) => {
+    const { t } = useTranslation();
+
     if (isDisabled) {
         return (
             <Text fw={400} span>
                 <Text span color="gray.6">
-                    is any value
+                    {t('feature_scheduler_filters.is_any_value')}
                 </Text>
             </Text>
         );
@@ -86,6 +90,7 @@ const FilterItem: FC<SchedulerFilterItemProps> = ({
     onRevert,
     hasChanged,
 }) => {
+    const { t } = useTranslation();
     const theme = useMantineTheme();
     const { itemsMap } =
         useFiltersContext<Record<string, FilterableDimension>>();
@@ -121,11 +126,13 @@ const FilterItem: FC<SchedulerFilterItemProps> = ({
                             style={{ color: theme.colors.red[6] }}
                         />
                         <Text span fw={500}>
-                            Invalid filter
+                            {t('feature_scheduler_filters.invalid_filter')}
                         </Text>
                         <Text fw={400} span>
                             <Text span color="gray.6">
-                                Tried to reference field with unknown id:
+                                {t(
+                                    'feature_scheduler_filters.toast_referernce',
+                                )}
                             </Text>
                             <Text span> {dashboardFilter.target.fieldId}</Text>
                         </Text>
@@ -138,7 +145,7 @@ const FilterItem: FC<SchedulerFilterItemProps> = ({
     return (
         <Group spacing="xs" align="flex-start" noWrap>
             <Tooltip
-                label="Reset filter back to original"
+                label={t('feature_scheduler_filters.tooltip_filter.label')}
                 fz="xs"
                 disabled={!hasChanged}
             >
@@ -302,6 +309,7 @@ const SchedulerFilters: FC<SchedulerFiltersProps> = ({
     schedulerFilters,
     onChange,
 }) => {
+    const { t } = useTranslation();
     const { data: project, isInitialLoading } = useProject(
         dashboard?.projectUuid,
     );
@@ -354,7 +362,9 @@ const SchedulerFilters: FC<SchedulerFiltersProps> = ({
         return (
             <Center component={Stack} h={100}>
                 <Loader color="gray" />
-                <Text color="dimmed">Loading dashboard filters...</Text>
+                <Text color="dimmed">
+                    {t('feature_scheduler_filters.loading_dashboard_filters')}
+                </Text>
             </Center>
         );
     }
@@ -409,7 +419,7 @@ const SchedulerFilters: FC<SchedulerFiltersProps> = ({
             ) : (
                 <Center component={Stack} h={100}>
                     <Text color="dimmed">
-                        No filters defined for this dashboard.
+                        {t('feature_scheduler_filters.no_filters')}
                     </Text>
                 </Center>
             )}

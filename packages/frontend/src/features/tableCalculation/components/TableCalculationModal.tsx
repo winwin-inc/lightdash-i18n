@@ -104,9 +104,7 @@ const TableCalculationModal: FC<Props> = ({
                 );
 
                 return isInvalid
-                    ? t(
-                          'features_table_calculation_components_modal.tips.invalid',
-                      )
+                    ? t('features_table_calculation_modal.tips.invalid')
                     : null;
             },
         },
@@ -124,9 +122,7 @@ const TableCalculationModal: FC<Props> = ({
             });
         } catch (e) {
             showToastError({
-                title: t(
-                    'features_table_calculation_components_modal.tips.error',
-                ),
+                title: t('features_table_calculation_modal.tips.error'),
                 subtitle: e.message,
             });
         }
@@ -150,8 +146,8 @@ const TableCalculationModal: FC<Props> = ({
             size="xl"
             title={
                 tableCalculation
-                    ? t('features_table_calculation_components_modal.tips.edit')
-                    : t('features_table_calculation_components_modal.tips.add')
+                    ? t('features_table_calculation_modal.tips.edit')
+                    : t('features_table_calculation_modal.tips.add')
             }
             styles={{
                 title: {
@@ -166,11 +162,11 @@ const TableCalculationModal: FC<Props> = ({
                     <TextInput
                         mb="sm"
                         label={t(
-                            'features_table_calculation_components_modal.form.name.label',
+                            'features_table_calculation_modal.form.name.label',
                         )}
                         required
                         placeholder={t(
-                            'features_table_calculation_components_modal.form.name.placeholder',
+                            'features_table_calculation_modal.form.name.placeholder',
                         )}
                         data-testid="table-calculation-name-input"
                         {...form.getInputProps('name')}
@@ -196,12 +192,12 @@ const TableCalculationModal: FC<Props> = ({
                         <Tabs.List>
                             <Tabs.Tab value="sqlEditor">
                                 {t(
-                                    'features_table_calculation_components_modal.form.tabs.sql',
+                                    'features_table_calculation_modal.form.tabs.sql',
                                 )}
                             </Tabs.Tab>
                             <Tabs.Tab value="format">
                                 {t(
-                                    'features_table_calculation_components_modal.form.tabs.format',
+                                    'features_table_calculation_modal.form.tabs.format',
                                 )}
                             </Tabs.Tab>
                         </Tabs.List>
@@ -223,12 +219,12 @@ const TableCalculationModal: FC<Props> = ({
                         maw={400}
                         withinPortal
                         label={t(
-                            'features_table_calculation_components_modal.form.tooltip.label',
+                            'features_table_calculation_modal.form.tooltip.label',
                         )}
                     >
                         <Select
                             label={t(
-                                'features_table_calculation_components_modal.form.tooltip.select.label',
+                                'features_table_calculation_modal.form.tooltip.select.label',
                             )}
                             id="download-type"
                             {...form.getInputProps('type')}
@@ -256,7 +252,7 @@ const TableCalculationModal: FC<Props> = ({
                         <Group>
                             <Button variant="outline" onClick={onClose}>
                                 {t(
-                                    'features_table_calculation_components_modal.form.cancel',
+                                    'features_table_calculation_modal.form.cancel',
                                 )}
                             </Button>
                             <Button
@@ -264,7 +260,7 @@ const TableCalculationModal: FC<Props> = ({
                                 data-testid="table-calculation-save-button"
                             >
                                 {t(
-                                    'features_table_calculation_components_modal.form.save',
+                                    'features_table_calculation_modal.form.save',
                                 )}
                             </Button>
                         </Group>

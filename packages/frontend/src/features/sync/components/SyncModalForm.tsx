@@ -15,6 +15,8 @@ import {
 import { IconCirclesRelation } from '@tabler/icons-react';
 import { useEffect, type FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+
 import ErrorState from '../../../components/common/ErrorState';
 import MantineIcon from '../../../components/common/MantineIcon';
 import SuboptimalState from '../../../components/common/SuboptimalState/SuboptimalState';
@@ -27,6 +29,7 @@ import { SyncModalAction, useSyncModal } from '../providers/SyncModalProvider';
 import { SelectGoogleSheetButton } from './SelectGoogleSheetButton';
 
 export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
+    const { t } = useTranslation();
     const { action, setAction, currentSchedulerUuid } = useSyncModal();
 
     const isEditing = action === SyncModalAction.EDIT;
@@ -111,7 +114,12 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
     const hasSetGoogleSheet = methods.watch('options.gdriveId') !== '';
 
     if (isEditing && isLoadingSchedulerData) {
-        return <SuboptimalState title="Loading Sync" loading />;
+        return (
+            <SuboptimalState
+                title={t('features_sync.form.loading_sync')}
+                loading
+            />
+        );
     }
 
     if (isEditing && isSchedulerError) {
@@ -123,11 +131,14 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
             <form onSubmit={methods.handleSubmit(handleSubmit)}>
                 <Stack>
                     <TextInput
-                        label="Name the Sync"
+                        label={t('features_sync.form.name.label')}
                         required
                         {...methods.register('name')}
                     />
-                    <Input.Wrapper label="Set the frequency" required>
+                    <Input.Wrapper
+                        label={t('features_sync.form.frequency.label')}
+                        required
+                    >
                         <Box>
                             <CronInput
                                 name="cron"
@@ -155,7 +166,7 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                             loading={isLoading}
                             onClick={() => setAction(SyncModalAction.VIEW)}
                         >
-                            Cancel
+                            {t('features_sync.form.cancel')}
                         </Button>
 
                         <Button
@@ -168,7 +179,9 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                                 )
                             }
                         >
-                            {isEditing ? 'Save changes' : 'Sync'}
+                            {isEditing
+                                ? t('features_sync.form.save_changes')
+                                : t('features_sync.form.sync')}
                         </Button>
                     </Group>
                 </Stack>

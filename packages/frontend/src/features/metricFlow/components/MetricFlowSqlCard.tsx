@@ -3,7 +3,9 @@ import { Box, Button } from '@mantine/core';
 import { IconTerminal2 } from '@tabler/icons-react';
 import { type useQuery } from '@tanstack/react-query';
 import { useMemo, useState, type ComponentProps, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+
 import CollapsableCard from '../../../components/common/CollapsableCard';
 import MantineIcon from '../../../components/common/MantineIcon';
 import type Table from '../../../components/common/Table';
@@ -24,6 +26,7 @@ const MetricFlowSqlCard: FC<Props> = ({
     error,
     canRedirectToSqlRunner = false,
 }) => {
+    const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const sqlRunnerUrl = useMemo(() => {
         const params = new URLSearchParams({
@@ -33,9 +36,10 @@ const MetricFlowSqlCard: FC<Props> = ({
         });
         return `/projects/${projectUuid}/sqlRunner?${params.toString()}`;
     }, [projectUuid, sql]);
+
     return (
         <CollapsableCard
-            title="SQL"
+            title={t('features_mertic_flow.sql')}
             isOpen={isOpen}
             onToggle={() => setIsOpen(!isOpen)}
             rightHeaderElement={
@@ -51,7 +55,7 @@ const MetricFlowSqlCard: FC<Props> = ({
                         }
                         disabled={status !== 'success' || !sql}
                     >
-                        Open in SQL Runner
+                        {t('features_mertic_flow.open_in_sql_runner')}
                     </Button>
                 )
             }

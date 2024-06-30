@@ -3,12 +3,16 @@ import { Prism } from '@mantine/prism';
 import * as Sentry from '@sentry/react';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { type FC, type PropsWithChildren } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import SuboptimalState from '../../../components/common/SuboptimalState/SuboptimalState';
 
 export const ErrorBoundary: FC<PropsWithChildren & { wrapper?: FlexProps }> = ({
     children,
     wrapper,
 }) => {
+    const { t } = useTranslation();
+
     return (
         <Sentry.ErrorBoundary
             fallback={({ eventId, error }) => (
@@ -20,7 +24,9 @@ export const ErrorBoundary: FC<PropsWithChildren & { wrapper?: FlexProps }> = ({
                 >
                     <SuboptimalState
                         icon={IconAlertCircle}
-                        title="Something went wrong."
+                        title={t(
+                            'features_error_boundary.something_went_wrong',
+                        )}
                         description={
                             <Box
                                 sx={(theme) => ({
@@ -30,8 +36,7 @@ export const ErrorBoundary: FC<PropsWithChildren & { wrapper?: FlexProps }> = ({
                                 })}
                             >
                                 <Text>
-                                    You can contact support with the following
-                                    error ID
+                                    {t('features_error_boundary.tip.part_1')}
                                 </Text>
                                 <Prism
                                     language="javascript"
@@ -39,7 +44,9 @@ export const ErrorBoundary: FC<PropsWithChildren & { wrapper?: FlexProps }> = ({
                                     maw="400"
                                     styles={{ copy: { right: 0 } }}
                                 >
-                                    {`Error ID: ${eventId}\n${
+                                    {`${t(
+                                        'features_error_boundary.tip.part_2',
+                                    )}: ${eventId}\n${
                                         error instanceof Error
                                             ? error.toString()
                                             : ''

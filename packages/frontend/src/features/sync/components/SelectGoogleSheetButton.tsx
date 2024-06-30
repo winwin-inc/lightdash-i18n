@@ -9,6 +9,8 @@ import {
 import { IconExternalLink } from '@tabler/icons-react';
 import { useCallback, useState, type FC } from 'react';
 import useDrivePicker from 'react-google-drive-picker';
+import { useTranslation } from 'react-i18next';
+
 import { useFormContext } from 'react-hook-form';
 import { GSheetsIcon } from '../../../components/common/GSheetsIcon';
 import MantineIcon from '../../../components/common/MantineIcon';
@@ -16,6 +18,7 @@ import { useGdriveAccessToken } from '../../../hooks/gdrive/useGdrive';
 import useHealth from '../../../hooks/health/useHealth';
 
 export const SelectGoogleSheetButton: FC = () => {
+    const { t } = useTranslation();
     const methods = useFormContext();
     const health = useHealth();
     const [openPicker] = useDrivePicker();
@@ -133,7 +136,7 @@ export const SelectGoogleSheetButton: FC = () => {
                     setIsGoogleAuthQueryEnabled(true);
                 }}
             >
-                Select Google Sheet via Google drive
+                {t('features_sync.select_google_sheet')}
             </Button>
         </Tooltip>
     );

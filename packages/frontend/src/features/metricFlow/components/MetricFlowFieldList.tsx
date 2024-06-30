@@ -2,6 +2,8 @@ import { friendlyName } from '@lightdash/common';
 import { ActionIcon, Box, Group, Menu, NavLink, Text } from '@mantine/core';
 import { IconAdjustments, IconCheck } from '@tabler/icons-react';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import {
     MetricFlowDimensionType,
     TimeGranularity,
@@ -31,6 +33,8 @@ const MetricFlowFieldList: FC<Props> = ({
     onClick,
     onClickTimeGranularity,
 }) => {
+    const { t } = useTranslation();
+
     return (
         <>
             {fields?.map((field) => {
@@ -77,7 +81,9 @@ const MetricFlowFieldList: FC<Props> = ({
 
                                         <Menu.Dropdown>
                                             <Menu.Label>
-                                                Time granularity
+                                                {t(
+                                                    'features_mertic_flow.time_granularity',
+                                                )}
                                             </Menu.Label>
                                             {field.queryableGranularities.map(
                                                 (timeGranularity) => (

@@ -19,16 +19,20 @@ import {
 } from '@tabler/icons-react';
 import cronstrue from 'cronstrue';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useChartSchedulers } from '../../../features/scheduler/hooks/useChartSchedulers';
 import { SyncModalAction, useSyncModal } from '../providers/SyncModalProvider';
 
 export const SyncModalView: FC<{ chartUuid: string }> = ({ chartUuid }) => {
+    const { t } = useTranslation();
     const { data } = useChartSchedulers(chartUuid);
     const { setAction, setCurrentSchedulerUuid } = useSyncModal();
     const googleSheetsSyncs = data?.filter(
         ({ format }) => format === SchedulerFormat.GSHEETS,
     );
+
     return (
         <>
             <Stack spacing="lg" mih={300}>
@@ -91,7 +95,7 @@ export const SyncModalView: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                                                 );
                                             }}
                                         >
-                                            Edit
+                                            {t('features_sync.modal_view.edit')}
                                         </Menu.Item>
                                         <Menu.Item
                                             icon={
@@ -109,7 +113,9 @@ export const SyncModalView: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                                                 );
                                             }}
                                         >
-                                            Delete
+                                            {t(
+                                                'features_sync.modal_view.delete',
+                                            )}
                                         </Menu.Item>
                                     </Menu.Dropdown>
                                 </Menu>
@@ -125,12 +131,14 @@ export const SyncModalView: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                         pt="md"
                     >
                         <Text fz="sm" fw={450} c="gray.7">
-                            This chart has no Syncs set up yet
+                            {t(
+                                'features_sync.modal_view.tip_create_new.part_1',
+                            )}
                         </Text>
                         <Text fz="xs" fw={400} c="gray.6">
-                            Get started by clicking 'Create new Sync' to
-                            seamlessly integrate your chart data with Google
-                            Sheets
+                            {t(
+                                'features_sync.modal_view.tip_create_new.part_2',
+                            )}
                         </Text>
                     </Group>
                 )}
@@ -159,21 +167,26 @@ export const SyncModalView: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                                 <MantineIcon size={12} icon={IconInfoCircle} />
                             }
                         >
-                            Google API Services User Data Policy
+                            {t('features_sync.modal_view.user_data_policy')}
                         </Button>
                     </Popover.Target>
 
                     <Popover.Dropdown>
                         <Text fz={9}>
-                            Lightdash's use and transfer of information received
-                            from Google APIs adhere to{' '}
+                            {t(
+                                'features_sync.modal_view.tip_user_data_policy.part_1',
+                            )}{' '}
                             <Anchor
                                 target="_blank"
                                 href="https://developers.google.com/terms/api-services-user-data-policy"
                             >
-                                Google API Services User Data Policy
+                                {t(
+                                    'features_sync.modal_view.tip_user_data_policy.part_2',
+                                )}
                             </Anchor>
-                            , including the Limited Use requirements.
+                            {t(
+                                'features_sync.modal_view.tip_user_data_policy.part_3',
+                            )}
                         </Text>
                     </Popover.Dropdown>
                 </Popover>
@@ -184,7 +197,7 @@ export const SyncModalView: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                     ml="auto"
                     onClick={() => setAction(SyncModalAction.CREATE)}
                 >
-                    Create New Sync
+                    {t('features_sync.modal_view.create_new_sync')}
                 </Button>
             </Flex>
         </>

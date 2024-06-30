@@ -4,6 +4,8 @@ import {
     type UpdateSchedulerAndTargetsWithoutId,
 } from '@lightdash/common';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+
 import { lightdashApi } from '../../../api';
 import useToaster from '../../../hooks/toaster/useToaster';
 
@@ -18,8 +20,10 @@ const updateScheduler = async (
     });
 
 export const useSchedulersUpdateMutation = (schedulerUuid: string) => {
+    const { t } = useTranslation();
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+
     return useMutation<
         SchedulerAndTargets,
         ApiError,
@@ -31,12 +35,16 @@ export const useSchedulersUpdateMutation = (schedulerUuid: string) => {
             await queryClient.invalidateQueries(['dashboard_schedulers']);
             await queryClient.invalidateQueries(['scheduler', schedulerUuid]);
             showToastSuccess({
-                title: `Success! Scheduled delivery was updated.`,
+                title: t(
+                    'features_scheduler_hooks.schedules_update_mutation.success',
+                ),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to update scheduled delivery`,
+                title: t(
+                    'features_scheduler_hooks.schedules_update_mutation.error',
+                ),
                 apiError: error,
             });
         },

@@ -6,6 +6,7 @@ import {
     type FC,
     type SetStateAction,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export enum SyncModalAction {
     CREATE = 'create',
@@ -45,11 +46,12 @@ export const SyncModalProvider: FC<React.PropsWithChildren<{}>> = ({
 };
 
 export const useSyncModal = () => {
+    const { t } = useTranslation();
     const context = useContext(SyncModalContext);
+
     if (!context) {
-        throw new Error(
-            'useSyncWithGoogleSheets must be used within a SyncModalProvider',
-        );
+        throw new Error(t('features_sync.modal_provide.error'));
     }
+
     return context;
 };

@@ -2,6 +2,8 @@ import { type ItemsMap } from '@lightdash/common';
 import { Group, Modal, Text } from '@mantine/core';
 import { IconBell, IconSend } from '@tabler/icons-react';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import DocumentationHelpButton from '../../../components/DocumentationHelpButton';
 import SchedulerModalContent from './SchedulerModalContent';
@@ -24,6 +26,8 @@ const SchedulersModal: FC<
     itemsMap,
     onClose = () => {},
 }) => {
+    const { t } = useTranslation();
+
     return (
         <Modal
             opened={isOpen}
@@ -34,7 +38,9 @@ const SchedulersModal: FC<
                 isThresholdAlert ? (
                     <Group spacing="xs">
                         <MantineIcon icon={IconBell} size="lg" color="gray.7" />
-                        <Text fw={600}>Alerts</Text>
+                        <Text fw={600}>
+                            {t('features_scheduler_modal.alerts')}
+                        </Text>
                         <DocumentationHelpButton
                             href="https://docs.lightdash.com/guides/how-to-create-alerts"
                             pos="relative"
@@ -44,7 +50,9 @@ const SchedulersModal: FC<
                 ) : (
                     <Group spacing="xs">
                         <MantineIcon icon={IconSend} size="lg" color="gray.7" />
-                        <Text fw={600}>Scheduled deliveries</Text>
+                        <Text fw={600}>
+                            {t('features_scheduler_modal.scheduled_deliveries')}
+                        </Text>
                         <DocumentationHelpButton
                             href="https://docs.lightdash.com/guides/how-to-create-scheduled-deliveries"
                             pos="relative"
