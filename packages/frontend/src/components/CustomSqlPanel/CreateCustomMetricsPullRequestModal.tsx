@@ -13,6 +13,8 @@ import { useForm } from '@mantine/form';
 import { IconArrowRight } from '@tabler/icons-react';
 import { useMutation } from '@tanstack/react-query';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { lightdashApi } from '../../api';
 import useToaster from '../../hooks/toaster/useToaster';
 
@@ -30,6 +32,7 @@ const createCustomMetricsPullRequest = async (
     });
 
 const useCreateCustomMetricsPullRequest = (projectUuid: string) => {
+    const { t } = useTranslation();
     const { showToastSuccess, showToastApiError } = useToaster();
 
     return useMutation<
@@ -44,7 +47,9 @@ const useCreateCustomMetricsPullRequest = (projectUuid: string) => {
         retry: false,
         onSuccess: async (pullRequest) => {
             showToastSuccess({
-                title: `Success! Create branch with changes: '${pullRequest.prTitle}'`,
+                title: `${t('components_custom_sql_panel.toast.success')} '${
+                    pullRequest.prTitle
+                }'`,
                 action: {
                     children: 'Open Pull Request',
                     icon: IconArrowRight,
@@ -56,7 +61,7 @@ const useCreateCustomMetricsPullRequest = (projectUuid: string) => {
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to create pull request`,
+                title: t('components_custom_sql_panel.toast.error'),
                 apiError: error,
             });
         },
@@ -74,6 +79,7 @@ export const CreateCustomMetricsPullRequestModal: FC<Props> = ({
     projectUuid,
     customMetrics,
 }) => {
+    const { t } = useTranslation();
     const { mutateAsync, isLoading: isSaving } =
         useCreateCustomMetricsPullRequest(projectUuid);
     const form = useForm<{
@@ -83,9 +89,14 @@ export const CreateCustomMetricsPullRequestModal: FC<Props> = ({
             quoteChar: `"`,
         },
     });
+
     return (
         <Modal
-            title={<Title order={4}>Create pull request</Title>}
+            title={
+                <Title order={4}>
+                    {t('components_custom_sql_panel.modal_create.title')}
+                </Title>
+            }
             opened={opened}
             onClose={onClose}
         >
@@ -100,13 +111,20 @@ export const CreateCustomMetricsPullRequestModal: FC<Props> = ({
             >
                 <Stack spacing="xs">
                     <Text>
-                        You are going to create a pull request with{' '}
-                        {customMetrics.length} metrics
+                        {t(
+                            'components_custom_sql_panel.modal_create.content.part_1',
+                        )}{' '}
+                        {customMetrics.length}{' '}
+                        {t(
+                            'components_custom_sql_panel.modal_create.content.part_2',
+                        )}
                     </Text>
 
                     <Select
                         required
-                        label="Quote character"
+                        label={t(
+                            'components_custom_sql_panel.modal_create.select.label',
+                        )}
                         size="xs"
                         disabled={isSaving}
                         data={[`"`, `'`].map((char) => ({
@@ -125,11 +143,15 @@ export const CreateCustomMetricsPullRequestModal: FC<Props> = ({
                             onClick={onClose}
                             disabled={isSaving}
                         >
-                            Cancel
+                            {t(
+                                'components_custom_sql_panel.modal_create.cancel',
+                            )}
                         </Button>
 
                         <Button size="xs" type="submit" disabled={isSaving}>
-                            Create
+                            {t(
+                                'components_custom_sql_panel.modal_create.create',
+                            )}
                         </Button>
                     </Group>
                 </Stack>

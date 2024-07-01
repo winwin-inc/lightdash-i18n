@@ -6,6 +6,8 @@ import {
 import { Menu, Text } from '@mantine/core';
 import { IconFilter } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../common/MantineIcon';
 
 type Props = {
@@ -14,10 +16,14 @@ type Props = {
 };
 
 export const FilterDashboardTo: FC<Props> = ({ filters, onAddFilter }) => {
+    const { t } = useTranslation();
+
     return (
         <>
             <Menu.Divider />
-            <Menu.Label>Filter dashboard to...</Menu.Label>
+            <Menu.Label>
+                {t('components_dashboard_filter.filter_dashboard.title')}
+            </Menu.Label>
 
             {filters.map((filter) => (
                 <Menu.Item
@@ -29,7 +35,9 @@ export const FilterDashboardTo: FC<Props> = ({ filters, onAddFilter }) => {
                     {friendlyName(filter.target.fieldName)} is{' '}
                     {filter.operator === FilterOperator.NULL && (
                         <Text span fw={500}>
-                            null
+                            {t(
+                                'components_dashboard_filter.filter_dashboard.null',
+                            )}
                         </Text>
                     )}
                     {filter.values && filter.values[0] && (

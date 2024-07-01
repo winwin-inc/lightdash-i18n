@@ -14,6 +14,8 @@ import {
 import { useDisclosure, useId } from '@mantine/hooks';
 import { IconFilter } from '@tabler/icons-react';
 import { useCallback, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useDashboardContext } from '../../providers/DashboardProvider';
 import {
     getFilterRuleTables,
@@ -52,6 +54,8 @@ const Filter: FC<Props> = ({
     onUpdate,
     onRemove,
 }) => {
+    const { t } = useTranslation();
+
     const popoverId = useId();
     const getConditionalRuleLabel = useConditionalRuleLabel();
 
@@ -152,11 +156,19 @@ const Filter: FC<Props> = ({
                         arrowOffset={16}
                         label={
                             <Text fz="xs">
-                                Only filters added in{' '}
+                                {t(
+                                    'components_dashboard_filter.filter.tooltip_creating_new.label.part_1',
+                                )}{' '}
                                 <Text span fw={600}>
-                                    'edit'
+                                    '{' '}
+                                    {t(
+                                        'components_dashboard_filter.filter.tooltip_creating_new.label.part_2',
+                                    )}
+                                    '
                                 </Text>{' '}
-                                mode will be saved
+                                {t(
+                                    'components_dashboard_filter.filter.tooltip_creating_new.label.part_3',
+                                )}
                             </Text>
                         }
                     >
@@ -177,7 +189,9 @@ const Filter: FC<Props> = ({
                                     : onPopoverOpen(popoverId)
                             }
                         >
-                            Add filter
+                            {t(
+                                'components_dashboard_filter.filter.tooltip_creating_new.content',
+                            )}
                         </Button>
                     </Tooltip>
                 ) : (
@@ -194,10 +208,14 @@ const Filter: FC<Props> = ({
                         label={
                             <Tooltip
                                 fz="xs"
-                                label="Set a value to run this dashboard"
+                                label={t(
+                                    'components_dashboard_filter.filter.tooltip_set.label',
+                                )}
                             >
                                 <Text fz="9px" fw={500}>
-                                    Required
+                                    {t(
+                                        'components_dashboard_filter.filter.tooltip_set.content',
+                                    )}
                                 </Text>
                             </Tooltip>
                         }
@@ -257,8 +275,12 @@ const Filter: FC<Props> = ({
                                     label={
                                         <Text fz="xs">
                                             {filterRuleTables?.length === 1
-                                                ? 'Table: '
-                                                : 'Tables: '}
+                                                ? `${t(
+                                                      'components_dashboard_filter.filter.table',
+                                                  )}: `
+                                                : `${t(
+                                                      'components_dashboard_filter.filter.tables',
+                                                  )}: `}
                                             <Text span fw={600}>
                                                 {filterRuleTables?.join(', ')}
                                             </Text>
@@ -273,7 +295,9 @@ const Filter: FC<Props> = ({
                                 <Text fw={400} span>
                                     {filterRule?.disabled ? (
                                         <Text span color="gray.6">
-                                            is any value
+                                            {t(
+                                                'components_dashboard_filter.filter.filter_rules.part_1',
+                                            )}
                                         </Text>
                                     ) : (
                                         <>

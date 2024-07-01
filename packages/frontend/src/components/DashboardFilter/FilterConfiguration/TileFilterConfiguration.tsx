@@ -22,7 +22,9 @@ import {
     type PopoverProps,
 } from '@mantine/core';
 import { useCallback, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FilterActions } from '.';
+
 import FieldSelect from '../../common/FieldSelect';
 import MantineIcon from '../../common/MantineIcon';
 import { getChartIcon } from '../../common/ResourceIcon';
@@ -50,6 +52,7 @@ const TileFilterConfiguration: FC<Props> = ({
     onChange,
     onToggleAll,
 }) => {
+    const { t } = useTranslation();
     const theme = useMantineTheme();
 
     const sortTilesByFieldMatch = useCallback(
@@ -92,7 +95,7 @@ const TileFilterConfiguration: FC<Props> = ({
 
     const tileTargetList = useMemo(() => {
         return sortedTileWithFilters.map(([tileUuid, filters], index) => {
-            const tile = tiles.find((t) => t.uuid === tileUuid);
+            const tile = tiles.find((_t) => _t.uuid === tileUuid);
             const tabUuidFromTile = tile?.tabUuid;
 
             // tileConfig overrides the default filter state for a tile
@@ -174,8 +177,12 @@ const TileFilterConfiguration: FC<Props> = ({
         const tileUuids = tileList.map((tile) => tile.tileUuid);
         const shouldBeChecked = isAllChecked || isIndeterminate;
         const tooltipLabel = shouldBeChecked
-            ? `Toggle off to turn filter off for tab '${tabName}'`
-            : `Turn on to turn filter on for tab '${tabName}'`;
+            ? t('components_dashboard_filter.tile_filter.tooltip_label.off', {
+                  tabName,
+              })
+            : t('components_dashboard_filter.tile_filter.tooltip_label.on', {
+                  tabName,
+              });
 
         return (
             <Tooltip label={tooltipLabel} position="right">
@@ -207,8 +214,15 @@ const TileFilterConfiguration: FC<Props> = ({
                         <Tooltip
                             label={
                                 value.invalidField
-                                    ? `The selected field ${value.invalidField} is not valid`
-                                    : 'No fields matching filter type'
+                                    ? t(
+                                          'components_dashboard_filter.tile_filter.tooltip_invalid_field.not_valid',
+                                          {
+                                              invalidField: value.invalidField,
+                                          },
+                                      )
+                                    : t(
+                                          'components_dashboard_filter.tile_filter.tooltip_invalid_field.no_fields',
+                                      )
                             }
                             position="left"
                             disabled={
@@ -333,11 +347,15 @@ const TileFilterConfiguration: FC<Props> = ({
                 indeterminate={isIndeterminate}
                 label={
                     <Text fw={500}>
-                        Select all{' '}
+                        {t(
+                            'components_dashboard_filter.tile_filter.checkbox.part_1',
+                        )}{' '}
                         {isIndeterminate
                             ? ` (${
                                   tileTargetList.filter((v) => v.checked).length
-                              } charts selected)`
+                              } ${t(
+                                  'components_dashboard_filter.tile_filter.checkbox.part_2',
+                              )})`
                             : ''}
                     </Text>
                 }

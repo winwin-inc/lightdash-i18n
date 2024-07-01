@@ -874,6 +874,118 @@
         }
     },
 
+    "components_custom_sql_panel": {
+        "toast": {
+            "success": "Success! Create branch with changes: ",
+            "error": "Failed to create pull request"
+        },
+        "modal_create": {
+            "title": "Create pull request",
+            "content": {
+                "part_1": "You are going to create a pull request with",
+                "part_2": "metrics"
+            },
+            "select": {
+                "label": "Quote character"
+            },
+            "cancel": "Cancel",
+            "create": "Create"
+        },
+        "table_columns": {
+            "name": "Name",
+            "model": "Model",
+            "chart": "Chart",
+            "yml": "YML",
+            "see_yml": "See YML"
+        },
+        "sql_panel": {
+            "loading_custom_sql": "Loading custom SQL",
+            "custom_sql": "Custom SQL",
+            "tooltip": {
+                "label": "Click to refresh the status of the scheduled deliveries",
+                "content": "Create pull request"
+            },
+            "no_custom_metrics": "No custom metrics on this project"
+        }
+    },
+
+    "components_dashboard_filter": {
+        "configuration": {
+            "filter": {
+                "label": "Filter label",
+                "placeholder": "Label for {{label}}"
+            },
+            "value": "Value",
+            "tooltip_eidt": {
+                "label": {
+                    "on": "Toggle on to set a default filter value",
+                    "off": "Toggle off to leave the filter value empty, allowing users to populate it in view mode"
+                },
+                "content": "Provide default value"
+            },
+            "require": "Require value for dashboard to run"
+        },
+        "tabs": {
+            "tooltip_filter": {
+                "label": "Select the value you want to filter your dimension by",
+                "content": "Filter Settings"
+            },
+            "tooltip_chart_tile": {
+                "label": "Select tiles to apply filter to and which field to filter by",
+                "content": "Chart tiles"
+            },
+            "select": "Select a dimension to filter",
+            "tooltip_reset": {
+                "label": "Reset to original value"
+            },
+            "tooltip_filter_field": {
+                "label": "Filter field and value required",
+                "content": "apply"
+            }
+        },
+        "tile_filter": {
+            "tooltip_label": {
+                "off": "Toggle off to turn filter off for tab '{{tabName}}",
+                "on": "Turn on to turn filter on for tab '{{tabName}}'"
+            },
+            "tooltip_invalid_field": {
+                "not_valid": "The selected field {{invalidField}} is not valid",
+                "no_fields": "No fields matching filter type"
+            },
+            "checkbox": {
+                "part_1": "Select all",
+                "part_2": "charts selected"
+            }
+        },
+        "filter": {
+            "tooltip_creating_new": {
+                "label": {
+                    "part_1": "Only filters added in",
+                    "part_2": "edit",
+                    "part_3": "mode will be saved"
+                },
+                "content": "Add filter"
+            },
+            "tooltip_set": {
+                "label": "Set a value to run this dashboard",
+                "content": "Required"
+            },
+            "table": "Table",
+            "tables": "Tables",
+            "filter_rules": {
+                "part_1": "is any value"
+            }
+        },
+        "filter_dashboard": {
+            "title": "Filter dashboard to...",
+            "null": "null"
+        },
+        "filter_invalid": {
+            "unknown": "Tried to reference field with unknown id:",
+            "invalid_filter": "Invalid filter"
+        }
+    },
+
     "components_dbt_cloud_settings": {
         "schema_valdation": {
             "server_token": "Service token is required",

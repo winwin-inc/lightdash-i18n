@@ -11,6 +11,8 @@ import {
 import { Prism } from '@mantine/prism';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useTableStyles } from '../../hooks/styles/useTableStyles';
 import MantineIcon from '../common/MantineIcon';
 
@@ -41,6 +43,7 @@ const CustomMetricsTable: FC<Props> = ({
     customMetrics,
     onSelectedCustomMetricsChange,
 }) => {
+    const { t } = useTranslation();
     const { classes } = useTableStyles();
     const [openedUuids, setOpenedUuids] = useState<Set<string>>(new Set());
     const toggleOpenUuid = useCallback(
@@ -108,7 +111,7 @@ const CustomMetricsTable: FC<Props> = ({
             },
             {
                 id: 'name',
-                label: 'Name',
+                label: t('components_custom_sql_panel.table_columns.name'),
                 cell: (data) => {
                     return <Text>{data.label}</Text>;
                 },
@@ -120,7 +123,7 @@ const CustomMetricsTable: FC<Props> = ({
             },
             {
                 id: 'modelName',
-                label: 'Model',
+                label: t('components_custom_sql_panel.table_columns.model'),
                 cell: (data) => {
                     return (
                         <Text fz="xs" color="gray.6">
@@ -131,7 +134,7 @@ const CustomMetricsTable: FC<Props> = ({
             },
             {
                 id: 'chartLabel',
-                label: 'Chart',
+                label: t('components_custom_sql_panel.table_columns.chart'),
                 cell: (data) => {
                     return (
                         <Text fz="xs" color="gray.6">
@@ -149,13 +152,17 @@ const CustomMetricsTable: FC<Props> = ({
             },
             {
                 id: 'yml',
-                label: 'YML',
+                label: t('components_custom_sql_panel.table_columns.yml'),
                 cell: (data) => {
                     const isOpen = openedUuids.has(data.name);
                     return (
                         <Stack spacing="md" fz="xs" fw={500}>
                             <Group spacing="two">
-                                <Text>See YML</Text>
+                                <Text>
+                                    {t(
+                                        'components_custom_sql_panel.table_columns.see_yml',
+                                    )}
+                                </Text>
                                 <ActionIcon
                                     onClick={() => toggleOpenUuid(data.name)}
                                     size="sm"
@@ -195,6 +202,7 @@ const CustomMetricsTable: FC<Props> = ({
         toggleOpenUuid,
         openedUuids,
         customMetrics,
+        t,
     ]);
 
     return (

@@ -2,6 +2,8 @@ import { FeatureFlags, type ApiError } from '@lightdash/common';
 import { Button, Group, Title, Tooltip } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { lightdashApi } from '../../api';
 import { useFeatureFlagEnabled } from '../../hooks/useFeatureFlagEnabled';
 import LoadingState from '../common/LoadingState';
@@ -27,6 +29,7 @@ const useCustomMetrics = (projectUuid: string) =>
     });
 
 const CustomSqlPanel: FC<{ projectUuid: string }> = ({ projectUuid }) => {
+    const { t } = useTranslation();
     const [isOpen, setOpen] = React.useState(false);
     const [checked, setChecked] = React.useState<string[]>([]);
     const { data, isInitialLoading } = useCustomMetrics(projectUuid);
@@ -40,7 +43,13 @@ const CustomSqlPanel: FC<{ projectUuid: string }> = ({ projectUuid }) => {
     }
 
     if (isInitialLoading) {
-        return <LoadingState title="Loading custom SQL" />;
+        return (
+            <LoadingState
+                title={t(
+                    'components_custom_sql_panel.sql_panel.loading_custom_sql',
+                )}
+            />
+        );
     }
     // todo: disable button if no custom metrics are selected Or if gitintegration is not enabled
     return (
@@ -53,10 +62,18 @@ const CustomSqlPanel: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                     flexGrow: 1,
                 }}
             >
-                <Title order={5}>Custom SQL</Title>
-                <Tooltip label="Click to refresh the status of the scheduled deliveries">
+                <Title order={5}>
+                    {t('components_custom_sql_panel.sql_panel.custom_sql')}
+                </Title>
+                <Tooltip
+                    label={t(
+                        'components_custom_sql_panel.sql_panel.tooltip.label',
+                    )}
+                >
                     <Button size="xs" onClick={() => setOpen(true)} ml="auto">
-                        Create pull request
+                        {t(
+                            'components_custom_sql_panel.sql_panel.tooltip.content',
+                        )}
                     </Button>
                 </Tooltip>
             </Group>
@@ -66,7 +83,11 @@ const CustomSqlPanel: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                     onSelectedCustomMetricsChange={(data2) => setChecked(data2)}
                 />
             ) : (
-                <ResourceEmptyState title="No custom metrics on this project" />
+                <ResourceEmptyState
+                    title={t(
+                        'components_custom_sql_panel.sql_panel.no_custom_metrics',
+                    )}
+                />
             )}
 
             {isOpen && (

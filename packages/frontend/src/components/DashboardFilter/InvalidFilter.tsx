@@ -8,6 +8,8 @@ import {
 } from '@mantine/core';
 import { IconAlertTriangle } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../common/MantineIcon';
 
 type Props = {
@@ -18,6 +20,8 @@ type Props = {
 
 const InvalidFilter: FC<Props> = ({ isEditMode, filterRule, onRemove }) => {
     const theme = useMantineTheme();
+    const { t } = useTranslation();
+
     return (
         <Tooltip
             position="top-start"
@@ -27,7 +31,9 @@ const InvalidFilter: FC<Props> = ({ isEditMode, filterRule, onRemove }) => {
             label={
                 <Text span>
                     <Text span color="gray.6">
-                        Tried to reference field with unknown id:
+                        {t(
+                            'components_dashboard_filter.filter_invalid.unknown_field',
+                        )}
                     </Text>
                     <Text span> {filterRule.target.fieldId}</Text>
                 </Text>
@@ -55,7 +61,9 @@ const InvalidFilter: FC<Props> = ({ isEditMode, filterRule, onRemove }) => {
             >
                 <Text fz="xs">
                     <Text fw={600} span>
-                        Invalid filter
+                        {t(
+                            'components_dashboard_filter.filter_invalid.invalid_filter',
+                        )}
                     </Text>
                 </Text>
             </Button>

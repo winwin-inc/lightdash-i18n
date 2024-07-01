@@ -19,6 +19,8 @@ import {
     type PopoverProps,
 } from '@mantine/core';
 import { useEffect, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import {
     FilterInputComponent,
     useFilterOperatorOptions,
@@ -42,6 +44,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     popoverProps,
     onChangeFilterRule,
 }) => {
+    const { t } = useTranslation();
     const getFilterOperatorOptions = useFilterOperatorOptions();
     const [filterLabel, setFilterLabel] = useState<string>();
 
@@ -99,7 +102,9 @@ const FilterSettings: FC<FilterSettingsProps> = ({
             <Stack spacing="xs">
                 {isEditMode && (
                     <TextInput
-                        label="Filter label"
+                        label={t(
+                            'components_dashboard_filter.configuration.filter.label',
+                        )}
                         mb="sm"
                         size="xs"
                         onChange={(e) => {
@@ -109,13 +114,18 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 label: e.target.value || undefined,
                             });
                         }}
-                        placeholder={`Label for ${field.label}`}
+                        placeholder={t(
+                            'components_dashboard_filter.configuration.filter.label.placeholder',
+                            {
+                                label: field.label,
+                            },
+                        )}
                         value={filterLabel}
                     />
                 )}
                 {isCreatingNew && !isEditMode && (
                     <Text size="xs" fw={500}>
-                        Value
+                        {t('components_dashboard_filter.configuration.value')}
                     </Text>
                 )}
                 <Select
@@ -158,8 +168,12 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                             position="right"
                             label={
                                 isFilterDisabled
-                                    ? 'Toggle on to set a default filter value'
-                                    : 'Toggle off to leave the filter value empty, allowing users to populate it in view mode'
+                                    ? t(
+                                          'components_dashboard_filter.configuration.tooltip_eidt.label.on',
+                                      )
+                                    : t(
+                                          'components_dashboard_filter.configuration.tooltip_eidt.label.off',
+                                      )
                             }
                             openDelay={500}
                         >
@@ -167,7 +181,9 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 <Switch
                                     label={
                                         <Text size="xs" mt="two" fw={500}>
-                                            Provide default value
+                                            {t(
+                                                'components_dashboard_filter.configuration.tooltip_eidt.content',
+                                            )}
                                         </Text>
                                     }
                                     labelPosition="right"
@@ -218,7 +234,9 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                               ),
                                     );
                                 }}
-                                label="Require value for dashboard to run"
+                                label={t(
+                                    'components_dashboard_filter.configuration.require',
+                                )}
                             />
                         )}
                     </>

@@ -27,6 +27,8 @@ import {
 import { IconRotate2 } from '@tabler/icons-react';
 import produce from 'immer';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import FieldSelect from '../../common/FieldSelect';
 import FieldIcon from '../../common/Filters/FieldIcon';
 import FieldLabel from '../../common/Filters/FieldLabel';
@@ -94,6 +96,7 @@ const FilterConfiguration: FC<Props> = ({
     popoverProps,
     onSave,
 }) => {
+    const { t } = useTranslation();
     const [selectedTabId, setSelectedTabId] = useState<FilterTabs>(DEFAULT_TAB);
 
     const [selectedField, setSelectedField] = useState<
@@ -256,23 +259,31 @@ const FilterConfiguration: FC<Props> = ({
                 {isCreatingNew || isEditMode || isTemporary ? (
                     <Tabs.List mb="md">
                         <Tooltip
-                            label="Select the value you want to filter your dimension by"
+                            label={t(
+                                'components_dashboard_filter.tabs.tooltip_filter.label',
+                            )}
                             position="top-start"
                         >
                             <Tabs.Tab value={FilterTabs.SETTINGS}>
-                                Filter Settings
+                                {t(
+                                    'components_dashboard_filter.tabs.tooltip_filter.content',
+                                )}
                             </Tabs.Tab>
                         </Tooltip>
 
                         <Tooltip
-                            label="Select tiles to apply filter to and which field to filter by"
+                            label={t(
+                                'components_dashboard_filter.tabs.tooltip_chart_tile.label',
+                            )}
                             position="top-start"
                         >
                             <Tabs.Tab
                                 value={FilterTabs.TILES}
                                 disabled={!selectedField}
                             >
-                                Chart tiles
+                                {t(
+                                    'components_dashboard_filter.tabs.tooltip_chart_tile.content',
+                                )}
                             </Tabs.Tab>
                         </Tooltip>
                     </Tabs.List>
@@ -286,7 +297,9 @@ const FilterConfiguration: FC<Props> = ({
                                 size="xs"
                                 label={
                                     <Text>
-                                        Select a dimension to filter{' '}
+                                        {t(
+                                            'components_dashboard_filter.tabs.select',
+                                        )}{' '}
                                         <Text color="red" span>
                                             *
                                         </Text>{' '}
@@ -358,7 +371,9 @@ const FilterConfiguration: FC<Props> = ({
                     selectedTabId === FilterTabs.SETTINGS &&
                     !isEditMode && (
                         <Tooltip
-                            label="Reset to original value"
+                            label={t(
+                                'components_dashboard_filter.tabs.tooltip_reset.label',
+                            )}
                             position="left"
                         >
                             <Button
@@ -373,7 +388,9 @@ const FilterConfiguration: FC<Props> = ({
                     )}
 
                 <Tooltip
-                    label="Filter field and value required"
+                    label={t(
+                        'components_dashboard_filter.tabs.tooltip_filter_field.label',
+                    )}
                     disabled={!isApplyDisabled}
                 >
                     <Box>
@@ -387,7 +404,9 @@ const FilterConfiguration: FC<Props> = ({
                                 if (!!draftFilterRule) onSave(draftFilterRule);
                             }}
                         >
-                            Apply
+                            {t(
+                                'components_dashboard_filter.tabs.tooltip_filter_field.content',
+                            )}
                         </Button>
                     </Box>
                 </Tooltip>

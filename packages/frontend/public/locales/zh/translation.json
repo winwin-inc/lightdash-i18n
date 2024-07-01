@@ -874,6 +874,118 @@
         }
     },
 
+    "components_custom_sql_panel": {
+        "toast": {
+            "success": "成功! 创建包含更改的分支: ",
+            "error": "创建拉取请求失败"
+        },
+        "modal_create": {
+            "title": "创建拉取请求",
+            "content": {
+                "part_1": "您将创建一个包含",
+                "part_2": "指标的拉取请求"
+            },
+            "select": {
+                "label": "引号字符"
+            },
+            "cancel": "取消",
+            "create": "创建"
+        },
+        "table_columns": {
+            "name": "名称",
+            "model": "模型",
+            "chart": "图表",
+            "yml": "YML",
+            "see_yml": "查看 YML"
+        },
+        "sql_panel": {
+            "loading_custom_sql": "正在加载自定义 SQL",
+            "custom_sql": "自定义 SQL",
+            "tooltip": {
+                "label": "点击刷新计划交付状态",
+                "content": "创建拉取请求"
+            },
+            "no_custom_metrics": "此项目没有自定义指标"
+        }
+    },
+
+    "components_dashboard_filter": {
+        "configuration": {
+            "filter": {
+                "label": "筛选器标签",
+                "placeholder": "{{label}} 的标签"
+            },
+            "value": "值",
+            "tooltip_eidt": {
+                "label": {
+                    "on": "打开以设置默认筛选器值",
+                    "off": "关闭以保留筛选器值为空,允许用户在视图模式下填写"
+                },
+                "content": "提供默认值"
+            },
+            "require": "看板运行需要值"
+        },
+        "tabs": {
+            "tooltip_filter": {
+                "label": "选择要按其筛选维度的值",
+                "content": "筛选器设置"
+            },
+            "tooltip_chart_tile": {
+                "label": "选择要应用筛选器的图块,以及按哪个字段进行筛选",
+                "content": "图表图块"
+            },
+            "select": "选择一个维度进行筛选",
+            "tooltip_reset": {
+                "label": "重置为原始值"
+            },
+            "tooltip_filter_field": {
+                "label": "需要筛选字段和值",
+                "content": "应用"
+            }
+        },
+        "tile_filter": {
+            "tooltip_label": {
+                "off": "关闭可以关闭标签页 '{{tabName}}' 的筛选器",
+                "on": "打开可以打开标签页 '{{tabName}}' 的筛选器"
+            },
+            "tooltip_invalid_field": {
+                "not_valid": "所选字段 {{invalidField}} 无效",
+                "no_fields": "没有与筛选类型匹配的字段"
+            },
+            "checkbox": {
+                "part_1": "全选",
+                "part_2": "选定的图表"
+            }
+        },
+        "filter": {
+            "tooltip_creating_new": {
+                "label": {
+                    "part_1": "只有在",
+                    "part_2": "编辑",
+                    "part_3": "模式下添加的筛选器才会被保存"
+                },
+                "content": "添加筛选器"
+            },
+            "tooltip_set": {
+                "label": "设置值以运行此看板",
+                "content": "必须"
+            },
+            "table": "表格",
+            "tables": "表格",
+            "filter_rules": {
+                "part_1": "是任何值"
+            }
+        },
+        "filter_dashboard": {
+            "title": "筛选看板为...",
+            "null": "空值"
+        },
+        "filter_invalid": {
+            "unknown": "试图引用具有未知 ID 的字段:",
+            "invalid_filter": "无效的筛选器"
+        }
+    },
+
     "components_dbt_cloud_settings": {
         "schema_valdation": {
             "server_token": "需要服务令牌",
