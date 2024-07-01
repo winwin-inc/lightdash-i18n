@@ -190,10 +190,10 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                             spaceUuid={action.item.data.uuid}
                             actionType={ActionType.UPDATE}
                             title={t(
-                                'components_resource_view_action_handlers.update.title',
+                                'components_common_resource_view_action_handlers.update.title',
                             )}
                             confirmButtonLabel={t(
-                                'components_resource_view_action_handlers.update.label',
+                                'components_common_resource_view_action_handlers.update.label',
                             )}
                             icon={IconFolderCog}
                             onClose={handleReset}
@@ -233,10 +233,10 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                             spaceUuid={action.item.data.uuid}
                             actionType={ActionType.DELETE}
                             title={t(
-                                'components_resource_view_action_handlers.delete.title',
+                                'components_common_resource_view_action_handlers.delete.title',
                             )}
                             confirmButtonLabel={t(
-                                'components_resource_view_action_handlers.delete.label',
+                                'components_common_resource_view_action_handlers.delete.label',
                             )}
                             confirmButtonColor="red"
                             icon={IconFolderX}
@@ -267,10 +267,10 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                     projectUuid={projectUuid}
                     actionType={ActionType.CREATE}
                     title={t(
-                        'components_resource_view_action_handlers.create.title',
+                        'components_common_resource_view_action_handlers.create.title',
                     )}
                     confirmButtonLabel={t(
-                        'components_resource_view_action_handlers.create.label',
+                        'components_common_resource_view_action_handlers.create.label',
                     )}
                     icon={IconFolderPlus}
                     onClose={handleReset}

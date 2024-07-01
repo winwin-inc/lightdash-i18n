@@ -7,6 +7,7 @@ import {
 import { Menu, Text, type MenuProps } from '@mantine/core';
 import { IconArrowBarToDown, IconCopy, IconStack } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 
 import { useApp } from '../../../providers/AppProvider';
@@ -41,6 +42,7 @@ const ValueCellMenu: FC<React.PropsWithChildren<ValueCellMenuProps>> = ({
     onCopy,
 }) => {
     const { user } = useApp();
+    const { t } = useTranslation();
     const tracking = useTracking(true);
     const metricQueryData = useMetricQueryDataContext(true);
 
@@ -168,7 +170,7 @@ const ValueCellMenu: FC<React.PropsWithChildren<ValueCellMenuProps>> = ({
                     }
                     onClick={onCopy}
                 >
-                    Copy
+                    {t('components_common_pivot_table.copy')}
                 </Menu.Item>
 
                 {item &&
@@ -186,7 +188,9 @@ const ValueCellMenu: FC<React.PropsWithChildren<ValueCellMenuProps>> = ({
                                 }
                                 onClick={handleOpenUnderlyingDataModal}
                             >
-                                View underlying data
+                                {t(
+                                    'components_common_pivot_table.view_underlying_data',
+                                )}
                             </Menu.Item>
                         ) : null}
 
@@ -201,7 +205,7 @@ const ValueCellMenu: FC<React.PropsWithChildren<ValueCellMenuProps>> = ({
                                 }
                                 onClick={handleOpenDrillIntoModal}
                             >
-                                Drill into{' '}
+                                {t('components_common_pivot_table.drill_into')}{' '}
                                 <Text span fw={500}>
                                     {value.formatted}
                                 </Text>

@@ -69,23 +69,23 @@ const ChartUpdateModal: FC<ChartUpdateModalProps> = ({
         <Modal
             title={
                 <Title order={4}>
-                    {t('components_modal_chart_update.title')}
+                    {t('components_common_modal_chart_update.title')}
                 </Title>
             }
             {...modalProps}
         >
             <form
-                title={t('components_modal_chart_update.title')}
+                title={t('components_common_modal_chart_update.title')}
                 onSubmit={handleConfirm}
             >
                 <Stack spacing="lg" pt="sm">
                     <TextInput
                         label={t(
-                            'components_modal_chart_update.form.name.label',
+                            'components_common_modal_chart_update.form.name.label',
                         )}
                         required
                         placeholder={t(
-                            'components_modal_chart_update.form.name.placeholder',
+                            'components_common_modal_chart_update.form.name.placeholder',
                         )}
                         disabled={isUpdating}
                         {...form.getInputProps('name')}
@@ -93,10 +93,10 @@ const ChartUpdateModal: FC<ChartUpdateModalProps> = ({
 
                     <Textarea
                         label={t(
-                            'components_modal_chart_update.form.description.label',
+                            'components_common_modal_chart_update.form.description.label',
                         )}
                         placeholder={t(
-                            'components_modal_chart_update.form.description.placeholder',
+                            'components_common_modal_chart_update.form.description.placeholder',
                         )}
                         disabled={isUpdating}
                         autosize
@@ -106,7 +106,7 @@ const ChartUpdateModal: FC<ChartUpdateModalProps> = ({
 
                     <Group position="right" mt="sm">
                         <Button variant="outline" onClick={modalProps.onClose}>
-                            {t('components_modal_chart_update.cancel')}
+                            {t('components_common_modal_chart_update.cancel')}
                         </Button>
 
                         <Button
@@ -114,7 +114,7 @@ const ChartUpdateModal: FC<ChartUpdateModalProps> = ({
                             loading={isUpdating}
                             type="submit"
                         >
-                            {t('components_modal_chart_update.save')}
+                            {t('components_common_modal_chart_update.save')}
                         </Button>
                     </Group>
                 </Stack>

@@ -16,6 +16,8 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import last from 'lodash/last';
 import { readableColor } from 'polished';
 import React, { useCallback, useMemo, useRef, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { isSummable } from '../../../hooks/useColumnTotals';
 import { getColorFromRange } from '../../../utils/colorUtils';
 import { useConditionalRuleLabel } from '../Filters/FilterInputs';
@@ -55,6 +57,7 @@ const PivotTable: FC<PivotTableProps> = ({
     className,
     ...tableProps
 }) => {
+    const { t } = useTranslation();
     const getConditionalRuleLabel = useConditionalRuleLabel();
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -64,7 +67,10 @@ const PivotTable: FC<PivotTableProps> = ({
                 ? last(data.indexValues[rowIndex])
                 : last(data.headerValues)?.[colIndex];
 
-            if (!value || !value.fieldId) throw new Error('Invalid pivot data');
+            if (!value || !value.fieldId)
+                throw new Error(
+                    t('components_common_pivot_table.invalid_pivot_data'),
+                );
 
             return getField(value.fieldId);
         },
@@ -73,6 +79,7 @@ const PivotTable: FC<PivotTableProps> = ({
             data.headerValues,
             data.indexValues,
             getField,
+            t,
         ],
     );
 
@@ -80,7 +87,10 @@ const PivotTable: FC<PivotTableProps> = ({
         (total: unknown, colIndex: number): ResultValue => {
             const value = last(data.rowTotalFields)?.[colIndex];
 
-            if (!value || !value.fieldId) throw new Error('Invalid pivot data');
+            if (!value || !value.fieldId)
+                throw new Error(
+                    t('components_common_pivot_table.invalid_pivot_data'),
+                );
             const item = getField(value.fieldId);
 
             const formattedValue = formatItemValue(item, total);
@@ -90,13 +100,16 @@ const PivotTable: FC<PivotTableProps> = ({
                 formatted: formattedValue,
             };
         },
-        [data.rowTotalFields, getField],
+        [data.rowTotalFields, getField, t],
     );
 
     const getMetricAsRowTotalValueFromAxis = useCallback(
         (total: unknown, rowIndex: number): ResultValue | null => {
             const value = last(data.indexValues[rowIndex]);
-            if (!value || !value.fieldId) throw new Error('Invalid pivot data');
+            if (!value || !value.fieldId)
+                throw new Error(
+                    t('components_common_pivot_table.invalid_pivot_data'),
+                );
 
             const item = getField(value.fieldId);
             if (!isSummable(item)) {
@@ -109,13 +122,16 @@ const PivotTable: FC<PivotTableProps> = ({
                 formatted: formattedValue,
             };
         },
-        [data.indexValues, getField],
+        [data.indexValues, getField, t],
     );
 
     const getColumnTotalValueFromAxis = useCallback(
         (total: unknown, colIndex: number): ResultValue | null => {
             const value = last(data.headerValues)?.[colIndex];
-            if (!value || !value.fieldId) throw new Error('Invalid pivot data');
+            if (!value || !value.fieldId)
+                throw new Error(
+                    t('components_common_pivot_table.invalid_pivot_data'),
+                );
 
             const item = getField(value.fieldId);
             if (!isSummable(item)) {
@@ -128,13 +144,16 @@ const PivotTable: FC<PivotTableProps> = ({
                 formatted: formattedValue,
             };
         },
-        [data.headerValues, getField],
+        [data.headerValues, getField, t],
     );
 
     const getMetricAsRowColumnTotalValueFromAxis = useCallback(
         (total: unknown, rowIndex: number): ResultValue => {
             const value = last(data.columnTotalFields?.[rowIndex]);
-            if (!value || !value.fieldId) throw new Error('Invalid pivot data');
+            if (!value || !value.fieldId)
+                throw new Error(
+                    t('components_common_pivot_table.invalid_pivot_data'),
+                );
 
             const item = getField(value.fieldId);
 
@@ -145,7 +164,7 @@ const PivotTable: FC<PivotTableProps> = ({
                 formatted: formattedValue,
             };
         },
-        [data.columnTotalFields, getField],
+        [data.columnTotalFields, getField, t],
     );
 
     const getUnderlyingFieldValues = useCallback(
@@ -292,10 +311,14 @@ const PivotTable: FC<PivotTableProps> = ({
                                               withMinimalWidth
                                           >
                                               {totalLabel.fieldId
-                                                  ? `Total ${getFieldLabel(
+                                                  ? `${t(
+                                                        'components_common_pivot_table.total',
+                                                    )} ${getFieldLabel(
                                                         totalLabel.fieldId,
                                                     )}`
-                                                  : `Total`}
+                                                  : `${t(
+                                                        'components_common_pivot_table.total',
+                                                    )}`}
                                           </Table.CellHead>
                                       ) : (
                                           <Table.Cell
@@ -530,10 +553,14 @@ const PivotTable: FC<PivotTableProps> = ({
                                             withBoldFont
                                         >
                                             {totalLabel.fieldId
-                                                ? `Total ${getFieldLabel(
+                                                ? `${t(
+                                                      'components_common_pivot_table.total',
+                                                  )} ${getFieldLabel(
                                                       totalLabel.fieldId,
                                                   )}`
-                                                : `Total`}
+                                                : `${t(
+                                                      'components_common_pivot_table.total',
+                                                  )}`}
                                         </Table.CellHead>
                                     ) : (
                                         <Table.CellHead

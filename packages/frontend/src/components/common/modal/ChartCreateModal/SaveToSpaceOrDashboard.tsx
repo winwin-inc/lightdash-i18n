@@ -83,13 +83,13 @@ const SaveToSpace: FC<SaveToSpaceProps> = ({ form, spaces, projectUuid }) => {
                 <TextInput
                     size="xs"
                     label={t(
-                        'components_modal_chart_create.default.form_space.name.label',
+                        'components_common_modal_chart_create.default.form_space.name.label',
                     )}
                     description={t(
-                        'components_modal_chart_create.default.form_space.name.description',
+                        'components_common_modal_chart_create.default.form_space.name.description',
                     )}
                     placeholder={t(
-                        'components_modal_chart_create.default.form_space.name.placeholder',
+                        'components_common_modal_chart_create.default.form_space.name.placeholder',
                     )}
                     {...form.getInputProps('newSpaceName')}
                 />
@@ -104,7 +104,7 @@ const SaveToSpace: FC<SaveToSpaceProps> = ({ form, spaces, projectUuid }) => {
                     }}
                     leftIcon={<MantineIcon icon={IconArrowLeft} />}
                 >
-                    {t('components_modal_chart_create.default.save')}
+                    {t('components_common_modal_chart_create.default.save')}
                 </Button>
             </Stack>
         );
@@ -116,10 +116,10 @@ const SaveToSpace: FC<SaveToSpaceProps> = ({ form, spaces, projectUuid }) => {
                 size="xs"
                 searchable
                 label={t(
-                    'components_modal_chart_create.default.form_space.space.label',
+                    'components_common_modal_chart_create.default.form_space.space.label',
                 )}
                 description={t(
-                    'components_modal_chart_create.default.form_space.space.description',
+                    'components_common_modal_chart_create.default.form_space.space.description',
                 )}
                 withinPortal
                 data={spaces.map((space) => ({
@@ -144,7 +144,7 @@ const SaveToSpace: FC<SaveToSpaceProps> = ({ form, spaces, projectUuid }) => {
                     leftIcon={<MantineIcon icon={IconPlus} />}
                     onClick={() => setShouldCreateNewSpace(true)}
                 >
-                    {t('components_modal_chart_create.default.create')}
+                    {t('components_common_modal_chart_create.default.create')}
                 </Button>
             </Can>
         </Stack>
@@ -169,11 +169,11 @@ const SaveToDashboard: FC<SaveToDashboardProps> = ({
     return (
         <Select
             description={t(
-                'components_modal_chart_create.default.form_dashboard.name.description',
+                'components_common_modal_chart_create.default.form_dashboard.name.description',
             )}
             id="select-dashboard"
             label={t(
-                'components_modal_chart_create.default.form_dashboard.name.label',
+                'components_common_modal_chart_create.default.form_dashboard.name.label',
             )}
             size="xs"
             data={dashboards.map((d) => ({
@@ -188,7 +188,7 @@ const SaveToDashboard: FC<SaveToDashboardProps> = ({
             }
             searchable
             nothingFound={t(
-                'components_modal_chart_create.default.form_dashboard.name.nothingFound',
+                'components_common_modal_chart_create.default.form_dashboard.name.nothingFound',
             )}
             filter={(value, dashboard) =>
                 !!dashboard.label
@@ -390,10 +390,10 @@ export const SaveToSpaceOrDashboard: FC<SaveToSpaceOrDashboardProps> = ({
                 <Stack spacing="xs">
                     <TextInput
                         label={t(
-                            'components_modal_chart_create.default.boxs.name.label',
+                            'components_common_modal_chart_create.default.boxs.name.label',
                         )}
                         placeholder={t(
-                            'components_modal_chart_create.default.boxs.name.placeholder',
+                            'components_common_modal_chart_create.default.boxs.name.placeholder',
                         )}
                         required
                         {...form.getInputProps('name')}
@@ -401,10 +401,10 @@ export const SaveToSpaceOrDashboard: FC<SaveToSpaceOrDashboardProps> = ({
                     />
                     <Textarea
                         label={t(
-                            'components_modal_chart_create.default.boxs.description.label',
+                            'components_common_modal_chart_create.default.boxs.description.label',
                         )}
                         placeholder={t(
-                            'components_modal_chart_create.default.boxs.description.placeholder',
+                            'components_common_modal_chart_create.default.boxs.description.placeholder',
                         )}
                         autosize
                         maxRows={3}
@@ -424,7 +424,7 @@ export const SaveToSpaceOrDashboard: FC<SaveToSpaceOrDashboardProps> = ({
                             <Radio
                                 value={SaveDestination.Space}
                                 label={t(
-                                    'components_modal_chart_create.default.radio_groups.space.label',
+                                    'components_common_modal_chart_create.default.radio_groups.space.label',
                                 )}
                                 styles={(theme) => ({
                                     label: {
@@ -436,7 +436,7 @@ export const SaveToSpaceOrDashboard: FC<SaveToSpaceOrDashboardProps> = ({
                             <Radio
                                 value={SaveDestination.Dashboard}
                                 label={t(
-                                    'components_modal_chart_create.default.radio_groups.dashboard.label',
+                                    'components_common_modal_chart_create.default.radio_groups.dashboard.label',
                                 )}
                                 styles={(theme) => ({
                                     label: {
@@ -475,7 +475,7 @@ export const SaveToSpaceOrDashboard: FC<SaveToSpaceOrDashboardProps> = ({
                 })}
             >
                 <Button onClick={onClose} variant="outline">
-                    {t('components_modal_chart_create.default.cancel')}
+                    {t('components_common_modal_chart_create.default.cancel')}
                 </Button>
 
                 <Button
@@ -491,7 +491,7 @@ export const SaveToSpaceOrDashboard: FC<SaveToSpaceOrDashboardProps> = ({
                                 SaveDestination.Dashboard)
                     }
                 >
-                    {t('components_modal_chart_create.default.submit')}
+                    {t('components_common_modal_chart_create.default.submit')}
                 </Button>
             </Group>
         </form>

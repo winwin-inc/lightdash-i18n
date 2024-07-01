@@ -24,10 +24,12 @@ export const LockedDashboardModal: FC<Pick<ModalProps, 'opened'>> = ({
             })}
         >
             <Text fw={600} fz="lg" ta="center" mb="lg">
-                {t('components_modal_dashboard_locked.part_1')}
+                {t('components_common_modal_dashboard_locked.part_1')}
             </Text>
             <Stack spacing="xs">
-                <Text>{t('components_modal_dashboard_locked.part_2')}</Text>
+                <Text>
+                    {t('components_common_modal_dashboard_locked.part_2')}
+                </Text>
             </Stack>
         </Modal>
     );

@@ -48,7 +48,7 @@ const MoveChartThatBelongsToDashboardModal: FC<Props> = ({
                     <Title order={5}>
                         <Text span fw={400}>
                             {t(
-                                'components_modal_chart_move_belongs_dashboard.cancel',
+                                'components_common_modal_chart_move_belongs_dashboard.cancel',
                             )}{' '}
                         </Text>
                         {name}
@@ -60,13 +60,13 @@ const MoveChartThatBelongsToDashboardModal: FC<Props> = ({
             <Stack mt="sm">
                 <Text>
                     {t(
-                        'components_modal_chart_move_belongs_dashboard.content.part_1',
+                        'components_common_modal_chart_move_belongs_dashboard.content.part_1',
                     )}{' '}
                     <Text fw={600} span>
                         {name}
                     </Text>{' '}
                     {t(
-                        'components_modal_chart_move_belongs_dashboard.content.part_2',
+                        'components_common_modal_chart_move_belongs_dashboard.content.part_2',
                     )}{' '}
                     <Text fw={600} span>
                         {spaceName}
@@ -75,19 +75,19 @@ const MoveChartThatBelongsToDashboardModal: FC<Props> = ({
                 </Text>
                 <Text>
                     {t(
-                        'components_modal_chart_move_belongs_dashboard.content.part_3',
+                        'components_common_modal_chart_move_belongs_dashboard.content.part_3',
                     )}
                 </Text>
                 <Text fw={600}>
                     {t(
-                        'components_modal_chart_move_belongs_dashboard.content.part_4',
+                        'components_common_modal_chart_move_belongs_dashboard.content.part_4',
                     )}
                 </Text>
 
                 <Group position="right" spacing="xs">
                     <Button variant="outline" onClick={modalProps.onClose}>
                         {t(
-                            'components_modal_chart_move_belongs_dashboard.cancel',
+                            'components_common_modal_chart_move_belongs_dashboard.cancel',
                         )}
                     </Button>
 
@@ -101,7 +101,7 @@ const MoveChartThatBelongsToDashboardModal: FC<Props> = ({
                         type="submit"
                     >
                         {t(
-                            'components_modal_chart_move_belongs_dashboard.move',
+                            'components_common_modal_chart_move_belongs_dashboard.move',
                         )}
                     </Button>
                 </Group>

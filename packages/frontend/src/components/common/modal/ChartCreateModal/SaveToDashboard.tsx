@@ -123,7 +123,7 @@ export const SaveToDashboard: FC<Props> = ({
                 `/projects/${projectUuid}/dashboards/${dashboardUuid}/edit`,
             );
             showToastSuccess({
-                title: t('components_modal_chart_create.add.success', {
+                title: t('components_common_modal_chart_create.add.success', {
                     name: values.name,
                     dashboardName,
                 }),
@@ -154,10 +154,10 @@ export const SaveToDashboard: FC<Props> = ({
                 <Stack spacing="xs">
                     <TextInput
                         label={t(
-                            'components_modal_chart_create.add.form.name.label',
+                            'components_common_modal_chart_create.add.form.name.label',
                         )}
                         placeholder={t(
-                            'components_modal_chart_create.add.form.name.placeholder',
+                            'components_common_modal_chart_create.add.form.name.placeholder',
                         )}
                         required
                         {...form.getInputProps('name')}
@@ -165,10 +165,10 @@ export const SaveToDashboard: FC<Props> = ({
                     />
                     <Textarea
                         label={t(
-                            'components_modal_chart_create.add.form.description.label',
+                            'components_common_modal_chart_create.add.form.description.label',
                         )}
                         placeholder={t(
-                            'components_modal_chart_create.add.form.description.placeholder',
+                            'components_common_modal_chart_create.add.form.description.placeholder',
                         )}
                         autosize
                         maxRows={3}
@@ -177,14 +177,20 @@ export const SaveToDashboard: FC<Props> = ({
                 </Stack>
                 <Stack spacing="xxs">
                     <Text fw={500}>
-                        {t('components_modal_chart_create.add.saving_tip_1', {
-                            dashboardName,
-                        })}
+                        {t(
+                            'components_common_modal_chart_create.add.saving_tip_1',
+                            {
+                                dashboardName,
+                            },
+                        )}
                     </Text>
                     <Text fw={400} color="gray.6" fz="xs">
-                        {t('components_modal_chart_create.add.saving_tip_2', {
-                            dashboardName,
-                        })}
+                        {t(
+                            'components_common_modal_chart_create.add.saving_tip_2',
+                            {
+                                dashboardName,
+                            },
+                        )}
                     </Text>
                 </Stack>
             </Stack>
@@ -199,11 +205,11 @@ export const SaveToDashboard: FC<Props> = ({
                 })}
             >
                 <Button onClick={onClose} variant="outline">
-                    {t('components_modal_chart_create.add.cancel')}
+                    {t('components_common_modal_chart_create.add.cancel')}
                 </Button>
 
                 <Button type="submit" disabled={!form.values.name}>
-                    {t('components_modal_chart_create.add.save')}
+                    {t('components_common_modal_chart_create.add.save')}
                 </Button>
             </Group>
         </form>

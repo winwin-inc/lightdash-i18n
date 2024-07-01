@@ -1,6 +1,8 @@
 import { Button, Group, SegmentedControl, Text } from '@mantine/core';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../MantineIcon';
 import { TableFooter } from '../Table.styles';
 import { useTableContext } from '../TableProvider';
@@ -17,6 +19,7 @@ export const ResultCount: FC<ResultCountProps> = ({ count }) => (
 );
 
 const TablePagination: FC = () => {
+    const { t } = useTranslation();
     const { table, data, pagination } = useTableContext();
 
     return (
@@ -24,8 +27,18 @@ const TablePagination: FC = () => {
             {pagination?.show && data.length > DEFAULT_PAGE_SIZE && (
                 <SegmentedControl
                     data={[
-                        { label: 'Pages', value: 'pages' },
-                        { label: 'Scroll', value: 'scroll' },
+                        {
+                            label: t(
+                                'components_common_table.pagination.pages',
+                            ),
+                            value: 'pages',
+                        },
+                        {
+                            label: t(
+                                'components_common_table.pagination.scroll',
+                            ),
+                            value: 'scroll',
+                        },
                     ]}
                     value={
                         table.getState().pagination.pageSize ===
@@ -46,11 +59,11 @@ const TablePagination: FC = () => {
             {table.getPageCount() > 1 ? (
                 <Group>
                     <Text color="gray.7" size="xs">
-                        Page{' '}
+                        {t('components_common_table.pagination.page')}{' '}
                         <Text span fw={600} color="black">
                             {table.getState().pagination.pageIndex + 1}
                         </Text>{' '}
-                        of{' '}
+                        {t('components_common_table.pagination.of')}{' '}
                         <Text span fw={600} color="black">
                             {table.getPageCount()}
                         </Text>

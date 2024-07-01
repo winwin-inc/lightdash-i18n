@@ -53,7 +53,7 @@ const DashboardDeleteModal: FC<DashboardDeleteModalProps> = ({
                     <MantineIcon icon={IconTrash} color="red" size="lg" />
                     <Title order={4}>
                         {t(
-                            'components_modal_dashboard_delete.delete_dashboard',
+                            'components_common_modal_dashboard_delete.delete_dashboard',
                         )}
                     </Title>
                 </Group>
@@ -65,13 +65,13 @@ const DashboardDeleteModal: FC<DashboardDeleteModalProps> = ({
                     <Stack>
                         <Text>
                             {t(
-                                'components_modal_dashboard_delete.has_charts.part_1',
+                                'components_common_modal_dashboard_delete.has_charts.part_1',
                             )}
                             <b>"{dashboard.name}"</b>?
                         </Text>
                         <Text>
                             {t(
-                                'components_modal_dashboard_delete.has_charts.part_2',
+                                'components_common_modal_dashboard_delete.has_charts.part_2',
                             )}
                         </Text>
                         <List size="sm">
@@ -89,7 +89,9 @@ const DashboardDeleteModal: FC<DashboardDeleteModalProps> = ({
                     </Stack>
                 ) : (
                     <Text>
-                        {t('components_modal_dashboard_delete.no_charts')}{' '}
+                        {t(
+                            'components_common_modal_dashboard_delete.no_charts',
+                        )}{' '}
                         <b>"{dashboard.name}"</b>?
                     </Text>
                 )}
@@ -100,7 +102,7 @@ const DashboardDeleteModal: FC<DashboardDeleteModalProps> = ({
                         variant="outline"
                         onClick={modalProps.onClose}
                     >
-                        {t('components_modal_dashboard_delete.cancel')}
+                        {t('components_common_modal_dashboard_delete.cancel')}
                     </Button>
 
                     <Button
@@ -109,7 +111,7 @@ const DashboardDeleteModal: FC<DashboardDeleteModalProps> = ({
                         onClick={handleConfirm}
                         type="submit"
                     >
-                        {t('components_modal_dashboard_delete.delete')}
+                        {t('components_common_modal_dashboard_delete.delete')}
                     </Button>
                 </Group>
             </Stack>

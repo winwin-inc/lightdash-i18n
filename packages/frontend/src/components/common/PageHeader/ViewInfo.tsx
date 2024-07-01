@@ -2,6 +2,7 @@ import { Tooltip } from '@mantine/core';
 import { IconEye } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { InfoContainer } from '.';
 
 interface ViewInfoProps {
@@ -10,10 +11,12 @@ interface ViewInfoProps {
 }
 
 const ViewInfo: FC<ViewInfoProps> = ({ views, firstViewedAt }) => {
+    const { t } = useTranslation();
+
     const label = firstViewedAt
-        ? `${views} views since ${dayjs(firstViewedAt).format(
-              'MMM D, YYYY h:mm A',
-          )}`
+        ? `${views} ${t('components_common_page_header.views_slice')} ${dayjs(
+              firstViewedAt,
+          ).format('MMM D, YYYY h:mm A')}`
         : undefined;
 
     return (
@@ -24,7 +27,9 @@ const ViewInfo: FC<ViewInfoProps> = ({ views, firstViewedAt }) => {
         >
             <InfoContainer>
                 <IconEye size={16} />
-                <span>{views || '0'} views</span>
+                <span>
+                    {views || '0'} {t('components_common_page_header.views')}
+                </span>
             </InfoContainer>
         </Tooltip>
     );

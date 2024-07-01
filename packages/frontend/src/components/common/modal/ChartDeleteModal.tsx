@@ -59,14 +59,14 @@ const ChartDeleteModal: FC<ChartDeleteModalProps> = ({
         <Modal
             title={
                 <Title order={4}>
-                    {t('components_modal_chart_delete.title')}
+                    {t('components_common_modal_chart_delete.title')}
                 </Title>
             }
             {...modalProps}
         >
             <Stack spacing="lg" pt="sm">
                 <Text>
-                    {t('components_modal_chart_delete.tip')}
+                    {t('components_common_modal_chart_delete.tip')}
                     <Text span fw={600}>
                         "{chart.name}"
                     </Text>
@@ -80,7 +80,7 @@ const ChartDeleteModal: FC<ChartDeleteModalProps> = ({
                             title={
                                 <Text fw={600}>
                                     {t(
-                                        'components_modal_chart_delete.content',
+                                        'components_common_modal_chart_delete.content',
                                         {
                                             length: relatedDashboards.length,
                                             text:
@@ -115,7 +115,7 @@ const ChartDeleteModal: FC<ChartDeleteModalProps> = ({
                         variant="outline"
                         onClick={modalProps.onClose}
                     >
-                        {t('components_modal_chart_delete.cancel')}
+                        {t('components_common_modal_chart_delete.cancel')}
                     </Button>
 
                     <Button
@@ -123,7 +123,7 @@ const ChartDeleteModal: FC<ChartDeleteModalProps> = ({
                         color="red"
                         onClick={handleConfirm}
                     >
-                        {t('components_modal_chart_delete.delete')}
+                        {t('components_common_modal_chart_delete.delete')}
                     </Button>
                 </Group>
             </Stack>

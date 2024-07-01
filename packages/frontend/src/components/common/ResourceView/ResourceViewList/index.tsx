@@ -21,9 +21,9 @@ import { useValidationUserAbility } from '../../../../hooks/validation/useValida
 import { ResourceIcon, ResourceIndicator } from '../../ResourceIcon';
 import { ResourceInfoPopup } from '../../ResourceInfoPopup/ResourceInfoPopup';
 import {
-    getResourceTypeName,
     getResourceUrl,
     getResourceViewsSinceWhenDescription,
+    useResourceTypeName,
 } from '../resourceUtils';
 import { type ResourceViewItemActionState } from './../ResourceActionHandlers';
 import ResourceActionMenu from './../ResourceActionMenu';
@@ -81,6 +81,7 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
     onAction,
 }) => {
     const { classes } = useTableStyles();
+    const getResourceTypeName = useResourceTypeName();
 
     const history = useHistory();
     const { projectUuid } = useParams<{ projectUuid: string }>();
@@ -116,7 +117,7 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
         () => [
             {
                 id: 'name',
-                label: t('components_resource_view_list.columns.name'),
+                label: t('components_common_resource_view_list.columns.name'),
                 cell: (item: ResourceViewItem) => {
                     const canBelongToSpace =
                         isResourceViewItemChart(item) ||
@@ -153,9 +154,9 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
                                         tooltipLabel={
                                             canUserManageValidation ? (
                                                 <>
-                                                    This content is broken.
-                                                    Learn more about the
-                                                    validation error(s){' '}
+                                                    {t(
+                                                        'components_common_resource_view_list.tooltip_can_validation.part_1',
+                                                    )}{' '}
                                                     <Anchor
                                                         component={Link}
                                                         fw={600}
@@ -165,19 +166,31 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
                                                         }}
                                                         color="blue.4"
                                                     >
-                                                        here
+                                                        {t(
+                                                            'components_common_resource_view_list.tooltip_can_validation.part_2',
+                                                        )}
                                                     </Anchor>
-                                                    .
+                                                    {t(
+                                                        'components_common_resource_view_list.tooltip_can_validation.part_3',
+                                                    )}
                                                 </>
                                             ) : (
                                                 <>
-                                                    There's an error with this{' '}
+                                                    {t(
+                                                        'components_common_resource_view_list.tooltip_can_validation.part_4',
+                                                    )}{' '}
                                                     {isResourceViewItemChart(
                                                         item,
                                                     )
-                                                        ? 'chart'
-                                                        : 'dashboard'}
-                                                    .
+                                                        ? t(
+                                                              'components_common_resource_view_list.tooltip_can_validation.part_5',
+                                                          )
+                                                        : t(
+                                                              'components_common_resource_view_list.tooltip_can_validation.part_6',
+                                                          )}
+                                                    {t(
+                                                        'components_common_resource_view_list.tooltip_can_validation.part_7',
+                                                    )}
                                                 </>
                                             )
                                         }
@@ -240,7 +253,9 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
                                             >
                                                 <span>
                                                     {item.data.views || '0'}{' '}
-                                                    views
+                                                    {t(
+                                                        'components_common_resource_view_list.views',
+                                                    )}
                                                 </span>
                                             </Tooltip>
                                         </Text>
@@ -265,7 +280,7 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
             },
             {
                 id: 'space',
-                label: t('components_resource_view_list.columns.space'),
+                label: t('components_common_resource_view_list.columns.space'),
                 cell: (item: ResourceViewItem) => {
                     if (isResourceViewSpaceItem(item)) {
                         return null;
@@ -316,7 +331,9 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
             },
             {
                 id: 'updatedAt',
-                label: t('components_resource_view_list.columns.updated'),
+                label: t(
+                    'components_common_resource_view_list.columns.updated',
+                ),
                 cell: (item: ResourceViewItem) => {
                     if (isResourceViewSpaceItem(item)) return null;
                     return <ResourceLastEdited item={item} />;
@@ -367,6 +384,7 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
             onAction,
             hoveredItem,
             t,
+            getResourceTypeName,
         ],
     );
 
@@ -386,12 +404,18 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
                 (acc, [columnId, sortDirection]) => {
                     const column = columns.find((c) => c.id === columnId);
                     if (!column) {
-                        throw new Error('Column with id does not exist!');
+                        throw new Error(
+                            t(
+                                'components_common_resource_view_list.error_tips.no_column',
+                            ),
+                        );
                     }
 
                     if (!column.sortingFn) {
                         throw new Error(
-                            'Column does not have sorting function!',
+                            t(
+                                'components_common_resource_view_list.error_tips.no_sorting',
+                            ),
                         );
                     }
 
@@ -409,7 +433,7 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
                 0,
             );
         });
-    }, [items, columnSorts, columns]);
+    }, [items, columnSorts, columns, t]);
 
     return (
         <Table className={classes.root} highlightOnHover>

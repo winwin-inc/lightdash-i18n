@@ -44,9 +44,9 @@ const DashboardDuplicateModal: FC<DashboardDuplicateModalProps> = ({
         if (!dashboard) return;
 
         const initialValues = {
-            name: `${t('components_modal_dashboard_duplicate.copy_of')} ${
-                dashboard.name
-            }`,
+            name: `${t(
+                'components_common_modal_dashboard_duplicate.copy_of',
+            )} ${dashboard.name}`,
             description: dashboard.description ?? '',
         };
 
@@ -78,24 +78,26 @@ const DashboardDuplicateModal: FC<DashboardDuplicateModalProps> = ({
             title={
                 <Title order={4}>
                     {t(
-                        'components_modal_dashboard_duplicate.duplicate_dashboard',
+                        'components_common_modal_dashboard_duplicate.duplicate_dashboard',
                     )}
                 </Title>
             }
             {...modalProps}
         >
             <form
-                title={t('components_modal_dashboard_duplicate.form.title')}
+                title={t(
+                    'components_common_modal_dashboard_duplicate.form.title',
+                )}
                 onSubmit={handleConfirm}
             >
                 <Stack spacing="lg" pt="sm">
                     <TextInput
                         label={t(
-                            'components_modal_dashboard_duplicate.form.dashboards.label',
+                            'components_common_modal_dashboard_duplicate.form.dashboards.label',
                         )}
                         required
                         placeholder={t(
-                            'components_modal_dashboard_duplicate.form.dashboards.placeholder',
+                            'components_common_modal_dashboard_duplicate.form.dashboards.placeholder',
                         )}
                         disabled={isLoading}
                         {...form.getInputProps('name')}
@@ -104,10 +106,10 @@ const DashboardDuplicateModal: FC<DashboardDuplicateModalProps> = ({
 
                     <Textarea
                         label={t(
-                            'components_modal_dashboard_duplicate.form.description.label',
+                            'components_common_modal_dashboard_duplicate.form.description.label',
                         )}
                         placeholder={t(
-                            'components_modal_dashboard_duplicate.form.description.placeholder',
+                            'components_common_modal_dashboard_duplicate.form.description.placeholder',
                         )}
                         disabled={isLoading}
                         autosize
@@ -119,7 +121,7 @@ const DashboardDuplicateModal: FC<DashboardDuplicateModalProps> = ({
                     <Group position="right" mt="sm">
                         <Button variant="outline" onClick={modalProps.onClose}>
                             {t(
-                                'components_modal_dashboard_duplicate.form.cancel',
+                                'components_common_modal_dashboard_duplicate.form.cancel',
                             )}
                         </Button>
 
@@ -129,7 +131,7 @@ const DashboardDuplicateModal: FC<DashboardDuplicateModalProps> = ({
                             type="submit"
                         >
                             {t(
-                                'components_modal_dashboard_duplicate.form.create_duplicate',
+                                'components_common_modal_dashboard_duplicate.form.create_duplicate',
                             )}
                         </Button>
                     </Group>

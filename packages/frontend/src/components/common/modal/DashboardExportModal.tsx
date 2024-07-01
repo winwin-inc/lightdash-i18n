@@ -49,12 +49,12 @@ const CsvExport: FC<CsvExportProps & Pick<ModalProps, 'onClose'>> = ({
         <Stack p="md">
             {!!dateZoomGranularity && (
                 <Alert title="Date zoom is enabled" color="blue" mb="md">
-                    {t('components_modal_dashboard_export.alert')}
+                    {t('components_common_modal_dashboard_export.alert')}
                 </Alert>
             )}
             <Group position="right" pb="md" px="md" spacing="lg">
                 <Button variant="outline" onClick={onClose}>
-                    {t('components_modal_dashboard_export.cancel')}
+                    {t('components_common_modal_dashboard_export.cancel')}
                 </Button>
 
                 <Group spacing="xs">
@@ -62,7 +62,7 @@ const CsvExport: FC<CsvExportProps & Pick<ModalProps, 'onClose'>> = ({
                         withinPortal
                         position="bottom"
                         label={t(
-                            'components_modal_dashboard_export.tooltip.label',
+                            'components_common_modal_dashboard_export.tooltip.label',
                         )}
                     >
                         <Button
@@ -77,7 +77,7 @@ const CsvExport: FC<CsvExportProps & Pick<ModalProps, 'onClose'>> = ({
                             leftIcon={<MantineIcon icon={IconCsv} />}
                         >
                             {t(
-                                'components_modal_dashboard_export.tooltip.button',
+                                'components_common_modal_dashboard_export.tooltip.button',
                             )}
                         </Button>
                     </Tooltip>
@@ -153,7 +153,7 @@ const ImageExport: FC<Props & Pick<ModalProps, 'onClose'>> = ({
 
             <Group position="right" pb="md" px="md" spacing="lg">
                 <Button variant="outline" onClick={onClose}>
-                    {t('components_modal_dashboard_export.cancel')}
+                    {t('components_common_modal_dashboard_export.cancel')}
                 </Button>
 
                 <Group spacing="xs">
@@ -169,7 +169,7 @@ const ImageExport: FC<Props & Pick<ModalProps, 'onClose'>> = ({
                         }
                     >
                         {t(
-                            'components_modal_dashboard_export.export_dashboard',
+                            'components_common_modal_dashboard_export.export_dashboard',
                         )}
                     </Button>
                 </Group>

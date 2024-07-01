@@ -11,6 +11,8 @@ import {
 import { useDisclosure, useHover } from '@mantine/hooks';
 import { IconEye } from '@tabler/icons-react';
 import { type FC, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { ResourceIcon } from '../../ResourceIcon';
 import ResourceViewActionMenu, {
     type ResourceViewActionMenuCommonProps,
@@ -30,6 +32,8 @@ const ResourceViewGridDashboardItem: FC<ResourceViewGridDashboardItemProps> = ({
     onAction,
     dragIcon,
 }) => {
+    const { t } = useTranslation();
+
     const { hovered, ref } = useHover();
     const [opened, handlers] = useDisclosure(false);
     const theme = useMantineTheme();
@@ -80,7 +84,8 @@ const ResourceViewGridDashboardItem: FC<ResourceViewGridDashboardItemProps> = ({
                         <IconEye color={theme.colors.gray[6]} size={14} />
 
                         <Text size={14} color="gray.6" fz="xs">
-                            {item.data.views} views
+                            {item.data.views}{' '}
+                            {t('components_common_resource_view_grid.views')}
                         </Text>
                     </Flex>
                 </Tooltip>

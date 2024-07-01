@@ -75,21 +75,21 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
 
     const SpaceTypeLabels = {
         [SpaceType.SharedWithMe]: t(
-            'components_resource_view_action_menu.space_type_labels.shared_with_me',
+            'components_common_resource_view_action_menu.space_type_labels.shared_with_me',
         ),
         [SpaceType.AdminContentView]: t(
-            'components_resource_view_action_menu.space_type_labels.admin_content_view',
+            'components_common_resource_view_action_menu.space_type_labels.admin_content_view',
         ),
     };
     const ResourceViewLabels = {
         [ResourceViewItemType.CHART]: t(
-            'components_resource_view_action_menu.resource_view_labels.chart',
+            'components_common_resource_view_action_menu.resource_view_labels.chart',
         ),
         [ResourceViewItemType.DASHBOARD]: t(
-            'components_resource_view_action_menu.resource_view_labels.dashboard',
+            'components_common_resource_view_action_menu.resource_view_labels.dashboard',
         ),
         [ResourceViewItemType.SPACE]: t(
-            'components_resource_view_action_menu.resource_view_labels.space',
+            'components_common_resource_view_action_menu.resource_view_labels.space',
         ),
     };
 
@@ -244,7 +244,7 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                         }}
                     >
                         {t(
-                            'components_resource_view_action_menu.menus.rename.title',
+                            'components_common_resource_view_action_menu.menus.rename.title',
                         )}
                     </Menu.Item>
 
@@ -262,7 +262,7 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                             }}
                         >
                             {t(
-                                'components_resource_view_action_menu.menus.duplicate.title',
+                                'components_common_resource_view_action_menu.menus.duplicate.title',
                             )}
                         </Menu.Item>
                     ) : null}
@@ -281,7 +281,7 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                                 }}
                             >
                                 {t(
-                                    'components_resource_view_action_menu.menus.add.title',
+                                    'components_common_resource_view_action_menu.menus.add.title',
                                 )}
                             </Menu.Item>
                         )}
@@ -320,12 +320,16 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                                         }}
                                     >
                                         {t(
-                                            'components_resource_view_action_menu.menus.promote.title',
+                                            'components_common_resource_view_action_menu.menus.promote.title',
                                         )}{' '}
                                         {item.type ===
                                         ResourceViewItemType.CHART
-                                            ? 'chart'
-                                            : 'dashboard'}
+                                            ? t(
+                                                  'components_common_resource_view_action_menu.menus.promote.chart',
+                                              )
+                                            : t(
+                                                  'components_common_resource_view_action_menu.menus.promote.dashboard',
+                                              )}
                                     </Menu.Item>
                                 </div>
                             </Tooltip>
@@ -357,10 +361,10 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                         >
                             {isPinned
                                 ? t(
-                                      'components_resource_view_action_menu.menus.toggle_pin.unpin',
+                                      'components_common_resource_view_action_menu.menus.toggle_pin.unpin',
                                   )
                                 : t(
-                                      'components_resource_view_action_menu.menus.toggle_pin.pin',
+                                      'components_common_resource_view_action_menu.menus.toggle_pin.pin',
                                   )}
                         </Menu.Item>
                     ) : null}
@@ -390,7 +394,7 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                                         }
                                     >
                                         {t(
-                                            'components_resource_view_action_menu.menus.move.title',
+                                            'components_common_resource_view_action_menu.menus.move.title',
                                         )}
                                     </Menu.Item>
                                 </Menu.Target>
@@ -506,7 +510,7 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                                             }}
                                         >
                                             {t(
-                                                'components_resource_view_action_menu.menus.create.title',
+                                                'components_common_resource_view_action_menu.menus.create.title',
                                             )}
                                         </Menu.Item>
                                     </Can>
@@ -534,7 +538,7 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                                 }}
                             >
                                 {t(
-                                    'components_resource_view_action_menu.menus.delete.title',
+                                    'components_common_resource_view_action_menu.menus.delete.title',
                                     { type: ResourceViewLabels[item.type] },
                                 )}
                             </Menu.Item>

@@ -2,7 +2,9 @@ import { type ResultRow } from '@lightdash/common';
 import { getHotkeyHandler, useClipboard, useDisclosure } from '@mantine/hooks';
 import { type Cell } from '@tanstack/react-table';
 import { useCallback, useEffect, useRef, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { type CSSProperties } from 'styled-components';
+
 import useToaster from '../../../../hooks/toaster/useToaster';
 import { Td } from '../Table.styles';
 import { type CellContextMenuProps } from '../types';
@@ -40,6 +42,8 @@ const BodyCell: FC<React.PropsWithChildren<CommonBodyCellProps>> = ({
     tooltipContent,
     minimal = false,
 }) => {
+    const { t } = useTranslation();
+
     const elementRef = useRef<HTMLTableCellElement>(null);
     const { showToastSuccess } = useToaster();
     const { copy } = useClipboard();
@@ -66,7 +70,9 @@ const BodyCell: FC<React.PropsWithChildren<CommonBodyCellProps>> = ({
             .formatted;
 
         copy(value);
-        showToastSuccess({ title: 'Copied to clipboard!' });
+        showToastSuccess({
+            title: t('components_common_table.copied_to_clipboard'),
+        });
 
         setCopying((copyingState) => {
             if (!copyingState) {
@@ -74,7 +80,7 @@ const BodyCell: FC<React.PropsWithChildren<CommonBodyCellProps>> = ({
             }
             return true;
         });
-    }, [isMenuOpen, cell, copy, showToastSuccess]);
+    }, [isMenuOpen, cell, copy, showToastSuccess, t]);
 
     useEffect(() => {
         const handleKeyDown = getHotkeyHandler([['mod+C', handleCopy]]);

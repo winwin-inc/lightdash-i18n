@@ -2,6 +2,8 @@ import { Menu, type MenuProps } from '@mantine/core';
 import { type FC } from 'react';
 
 import { IconCopy } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../MantineIcon';
 
 type TotalCellMenuProps = {
@@ -15,6 +17,8 @@ const TotalCellMenu: FC<React.PropsWithChildren<TotalCellMenuProps>> = ({
     onClose,
     onCopy,
 }) => {
+    const { t } = useTranslation();
+
     return (
         <Menu
             opened={opened}
@@ -44,7 +48,7 @@ const TotalCellMenu: FC<React.PropsWithChildren<TotalCellMenuProps>> = ({
                     }
                     onClick={onCopy}
                 >
-                    Copy
+                    {t('components_common_pivot_table.copy')}
                 </Menu.Item>
             </Menu.Dropdown>
         </Menu>

@@ -48,11 +48,11 @@ const ChartCreateModal: FC<ChartCreateModalProps> = ({
 
     const getModalTitle = useCallback(() => {
         if (saveMode === SaveMode.TO_DASHBOARD) {
-            return `${t('components_modal_chart_create.title')} "${
+            return `${t('components_common_modal_chart_create.title')} "${
                 editingDashboardInfo.name
             }"`;
         }
-        return t('components_modal_chart_create.title');
+        return t('components_common_modal_chart_create.title');
     }, [saveMode, editingDashboardInfo, t]);
 
     return (

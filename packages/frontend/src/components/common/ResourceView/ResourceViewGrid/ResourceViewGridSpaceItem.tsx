@@ -22,6 +22,7 @@ import {
     type Icon as IconType,
 } from '@tabler/icons-react';
 import { useMemo, type FC, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ResourceIcon } from '../../ResourceIcon';
 import ResourceViewActionMenu, {
@@ -108,6 +109,8 @@ const ResourceViewGridSpaceItem: FC<ResourceViewGridSpaceItemProps> = ({
     dragIcon,
     allowDelete,
 }) => {
+    const { t } = useTranslation();
+
     const { hovered, ref } = useHover();
     const [opened, handlers] = useDisclosure(false);
 
@@ -118,20 +121,28 @@ const ResourceViewGridSpaceItem: FC<ResourceViewGridSpaceItemProps> = ({
 
         switch (accessType) {
             case ResourceAccess.Private:
-                return 'Only visible to you';
+                return t(
+                    'components_common_resource_view_grid.access_type_options.only_visible_to_you',
+                );
             case ResourceAccess.Public:
-                return 'Everyone in this project has access';
+                return t(
+                    'components_common_resource_view_grid.access_type_options.project_access',
+                );
             case ResourceAccess.Shared:
-                return `Shared with ${item.data.accessListLength} user${
-                    item.data.accessListLength > 1 ? 's' : ''
-                }`;
+                return t(
+                    'components_common_resource_view_grid.access_type_options.shared_with',
+                    {
+                        length: item.data.accessListLength,
+                        suffix: item.data.accessListLength > 1 ? 's' : '',
+                    },
+                );
             default:
                 return assertUnreachable(
                     accessType,
                     `Unknown access type ${accessType}`,
                 );
         }
-    }, [item]);
+    }, [item, t]);
 
     return (
         <Paper

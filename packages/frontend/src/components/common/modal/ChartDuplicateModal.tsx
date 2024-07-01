@@ -74,23 +74,23 @@ const ChartDuplicateModal: FC<ChartDuplicateModalProps> = ({
         <Modal
             title={
                 <Title order={4}>
-                    {t('components_modal_chart_duplicate.title')}
+                    {t('components_common_modal_chart_duplicate.title')}
                 </Title>
             }
             {...modalProps}
         >
             <form
-                title={t('components_modal_chart_duplicate.title')}
+                title={t('components_common_modal_chart_duplicate.title')}
                 onSubmit={handleConfirm}
             >
                 <Stack spacing="lg" pt="sm">
                     <TextInput
                         label={t(
-                            'components_modal_chart_duplicate.form.name.label',
+                            'components_common_modal_chart_duplicate.form.name.label',
                         )}
                         required
                         placeholder={t(
-                            'components_modal_chart_duplicate.form.name.placeholder',
+                            'components_common_modal_chart_duplicate.form.name.placeholder',
                         )}
                         disabled={isLoading}
                         {...form.getInputProps('name')}
@@ -99,10 +99,10 @@ const ChartDuplicateModal: FC<ChartDuplicateModalProps> = ({
 
                     <Textarea
                         label={t(
-                            'components_modal_chart_duplicate.form.description.label',
+                            'components_common_modal_chart_duplicate.form.description.label',
                         )}
                         placeholder={t(
-                            'components_modal_chart_duplicate.form.description.placeholder',
+                            'components_common_modal_chart_duplicate.form.description.placeholder',
                         )}
                         disabled={isLoading}
                         autosize
@@ -113,7 +113,9 @@ const ChartDuplicateModal: FC<ChartDuplicateModalProps> = ({
 
                     <Group position="right" mt="sm">
                         <Button variant="outline" onClick={modalProps.onClose}>
-                            {t('components_modal_chart_duplicate.cancel')}
+                            {t(
+                                'components_common_modal_chart_duplicate.cancel',
+                            )}
                         </Button>
 
                         <Button
@@ -121,7 +123,9 @@ const ChartDuplicateModal: FC<ChartDuplicateModalProps> = ({
                             loading={isLoading}
                             type="submit"
                         >
-                            {t('components_modal_chart_duplicate.create')}
+                            {t(
+                                'components_common_modal_chart_duplicate.create',
+                            )}
                         </Button>
                     </Group>
                 </Stack>

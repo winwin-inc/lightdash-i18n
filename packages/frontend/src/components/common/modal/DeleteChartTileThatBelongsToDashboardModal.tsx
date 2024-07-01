@@ -33,7 +33,7 @@ const DeleteChartTileThatBelongsToDashboardModal: FC<Props> = ({
                     <MantineIcon size="lg" icon={IconAlertCircle} color="red" />
                     <Title order={4}>
                         {t(
-                            'components_modal_chart_delete_belongs_dashboard.delete_chart',
+                            'components_common_modal_chart_delete_belongs_dashboard.delete_chart',
                         )}
                     </Title>
                 </Group>
@@ -43,13 +43,13 @@ const DeleteChartTileThatBelongsToDashboardModal: FC<Props> = ({
             <Stack>
                 <Text>
                     {t(
-                        'components_modal_chart_delete_belongs_dashboard.content.part_1',
+                        'components_common_modal_chart_delete_belongs_dashboard.content.part_1',
                     )}
                     <b>{name}</b>?
                 </Text>
                 <Text>
                     {t(
-                        'components_modal_chart_delete_belongs_dashboard.content.part_2',
+                        'components_common_modal_chart_delete_belongs_dashboard.content.part_2',
                     )}
                 </Text>
 
@@ -60,13 +60,13 @@ const DeleteChartTileThatBelongsToDashboardModal: FC<Props> = ({
                         onClick={modalProps.onClose}
                     >
                         {t(
-                            'components_modal_chart_delete_belongs_dashboard.cancel',
+                            'components_common_modal_chart_delete_belongs_dashboard.cancel',
                         )}
                     </Button>
 
                     <Button color="red" onClick={onConfirm} type="submit">
                         {t(
-                            'components_modal_chart_delete_belongs_dashboard.delete',
+                            'components_common_modal_chart_delete_belongs_dashboard.delete',
                         )}
                     </Button>
                 </Group>

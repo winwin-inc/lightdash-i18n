@@ -19,6 +19,8 @@ import React, {
     useState,
     type FC,
 } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { getGroupedRowModelLightdash } from './getGroupedRowModelLightdash';
 import {
     DEFAULT_PAGE_SIZE,
@@ -201,9 +203,12 @@ export const TableProvider: FC<React.PropsWithChildren<Props>> = ({
 };
 
 export function useTableContext(): TableContext {
+    const { t } = useTranslation();
     const context = useContext(Context);
+
     if (context === undefined) {
-        throw new Error('useTableContext must be used within a TableProvider');
+        throw new Error(t('components_common_table.provider.error'));
     }
+
     return context;
 }

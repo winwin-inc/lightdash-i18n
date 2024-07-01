@@ -68,23 +68,25 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
         <Modal
             title={
                 <Title order={4}>
-                    {t('components_modal_dashboard_update.update_dashboard')}
+                    {t(
+                        'components_common_modal_dashboard_update.update_dashboard',
+                    )}
                 </Title>
             }
             {...modalProps}
         >
             <form
-                title={t('components_modal_dashboard_update.form.title')}
+                title={t('components_common_modal_dashboard_update.form.title')}
                 onSubmit={handleConfirm}
             >
                 <Stack spacing="lg" pt="sm">
                     <TextInput
                         label={t(
-                            'components_modal_dashboard_update.form.dashboards.label',
+                            'components_common_modal_dashboard_update.form.dashboards.label',
                         )}
                         required
                         placeholder={t(
-                            'components_modal_dashboard_update.form.dashboards.placeholder',
+                            'components_common_modal_dashboard_update.form.dashboards.placeholder',
                         )}
                         disabled={isUpdating}
                         {...form.getInputProps('name')}
@@ -92,10 +94,10 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
 
                     <Textarea
                         label={t(
-                            'components_modal_dashboard_update.form.description.label',
+                            'components_common_modal_dashboard_update.form.description.label',
                         )}
                         placeholder={t(
-                            'components_modal_dashboard_update.form.description.placeholder',
+                            'components_common_modal_dashboard_update.form.description.placeholder',
                         )}
                         disabled={isUpdating}
                         autosize
@@ -105,7 +107,9 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
 
                     <Group position="right" mt="sm">
                         <Button variant="outline" onClick={modalProps.onClose}>
-                            {t('components_modal_dashboard_update.form.cancel')}
+                            {t(
+                                'components_common_modal_dashboard_update.form.cancel',
+                            )}
                         </Button>
 
                         <Button
@@ -113,7 +117,9 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
                             loading={isUpdating}
                             type="submit"
                         >
-                            {t('components_modal_dashboard_update.form.save')}
+                            {t(
+                                'components_common_modal_dashboard_update.form.save',
+                            )}
                         </Button>
                     </Group>
                 </Stack>

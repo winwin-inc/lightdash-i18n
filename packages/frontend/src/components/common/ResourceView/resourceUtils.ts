@@ -5,47 +5,83 @@ import {
     type ResourceViewItem,
 } from '@lightdash/common';
 import dayjs from 'dayjs';
+import { useTranslation } from 'react-i18next';
 
-export const getResourceTypeName = (item: ResourceViewItem) => {
-    switch (item.type) {
-        case ResourceViewItemType.DASHBOARD:
-            return 'Dashboard';
-        case ResourceViewItemType.SPACE:
-            return 'Space';
-        case ResourceViewItemType.CHART:
-            switch (item.data.chartKind) {
-                case undefined:
-                case ChartKind.VERTICAL_BAR:
-                    return 'Bar chart';
-                case ChartKind.HORIZONTAL_BAR:
-                    return 'Horizontal bar chart';
-                case ChartKind.LINE:
-                    return 'Line chart';
-                case ChartKind.SCATTER:
-                    return 'Scatter chart';
-                case ChartKind.AREA:
-                    return 'Area chart';
-                case ChartKind.MIXED:
-                    return 'Mixed chart';
-                case ChartKind.PIE:
-                    return 'Pie chart';
-                case ChartKind.FUNNEL:
-                    return 'Funnel chart';
-                case ChartKind.TABLE:
-                    return 'Table';
-                case ChartKind.BIG_NUMBER:
-                    return 'Big number';
-                case ChartKind.CUSTOM:
-                    return 'Custom visualization';
-                default:
-                    return assertUnreachable(
-                        item.data.chartKind,
-                        `Chart type ${item.data.chartKind} not supported`,
-                    );
-            }
-        default:
-            return assertUnreachable(item, 'Resource type not supported');
-    }
+export const useResourceTypeName = () => {
+    const { t } = useTranslation();
+
+    return (item: ResourceViewItem) => {
+        switch (item.type) {
+            case ResourceViewItemType.DASHBOARD:
+                return t(
+                    'components_common_resource_view_utils.resource_type_names.dashboard',
+                );
+            case ResourceViewItemType.SPACE:
+                return t(
+                    'components_common_resource_view_utils.resource_type_names.dashboard',
+                );
+            case ResourceViewItemType.CHART:
+                switch (item.data.chartKind) {
+                    case undefined:
+                    case ChartKind.VERTICAL_BAR:
+                        return t(
+                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                        );
+                    case ChartKind.HORIZONTAL_BAR:
+                        return t(
+                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                        );
+                    case ChartKind.LINE:
+                        return t(
+                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                        );
+                    case ChartKind.SCATTER:
+                        return t(
+                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                        );
+                    case ChartKind.AREA:
+                        return t(
+                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                        );
+                    case ChartKind.MIXED:
+                        return t(
+                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                        );
+                    case ChartKind.PIE:
+                        return t(
+                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                        );
+                    case ChartKind.FUNNEL:
+                        return t(
+                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                        );
+                    case ChartKind.TABLE:
+                        return t(
+                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                        );
+                    case ChartKind.BIG_NUMBER:
+                        return t(
+                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                        );
+                    case ChartKind.CUSTOM:
+                        return t(
+                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                        );
+                    default:
+                        return assertUnreachable(
+                            item.data.chartKind,
+                            t(
+                                'components_common_resource_view_utils.resource_type_names.dashboard',
+                                {
+                                    chartKind: item.data.chartKind,
+                                },
+                            ),
+                        );
+                }
+            default:
+                return assertUnreachable(item, 'Resource type not supported');
+        }
+    };
 };
 
 export const getResourceUrl = (projectUuid: string, item: ResourceViewItem) => {

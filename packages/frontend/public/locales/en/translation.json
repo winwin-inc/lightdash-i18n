@@ -623,7 +623,9 @@
 
     "components_common_page_header": {
         "last_edited": "Last edited",
-        "by": "by"
+        "by": "by",
+        "views_slice": "views since",
+        "views": "views"
     },
     "components_common_share_space_modal": {
         "share": "Share",
@@ -698,6 +700,7 @@
         "user_access": "User access"
     },
     "components_common_resource_info_popup": {
+        "use_in_dashboard": "Used in {{size}} dashboard",
         "view_since": "views since",
         "views": "Views",
         "description": "Description"
@@ -839,6 +842,36 @@
             "is_between": "is between"
         },
         "completed": "completed"
+    },
+
+    "components_common_light_table": {
+        "component_render_error": "component cannot be rendered outside the SectionProvider",
+        "row_component_render_error": "Row components cannot be rendered outside the RowContext component"
+    },
+
+    "components_common_page": {
+        "lightdash": "Lightdash"
+    },
+
+    "components_common_pivot_table": {
+        "invalid_pivot_data": "Invalid pivot data",
+        "total": "Total",
+        "copy": "Copy",
+        "view_underlying_data": "View underlying data",
+        "drill_into": "Drill into"
+    },
+
+    "components_common_table": {
+        "copied_to_clipboard": "Copied to clipboard",
+        "pagination": {
+            "pages": "Pages",
+            "scroll": "Scroll",
+            "page": "Page",
+            "of": "of"
+        },
+        "provider": {
+            "error": "useTableContext must be used within a TableProvider"
+        }
     },
 
     "components_dbt_cloud_settings": {
@@ -1387,7 +1420,7 @@
         }
     },
 
-    "components_modal_chart_update": {
+    "components_common_modal_chart_update": {
         "title": "Update Chart",
         "form_dashboard": {
             "name": {
@@ -1402,7 +1435,7 @@
         "cancel": "Cancel",
         "save": "Save"
     },
-    "components_modal_chart_duplicate": {
+    "components_common_modal_chart_duplicate": {
         "title": "Duplicate Chart",
         "form_dashboard": {
             "name": {
@@ -1417,7 +1450,7 @@
         "cancel": "Cancel",
         "create": "Create duplicate"
     },
-    "components_modal_chart_create": {
+    "components_common_modal_chart_create": {
         "title": "Save chart",
         "add": {
             "form_dashboard": {
@@ -1481,14 +1514,14 @@
             "submit": "Save"
         }
     },
-    "components_modal_chart_delete": {
+    "components_common_modal_chart_delete": {
         "title": "Delete Chart",
         "tip": "Are you sure you want to delete the chart ",
         "content": "This action will remove a chart tile from {{length}} dashboard {{text}}:",
         "cancel": "Cancel",
         "delete": "Delete"
     },
-    "components_modal_chart_delete_belongs_dashboard": {
+    "components_common_modal_chart_delete_belongs_dashboard": {
         "delete_chart": "Delete chart",
         "content": {
             "part_1": "Are you sure you want to delete the chart ",
@@ -1497,7 +1530,7 @@
         "cancel": "Cancel",
         "delete": "Delete"
     },
-    "components_modal_chart_move_belongs_dashboard": {
+    "components_common_modal_chart_move_belongs_dashboard": {
         "content": {
             "part_1": "Are you sure you want to move the chart",
             "part_2": "to the space",
@@ -1507,7 +1540,7 @@
         "cancel": "Cancel",
         "move": "Move"
     },
-    "components_modal_dashboard_create": {
+    "components_common_modal_dashboard_create": {
         "title": "Create Dashboard",
         "form_dashboard": {
             "name": {
@@ -1528,7 +1561,7 @@
         "cancel": "Cancel",
         "create": "Create"
     },
-    "components_modal_dashboard_delete": {
+    "components_common_modal_dashboard_delete": {
         "delete_dashboard": "Delete dashboard",
         "has_charts": {
             "part_1": "Are you sure you want to delete the dashboard",
@@ -1538,7 +1571,7 @@
         "cancel": "Cancel",
         "delete": "Delete"
     },
-    "components_modal_dashboard_duplicate": {
+    "components_common_modal_dashboard_duplicate": {
         "copy_of": "Copy of",
         "duplicate_dashboard": "Duplicate dashboard",
         "form": {
@@ -1555,7 +1588,7 @@
             "create_duplicate": "Create duplicate"
         }
     },
-    "components_modal_dashboard_export": {
+    "components_common_modal_dashboard_export": {
         "alert": "Your CSV export will include data for the selected date zoom granularity.",
         "tooltip_export": {
             "label": "Export results in table for all charts in a zip file",
@@ -1564,7 +1597,7 @@
         "cancel": "Cancel",
         "export_dashboard": "Export dashboard"
     },
-    "components_modal_dashboard_update": {
+    "components_common_modal_dashboard_update": {
         "update_dashboard": "Update dashboard",
         "form": {
             "title": "Update Dashboard",
@@ -1580,7 +1613,7 @@
             "save": "Save"
         }
     },
-    "components_modal_dashboard_locked": {
+    "components_common_modal_dashboard_locked": {
         "part_1": "Set filter values to get started",
         "part_2": "This dashboard cannot be run without setting the filter values that are required"
     },
@@ -2493,14 +2526,36 @@
         "chart_type": "Chart type"
     },
 
-    "components_resource_view_list": {
+    "components_common_resource_view_grid": {
+        "views": "views",
+        "access_type_options": {
+            "only_visible_to_you": "Only visible to you",
+            "project_access": "Everyone in this project has access",
+            "shared_with": "Shared with {{length}} user{{suffix}}"
+        }
+    },
+    "components_common_resource_view_list": {
         "columns": {
             "name": "Name",
             "space": "Space",
             "updated": "Last Edited"
+        },
+        "tooltip_can_validation": {
+            "part_1": "This content is broken. Learn more about the validation error(s)",
+            "part_2": "here",
+            "part_3": ".",
+            "part_4": "There's an error with this",
+            "part_5": "chart",
+            "part_6": "dashboard",
+            "part_7": "."
+        },
+        "views": "views",
+        "error_tips": {
+            "no_column": "Column with id does not exist!",
+            "no_sorting": "Column does not have sorting function!"
         }
     },
-    "components_resource_view_action_menu": {
+    "components_common_resource_view_action_menu": {
         "space_type_labels": {
             "shared_with_me": "Shared with me",
             "admin_content_view": "Public content view"
@@ -2533,7 +2588,9 @@
                 "title": "Add to Dashboard"
             },
             "promote": {
-                "title": "Promote"
+                "title": "Promote",
+                "chart": "chart",
+                "dashboard": "dashboard"
             },
             "toggle_pin": {
                 "pin": "Pin to homepage",
@@ -2550,7 +2607,7 @@
             }
         }
     },
-    "components_resource_view_action_handlers": {
+    "components_common_resource_view_action_handlers": {
         "update": {
             "title": "Update space",
             "label": "Update"
@@ -2562,6 +2619,27 @@
         "create": {
             "title": "Create new space",
             "label": "Create"
+        }
+    },
+    "components_common_resource_view_last_edited": {
+        "by": "by"
+    },
+    "components_common_resource_view_utils": {
+        "resource_type_names": {
+            "dashboard": "Dashboard",
+            "space": "Space",
+            "bar_chart": "Bar chart",
+            "horizontal_bar_chart": "Horizontal bar chart",
+            "line_chart": "Line chart",
+            "scatter_chart": "Scatter chart",
+            "area_chart": "Area chart",
+            "mixed_chart": "Mixed chart",
+            "pie_chart": "Pie chart",
+            "funnel_chart": "Funnel chart",
+            "table": "Table",
+            "bid_number": "Bid number",
+            "custom_visualization": "Custom visualization",
+            "not_supported": "Chart type {{chartKind}} not supported"
         }
     },
 

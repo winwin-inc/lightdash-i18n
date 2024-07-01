@@ -18,7 +18,9 @@ import {
     useState,
     type FC,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useScroll } from 'react-use';
+
 import {
     useTableCellStyles,
     useTableRowStyles,
@@ -95,10 +97,12 @@ type TableContextType = {
 const TableContext = createContext<TableContextType | null>(null);
 
 const useTableContext = () => {
+    const { t } = useTranslation();
     const context = useContext(TableContext);
+
     if (context === null) {
         throw new Error(
-            'component cannot be rendered outside the TableProvider',
+            t('components_common_light_table.component_render_error'),
         );
     }
     return context;
@@ -212,12 +216,15 @@ const SectionProvider: FC<React.PropsWithChildren<SectionContextType>> = ({
 };
 
 const useSectionContext = () => {
+    const { t } = useTranslation();
     const context = useContext(SectionContext);
+
     if (context === null) {
         throw new Error(
-            'component cannot be rendered outside the SectionProvider',
+            t('components_common_light_table.row_component_render_error'),
         );
     }
+
     return context;
 };
 

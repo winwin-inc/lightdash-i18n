@@ -421,8 +421,8 @@
         "tooltip_filter": {
             "label": "将筛选器重置为原始状态"
         },
-        "loading_dashboard_filters": "正在加载仪表板筛选器...",
-        "no_filters": "此仪表板未定义任何筛选器。"
+        "loading_dashboard_filters": "正在加载看板筛选器...",
+        "no_filters": "此看板未定义任何筛选器。"
     },
     "features_scheduler_form": {
         "threshold_operator_options": {
@@ -622,8 +622,10 @@
     },
 
     "components_common_page_header": {
-        "last_edited": "最后编辑于",
-        "by": "由"
+        "last_edited": "最近编辑",
+        "by": "由",
+        "views_slice": "次查看 (自)",
+        "views": "次查看"
     },
     "components_common_share_space_modal": {
         "share": "共享",
@@ -698,6 +700,7 @@
         "user_access": "用户访问权限"
     },
     "components_common_resource_info_popup": {
+        "use_in_dashboard": "在 {{size}} 个看板中使用",
         "view_since": "浏览次数 (自从)",
         "views": "浏览量",
         "description": "描述"
@@ -839,6 +842,36 @@
             "is_between": "在之间"
         },
         "completed": "已完成"
+    },
+
+    "components_common_light_table": {
+        "component_render_error": "该组件无法在 SectionProvider 外部渲染",
+        "row_component_render_error": "行组件无法在 RowContext 组件外部渲染"
+    },
+
+    "components_common_page": {
+        "lightdash": "Lightdash"
+    },
+
+    "components_common_pivot_table": {
+        "invalid_pivot_data": "无效的透视数据",
+        "total": "总计",
+        "copy": "复制",
+        "view_underlying_data": "查看底层数据",
+        "drill_into": "深入查看"
+    },
+
+    "components_common_table": {
+        "copied_to_clipboard": "已复制到剪贴板",
+        "pagination": {
+            "pages": "页",
+            "scroll": "滚动",
+            "page": "页",
+            "of": "共"
+        },
+        "provider": {
+            "error": "useTableContext 必须在 TableProvider 内部使用"
+        }
     },
 
     "components_dbt_cloud_settings": {
@@ -1387,7 +1420,7 @@
         }
     },
 
-    "components_modal_chart_update": {
+    "components_common_modal_chart_update": {
         "title": "更新图表",
         "form": {
             "name": {
@@ -1402,7 +1435,7 @@
         "cancel": "取消",
         "save": "保存"
     },
-    "components_modal_chart_duplicate": {
+    "components_common_modal_chart_duplicate": {
         "title": "复制图表",
         "form": {
             "name": {
@@ -1417,7 +1450,7 @@
         "cancel": "取消",
         "create": "创建"
     },
-    "components_modal_chart_create": {
+    "components_common_modal_chart_create": {
         "title": "保存图表",
         "add": {
             "form": {
@@ -1487,14 +1520,14 @@
             "submit": "保存"
         }
     },
-    "components_modal_chart_delete": {
+    "components_common_modal_chart_delete": {
         "title": "删除图表",
         "tip": "您确定要删除图表吗 ",
         "content": "此操作将从{{length}}看板{{text}}中删除图表:",
         "cancel": "取消",
         "delete": "删除"
     },
-    "components_modal_chart_delete_belongs_dashboard": {
+    "components_common_modal_chart_delete_belongs_dashboard": {
         "delete_chart": "删除图表",
         "content": {
             "part_1": "您确定要删除图表",
@@ -1503,7 +1536,7 @@
         "cancel": "取消",
         "delete": "删除"
     },
-    "components_modal_chart_move_belongs_dashboard": {
+    "components_common_modal_chart_move_belongs_dashboard": {
         "content": {
             "part_1": "您确定要将图表",
             "part_2": "移动到空间",
@@ -1513,7 +1546,7 @@
         "cancel": "取消",
         "move": "移动"
     },
-    "components_modal_dashboard_create": {
+    "components_common_modal_dashboard_create": {
         "title": "创建看板",
         "form": {
             "name": {
@@ -1534,7 +1567,7 @@
         "cancel": "取消",
         "create": "创建"
     },
-    "components_modal_dashboard_delete": {
+    "components_common_modal_dashboard_delete": {
         "delete_dashboard": "删除看板",
         "has_charts": {
             "part_1": "您确定要删除看板",
@@ -1544,7 +1577,7 @@
         "cancel": "取消",
         "delete": "删除"
     },
-    "components_modal_dashboard_duplicate": {
+    "components_common_modal_dashboard_duplicate": {
         "copy_of": "副本 - ",
         "duplicate_dashboard": "复制看板",
         "form": {
@@ -1561,7 +1594,7 @@
             "create_duplicate": "创建副本"
         }
     },
-    "components_modal_dashboard_export": {
+    "components_common_modal_dashboard_export": {
         "alert": "您的 CSV 导出将包括所选日期缩放粒度的数据。",
         "tooltip_export": {
             "label": "以 zip 文件形式导出所有图表的表格结果",
@@ -1570,7 +1603,7 @@
         "cancel": "取消",
         "export_dashboard": "导出看板"
     },
-    "components_modal_dashboard_update": {
+    "components_common_modal_dashboard_update": {
         "update_dashboard": "更新仪看板",
         "form": {
             "title": "更新仪看板",
@@ -1586,7 +1619,7 @@
             "save": "保存"
         }
     },
-    "components_modal_dashboard_locked": {
+    "components_common_modal_dashboard_locked": {
         "part_1": "设置筛选值以开始使用",
         "part_2": "此看板在未设置所需的筛选值的情况下无法运行"
     },
@@ -2498,14 +2531,36 @@
         "chart_type": "图表类型"
     },
 
-    "components_resource_view_list": {
+    "components_common_resource_view_grid": {
+        "views": "次查看",
+        "access_type_options": {
+            "only_visible_to_you": "只有你可见",
+            "project_access": "此项目中的所有人都有访问权限",
+            "shared_with": "与 {{length}} 位用户共享"
+        }
+    },
+    "components_common_resource_view_list": {
         "columns": {
             "name": "名称",
             "space": "空间",
             "updated": "最后编辑时间"
+        },
+        "tooltip_can_validation": {
+            "part_1": "此内容存在问题。了解更多关于验证错误的信息",
+            "part_2": "点击此处",
+            "part_3": "。",
+            "part_4": "此处存在错误",
+            "part_5": "图表",
+            "part_6": "看板",
+            "part_7": "。"
+        },
+        "views": "次查看",
+        "error_tips": {
+            "no_column": "ID 对应的列不存在!",
+            "no_sorting": "列没有排序功能!"
         }
     },
-    "components_resource_view_action_menu": {
+    "components_common_resource_view_action_menu": {
         "space_type_labels": {
             "shared_with_me": "与我分享",
             "admin_content_view": "公开内容视图"
@@ -2538,7 +2593,9 @@
                 "title": "添加到看板"
             },
             "promote": {
-                "title": "推广"
+                "title": "推广",
+                "chart": "图表",
+                "dashboard": "看板"
             },
             "toggle_pin": {
                 "pin": "固定到主页",
@@ -2555,7 +2612,7 @@
             }
         }
     },
-    "components_resource_view_action_handlers": {
+    "components_common_resource_view_action_handlers": {
         "update": {
             "title": "更新空间",
             "label": "更新"
@@ -2567,6 +2624,27 @@
         "create": {
             "title": "创建空间",
             "label": "创建"
+        }
+    },
+    "components_common_resource_view_last_edited": {
+        "by": "由"
+    },
+    "components_common_resource_view_utils": {
+        "resource_type_names": {
+            "dashboard": "看板",
+            "space": "空间",
+            "bar_chart": "条形图",
+            "horizontal_bar_chart": "水平条形图",
+            "line_chart": "折线图",
+            "scatter_chart": "散点图",
+            "area_chart": "面积图",
+            "mixed_chart": "混合图表",
+            "pie_chart": "饼图",
+            "funnel_chart": "漏斗图",
+            "table": "表格",
+            "bid_number": "投标号码",
+            "custom_visualization": "自定义可视化",
+            "not_supported": "不支持 {{chartKind}} 图表类型"
         }
     },
 

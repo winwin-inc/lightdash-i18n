@@ -152,7 +152,9 @@ const DashboardCreateModal: FC<DashboardCreateModalProps> = ({
                 title={
                     <Box>
                         <Title order={4}>
-                            {t('components_modal_dashboard_create.title')}
+                            {t(
+                                'components_common_modal_dashboard_create.title',
+                            )}
                         </Title>
                     </Box>
                 }
@@ -160,16 +162,16 @@ const DashboardCreateModal: FC<DashboardCreateModalProps> = ({
                 {...modalProps}
             >
                 <form
-                    title={t('components_modal_dashboard_create.title')}
+                    title={t('components_common_modal_dashboard_create.title')}
                     onSubmit={form.onSubmit((values) => handleConfirm(values))}
                 >
                     <Stack mb="sm">
                         <TextInput
                             label={t(
-                                'components_modal_dashboard_create.form.name.label',
+                                'components_common_modal_dashboard_create.form.name.label',
                             )}
                             placeholder={t(
-                                'components_modal_dashboard_create.form.name.placeholder',
+                                'components_common_modal_dashboard_create.form.name.placeholder',
                             )}
                             disabled={isCreatingDashboard}
                             required
@@ -177,10 +179,10 @@ const DashboardCreateModal: FC<DashboardCreateModalProps> = ({
                         />
                         <Textarea
                             label={t(
-                                'components_modal_dashboard_create.form.description.label',
+                                'components_common_modal_dashboard_create.form.description.label',
                             )}
                             placeholder={t(
-                                'components_modal_dashboard_create.form.description.placeholder',
+                                'components_common_modal_dashboard_create.form.description.placeholder',
                             )}
                             disabled={isCreatingDashboard}
                             autosize
@@ -204,10 +206,10 @@ const DashboardCreateModal: FC<DashboardCreateModalProps> = ({
                                     label={
                                         form.values.isCreatingNewSpace
                                             ? t(
-                                                  'components_modal_dashboard_create.form.space.move',
+                                                  'components_common_modal_dashboard_create.form.space.move',
                                               )
                                             : t(
-                                                  'components_modal_dashboard_create.form.space.select',
+                                                  'components_common_modal_dashboard_create.form.space.select',
                                               )
                                     }
                                     data={spacesOptions}
@@ -239,7 +241,7 @@ const DashboardCreateModal: FC<DashboardCreateModalProps> = ({
                                         <Text component="b">
                                             +{' '}
                                             {t(
-                                                'components_modal_dashboard_create.form.space.create',
+                                                'components_common_modal_dashboard_create.form.space.create',
                                             )}{' '}
                                             <Text span color="blue">
                                                 {query}
@@ -312,7 +314,9 @@ const DashboardCreateModal: FC<DashboardCreateModalProps> = ({
                             color="gray"
                             onClick={handleClose}
                         >
-                            {t('components_modal_dashboard_create.cancel')}
+                            {t(
+                                'components_common_modal_dashboard_create.cancel',
+                            )}
                         </Button>
                         <Button
                             size="sm"
@@ -320,7 +324,9 @@ const DashboardCreateModal: FC<DashboardCreateModalProps> = ({
                             loading={isCreatingDashboard || isCreatingSpace}
                             type="submit"
                         >
-                            {t('components_modal_dashboard_create.create')}
+                            {t(
+                                'components_common_modal_dashboard_create.create',
+                            )}
                         </Button>
                     </Group>
                 </form>

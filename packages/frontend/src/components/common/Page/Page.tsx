@@ -4,6 +4,8 @@ import { Helmet } from 'react-helmet';
 
 import { ProjectType } from '@lightdash/common';
 import { useElementSize } from '@mantine/hooks';
+import { useTranslation } from 'react-i18next';
+
 import { ErrorBoundary } from '../../../features/errorBoundary';
 import { useActiveProjectUuid } from '../../../hooks/useActiveProject';
 import { useProjects } from '../../../hooks/useProjects';
@@ -170,6 +172,7 @@ const Page: FC<React.PropsWithChildren<Props>> = ({
 
     children,
 }) => {
+    const { t } = useTranslation();
     const { ref: mainRef, width: mainWidth } = useElementSize();
     const { activeProjectUuid } = useActiveProjectUuid({
         refetchOnMount: true,
@@ -203,7 +206,9 @@ const Page: FC<React.PropsWithChildren<Props>> = ({
         <>
             {title ? (
                 <Helmet>
-                    <title>{title} - Lightdash</title>
+                    <title>
+                        {title} - {t('components_common_page.lightdash')}
+                    </title>
                 </Helmet>
             ) : null}
 
