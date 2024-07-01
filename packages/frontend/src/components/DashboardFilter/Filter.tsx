@@ -16,8 +16,8 @@ import { IconFilter } from '@tabler/icons-react';
 import { useCallback, useMemo, type FC } from 'react';
 import { useDashboardContext } from '../../providers/DashboardProvider';
 import {
-    getConditionalRuleLabel,
     getFilterRuleTables,
+    useConditionalRuleLabel,
 } from '../common/Filters/FilterInputs';
 import MantineIcon from '../common/MantineIcon';
 import FilterConfiguration from './FilterConfiguration';
@@ -53,6 +53,7 @@ const Filter: FC<Props> = ({
     onRemove,
 }) => {
     const popoverId = useId();
+    const getConditionalRuleLabel = useConditionalRuleLabel();
 
     const dashboard = useDashboardContext((c) => c.dashboard);
     const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
@@ -98,7 +99,7 @@ const Filter: FC<Props> = ({
         if (!filterRule || !field) return;
 
         return getConditionalRuleLabel(filterRule, field);
-    }, [filterRule, field]);
+    }, [filterRule, field, getConditionalRuleLabel]);
 
     const filterRuleTables = useMemo(() => {
         if (!filterRule || !field || !allFilterableFields) return;

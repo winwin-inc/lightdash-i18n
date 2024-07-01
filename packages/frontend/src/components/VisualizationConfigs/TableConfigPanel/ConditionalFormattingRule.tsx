@@ -18,13 +18,12 @@ import { IconChevronDown, IconChevronUp, IconTrash } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
 import {
     FilterInputComponent,
-    getFilterOperatorOptions,
+    useFilterOperatorOptions,
 } from '../../common/Filters/FilterInputs';
 import MantineIcon from '../../common/MantineIcon';
 
 // conditional formatting only supports number filters
 const filterType = FilterType.NUMBER;
-const filterOperatorOptions = getFilterOperatorOptions(filterType);
 
 interface ConditionalFormattingRuleProps {
     isDefaultOpen?: boolean;
@@ -51,6 +50,9 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
 }) => {
     const { ref, hovered } = useHover();
     const [isOpen, setIsOpen] = useState(isDefaultOpen);
+
+    const getFilterOperatorOptions = useFilterOperatorOptions();
+    const filterOperatorOptions = getFilterOperatorOptions(filterType);
 
     return (
         <Stack spacing="xs" ref={ref}>

@@ -75,7 +75,7 @@ import { useDashboardContext } from '../../providers/DashboardProvider';
 import { useTracking } from '../../providers/TrackingProvider';
 import { EventName } from '../../types/Events';
 import { Can } from '../common/Authorization';
-import { getConditionalRuleLabel } from '../common/Filters/FilterInputs';
+import { useConditionalRuleLabel } from '../common/Filters/FilterInputs';
 import MantineIcon from '../common/MantineIcon';
 import MoveChartThatBelongsToDashboardModal from '../common/modal/MoveChartThatBelongsToDashboardModal';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
@@ -290,6 +290,7 @@ interface DashboardChartTileMainProps
 
 const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
     const { t } = useTranslation();
+    const getConditionalRuleLabel = useConditionalRuleLabel();
 
     const { showToastSuccess } = useToaster();
     const clipboard = useClipboard({ timeout: 200 });

@@ -29,7 +29,7 @@ import { useHistory, useLocation, useParams } from 'react-router-dom';
 import { useMount } from 'react-use';
 import { createContext, useContextSelector } from 'use-context-selector';
 
-import { getConditionalRuleLabel } from '../components/common/Filters/FilterInputs';
+import { useConditionalRuleLabel } from '../components/common/Filters/FilterInputs';
 import { hasSavedFilterValueChanged } from '../components/DashboardFilter/FilterConfiguration/utils';
 import {
     useGetComments,
@@ -132,6 +132,8 @@ export const DashboardProvider: React.FC<
     dashboardCommentsCheck,
     children,
 }) => {
+    const getConditionalRuleLabel = useConditionalRuleLabel();
+
     const { search, pathname } = useLocation();
     const history = useHistory();
 
@@ -609,7 +611,11 @@ export const DashboardProvider: React.FC<
                     },
                     [],
                 ),
-        [dashboardFilters.dimensions, allFilterableFieldsMap],
+        [
+            dashboardFilters.dimensions,
+            allFilterableFieldsMap,
+            getConditionalRuleLabel,
+        ],
     );
 
     const value = {

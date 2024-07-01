@@ -21,7 +21,7 @@ import {
 import { useEffect, useMemo, useState, type FC } from 'react';
 import {
     FilterInputComponent,
-    getFilterOperatorOptions,
+    useFilterOperatorOptions,
 } from '../../common/Filters/FilterInputs';
 import { getPlaceholderByFilterTypeAndOperator } from '../../common/Filters/utils/getPlaceholderByFilterTypeAndOperator';
 
@@ -42,6 +42,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     popoverProps,
     onChangeFilterRule,
 }) => {
+    const getFilterOperatorOptions = useFilterOperatorOptions();
     const [filterLabel, setFilterLabel] = useState<string>();
 
     const filterType = useMemo(() => {
@@ -50,7 +51,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
 
     const filterOperatorOptions = useMemo(
         () => getFilterOperatorOptions(filterType),
-        [filterType],
+        [filterType, getFilterOperatorOptions],
     );
 
     // Set default label when using revert (undo) button

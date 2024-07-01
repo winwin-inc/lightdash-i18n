@@ -10,6 +10,7 @@ import {
 import { type PopoverProps } from '@mantine/core';
 import { uuid4 } from '@sentry/utils';
 import { createContext, useCallback, useContext, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 type DefaultFieldsMap = Record<
     string,
@@ -94,13 +95,14 @@ export const FiltersProvider = <T extends DefaultFieldsMap = DefaultFieldsMap>({
 export function useFiltersContext<
     T extends DefaultFieldsMap = DefaultFieldsMap,
 >(): FiltersContext<T> {
+    const { t } = useTranslation();
     const context = useContext(
         Context as React.Context<FiltersContext<T> | undefined>,
     );
+
     if (context === undefined) {
-        throw new Error(
-            'useFiltersContext must be used within a FiltersProvider',
-        );
+        throw new Error(t('components_common_filters.provider.error'));
     }
+
     return context;
 }

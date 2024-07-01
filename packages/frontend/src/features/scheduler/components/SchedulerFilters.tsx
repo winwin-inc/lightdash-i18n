@@ -31,8 +31,8 @@ import FieldIcon from '../../../components/common/Filters/FieldIcon';
 import FieldLabel from '../../../components/common/Filters/FieldLabel';
 import {
     FilterInputComponent,
-    getConditionalRuleLabel,
-    getFilterOperatorOptions,
+    useConditionalRuleLabel,
+    useFilterOperatorOptions,
 } from '../../../components/common/Filters/FilterInputs';
 import {
     FiltersProvider,
@@ -47,10 +47,7 @@ import { useProject } from '../../../hooks/useProject';
 import { useDashboardContext } from '../../../providers/DashboardProvider';
 
 const FilterSummaryLabel: FC<
-    { filterSummary: ReturnType<typeof getConditionalRuleLabel> } & Record<
-        'isDisabled',
-        boolean
-    >
+    { filterSummary: ReturnType<any> } & Record<'isDisabled', boolean>
 > = ({ filterSummary, isDisabled }) => {
     const { t } = useTranslation();
 
@@ -91,7 +88,11 @@ const FilterItem: FC<SchedulerFilterItemProps> = ({
     hasChanged,
 }) => {
     const { t } = useTranslation();
+    const getFilterOperatorOptions = useFilterOperatorOptions();
+
     const theme = useMantineTheme();
+    const getConditionalRuleLabel = useConditionalRuleLabel();
+
     const { itemsMap } =
         useFiltersContext<Record<string, FilterableDimension>>();
     const field = itemsMap[dashboardFilter.target.fieldId];
@@ -108,7 +109,7 @@ const FilterItem: FC<SchedulerFilterItemProps> = ({
 
     const filterOperatorOptions = useMemo(() => {
         return getFilterOperatorOptions(filterType);
-    }, [filterType]);
+    }, [filterType, getFilterOperatorOptions]);
 
     if (!field) {
         // show invalid dashboard filter

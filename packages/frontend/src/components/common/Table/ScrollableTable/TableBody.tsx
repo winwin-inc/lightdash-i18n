@@ -11,7 +11,7 @@ import { flexRender, type Row } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import React, { type FC } from 'react';
 import { getColorFromRange, readableColor } from '../../../../utils/colorUtils';
-import { getConditionalRuleLabel } from '../../Filters/FilterInputs';
+import { useConditionalRuleLabel } from '../../Filters/FilterInputs';
 import MantineIcon from '../../MantineIcon';
 import { ROW_HEIGHT_PX, Tr } from '../Table.styles';
 import { useTableContext, type TableContext } from '../TableProvider';
@@ -64,6 +64,8 @@ const TableRow: FC<TableRowProps> = ({
     conditionalFormattings,
     minimal = false,
 }) => {
+    const getConditionalRuleLabel = useConditionalRuleLabel();
+
     return (
         <Tr $index={index}>
             {row.getVisibleCells().map((cell) => {

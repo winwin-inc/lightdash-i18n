@@ -18,7 +18,7 @@ import { readableColor } from 'polished';
 import React, { useCallback, useMemo, useRef, type FC } from 'react';
 import { isSummable } from '../../../hooks/useColumnTotals';
 import { getColorFromRange } from '../../../utils/colorUtils';
-import { getConditionalRuleLabel } from '../Filters/FilterInputs';
+import { useConditionalRuleLabel } from '../Filters/FilterInputs';
 import Table from '../LightTable';
 import { CELL_HEIGHT } from '../LightTable/styles';
 import TotalCellMenu from './TotalCellMenu';
@@ -55,6 +55,7 @@ const PivotTable: FC<PivotTableProps> = ({
     className,
     ...tableProps
 }) => {
+    const getConditionalRuleLabel = useConditionalRuleLabel();
     const containerRef = useRef<HTMLDivElement>(null);
 
     const getItemFromAxis = useCallback(

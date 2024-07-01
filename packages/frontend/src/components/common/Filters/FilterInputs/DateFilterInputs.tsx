@@ -12,7 +12,9 @@ import {
 } from '@lightdash/common';
 import { Flex, NumberInput, Text } from '@mantine/core';
 import dayjs from 'dayjs';
+import { useTranslation } from 'react-i18next';
 import { type FilterInputsProps } from '.';
+
 import { useFiltersContext } from '../FiltersProvider';
 import { getFirstDayOfWeek } from '../utils/filterDateUtils';
 import { getPlaceholderByFilterTypeAndOperator } from '../utils/getPlaceholderByFilterTypeAndOperator';
@@ -29,6 +31,7 @@ import FilterYearPicker from './FilterYearPicker';
 const DateFilterInputs = <T extends ConditionalRule = DateFilterRule>(
     props: FilterInputsProps<T>,
 ) => {
+    const { t } = useTranslation();
     const { field, rule, onChange, popoverProps, disabled, filterType } = props;
     const { startOfWeek } = useFiltersContext();
     const isTimestamp =
@@ -36,7 +39,7 @@ const DateFilterInputs = <T extends ConditionalRule = DateFilterRule>(
         DimensionType.TIMESTAMP;
 
     if (!isFilterRule(rule)) {
-        throw new Error('DateFilterInputs expects a FilterRule');
+        throw new Error(t('components_common_filters_inputs.rule_error'));
     }
 
     const placeholder = getPlaceholderByFilterTypeAndOperator({
@@ -62,7 +65,9 @@ const DateFilterInputs = <T extends ConditionalRule = DateFilterRule>(
                                     sx={{ whiteSpace: 'nowrap' }}
                                     size="xs"
                                 >
-                                    week commencing
+                                    {t(
+                                        'components_common_filters_inputs.week_commencing',
+                                    )}
                                 </Text>
 
                                 <FilterWeekPicker

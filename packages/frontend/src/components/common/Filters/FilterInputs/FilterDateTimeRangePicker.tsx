@@ -2,6 +2,8 @@ import { Group, Text } from '@mantine/core';
 import { type DateTimePickerProps, type DayOfWeek } from '@mantine/dates';
 import dayjs from 'dayjs';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import FilterDateTimePicker from './FilterDateTimePicker';
 
 interface Props
@@ -21,6 +23,8 @@ const FilterDateTimeRangePicker: FC<Props> = ({
     onChange,
     ...rest
 }) => {
+    const { t } = useTranslation();
+
     const [date1, setDate1] = useState(value?.[0] ?? null);
     const [date2, setDate2] = useState(value?.[1] ?? null);
 
@@ -32,7 +36,9 @@ const FilterDateTimeRangePicker: FC<Props> = ({
                 disabled={disabled}
                 // FIXME: until mantine 7.4: https://github.com/mantinedev/mantine/issues/5401#issuecomment-1874906064
                 // @ts-ignore
-                placeholder="Start date"
+                placeholder={t(
+                    'components_common_filters_inputs.date_picker.start_date',
+                )}
                 showTimezone={false}
                 maxDate={
                     date2
@@ -63,7 +69,9 @@ const FilterDateTimeRangePicker: FC<Props> = ({
                 disabled={disabled}
                 // FIXME: until mantine 7.4: https://github.com/mantinedev/mantine/issues/5401#issuecomment-1874906064
                 // @ts-ignore
-                placeholder="End date"
+                placeholder={t(
+                    'components_common_filters_inputs.date_picker.end_date',
+                )}
                 minDate={
                     date1 ? dayjs(date1).add(1, 'second').toDate() : undefined
                 }

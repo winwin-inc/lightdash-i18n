@@ -625,24 +625,6 @@
         "last_edited": "Last edited",
         "by": "by"
     },
-    "components_common_filters": {
-        "tried_to_reference": "Tried to reference field with unknown id:",
-        "add_filter": "Add filter",
-        "group_form": {
-            "tip": "of the following {{conditionLabel}} conditions match:",
-            "add_group_rule": "Add group rule"
-        },
-        "rule_form": {
-            "convert_to_group": "Convert to group",
-            "remove": "Remove"
-        },
-        "simplified_group_form": {
-            "tooltip": {
-                "label": "You can only use the 'and' operator when combining metrics & dimensions",
-                "content": "All of the following conditions match:"
-            }
-        }
-    },
     "components_common_share_space_modal": {
         "share": "Share",
         "share_space": "Share \"{{name}}\" space",
@@ -774,6 +756,89 @@
     },
     "components_common_field_select": {
         "search_field": "Search field..."
+    },
+    "components_common_authorization": {
+        "ablitity_not_allowed": "useAbilityContext must be used within a AbilityContext.Provider"
+    },
+
+    "components_common_filters": {
+        "tried_to_reference": "Tried to reference field with unknown id:",
+        "add_filter": "Add filter",
+        "group_form": {
+            "tip": "of the following {{conditionLabel}} conditions match:",
+            "add_group_rule": "Add group rule"
+        },
+        "rule_form": {
+            "required_field": "This filter is a required filter.\n It can't be deleted, but the value can be changed.",
+            "convert_to_group": "Convert to group",
+            "remove": "Remove"
+        },
+        "provider": {
+            "error": "useFiltersContext must be used within a FiltersProvider"
+        },
+        "simplified_group_form": {
+            "tooltip": {
+                "label": "You can only use the 'and' operator when combining metrics & dimensions",
+                "content": "All of the following conditions match:"
+            }
+        }
+    },
+    "components_common_filters_inputs": {
+        "select": {
+            "true": "True",
+            "false": "False"
+        },
+        "rule_error": "DateFilterInputs expects a FilterRule",
+        "week_commencing": "Week commencing",
+        "date_picker": {
+            "start_date": "Start date",
+            "end_date": "End date"
+        },
+        "utc_time": "UTC time",
+        "filters_error": "projectUuid is required in FiltersProvider",
+        "add": "Add",
+        "add_filter_tip": "Please type to add the filter value",
+        "type_error": "FilterNumberInput: Invalid value type: ",
+        "scroll_area": {
+            "part_1": "Showing first",
+            "part_2": "results.",
+            "part_3": "Continue",
+            "part_4": "Start",
+            "part_5": "typing..."
+        },
+        "no_data": {
+            "loading": "Loading...",
+            "no_results": "No results found"
+        },
+        "select_value": "Select value",
+        "filter_operator_labels": {
+            "is_null": "is null",
+            "is_not_null": "is not null",
+            "is": "is",
+            "is_not": "is not",
+            "starts_with": "starts with",
+            "ends_with": "ends with",
+            "does_not_include": "does not include",
+            "includes": "includes",
+            "is_less_than": "is less than",
+            "is_less_than_or_equal": "is less than or equal",
+            "is_greater_than": "is greater than",
+            "is_greater_than_or_equal": "is greater than or equal",
+            "is_the_last": "is the last",
+            "not_in_the_last": "not in the last",
+            "in_the_next": "in the next",
+            "in_the_current": "in the current",
+            "not_in_the_current": "not in the current",
+            "is_between": "is between"
+        },
+        "time_filter_options": {
+            "is_before": "is before",
+            "is_on_or_before": "is on or before",
+            "is_after": "is after",
+            "is_on_or_after": "is on or after",
+            "is_between": "is between"
+        },
+        "completed": "completed"
     },
 
     "components_dbt_cloud_settings": {

@@ -4,6 +4,8 @@ import {
     type ConditionalRule,
 } from '@lightdash/common';
 import { Select } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
+
 import { type FilterInputsProps } from '.';
 import { getPlaceholderByFilterTypeAndOperator } from '../utils/getPlaceholderByFilterTypeAndOperator';
 import DefaultFilterInputs from './DefaultFilterInputs';
@@ -11,6 +13,7 @@ import DefaultFilterInputs from './DefaultFilterInputs';
 const BooleanFilterInputs = <T extends ConditionalRule>(
     props: FilterInputsProps<T>,
 ) => {
+    const { t } = useTranslation();
     const { rule, onChange, disabled, filterType, popoverProps } = props;
 
     const isFilterRuleDisabled = isFilterRule(rule) && rule.disabled;
@@ -33,8 +36,18 @@ const BooleanFilterInputs = <T extends ConditionalRule>(
                     disabled={disabled}
                     placeholder={placeholder}
                     data={[
-                        { value: 'true', label: 'True' },
-                        { value: 'false', label: 'False' },
+                        {
+                            value: 'true',
+                            label: t(
+                                'components_common_filters_inputs.select.true',
+                            ),
+                        },
+                        {
+                            value: 'false',
+                            label: t(
+                                'components_common_filters_inputs.select.false',
+                            ),
+                        },
                     ]}
                     value={rule.values?.[0]?.toString() ?? null}
                     onChange={(value) =>

@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 
 import FieldSelect from '../FieldSelect';
 import MantineIcon from '../MantineIcon';
-import { FilterInputComponent, getFilterOperatorOptions } from './FilterInputs';
+import { FilterInputComponent, useFilterOperatorOptions } from './FilterInputs';
 import { useFiltersContext } from './FiltersProvider';
 
 type Props = {
@@ -35,6 +35,8 @@ const FilterRuleForm: FC<Props> = ({
     onConvertToGroup,
 }) => {
     const { t } = useTranslation();
+    const getFilterOperatorOptions = useFilterOperatorOptions();
+
     const { popoverProps } = useFiltersContext();
     const activeField = useMemo(() => {
         return fields.find(
@@ -50,7 +52,7 @@ const FilterRuleForm: FC<Props> = ({
 
     const filterOperatorOptions = useMemo(() => {
         return getFilterOperatorOptions(filterType);
-    }, [filterType]);
+    }, [filterType, getFilterOperatorOptions]);
 
     const onFieldChange = useCallback(
         (fieldId: string) => {
@@ -74,7 +76,7 @@ const FilterRuleForm: FC<Props> = ({
     );
     const isRequired = filterRule.required;
     const isRequiredLabel = isRequired
-        ? "This filter is a required filter.\n It can't be deleted, but the value can be changed."
+        ? t('components_common_filters.rule_form.required_field')
         : '';
 
     if (!activeField) {

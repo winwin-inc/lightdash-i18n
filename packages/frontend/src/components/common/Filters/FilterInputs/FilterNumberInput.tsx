@@ -1,5 +1,6 @@
 import { TextInput, type TextInputProps } from '@mantine/core';
 import { useEffect, useState, type ChangeEvent, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Props extends Omit<TextInputProps, 'type' | 'value' | 'onChange'> {
     value: unknown;
@@ -14,6 +15,7 @@ const FilterNumberInput: FC<Props> = ({
     onChange,
     ...rest
 }) => {
+    const { t } = useTranslation();
     const [internalValue, setInternalValue] = useState('');
 
     useEffect(() => {
@@ -25,10 +27,12 @@ const FilterNumberInput: FC<Props> = ({
             setInternalValue('');
         } else {
             throw new Error(
-                `FilterNumberInput: Invalid value type: ${typeof value}`,
+                `${t(
+                    'components_common_filters_inputs.type_error',
+                )}: ${typeof value}`,
             );
         }
-    }, [value]);
+    }, [value, t]);
 
     const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
         const newValue = e.target.value;

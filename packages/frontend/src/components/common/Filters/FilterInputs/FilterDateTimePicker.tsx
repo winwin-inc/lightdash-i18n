@@ -6,6 +6,7 @@ import {
 } from '@mantine/dates';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
+import { useTranslation } from 'react-i18next';
 
 import { type FC } from 'react';
 
@@ -29,6 +30,7 @@ const FilterDateTimePicker: FC<Props> = ({
     showTimezone = true,
     ...rest
 }) => {
+    const { t } = useTranslation();
     const displayFormat = 'YYYY-MM-DD HH:mm:ss';
 
     return (
@@ -51,7 +53,8 @@ const FilterDateTimePicker: FC<Props> = ({
                 inputWrapperOrder={['input', 'description']}
                 description={
                     <Text ml="two">
-                        UTC time: {value?.toUTCString().replace('GMT', '')}
+                        {t('components_common_filters_inputs.utc_time')}:{' '}
+                        {value?.toUTCString().replace('GMT', '')}
                     </Text>
                 }
             />

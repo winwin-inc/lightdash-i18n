@@ -3,6 +3,8 @@ import { Group, MultiSelect, Text, type MultiSelectProps } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import uniq from 'lodash/uniq';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../MantineIcon';
 import { useFiltersContext } from '../FiltersProvider';
 
@@ -20,9 +22,11 @@ const FilterMultiStringInput: FC<Props> = ({
     placeholder,
     ...rest
 }) => {
+    const { t } = useTranslation();
+
     const { projectUuid } = useFiltersContext();
     if (!projectUuid) {
-        throw new Error('projectUuid is required in FiltersProvider');
+        throw new Error(t('components_common_filters_inputs.filters_error'));
     }
 
     const [search, setSearch] = useState('');
@@ -99,7 +103,9 @@ const FilterMultiStringInput: FC<Props> = ({
             getCreateLabel={(query) => (
                 <Group spacing="xxs">
                     <MantineIcon icon={IconPlus} color="blue" size="sm" />
-                    <Text color="blue">Add "{query}"</Text>
+                    <Text color="blue">
+                        {t('components_common_filters_inputs.add')} "{query}"
+                    </Text>
                 </Group>
             )}
             styles={{
@@ -123,7 +129,7 @@ const FilterMultiStringInput: FC<Props> = ({
             searchValue={search}
             onSearchChange={setSearch}
             onPaste={handlePaste}
-            nothingFound={'Please type to add the filter value'}
+            nothingFound={t('components_common_filters_inputs.add_filter_tip')}
             data={data}
             value={values}
             onDropdownClose={handleResetSearch}

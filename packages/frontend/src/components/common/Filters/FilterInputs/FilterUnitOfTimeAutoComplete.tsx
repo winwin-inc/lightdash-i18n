@@ -1,6 +1,7 @@
 import { UnitOfTime } from '@lightdash/common';
 import { Select, type SelectProps } from '@mantine/core';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const getUnitOfTimeLabel = (
     unitOfTime: UnitOfTime,
@@ -74,28 +75,32 @@ const FilterUnitOfTimeAutoComplete: FC<Props> = ({
     completed,
     onChange,
     ...rest
-}) => (
-    <Select
-        searchable
-        placeholder="Select value"
-        size="xs"
-        {...rest}
-        value={completed ? `${unitOfTime}-completed` : unitOfTime}
-        data={getUnitOfTimeOptions({
-            isTimestamp,
-            showCompletedOptions,
-            showOptionsInPlural,
-        })}
-        onChange={(value) => {
-            if (value === null) return;
+}) => {
+    const { t } = useTranslation();
 
-            const [unitOfTimeValue, isCompleted] = value.split('-');
-            onChange({
-                unitOfTime: unitOfTimeValue as UnitOfTime,
-                completed: isCompleted === 'completed',
-            });
-        }}
-    />
-);
+    return (
+        <Select
+            searchable
+            placeholder={t('components_common_filters_inputs.select_value')}
+            size="xs"
+            {...rest}
+            value={completed ? `${unitOfTime}-completed` : unitOfTime}
+            data={getUnitOfTimeOptions({
+                isTimestamp,
+                showCompletedOptions,
+                showOptionsInPlural,
+            })}
+            onChange={(value) => {
+                if (value === null) return;
+
+                const [unitOfTimeValue, isCompleted] = value.split('-');
+                onChange({
+                    unitOfTime: unitOfTimeValue as UnitOfTime,
+                    completed: isCompleted === 'completed',
+                });
+            }}
+        />
+    );
+};
 
 export default FilterUnitOfTimeAutoComplete;

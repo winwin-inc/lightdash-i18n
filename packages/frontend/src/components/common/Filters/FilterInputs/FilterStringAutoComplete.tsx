@@ -11,6 +11,8 @@ import {
 import { IconPlus } from '@tabler/icons-react';
 import uniq from 'lodash/uniq';
 import { useCallback, useMemo, useState, type FC, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import {
     MAX_AUTOCOMPLETE_RESULTS,
     useFieldValues,
@@ -38,9 +40,11 @@ const FilterStringAutoComplete: FC<Props> = ({
     onDropdownClose,
     ...rest
 }) => {
+    const { t } = useTranslation();
+
     const { projectUuid, getAutocompleteFilterGroup } = useFiltersContext();
     if (!projectUuid) {
-        throw new Error('projectUuid is required in FiltersProvider');
+        throw new Error(t('components_common_filters_inputs.filters_error'));
     }
 
     const [search, setSearch] = useState('');
@@ -142,15 +146,30 @@ const FilterStringAutoComplete: FC<Props> = ({
                         pb="xxs"
                         bg="white"
                     >
-                        Showing first {MAX_AUTOCOMPLETE_RESULTS} results.{' '}
-                        {search ? 'Continue' : 'Start'} typing...
+                        {t(
+                            'components_common_filters_inputs.scroll_area.part_1',
+                        )}{' '}
+                        {MAX_AUTOCOMPLETE_RESULTS}{' '}
+                        {t(
+                            'components_common_filters_inputs.scroll_area.part_2',
+                        )}{' '}
+                        {search
+                            ? t(
+                                  'components_common_filters_inputs.scroll_area.part_3',
+                              )
+                            : t(
+                                  'components_common_filters_inputs.scroll_area.part_4',
+                              )}{' '}
+                        {t(
+                            'components_common_filters_inputs.scroll_area.part_5',
+                        )}
                     </Text>
                 ) : null}
 
                 {children}
             </ScrollArea>
         ),
-        [searchedMaxResults, search],
+        [searchedMaxResults, search, t],
     );
 
     return (
@@ -197,7 +216,11 @@ const FilterStringAutoComplete: FC<Props> = ({
             onSearchChange={setSearch}
             limit={MAX_AUTOCOMPLETE_RESULTS}
             onPaste={handlePaste}
-            nothingFound={isInitialLoading ? 'Loading...' : 'No results found'}
+            nothingFound={
+                isInitialLoading
+                    ? t('components_common_filters_inputs.no_data.loading')
+                    : t('components_common_filters_inputs.no_data.no_results')
+            }
             rightSection={
                 isInitialLoading ? <Loader size="xs" color="gray" /> : null
             }

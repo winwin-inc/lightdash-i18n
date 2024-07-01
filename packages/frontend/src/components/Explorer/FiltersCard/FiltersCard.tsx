@@ -25,12 +25,13 @@ import {
 } from '../../../providers/ExplorerProvider';
 import CollapsableCard from '../../common/CollapsableCard';
 import FiltersForm from '../../common/Filters';
-import { getConditionalRuleLabel } from '../../common/Filters/FilterInputs';
+import { useConditionalRuleLabel } from '../../common/Filters/FilterInputs';
 import { FiltersProvider } from '../../common/Filters/FiltersProvider';
 import { useFieldsWithSuggestions } from './useFieldsWithSuggestions';
 
 const FiltersCard: FC = memo(() => {
     const { t } = useTranslation();
+    const getConditionalRuleLabel = useConditionalRuleLabel();
 
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const project = useProject(projectUuid);
@@ -204,7 +205,7 @@ const FiltersCard: FC = memo(() => {
                 filterRule.target.fieldId
             }`;
         },
-        [data, t],
+        [data, t, getConditionalRuleLabel],
     );
 
     return (

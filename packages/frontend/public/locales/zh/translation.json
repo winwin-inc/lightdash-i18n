@@ -625,24 +625,6 @@
         "last_edited": "最后编辑于",
         "by": "由"
     },
-    "components_common_filters": {
-        "tried_to_reference": "尝试引用未知 ID 的字段:",
-        "add_filter": "添加筛选器",
-        "group_form": {
-            "tip": "下列 {{conditionLabel}} 条件匹配:",
-            "add_group_rule": "添加分组规则"
-        },
-        "rule_form": {
-            "convert_to_group": "转换为分组",
-            "remove": "删除"
-        },
-        "simplified_group_form": {
-            "tooltip": {
-                "label": "只能在组合指标和维度时使用'and'操作符",
-                "content": "下列所有条件都匹配:"
-            }
-        }
-    },
     "components_common_share_space_modal": {
         "share": "共享",
         "share_space": "共享 \"{{name}}\" 空间",
@@ -774,6 +756,89 @@
     },
     "components_common_field_select": {
         "search_field": "搜索字段..."
+    },
+    "components_common_authorization": {
+        "ablitity_not_allowed": "useAbilityContext 必须在 AbilityContext.Provider 内使用"
+    },
+
+    "components_common_filters": {
+        "tried_to_reference": "尝试引用未知 ID 的字段:",
+        "add_filter": "添加筛选器",
+        "group_form": {
+            "tip": "下列 {{conditionLabel}} 条件匹配:",
+            "add_group_rule": "添加分组规则"
+        },
+        "rule_form": {
+            "required_field": "此筛选器是必填筛选器。\n 它不能被删除,但可以更改值。",
+            "convert_to_group": "转换为分组",
+            "remove": "删除"
+        },
+        "provider": {
+            "error": "useFiltersContext 必须在 FiltersProvider 内使用"
+        },
+        "simplified_group_form": {
+            "tooltip": {
+                "label": "只能在组合指标和维度时使用'and'操作符",
+                "content": "下列所有条件都匹配:"
+            }
+        }
+    },
+    "components_common_filters_inputs": {
+        "select": {
+            "true": "是",
+            "false": "否"
+        },
+        "rule_error": "DateFilterInputs 需要一个 FilterRule",
+        "week_commencing": "周起始日",
+        "date_picker": {
+            "start_date": "开始日期",
+            "end_date": "结束日期"
+        },
+        "utc_time": "UTC 时间",
+        "filters_error": "FiltersProvider 中需要 projectUuid",
+        "add": "添加",
+        "add_filter_tip": "请输入以添加筛选器值",
+        "type_error": "FilterNumberInput: 无效的值类型: ",
+        "scroll_area": {
+            "part_1": "显示前",
+            "part_2": "结果。",
+            "part_3": "继续",
+            "part_4": "开始",
+            "part_5": "输入..."
+        },
+        "no_data": {
+            "loading": "加载中...",
+            "no_results": "未找到任何结果"
+        },
+        "select_value": "选择值",
+        "filter_operator_labels": {
+            "is_null": "为 null",
+            "is_not_null": "不为 null",
+            "is": "等于",
+            "is_not": "不等于",
+            "starts_with": "开头为",
+            "ends_with": "结尾为",
+            "does_not_include": "不包含",
+            "includes": "包含",
+            "is_less_than": "小于",
+            "is_less_than_or_equal": "小于或等于",
+            "is_greater_than": "大于",
+            "is_greater_than_or_equal": "大于或等于",
+            "is_the_last": "是最近的",
+            "not_in_the_last": "不在最近的",
+            "in_the_next": "在接下来的",
+            "in_the_current": "在当前的",
+            "not_in_the_current": "不在当前的",
+            "is_between": "在之间"
+        },
+        "time_filter_options": {
+            "is_before": "在之前",
+            "is_on_or_before": "在或在之前",
+            "is_after": "在之后",
+            "is_on_or_after": "在或在之后",
+            "is_between": "在之间"
+        },
+        "completed": "已完成"
     },
 
     "components_dbt_cloud_settings": {
