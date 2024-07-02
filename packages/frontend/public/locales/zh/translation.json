@@ -2517,6 +2517,28 @@
             "invalid_hex": "无效的 HEX 颜色"
         }
     },
+    "components_visualization_configs_big_number": {
+        "comparison": {
+            "value": "value",
+            "compare_to_previous_row": "与上一行比较",
+            "compare_by": "比较依据",
+            "flip_positive_color": "翻转正数颜色",
+            "comparison_label": "比较标签",
+            "add_on_optional_label": "添加可选标签",
+            "format": "格式"
+        },
+        "tabs": {
+            "layout": "布局",
+            "comparison": "比较"
+        },
+        "layout": {
+            "field": "字段",
+            "select_field": "选择字段",
+            "label": "标签",
+            "format": "格式"
+        },
+        "configure": "配置"
+    },
     "components_visualization_configs_chart_funnel": {
         "general": "常规",
         "data_orientation": "数据方向",

@@ -2513,6 +2513,7 @@
     },
     "components_visualization_configs_big_number": {
         "comparison": {
+            "value": "Value",
             "compare_to_previous_row": "Compare to previous row",
             "compare_by": "Compare by",
             "flip_positive_color": "Flip positive color",
@@ -2525,6 +2526,7 @@
             "comparison": "Comparison"
         },
         "layout": {
+            "field": "Field",
             "select_field": "Select field",
             "label": "Label",
             "format": "Format"

@@ -9,12 +9,16 @@ import {
     TextInput,
 } from '@mantine/core';
 import { startCase } from 'lodash';
+import { useTranslation } from 'react-i18next';
+
 import { isBigNumberVisualizationConfig } from '../../LightdashVisualization/VisualizationBigNumberConfig';
 import { useVisualizationContext } from '../../LightdashVisualization/VisualizationProvider';
 import { Config } from '../common/Config';
 import { StyleOptions } from './common';
 
 export const Comparison = () => {
+    const { t } = useTranslation();
+
     const { visualizationConfig } = useVisualizationContext();
 
     if (!isBigNumberVisualizationConfig(visualizationConfig)) return null;
@@ -38,7 +42,11 @@ export const Comparison = () => {
             <Config>
                 <Config.Section>
                     <Group spacing="xs" align="center">
-                        <Config.Heading>Compare to previous row</Config.Heading>
+                        <Config.Heading>
+                            {t(
+                                'components_visualization_configs_big_number.comparison.compare_to_previous_row',
+                            )}
+                        </Config.Heading>
                         <Switch
                             checked={showComparison}
                             onChange={() => {
@@ -50,14 +58,20 @@ export const Comparison = () => {
                     {showComparison ? (
                         <>
                             <Group spacing="xs">
-                                <Config.Label>Compare by</Config.Label>
+                                <Config.Label>
+                                    {t(
+                                        'components_visualization_configs_big_number.comparison.compare_by',
+                                    )}
+                                </Config.Label>
                                 <SegmentedControl
                                     data={[
                                         {
                                             value: ComparisonFormatTypes.RAW,
                                             label: `${startCase(
                                                 ComparisonFormatTypes.RAW,
-                                            )} value`,
+                                            )} ${t(
+                                                'components_visualization_configs_big_number.comparison.value',
+                                            )}`,
                                         },
                                         {
                                             value: ComparisonFormatTypes.PERCENTAGE,
@@ -78,7 +92,9 @@ export const Comparison = () => {
                             </Group>
 
                             <Switch
-                                label="Flip positive color"
+                                label={t(
+                                    'components_visualization_configs_big_number.comparison.flip_positive_color',
+                                )}
                                 checked={flipColors}
                                 onChange={() => {
                                     setFlipColors(!flipColors);
@@ -102,9 +118,13 @@ export const Comparison = () => {
                                     }
                                 >
                                     <TextInput
-                                        label="Comparison label"
+                                        label={t(
+                                            'components_visualization_configs_big_number.comparison.comparison_label',
+                                        )}
                                         value={comparisonLabel ?? ''}
-                                        placeholder={'Add an optional label'}
+                                        placeholder={t(
+                                            'components_visualization_configs_big_number.comparison.add_on_optional_label',
+                                        )}
                                         onChange={(e) =>
                                             setComparisonLabel(
                                                 e.currentTarget.value,
@@ -117,7 +137,9 @@ export const Comparison = () => {
                                         comparisonFormat ===
                                             ComparisonFormatTypes.RAW && (
                                             <Select
-                                                label="Format"
+                                                label={t(
+                                                    'components_visualization_configs_big_number.comparison.format',
+                                                )}
                                                 data={StyleOptions}
                                                 value={
                                                     bigNumberComparisonStyle ??

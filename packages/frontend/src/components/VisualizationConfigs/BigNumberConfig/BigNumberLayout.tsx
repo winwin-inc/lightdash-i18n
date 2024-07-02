@@ -2,6 +2,8 @@ import { getItemId, type CompactOrAlias } from '@lightdash/common';
 import { ActionIcon, Grid, Select, TextInput } from '@mantine/core';
 import { IconEye, IconEyeOff } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import FieldSelect from '../../common/FieldSelect';
 import MantineIcon from '../../common/MantineIcon';
 import { isBigNumberVisualizationConfig } from '../../LightdashVisualization/VisualizationBigNumberConfig';
@@ -10,6 +12,8 @@ import { Config } from '../common/Config';
 import { StyleOptions } from './common';
 
 export const Layout: FC = () => {
+    const { t } = useTranslation();
+
     const { visualizationConfig, itemsMap } = useVisualizationContext();
 
     if (!isBigNumberVisualizationConfig(visualizationConfig)) return null;
@@ -34,9 +38,15 @@ export const Layout: FC = () => {
     return (
         <Config>
             <Config.Section>
-                <Config.Heading>Field</Config.Heading>
+                <Config.Heading>
+                    {t(
+                        'components_visualization_configs_big_number.layout.field',
+                    )}
+                </Config.Heading>
                 <FieldSelect
-                    label="Selected field"
+                    label={t(
+                        'components_visualization_configs_big_number.layout.select_field',
+                    )}
                     item={selectedField}
                     items={Object.values(itemsMap ?? {})}
                     onChange={(newValue) => {
@@ -55,7 +65,9 @@ export const Layout: FC = () => {
                     >
                         <TextInput
                             variant={showBigNumberLabel ? 'default' : 'filled'}
-                            label="Label"
+                            label={t(
+                                'components_visualization_configs_big_number.layout.label',
+                            )}
                             value={bigNumberLabel}
                             placeholder={defaultLabel}
                             onChange={(e) =>
@@ -84,7 +96,9 @@ export const Layout: FC = () => {
                     <Grid.Col span="auto">
                         {showStyle && (
                             <Select
-                                label="Format"
+                                label={t(
+                                    'components_visualization_configs_big_number.layout.format',
+                                )}
                                 data={StyleOptions}
                                 value={bigNumberStyle ?? ''}
                                 onChange={(newValue) => {
