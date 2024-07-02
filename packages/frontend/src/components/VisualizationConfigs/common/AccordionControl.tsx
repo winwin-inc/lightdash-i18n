@@ -10,6 +10,8 @@ import {
 import { useHover } from '@mantine/hooks';
 import { IconTrash } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../common/MantineIcon';
 
 type Props = {
@@ -27,6 +29,7 @@ export const AccordionControl: FC<Props> = ({
     extraControlElements,
     ...props
 }) => {
+    const { t } = useTranslation();
     const { ref, hovered } = useHover<HTMLDivElement>();
 
     return (
@@ -50,7 +53,9 @@ export const AccordionControl: FC<Props> = ({
             )}
             <Tooltip
                 variant="xs"
-                label={`Remove ${label}`}
+                label={`${t(
+                    'components_visualization_configs_common.remove',
+                )} ${label}`}
                 position="left"
                 withinPortal
             >

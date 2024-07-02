@@ -18,6 +18,8 @@ import { IconDownload, IconShare2 } from '@tabler/icons-react';
 import type EChartsReact from 'echarts-for-react';
 import JsPDF from 'jspdf';
 import React, { memo, useCallback, useState, type RefObject } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import useEchartsCartesianConfig from '../hooks/echarts/useEchartsCartesianConfig';
 import { useApp } from '../providers/AppProvider';
 import { Can } from './common/Authorization';
@@ -128,6 +130,8 @@ const ChartDownloadOptions: React.FC<DownloadOptions> = ({
     chartRef,
     chartType,
 }) => {
+    const { t } = useTranslation();
+
     const [type, setType] = useState<DownloadType>(DownloadType.PNG);
     const [isBackgroundTransparent, setIsBackgroundTransparent] =
         useState(false);
@@ -137,7 +141,7 @@ const ChartDownloadOptions: React.FC<DownloadOptions> = ({
         const echartsInstance = chartRef.current?.getEchartsInstance();
 
         if (!echartsInstance) {
-            throw new Error('Chart instance not reachable');
+            throw new Error(t('components_chart_download.chart_error'));
         }
 
         try {
@@ -184,11 +188,11 @@ const ChartDownloadOptions: React.FC<DownloadOptions> = ({
         } catch (e) {
             console.error(`Unable to download ${type} from chart ${e}`);
         }
-    }, [chartRef, type, isBackgroundTransparent]);
+    }, [chartRef, type, isBackgroundTransparent, t]);
 
     return (
         <Stack>
-            <Text fw={500}>Options</Text>
+            <Text fw={500}>{t('components_chart_download.options')}</Text>
 
             <Select
                 size="xs"
@@ -210,8 +214,14 @@ const ChartDownloadOptions: React.FC<DownloadOptions> = ({
                         setIsBackgroundTransparent(value === 'Transparent')
                     }
                     data={[
-                        { value: 'Opaque', label: 'Opaque' },
-                        { value: 'Transparent', label: 'Transparent' },
+                        {
+                            value: 'Opaque',
+                            label: t('components_chart_download.opaque'),
+                        },
+                        {
+                            value: 'Transparent',
+                            label: t('components_chart_download.transparent'),
+                        },
                     ]}
                 />
             )}
@@ -224,7 +234,7 @@ const ChartDownloadOptions: React.FC<DownloadOptions> = ({
                     onClick={onDownload}
                 >
                     {' '}
-                    Download
+                    {t('components_chart_download.download')}
                 </Button>
             )}
         </Stack>

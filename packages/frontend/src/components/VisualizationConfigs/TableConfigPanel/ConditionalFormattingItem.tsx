@@ -27,6 +27,8 @@ import {
 import { IconPercentage, IconPlus } from '@tabler/icons-react';
 import produce from 'immer';
 import { Fragment, useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import FieldSelect from '../../common/FieldSelect';
 import FilterNumberInput from '../../common/Filters/FilterInputs/FilterNumberInput';
 import { FiltersProvider } from '../../common/Filters/FiltersProvider';
@@ -48,11 +50,6 @@ type Props = {
     removeItem: (value: string) => void;
 };
 
-const ConditionalFormattingRuleLabels = {
-    [ConditionalFormattingConfigType.Single]: 'Single',
-    [ConditionalFormattingConfigType.Range]: 'Range',
-};
-
 export const ConditionalFormattingItem: FC<Props> = ({
     colorPalette,
     index: configIndex,
@@ -64,6 +61,17 @@ export const ConditionalFormattingItem: FC<Props> = ({
     addNewItem,
     removeItem,
 }) => {
+    const { t } = useTranslation();
+
+    const ConditionalFormattingRuleLabels = {
+        [ConditionalFormattingConfigType.Single]: t(
+            'components_visualization_configs_table.formatting_item.single',
+        ),
+        [ConditionalFormattingConfigType.Range]: t(
+            'components_visualization_configs_table.formatting_item.range',
+        ),
+    };
+
     const [isAddingRule, setIsAddingRule] = useState(false);
     const [config, setConfig] = useState<ConditionalFormattingConfig>(value);
 
@@ -257,7 +265,9 @@ export const ConditionalFormattingItem: FC<Props> = ({
                 <Stack spacing="xs">
                     <FiltersProvider>
                         <FieldSelect
-                            label="Select field"
+                            label={t(
+                                'components_visualization_configs_table.formatting_item.select_field',
+                            )}
                             clearable
                             item={field}
                             items={fields}
@@ -266,7 +276,11 @@ export const ConditionalFormattingItem: FC<Props> = ({
                         />
 
                         <Group spacing="xs">
-                            <Config.Label>Color</Config.Label>
+                            <Config.Label>
+                                {t(
+                                    'components_visualization_configs_table.formatting_item.color',
+                                )}
+                            </Config.Label>
 
                             <SegmentedControl
                                 data={[
@@ -353,7 +367,9 @@ export const ConditionalFormattingItem: FC<Props> = ({
                                                 mt="xs"
                                                 label={
                                                     <Config.Label>
-                                                        AND
+                                                        {t(
+                                                            'components_visualization_configs_table.formatting_item.and',
+                                                        )}
                                                     </Config.Label>
                                                 }
                                                 labelPosition="center"
@@ -368,7 +384,11 @@ export const ConditionalFormattingItem: FC<Props> = ({
                             <Group spacing="xs" noWrap grow>
                                 <Group>
                                     <Stack spacing="one">
-                                        <Config.Label>Start</Config.Label>
+                                        <Config.Label>
+                                            {t(
+                                                'components_visualization_configs_table.formatting_item.start',
+                                            )}
+                                        </Config.Label>
                                         <ColorSelector
                                             color={config.color.start}
                                             swatches={colorPalette}
@@ -380,7 +400,11 @@ export const ConditionalFormattingItem: FC<Props> = ({
                                         />
                                     </Stack>
                                     <Stack spacing="one">
-                                        <Config.Label>End</Config.Label>
+                                        <Config.Label>
+                                            {t(
+                                                'components_visualization_configs_table.formatting_item.end',
+                                            )}
+                                        </Config.Label>
                                         <ColorSelector
                                             color={config.color.end}
                                             swatches={colorPalette}
@@ -396,7 +420,9 @@ export const ConditionalFormattingItem: FC<Props> = ({
                                 {/* FIXME: remove this and use NumberInput from @mantine/core once we upgrade to mantine v7 */}
                                 {/* INFO: mantine v6 NumberInput does not handle decimal values properly */}
                                 <FilterNumberInput
-                                    label="Min"
+                                    label={t(
+                                        'components_visualization_configs_table.formatting_item.min',
+                                    )}
                                     icon={
                                         hasPercentageFormat(field) ? (
                                             <MantineIcon
@@ -417,7 +443,9 @@ export const ConditionalFormattingItem: FC<Props> = ({
                                 {/* FIXME: remove this and use NumberInput from @mantine/core once we upgrade to mantine v7 */}
                                 {/* INFO: mantine v6 NumberInput does not handle decimal values properly */}
                                 <FilterNumberInput
-                                    label="Max"
+                                    label={t(
+                                        'components_visualization_configs_table.formatting_item.max',
+                                    )}
                                     icon={
                                         hasPercentageFormat(field) ? (
                                             <MantineIcon
@@ -448,7 +476,9 @@ export const ConditionalFormattingItem: FC<Props> = ({
                                 leftIcon={<MantineIcon icon={IconPlus} />}
                                 onClick={handleAddRule}
                             >
-                                Add new condition
+                                {t(
+                                    'components_visualization_configs_table.formatting_item.add_new_condition',
+                                )}
                             </Button>
                         ) : null}
                     </FiltersProvider>

@@ -1,9 +1,12 @@
 import { Alert, Loader, Stack, Title } from '@mantine/core';
 import { Prism } from '@mantine/prism';
 import { IconAlertCircle } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
+
 import { useCompiledSql } from '../hooks/useCompiledSql';
 
 export const RenderedSql = () => {
+    const { t } = useTranslation();
     const { data, error, isInitialLoading } = useCompiledSql();
 
     if (isInitialLoading) {
@@ -11,7 +14,7 @@ export const RenderedSql = () => {
             <Stack my="xs" align="center">
                 <Loader size="lg" color="gray" mt="xs" />
                 <Title order={4} fw={500} color="gray.7">
-                    Compiling SQL
+                    {t('components_rendered_sql.compiling_sql')}
                 </Title>
             </Stack>
         );
@@ -22,7 +25,7 @@ export const RenderedSql = () => {
             <div style={{ margin: 10 }}>
                 <Alert
                     icon={<IconAlertCircle size="1rem" />}
-                    title="Compilation error"
+                    title={t('components_rendered_sql.compilation_error')}
                     color="red"
                     variant="filled"
                 >
@@ -36,7 +39,7 @@ export const RenderedSql = () => {
             <div style={{ margin: 10 }}>
                 <Alert
                     icon={<IconAlertCircle size="1rem" />}
-                    title="Compilation error"
+                    title={t('components_rendered_sql.compilation_error')}
                     color="red"
                     variant="filled"
                 >

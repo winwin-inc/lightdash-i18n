@@ -10,11 +10,14 @@ import {
     Switch,
 } from '@mantine/core';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { isPieVisualizationConfig } from '../../LightdashVisualization/VisualizationConfigPie';
 import { useVisualizationContext } from '../../LightdashVisualization/VisualizationProvider';
 import { Config } from '../common/Config';
 
 export const Display: React.FC = () => {
+    const { t } = useTranslation();
     const { visualizationConfig } = useVisualizationContext();
 
     if (!isPieVisualizationConfig(visualizationConfig)) return null;
@@ -30,14 +33,22 @@ export const Display: React.FC = () => {
         <Stack>
             <Config>
                 <Group>
-                    <Config.Heading>Show legend</Config.Heading>
+                    <Config.Heading>
+                        {t(
+                            'components_visualization_configs_chart_pie.display_config.show_legend',
+                        )}
+                    </Config.Heading>
                     <Switch checked={showLegend} onChange={toggleShowLegend} />
                 </Group>
             </Config>
 
             <Collapse in={showLegend}>
                 <Group spacing="xs">
-                    <Config.Label>Orientation</Config.Label>
+                    <Config.Label>
+                        {t(
+                            'components_visualization_configs_chart_pie.display_config.orientation',
+                        )}
+                    </Config.Label>
                     <SegmentedControl
                         name="orient"
                         value={legendPosition}

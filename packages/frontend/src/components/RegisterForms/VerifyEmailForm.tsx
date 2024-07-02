@@ -11,6 +11,8 @@ import { isNotEmpty, useForm } from '@mantine/form';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useEffect, type FC } from 'react';
 import Countdown, { zeroPad } from 'react-countdown';
+import { useTranslation } from 'react-i18next';
+
 import {
     useEmailStatus,
     useOneTimePassword,
@@ -21,6 +23,8 @@ import LoadingState from '../common/LoadingState';
 import MantineIcon from '../common/MantineIcon';
 
 const VerifyEmailForm: FC<{ isLoading?: boolean }> = ({ isLoading }) => {
+    const { t } = useTranslation();
+
     const { health, user } = useApp();
     const { mutate: verifyCode, isLoading: verificationLoading } =
         useVerifyEmail();
@@ -32,7 +36,9 @@ const VerifyEmailForm: FC<{ isLoading?: boolean }> = ({ isLoading }) => {
             code: '',
         },
         validate: {
-            code: isNotEmpty('This field is required.'),
+            code: isNotEmpty(
+                t('components_register_form_verify_email.validate.field'),
+            ),
         },
     });
     const { setFieldError, clearFieldError } = form;
@@ -45,17 +51,22 @@ const VerifyEmailForm: FC<{ isLoading?: boolean }> = ({ isLoading }) => {
         if (data?.otp && data?.otp.numberOfAttempts > 0) {
             const remainingAttempts = 5 - data.otp.numberOfAttempts;
             const message = data.otp.isExpired
-                ? 'Your one-time password expired. Please resend a verification email.'
+                ? t('components_register_form_verify_email.expired_tip.part_1')
                 : data.otp.numberOfAttempts < 5
-                ? `The code doesn't match the one we sent you. You have ${remainingAttempts} attempt${
-                      remainingAttempts > 1 ? 's' : ''
-                  } left.`
-                : "Hmm that code doesn't match the one we sent you. You've already had 5 attempts, please resend a verification email and try again.";
+                ? `${t(
+                      'components_register_form_verify_email.expired_tip.part_2',
+                  )} ${remainingAttempts} ${t(
+                      'components_register_form_verify_email.expired_tip.part_3',
+                      {
+                          suffix: remainingAttempts > 1 ? 's' : '',
+                      },
+                  )}`
+                : t('components_register_form_verify_email.expired_tip.part_4');
             setFieldError('code', message);
         } else {
             clearFieldError('code');
         }
-    }, [data, setFieldError, clearFieldError]);
+    }, [data, setFieldError, clearFieldError, t]);
 
     if (loadingState) {
         return <LoadingState title="" />;
@@ -64,10 +75,17 @@ const VerifyEmailForm: FC<{ isLoading?: boolean }> = ({ isLoading }) => {
     return (
         // FIXME: update hardcoded widths with Mantine widths
         <Stack spacing="md" justify="center" align="center" w={300} mx="auto">
-            <Title order={3}>Check your inbox!</Title>
+            <Title order={3}>
+                {t('components_register_form_verify_email.form.title')}
+            </Title>
             <Text color="gray.6" ta="center">
-                Verify your email address by entering the code we've just sent
-                to <b>{user?.data?.email || 'your email'}</b>
+                {t('components_register_form_verify_email.form.content.part_1')}{' '}
+                <b>
+                    {user?.data?.email ||
+                        t(
+                            'components_register_form_verify_email.form.content.part_2',
+                        )}
+                </b>
             </Text>
             <form
                 name="verifyEmail"
@@ -104,11 +122,17 @@ const VerifyEmailForm: FC<{ isLoading?: boolean }> = ({ isLoading }) => {
                                     color="orange.8"
                                     radius="xs"
                                 >
-                                    Your verification code has expired. Hit{' '}
+                                    {t(
+                                        'components_register_form_verify_email.form.expired.part_1',
+                                    )}{' '}
                                     <Text span fw={500}>
-                                        Resend verification email
+                                        {t(
+                                            'components_register_form_verify_email.form.expired.part_2',
+                                        )}
                                     </Text>{' '}
-                                    to receive a new code.
+                                    {t(
+                                        'components_register_form_verify_email.form.expired.part_3',
+                                    )}
                                 </Alert>
                             );
                         }
@@ -123,13 +147,20 @@ const VerifyEmailForm: FC<{ isLoading?: boolean }> = ({ isLoading }) => {
                                     loading={verificationLoading}
                                     type="submit"
                                 >
-                                    Submit
+                                    {t(
+                                        'components_register_form_verify_email.form.submit',
+                                    )}
                                 </Button>
                                 <Text color="gray.6" ta="center">
-                                    Your one-time password expires in{' '}
+                                    {t(
+                                        'components_register_form_verify_email.form.one_time_password',
+                                    )}{' '}
                                     <b>
                                         {zeroPad(minutes)}:{zeroPad(seconds)}
-                                    </b>
+                                    </b>{' '}
+                                    {t(
+                                        'components_register_form_verify_email.form.one_time_password_suffix',
+                                    )}
                                 </Text>
                             </Stack>
                         );
@@ -144,7 +175,9 @@ const VerifyEmailForm: FC<{ isLoading?: boolean }> = ({ isLoading }) => {
                     sendVerificationEmail();
                 }}
             >
-                Resend verification email
+                {t(
+                    'components_register_form_verify_email.form.resend_verification_email',
+                )}
             </Anchor>
         </Stack>
     );

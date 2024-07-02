@@ -1,9 +1,13 @@
 import { IconReload } from '@tabler/icons-react';
 import { useEffect, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import useHealth from '../../hooks/health/useHealth';
 import useToaster from '../../hooks/toaster/useToaster';
 
 const VersionAutoUpdater: FC = () => {
+    const { t } = useTranslation();
+
     const [version, setVersion] = useState<string>();
     const { showToastPrimary } = useToaster();
     const { data: healthData } = useHealth({
@@ -18,7 +22,7 @@ const VersionAutoUpdater: FC = () => {
                 showToastPrimary({
                     key: 'new-version-available',
                     autoClose: false,
-                    title: 'A new version of Lightdash is ready for you!',
+                    title: t('components_version_auto_updater.title'),
                     action: {
                         children: 'Use new version',
                         icon: IconReload,
@@ -27,7 +31,7 @@ const VersionAutoUpdater: FC = () => {
                 });
             }
         }
-    }, [version, healthData, showToastPrimary]);
+    }, [version, healthData, showToastPrimary, t]);
 
     return null;
 };

@@ -287,7 +287,7 @@ const VisualizationCardOptions: FC = memo(() => {
                     }}
                 >
                     {t(
-                        'components_explorer_visualization_card_options.menus.horizonal_bar_chart',
+                        'components_explorer_visualization_card_options.menus.horizontal_bar_chart',
                     )}
                 </Menu.Item>
                 <Menu.Item

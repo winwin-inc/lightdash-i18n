@@ -6,6 +6,8 @@ import {
 } from '@hello-pangea/dnd';
 import { Box, Stack } from '@mantine/core';
 import { useCallback, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { isPieVisualizationConfig } from '../../LightdashVisualization/VisualizationConfigPie';
 import { useVisualizationContext } from '../../LightdashVisualization/VisualizationProvider';
 import { Config } from '../common/Config';
@@ -13,6 +15,8 @@ import { GroupItem } from './GroupItem';
 import { ValueOptions } from './ValueOptions';
 
 export const Series: FC = () => {
+    const { t } = useTranslation();
+
     const { visualizationConfig, colorPalette, getGroupColor } =
         useVisualizationContext();
 
@@ -61,7 +65,11 @@ export const Series: FC = () => {
             <Config>
                 <Config.Section>
                     <Config.Group>
-                        <Config.Heading>Label</Config.Heading>
+                        <Config.Heading>
+                            {t(
+                                'components_visualization_configs_chart_pie.series_config.label',
+                            )}
+                        </Config.Heading>
                     </Config.Group>
                     <ValueOptions
                         isValueLabelOverriden={isValueLabelOverriden}
@@ -80,7 +88,11 @@ export const Series: FC = () => {
             <Config>
                 <Config.Section>
                     <Config.Group>
-                        <Config.Heading>Series</Config.Heading>
+                        <Config.Heading>
+                            {t(
+                                'components_visualization_configs_chart_pie.series_config.series',
+                            )}
+                        </Config.Heading>
                     </Config.Group>
                     {sortedGroupLabels.length === 0 ? null : (
                         <DragDropContext onDragEnd={handleDragEnd}>

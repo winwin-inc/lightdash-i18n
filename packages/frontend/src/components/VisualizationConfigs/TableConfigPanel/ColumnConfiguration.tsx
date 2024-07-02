@@ -8,6 +8,8 @@ import {
     IconLockOpen,
 } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../common/MantineIcon';
 import {
     isTableVisualizationConfig,
@@ -58,6 +60,8 @@ type ColumnConfigurationProps = {
 };
 
 const ColumnConfiguration: FC<ColumnConfigurationProps> = ({ fieldId }) => {
+    const { t } = useTranslation();
+
     const { pivotDimensions, visualizationConfig } = useVisualizationContext();
 
     const [isShowTooltipVisible, setShowTooltipVisible] = useState(false);
@@ -92,12 +96,20 @@ const ColumnConfiguration: FC<ColumnConfigurationProps> = ({ fieldId }) => {
                 withinPortal
                 label={
                     isPivotingDimension
-                        ? "Can't hide pivot dimensions"
+                        ? t(
+                              'components_visualization_configs_table.column_configuration.tooltip_columns.part_1',
+                          )
                         : disableHidingDimensions
-                        ? 'Cannot hide dimensions when pivoting'
+                        ? t(
+                              'components_visualization_configs_table.column_configuration.tooltip_columns.part_2',
+                          )
                         : isColumnVisible(fieldId)
-                        ? 'Hide column'
-                        : 'Show column'
+                        ? t(
+                              'components_visualization_configs_table.column_configuration.tooltip_columns.part_3',
+                          )
+                        : t(
+                              'components_visualization_configs_table.column_configuration.tooltip_columns.part_4',
+                          )
                 }
             >
                 <Box
@@ -142,8 +154,12 @@ const ColumnConfiguration: FC<ColumnConfigurationProps> = ({ fieldId }) => {
                     opened={isFreezeTooltipVisible}
                     label={
                         isColumnFrozen(fieldId)
-                            ? 'Unfreeze column'
-                            : 'Freeze column'
+                            ? t(
+                                  'components_visualization_configs_table.column_configuration.unfreeze',
+                              )
+                            : t(
+                                  'components_visualization_configs_table.column_configuration.freeze',
+                              )
                     }
                 >
                     <Box

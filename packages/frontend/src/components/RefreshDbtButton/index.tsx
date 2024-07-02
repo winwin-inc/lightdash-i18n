@@ -83,12 +83,12 @@ const RefreshDbtButton = () => {
                 </Popover.Target>
                 <Popover.Dropdown>
                     <Text>
-                        You're still connected to a dbt project created from the
-                        CLI.
+                        {t('components_refresh_dbt_button.tip.part_1')}
                         <br />
-                        To keep your Lightdash project in sync with your dbt
-                        project,
-                        <br /> you need to either{' '}
+                        {t('components_refresh_dbt_button.tip.part_2')}
+                        <br /> {t(
+                            'components_refresh_dbt_button.tip.part_3',
+                        )}{' '}
                         <Anchor
                             href={
                                 'https://docs.lightdash.com/get-started/setup-lightdash/connect-project#2-import-a-dbt-project'
@@ -96,9 +96,9 @@ const RefreshDbtButton = () => {
                             target="_blank"
                             rel="noreferrer"
                         >
-                            change your connection type
+                            {t('components_refresh_dbt_button.tip.part_4')}
                         </Anchor>
-                        , setup a{' '}
+                        {t('components_refresh_dbt_button.tip.part_5')}{' '}
                         <Anchor
                             href={
                                 'https://docs.lightdash.com/guides/cli/how-to-use-lightdash-deploy#automatically-deploy-your-changes-to-lightdash-using-a-github-action'
@@ -106,10 +106,10 @@ const RefreshDbtButton = () => {
                             target="_blank"
                             rel="noreferrer"
                         >
-                            GitHub action
+                            {t('components_refresh_dbt_button.tip.part_6')}
                         </Anchor>
                         <br />
-                        or, run{' '}
+                        {t('components_refresh_dbt_button.tip.part_7')}{' '}
                         <Anchor
                             href={
                                 'https://docs.lightdash.com/guides/cli/how-to-use-lightdash-deploy#lightdash-deploy-syncs-the-changes-in-your-dbt-project-to-lightdash'
@@ -117,9 +117,9 @@ const RefreshDbtButton = () => {
                             target="_blank"
                             rel="noreferrer"
                         >
-                            lightdash deploy
+                            {t('components_refresh_dbt_button.tip.part_8')}
                         </Anchor>
-                        ) from your command line.
+                        ) {t('components_refresh_dbt_button.tip.part_9')}
                     </Text>
                 </Popover.Dropdown>
             </Popover>

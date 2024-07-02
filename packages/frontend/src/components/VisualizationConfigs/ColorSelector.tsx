@@ -7,6 +7,8 @@ import {
 } from '@mantine/core';
 import { IconHash } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { isHexCodeColor } from '../../utils/colorUtils';
 import MantineIcon from '../common/MantineIcon';
 
@@ -23,6 +25,7 @@ const ColorSelector: FC<Props> = ({
     swatches,
     onColorChange,
 }) => {
+    const { t } = useTranslation();
     const isValidHexColor = color && isHexCodeColor(color);
 
     return (
@@ -53,10 +56,14 @@ const ColorSelector: FC<Props> = ({
                     <TextInput
                         size="xs"
                         icon={<MantineIcon icon={IconHash} />}
-                        placeholder="Type in a custom HEX color"
+                        placeholder={t(
+                            'components_visualization_configs_common.errors.custom_hex',
+                        )}
                         error={
                             color && !isValidHexColor
-                                ? 'Invalid HEX color'
+                                ? t(
+                                      'components_visualization_configs_common.errors.invalid_hex',
+                                  )
                                 : undefined
                         }
                         value={(color ?? '').replace('#', '')}

@@ -17,6 +17,8 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { forwardRef } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../common/MantineIcon';
 import ColorSelector from '../ColorSelector';
 import { EditableText } from '../common/EditableText';
@@ -78,6 +80,7 @@ export const GroupItem = forwardRef<
         },
         ref,
     ) => {
+        const { t } = useTranslation();
         const [opened, { toggle }] = useDisclosure();
 
         return (
@@ -110,7 +113,9 @@ export const GroupItem = forwardRef<
 
                     <Tooltip
                         variant="xs"
-                        label="Override value label options"
+                        label={t(
+                            'components_visualization_configs_chart_pie.override_value_label_options',
+                        )}
                         withinPortal
                     >
                         <ActionIcon onClick={toggle}>

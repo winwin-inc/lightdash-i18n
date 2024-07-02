@@ -701,7 +701,7 @@
     },
     "components_common_resource_info_popup": {
         "use_in_dashboard": "Used in {{size}} dashboard",
-        "view_since": "views since",
+        "views_since": "views since",
         "views": "Views",
         "description": "Description"
     },
@@ -1442,6 +1442,17 @@
     },
     "components_refresh_dbt_button": {
         "refresh": "Refresh dbt",
+        "tip": {
+            "part_1": "You're still connected to a dbt project created from the CLI.",
+            "part_2": "To keep your Lightdash project in sync with your dbt project,",
+            "part_3": "you need to either",
+            "part_4": "change your connection type",
+            "part_5": ", setup a",
+            "part_6": "GitHub action",
+            "part_7": "or, run",
+            "part_8": "lightdash deploy",
+            "part_9": "from your command line."
+        },
         "tooltip_preview": {
             "label": "Developer previews are temporary Lightdash projects",
             "text": "Developer preview"
@@ -1944,6 +1955,59 @@
         "alreday_registered": "Already Registered?",
         "sign_in": "Sign in"
     },
+    "components_register_form_verify_email": {
+        "validate": {
+            "field": "This field is required."
+        },
+        "expired_tip": {
+            "part_1": "Your one-time password expired. Please resend a verification email.",
+            "part_2": "The code doesn't match the one we sent you. You have",
+            "part_3": "attempt{{suffix}} left",
+            "part_4": "Hmm that code doesn't match the one we sent you. You've already had 5 attempts, please resend a verification email and try again."
+        },
+        "form": {
+            "title": "Check your inbox!",
+            "content": {
+                "part_1": "Verify your email address by entering the code we've just sent to",
+                "part_2": "your email"
+            },
+            "expired": {
+                "part_1": "Your verification code has expired. Hit",
+                "part_2": "Resend verification email",
+                "part_3": "to receive a new code."
+            },
+            "submit": "Submit",
+            "one_time_password": "Your one-time password expires in",
+            "one_time_password_suffix": "",
+            "resend_verification_email": "Resend verification email"
+        }
+    },
+    "components_user_completion_modal": {
+        "title": {
+            "part_1": "Nearly there...",
+            "part_2": "Tell us a bit more about yourself"
+        },
+        "form": {
+            "organization_name": {
+                "label": "Organization name",
+                "placeholder": "Enter company name"
+            },
+            "your_role": {
+                "label": "What's your role?",
+                "placeholder": "Select your role"
+            },
+            "allow_users": {
+                "label": "Allow users with @{{email}} to join the organization as a viewer"
+            },
+            "keep_updated": {
+                "label": "Keep me updated on new Lightdash features"
+            },
+            "usage_data": {
+                "label": "Anonymize my usage data"
+            },
+            "next": "Next"
+        }
+    },
     "components_user_settings_profile_panel": {
         "tips": {
             "success": "Success! User details were updated.",
@@ -2435,6 +2499,264 @@
         "toast_error": "Failed to authenticate"
     },
 
+    "components_version_auto_updater": {
+        "title": "A new version of Lightdash is ready for you!"
+    },
+
+    "components_visualization_configs_common": {
+        "remove": "Remove",
+        "add": "Add",
+        "errors": {
+            "custom_hex": "Type in a custom HEX color",
+            "invalid_hex": "Invalid HEX color"
+        }
+    },
+    "components_visualization_configs_big_number": {
+        "comparison": {
+            "compare_to_previous_row": "Compare to previous row",
+            "compare_by": "Compare by",
+            "flip_positive_color": "Flip positive color",
+            "comparison_label": "Comparison label",
+            "add_on_optional_label": "Add an optional label",
+            "format": "Format"
+        },
+        "tabs": {
+            "layout": "Layout",
+            "comparison": "Comparison"
+        },
+        "layout": {
+            "select_field": "Select field",
+            "label": "Label",
+            "format": "Format"
+        },
+        "configure": "Configure"
+    },
+    "components_visualization_configs_chart": {
+        "config": "Config",
+        "data": "Data",
+        "configure": "Configure",
+        "axes": {
+            "min": "Min",
+            "max": "Max",
+            "axis_label": "{{flipAxes}}-axis label",
+            "enter_axis_label": "Enter axis label",
+            "axis_range": "Auto {{flipAxes}}-Axis range",
+            "truncate_label": "Truncate x-axis",
+            "sort": "Sort",
+            "rotation": "Rotation",
+            "axis_label_direction": "{{flipAxes}}-axis label ({{flipAxes}})",
+            "axis_range_direction": "Auto {{flipAxes}}-Axis range ({{flipAxes}})",
+            "show_grid": "Show grid",
+            "axis_empty_label": "{{flipAxes}}-axis"
+        },
+        "config_tabs": {
+            "layout": "Layout",
+            "series": "Series",
+            "axes": "Axes",
+            "display": "Display",
+            "margins": "Margins"
+        },
+        "grid": {
+            "margin": "Margin"
+        },
+        "layout": {
+            "axis_abel": "{{flipAxes}}-axis",
+            "flip_axes": "Flip axis",
+            "y-axis": "{{field}}-y-axis",
+            "group": "Group",
+            "tip_metric": "You need at least one metric in your chart to add a group",
+            "tip_select_field": "Select a field to group by",
+            "tip_x_axis": "x-axis must be non-numeric to enable stacking",
+            "none": "None",
+            "stack": "Stack"
+        },
+        "legend": {
+            "custom_position": "Custom position",
+            "position": "Position",
+            "scroll_behavior": "Scroll behavior",
+            "default": "Default",
+            "scroll": "Scroll",
+            "orientation": "Orientation",
+            "horizontal": "Horizontal",
+            "vertical": "Vertical",
+            "selected_field": "Selected field must be of type Number",
+            "line_value": "Line value",
+            "line": "Line",
+            "field": "Field",
+            "search_field": "Search field...",
+            "value": "Value",
+            "label": "Label",
+            "average": "Average",
+            "user_series_average": "User series average",
+            "reference_lines": "Reference lines"
+        },
+        "series": {
+            "mixed": "Mixed",
+            "type": "Type",
+            "label_options": {
+                "hidden": "Hidden",
+                "top": "Top",
+                "bottom": "Bottom",
+                "left": "Left",
+                "right": "Right",
+                "inside": "Inside"
+            },
+            "axis_options": {
+                "left": "Left",
+                "right": "Right",
+                "bottom": "Bottom",
+                "top": "Top"
+            },
+            "grouped": "Grouped",
+            "axis": "Axis",
+            "value_labels": "Value labels",
+            "show_symbol": "Show symbol",
+            "smooth": "Smooth",
+            "tried": "Tried to reference field with unknown id:"
+        }
+    },
+    "components_visualization_configs_chart_funnel": {
+        "general": "General",
+        "data_orientation": "Data orientation",
+        "steps_are": "Steps are",
+        "rows": "rows",
+        "columns": "columns",
+        "data_field": "Data field",
+        "select_numeric_metric": "You must select at least one numeric metric to create a pie chart",
+        "select_metric": "Select metric",
+        "labels": "Labels",
+        "position": "Position",
+        "left": "Left",
+        "inside": "Inside",
+        "right": "Right",
+        "show_value": "Show value",
+        "show_percentage": "Show percentage",
+        "configure": "Configure"
+    },
+    "components_visualization_configs_chart_pie": {
+        "override_value_label_options": "Override value label options",
+        "configure": "Configure",
+        "config_tabs": {
+            "layout": "Layout",
+            "series": "Series",
+            "display": "Display"
+        },
+        "display_config": {
+            "show_legend": "Show legend",
+            "orientation": "Orientation"
+        },
+        "layout_config": {
+            "groups": "Groups",
+            "tooltip": {
+                "least_one": "You must select at least one dimension to create a pie chart",
+                "add_more": "To add more groups you need to add more dimensions to your query"
+            },
+            "select_dimension": "Select dimension",
+            "metric": "Metric",
+            "tooltip_metric": {
+                "least_one": "You must select at least one numeric metric to create a pie chart"
+            },
+            "select_metric": "Select metric",
+            "display_as": "Display as",
+            "pie": "Pie",
+            "donut": "Donut"
+        },
+        "series_config": {
+            "label": "Label",
+            "series": "Series"
+        },
+        "value_options": {
+            "value_position": "Value position",
+            "show_value": "Show value",
+            "show_percentage": "Show percentage"
+        }
+    },
+    "components_visualization_configs_table": {
+        "column_configuration": {
+            "tooltip_columns": {
+                "part_1": "Can't hide pivot dimensions",
+                "part_2": "Cannot hide dimensions when pivoting",
+                "part_3": "Hide column",
+                "part_4": "Show column"
+            },
+            "unfreeze": "Unfreeze column",
+            "freeze": "Freeze column"
+        },
+        "formatting_item": {
+            "single": "single",
+            "range": "Range",
+            "select_field": "Select field",
+            "and": "And",
+            "start": "Start",
+            "end": "End",
+            "min": "Min",
+            "max": "Max",
+            "add_new_condition": "Add new condition",
+            "color": "Color"
+        },
+        "formatting_list": {
+            "rules_and_conditions": "Rules and conditions"
+        },
+        "formatting_rule": {
+            "condition": "Condition",
+            "remove_condition": "Remove condition"
+        },
+        "settings": {
+            "maximum_error": "Maximum number of pivots reached",
+            "columns": "Columns",
+            "drag_dimensions": "Drag dimensions into this area to pivot your table",
+            "rows": "Rows",
+            "drag_dimensions_to_area": "Drag dimensions into this area to group your data",
+            "metrics": "Metrics",
+            "use_metrics": "To use metrics as rows, you need to move a dimension to \"Columns\"",
+            "show_metrics": "Show metrics as rows",
+            "display": "Display",
+            "show_table_names": "Show table names",
+            "show_row_numbers": "Show row numbers",
+            "results": "Results",
+            "show_row_totals": "Show row totals",
+            "show_column_totals": "Show column totals",
+            "show_number_of_results": "Show number of results",
+            "at_least_two_dimensions": "Subtotals can only be used on tables with at least two dimensions",
+            "can_use_subtotals": "Subtotals can only be used on tables that aren't pivoted",
+            "show_subtotals": "Show subtotals"
+        },
+        "configure": "Configure",
+        "config_tabs": {
+            "general": "General",
+            "conditional_formating": "Conditional formatting"
+        }
+    },
+
+    "components_chart_download": {
+        "chart_error": "Chart instance not reachable",
+        "options": "Options",
+        "opaque": "Opaque",
+        "transparent": "Transparent",
+        "download": "Download"
+    },
+
+    "components_forbidden_panel": {
+        "title": {
+            "part_1": "You don't have access",
+            "part_2": "to this"
+        },
+        "description": {
+            "part_1": "Please contact the admin to request access.",
+            "part_2": "Or create a new project."
+        }
+    },
+
+    "components_json_viewer_modal": {
+        "copied": "Copied",
+        "copy": "Copy"
+    },
+
+    "components_rendered_sql": {
+        "compiling_sql": "Compiling SQL",
+        "compilation_error": "Compilation error"
+    },
+
     "components_explorer_here": {
         "explore_from_here": "Explore from here"
     },
@@ -2819,7 +3141,7 @@
         },
         "menus": {
             "bar_chart": "Bar chart",
-            "horizonal_bar_chart": "Horizontal bar chart",
+            "horizontal_bar_chart": "Horizontal bar chart",
             "line_chart": "Line chart",
             "area_chart": "Area chart",
             "scatter_chart": "Scatter chart",

@@ -1,6 +1,8 @@
 import { Box, Button, Popover } from '@mantine/core';
 import { IconChevronDown } from '@tabler/icons-react';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+
 import {
     COLLAPSABLE_CARD_BUTTON_PROPS,
     COLLAPSABLE_CARD_POPOVER_PROPS,
@@ -10,6 +12,7 @@ import { useVisualizationContext } from '../../LightdashVisualization/Visualizat
 import { ConfigTabs } from './PieChartConfigTabs';
 
 const PieChartConfig: React.FC = () => {
+    const { t } = useTranslation();
     const { resultsData } = useVisualizationContext();
     const disabled = !resultsData;
 
@@ -23,7 +26,7 @@ const PieChartConfig: React.FC = () => {
                         <MantineIcon icon={IconChevronDown} color="gray" />
                     }
                 >
-                    Configure
+                    {t('components_visualization_configs_chart_pie.configure')}
                 </Button>
             </Popover.Target>
 

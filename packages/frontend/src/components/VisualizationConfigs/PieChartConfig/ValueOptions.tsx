@@ -6,6 +6,8 @@ import {
 } from '@lightdash/common';
 import { Checkbox, Group, SegmentedControl } from '@mantine/core';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { Config } from '../common/Config';
 
 type ValueOptionsProps = {
@@ -34,46 +36,60 @@ export const ValueOptions: FC<ValueOptionsProps> = ({
     onValueLabelChange,
     onToggleShowValue,
     onToggleShowPercentage,
-}) => (
-    <>
-        <Group spacing="xs" noWrap>
-            <Config.Label>Value position</Config.Label>
-            <SegmentedControl
-                value={isValueLabelOverriden ? 'mixed' : valueLabel}
-                data={[
-                    ...(isValueLabelOverriden ? [['mixed', 'Mixed']] : []),
-                    ...Object.entries(PieChartValueLabels),
-                ].map(([value, label]) => ({
-                    value,
-                    label,
-                    disabled: value === 'mixed',
-                }))}
-                onChange={(newValueLabel: PieChartValueLabel) => {
-                    onValueLabelChange(newValueLabel);
-                }}
-            />
-        </Group>
+}) => {
+    const { t } = useTranslation();
 
-        {valueLabel !== 'hidden' && (
-            <Group spacing="xs">
-                <Checkbox
-                    indeterminate={isShowValueOverriden}
-                    checked={showValue}
-                    onChange={(newValue) =>
-                        onToggleShowValue(newValue.currentTarget.checked)
-                    }
-                    label="Show value"
-                />
-
-                <Checkbox
-                    indeterminate={isShowPercentageOverriden}
-                    checked={showPercentage}
-                    onChange={(newValue) =>
-                        onToggleShowPercentage(newValue.currentTarget.checked)
-                    }
-                    label="Show percentage"
+    return (
+        <>
+            <Group spacing="xs" noWrap>
+                <Config.Label>
+                    {t(
+                        'components_visualization_configs_chart_pie.value_options.value_position',
+                    )}
+                </Config.Label>
+                <SegmentedControl
+                    value={isValueLabelOverriden ? 'mixed' : valueLabel}
+                    data={[
+                        ...(isValueLabelOverriden ? [['mixed', 'Mixed']] : []),
+                        ...Object.entries(PieChartValueLabels),
+                    ].map(([value, label]) => ({
+                        value,
+                        label,
+                        disabled: value === 'mixed',
+                    }))}
+                    onChange={(newValueLabel: PieChartValueLabel) => {
+                        onValueLabelChange(newValueLabel);
+                    }}
                 />
             </Group>
-        )}
-    </>
-);
+
+            {valueLabel !== 'hidden' && (
+                <Group spacing="xs">
+                    <Checkbox
+                        indeterminate={isShowValueOverriden}
+                        checked={showValue}
+                        onChange={(newValue) =>
+                            onToggleShowValue(newValue.currentTarget.checked)
+                        }
+                        label={t(
+                            'components_visualization_configs_chart_pie.value_options.show_value',
+                        )}
+                    />
+
+                    <Checkbox
+                        indeterminate={isShowPercentageOverriden}
+                        checked={showPercentage}
+                        onChange={(newValue) =>
+                            onToggleShowPercentage(
+                                newValue.currentTarget.checked,
+                            )
+                        }
+                        label={t(
+                            'components_visualization_configs_chart_pie.value_options.show_percentage',
+                        )}
+                    />
+                </Group>
+            )}
+        </>
+    );
+};

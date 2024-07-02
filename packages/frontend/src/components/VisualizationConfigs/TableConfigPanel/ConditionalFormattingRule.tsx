@@ -16,6 +16,8 @@ import {
 import { useHover } from '@mantine/hooks';
 import { IconChevronDown, IconChevronUp, IconTrash } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import {
     FilterInputComponent,
     useFilterOperatorOptions,
@@ -48,6 +50,7 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
     onRemoveRule,
     hasRemove,
 }) => {
+    const { t } = useTranslation();
     const { ref, hovered } = useHover();
     const [isOpen, setIsOpen] = useState(isDefaultOpen);
 
@@ -59,13 +62,18 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
             <Group noWrap position="apart">
                 <Group spacing="xs">
                     <Text fw={500} fz="xs">
-                        Condition {ruleIndex + 1}
+                        {t(
+                            'components_visualization_configs_table.formatting_rule.condition',
+                        )}{' '}
+                        {ruleIndex + 1}
                     </Text>
 
                     {hasRemove && hovered && (
                         <Tooltip
                             variant="xs"
-                            label="Remove condition"
+                            label={t(
+                                'components_visualization_configs_table.formatting_rule.remove_condition',
+                            )}
                             position="left"
                             withinPortal
                         >

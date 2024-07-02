@@ -28,25 +28,6 @@ import { GrabIcon } from '../../common/GrabIcon';
 import { ChartTypeSelect } from './ChartTypeSelect';
 import SingleSeriesConfiguration from './SingleSeriesConfiguration';
 
-const VALUE_LABELS_OPTIONS = [
-    { value: 'hidden', label: 'Hidden' },
-    { value: 'top', label: 'Top' },
-    { value: 'bottom', label: 'Bottom' },
-    { value: 'left', label: 'Left' },
-    { value: 'right', label: 'Right' },
-    { value: 'inside', label: 'Inside' },
-];
-
-const AXIS_OPTIONS = [
-    { value: '0', label: 'Left' },
-    { value: '1', label: 'Right' },
-];
-
-const FLIPPED_AXIS_OPTIONS = [
-    { value: '0', label: 'Bottom' },
-    { value: '1', label: 'Top' },
-];
-
 const getFormatterValue = (
     value: any,
     key: string,
@@ -92,6 +73,25 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
     updateSeries,
     series,
 }) => {
+    const VALUE_LABELS_OPTIONS = [
+        { value: 'hidden', label: 'Hidden' },
+        { value: 'top', label: 'Top' },
+        { value: 'bottom', label: 'Bottom' },
+        { value: 'left', label: 'Left' },
+        { value: 'right', label: 'Right' },
+        { value: 'inside', label: 'Inside' },
+    ];
+
+    const AXIS_OPTIONS = [
+        { value: '0', label: 'Left' },
+        { value: '1', label: 'Right' },
+    ];
+
+    const FLIPPED_AXIS_OPTIONS = [
+        { value: '0', label: 'Bottom' },
+        { value: '1', label: 'Top' },
+    ];
+
     const [openSeriesId, setOpenSeriesId] = React.useState<
         string | undefined
     >();

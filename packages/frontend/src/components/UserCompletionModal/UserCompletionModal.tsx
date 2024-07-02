@@ -18,6 +18,8 @@ import {
 import { useForm } from '@mantine/form';
 import shuffle from 'lodash/shuffle';
 import { useEffect, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useUserCompleteMutation } from '../../hooks/user/useUserCompleteMutation';
 import { useApp } from '../../providers/AppProvider';
 
@@ -41,6 +43,7 @@ const jobTitles = [
 
 const UserCompletionModal: FC = () => {
     const { health, user } = useApp();
+    const { t } = useTranslation();
 
     const form = useForm<CompleteUserArgs>({
         initialValues: {
@@ -102,9 +105,11 @@ const UserCompletionModal: FC = () => {
                 centered
                 title={
                     <Box ta="center">
-                        <Title order={4}>Nearly there...</Title>
+                        <Title order={4}>
+                            {t('components_user_completion_modal.title.part_1')}
+                        </Title>
                         <Text ta="center" c="gray.6">
-                            Tell us a bit more about yourself
+                            {t('components_user_completion_modal.title.part_2')}
                         </Text>
                     </Box>
                 }
@@ -119,8 +124,12 @@ const UserCompletionModal: FC = () => {
                         <Stack>
                             {canEnterOrganizationName && (
                                 <TextInput
-                                    label="Organization name"
-                                    placeholder="Enter company name"
+                                    label={t(
+                                        'components_user_completion_modal.form.organization_name.label',
+                                    )}
+                                    placeholder={t(
+                                        'components_user_completion_modal.form.organization_name.placeholder',
+                                    )}
                                     disabled={isLoading}
                                     required
                                     {...form.getInputProps('organizationName')}
@@ -128,20 +137,27 @@ const UserCompletionModal: FC = () => {
                             )}
                             <Select
                                 withinPortal
-                                label="What's your role?"
+                                label={t(
+                                    'components_user_completion_modal.form.your_role.label',
+                                )}
                                 disabled={isLoading}
                                 data={jobTitles}
                                 required
-                                placeholder="Select your role"
+                                placeholder={t(
+                                    'components_user_completion_modal.form.your_role.placeholder',
+                                )}
                                 {...form.getInputProps('jobTitle')}
                             />
 
                             <Stack spacing="xs">
                                 {canEnableEmailDomainAccess && (
                                     <Checkbox
-                                        label={`Allow users with @${getEmailDomain(
-                                            user.data?.email || '',
-                                        )} to join the organization as a viewer`}
+                                        label={t(
+                                            'components_user_completion_modal.form.allow_users.label',
+                                            {
+                                                email: user.data?.email || '',
+                                            },
+                                        )}
                                         disabled={isLoading}
                                         {...form.getInputProps(
                                             'enableEmailDomainAccess',
@@ -151,7 +167,9 @@ const UserCompletionModal: FC = () => {
                                 )}
 
                                 <Checkbox
-                                    label="Keep me updated on new Lightdash features"
+                                    label={t(
+                                        'components_user_completion_modal.form.keep_updated.label',
+                                    )}
                                     disabled={isLoading}
                                     {...form.getInputProps(
                                         'isMarketingOptedIn',
@@ -164,7 +182,9 @@ const UserCompletionModal: FC = () => {
                                 {health.data?.mode !==
                                     LightdashMode.CLOUD_BETA && (
                                     <Checkbox
-                                        label="Anonymize my usage data"
+                                        label={t(
+                                            'components_user_completion_modal.form.usage_data.label',
+                                        )}
                                         disabled={isLoading}
                                         {...form.getInputProps(
                                             'isTrackingAnonymized',
@@ -186,7 +206,9 @@ const UserCompletionModal: FC = () => {
                                     )
                                 }
                             >
-                                Next
+                                {t(
+                                    'components_user_completion_modal.form.next',
+                                )}
                             </Button>
                         </Stack>
                     </form>

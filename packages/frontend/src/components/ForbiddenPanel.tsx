@@ -1,21 +1,31 @@
 import { Anchor, Box } from '@mantine/core';
 import { IconLock } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+
 import { Can } from './common/Authorization';
 import SuboptimalState from './common/SuboptimalState/SuboptimalState';
 
 const ForbiddenPanel: FC<{ subject?: string }> = ({ subject }) => {
+    const { t } = useTranslation();
+
     return (
         <Box mt="30vh">
             <SuboptimalState
-                title={`You don't have access${
-                    subject ? ` to this ${subject}` : ''
+                title={`${t('components_forbidden_panel.title.part_1')}${
+                    subject
+                        ? ` ${t(
+                              'components_forbidden_panel.title.part_2',
+                          )} ${subject}`
+                        : ''
                 }`}
                 description={
                     <>
                         {' '}
-                        <p>Please contact the admin to request access.</p>
+                        <p>
+                            {t('components_forbidden_panel.description.part_1')}
+                        </p>
                         <Can I="create" a={'Project'}>
                             {(isAllowed) => {
                                 return (
@@ -24,7 +34,9 @@ const ForbiddenPanel: FC<{ subject?: string }> = ({ subject }) => {
                                             component={Link}
                                             to="/createProject"
                                         >
-                                            Or create a new project.
+                                            {t(
+                                                'components_forbidden_panel.description.part_2',
+                                            )}
                                         </Anchor>
                                     )
                                 );

@@ -10,6 +10,8 @@ import {
     type TableCalculation,
 } from '@lightdash/common';
 import { Box, Group, SegmentedControl, Stack, Tooltip } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
+
 import FieldSelect from '../../common/FieldSelect';
 import { isPieVisualizationConfig } from '../../LightdashVisualization/VisualizationConfigPie';
 import { useVisualizationContext } from '../../LightdashVisualization/VisualizationProvider';
@@ -17,6 +19,7 @@ import { AddButton } from '../common/AddButton';
 import { Config } from '../common/Config';
 
 export const Layout: React.FC = () => {
+    const { t } = useTranslation();
     const { visualizationConfig, itemsMap } = useVisualizationContext();
 
     if (!isPieVisualizationConfig(visualizationConfig)) return null;
@@ -42,7 +45,11 @@ export const Layout: React.FC = () => {
             <Config>
                 <Config.Section>
                     <Config.Group>
-                        <Config.Heading>Groups</Config.Heading>
+                        <Config.Heading>
+                            {t(
+                                'components_visualization_configs_chart_pie.layout_config.groups',
+                            )}
+                        </Config.Heading>
                         <Tooltip
                             variant="xs"
                             disabled={
@@ -53,9 +60,13 @@ export const Layout: React.FC = () => {
                             }
                             label={
                                 dimensions.length === 0
-                                    ? 'You must select at least one dimension to create a pie chart'
+                                    ? t(
+                                          'components_visualization_configs_chart_pie.layout_config.tooltip.least_one',
+                                      )
                                     : dimensions.length === groupFieldIds.length
-                                    ? 'To add more groups you need to add more dimensions to your query'
+                                    ? t(
+                                          'components_visualization_configs_chart_pie.layout_config.tooltip.add_more',
+                                      )
                                     : undefined
                             }
                             withinPortal
@@ -85,7 +96,9 @@ export const Layout: React.FC = () => {
                                 key={index}
                                 disabled={dimensions.length === 0}
                                 clearable={index !== 0}
-                                placeholder="Select dimension"
+                                placeholder={t(
+                                    'components_visualization_configs_chart_pie.layout_config.select_dimension',
+                                )}
                                 item={selectedDimension}
                                 items={dimensions}
                                 inactiveItemIds={groupFieldIds
@@ -115,16 +128,24 @@ export const Layout: React.FC = () => {
 
             <Config>
                 <Config.Section>
-                    <Config.Heading>Metric</Config.Heading>
+                    <Config.Heading>
+                        {t(
+                            'components_visualization_configs_chart_pie.layout_config.metric',
+                        )}
+                    </Config.Heading>
 
                     <Tooltip
                         variant="xs"
                         disabled={numericMetrics && numericMetrics.length > 0}
-                        label="You must select at least one numeric metric to create a pie chart"
+                        label={t(
+                            'components_visualization_configs_chart_pie.layout_config.tooltip_metric.least_one',
+                        )}
                     >
                         <Box>
                             <FieldSelect<Metric | TableCalculation>
-                                placeholder="Select metric"
+                                placeholder={t(
+                                    'components_visualization_configs_chart_pie.layout_config.select_metric',
+                                )}
                                 disabled={numericMetrics.length === 0}
                                 item={selectedMetric}
                                 items={numericMetrics}
@@ -146,12 +167,26 @@ export const Layout: React.FC = () => {
             </Config>
 
             <Group spacing="xs">
-                <Config.Label>Display as</Config.Label>
+                <Config.Label>
+                    {t(
+                        'components_visualization_configs_chart_pie.layout_config.display_as',
+                    )}
+                </Config.Label>
                 <SegmentedControl
                     value={isDonut ? 'donut' : 'pie'}
                     data={[
-                        { value: 'pie', label: 'Pie' },
-                        { value: 'donut', label: 'Donut' },
+                        {
+                            value: 'pie',
+                            label: t(
+                                'components_visualization_configs_chart_pie.layout_config.pie',
+                            ),
+                        },
+                        {
+                            value: 'donut',
+                            label: t(
+                                'components_visualization_configs_chart_pie.layout_config.donut',
+                            ),
+                        },
                     ]}
                     onChange={() => toggleDonut()}
                 />

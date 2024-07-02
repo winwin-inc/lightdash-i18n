@@ -1,6 +1,8 @@
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd';
 import { Box, Checkbox, Stack, Switch, Tooltip } from '@mantine/core';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import useToaster from '../../../hooks/toaster/useToaster';
 import { isTableVisualizationConfig } from '../../LightdashVisualization/VisualizationConfigTable';
 import { useVisualizationContext } from '../../LightdashVisualization/VisualizationProvider';
@@ -16,6 +18,8 @@ enum DroppableIds {
 }
 
 const GeneralSettings: FC = () => {
+    const { t } = useTranslation();
+
     const {
         resultsData,
         pivotDimensions,
@@ -90,7 +94,9 @@ const GeneralSettings: FC = () => {
                 if (destination.droppableId === DroppableIds.COLUMNS) {
                     if (columns.length >= MAX_PIVOTS) {
                         showToastError({
-                            title: 'Maximum number of pivots reached',
+                            title: t(
+                                'components_visualization_configs_table.settings.maximum_error',
+                            ),
                         });
                         return;
                     }
@@ -136,6 +142,7 @@ const GeneralSettings: FC = () => {
             setPivotDimensions,
             showToastError,
             handleToggleMetricsAsRows,
+            t,
         ],
     );
 
@@ -167,26 +174,34 @@ const GeneralSettings: FC = () => {
             >
                 <Config>
                     <Config.Section>
-                        <Config.Heading>Columns</Config.Heading>
+                        <Config.Heading>
+                            {t(
+                                'components_visualization_configs_table.settings.columns',
+                            )}
+                        </Config.Heading>
                         <DroppableItemsList
                             droppableId={DroppableIds.COLUMNS}
                             itemIds={columns}
                             isDragging={isDragging}
                             disableReorder={false}
-                            placeholder={
-                                'Drag dimensions into this area to pivot your table'
-                            }
+                            placeholder={t(
+                                'components_visualization_configs_table.settings.drag_dimensions',
+                            )}
                         />
 
-                        <Config.Heading>Rows</Config.Heading>
+                        <Config.Heading>
+                            {t(
+                                'components_visualization_configs_table.settings.rows',
+                            )}
+                        </Config.Heading>
                         <DroppableItemsList
                             droppableId={DroppableIds.ROWS}
                             itemIds={rows}
                             isDragging={isDragging}
                             disableReorder={true}
-                            placeholder={
-                                'Drag dimensions into this area to group your data'
-                            }
+                            placeholder={t(
+                                'components_visualization_configs_table.settings.drag_dimensions_to_area',
+                            )}
                         />
                     </Config.Section>
                 </Config>
@@ -194,12 +209,16 @@ const GeneralSettings: FC = () => {
 
             <Config.Section>
                 <Config.Section>
-                    <Config.Heading>Metrics</Config.Heading>
+                    <Config.Heading>
+                        {t(
+                            'components_visualization_configs_table.settings.metrics',
+                        )}
+                    </Config.Heading>
                     <Tooltip
                         disabled={!!isPivotTableEnabled}
-                        label={
-                            'To use metrics as rows, you need to move a dimension to "Columns"'
-                        }
+                        label={t(
+                            'components_visualization_configs_table.settings.use_metrics',
+                        )}
                         w={300}
                         multiline
                         withinPortal
@@ -208,7 +227,9 @@ const GeneralSettings: FC = () => {
                         <Box>
                             <Switch
                                 disabled={!isPivotTableEnabled}
-                                label="Show metrics as rows"
+                                label={t(
+                                    'components_visualization_configs_table.settings.show_metrics',
+                                )}
                                 labelPosition="right"
                                 checked={metricsAsRows}
                                 onChange={() => handleToggleMetricsAsRows()}
@@ -225,17 +246,25 @@ const GeneralSettings: FC = () => {
             </Config.Section>
 
             <Config.Section>
-                <Config.Heading>Display</Config.Heading>
+                <Config.Heading>
+                    {t(
+                        'components_visualization_configs_table.settings.display',
+                    )}
+                </Config.Heading>
 
                 <Checkbox
-                    label="Show table names"
+                    label={t(
+                        'components_visualization_configs_table.settings.show_table_names',
+                    )}
                     checked={showTableNames}
                     onChange={() => {
                         setShowTableNames(!showTableNames);
                     }}
                 />
                 <Checkbox
-                    label="Show row numbers"
+                    label={t(
+                        'components_visualization_configs_table.settings.show_row_numbers',
+                    )}
                     checked={!hideRowNumbers}
                     onChange={() => {
                         setHideRowNumbers(!hideRowNumbers);
@@ -244,10 +273,16 @@ const GeneralSettings: FC = () => {
             </Config.Section>
 
             <Config.Section>
-                <Config.Heading>Results</Config.Heading>
+                <Config.Heading>
+                    {t(
+                        'components_visualization_configs_table.settings.results',
+                    )}
+                </Config.Heading>
                 {isPivotTableEnabled ? (
                     <Checkbox
-                        label="Show row totals"
+                        label={t(
+                            'components_visualization_configs_table.settings.show_row_totals',
+                        )}
                         checked={showRowCalculation}
                         onChange={() => {
                             setShowRowCalculation(!showRowCalculation);
@@ -255,14 +290,18 @@ const GeneralSettings: FC = () => {
                     />
                 ) : null}
                 <Checkbox
-                    label="Show column totals"
+                    label={t(
+                        'components_visualization_configs_table.settings.show_column_totals',
+                    )}
                     checked={showColumnCalculation}
                     onChange={() => {
                         setShowColumnCalculation(!showColumnCalculation);
                     }}
                 />
                 <Checkbox
-                    label="Show number of results"
+                    label={t(
+                        'components_visualization_configs_table.settings.show_number_of_results',
+                    )}
                     checked={showResultsTotal}
                     onChange={() => {
                         setShowResultsTotal(!showResultsTotal);
@@ -272,8 +311,12 @@ const GeneralSettings: FC = () => {
                     disabled={!isPivotTableEnabled && canUseSubtotals}
                     label={
                         !canUseSubtotals
-                            ? 'Subtotals can only be used on tables with at least two dimensions'
-                            : "Subtotals can only be used on tables that aren't pivoted"
+                            ? t(
+                                  'components_visualization_configs_table.settings.at_least_two_dimensions',
+                              )
+                            : t(
+                                  'components_visualization_configs_table.settings.can_use_subtotals',
+                              )
                     }
                     w={300}
                     multiline
@@ -282,7 +325,9 @@ const GeneralSettings: FC = () => {
                 >
                     <Box>
                         <Checkbox
-                            label="Show subtotals"
+                            label={t(
+                                'components_visualization_configs_table.settings.show_subtotals',
+                            )}
                             checked={
                                 canUseSubtotals &&
                                 !isPivotTableEnabled &&
