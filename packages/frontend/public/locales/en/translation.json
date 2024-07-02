@@ -2534,22 +2534,10 @@
         "configure": "Configure"
     },
     "components_visualization_configs_chart": {
-        "config": "Config",
-        "data": "Data",
         "configure": "Configure",
-        "axes": {
-            "min": "Min",
-            "max": "Max",
-            "axis_label": "{{flipAxes}}-axis label",
-            "enter_axis_label": "Enter axis label",
-            "axis_range": "Auto {{flipAxes}}-Axis range",
-            "truncate_label": "Truncate x-axis",
-            "sort": "Sort",
-            "rotation": "Rotation",
-            "axis_label_direction": "{{flipAxes}}-axis label ({{flipAxes}})",
-            "axis_range_direction": "Auto {{flipAxes}}-Axis range ({{flipAxes}})",
-            "show_grid": "Show grid",
-            "axis_empty_label": "{{flipAxes}}-axis"
+        "vis_config_tabs": {
+            "config": "Config",
+            "data": "Data"
         },
         "config_tabs": {
             "layout": "Layout",
@@ -2561,20 +2549,29 @@
         "grid": {
             "margin": "Margin"
         },
+        "axes": {
+            "min": "Min",
+            "max": "Max",
+            "enter_axis_label": "Enter axis label",
+            "truncate_label": "Truncate x-axis",
+            "sort": "Sort",
+            "rotation": "Rotation",
+            "show_grid": "Show grid"
+        },
         "layout": {
-            "axis_abel": "{{flipAxes}}-axis",
             "flip_axes": "Flip axis",
-            "y-axis": "{{field}}-y-axis",
             "group": "Group",
             "tip_metric": "You need at least one metric in your chart to add a group",
             "tip_select_field": "Select a field to group by",
             "tip_x_axis": "x-axis must be non-numeric to enable stacking",
+            "stacking": "Stacking",
             "none": "None",
             "stack": "Stack"
         },
         "legend": {
             "custom_position": "Custom position",
             "position": "Position",
+            "lengend": "Legend",
             "scroll_behavior": "Scroll behavior",
             "default": "Default",
             "scroll": "Scroll",
@@ -2593,6 +2590,12 @@
             "reference_lines": "Reference lines"
         },
         "series": {
+            "type_options": {
+                "bar": "Bar",
+                "line": "Line",
+                "area": "Area",
+                "scatter": "Scatter"
+            },
             "mixed": "Mixed",
             "type": "Type",
             "label_options": {
@@ -2612,6 +2615,7 @@
             "grouped": "Grouped",
             "axis": "Axis",
             "value_labels": "Value labels",
+            "total": "Total",
             "show_symbol": "Show symbol",
             "smooth": "Smooth",
             "tried": "Tried to reference field with unknown id:"

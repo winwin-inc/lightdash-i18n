@@ -31,6 +31,8 @@ import {
 } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import FieldSelect from '../../../common/FieldSelect';
 import FilterDatePicker from '../../../common/Filters/FilterInputs/FilterDatePicker';
 import FilterMonthAndYearPicker from '../../../common/Filters/FilterInputs/FilterMonthAndYearPicker';
@@ -88,6 +90,8 @@ const ReferenceLineValue: FC<ReferenceLineValueProps> = ({
     disabled,
     onChange,
 }) => {
+    const { t } = useTranslation();
+
     if (isCustomDimension(field)) return <></>;
     if (isDateItem(field)) {
         if (isDimension(field) && field.timeInterval) {
@@ -180,13 +184,17 @@ const ReferenceLineValue: FC<ReferenceLineValueProps> = ({
             title={
                 isNumericItem(field)
                     ? ''
-                    : 'Selected field must be of type Number'
+                    : t(
+                          'components_visualization_configs_chart.legend.selected_field',
+                      )
             }
             value={value}
             onChange={(e) => {
                 onChange(e.target.value);
             }}
-            placeholder="Line value"
+            placeholder={t(
+                'components_visualization_configs_chart.legend.line_value',
+            )}
         />
     );
 };
@@ -202,6 +210,8 @@ export const ReferenceLine: FC<ReferenceLineProps> = ({
     updateReferenceLine,
     removeReferenceLine,
 }) => {
+    const { t } = useTranslation();
+
     const { visualizationConfig, colorPalette } = useVisualizationContext();
 
     const isCartesianChart =
@@ -300,7 +310,9 @@ export const ReferenceLine: FC<ReferenceLineProps> = ({
             (isTableCalculation(selectedField) && !selectedField.type));
 
     const averageAvailable = isNumericField && markLineKey === 'yAxis';
-    const controlLabel = `Line ${index}`;
+    const controlLabel = `${t(
+        'components_visualization_configs_chart.legend.line',
+    )} ${index}`;
     const accordionValue = `${index}`;
 
     const onControlClick = useCallback(
@@ -345,10 +357,14 @@ export const ReferenceLine: FC<ReferenceLineProps> = ({
                     })}
                 >
                     <FieldSelect
-                        label="Field"
+                        label={t(
+                            'components_visualization_configs_chart.legend.field',
+                        )}
                         item={selectedField}
                         items={fieldsInAxes}
-                        placeholder="Search field..."
+                        placeholder={t(
+                            'components_visualization_configs_chart.legend.search_field',
+                        )}
                         onChange={(newField) => {
                             setSelectedField(newField);
                             if (newField !== undefined)
@@ -363,7 +379,9 @@ export const ReferenceLine: FC<ReferenceLineProps> = ({
                     <Group noWrap grow align="baseline">
                         <Box>
                             <Text fz="xs" fw={500}>
-                                Value
+                                {t(
+                                    'components_visualization_configs_chart.legend.value',
+                                )}
                             </Text>
 
                             <ReferenceLineValue
@@ -382,12 +400,17 @@ export const ReferenceLine: FC<ReferenceLineProps> = ({
                             />
                         </Box>
                         <TextInput
-                            label="Label"
+                            label={t(
+                                'components_visualization_configs_chart.legend.label',
+                            )}
                             // disabled={!value}
                             value={label}
                             placeholder={
                                 useAverage && averageAvailable
-                                    ? value ?? 'Average'
+                                    ? value ??
+                                      t(
+                                          'components_visualization_configs_chart.legend.average',
+                                      )
                                     : value ?? ''
                             }
                             onChange={(e) => {
@@ -405,7 +428,9 @@ export const ReferenceLine: FC<ReferenceLineProps> = ({
                     </Group>
                     <Group noWrap position="apart">
                         <Checkbox
-                            label="Use series average"
+                            label={t(
+                                'components_visualization_configs_chart.legend.user_series_average',
+                            )}
                             disabled={!averageAvailable}
                             checked={useAverage && averageAvailable}
                             onChange={(newState) => {
@@ -421,7 +446,11 @@ export const ReferenceLine: FC<ReferenceLineProps> = ({
                             }}
                         />
                         <Group noWrap>
-                            <Config.Label>Position</Config.Label>
+                            <Config.Label>
+                                {t(
+                                    'components_visualization_configs_chart.legend.position',
+                                )}
+                            </Config.Label>
                             <SegmentedControl
                                 size="xs"
                                 id="label-position"

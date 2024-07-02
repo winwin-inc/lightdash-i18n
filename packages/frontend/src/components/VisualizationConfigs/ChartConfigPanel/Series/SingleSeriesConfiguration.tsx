@@ -22,6 +22,8 @@ import {
     IconEyeOff,
 } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import type useCartesianChartConfig from '../../../../hooks/cartesianChartConfig/useCartesianChartConfig';
 import { calculateSeriesLikeIdentifier } from '../../../../hooks/useChartColorConfig';
 import MantineIcon from '../../../common/MantineIcon';
@@ -59,6 +61,8 @@ const SingleSeriesConfiguration: FC<Props> = ({
     toggleIsOpen,
     dragHandleProps,
 }) => {
+    const { t } = useTranslation();
+
     const { visualizationConfig, colorPalette, getSeriesColor } =
         useVisualizationContext();
     const { hovered, ref } = useHover();
@@ -194,11 +198,23 @@ const SingleSeriesConfiguration: FC<Props> = ({
                             data={[
                                 {
                                     value: '0',
-                                    label: layout?.flipAxes ? 'Bottom' : 'Left',
+                                    label: layout?.flipAxes
+                                        ? t(
+                                              'components_visualization_configs_chart.series.axis_options.bottom',
+                                          )
+                                        : t(
+                                              'components_visualization_configs_chart.series.axis_options.left',
+                                          ),
                                 },
                                 {
                                     value: '1',
-                                    label: layout?.flipAxes ? 'Top' : 'Right',
+                                    label: layout?.flipAxes
+                                        ? t(
+                                              'components_visualization_configs_chart.series.axis_options.top',
+                                          )
+                                        : t(
+                                              'components_visualization_configs_chart.series.axis_options.right',
+                                          ),
                                 },
                             ]}
                             onChange={(value) => {
@@ -209,15 +225,50 @@ const SingleSeriesConfiguration: FC<Props> = ({
                             }}
                         />
                         <Select
-                            label={!isGrouped && 'Value labels'}
+                            label={
+                                !isGrouped &&
+                                t(
+                                    'components_visualization_configs_chart.series.value_labels',
+                                )
+                            }
                             value={series.label?.position || 'hidden'}
                             data={[
-                                { value: 'hidden', label: 'Hidden' },
-                                { value: 'top', label: 'Top' },
-                                { value: 'bottom', label: 'Bottom' },
-                                { value: 'left', label: 'Left' },
-                                { value: 'right', label: 'Right' },
-                                { value: 'inside', label: 'Inside' },
+                                {
+                                    value: 'hidden',
+                                    label: t(
+                                        'components_visualization_configs_chart.series.label_options.hidden',
+                                    ),
+                                },
+                                {
+                                    value: 'top',
+                                    label: t(
+                                        'components_visualization_configs_chart.series.label_options.top',
+                                    ),
+                                },
+                                {
+                                    value: 'bottom',
+                                    label: t(
+                                        'components_visualization_configs_chart.series.label_options.bottom',
+                                    ),
+                                },
+                                {
+                                    value: 'left',
+                                    label: t(
+                                        'components_visualization_configs_chart.series.label_options.left',
+                                    ),
+                                },
+                                {
+                                    value: 'right',
+                                    label: t(
+                                        'components_visualization_configs_chart.series.label_options.right',
+                                    ),
+                                },
+                                {
+                                    value: 'inside',
+                                    label: t(
+                                        'components_visualization_configs_chart.series.label_options.inside',
+                                    ),
+                                },
                             ]}
                             onChange={(value) => {
                                 updateSingleSeries({
@@ -238,7 +289,9 @@ const SingleSeriesConfiguration: FC<Props> = ({
                         <Group spacing="xs">
                             <Checkbox
                                 checked={series.showSymbol ?? true}
-                                label="Show symbol"
+                                label={t(
+                                    'components_visualization_configs_chart.series.show_symbol',
+                                )}
                                 onChange={() => {
                                     updateSingleSeries({
                                         ...series,
@@ -250,7 +303,9 @@ const SingleSeriesConfiguration: FC<Props> = ({
                             />
                             <Checkbox
                                 checked={series.smooth}
-                                label="Smooth"
+                                label={t(
+                                    'components_visualization_configs_chart.series.smooth',
+                                )}
                                 onChange={() => {
                                     updateSingleSeries({
                                         ...series,

@@ -11,7 +11,9 @@ import {
 } from '@lightdash/common';
 import { Accordion } from '@mantine/core';
 import { useCallback, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
+
 import { useProject } from '../../../../hooks/useProject';
 import { type ReferenceLineField } from '../../../common/ReferenceLine';
 import { isCartesianVisualizationConfig } from '../../../LightdashVisualization/VisualizationConfigCartesian';
@@ -27,6 +29,8 @@ type Props = {
 };
 
 export const ReferenceLines: FC<Props> = ({ items, projectUuid }) => {
+    const { t } = useTranslation();
+
     const { openItems, handleAccordionChange, addNewItem, removeItem } =
         useControlledAccordion();
 
@@ -196,7 +200,11 @@ export const ReferenceLines: FC<Props> = ({ items, projectUuid }) => {
         <Config>
             <Config.Section>
                 <Config.Group>
-                    <Config.Heading>Reference lines</Config.Heading>
+                    <Config.Heading>
+                        {t(
+                            'components_visualization_configs_chart.legend.reference_lines',
+                        )}
+                    </Config.Heading>
                     <AddButton onClick={addReferenceLine} />
                 </Config.Group>
 

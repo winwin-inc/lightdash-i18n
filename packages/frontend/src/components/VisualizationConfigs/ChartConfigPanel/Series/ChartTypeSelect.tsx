@@ -9,18 +9,9 @@ import {
     type Icon,
 } from '@tabler/icons-react';
 import { forwardRef, useMemo, type FC } from 'react';
-import MantineIcon from '../../../common/MantineIcon';
+import { useTranslation } from 'react-i18next';
 
-const CHART_TYPE_OPTIONS = [
-    { value: CartesianSeriesType.BAR, label: 'Bar', icon: IconChartBar },
-    { value: CartesianSeriesType.LINE, label: 'Line', icon: IconChartLine },
-    { value: CartesianSeriesType.AREA, label: 'Area', icon: IconChartArea },
-    {
-        value: CartesianSeriesType.SCATTER,
-        label: 'Scatter',
-        icon: IconChartDots,
-    },
-];
+import MantineIcon from '../../../common/MantineIcon';
 
 interface ItemProps extends React.ComponentPropsWithoutRef<'div'> {
     icon: Icon;
@@ -36,6 +27,41 @@ const SelectItem = forwardRef<HTMLDivElement, ItemProps>(
     ),
 );
 
+const useChartTypeOptions = () => {
+    const { t } = useTranslation();
+
+    return [
+        {
+            value: CartesianSeriesType.BAR,
+            label: t(
+                'components_visualization_configs_chart.series.type_options.bar',
+            ),
+            icon: IconChartBar,
+        },
+        {
+            value: CartesianSeriesType.LINE,
+            label: t(
+                'components_visualization_configs_chart.series.type_options.line',
+            ),
+            icon: IconChartLine,
+        },
+        {
+            value: CartesianSeriesType.AREA,
+            label: t(
+                'components_visualization_configs_chart.series.type_options.area',
+            ),
+            icon: IconChartArea,
+        },
+        {
+            value: CartesianSeriesType.SCATTER,
+            label: t(
+                'components_visualization_configs_chart.series.type_options.scatter',
+            ),
+            icon: IconChartDots,
+        },
+    ];
+};
+
 type Props = {
     chartValue: string;
     showMixed: boolean;
@@ -48,25 +74,39 @@ export const ChartTypeSelect: FC<Props> = ({
     showMixed,
     showLabel = true,
 }) => {
+    const { t } = useTranslation();
+
+    const chartTypeOptions = useChartTypeOptions();
+
     const options = useMemo(
         () => [
-            ...CHART_TYPE_OPTIONS,
+            ...chartTypeOptions,
             ...(showMixed
-                ? [{ value: 'mixed', label: 'Mixed', icon: IconChartAreaLine }]
+                ? [
+                      {
+                          value: 'mixed',
+                          label: t(
+                              'components_visualization_configs_chart.series.mixed',
+                          ),
+                          icon: IconChartAreaLine,
+                      },
+                  ]
                 : []),
         ],
-        [showMixed],
+        [showMixed, chartTypeOptions, t],
     );
 
     const selectedChartIcon = useMemo(
-        () =>
-            CHART_TYPE_OPTIONS.find((type) => type.value === chartValue)?.icon,
-        [chartValue],
+        () => chartTypeOptions.find((type) => type.value === chartValue)?.icon,
+        [chartValue, chartTypeOptions],
     );
 
     return (
         <Select
-            label={showLabel && 'Type'}
+            label={
+                showLabel &&
+                t('components_visualization_configs_chart.series.type')
+            }
             value={chartValue}
             data={options}
             onChange={onChange}

@@ -19,6 +19,8 @@ import {
 } from '@mantine/core';
 import { IconRotate360 } from '@tabler/icons-react';
 import { useCallback, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { EMPTY_X_AXIS } from '../../../../hooks/cartesianChartConfig/useCartesianChartConfig';
 import FieldSelect from '../../../common/FieldSelect';
 import MantineIcon from '../../../common/MantineIcon';
@@ -33,6 +35,8 @@ type Props = {
 };
 
 export const Layout: FC<Props> = ({ items }) => {
+    const { t } = useTranslation();
+
     const { visualizationConfig, pivotDimensions, setPivotDimensions } =
         useVisualizationContext();
 
@@ -166,7 +170,12 @@ export const Layout: FC<Props> = ({ items }) => {
                             validConfig?.layout.flipAxes ? 'Y' : 'X'
                         }-axis`}</Config.Heading>
                         <Group spacing="two">
-                            <Tooltip variant="xs" label="Flip Axes">
+                            <Tooltip
+                                variant="xs"
+                                label={t(
+                                    'components_visualization_configs_chart.layout.flip_axis',
+                                )}
+                            >
                                 <ActionIcon
                                     onClick={() =>
                                         setFlipAxis(!dirtyLayout?.flipAxes)
@@ -259,7 +268,11 @@ export const Layout: FC<Props> = ({ items }) => {
                     <Stack spacing="xs">
                         <Config.Group>
                             <Group spacing="one">
-                                <Config.Heading>Group</Config.Heading>
+                                <Config.Heading>
+                                    {t(
+                                        'components_visualization_configs_chart.layout.group',
+                                    )}
+                                </Config.Heading>
                             </Group>
                             {canAddPivot && (
                                 <AddButton
@@ -280,7 +293,9 @@ export const Layout: FC<Props> = ({ items }) => {
                                     items={[]}
                                     onChange={() => {}}
                                     disabled
-                                    placeholder="You need at least one metric in your chart to add a group"
+                                    placeholder={t(
+                                        'components_visualization_configs_chart.layout.tip_metric',
+                                    )}
                                 />
                             )}
                     </Stack>
@@ -308,7 +323,9 @@ export const Layout: FC<Props> = ({ items }) => {
                                             disabled={
                                                 !chartHasMetricOrTableCalc
                                             }
-                                            placeholder="Select a field to group by"
+                                            placeholder={t(
+                                                'components_visualization_configs_chart.layout.tip_select_field',
+                                            )}
                                             item={activeField}
                                             items={fieldOptions}
                                             onChange={(newValue) => {
@@ -351,13 +368,19 @@ export const Layout: FC<Props> = ({ items }) => {
                         canBeStacked && (
                             <Tooltip
                                 variant="xs"
-                                label="x-axis must be non-numeric to enable stacking"
+                                label={t(
+                                    'components_visualization_configs_chart.layout.tip_x_axis',
+                                )}
                                 withinPortal
                                 position="top-start"
                                 disabled={!isXAxisFieldNumeric}
                             >
                                 <Group spacing="xs">
-                                    <Config.Label>Stacking</Config.Label>
+                                    <Config.Label>
+                                        {t(
+                                            'components_visualization_configs_chart.layout.stacking',
+                                        )}
+                                    </Config.Label>
                                     <SegmentedControl
                                         disabled={isXAxisFieldNumeric}
                                         value={
@@ -370,10 +393,17 @@ export const Layout: FC<Props> = ({ items }) => {
                                         }
                                         data={[
                                             {
-                                                label: 'None',
+                                                label: t(
+                                                    'components_visualization_configs_chart.layout.none',
+                                                ),
                                                 value: 'noStacking',
                                             },
-                                            { label: 'Stack', value: 'stack' },
+                                            {
+                                                label: t(
+                                                    'components_visualization_configs_chart.layout.stack',
+                                                ),
+                                                value: 'stack',
+                                            },
                                         ]}
                                     />
                                 </Group>

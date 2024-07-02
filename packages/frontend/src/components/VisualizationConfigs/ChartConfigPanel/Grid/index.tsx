@@ -1,4 +1,6 @@
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { isCartesianVisualizationConfig } from '../../../LightdashVisualization/VisualizationConfigCartesian';
 import { useVisualizationContext } from '../../../LightdashVisualization/VisualizationProvider';
 import { UnitInputsGrid } from '../common/UnitInputsGrid';
@@ -12,6 +14,8 @@ export const defaultGrid = {
 } as const;
 
 export const Grid: FC = () => {
+    const { t } = useTranslation();
+
     const { visualizationConfig } = useVisualizationContext();
 
     if (!isCartesianVisualizationConfig(visualizationConfig)) return null;
@@ -31,7 +35,9 @@ export const Grid: FC = () => {
 
     return (
         <UnitInputsGrid
-            centerLabel="Margin"
+            centerLabel={t(
+                'components_visualization_configs_chart.grid.margin',
+            )}
             config={config}
             defaultConfig={defaultGrid}
             onChange={(position, newValue) => handleUpdate(position, newValue)}

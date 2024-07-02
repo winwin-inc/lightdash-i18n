@@ -22,6 +22,8 @@ import {
 import { Box, Checkbox, Group, Select, Stack, Switch } from '@mantine/core';
 import React, { useCallback, type FC } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
+
 import type useCartesianChartConfig from '../../../../hooks/cartesianChartConfig/useCartesianChartConfig';
 import { Config } from '../../common/Config';
 import { GrabIcon } from '../../common/GrabIcon';
@@ -73,23 +75,75 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
     updateSeries,
     series,
 }) => {
+    const { t } = useTranslation();
+
     const VALUE_LABELS_OPTIONS = [
-        { value: 'hidden', label: 'Hidden' },
-        { value: 'top', label: 'Top' },
-        { value: 'bottom', label: 'Bottom' },
-        { value: 'left', label: 'Left' },
-        { value: 'right', label: 'Right' },
-        { value: 'inside', label: 'Inside' },
+        {
+            value: 'hidden',
+            label: t(
+                'components_visualization_configs_chart.series.label_options.hidden',
+            ),
+        },
+        {
+            value: 'top',
+            label: t(
+                'components_visualization_configs_chart.series.label_options.top',
+            ),
+        },
+        {
+            value: 'bottom',
+            label: t(
+                'components_visualization_configs_chart.series.label_options.bottom',
+            ),
+        },
+        {
+            value: 'left',
+            label: t(
+                'components_visualization_configs_chart.series.label_options.left',
+            ),
+        },
+        {
+            value: 'right',
+            label: t(
+                'components_visualization_configs_chart.series.label_options.right',
+            ),
+        },
+        {
+            value: 'inside',
+            label: t(
+                'components_visualization_configs_chart.series.label_options.inside',
+            ),
+        },
     ];
 
     const AXIS_OPTIONS = [
-        { value: '0', label: 'Left' },
-        { value: '1', label: 'Right' },
+        {
+            value: '0',
+            label: t(
+                'components_visualization_configs_chart.series.axis_options.left',
+            ),
+        },
+        {
+            value: '1',
+            label: t(
+                'components_visualization_configs_chart.series.axis_options.right',
+            ),
+        },
     ];
 
     const FLIPPED_AXIS_OPTIONS = [
-        { value: '0', label: 'Bottom' },
-        { value: '1', label: 'Top' },
+        {
+            value: '0',
+            label: t(
+                'components_visualization_configs_chart.series.axis_options.bottom',
+            ),
+        },
+        {
+            value: '1',
+            label: t(
+                'components_visualization_configs_chart.series.axis_options.top',
+            ),
+        },
     ];
 
     const [openSeriesId, setOpenSeriesId] = React.useState<
@@ -174,7 +228,9 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                         />
 
                         <Select
-                            label="Axis"
+                            label={t(
+                                'components_visualization_configs_chart.series.axis',
+                            )}
                             value={
                                 isAxisTheSameForAllSeries
                                     ? String(seriesGroup[0].yAxisIndex)
@@ -191,7 +247,9 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                                               : AXIS_OPTIONS),
                                           {
                                               value: 'mixed',
-                                              label: 'Mixed',
+                                              label: t(
+                                                  'components_visualization_configs_chart.series.mixed',
+                                              ),
                                           },
                                       ]
                             }
@@ -202,7 +260,9 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                             }}
                         />
                         <Select
-                            label="Value labels"
+                            label={t(
+                                'components_visualization_configs_chart.series.value_labels',
+                            )}
                             value={
                                 isLabelTheSameForAllSeries
                                     ? seriesGroup[0].label?.position || 'hidden'
@@ -215,7 +275,9 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                                           ...VALUE_LABELS_OPTIONS,
                                           {
                                               value: 'mixed',
-                                              label: 'Mixed',
+                                              label: t(
+                                                  'components_visualization_configs_chart.series.mixed',
+                                              ),
                                           },
                                       ]
                             }
@@ -234,7 +296,11 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                         {seriesGroup[0].stack &&
                             chartValue === CartesianSeriesType.BAR && (
                                 <Stack spacing="xs" mt="two">
-                                    <Config.Label>Total</Config.Label>
+                                    <Config.Label>
+                                        {t(
+                                            'components_visualization_configs_chart.series.total',
+                                        )}
+                                    </Config.Label>
                                     <Switch
                                         checked={
                                             seriesGroup[0].stackLabel?.show
@@ -256,7 +322,9 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                         <Group spacing="xs">
                             <Checkbox
                                 checked={seriesGroup[0].showSymbol ?? true}
-                                label="Show symbol"
+                                label={t(
+                                    'components_visualization_configs_chart.series.show_symbol',
+                                )}
                                 onChange={() => {
                                     updateAllGroupedSeries(fieldKey, {
                                         showSymbol: !(
@@ -267,7 +335,9 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                             />
                             <Checkbox
                                 checked={seriesGroup[0].smooth}
-                                label="Smooth"
+                                label={t(
+                                    'components_visualization_configs_chart.series.smooth',
+                                )}
                                 onChange={() => {
                                     updateAllGroupedSeries(fieldKey, {
                                         smooth: !(

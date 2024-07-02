@@ -2539,6 +2539,94 @@
         },
         "configure": "配置"
     },
+    "components_visualization_configs_chart": {
+        "configure": "配置",
+        "vis_config_tabs": {
+            "config": "配置",
+            "data": "数据"
+        },
+        "config_tabs": {
+            "layout": "布局",
+            "series": "系列",
+            "axes": "坐标轴",
+            "display": "显示",
+            "margins": "边距"
+        },
+        "grid": {
+            "margin": "边距"
+        },
+        "axes": {
+            "min": "最小值",
+            "max": "最大值",
+            "enter_axis_label": "输入轴标签",
+            "truncate_label": "截断x轴",
+            "sort": "排序",
+            "rotation": "旋转",
+            "show_grid": "显示网格"
+        },
+        "legend": {
+            "custom_position": "自定义位置",
+            "position": "位置",
+            "lengend": "图例",
+            "scroll_behavior": "滚动行为",
+            "default": "默认",
+            "scroll": "滚动",
+            "orientation": "方向",
+            "horizontal": "水平",
+            "vertical": "垂直",
+            "selected_field": "选择的字段必须是数字类型",
+            "line_value": "Line value",
+            "line": "线",
+            "field": "字段",
+            "search_field": "搜索字段...",
+            "value": "值",
+            "label": "标签",
+            "average": "平均值",
+            "user_series_average": "用户系列平均值",
+            "reference_lines": "参考线"
+        },
+        "layout": {
+            "flip_axes": "翻转轴",
+            "group": "分组",
+            "tip_metric": "您需要至少一个指标来添加分组",
+            "tip_select_field": "选择一个字段进行分组",
+            "tip_x_axis": "x轴必须为非数字才能启用堆叠",
+            "stacking": "堆叠",
+            "none": "无",
+            "stack": "堆叠"
+        },
+        "series": {
+            "type_options": {
+                "bar": "条形图",
+                "line": "折线图",
+                "area": "面积图",
+                "scatter": "散点图"
+            },
+            "mixed": "混合",
+            "type": "类型",
+            "label_options": {
+                "hidden": "隐藏",
+                "top": "顶部",
+                "bottom": "底部",
+                "left": "左侧",
+                "right": "右侧",
+                "inside": "内部"
+            },
+            "axis_options": {
+                "left": "左",
+                "right": "右",
+                "bottom": "底部",
+                "top": "顶部"
+            },
+            "grouped": "分组",
+            "axis": "轴",
+            "value_labels": "值标签",
+            "total": "总计",
+            "show_symbol": "显示符号",
+            "smooth": "平滑",
+            "tried": "尝试引用未知ID的字段:"
+        }
+    },
     "components_visualization_configs_chart_funnel": {
         "general": "常规",
         "data_orientation": "数据方向",
@@ -2546,8 +2634,8 @@
         "rows": "行",
         "columns": "列",
         "data_field": "数据字段",
-        "select_numeric_metric": "您必须至少选择一个数字度量来创建饼图",
-        "select_metric": "选择度量",
+        "select_numeric_metric": "您必须至少选择一个数字指标来创建饼图",
+        "select_metric": "选择指标",
         "labels": "标签",
         "position": "位置",
         "left": "左侧",

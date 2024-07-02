@@ -2,6 +2,8 @@ import { Loader, Tabs } from '@mantine/core';
 import Editor, { type EditorProps, type Monaco } from '@monaco-editor/react';
 import merge from 'lodash/merge';
 import React, { memo, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { isCustomVisualizationConfig } from '../../LightdashVisualization/VisualizationCustomConfig';
 import { useVisualizationContext } from '../../LightdashVisualization/VisualizationProvider';
 
@@ -66,6 +68,8 @@ const loadMonaco = (monaco: Monaco, schemas: Schema[]) => {
 };
 
 const CustomVisConfigTabs: React.FC = memo(() => {
+    const { t } = useTranslation();
+
     const { visualizationConfig } = useVisualizationContext();
 
     const isCustomConfig = isCustomVisualizationConfig(visualizationConfig);
@@ -107,8 +111,16 @@ const CustomVisConfigTabs: React.FC = memo(() => {
             }}
         >
             <Tabs.List>
-                <Tabs.Tab value="config">Config</Tabs.Tab>
-                <Tabs.Tab value="data">Data</Tabs.Tab>
+                <Tabs.Tab value="config">
+                    {t(
+                        'components_visualization_configs_chart.vis_config_tabs.config',
+                    )}
+                </Tabs.Tab>
+                <Tabs.Tab value="data">
+                    {t(
+                        'components_visualization_configs_chart.vis_config_tabs.data',
+                    )}
+                </Tabs.Tab>
             </Tabs.List>
 
             <Tabs.Panel value="config">

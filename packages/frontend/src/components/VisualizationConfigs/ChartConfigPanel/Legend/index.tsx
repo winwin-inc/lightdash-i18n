@@ -13,8 +13,10 @@ import {
     Switch,
 } from '@mantine/core';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { useToggle } from 'react-use';
+
 import { isCartesianVisualizationConfig } from '../../../LightdashVisualization/VisualizationConfigCartesian';
 import { useVisualizationContext } from '../../../LightdashVisualization/VisualizationProvider';
 import { Config } from '../../common/Config';
@@ -37,6 +39,8 @@ const PositionConfiguration: FC<MarginConfigurationProps> = ({
     legendConfig,
     handleChange,
 }) => {
+    const { t } = useTranslation();
+
     const hasPositionConfigChanged = (
         config: MarginConfigurationProps['legendConfig'],
     ) => {
@@ -63,7 +67,9 @@ const PositionConfiguration: FC<MarginConfigurationProps> = ({
             <Config.Section>
                 <Switch
                     labelPosition="left"
-                    label={`Custom position`}
+                    label={t(
+                        'components_visualization_configs_chart.legend.custom_position',
+                    )}
                     checked={!isAutoPosition}
                     onChange={toggleAuto}
                     styles={{
@@ -75,7 +81,9 @@ const PositionConfiguration: FC<MarginConfigurationProps> = ({
 
                 {!isAutoPosition && (
                     <UnitInputsGrid
-                        centerLabel="Position"
+                        centerLabel={t(
+                            'components_visualization_configs_chart.legend.position',
+                        )}
                         config={legendConfig}
                         onChange={(position, newValue) =>
                             handleChange(position, newValue)
@@ -93,6 +101,8 @@ type Props = {
 };
 
 export const Legend: FC<Props> = ({ items }) => {
+    const { t } = useTranslation();
+
     const { projectUuid } = useParams<{ projectUuid: string }>();
 
     const { visualizationConfig } = useVisualizationContext();
@@ -118,7 +128,11 @@ export const Legend: FC<Props> = ({ items }) => {
             <Config>
                 <Config.Section>
                     <Group spacing="xs" align="center">
-                        <Config.Heading>Legend</Config.Heading>
+                        <Config.Heading>
+                            {t(
+                                'components_visualization_configs_chart.legend.lengend',
+                            )}
+                        </Config.Heading>
                         <Switch
                             checked={legendConfig.show ?? showDefault}
                             onChange={(e) =>
@@ -130,12 +144,26 @@ export const Legend: FC<Props> = ({ items }) => {
                     <Collapse in={legendConfig.show ?? showDefault}>
                         <Stack spacing="xs">
                             <Group spacing="xs">
-                                <Config.Label>Scroll behavior</Config.Label>
+                                <Config.Label>
+                                    {t(
+                                        'components_visualization_configs_chart.legend.scroll_behavior',
+                                    )}
+                                </Config.Label>
                                 <SegmentedControl
                                     value={dirtyEchartsConfig?.legend?.type}
                                     data={[
-                                        { label: 'Default', value: 'plain' },
-                                        { label: 'Scroll', value: 'scroll' },
+                                        {
+                                            label: t(
+                                                'components_visualization_configs_chart.legend.default',
+                                            ),
+                                            value: 'plain',
+                                        },
+                                        {
+                                            label: t(
+                                                'components_visualization_configs_chart.legend.scroll',
+                                            ),
+                                            value: 'scroll',
+                                        },
                                     ]}
                                     onChange={(value) =>
                                         handleChange('type', value)
@@ -143,7 +171,11 @@ export const Legend: FC<Props> = ({ items }) => {
                                 />
                             </Group>
                             <Group spacing="xs">
-                                <Config.Label>Orientation</Config.Label>
+                                <Config.Label>
+                                    {t(
+                                        'components_visualization_configs_chart.legend.orientation',
+                                    )}
+                                </Config.Label>
                                 <SegmentedControl
                                     name="orient"
                                     value={legendConfig.orient ?? 'horizontal'}
@@ -152,11 +184,15 @@ export const Legend: FC<Props> = ({ items }) => {
                                     }
                                     data={[
                                         {
-                                            label: 'Horizontal',
+                                            label: t(
+                                                'components_visualization_configs_chart.legend.horizontal',
+                                            ),
                                             value: 'horizontal',
                                         },
                                         {
-                                            label: 'Vertical',
+                                            label: t(
+                                                'components_visualization_configs_chart.legend.vertical',
+                                            ),
                                             value: 'vertical',
                                         },
                                     ]}

@@ -1,5 +1,7 @@
 import { MantineProvider, Tabs } from '@mantine/core';
 import { memo, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useVisualizationContext } from '../../../LightdashVisualization/VisualizationProvider';
 import { themeOverride } from '../../mantineTheme';
 import { Axes } from '../Axes';
@@ -9,6 +11,8 @@ import { Legend } from '../Legend';
 import { Series } from '../Series';
 
 export const ConfigTabs: FC = memo(() => {
+    const { t } = useTranslation();
+
     const { itemsMap } = useVisualizationContext();
 
     const items = useMemo(() => Object.values(itemsMap || {}), [itemsMap]);
@@ -18,19 +22,29 @@ export const ConfigTabs: FC = memo(() => {
             <Tabs defaultValue="layout" keepMounted={false}>
                 <Tabs.List mb="sm">
                     <Tabs.Tab px="sm" value="layout">
-                        Layout
+                        {t(
+                            'components_visualization_configs_chart.config_tabs.layout',
+                        )}
                     </Tabs.Tab>
                     <Tabs.Tab px="sm" value="series">
-                        Series
+                        {t(
+                            'components_visualization_configs_chart.config_tabs.series',
+                        )}
                     </Tabs.Tab>
                     <Tabs.Tab px="sm" value="axes">
-                        Axes
+                        {t(
+                            'components_visualization_configs_chart.config_tabs.axes',
+                        )}
                     </Tabs.Tab>
                     <Tabs.Tab px="sm" value="legend">
-                        Display
+                        {t(
+                            'components_visualization_configs_chart.config_tabs.display',
+                        )}
                     </Tabs.Tab>
                     <Tabs.Tab px="sm" value="grid">
-                        Margins
+                        {t(
+                            'components_visualization_configs_chart.config_tabs.margins',
+                        )}
                     </Tabs.Tab>
                 </Tabs.List>
                 <Tabs.Panel value="layout">

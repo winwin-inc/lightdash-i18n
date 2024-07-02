@@ -16,6 +16,8 @@ import {
 } from '@mantine/core';
 import { IconSortAscending, IconSortDescending } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../common/MantineIcon';
 import { isCartesianVisualizationConfig } from '../../../LightdashVisualization/VisualizationConfigCartesian';
 import { useVisualizationContext } from '../../../LightdashVisualization/VisualizationProvider';
@@ -29,6 +31,8 @@ type Props = {
 const DEFAULT_OFFSET_VALUE_FOR_MANUAL_RANGE_PERCENTAGE = '5';
 
 export const Axes: FC<Props> = ({ itemsMap }) => {
+    const { t } = useTranslation();
+
     const { visualizationConfig } = useVisualizationContext();
 
     if (!isCartesianVisualizationConfig(visualizationConfig)) return null;
@@ -86,7 +90,9 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                         dirtyLayout?.flipAxes ? 'Y' : 'X'
                     }-axis label`}</Config.Heading>
                     <TextInput
-                        placeholder="Enter axis label"
+                        placeholder={t(
+                            'components_visualization_configs_chart.axes.enter_axis_label',
+                        )}
                         defaultValue={
                             dirtyEchartsConfig?.xAxis?.[0]?.name ||
                             (xAxisField &&
@@ -111,7 +117,9 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                     {isNumericItem(xAxisField) && !dirtyLayout?.flipAxes && (
                         <>
                             <Switch
-                                label="Truncate x-axis"
+                                label={t(
+                                    'components_visualization_configs_chart.axes.truncate_label',
+                                )}
                                 checked={
                                     dirtyEchartsConfig?.xAxis?.[0]
                                         ?.minOffset !== undefined ||
@@ -138,7 +146,11 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                     )}
                     <Group spacing="xs">
                         <Group spacing="xs">
-                            <Config.Label>Sort</Config.Label>
+                            <Config.Label>
+                                {t(
+                                    'components_visualization_configs_chart.axes.sort',
+                                )}
+                            </Config.Label>
                             <SegmentedControl
                                 defaultValue={
                                     dirtyEchartsConfig?.xAxis?.[0]?.inverse
@@ -170,7 +182,11 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                         </Group>
                         {!dirtyLayout?.flipAxes && (
                             <Group noWrap spacing="xs" align="baseline">
-                                <Config.Label>Rotation</Config.Label>
+                                <Config.Label>
+                                    {t(
+                                        'components_visualization_configs_chart.axes.rotation',
+                                    )}
+                                </Config.Label>
                                 <NumberInput
                                     type="number"
                                     defaultValue={
@@ -201,7 +217,9 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                     })`}</Config.Heading>
 
                     <TextInput
-                        placeholder="Enter axis label"
+                        placeholder={t(
+                            'components_visualization_configs_chart.axes.enter_axis_label',
+                        )}
                         defaultValue={
                             dirtyEchartsConfig?.yAxis?.[0]?.name ||
                             getAxisName({
@@ -238,7 +256,9 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                     })`}</Config.Heading>
 
                     <TextInput
-                        placeholder="Enter axis label"
+                        placeholder={t(
+                            'components_visualization_configs_chart.axes.enter_axis_label',
+                        )}
                         defaultValue={
                             dirtyEchartsConfig?.yAxis?.[1]?.name ||
                             getAxisName({
@@ -269,7 +289,11 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
 
             <Config>
                 <Config.Section>
-                    <Config.Heading>Show grid</Config.Heading>
+                    <Config.Heading>
+                        {t(
+                            'components_visualization_configs_chart.axes.show_grid',
+                        )}
+                    </Config.Heading>
 
                     <Stack spacing="xs">
                         <Checkbox
