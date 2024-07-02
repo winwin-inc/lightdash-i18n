@@ -1464,6 +1464,43 @@
         }
     },
 
+    "components_navbar_explorer_banner": {
+        "cancel_button_text": {
+            "return_to_dashboard": "返回看板",
+            "cancel": "取消"
+        },
+        "cancel_button_tooltip_text": {
+            "creating": "取消图表创建并返回看板",
+            "editing": "取消图表编辑并返回看板"
+        },
+        "contet": {
+            "part_1": "正在取消...",
+            "part_2": "您正在",
+            "part_3": "此图表,并位于",
+            "part_4": "看板内"
+        }
+    },
+    "components_navbar_preview_banner": {
+        "content": "这是预览环境。您在此处所做的任何更改都不会影响生产环境。"
+    },
+    "components_navbar_project_switcher": {
+        "toast_viewing": {
+            "title": "您现在正在查看"
+        },
+        "select_a_project": "选择一个项目",
+        "preview": "预览"
+    },
+    "components_navbar_user_credentials_switcher": {
+        "create_new": "创建新的",
+        "create": {
+            "title": "登录到",
+            "description": {
+                "part_1": "您所在组织的管理员",
+                "part_2": "要求您登录到",
+                "part_3": "以继续操作。"
+            }
+        }
+    },
     "components_navbar_explore_menu": {
         "title": "新建",
         "menus": {
@@ -1520,7 +1557,8 @@
     },
     "components_navbar_notifiications_menu": {
         "no_notifications_tip": "没有通知",
-        "validation_error_notification_tip": "新验证已完成 {{validationTimeAgo}} 和 {{numberOfErrors}} 错误"
+        "validation_error_notification_tip": "新验证已完成 {{validationTimeAgo}} 和 {{numberOfErrors}} 错误",
+        "validation_errors": "验证错误"
     },
     "components_navbar_help_menu": {
         "menus": {
@@ -1855,7 +1893,8 @@
             }
         },
         "header": {
-            "title": "图表和看板"
+            "title": "图表和看板",
+            "learn": "了解更多"
         },
         "empty": {
             "can_create": {
@@ -2561,7 +2600,7 @@
         "tables": "表格"
     },
     "components_explorer_header": {
-        "unsaved_changes": "您有未保存的仪表板更改! 您确定要离开而不保存吗?",
+        "unsaved_changes": "您有未保存的看板更改! 您确定要离开而不保存吗?",
         "tooltip_limit": {
             "label": "已达到 {{limit}} 的查询限制。可能还有其他未显示的结果。要查看更多,请增加查询限制或尝试缩小筛选器。",
             "content": "结果可能不完整"
@@ -3056,6 +3095,28 @@
             "part_2": "每个文件的单元格"
         },
         "export_csv": "导出 CSV"
+    },
+    "components_export_csv_modal": {
+        "title": "导出 CSV",
+        "cancel": "取消",
+        "export": "导出 CSV"
+    },
+    "components_export_selector": {
+        "export_selector": "返回导出选择器",
+        "csv": "CSV"
+    },
+
+    "components_funnel_chart": {
+        "copied_to_clipboard": "已复制到剪贴板",
+        "copy_value": "复制值",
+        "view_underlying_data": "查看底层数据",
+        "empty": {
+            "title": "无可用数据",
+            "description": "请查询指标和维度以获取结果。"
+        },
+        "loading": {
+            "title": "正在加载图表"
+        }
     },
 
     "pages_metric_flow": {
@@ -3577,7 +3638,76 @@
             }
         }
     },
-
+    "components_project_connection_flow": {
+        "onboarding_title": {
+            "set_up": "让我们开始设置吧!",
+            "connect_new_project": "连接新的项目"
+        },
+        "connect_manually_step_1": {
+            "back": "返回",
+            "content": {
+                "part_1": "我们强烈建议您在 .yml 中定义列,以便在 Lightdash 中查看表格。例如:",
+                "part_2": "将您想要探索的列添加到 dbt 项目中的 .yml 文件中。点击查看文档。",
+                "part_3": "了解如何定义它们",
+                "part_4": "我已经定义了它们!"
+            }
+        },
+        "connect_manually_step_2": {
+            "back": "返回",
+            "content": {
+                "part_1": "创建一个",
+                "part_2": "连接"
+            }
+        },
+        "connect_success": {
+            "title": "您的项目已创建!",
+            "button": "开始使用数据吧!"
+        },
+        "connect_using_cli": {
+            "generated": "由 Lightdash UI for CLI 生成于 ",
+            "commands_copied": "命令已复制到剪贴板!",
+            "back": "返回",
+            "content": {
+                "part_1": "等待数据",
+                "part_2": "在您的 dbt 项目内,运行:",
+                "part_3": "1. 安装 lightdash CLI:",
+                "part_4": "2. 登录 lightdash:",
+                "part_5": "3. 创建项目:"
+            },
+            "view_docs": "查看文档"
+        },
+        "invite_expert_footer": {
+            "part_1": "此步骤最好由您组织的分析专家完成。如果您不是其中一员,",
+            "part_2": "请邀请他们加入 Lightdash!"
+        },
+        "select_connect_method": {
+            "back": "返回",
+            "content": {
+                "part_1": "要开始使用,请选择如何上传您的 dbt 项目:",
+                "part_2": "使用",
+                "part_3": "lightdash 部署",
+                "part_4": "使用您的 CLI",
+                "part_5": "从 git 存储库拉取项目",
+                "part_6": "手动"
+            },
+            "view_docs": "查看文档"
+        },
+        "select_warehouse": {
+            "select_your_warehouse": "选择您的仓库:"
+        },
+        "unsupported": {
+            "back": "返回",
+            "content": {
+                "part_1": "我们目前只支持具有",
+                "part_2": "已验证的 dbt 适配器",
+                "part_3": "的仓库",
+                "part_4": "您可以在我们的",
+                "part_5": "GitHub 问题",
+                "part_6": "中投票您的仓库,或者如果您在那里找不到,可以创建一个新问题。"
+            },
+            "try_our_demo_project": "尝试我们的演示项目"
+        }
+    },
     "components_project_connection_warehouse_form": {
         "days_of_week": {
             "monday": "星期一",
@@ -3963,6 +4093,42 @@
             },
             "advanced_configuration_options": "高级配置选项"
         }
+    },
+    "components_project_connection_project_status_callout": {
+        "updating_project_settings": "正在更新项目设置...",
+        "project_settings_updated": "项目设置已更新!",
+        "updating_error": "更新项目时出现错误..."
+    },
+
+    "components_limit_button": {
+        "schema_error": {
+            "invalid_value": "无效值",
+            "minium_value": "最小值",
+            "maximum_value": "最大值"
+        },
+        "total_rows": "总行数:",
+        "apply": "应用"
+    },
+
+    "components_metric_query_data": {
+        "copied_to_clipboard": "已复制到剪贴板",
+        "copy_value": "复制值",
+        "drill_into": "下钻",
+        "cancel": "取消",
+        "open_in_new_tab": "在新标签页中打开",
+        "metric_provider_error": "useMetricQueryDataContext 必须在 UnderlyingDataProvider 内使用",
+        "view_underlying_data": "查看底层数据",
+        "export_csv": "导出 CSV",
+        "export_from_here": "从这里导出",
+        "loading_underlying_data": "正在加载底层数据"
+    },
+
+    "components_mobile": {
+        "content": {
+            "part_1": "此页面目前尚不支持手机查看。",
+            "part_2": "请在笔记本电脑或桌面电脑上登录以访问此页面!"
+        },
+        "back_to_home_page": "返回主页"
     },
 
     "pages_chart_history": {

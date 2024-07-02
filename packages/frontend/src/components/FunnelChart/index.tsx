@@ -5,6 +5,8 @@ import { type ECElementEvent } from 'echarts';
 import EChartsReact from 'echarts-for-react';
 import { type EChartsReactProps, type Opts } from 'echarts-for-react/lib/types';
 import { memo, useCallback, useEffect, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import useEchartsFunnelConfig, {
     type FunnelSeriesDataPoint,
 } from '../../hooks/echarts/useEchartsFunnelConfig';
@@ -15,25 +17,33 @@ import FunnelChartContextMenu, {
     type FunnelChartContextMenuProps,
 } from './FunnelChartContextMenu';
 
-const EmptyChart = () => (
-    <Box h="100%" w="100%" py="xl">
-        <SuboptimalState
-            title="No data available"
-            description="Query metrics and dimensions with results."
-            icon={IconFilterOff}
-        />
-    </Box>
-);
+const EmptyChart = () => {
+    const { t } = useTranslation();
 
-const LoadingChart = () => (
-    <Box h="100%" w="100%" py="xl">
-        <SuboptimalState
-            title="Loading chart"
-            loading
-            className="loading_chart"
-        />
-    </Box>
-);
+    return (
+        <Box h="100%" w="100%" py="xl">
+            <SuboptimalState
+                title={t('components_funnel_chart.empty.title')}
+                description={t('components_funnel_chart.empty.description')}
+                icon={IconFilterOff}
+            />
+        </Box>
+    );
+};
+
+const LoadingChart = () => {
+    const { t } = useTranslation();
+
+    return (
+        <Box h="100%" w="100%" py="xl">
+            <SuboptimalState
+                title={t('components_funnel_chart.loading.title')}
+                loading
+                className="loading_chart"
+            />
+        </Box>
+    );
+};
 
 type FunnelChartProps = Omit<EChartsReactProps, 'option'> & {
     isInDashboard: boolean;

@@ -2,7 +2,9 @@ import { Box, Button, createStyles, keyframes, Stack } from '@mantine/core';
 import { IconCheck } from '@tabler/icons-react';
 import confetti from 'canvas-confetti';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+
 import MantineIcon from '../../common/MantineIcon';
 import { ProjectCreationCard } from '../../common/Settings/SettingsCard';
 import { OnboardingTitle } from './common/OnboardingTitle';
@@ -32,13 +34,16 @@ interface ConnectSuccessProps {
 
 const ConnectSuccess: FC<ConnectSuccessProps> = ({ projectUuid }) => {
     const { classes } = useStyles();
+    const { t } = useTranslation();
 
     return (
         <OnboardingWrapper>
             <ProjectCreationCard>
                 <Stack align="center" spacing="xl">
                     <OnboardingTitle>
-                        Your project's been created!
+                        {t(
+                            'components_project_connection_flow.connect_success.success',
+                        )}
                     </OnboardingTitle>
 
                     <Box
@@ -82,7 +87,9 @@ const ConnectSuccess: FC<ConnectSuccessProps> = ({ projectUuid }) => {
                         size="md"
                         to={`/projects/${projectUuid}/home`}
                     >
-                        Let's do some data!
+                        {t(
+                            'components_project_connection_flow.connect_success.button',
+                        )}
                     </Button>
                 </Stack>
             </ProjectCreationCard>

@@ -2,6 +2,8 @@ import { Button, Stack, Text, Tooltip } from '@mantine/core';
 import { Prism } from '@mantine/prism';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useTracking } from '../../../../providers/TrackingProvider';
 import { EventName } from '../../../../types/Events';
 import MantineIcon from '../../../common/MantineIcon';
@@ -28,6 +30,7 @@ const ConnectManuallyStep1: FC<ConnectManuallyStep1Props> = ({
     onBack,
     onForward,
 }) => {
+    const { t } = useTranslation();
     const { track } = useTracking();
 
     return (
@@ -40,7 +43,9 @@ const ConnectManuallyStep1: FC<ConnectManuallyStep1Props> = ({
                 leftIcon={<MantineIcon icon={IconChevronLeft} />}
                 onClick={onBack}
             >
-                Back
+                {t(
+                    'components_project_connection_flow.connect_manually_step_1.back',
+                )}
             </Button>
 
             <ProjectCreationCard>
@@ -50,8 +55,9 @@ const ConnectManuallyStep1: FC<ConnectManuallyStep1Props> = ({
                     />
 
                     <Text color="dimmed">
-                        We strongly recommend that you define columns in your
-                        .yml to see a table in Lightdash. eg:
+                        {t(
+                            'components_project_connection_flow.connect_manually_step_1.content.part_1',
+                        )}
                     </Text>
 
                     <Prism ta="left" noCopy language="yaml">
@@ -61,9 +67,9 @@ const ConnectManuallyStep1: FC<ConnectManuallyStep1Props> = ({
                     <Stack spacing="xs">
                         <Tooltip
                             position="top"
-                            label={
-                                'Add the columns you want to explore to your .yml files in your dbt project. Click to view docs.'
-                            }
+                            label={t(
+                                'components_project_connection_flow.connect_manually_step_1.content.part_2',
+                            )}
                         >
                             <Button
                                 component="a"
@@ -83,11 +89,17 @@ const ConnectManuallyStep1: FC<ConnectManuallyStep1Props> = ({
                                     });
                                 }}
                             >
-                                Learn how to define them
+                                {t(
+                                    'components_project_connection_flow.connect_manually_step_1.content.part_3',
+                                )}
                             </Button>
                         </Tooltip>
 
-                        <Button onClick={onForward}>I’ve defined them!</Button>
+                        <Button onClick={onForward}>
+                            {t(
+                                'components_project_connection_flow.connect_manually_step_1.content.part_4',
+                            )}
+                        </Button>
                     </Stack>
                 </Stack>
             </ProjectCreationCard>

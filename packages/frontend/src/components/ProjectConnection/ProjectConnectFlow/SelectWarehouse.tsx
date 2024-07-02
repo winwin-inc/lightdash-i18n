@@ -2,6 +2,8 @@ import { assertUnreachable, WarehouseTypes } from '@lightdash/common';
 import { Avatar, SimpleGrid, Stack, Text } from '@mantine/core';
 import { IconDots, type Icon } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../common/MantineIcon';
 import { ProjectCreationCard } from '../../common/Settings/SettingsCard';
 import BigQuery from './Assets/bigquery.svg';
@@ -111,6 +113,8 @@ const SelectWarehouse: FC<SelectWarehouseProps> = ({
     isCreatingFirstProject,
     onSelect,
 }) => {
+    const { t } = useTranslation();
+
     return (
         <OnboardingWrapper>
             <ProjectCreationCard>
@@ -119,7 +123,11 @@ const SelectWarehouse: FC<SelectWarehouseProps> = ({
                         isCreatingFirstProject={isCreatingFirstProject}
                     />
 
-                    <Text color="dimmed">Select your warehouse:</Text>
+                    <Text color="dimmed">
+                        {t(
+                            'components_project_connection_flow.select_warehouse.select_your_warehouse',
+                        )}
+                    </Text>
 
                     <SimpleGrid cols={2} spacing="sm">
                         {WarehouseTypeLabels.map((item) => (

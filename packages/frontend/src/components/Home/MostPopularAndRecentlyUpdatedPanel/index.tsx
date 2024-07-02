@@ -107,7 +107,9 @@ export const MostPopularAndRecentlyUpdatedPanel: FC<Props> = ({
                                   target="_blank"
                                   href="https://docs.lightdash.com/get-started/exploring-data/intro"
                               >
-                                  Learn
+                                  {t(
+                                      'components_most_popular_and_rencently_updated_panel.header.learn',
+                                  )}
                               </MantineLinkButton>
                           ),
                       }

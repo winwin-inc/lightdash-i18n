@@ -1,6 +1,8 @@
 import { Anchor, Avatar, Button } from '@mantine/core';
 import { IconChevronLeft, IconExclamationCircle } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useTracking } from '../../../providers/TrackingProvider';
 import { EventName } from '../../../types/Events';
 import { EmptyState } from '../../common/EmptyState';
@@ -14,6 +16,7 @@ interface UnsupportedWarehouseProps {
 
 const UnsupportedWarehouse: FC<UnsupportedWarehouseProps> = ({ onBack }) => {
     const { track } = useTracking();
+    const { t } = useTranslation();
 
     return (
         <OnboardingWrapper>
@@ -25,7 +28,7 @@ const UnsupportedWarehouse: FC<UnsupportedWarehouseProps> = ({ onBack }) => {
                 leftIcon={<MantineIcon icon={IconChevronLeft} />}
                 onClick={onBack}
             >
-                Back
+                {t('components_project_connection_flow.unsupported.back')}
             </Button>
 
             <ProjectCreationCard>
@@ -43,28 +46,40 @@ const UnsupportedWarehouse: FC<UnsupportedWarehouseProps> = ({ onBack }) => {
                     }
                     title={
                         <>
-                            We only support warehouses that have{' '}
+                            {t(
+                                'components_project_connection_flow.unsupported.content.part_1',
+                            )}{' '}
                             <Anchor
                                 href="https://docs.getdbt.com/docs/supported-data-platforms#verified-adapters"
                                 target="_blank"
                                 rel="noreferrer noopener"
                             >
-                                verified dbt adapters
+                                {t(
+                                    'components_project_connection_flow.unsupported.content.part_2',
+                                )}
                             </Anchor>{' '}
-                            for now
+                            {t(
+                                'components_project_connection_flow.unsupported.content.part_3',
+                            )}
                         </>
                     }
                     description={
                         <>
-                            You can vote on your warehouse in our{' '}
+                            {t(
+                                'components_project_connection_flow.unsupported.content.part_4',
+                            )}{' '}
                             <Anchor
                                 href="https://github.com/lightdash/lightdash/issues"
                                 target="_blank"
                                 rel="noreferrer noopener"
                             >
-                                GitHub issues
+                                {t(
+                                    'components_project_connection_flow.unsupported.content.part_5',
+                                )}
                             </Anchor>{' '}
-                            or create a new issue if you can't see yours there.
+                            {t(
+                                'components_project_connection_flow.unsupported.content.part_6',
+                            )}
                         </>
                     }
                 >
@@ -77,7 +92,9 @@ const UnsupportedWarehouse: FC<UnsupportedWarehouseProps> = ({ onBack }) => {
                             track({ name: EventName.TRY_DEMO_CLICKED });
                         }}
                     >
-                        Try our demo project
+                        {t(
+                            'components_project_connection_flow.unsupported.try_our_demo_project',
+                        )}
                     </Button>
                 </EmptyState>
             </ProjectCreationCard>

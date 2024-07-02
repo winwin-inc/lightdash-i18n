@@ -330,6 +330,7 @@ export const CreateProjectConnection: FC<CreateProjectConnectionProps> = ({
     isCreatingFirstProject,
     selectedWarehouse,
 }) => {
+    const { t } = useTranslation();
     const history = useHistory();
     const { user, health } = useApp();
     const [createProjectJobId, setCreateProjectJobId] = useState<string>();
@@ -411,7 +412,7 @@ export const CreateProjectConnection: FC<CreateProjectConnectionProps> = ({
                     type="submit"
                     loading={isSavingProject}
                 >
-                    Test & compile project
+                    {t('components_project_connection.test_compile_project')}
                 </Button>
             </ProjectFormProvider>
         </FormContainer>

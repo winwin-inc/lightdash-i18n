@@ -1,6 +1,8 @@
 import { Button, Group, Modal, Text, type ModalProps } from '@mantine/core';
 import { IconTableExport } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import ExportCSV, { type ExportCSVProps } from '.';
 import MantineIcon from '../common/MantineIcon';
 
@@ -16,6 +18,8 @@ const ExportCSVModal: FC<ExportCSVModalProps> = ({
     getCsvLink,
     ...modalProps
 }) => {
+    const { t } = useTranslation();
+
     return (
         <Modal
             title={
@@ -25,7 +29,9 @@ const ExportCSVModal: FC<ExportCSVModalProps> = ({
                         size="lg"
                         color="gray.7"
                     />
-                    <Text fw={600}>Export CSV</Text>
+                    <Text fw={600}>
+                        {t('components_export_csv_modal.title')}
+                    </Text>
                 </Group>
             }
             styles={(theme) => ({
@@ -49,7 +55,7 @@ const ExportCSVModal: FC<ExportCSVModalProps> = ({
                         })}
                     >
                         <Button variant="outline" onClick={modalProps.onClose}>
-                            Cancel
+                            {t('components_export_csv_modal.cancel')}
                         </Button>
 
                         <Button
@@ -59,7 +65,7 @@ const ExportCSVModal: FC<ExportCSVModalProps> = ({
                                 onConfirm?.();
                             }}
                         >
-                            Export CSV
+                            {t('components_export_csv_modal.export')}
                         </Button>
                     </Group>
                 )}

@@ -2,7 +2,9 @@ import { ProjectType } from '@lightdash/common';
 import { Badge, Button, Group, Menu, Text } from '@mantine/core';
 import { IconArrowRight } from '@tabler/icons-react';
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useRouteMatch } from 'react-router-dom';
+
 import useToaster from '../../hooks/toaster/useToaster';
 import {
     useActiveProjectUuid,
@@ -38,6 +40,8 @@ const swappableProjectRoutes = (activeProjectUuid: string) => [
 ];
 
 const ProjectSwitcher = () => {
+    const { t } = useTranslation();
+
     const { showToastSuccess } = useToaster();
     const history = useHistory();
 
@@ -70,7 +74,9 @@ const ProjectSwitcher = () => {
             setLastProjectMutation(project.projectUuid);
 
             showToastSuccess({
-                title: `You are now viewing ${project.name}`,
+                title: `${t(
+                    'components_navbar_project_switcher.toast_viewing.title',
+                )} ${project.name}`,
                 action:
                     !isHomePage && shouldSwapProjectRoute
                         ? {
@@ -105,6 +111,7 @@ const ProjectSwitcher = () => {
             shouldSwapProjectRoute,
             showToastSuccess,
             swappableRouteMatch,
+            t,
         ],
     );
 
@@ -163,7 +170,10 @@ const ProjectSwitcher = () => {
                     })}
                 >
                     <Text truncate>
-                        {activeProject?.name ?? 'Select a project'}
+                        {activeProject?.name ??
+                            t(
+                                'components_navbar_project_switcher.select_a_project',
+                            )}
                     </Text>
                 </Button>
             </Menu.Target>
@@ -177,7 +187,9 @@ const ProjectSwitcher = () => {
                         <Group spacing="sm">
                             {item.type === ProjectType.PREVIEW && (
                                 <Badge color="blue" variant="filled" size="xs">
-                                    Preview
+                                    {t(
+                                        'components_navbar_project_switcher.preview',
+                                    )}
                                 </Badge>
                             )}
 

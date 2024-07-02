@@ -8,6 +8,8 @@ import { Button, Stack } from '@mantine/core';
 import { IconArrowLeft, IconFileTypeCsv } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { memo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { ExportToGoogleSheet } from '../../features/export';
 import useHealth from '../../hooks/health/useHealth';
 import MantineIcon from '../common/MantineIcon';
@@ -18,6 +20,8 @@ const ExportSelector: FC<
         getGsheetLink?: () => Promise<ApiScheduledDownloadCsv>;
     }
 > = memo(({ projectUuid, rows, getCsvLink, getGsheetLink }) => {
+    const { t } = useTranslation();
+
     const health = useHealth();
     const hasGoogleDrive =
         health.data?.auth.google.oauth2ClientId !== undefined &&
@@ -43,7 +47,7 @@ const ExportSelector: FC<
                     variant="subtle"
                     onClick={() => setExportType(undefined)}
                 >
-                    Back to export selector
+                    {t('components_export_selector.export_selector')}
                 </Button>
                 <ExportCSV
                     rows={rows}
@@ -63,7 +67,7 @@ const ExportSelector: FC<
                     disabled={isExportingGoogleSheets}
                     data-testid="chart-export-csv-button"
                 >
-                    csv
+                    {t('components_export_selector.csv')}
                 </Button>
                 <ExportToGoogleSheet getGsheetLink={getGsheetLink} />
             </Stack>

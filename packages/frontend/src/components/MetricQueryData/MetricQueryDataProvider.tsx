@@ -16,6 +16,8 @@ import {
     useState,
     type FC,
 } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { type EChartSeries } from '../../hooks/echarts/useEchartsCartesianConfig';
 import { type EchartSeriesClickEvent } from '../SimpleChart';
 
@@ -168,11 +170,12 @@ export function useMetricQueryDataContext<S extends boolean = false>(
 ): S extends false
     ? MetricQueryDataContext
     : MetricQueryDataContext | undefined {
+    const { t } = useTranslation();
     const context = useContext(Context);
 
     if (context === undefined && failSilently !== true) {
         throw new Error(
-            'useMetricQueryDataContext must be used within a UnderlyingDataProvider',
+            t('components_metric_query_data.metric_provider_error'),
         );
     }
 

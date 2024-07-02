@@ -1,6 +1,8 @@
 import { type ApiQueryResults, type Field } from '@lightdash/common';
 import { Box, Center } from '@mantine/core';
 import { useCallback, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import useUnderlyingDataColumns from '../../hooks/useUnderlyingDataColumns';
 import { TrackSection } from '../../providers/TrackingProvider';
 import { SectionName } from '../../types/Events';
@@ -30,6 +32,8 @@ const UnderlyingDataResultsTable: FC<{
     hasJoins,
     sortByUnderlyingValues,
 }) => {
+    const { t } = useTranslation();
+
     const columnHeader = useCallback(
         (dimension: Field) => (
             <TableHeaderLabelContainer>
@@ -54,7 +58,12 @@ const UnderlyingDataResultsTable: FC<{
     if (isLoading) {
         return (
             <Center my="lg" miw="70vw">
-                <SuboptimalState title="Loading underlying data" loading />
+                <SuboptimalState
+                    title={t(
+                        'components_metric_query_data.loading_underlying_data',
+                    )}
+                    loading
+                />
             </Center>
         );
     }

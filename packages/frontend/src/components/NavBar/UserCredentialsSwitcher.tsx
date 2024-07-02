@@ -1,7 +1,9 @@
 import { ActionIcon, MantineProvider, Menu, Text, Title } from '@mantine/core';
 import { IconCheck, IconDatabaseCog, IconPlus } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useRouteMatch } from 'react-router-dom';
+
 import { useActiveProjectUuid } from '../../hooks/useActiveProject';
 import { useProjects } from '../../hooks/useProjects';
 import {
@@ -22,6 +24,8 @@ const routesThatNeedWarehouseCredentials = [
 ];
 
 const UserCredentialsSwitcher = () => {
+    const { t } = useTranslation();
+
     const { user } = useApp();
     const location = useLocation();
     const [showCreateModalOnPageLoad, setShowCreateModalOnPageLoad] =
@@ -145,7 +149,9 @@ const UserCredentialsSwitcher = () => {
                             setIsCreatingCredentials(true);
                         }}
                     >
-                        Create new
+                        {t(
+                            'components_navbar_user_credentials_switcher.create_new',
+                        )}
                     </Menu.Item>
                 </Menu.Dropdown>
             </Menu>
@@ -156,7 +162,9 @@ const UserCredentialsSwitcher = () => {
                         title={
                             showCreateModalOnPageLoad ? (
                                 <Title order={4}>
-                                    Login to{' '}
+                                    {t(
+                                        'components_navbar_user_credentials_switcher.create.title',
+                                    )}{' '}
                                     {getWarehouseLabel(
                                         activeProject.warehouseType,
                                     )}
@@ -166,13 +174,19 @@ const UserCredentialsSwitcher = () => {
                         description={
                             showCreateModalOnPageLoad ? (
                                 <Text>
-                                    The admin of your organization “
-                                    {user.data?.organizationName}” requires that
-                                    you login to{' '}
+                                    {t(
+                                        'components_navbar_user_credentials_switcher.create.description.part_1',
+                                    )}{' '}
+                                    “{user.data?.organizationName}”{' '}
+                                    {t(
+                                        'components_navbar_user_credentials_switcher.create.description.part_2',
+                                    )}{' '}
                                     {getWarehouseLabel(
                                         activeProject.warehouseType,
                                     )}{' '}
-                                    to continue.
+                                    {t(
+                                        'components_navbar_user_credentials_switcher.create.description.part_3',
+                                    )}
                                 </Text>
                             ) : undefined
                         }

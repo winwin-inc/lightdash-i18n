@@ -19,8 +19,10 @@ import {
 import { Button, Group, Modal, Stack, Title } from '@mantine/core';
 import { IconExternalLink } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
+
 import { getExplorerUrlFromCreateSavedChartVersion } from '../../hooks/useExplorerRoute';
 import FieldSelect from '../common/FieldSelect';
 import MantineIcon from '../common/MantineIcon';
@@ -151,6 +153,7 @@ const drillDownExploreUrl = ({
 };
 
 export const DrillDownModal: FC = () => {
+    const { t } = useTranslation();
     const { projectUuid } = useParams<{ projectUuid: string }>();
 
     const [selectedDimension, setSelectedDimension] =
@@ -203,7 +206,11 @@ export const DrillDownModal: FC = () => {
         <Modal
             opened={isDrillDownModalOpen}
             onClose={onClose}
-            title={<Title order={4}>Drill into "{value}"</Title>}
+            title={
+                <Title order={4}>
+                    {t('components_metric_query_data.drill_into')} "{value}"
+                </Title>
+            }
         >
             <Stack>
                 <FieldSelect
@@ -216,7 +223,7 @@ export const DrillDownModal: FC = () => {
                 />
                 <Group position="right">
                     <Button variant="outline" onClick={onClose}>
-                        Cancel
+                        {t('components_metric_query_data.cancel')}
                     </Button>
 
                     <Button
@@ -227,7 +234,7 @@ export const DrillDownModal: FC = () => {
                         disabled={!selectedDimension}
                         onClick={() => setTimeout(onClose, 500)}
                     >
-                        Open in new tab
+                        {t('components_metric_query_data.open_in_new_tab')}
                     </Button>
                 </Group>
             </Stack>

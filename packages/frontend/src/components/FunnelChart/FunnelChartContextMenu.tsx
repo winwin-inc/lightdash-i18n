@@ -8,7 +8,9 @@ import { Box, Menu, Portal, type MenuProps } from '@mantine/core';
 import { useClipboard } from '@mantine/hooks';
 import { IconCopy, IconStack } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import useToaster from '../../hooks/toaster/useToaster';
 import { useProject } from '../../hooks/useProject';
 import { useApp } from '../../providers/AppProvider';
@@ -36,6 +38,8 @@ const FunnelChartContextMenu: FC<FunnelChartContextMenuProps> = ({
     onOpen,
     onClose,
 }) => {
+    const { t } = useTranslation();
+
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { user } = useApp();
     const { data: project } = useProject(projectUuid);
@@ -69,7 +73,7 @@ const FunnelChartContextMenu: FC<FunnelChartContextMenuProps> = ({
         if (value) {
             clipboard.copy(value.formatted);
             showToastSuccess({
-                title: 'Copied to clipboard!',
+                title: t('components_funnel_chart.copied_to_clipboard'),
             });
         }
     };
@@ -128,7 +132,7 @@ const FunnelChartContextMenu: FC<FunnelChartContextMenuProps> = ({
                     icon={<MantineIcon icon={IconCopy} />}
                     onClick={handleCopy}
                 >
-                    Copy value
+                    {t('components_funnel_chart.copy_value')}
                 </Menu.Item>
 
                 {canViewUnderlyingData && !hasCustomDimension(metricQuery) ? (
@@ -136,7 +140,7 @@ const FunnelChartContextMenu: FC<FunnelChartContextMenuProps> = ({
                         icon={<MantineIcon icon={IconStack} />}
                         onClick={handleOpenUnderlyingDataModal}
                     >
-                        View underlying data
+                        {t('components_funnel_chart.view_underlying_data')}
                     </Menu.Item>
                 ) : null}
             </Menu.Dropdown>

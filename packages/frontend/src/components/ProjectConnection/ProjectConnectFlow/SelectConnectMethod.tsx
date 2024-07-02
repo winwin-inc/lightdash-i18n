@@ -6,6 +6,8 @@ import {
     IconTerminal,
 } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { ConnectMethod } from '../../../pages/CreateProject';
 import { useTracking } from '../../../providers/TrackingProvider';
 import { EventName } from '../../../types/Events';
@@ -26,6 +28,7 @@ const SelectConnectMethod: FC<SelectConnectMethodProps> = ({
     onSelect,
     onBack,
 }) => {
+    const { t } = useTranslation();
     const { track } = useTracking();
 
     return (
@@ -38,7 +41,9 @@ const SelectConnectMethod: FC<SelectConnectMethodProps> = ({
                 leftIcon={<MantineIcon icon={IconChevronLeft} />}
                 onClick={onBack}
             >
-                Back
+                {t(
+                    'components_project_connection_flow.select_connect_method.back',
+                )}
             </Button>
 
             <ProjectCreationCard>
@@ -48,8 +53,9 @@ const SelectConnectMethod: FC<SelectConnectMethodProps> = ({
                     />
 
                     <Text color="dimmed">
-                        To get started, choose how you want to upload your dbt
-                        project:
+                        {t(
+                            'components_project_connection_flow.select_connect_method.content.part_1',
+                        )}
                     </Text>
 
                     <Stack>
@@ -77,14 +83,22 @@ const SelectConnectMethod: FC<SelectConnectMethodProps> = ({
                             }
                             description={
                                 <>
-                                    with{' '}
+                                    {t(
+                                        'components_project_connection_flow.select_connect_method.content.part_2',
+                                    )}{' '}
                                     <Text span ff="monospace">
-                                        `lightdash deploy`
+                                        `
+                                        {t(
+                                            'components_project_connection_flow.select_connect_method.content.part_3',
+                                        )}
+                                        `
                                     </Text>
                                 </>
                             }
                         >
-                            Using your CLI
+                            {t(
+                                'components_project_connection_flow.select_connect_method.content.part_4',
+                            )}
                         </OnboardingButton>
 
                         <OnboardingButton
@@ -109,9 +123,13 @@ const SelectConnectMethod: FC<SelectConnectMethodProps> = ({
                                     color="black"
                                 />
                             }
-                            description="Pull project from git repository"
+                            description={t(
+                                'components_project_connection_flow.select_connect_method.content.part_5',
+                            )}
                         >
-                            Manually
+                            {t(
+                                'components_project_connection_flow.select_connect_method.content.part_6',
+                            )}
                         </OnboardingButton>
                     </Stack>
                 </Stack>
@@ -134,7 +152,9 @@ const SelectConnectMethod: FC<SelectConnectMethodProps> = ({
                     });
                 }}
             >
-                View docs
+                {t(
+                    'components_project_connection_flow.select_connect_method.view_docs',
+                )}
             </Button>
         </OnboardingWrapper>
     );

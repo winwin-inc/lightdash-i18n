@@ -2,7 +2,9 @@ import { assertUnreachable } from '@lightdash/common';
 import { Button, Text, Tooltip } from '@mantine/core';
 import { IconInfoCircle } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useParams } from 'react-router-dom';
+
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
 import MantineIcon from '../common/MantineIcon';
 
@@ -11,6 +13,8 @@ type Props = {
 };
 
 export const DashboardExplorerBanner: FC<Props> = ({ projectUuid }) => {
+    const { t } = useTranslation();
+
     const history = useHistory();
     const { savedQueryUuid, mode } = useParams<{
         savedQueryUuid: string;
@@ -38,24 +42,32 @@ export const DashboardExplorerBanner: FC<Props> = ({ projectUuid }) => {
     const cancelButtonText = useMemo(() => {
         switch (action) {
             case 'viewing':
-                return 'Return to dashboard';
+                return t(
+                    'components_navbar_explorer_banner.cancel_button_text.return_to_dashboard',
+                );
             case 'creating':
             case 'editing':
-                return 'Cancel';
+                return t(
+                    'components_navbar_explorer_banner.cancel_button_text.cancel',
+                );
             default:
                 return assertUnreachable(
                     action,
                     `${action} is not a valid action`,
                 );
         }
-    }, [action]);
+    }, [action, t]);
 
     const cancelButtonTooltipText = useMemo(() => {
         switch (action) {
             case 'creating':
-                return 'Cancel chart creation and return to dashboard';
+                return t(
+                    'components_navbar_explorer_banner.cancel_button_tooltip_text.creating',
+                );
             case 'editing':
-                return 'Cancel chart editing and return to dashboard';
+                return t(
+                    'components_navbar_explorer_banner.cancel_button_tooltip_text.editing',
+                );
             case 'viewing':
                 return '';
             default:
@@ -64,7 +76,7 @@ export const DashboardExplorerBanner: FC<Props> = ({ projectUuid }) => {
                     `${action} is not a valid action`,
                 );
         }
-    }, [action]);
+    }, [action, t]);
 
     const handleOnCancel = useCallback(() => {
         setIsCancelling(true);
@@ -95,9 +107,17 @@ export const DashboardExplorerBanner: FC<Props> = ({ projectUuid }) => {
 
             <Text color="white" fw={500} fz="xs" mx="xxs">
                 {isCancelling
-                    ? `Cancelling...`
-                    : `You are ${action} this chart from within ${
-                          dashboardName ? `"${dashboardName}"` : 'a dashboard'
+                    ? t('components_navbar_explorer_banner.contet.part_1')
+                    : `${t(
+                          'components_navbar_explorer_banner.contet.part_2',
+                      )} ${action} ${t(
+                          'components_navbar_explorer_banner.contet.part_3',
+                      )} ${
+                          dashboardName
+                              ? `"${dashboardName}"`
+                              : t(
+                                    'components_navbar_explorer_banner.contet.part_4',
+                                )
                       }`}
             </Text>
 

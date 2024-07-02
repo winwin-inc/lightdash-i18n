@@ -20,8 +20,10 @@ import { Box, Button, Group, Modal, Title } from '@mantine/core';
 import { useElementSize } from '@mantine/hooks';
 import { IconShare2 } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
+
 import { downloadCsv } from '../../api/csv';
 import { useExplore } from '../../hooks/useExplore';
 import { getExplorerUrlFromCreateSavedChartVersion } from '../../hooks/useExplorerRoute';
@@ -50,6 +52,7 @@ const defaultMetricQuery: MetricQuery = {
 };
 
 const UnderlyingDataModalContent: FC<Props> = () => {
+    const { t } = useTranslation();
     const modalContentElementSize = useElementSize();
 
     const modalHeaderElementSize = useElementSize();
@@ -337,7 +340,11 @@ const UnderlyingDataModalContent: FC<Props> = () => {
             <Modal.Header ref={modalHeaderElementSize.ref}>
                 <Modal.Title w="100%">
                     <Group position="apart">
-                        <Title order={5}>View underlying data</Title>
+                        <Title order={5}>
+                            {t(
+                                'components_metric_query_data.view_underlying_data',
+                            )}
+                        </Title>
                         <Box mr="md">
                             <Can
                                 I="manage"
@@ -355,7 +362,9 @@ const UnderlyingDataModalContent: FC<Props> = () => {
                                         setIsCSVExportModalOpen(true)
                                     }
                                 >
-                                    Export CSV
+                                    {t(
+                                        'components_metric_query_data.export_csv',
+                                    )}
                                 </Button>
                                 <ExportCSVModal
                                     getCsvLink={getCsvLink}
@@ -382,7 +391,9 @@ const UnderlyingDataModalContent: FC<Props> = () => {
                                     href={exploreFromHereUrl}
                                     forceRefresh
                                 >
-                                    Explore from here
+                                    {t(
+                                        'components_metric_query_data.export_from_here',
+                                    )}
                                 </LinkButton>
                             </Can>
                         </Box>
