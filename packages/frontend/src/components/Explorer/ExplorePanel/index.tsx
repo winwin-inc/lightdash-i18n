@@ -8,6 +8,8 @@ import {
 } from '@lightdash/common';
 import { Skeleton, Stack } from '@mantine/core';
 import { memo, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useExplore } from '../../../hooks/useExplore';
 import { useExplorerContext } from '../../../providers/ExplorerProvider';
 import PageBreadcrumbs from '../../common/PageBreadcrumbs';
@@ -32,6 +34,8 @@ interface ExplorePanelProps {
 }
 
 const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
+    const { t } = useTranslation();
+
     const activeTableName = useExplorerContext(
         (context) => context.state.unsavedChartVersion.tableName,
     );
@@ -126,7 +130,7 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
                     ...(onBack
                         ? [
                               {
-                                  title: 'Tables',
+                                  title: t('components_explorer_panel.tables'),
                                   onClick: onBack,
                               },
                           ]

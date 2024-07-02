@@ -1,6 +1,8 @@
 import { ActionIcon } from '@mantine/core';
 import { IconShare2 } from '@tabler/icons-react';
 import { memo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import useToaster from '../../hooks/toaster/useToaster';
 import { COLLAPSABLE_CARD_ACTION_ICON_PROPS } from '../common/CollapsableCard';
 import MantineIcon from '../common/MantineIcon';
@@ -12,6 +14,7 @@ type Props = {
 
 const DownloadCsvButton: FC<Props> = memo(({ disabled, getCsvLink }) => {
     const { showToastError } = useToaster();
+    const { t } = useTranslation();
 
     return (
         <ActionIcon
@@ -25,7 +28,7 @@ const DownloadCsvButton: FC<Props> = memo(({ disabled, getCsvLink }) => {
                     })
                     .catch((error) => {
                         showToastError({
-                            title: `Unable to schedule download CSV`,
+                            title: t('components_download_sql_csv.toast_error'),
                             subtitle: error?.error?.message,
                         });
                     });

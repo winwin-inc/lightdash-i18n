@@ -841,7 +841,7 @@
             "is_on_or_after": "is on or after",
             "is_between": "is between"
         },
-        "completed": "completed"
+        "completed": "completed "
     },
 
     "components_common_light_table": {
@@ -983,6 +983,47 @@
         "filter_invalid": {
             "unknown": "Tried to reference field with unknown id:",
             "invalid_filter": "Invalid filter"
+        }
+    },
+
+    "components_dashboard_tabs": {
+        "add_tab_modal": {
+            "title": "Add new tab",
+            "form": {
+                "tab_name": {
+                    "label": "Tab name",
+                    "placeholder": "Name your tab"
+                }
+            },
+            "cancel": "Cancel",
+            "add": "Add"
+        },
+        "delete_tab_modal": {
+            "title": "Remove tab",
+            "content": {
+                "part_1": "Are you sure you want to remove tab",
+                "part_2": "and",
+                "part_3": "tiles from this dashboard?",
+                "part_4": "Once you save changes to your dashboard, this action will also permanently delete the following charts that were created from within it:"
+            },
+            "cancel": "Cancel",
+            "remove": "Remove"
+        },
+        "edit_tab_modal": {
+            "title": "Edit your tab",
+            "form": {
+                "tab_name": {
+                    "label": "Tab name",
+                    "placeholder": "Name your tab"
+                }
+            },
+            "cancel": "Cancel",
+            "update": "Update"
+        },
+        "tab_menus": {
+            "rename_tab": "Rename tab",
+            "remove_tabs_component": "Remove tabs component",
+            "remove_tab": "Remove tab"
         }
     },
 
@@ -1357,6 +1398,10 @@
         },
         "cancel": "Cancel",
         "save_changes": "Save changes"
+    },
+
+    "components_download_sql_csv": {
+        "toast_error": "Unable to schedule download CSV"
     },
 
     "components_react_hook_form": {
@@ -2475,18 +2520,75 @@
             "create": "Create"
         }
     },
-    "components_explorer_space_browser_menu": {
-        "menus": {
-            "rename": {
-                "title": "Rename"
+    "components_explorer_custom_metric_modal": {
+        "validate_metric_label": {
+            "already_exists": "Metric with this label already exists",
+            "percentile": "Percentile must be a number between 0 and 100"
+        },
+        "toast_submit": {
+            "edit_success": "Custom metric edited successfully",
+            "add_success": "Custom metric added successfully"
+        },
+        "modal": {
+            "title": {
+                "eidt": "Edit Custom Metric",
+                "create": "Create Custom Metric"
             },
-            "toggle_pin": {
-                "pin": "Pin to homepage",
-                "unpin": "Unpin from homepage"
+            "label": {
+                "label": "Label",
+                "placeholder": "Enter custom metric label"
             },
-            "delete": {
-                "title": "Delete space"
+            "percentile": {
+                "label": "Percentile"
+            },
+            "format": "Format",
+            "filters": {
+                "part_1": "Filters",
+                "part_2": "optional"
+            },
+            "save_changes": "Save changes",
+            "create": "Create"
+        },
+        "add_filter": "Add filter"
+    },
+    "components_explorer_panel": {
+        "tables": "Tables"
+    },
+    "components_explorer_header": {
+        "unsaved_changes": "You have unsaved changes to your dashboard! Are you sure you want to leave without saving?",
+        "tooltip_limit": {
+            "label": "Query limit of {{limit}} reached. There may be additional results that have not been displayed. To see more, increase the query limit or try narrowing filters.",
+            "content": "Results may be incomplete"
+        }
+    },
+    "components_explorer_format_form": {
+        "type": {
+            "label": "Type",
+            "content": {
+                "part_1": "Looks like: "
             }
+        },
+        "currency": {
+            "label": "Currency"
+        },
+        "round": {
+            "label": "Round",
+            "placeholder": "Number of decimal places"
+        },
+        "separator_style": {
+            "label": "Separator style"
+        },
+        "compact": {
+            "label": "Compact",
+            "placeholder": "E.g. thousands (K)"
+        },
+        "perfix": {
+            "label": "Prefix",
+            "placeholder": "E.g. GBP revenue:"
+        },
+        "suffix": {
+            "label": "Suffix",
+            "placeholder": "E.g. km/h"
         }
     },
     "components_explorer_results_card": {
@@ -2501,6 +2603,7 @@
         "sort": "Sort"
     },
     "components_explorer_results_card_cell_context_menu": {
+        "copied_to_clipboard": "Copied to clipboard",
         "copy": "Copy value",
         "expand": "Expand",
         "view": "View underlying data",
@@ -2622,6 +2725,29 @@
         "tip": "You must be in 'edit' or 'explore' mode to change the filters",
         "rule_error": "Tried to reference field with unknown id: "
     },
+    "components_explorer_space_browser": {
+        "dashboard": "Dashboard",
+        "chart": "Chart",
+        "add_modal": {
+            "added": "already added on this space",
+            "title": "Add {{resourceType} to space",
+            "content": "Select the {{resourceType}}s that you would like to move into",
+            "cancel": "Cancel",
+            "move": "Move {{resourceType}}s"
+        },
+        "menus": {
+            "rename": {
+                "title": "Rename"
+            },
+            "toggle_pin": {
+                "pin": "Pin to homepage",
+                "unpin": "Unpin from homepage"
+            },
+            "delete": {
+                "title": "Delete space"
+            }
+        }
+    },
     "components_explorer_visualization_card": {
         "chart": "Chart",
         "charts": "Charts",
@@ -2636,6 +2762,34 @@
         "configure": "Configure",
         "configure_chart": "Configure chart",
         "chart_type": "Chart type"
+    },
+    "components_explorer_visualization_card_options": {
+        "chart_types": {
+            "mixed": "Mixed",
+            "area_chart": "Area chart",
+            "line_chart": "Line chart",
+            "horizontal_bar_chart": "Horizontal bar chart",
+            "bar_chart": "Bar chart",
+            "scatter_chart": "Scatter chart",
+            "table": "Table",
+            "big_value": "Big value",
+            "pie_chart": "Pie chart",
+            "funnel_chart": "Funnel chart",
+            "custom": "Custom",
+            "unknown": "Unknown visualization chart type"
+        },
+        "menus": {
+            "bar_chart": "Bar chart",
+            "horizonal_bar_chart": "Horizontal bar chart",
+            "line_chart": "Line chart",
+            "area_chart": "Area chart",
+            "scatter_chart": "Scatter chart",
+            "pie_chart": "Pie chart",
+            "funnel_chart": "Funnel chart",
+            "table": "Table",
+            "big_value": "Big value",
+            "custom": "Custom"
+        }
     },
 
     "components_common_resource_view_grid": {

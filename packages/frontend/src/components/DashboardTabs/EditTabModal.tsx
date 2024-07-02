@@ -10,6 +10,7 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 type AddProps = ModalProps & {
     tab: DashboardTab;
@@ -22,6 +23,7 @@ export const TabEditModal: FC<AddProps> = ({
     onConfirm,
     ...modalProps
 }) => {
+    const { t } = useTranslation();
     const form = useForm<{ newTabName: string }>();
 
     const handleConfirm = form.onSubmit(({ ...tabProps }) => {
@@ -38,7 +40,9 @@ export const TabEditModal: FC<AddProps> = ({
         <Modal
             title={
                 <Group spacing="xs">
-                    <Title order={4}>Edit your tab</Title>
+                    <Title order={4}>
+                        {t('components_dashboard_tabs.edit_tab_modal.title')}
+                    </Title>
                 </Group>
             }
             {...modalProps}
@@ -48,18 +52,26 @@ export const TabEditModal: FC<AddProps> = ({
             <form onSubmit={handleConfirm}>
                 <Stack spacing="lg" pt="sm">
                     <TextInput
-                        label="Tab name"
-                        placeholder="Name your tab"
+                        label={t(
+                            'components_dashboard_tabs.edit_tab_modal.form.tab_name.label',
+                        )}
+                        placeholder={t(
+                            'components_dashboard_tabs.edit_tab_modal.form.tab_name.placeholder',
+                        )}
                         required
                         {...form.getInputProps('newTabName')}
                     ></TextInput>
                     <Group position="right" mt="sm">
                         <Button variant="outline" onClick={handleClose}>
-                            Cancel
+                            {t(
+                                'components_dashboard_tabs.edit_tab_modal.cancel',
+                            )}
                         </Button>
 
                         <Button type="submit" disabled={!form.isValid()}>
-                            Update
+                            {t(
+                                'components_dashboard_tabs.edit_tab_modal.update',
+                            )}
                         </Button>
                     </Group>
                 </Stack>

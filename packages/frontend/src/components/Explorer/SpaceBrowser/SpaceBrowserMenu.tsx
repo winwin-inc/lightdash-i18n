@@ -49,9 +49,7 @@ export const SpaceBrowserMenu: React.FC<React.PropsWithChildren<Props>> = ({
                     icon={<MantineIcon icon={IconEdit} />}
                     onClick={onRename}
                 >
-                    {t(
-                        'components_explorer_space_browser_menu.menus.rename.title',
-                    )}
+                    {t('components_explorer_space_browser.menus.rename.title')}
                 </Menu.Item>
 
                 {user.data?.ability.can(
@@ -75,10 +73,10 @@ export const SpaceBrowserMenu: React.FC<React.PropsWithChildren<Props>> = ({
                     >
                         {isPinned
                             ? t(
-                                  'components_explorer_space_browser_menu.menus.toggle_pin.unpin',
+                                  'components_explorer_space_browser.menus.toggle_pin.unpin',
                               )
                             : t(
-                                  'components_explorer_space_browser_menu.menus.toggle_pin.pin',
+                                  'components_explorer_space_browser.menus.toggle_pin.pin',
                               )}
                     </Menu.Item>
                 )}
@@ -90,9 +88,7 @@ export const SpaceBrowserMenu: React.FC<React.PropsWithChildren<Props>> = ({
                     icon={<MantineIcon icon={IconTrash} />}
                     onClick={onDelete}
                 >
-                    {t(
-                        'components_explorer_space_browser_menu.menus.delete.title',
-                    )}
+                    {t('components_explorer_space_browser.menus.delete.title')}
                 </Menu.Item>
             </Menu.Dropdown>
         </Menu>

@@ -788,8 +788,8 @@
     },
     "components_common_filters_inputs": {
         "select": {
-            "true": "是",
-            "false": "否"
+            "true": "True",
+            "false": "False"
         },
         "rule_error": "DateFilterInputs 需要一个 FilterRule",
         "week_commencing": "周起始日",
@@ -815,33 +815,33 @@
         },
         "select_value": "选择值",
         "filter_operator_labels": {
-            "is_null": "为 null",
-            "is_not_null": "不为 null",
-            "is": "等于",
-            "is_not": "不等于",
-            "starts_with": "开头为",
-            "ends_with": "结尾为",
-            "does_not_include": "不包含",
-            "includes": "包含",
-            "is_less_than": "小于",
-            "is_less_than_or_equal": "小于或等于",
-            "is_greater_than": "大于",
-            "is_greater_than_or_equal": "大于或等于",
-            "is_the_last": "是最近的",
-            "not_in_the_last": "不在最近的",
-            "in_the_next": "在接下来的",
-            "in_the_current": "在当前的",
-            "not_in_the_current": "不在当前的",
-            "is_between": "在之间"
+            "is_null": "is null",
+            "is_not_null": "is not null",
+            "is": "is",
+            "is_not": "is not",
+            "starts_with": "starts with",
+            "ends_with": "ends with",
+            "does_not_include": "does not include",
+            "includes": "includes",
+            "is_less_than": "is less than",
+            "is_less_than_or_equal": "is less than or equal",
+            "is_greater_than": "is greater than",
+            "is_greater_than_or_equal": "is greater than or equal",
+            "is_the_last": "is the last",
+            "not_in_the_last": "not in the last",
+            "in_the_next": "in the next",
+            "in_the_current": "in the current",
+            "not_in_the_current": "not in the current",
+            "is_between": "is between"
         },
         "time_filter_options": {
-            "is_before": "在之前",
-            "is_on_or_before": "在或在之前",
-            "is_after": "在之后",
-            "is_on_or_after": "在或在之后",
-            "is_between": "在之间"
+            "is_before": "is before",
+            "is_on_or_before": "is on or before",
+            "is_after": "is after",
+            "is_on_or_after": "is on or after",
+            "is_between": "is between"
         },
-        "completed": "已完成"
+        "completed": "completed "
     },
 
     "components_common_light_table": {
@@ -983,6 +983,47 @@
         "filter_invalid": {
             "unknown": "试图引用具有未知 ID 的字段:",
             "invalid_filter": "无效的筛选器"
+        }
+    },
+
+    "components_dashboard_tabs": {
+        "add_tab_modal": {
+            "title": "添加新标签页",
+            "form": {
+                "tab_name": {
+                    "label": "标签页名称",
+                    "placeholder": "为您的标签页命名"
+                }
+            },
+            "cancel": "取消",
+            "add": "添加"
+        },
+        "delete_tab_modal": {
+            "title": "移除标签页",
+            "content": {
+                "part_1": "您确定要移除标签页",
+                "part_2": "和",
+                "part_3": "从此看板上的图块吗?",
+                "part_4": "保存对看板的更改后,这个操作也将永久删除从中创建的以下图表:"
+            },
+            "cancel": "取消",
+            "remove": "移除"
+        },
+        "edit_tab_modal": {
+            "title": "编辑您的标签页",
+            "form": {
+                "tab_name": {
+                    "label": "标签页名称",
+                    "placeholder": "为您的标签页命名"
+                }
+            },
+            "cancel": "取消",
+            "update": "更新"
+        },
+        "tab_menus": {
+            "rename_tab": "重命名标签页",
+            "remove_tabs_component": "移除标签页组件",
+            "remove_tab": "移除标签页"
         }
     },
 
@@ -1357,6 +1398,10 @@
         },
         "cancel": "取消",
         "save_changes": "保存更改"
+    },
+
+    "components_download_sql_csv": {
+        "toast_error": "无法安排下载 CSV"
     },
 
     "components_react_hook_form": {
@@ -2481,18 +2526,75 @@
             "create": "创建"
         }
     },
-    "components_explorer_space_browser_menu": {
-        "menus": {
-            "rename": {
-                "title": "重命名"
+    "components_explorer_custom_metric_modal": {
+        "validate_metric_label": {
+            "already_exists": "具有此标签的指标已存在",
+            "percentile": "百分位数必须是 0 到 100 之间的数字"
+        },
+        "toast_submit": {
+            "edit_success": "自定义指标编辑成功",
+            "add_success": "自定义指标添加成功"
+        },
+        "modal": {
+            "title": {
+                "eidt": "编辑自定义指标",
+                "create": "创建自定义指标"
             },
-            "toggle_pin": {
-                "pin": "固定到主页",
-                "unpin": "从主页取消固定"
+            "label": {
+                "label": "标签",
+                "placeholder": "输入自定义指标标签"
             },
-            "delete": {
-                "title": "删除空间"
+            "percentile": {
+                "label": "百分位数"
+            },
+            "format": "格式",
+            "filters": {
+                "part_1": "筛选器",
+                "part_2": "可选"
+            },
+            "save_changes": "保存更改",
+            "create": "创建"
+        },
+        "add_filter": "添加筛选器"
+    },
+    "components_explorer_panel": {
+        "tables": "表格"
+    },
+    "components_explorer_header": {
+        "unsaved_changes": "您有未保存的仪表板更改! 您确定要离开而不保存吗?",
+        "tooltip_limit": {
+            "label": "已达到 {{limit}} 的查询限制。可能还有其他未显示的结果。要查看更多,请增加查询限制或尝试缩小筛选器。",
+            "content": "结果可能不完整"
+        }
+    },
+    "components_explorer_format_form": {
+        "type": {
+            "label": "类型",
+            "content": {
+                "part_1": "看起来像: "
             }
+        },
+        "currency": {
+            "label": "货币"
+        },
+        "round": {
+            "label": "四舍五入",
+            "placeholder": "小数位数"
+        },
+        "separator_style": {
+            "label": "分隔符样式"
+        },
+        "compact": {
+            "label": "紧凑",
+            "placeholder": "例如千位(K)"
+        },
+        "perfix": {
+            "label": "前缀",
+            "placeholder": "例如 GBP 收入:"
+        },
+        "suffix": {
+            "label": "后缀",
+            "placeholder": "例如 km/h"
         }
     },
     "components_explorer_results_card": {
@@ -2506,6 +2608,7 @@
         "eidt_calculation": "编辑计算"
     },
     "components_explorer_results_card_cell_context_menu": {
+        "copied_to_clipboard": "已复制到剪贴板",
         "copy": "复制值",
         "expand": "扩展",
         "view": "查看基础数据",
@@ -2627,6 +2730,29 @@
         "tip": "您必须处于“编辑”或“探索”模式才能更改过滤器",
         "rule_error": "尝试引用具有未知 ID 的字段："
     },
+    "components_explorer_space_browser": {
+        "dashboard": "看板",
+        "chart": "图表",
+        "add_modal": {
+            "added": "已添加到此空间",
+            "title": "将 {{resourceType}} 添加到空间",
+            "content": "选择您想要移动的 {{resourceType}}",
+            "cancel": "取消",
+            "move": "移动 {{resourceType}}"
+        },
+        "menus": {
+            "rename": {
+                "title": "重命名"
+            },
+            "toggle_pin": {
+                "pin": "固定到主页",
+                "unpin": "从主页取消固定"
+            },
+            "delete": {
+                "title": "删除空间"
+            }
+        }
+    },
     "components_explorer_visualization_card": {
         "chart": "图表",
         "charts": "图表",
@@ -2641,6 +2767,33 @@
         "configure": "配置",
         "configure_chart": "配置图表",
         "chart_type": "图表类型"
+    },
+    "components_explorer_visualization_card_options": {
+        "chart_types": {
+            "mixed": "混合",
+            "area_chart": "面积图",
+            "line_chart": "折线图",
+            "horizontal_bar_chart": "水平条形图",
+            "bar_chart": "条形图",
+            "scatter_chart": "散点图",
+            "table": "表格",
+            "big_value": "大数值",
+            "pie_chart": "饼图",
+            "funnel_chart": "漏斗图",
+            "custom": "自定义"
+        },
+        "menus": {
+            "bar_chart": "条形图",
+            "horizontal_bar_chart": "水平条形图",
+            "line_chart": "折线图",
+            "area_chart": "面积图",
+            "scatter_chart": "散点图",
+            "pie_chart": "饼图",
+            "funnel_chart": "漏斗图",
+            "table": "表格",
+            "big_value": "大数值",
+            "custom": "自定义"
+        }
     },
 
     "components_common_resource_view_grid": {

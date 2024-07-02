@@ -16,6 +16,8 @@ import {
 } from '@mantine/core';
 import { IconTrash } from '@tabler/icons-react';
 import { useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../common/MantineIcon';
 
 type AddProps = ModalProps & {
@@ -31,6 +33,8 @@ export const TabDeleteModal: FC<AddProps> = ({
     onDeleteTab: handleDeleteTab,
     ...modalProps
 }) => {
+    const { t } = useTranslation();
+
     const handleClose = () => {
         onClose?.();
     };
@@ -59,7 +63,9 @@ export const TabDeleteModal: FC<AddProps> = ({
             title={
                 <Group spacing="xs">
                     <MantineIcon icon={IconTrash} color="red" size="lg" />
-                    <Title order={4}>Remove tab</Title>
+                    <Title order={4}>
+                        {t('components_dashboard_tabs.delete_tab_modal.title')}
+                    </Title>
                 </Group>
             }
             {...modalProps}
@@ -68,15 +74,24 @@ export const TabDeleteModal: FC<AddProps> = ({
         >
             <Stack spacing="lg" pt="sm">
                 <Text>
-                    Are you sure you want to remove tab <b>"{tab.name}"</b> and{' '}
-                    <b>{tilesToDelete?.length}</b> tiles from this dashboard?
+                    {t(
+                        'components_dashboard_tabs.delete_tab_modal.content.part_1',
+                    )}{' '}
+                    <b>"{tab.name}"</b>{' '}
+                    {t(
+                        'components_dashboard_tabs.delete_tab_modal.content.part_2',
+                    )}{' '}
+                    <b>{tilesToDelete?.length}</b>{' '}
+                    {t(
+                        'components_dashboard_tabs.delete_tab_modal.content.part_3',
+                    )}
                     <br />
                     {newSavedCharts.length > 0 && (
                         <Text>
                             <br />
-                            Once you save changes to your dashboard, this action
-                            will also permanently delete the following charts
-                            that were created from within it:
+                            {t(
+                                'components_dashboard_tabs.delete_tab_modal.content.part_4',
+                            )}
                         </Text>
                     )}
                 </Text>
@@ -89,7 +104,7 @@ export const TabDeleteModal: FC<AddProps> = ({
                 </List>
                 <Group position="right" mt="sm">
                     <Button variant="outline" onClick={handleClose}>
-                        Cancel
+                        {t('components_dashboard_tabs.delete_tab_modal.cancel')}
                     </Button>
 
                     <Button
@@ -97,7 +112,7 @@ export const TabDeleteModal: FC<AddProps> = ({
                         color="red"
                         onClick={() => handleSubmit(tab.uuid)}
                     >
-                        Remove
+                        {t('components_dashboard_tabs.delete_tab_modal.remove')}
                     </Button>
                 </Group>
             </Stack>

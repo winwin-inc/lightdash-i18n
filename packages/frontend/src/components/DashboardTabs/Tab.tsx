@@ -9,6 +9,8 @@ import {
     IconTrash,
 } from '@tabler/icons-react';
 import type { FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../common/MantineIcon';
 
 type DraggableTabProps = {
@@ -32,6 +34,7 @@ const DraggableTab: FC<DraggableTabProps> = ({
     handleDeleteTab,
     setDeletingTab,
 }) => {
+    const { t } = useTranslation();
     const { hovered: isHovered, ref: hoverRef } = useHover();
 
     return (
@@ -91,7 +94,9 @@ const DraggableTab: FC<DraggableTabProps> = ({
                                             onClick={() => setEditingTab(true)}
                                             icon={<IconPencil size={14} />}
                                         >
-                                            Rename Tab
+                                            {t(
+                                                'components_dashboard_tabs.tab_menus.rename_tab',
+                                            )}
                                         </Menu.Item>
                                         {sortedTabs.length === 1 ||
                                         !currentTabHasTiles ? (
@@ -104,8 +109,12 @@ const DraggableTab: FC<DraggableTabProps> = ({
                                                 icon={<IconTrash size={14} />}
                                             >
                                                 {sortedTabs.length === 1
-                                                    ? 'Remove Tabs Component'
-                                                    : 'Remove Tab'}
+                                                    ? t(
+                                                          'components_dashboard_tabs.tab_menus.remove_tabs_component',
+                                                      )
+                                                    : t(
+                                                          'components_dashboard_tabs.tab_menus.remove_tab',
+                                                      )}
                                             </Menu.Item>
                                         ) : (
                                             <Menu.Item
@@ -115,7 +124,9 @@ const DraggableTab: FC<DraggableTabProps> = ({
                                                 color="red"
                                                 icon={<IconTrash size={14} />}
                                             >
-                                                Remove Tab
+                                                {t(
+                                                    'components_dashboard_tabs.tab_menus.remove_tab',
+                                                )}
                                             </Menu.Item>
                                         )}
                                     </Menu.Dropdown>

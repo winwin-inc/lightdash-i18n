@@ -1,7 +1,9 @@
 import { Badge, Box, Group, Tooltip } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { memo, useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import useDashboardStorage from '../../../hooks/dashboard/useDashboardStorage';
 import useCreateInAnySpaceAccess from '../../../hooks/user/useCreateInAnySpaceAccess';
 import { useExplorerContext } from '../../../providers/ExplorerProvider';
@@ -13,6 +15,8 @@ import RefreshDbtButton from '../../RefreshDbtButton';
 import SaveChartButton from '../SaveChartButton';
 
 const ExplorerHeader: FC = memo(() => {
+    const { t } = useTranslation();
+
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const savedChart = useExplorerContext(
         (context) => context.state.savedChart,
@@ -40,8 +44,7 @@ const ExplorerHeader: FC = memo(() => {
     useEffect(() => {
         const checkReload = (event: BeforeUnloadEvent) => {
             if (getHasDashboardChanges()) {
-                const message =
-                    'You have unsaved changes to your dashboard! Are you sure you want to leave without saving?';
+                const message = t('components_explorer_header.unsaved_changes');
                 event.returnValue = message;
                 return message;
             }
@@ -50,7 +53,7 @@ const ExplorerHeader: FC = memo(() => {
         return () => {
             window.removeEventListener('beforeunload', checkReload);
         };
-    }, [getHasDashboardChanges]);
+    }, [getHasDashboardChanges, t]);
 
     return (
         <Group position="apart">
@@ -62,7 +65,12 @@ const ExplorerHeader: FC = memo(() => {
                 {showLimitWarning && (
                     <Tooltip
                         width={400}
-                        label={`Query limit of ${limit} reached. There may be additional results that have not been displayed. To see more, increase the query limit or try narrowing filters.`}
+                        label={t(
+                            'components_explorer_header.tooltip_limit.label',
+                            {
+                                limit,
+                            },
+                        )}
                         multiline
                         position={'bottom'}
                     >
@@ -78,7 +86,9 @@ const ExplorerHeader: FC = memo(() => {
                             tt="none"
                             sx={{ cursor: 'help' }}
                         >
-                            Results may be incomplete
+                            {t(
+                                'components_explorer_header.tooltip_limit.content',
+                            )}
                         </Badge>
                     </Tooltip>
                 )}

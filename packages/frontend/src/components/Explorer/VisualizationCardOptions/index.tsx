@@ -20,6 +20,8 @@ import {
     IconTable,
 } from '@tabler/icons-react';
 import { memo, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
 import { useApp } from '../../../providers/AppProvider';
 import {
@@ -36,6 +38,8 @@ import { isCustomVisualizationConfig } from '../../LightdashVisualization/Visual
 import { useVisualizationContext } from '../../LightdashVisualization/VisualizationProvider';
 
 const VisualizationCardOptions: FC = memo(() => {
+    const { t } = useTranslation();
+
     const { health } = useApp();
     const customVizEnabled = useFeatureFlagEnabled(
         FeatureFlags.CustomVisualizationsEnabled,
@@ -77,7 +81,9 @@ const VisualizationCardOptions: FC = memo(() => {
             case ChartType.CARTESIAN: {
                 if (!isChartTypeTheSameForAllSeries) {
                     return {
-                        text: 'Mixed',
+                        text: t(
+                            'components_explorer_visualization_card_options.chart_types.mixed',
+                        ),
                         icon: (
                             <MantineIcon
                                 icon={IconChartAreaLine}
@@ -93,7 +99,9 @@ const VisualizationCardOptions: FC = memo(() => {
                 switch (cartesianChartType) {
                     case CartesianSeriesType.AREA:
                         return {
-                            text: 'Area chart',
+                            text: t(
+                                'components_explorer_visualization_card_options.chart_types.area_chart',
+                            ),
                             icon: (
                                 <MantineIcon
                                     icon={IconChartArea}
@@ -103,7 +111,9 @@ const VisualizationCardOptions: FC = memo(() => {
                         };
                     case CartesianSeriesType.LINE:
                         return {
-                            text: 'Line chart',
+                            text: t(
+                                'components_explorer_visualization_card_options.chart_types.line_chart',
+                            ),
                             icon: (
                                 <MantineIcon
                                     icon={IconChartLine}
@@ -115,7 +125,9 @@ const VisualizationCardOptions: FC = memo(() => {
                     case CartesianSeriesType.BAR:
                         return cartesianFlipAxis
                             ? {
-                                  text: 'Horizontal bar chart',
+                                  text: t(
+                                      'components_explorer_visualization_card_options.chart_types.horizontal_bar_chart',
+                                  ),
                                   icon: (
                                       <MantineIcon
                                           icon={IconChartBar}
@@ -125,7 +137,9 @@ const VisualizationCardOptions: FC = memo(() => {
                                   ),
                               }
                             : {
-                                  text: 'Bar chart',
+                                  text: t(
+                                      'components_explorer_visualization_card_options.chart_types.bar_chart',
+                                  ),
                                   icon: (
                                       <MantineIcon
                                           icon={IconChartBar}
@@ -135,7 +149,9 @@ const VisualizationCardOptions: FC = memo(() => {
                               };
                     case CartesianSeriesType.SCATTER:
                         return {
-                            text: 'Scatter chart',
+                            text: t(
+                                'components_explorer_visualization_card_options.chart_types.scatter_chart',
+                            ),
                             icon: (
                                 <MantineIcon
                                     icon={IconChartDots}
@@ -152,27 +168,37 @@ const VisualizationCardOptions: FC = memo(() => {
             }
             case ChartType.TABLE:
                 return {
-                    text: 'Table',
+                    text: t(
+                        'components_explorer_visualization_card_options.chart_types.table',
+                    ),
                     icon: <MantineIcon icon={IconTable} color="gray" />,
                 };
             case ChartType.BIG_NUMBER:
                 return {
-                    text: 'Big value',
+                    text: t(
+                        'components_explorer_visualization_card_options.chart_types.big_value',
+                    ),
                     icon: <MantineIcon icon={IconSquareNumber1} color="gray" />,
                 };
             case ChartType.PIE:
                 return {
-                    text: 'Pie chart',
+                    text: t(
+                        'components_explorer_visualization_card_options.chart_types.pie_chart',
+                    ),
                     icon: <MantineIcon icon={IconChartPie} color="gray" />,
                 };
             case ChartType.FUNNEL:
                 return {
-                    text: 'Funnel chart',
+                    text: t(
+                        'components_explorer_visualization_card_options.chart_types.funnel_chart',
+                    ),
                     icon: <MantineIcon icon={IconFilter} color="gray" />,
                 };
             case ChartType.CUSTOM:
                 return {
-                    text: 'Custom',
+                    text: t(
+                        'components_explorer_visualization_card_options.chart_types.custom',
+                    ),
                     icon: <MantineIcon icon={IconCode} color="gray" />,
                 };
             default: {
@@ -186,6 +212,7 @@ const VisualizationCardOptions: FC = memo(() => {
         visualizationConfig,
         isChartTypeTheSameForAllSeries,
         cartesianFlipAxis,
+        t,
     ]);
 
     return (
@@ -229,7 +256,9 @@ const VisualizationCardOptions: FC = memo(() => {
                         setChartType(ChartType.CARTESIAN);
                     }}
                 >
-                    Bar chart
+                    {t(
+                        'components_explorer_visualization_card_options.menus.bar_chart',
+                    )}
                 </Menu.Item>
                 <Menu.Item
                     disabled={disabled}
@@ -257,7 +286,9 @@ const VisualizationCardOptions: FC = memo(() => {
                         setChartType(ChartType.CARTESIAN);
                     }}
                 >
-                    Horizontal bar chart
+                    {t(
+                        'components_explorer_visualization_card_options.menus.horizonal_bar_chart',
+                    )}
                 </Menu.Item>
                 <Menu.Item
                     disabled={disabled}
@@ -279,7 +310,9 @@ const VisualizationCardOptions: FC = memo(() => {
                         setChartType(ChartType.CARTESIAN);
                     }}
                 >
-                    Line chart
+                    {t(
+                        'components_explorer_visualization_card_options.menus.line_chart',
+                    )}
                 </Menu.Item>
                 <Menu.Item
                     disabled={disabled}
@@ -301,7 +334,9 @@ const VisualizationCardOptions: FC = memo(() => {
                         setChartType(ChartType.CARTESIAN);
                     }}
                 >
-                    Area chart
+                    {t(
+                        'components_explorer_visualization_card_options.menus.area_chart',
+                    )}
                 </Menu.Item>
                 <Menu.Item
                     disabled={disabled}
@@ -323,7 +358,9 @@ const VisualizationCardOptions: FC = memo(() => {
                         setChartType(ChartType.CARTESIAN);
                     }}
                 >
-                    Scatter chart
+                    {t(
+                        'components_explorer_visualization_card_options.menus.scatter_chart',
+                    )}
                 </Menu.Item>
 
                 <Menu.Item
@@ -341,7 +378,9 @@ const VisualizationCardOptions: FC = memo(() => {
                         setChartType(ChartType.PIE);
                     }}
                 >
-                    Pie chart
+                    {t(
+                        'components_explorer_visualization_card_options.menus.pie_chart',
+                    )}
                 </Menu.Item>
 
                 <Menu.Item
@@ -359,7 +398,9 @@ const VisualizationCardOptions: FC = memo(() => {
                         setChartType(ChartType.FUNNEL);
                     }}
                 >
-                    Funnel chart
+                    {t(
+                        'components_explorer_visualization_card_options.menus.funnel_chart',
+                    )}
                 </Menu.Item>
 
                 <Menu.Item
@@ -377,7 +418,9 @@ const VisualizationCardOptions: FC = memo(() => {
                         setChartType(ChartType.TABLE);
                     }}
                 >
-                    Table
+                    {t(
+                        'components_explorer_visualization_card_options.menus.table',
+                    )}
                 </Menu.Item>
                 <Menu.Item
                     disabled={disabled}
@@ -394,7 +437,9 @@ const VisualizationCardOptions: FC = memo(() => {
                         setChartType(ChartType.BIG_NUMBER);
                     }}
                 >
-                    Big value
+                    {t(
+                        'components_explorer_visualization_card_options.menus.big_value',
+                    )}
                 </Menu.Item>
 
                 {(health.data?.customVisualizationsEnabled ||
@@ -414,7 +459,9 @@ const VisualizationCardOptions: FC = memo(() => {
                             setChartType(ChartType.CUSTOM);
                         }}
                     >
-                        Custom
+                        {t(
+                            'components_explorer_visualization_card_options.menus.custom',
+                        )}
                     </Menu.Item>
                 )}
             </Menu.Dropdown>

@@ -26,8 +26,10 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { type ValueOf } from 'type-fest';
 import { v4 as uuidv4 } from 'uuid';
+
 import useToaster from '../../../hooks/toaster/useToaster';
 import { useExplore } from '../../../hooks/useExplore';
 import { useExplorerContext } from '../../../providers/ExplorerProvider';
@@ -42,6 +44,8 @@ import {
 } from './utils';
 
 export const CustomMetricModal = () => {
+    const { t } = useTranslation();
+
     const {
         isOpen,
         isEditing,
@@ -134,13 +138,17 @@ export const CustomMetricModal = () => {
                 return additionalMetrics?.some(
                     (metric) => metric.name === metricName,
                 )
-                    ? 'Metric with this label already exists'
+                    ? t(
+                          'components_explorer_custom_metric_modal.validate_metric_label.already_exists',
+                      )
                     : null;
             },
             percentile: (percentile) => {
                 if (!percentile) return null;
                 if (percentile < 0 || percentile > 100) {
-                    return 'Percentile must be a number between 0 and 100';
+                    return t(
+                        'components_explorer_custom_metric_modal.validate_metric_label.percentile',
+                    );
                 }
             },
         },
@@ -225,7 +233,9 @@ export const CustomMetricModal = () => {
                     getItemId(item),
                 );
                 showToastSuccess({
-                    title: 'Custom metric edited successfully',
+                    title: t(
+                        'components_explorer_custom_metric_modal.toast_submit.edit_success',
+                    ),
                 });
             } else if (isDimension(item) && form.values.customMetricLabel) {
                 addAdditionalMetric({
@@ -234,7 +244,9 @@ export const CustomMetricModal = () => {
                     ...data,
                 });
                 showToastSuccess({
-                    title: 'Custom metric added successfully',
+                    title: t(
+                        'components_explorer_custom_metric_modal.toast_submit.add_success',
+                    ),
                 });
             } else if (isCustomDimension(item)) {
                 addAdditionalMetric({
@@ -243,7 +255,9 @@ export const CustomMetricModal = () => {
                     ...data,
                 });
                 showToastSuccess({
-                    title: 'Custom metric added successfully',
+                    title: t(
+                        'components_explorer_custom_metric_modal.toast_submit.add_success',
+                    ),
                 });
             }
             handleClose();
@@ -280,16 +294,26 @@ export const CustomMetricModal = () => {
             onClose={handleClose}
             title={
                 <Title order={4}>
-                    {isEditing ? 'Edit' : 'Create'} Custom Metric
+                    {isEditing
+                        ? t(
+                              'components_explorer_custom_metric_modal.title.edit',
+                          )
+                        : t(
+                              'components_explorer_custom_metric_modal.title.create',
+                          )}
                 </Title>
             }
         >
             <form onSubmit={handleOnSubmit}>
                 <Stack>
                     <TextInput
-                        label="Label"
+                        label={t(
+                            'components_explorer_custom_metric_modal.label.label',
+                        )}
                         required
-                        placeholder="Enter custom metric label"
+                        placeholder={t(
+                            'components_explorer_custom_metric_modal.label.placeholder',
+                        )}
                         {...form.getInputProps('customMetricLabel')}
                     />
                     {customMetricType === MetricType.PERCENTILE && (
@@ -298,7 +322,9 @@ export const CustomMetricModal = () => {
                             max={100}
                             min={0}
                             required
-                            label="Percentile"
+                            label={t(
+                                'components_explorer_custom_metric_modal.percentile.label',
+                            )}
                             {...form.getInputProps('percentile')}
                         />
                     )}
@@ -307,7 +333,9 @@ export const CustomMetricModal = () => {
                             <Accordion.Item value="format">
                                 <Accordion.Control>
                                     <Text fw={500} fz="sm">
-                                        Format
+                                        {t(
+                                            'components_explorer_custom_metric_modal.format',
+                                        )}
                                     </Text>
                                 </Accordion.Control>
                                 <Accordion.Panel>
@@ -324,14 +352,20 @@ export const CustomMetricModal = () => {
                         <Accordion.Item value="filters">
                             <Accordion.Control>
                                 <Text fw={500} fz="sm">
-                                    Filters
+                                    {t(
+                                        'components_explorer_custom_metric_modal.filters.part_1',
+                                    )}
                                     <Text span fw={400} fz="xs">
                                         {customMetricFiltersWithIds.length > 0
                                             ? `(${customMetricFiltersWithIds.length}) `
                                             : ' '}
                                     </Text>
                                     <Text span fz="xs" color="gray.5" fw={400}>
-                                        (optional)
+                                        (
+                                        {t(
+                                            'components_explorer_custom_metric_modal.filters.part_2',
+                                        )}
+                                        )
                                     </Text>
                                 </Text>
                             </Accordion.Control>
@@ -362,7 +396,13 @@ export const CustomMetricModal = () => {
                         </Accordion.Item>
                     </Accordion>
                     <Button display="block" ml="auto" type="submit">
-                        {isEditing ? 'Save changes' : 'Create'}
+                        {isEditing
+                            ? t(
+                                  'components_explorer_custom_metric_modal.save_changes',
+                              )
+                            : t(
+                                  'components_explorer_custom_metric_modal.create',
+                              )}
                     </Button>
                 </Stack>
             </form>

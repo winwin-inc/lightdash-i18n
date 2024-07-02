@@ -60,8 +60,12 @@ const CellContextMenu: FC<
 
     const handleCopyToClipboard = useCallback(() => {
         clipboard.copy(value.formatted);
-        showToastSuccess({ title: 'Copied to clipboard!' });
-    }, [value, clipboard, showToastSuccess]);
+        showToastSuccess({
+            title: t(
+                'components_explorer_results_card_cell_context_menu.copied_to_clipboard',
+            ),
+        });
+    }, [value, clipboard, showToastSuccess, t]);
 
     const handleViewUnderlyingData = useCallback(() => {
         if (meta?.item === undefined) return;

@@ -17,6 +17,7 @@ import {
 } from '@mantine/core';
 import { type GetInputProps } from '@mantine/form/lib/types';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { type ValueOf } from 'type-fest';
 
 type Props = {
@@ -79,6 +80,7 @@ export const FormatForm: FC<Props> = ({
     setFormatFieldValue,
     format,
 }) => {
+    const { t } = useTranslation();
     const formatType = format.type;
 
     return (
@@ -87,14 +89,16 @@ export const FormatForm: FC<Props> = ({
                 <Select
                     withinPortal
                     w={200}
-                    label="Type"
+                    label={t('components_explorer_format_form.type.label')}
                     data={formatTypeOptions}
                     {...formatInputProps('type')}
                 />
 
                 {formatType !== CustomFormatType.DEFAULT && (
                     <Text ml="md" mt={30} color="gray.6">
-                        {'Looks like: '}
+                        {t(
+                            'components_explorer_format_form.type.content.part_1',
+                        )}
                         {applyCustomFormat(
                             CustomFormatType.PERCENT === formatType
                                 ? '0.75'
@@ -113,7 +117,9 @@ export const FormatForm: FC<Props> = ({
                             mr="md"
                             w={200}
                             searchable
-                            label="Currency"
+                            label={t(
+                                'components_explorer_format_form.currency.label',
+                            )}
                             data={formatCurrencyOptions}
                             {...formatInputProps('currency')}
                         />
@@ -123,8 +129,10 @@ export const FormatForm: FC<Props> = ({
                         type="number"
                         min={0}
                         w={200}
-                        label="Round"
-                        placeholder="Number of decimal places"
+                        label={t('components_explorer_format_form.round.label')}
+                        placeholder={t(
+                            'components_explorer_format_form.round.placeholder',
+                        )}
                         {...{
                             ...formatInputProps('round'),
                             // Explicitly set value to undefined so the API doesn't received invalid values
@@ -140,7 +148,9 @@ export const FormatForm: FC<Props> = ({
                         withinPortal
                         w={200}
                         ml="md"
-                        label="Separator style"
+                        label={t(
+                            'components_explorer_format_form.separator_style.label',
+                        )}
                         data={formatSeparatorOptions}
                         {...formatInputProps('separator')}
                     />
@@ -154,8 +164,12 @@ export const FormatForm: FC<Props> = ({
                         mr="md"
                         w={200}
                         clearable
-                        label="Compact"
-                        placeholder="E.g. thousands (K)"
+                        label={t(
+                            'components_explorer_format_form.compact.label',
+                        )}
+                        placeholder={t(
+                            'components_explorer_format_form.compact.placeholder',
+                        )}
                         data={[
                             ...Object.values(Compact).map((c) => ({
                                 value: c,
@@ -181,14 +195,22 @@ export const FormatForm: FC<Props> = ({
                             <TextInput
                                 w={200}
                                 mr="md"
-                                label="Prefix"
-                                placeholder="E.g. GBP revenue:"
+                                label={t(
+                                    'components_explorer_format_form.perfix.label',
+                                )}
+                                placeholder={t(
+                                    'components_explorer_format_form.perfix.placeholder',
+                                )}
                                 {...formatInputProps('prefix')}
                             />
                             <TextInput
                                 w={200}
-                                label="Suffix"
-                                placeholder="E.g. km/h"
+                                label={t(
+                                    'components_explorer_format_form.suffix.label',
+                                )}
+                                placeholder={t(
+                                    'components_explorer_format_form.suffix.placeholder',
+                                )}
                                 {...formatInputProps('suffix')}
                             />
                         </>

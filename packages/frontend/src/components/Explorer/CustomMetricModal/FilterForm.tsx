@@ -14,6 +14,8 @@ import {
     type FC,
     type SetStateAction,
 } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useExplorerContext } from '../../../providers/ExplorerProvider';
 import FilterRuleForm from '../../common/Filters/FilterRuleForm';
 import { useFiltersContext } from '../../common/Filters/FiltersProvider';
@@ -36,6 +38,8 @@ export const FilterForm: FC<{
     customMetricFiltersWithIds,
     setCustomMetricFiltersWithIds,
 }) => {
+    const { t } = useTranslation();
+
     const isEditMode = useExplorerContext(
         (context) => context.state.isEditMode,
     );
@@ -124,7 +128,7 @@ export const FilterForm: FC<{
                 }}
                 disabled={dimensions.length <= 0}
             >
-                Add filter
+                {t('components_explorer_custom_metric_modal.add_filter')}
             </Button>
         </Stack>
     );

@@ -13,7 +13,9 @@ import {
 import { useForm } from '@mantine/form';
 import { IconFolder } from '@tabler/icons-react';
 import { forwardRef, useCallback, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import {
     useDashboards,
     useUpdateMultipleDashboard,
@@ -28,20 +30,6 @@ export enum AddToSpaceResources {
     DASHBOARD = 'dashboard',
     CHART = 'chart',
 }
-
-const getResourceTypeLabel = (resourceType: AddToSpaceResources) => {
-    switch (resourceType) {
-        case AddToSpaceResources.DASHBOARD:
-            return 'Dashboard';
-        case AddToSpaceResources.CHART:
-            return 'Chart';
-        default:
-            return assertUnreachable(
-                resourceType,
-                'Unexpected resource type when getting label',
-            );
-    }
-};
 
 type SelectItemData = {
     value: string;
@@ -84,6 +72,8 @@ type Props = Pick<ModalProps, 'onClose'> & {
 };
 
 const AddResourceToSpaceModal: FC<Props> = ({ resourceType, onClose }) => {
+    const { t } = useTranslation();
+
     const { projectUuid, spaceUuid } = useParams<{
         projectUuid: string;
         spaceUuid: string;
@@ -91,6 +81,20 @@ const AddResourceToSpaceModal: FC<Props> = ({ resourceType, onClose }) => {
     const { user } = useApp();
     const { data: space } = useSpace(projectUuid, spaceUuid);
     const { data: spaces } = useSpaceSummaries(projectUuid);
+
+    const getResourceTypeLabel = (type: AddToSpaceResources) => {
+        switch (type) {
+            case AddToSpaceResources.DASHBOARD:
+                return t('components_explorer_space_browser.dashboard');
+            case AddToSpaceResources.CHART:
+                return t('components_explorer_space_browser.chart');
+            default:
+                return assertUnreachable(
+                    type,
+                    'Unexpected resource type when getting label',
+                );
+        }
+    };
 
     const { data: savedCharts, isLoading } = useChartSummaries(projectUuid, {
         select: (data) => {
@@ -160,9 +164,9 @@ const AddResourceToSpaceModal: FC<Props> = ({ resourceType, onClose }) => {
                 label: name,
                 disabled,
                 title: disabled
-                    ? `${getResourceTypeLabel(
-                          resourceType,
-                      )} already added on this space ${spaceName}`
+                    ? `${getResourceTypeLabel(resourceType)} ${t(
+                          'components_explorer_space_browser.add_modal.added',
+                      )} ${spaceName}`
                     : '',
                 spaceName,
             };
@@ -212,13 +216,24 @@ const AddResourceToSpaceModal: FC<Props> = ({ resourceType, onClose }) => {
         <Modal
             opened
             onClose={closeModal}
-            title={<Title order={4}>{`Add ${resourceType} to space`}</Title>}
+            title={
+                <Title order={4}>
+                    {t('components_explorer_space_browser.add_modal.title', {
+                        resourceType: getResourceTypeLabel(resourceType),
+                    })}
+                </Title>
+            }
         >
             <form name="add_items_to_space" onSubmit={handleSubmit}>
                 <Stack spacing="xs" pt="sm">
                     <Text>
-                        Select the {resourceType}s that you would like to move
-                        into{' '}
+                        {t(
+                            'components_explorer_space_browser.add_modal.content',
+                            {
+                                resourceType:
+                                    getResourceTypeLabel(resourceType),
+                            },
+                        )}
                         <Text span fw={500}>
                             {space?.name}
                         </Text>
@@ -239,12 +254,15 @@ const AddResourceToSpaceModal: FC<Props> = ({ resourceType, onClose }) => {
 
                 <Group position="right" mt="sm">
                     <Button variant="outline" onClick={closeModal}>
-                        Cancel
+                        {t(
+                            'components_explorer_space_browser.add_modal.cancel',
+                        )}
                     </Button>
-                    <Button
-                        disabled={isLoading}
-                        type="submit"
-                    >{`Move ${resourceType}s`}</Button>
+                    <Button disabled={isLoading} type="submit">
+                        {t('components_explorer_space_browser.add_modal.move', {
+                            resourceType: getResourceTypeLabel(resourceType),
+                        })}
+                    </Button>
                 </Group>
             </form>
         </Modal>
