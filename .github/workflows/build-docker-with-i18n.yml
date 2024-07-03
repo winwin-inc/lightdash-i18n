@@ -2,7 +2,6 @@ name: Build & Deploy to Docker Hub - i18n
 
 on:
     push:
-        branches: ['release']
         tags:
             - '*'
             - '!*-alpha*'
