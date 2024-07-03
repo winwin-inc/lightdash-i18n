@@ -290,6 +290,46 @@
     "features_catalog_context": {
         "catalog_context_used": "useCatalogContext must be used within a CatalogProvider"
     },
+    "features_catalog_filter_search": {
+        "labels": {
+            "all_item_types": "All item types",
+            "tables": "Tables",
+            "metrics": "Metrics",
+            "dimensions": "Dimensions"
+        },
+        "search_by": "Search by"
+    },
+
+    "features_sql_runner_content_panel": {
+        "columns": {
+            "id": "ID",
+            "name": "Name",
+            "age": "Age",
+            "country": "Country"
+        },
+        "sql_panel": "SQL panel",
+        "run_query": "Run query",
+        "results_chart_panel": "Results/Chart panel",
+        "collapse": "Collapse",
+        "expand": "Expand"
+    },
+    "features_sql_runner_header": {
+        "untitled_sql_query": "Untitled SQL query",
+        "save_chart": "Save chart",
+        "share_url": "Share URL"
+    },
+    "features_sql_runner_right_sidebar": {
+        "configure_chart": "Configure chart",
+        "close_sidebar": "Close sidebar",
+        "todo_form": "TODO: form"
+    },
+    "features_sql_runner_sidebar": {
+        "sql_runner": "SQL RUNNER",
+        "close_sidebar": "Close sidebar"
+    },
+    "features_sql_runner_table_fields": {
+        "no_table_selected": "No table selected"
+    },
 
     "features_comments_components_comment_mentions": {
         "add_comment": "Add comment (type @ to tag someone)",
@@ -3319,6 +3359,10 @@
     },
     "components_sql_runner_results_table": {
         "description": "Click run query to see your results"
+    },
+    "pages_sql_runner_new": {
+        "sql_runner": "SQL Runner",
+        "open_sidebar": "Open sidebar"
     },
 
     "components_simple_chart": {

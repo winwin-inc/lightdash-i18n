@@ -290,6 +290,46 @@
     "features_catalog_context": {
         "catalog_context_used": "必须在 CatalogProvider 内部使用 useCatalogContext"
     },
+    "features_catalog_filter_search": {
+        "labels": {
+            "all_item_types": "所有项目类型",
+            "tables": "表格",
+            "metrics": "指标",
+            "dimensions": "维度"
+        },
+        "search_by": "按以下搜索"
+    },
+
+    "features_sql_runner_content_panel": {
+        "columns": {
+            "id": "ID",
+            "name": "名称",
+            "age": "年龄",
+            "country": "国家"
+        },
+        "sql_panel": "SQL面板",
+        "run_query": "运行查询",
+        "results_chart_panel": "结果/图表面板",
+        "collapse": "折叠",
+        "expand": "展开"
+    },
+    "features_sql_runner_header": {
+        "untitled_sql_query": "无标题SQL查询",
+        "save_chart": "保存图表",
+        "share_url": "分享URL"
+    },
+    "features_sql_runner_right_sidebar": {
+        "configure_chart": "配置图表",
+        "close_sidebar": "关闭侧边栏",
+        "todo_form": "TODO: 表单"
+    },
+    "features_sql_runner_sidebar": {
+        "sql_runner": "SQL运行器",
+        "close_sidebar": "关闭侧边栏"
+    },
+    "features_sql_runner_table_fields": {
+        "no_table_selected": "未选择表格"
+    },
 
     "features_comments_components_comment_mentions": {
         "add_comment": "添加评论 (输入 @ 可标记某人)",
@@ -3323,6 +3363,10 @@
     },
     "components_sql_runner_results_table": {
         "description": "单击运行查询以查看结果"
+    },
+    "pages_sql_runner_new": {
+        "sql_runner": "SQL运行器",
+        "open_sidebar": "打开侧边栏"
     },
 
     "components_simple_chart": {

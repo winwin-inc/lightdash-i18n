@@ -14,6 +14,7 @@ import {
     SupportedDbtAdapter,
     WarehouseConnectionError,
     WarehouseQueryError,
+    WarehouseResults,
 } from '@lightdash/common';
 import { WarehouseCatalog } from '../types';
 import WarehouseBaseClient from './WarehouseBaseClient';
@@ -226,33 +227,43 @@ export class DatabricksWarehouseClient extends WarehouseBaseClient<CreateDatabri
         };
     }
 
-    async runQuery(
+    async streamQuery(
         sql: string,
-        tags?: Record<string, string>,
-        timezone?: string,
-    ) {
+        streamCallback: (data: WarehouseResults) => void,
+        options: {
+            values?: any[];
+            tags?: Record<string, string>;
+            timezone?: string;
+        },
+    ): Promise<void> {
         const { session, close } = await this.getSession();
         let query: IOperation | null = null;
 
         let alteredQuery = sql;
-        if (tags) {
-            alteredQuery = `${alteredQuery}\n-- ${JSON.stringify(tags)}`;
+        if (options?.tags) {
+            alteredQuery = `${alteredQuery}\n-- ${JSON.stringify(
+                options?.tags,
+            )}`;
         }
 
         try {
-            if (timezone) {
-                console.debug(`Setting databricks timezone to ${timezone}`);
-                await session.executeStatement(`SET TIME ZONE '${timezone}'`, {
-                    runAsync: false,
-                });
+            if (options?.timezone) {
+                console.debug(
+                    `Setting databricks timezone to ${options?.timezone}`,
+                );
+                await session.executeStatement(
+                    `SET TIME ZONE '${options?.timezone}'`,
+                    {
+                        runAsync: false,
+                    },
+                );
             }
             query = await session.executeStatement(alteredQuery, {
                 runAsync: true,
+                ordinalParameters: options?.values,
             });
 
-            const result = await query.fetchAll();
             const schema = await query.getSchema();
-
             const fields = (schema?.columns ?? []).reduce<
                 Record<string, { type: DimensionType }>
             >(
@@ -268,7 +279,12 @@ export class DatabricksWarehouseClient extends WarehouseBaseClient<CreateDatabri
                 {},
             );
 
-            return { fields, rows: result };
+            do {
+                // eslint-disable-next-line no-await-in-loop
+                const chunk = await query.fetchChunk();
+                streamCallback({ fields, rows: chunk });
+                // eslint-disable-next-line no-await-in-loop
+            } while (await query.hasMoreRows());
         } catch (e: any) {
             throw new WarehouseQueryError(e.message);
         } finally {
@@ -359,5 +375,53 @@ export class DatabricksWarehouseClient extends WarehouseBaseClient<CreateDatabri
             default:
                 return super.getMetricSql(sql, metric);
         }
+    }
+
+    async getTables(
+        schema?: string,
+        tags?: Record<string, string>,
+    ): Promise<WarehouseCatalog> {
+        const schemaFilter = schema ? `AND table_schema = ?` : '';
+        const query = `
+            SELECT table_catalog, table_schema, table_name
+            FROM information_schema.tables
+            WHERE table_type = 'BASE TABLE' 
+            ${schemaFilter}
+            ORDER BY 1,2,3
+        `;
+        const { rows } = await this.runQuery(
+            query,
+            tags,
+            undefined,
+            schema ? [schema] : undefined,
+        );
+        return this.parseWarehouseCatalog(rows, mapFieldType);
+    }
+
+    async getFields(
+        tableName: string,
+        schema?: string,
+        tags?: Record<string, string>,
+    ): Promise<WarehouseCatalog> {
+        const schemaFilter = schema ? `AND table_schema = ?` : '';
+
+        const query = `
+            SELECT table_catalog,
+                   table_schema,
+                   table_name,
+                   column_name, 
+                   data_type
+            FROM information_schema.columns
+            WHERE table_name = ?
+            ${schemaFilter};
+        `;
+        const { rows } = await this.runQuery(
+            query,
+            tags,
+            undefined,
+            schema ? [tableName, schema] : [tableName],
+        );
+
+        return this.parseWarehouseCatalog(rows, mapFieldType);
     }
 }

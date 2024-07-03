@@ -7,6 +7,7 @@ import {
     ApiChartAndResults,
     ApiQueryResults,
     ApiSqlQueryResults,
+    assertUnreachable,
     CacheMetadata,
     CalculateTotalFromQuery,
     ChartSummary,
@@ -89,7 +90,10 @@ import {
     UpdateProjectMember,
     UserAttributeValueMap,
     UserWarehouseCredentials,
+    WarehouseCatalog,
     WarehouseClient,
+    WarehouseCredentials,
+    WarehouseTableSchema,
     WarehouseTypes,
     type ApiCreateProjectResults,
 } from '@lightdash/common';
@@ -1808,7 +1812,6 @@ export class ProjectService extends BaseService {
                                 : {}),
                         },
                     });
-
                     this.logger.debug(
                         `Fetch query results from cache or warehouse`,
                     );
@@ -2569,6 +2572,132 @@ export class ProjectService extends BaseService {
             }
             return acc;
         }, {});
+    }
+
+    private static getWarehouseSchema(
+        credentials: WarehouseCredentials,
+    ): string | undefined {
+        switch (credentials.type) {
+            case WarehouseTypes.BIGQUERY:
+                return credentials.dataset;
+            case WarehouseTypes.DATABRICKS:
+                return credentials.catalog;
+            default:
+                return credentials.schema;
+        }
+    }
+
+    private static getWarehouseDatabase(
+        credentials: WarehouseCredentials,
+    ): string | undefined {
+        switch (credentials.type) {
+            case WarehouseTypes.BIGQUERY:
+                return credentials.project;
+            case WarehouseTypes.REDSHIFT:
+            case WarehouseTypes.POSTGRES:
+            case WarehouseTypes.TRINO:
+                return credentials.dbname;
+            case WarehouseTypes.SNOWFLAKE:
+            case WarehouseTypes.DATABRICKS:
+                return credentials.database.toLowerCase();
+            default:
+                return assertUnreachable(credentials, 'Unknown warehouse type');
+        }
+    }
+
+    async getWarehouseTables(
+        user: SessionUser,
+        projectUuid: string,
+    ): Promise<WarehouseCatalog> {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+        if (
+            user.ability.cannot(
+                'manage',
+                subject('CustomSql', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const credentials = await this.getWarehouseCredentials(
+            projectUuid,
+            user.userUuid,
+        );
+        const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
+            projectUuid,
+            credentials,
+        );
+
+        const schema = ProjectService.getWarehouseSchema(credentials);
+
+        const queryTags: RunQueryTags = {
+            organization_uuid: user.organizationUuid,
+            project_uuid: projectUuid,
+            user_uuid: user.userUuid,
+        };
+        const warehouseTables = warehouseClient.getTables(schema, queryTags);
+
+        await sshTunnel.disconnect();
+
+        return warehouseTables;
+    }
+
+    async getWarehouseFields(
+        user: SessionUser,
+        projectUuid: string,
+        tableName: string,
+    ): Promise<WarehouseTableSchema> {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+        if (
+            user.ability.cannot(
+                'manage',
+                subject('CustomSql', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+        const credentials = await this.getWarehouseCredentials(
+            projectUuid,
+            user.userUuid,
+        );
+
+        const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
+            projectUuid,
+            credentials,
+        );
+
+        const queryTags: RunQueryTags = {
+            organization_uuid: user.organizationUuid,
+            project_uuid: projectUuid,
+            user_uuid: user.userUuid,
+        };
+        const schema = ProjectService.getWarehouseSchema(credentials);
+        const database = ProjectService.getWarehouseDatabase(credentials);
+
+        if (!schema) {
+            throw new NotFoundError(
+                'Schema not found in warehouse credentials',
+            );
+        }
+        if (!database) {
+            throw new NotFoundError(
+                'Database not found in warehouse credentials',
+            );
+        }
+
+        const warehouseCatalog = await warehouseClient.getFields(
+            tableName,
+            schema,
+            queryTags,
+        );
+
+        await sshTunnel.disconnect();
+
+        return warehouseCatalog[database][schema][tableName];
     }
 
     async getTablesConfiguration(
