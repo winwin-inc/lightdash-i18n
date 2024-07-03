@@ -4,7 +4,7 @@ import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import Backend from 'i18next-http-backend';
 
-await i18n
+i18n
     // learn more: https://github.com/i18next/i18next-http-backend
     .use(Backend)
     // learn more: https://github.com/i18next/i18next-browser-languageDetector
@@ -22,6 +22,8 @@ await i18n
         interpolation: {
             escapeValue: false, // not needed for react as it escapes by default
         },
-    });
+    })
+    .then(() => {})
+    .catch(() => {});
 
 export default i18n;
