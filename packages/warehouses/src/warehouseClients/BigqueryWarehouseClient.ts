@@ -15,6 +15,7 @@ import {
     SupportedDbtAdapter,
     WarehouseConnectionError,
     WarehouseQueryError,
+    WarehouseResults,
 } from '@lightdash/common';
 import { pipeline, Transform, Writable } from 'stream';
 import { WarehouseCatalog, WarehouseTableSchema } from '../types';
@@ -125,16 +126,19 @@ export class BigqueryWarehouseClient extends WarehouseBaseClient<CreateBigqueryC
         }
     }
 
-    async runQuery(
+    async streamQuery(
         query: string,
-        tags?: Record<string, string>,
-        timezone?: string,
-    ) {
+        streamCallback: (data: WarehouseResults) => void,
+        options: {
+            values?: any[];
+            tags?: Record<string, string>;
+            timezone?: string;
+        },
+    ): Promise<void> {
         try {
-            const rows: Record<string, any>[] = [];
-
             const [job] = await this.client.createQueryJob({
                 query,
+                params: options?.values,
                 useLegacySql: false,
                 maximumBytesBilled:
                     this.credentials.maximumBytesBilled === undefined
@@ -144,7 +148,7 @@ export class BigqueryWarehouseClient extends WarehouseBaseClient<CreateBigqueryC
                 jobTimeoutMs:
                     this.credentials.timeoutSeconds &&
                     this.credentials.timeoutSeconds * 1000,
-                labels: tags,
+                labels: options?.tags,
             });
 
             // Get the full api response but we can request zero rows
@@ -165,34 +169,33 @@ export class BigqueryWarehouseClient extends WarehouseBaseClient<CreateBigqueryC
                 }
                 return acc;
             }, {});
-            const writePromise = new Promise<{ fields: {}; rows: any[] }>(
-                (resolve, reject) => {
-                    pipeline(
-                        job.getQueryResultsStream(),
-                        new Transform({
-                            objectMode: true,
-                            transform(chunk, encoding, callback) {
-                                callback(null, parseRow(chunk));
-                            },
-                        }),
-                        new Writable({
-                            objectMode: true,
-                            write(chunk, encoding, callback) {
-                                rows.push(chunk);
-                                callback();
-                            },
-                        }),
-                        async (err) => {
-                            if (err) {
-                                reject(err);
-                            }
-                            resolve({ fields, rows });
-                        },
-                    );
-                },
-            );
 
-            return await writePromise;
+            const streamPromise = new Promise<void>((resolve, reject) => {
+                pipeline(
+                    job.getQueryResultsStream(),
+                    new Transform({
+                        objectMode: true,
+                        transform(chunk, _encoding, callback) {
+                            callback(null, parseRow(chunk));
+                        },
+                    }),
+                    new Writable({
+                        objectMode: true,
+                        write(chunk, _encoding, callback) {
+                            streamCallback({ fields, rows: [chunk] });
+                            callback();
+                        },
+                    }),
+                    async (err) => {
+                        if (err) {
+                            reject(err);
+                        }
+                        resolve();
+                    },
+                );
+            });
+
+            await streamPromise;
         } catch (e) {
             throw new WarehouseQueryError(e.message);
         }
@@ -289,5 +292,51 @@ export class BigqueryWarehouseClient extends WarehouseBaseClient<CreateBigqueryC
             default:
                 return super.getMetricSql(sql, metric);
         }
+    }
+
+    async getTables(schema: string): Promise<WarehouseCatalog> {
+        const client = new BigQuery({
+            projectId: this.credentials.project,
+            location: this.credentials.location,
+            maxRetries: this.credentials.retries,
+            credentials: this.credentials.keyfileContents,
+        });
+        const dataset = client.dataset(schema);
+        const tables = (await dataset.getTables())?.[0] ?? [];
+        return this.parseWarehouseCatalog(
+            tables.map((table) => ({
+                table_catalog: table.dataset.bigQuery.projectId,
+                table_schema: table.dataset.id,
+                table_name: table.id,
+            })),
+            mapFieldType,
+        );
+    }
+
+    async getFields(
+        tableName: string,
+        schema: string,
+    ): Promise<WarehouseCatalog> {
+        const client = new BigQuery({
+            projectId: this.credentials.project,
+            location: this.credentials.location,
+            maxRetries: this.credentials.retries,
+            credentials: this.credentials.keyfileContents,
+        });
+        const dataset = client.dataset(schema);
+        const schemas = await BigqueryWarehouseClient.getTableMetadata(
+            dataset,
+            tableName,
+        );
+        return this.parseWarehouseCatalog(
+            schemas[3].fields.map((column) => ({
+                table_catalog: schemas[0],
+                table_schema: schemas[1],
+                table_name: schemas[2],
+                column_name: column.name,
+                data_type: column.type,
+            })),
+            mapFieldType,
+        );
     }
 }

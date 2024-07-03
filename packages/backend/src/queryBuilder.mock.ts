@@ -14,7 +14,9 @@ import {
     MetricType,
     SupportedDbtAdapter,
     TimeFrames,
+    WarehouseCatalog,
     WarehouseClient,
+    WarehouseResults,
     WarehouseTypes,
 } from '@lightdash/common';
 
@@ -31,6 +33,13 @@ export const warehouseClientMock: WarehouseClient = {
             },
         },
     }),
+    streamQuery(query, streamCallback) {
+        streamCallback({
+            fields: {},
+            rows: [],
+        });
+        return Promise.resolve();
+    },
     runQuery: () =>
         Promise.resolve({
             fields: {},
@@ -50,6 +59,25 @@ export const warehouseClientMock: WarehouseClient = {
     },
     getAdapterType: () => SupportedDbtAdapter.POSTGRES,
     concatString: (...args) => `(${args.join(' || ')})`,
+    getTables(
+        schema?: string | undefined,
+        tags?: Record<string, string> | undefined,
+    ): Promise<WarehouseCatalog> {
+        throw new Error('Function not implemented.');
+    },
+    getFields(
+        tableName: string,
+        schema?: string | undefined,
+        tags?: Record<string, string> | undefined,
+    ): Promise<WarehouseCatalog> {
+        throw new Error('Function not implemented.');
+    },
+    parseWarehouseCatalog(
+        rows: Record<string, any>[],
+        mapFieldType: (type: string) => DimensionType,
+    ): WarehouseCatalog {
+        throw new Error('Function not implemented.');
+    },
 };
 
 export const bigqueryClientMock: WarehouseClient = {
@@ -65,6 +93,13 @@ export const bigqueryClientMock: WarehouseClient = {
             },
         },
     }),
+    streamQuery(query, streamCallback) {
+        streamCallback({
+            fields: {},
+            rows: [],
+        });
+        return Promise.resolve();
+    },
     runQuery: () =>
         Promise.resolve({
             fields: {},
@@ -77,6 +112,25 @@ export const bigqueryClientMock: WarehouseClient = {
     getMetricSql: () => '',
     getAdapterType: () => SupportedDbtAdapter.BIGQUERY,
     concatString: (...args) => `CONCAT(${args.join(', ')})`,
+    getTables(
+        schema?: string | undefined,
+        tags?: Record<string, string> | undefined,
+    ): Promise<WarehouseCatalog> {
+        throw new Error('Function not implemented.');
+    },
+    getFields(
+        tableName: string,
+        schema?: string | undefined,
+        tags?: Record<string, string> | undefined,
+    ): Promise<WarehouseCatalog> {
+        throw new Error('Function not implemented.');
+    },
+    parseWarehouseCatalog(
+        rows: Record<string, any>[],
+        mapFieldType: (type: string) => DimensionType,
+    ): WarehouseCatalog {
+        throw new Error('Function not implemented.');
+    },
 };
 
 export const emptyTable = (name: string): CompiledTable => ({

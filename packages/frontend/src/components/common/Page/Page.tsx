@@ -19,6 +19,7 @@ import Sidebar, { SidebarPosition, type SidebarWidthProps } from './Sidebar';
 type StyleProps = {
     withCenteredContent?: boolean;
     withFitContent?: boolean;
+    withLargeContent?: boolean;
     withFixedContent?: boolean;
     withFooter?: boolean;
     withFullHeight?: boolean;
@@ -28,7 +29,9 @@ type StyleProps = {
     withSidebar?: boolean;
     withSidebarFooter?: boolean;
     withRightSidebar?: boolean;
+    flexContent?: boolean;
     hasBanner?: boolean;
+    noContentPadding?: boolean;
 };
 
 export const PAGE_CONTENT_WIDTH = 900;
@@ -47,7 +50,6 @@ const usePageStyles = createStyles<string, StyleProps>((theme, params) => {
     if (params.hasBanner) {
         containerHeight = `calc(${containerHeight} - ${BANNER_HEIGHT}px)`;
     }
-
     return {
         root: {
             ...(params.withFullHeight
@@ -70,11 +72,17 @@ const usePageStyles = createStyles<string, StyleProps>((theme, params) => {
         },
 
         content: {
-            paddingTop: theme.spacing.lg,
-            paddingBottom: theme.spacing.lg,
-
             width: '100%',
             minWidth: PAGE_CONTENT_WIDTH,
+            ...(params.flexContent ? { display: 'flex' } : {}),
+            ...(params.noContentPadding
+                ? {
+                      padding: 0,
+                  }
+                : {
+                      paddingTop: theme.spacing.lg,
+                      paddingBottom: theme.spacing.lg,
+                  }),
 
             ...(params.withSidebar || params.withRightSidebar
                 ? {
@@ -118,7 +126,7 @@ const usePageStyles = createStyles<string, StyleProps>((theme, params) => {
                   }
                 : {}),
 
-            ...(params.withRightSidebar
+            ...(params.withLargeContent
                 ? {
                       width: PAGE_CONTENT_WIDTH_LARGE,
                   }
@@ -164,11 +172,14 @@ const Page: FC<React.PropsWithChildren<Props>> = ({
     withCenteredContent = false,
     withFitContent = false,
     withFixedContent = false,
+    withLargeContent = false,
     withFooter = false,
     withFullHeight = false,
     withNavbar = true,
     withPaddedContent = false,
     withSidebarFooter = false,
+    noContentPadding = false,
+    flexContent = false,
 
     children,
 }) => {
@@ -189,6 +200,7 @@ const Page: FC<React.PropsWithChildren<Props>> = ({
             withCenteredContent,
             withFitContent,
             withFixedContent,
+            withLargeContent,
             withFooter,
             withFullHeight,
             withHeader: !!header,
@@ -198,6 +210,8 @@ const Page: FC<React.PropsWithChildren<Props>> = ({
             withSidebarFooter,
             withRightSidebar: !!rightSidebar,
             hasBanner: isCurrentProjectPreview,
+            noContentPadding,
+            flexContent,
         },
         { name: 'Page' },
     );
