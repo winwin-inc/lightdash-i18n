@@ -10,6 +10,7 @@ import HelpMenu from './HelpMenu';
 import { NotificationsMenu } from './NotificationsMenu';
 import ProjectSwitcher from './ProjectSwitcher';
 import SettingsMenu from './SettingsMenu';
+import SwitchLanguage from './SwitchLanguage';
 import UserCredentialsSwitcher from './UserCredentialsSwitcher';
 import UserMenu from './UserMenu';
 
@@ -67,6 +68,8 @@ export const MainNavBarContent: FC<Props> = ({
 
                     <ProjectSwitcher />
                 </Button.Group>
+
+                <SwitchLanguage />
 
                 <UserCredentialsSwitcher />
                 <UserMenu />

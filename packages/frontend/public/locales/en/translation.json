@@ -1604,7 +1604,7 @@
             "invite": {
                 "title": "Invite user"
             },
-            "louout": {
+            "logout": {
                 "title": "Logout"
             }
         }
@@ -1748,7 +1748,7 @@
     },
     "components_common_modal_dashboard_create": {
         "title": "Create Dashboard",
-        "form_dashboard": {
+        "form": {
             "name": {
                 "label": "Name your dashboard",
                 "placeholder": "eg. KPI Dashboard"
