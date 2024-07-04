@@ -26,7 +26,7 @@ const SwitchLanguage: FC = () => {
                 size="xs"
                 value={language}
                 data={languages}
-                style={{ width: 100 }}
+                style={{ width: 88 }}
                 onChange={handleLanguageChange}
             />
         </Suspense>

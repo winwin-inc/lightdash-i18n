@@ -1,7 +1,14 @@
 import { Button, Menu, Text, Tooltip } from '@mantine/core';
 import { useInterval } from '@mantine/hooks';
 import { IconChevronDown, IconRefresh } from '@tabler/icons-react';
-import { useCallback, useEffect, useState } from 'react';
+import {
+    memo,
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type FC,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useDashboardRefresh } from '../../../hooks/dashboard/useDashboardRefresh';
@@ -32,166 +39,206 @@ const REFRESH_INTERVAL_OPTIONS = [
     },
 ];
 
-export const DashboardRefreshButton = () => {
-    const { t } = useTranslation();
-    const { showToastSuccess } = useToaster();
-    const [isOpen, setIsOpen] = useState(false);
-    const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
-    const [refreshInterval, setRefreshInterval] = useState<
-        undefined | number
-    >();
+type DashboardRefreshButtonProps = {
+    onIntervalChange: (intervalMin?: number) => void;
+};
 
-    const { isFetching, invalidateDashboardRelatedQueries } =
-        useDashboardRefresh();
-    const clearCacheAndFetch = useDashboardContext((c) => c.clearCacheAndFetch);
+export const DashboardRefreshButton: FC<DashboardRefreshButtonProps> = memo(
+    ({ onIntervalChange }) => {
+        const { t } = useTranslation();
 
-    const isOneAtLeastFetching = isFetching > 0;
+        const { showToastSuccess } = useToaster();
+        const [isOpen, setIsOpen] = useState(false);
+        const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(
+            null,
+        );
+        const [refreshInterval, setRefreshInterval] = useState<
+            undefined | number
+        >();
+        const hasInterval = useMemo(
+            () => Boolean(refreshInterval),
+            [refreshInterval],
+        );
 
-    const invalidateAndSetRefreshTime = useCallback(async () => {
-        clearCacheAndFetch();
-        await invalidateDashboardRelatedQueries();
-        setLastRefreshTime(new Date());
-    }, [clearCacheAndFetch, invalidateDashboardRelatedQueries]);
+        const { isFetching, invalidateDashboardRelatedQueries } =
+            useDashboardRefresh();
+        const clearCacheAndFetch = useDashboardContext(
+            (c) => c.clearCacheAndFetch,
+        );
 
-    const interval = useInterval(
-        () => invalidateAndSetRefreshTime(),
-        refreshInterval ? refreshInterval * 1000 * 60 : 0,
-    );
+        const isOneAtLeastFetching = isFetching > 0;
 
-    useEffect(() => {
-        if (refreshInterval !== undefined) {
-            interval.start();
-        }
-        return interval.stop;
-    }, [interval, refreshInterval, showToastSuccess]);
+        const invalidateAndSetRefreshTime = useCallback(async () => {
+            clearCacheAndFetch();
+            await invalidateDashboardRelatedQueries();
+            setLastRefreshTime(new Date());
+        }, [clearCacheAndFetch, invalidateDashboardRelatedQueries]);
 
-    return (
-        <Button.Group>
-            <Tooltip
-                withinPortal
-                position="bottom"
-                label={
-                    <Text>
-                        {t(
-                            'components_common_dashboard_refresh_button.last_refreshed',
-                        )}
-                        :{' '}
-                        {lastRefreshTime
-                            ? lastRefreshTime.toLocaleTimeString()
-                            : t(
-                                  'components_common_dashboard_refresh_button.never',
-                              )}
-                    </Text>
-                }
-            >
-                <Button
-                    size="xs"
-                    h={28}
-                    miw="sm"
-                    variant="default"
-                    loading={isOneAtLeastFetching}
-                    loaderPosition="center"
-                    onClick={() => invalidateAndSetRefreshTime()}
-                >
-                    {interval.active && refreshInterval ? (
-                        <Text
-                            span
-                            mr="xs"
-                            c={isOneAtLeastFetching ? 'transparent' : 'gray.7'}
-                        >
+        const interval = useInterval(
+            () => invalidateAndSetRefreshTime(),
+            refreshInterval ? refreshInterval * 1000 * 60 : 0,
+        );
+
+        useEffect(() => {
+            return () => {
+                if (!hasInterval) return;
+                onIntervalChange(undefined);
+            };
+        }, [hasInterval, onIntervalChange]);
+
+        useEffect(() => {
+            if (refreshInterval !== undefined) {
+                interval.start();
+            }
+            return interval.stop;
+        }, [interval, refreshInterval]);
+
+        return (
+            <Button.Group>
+                <Tooltip
+                    withinPortal
+                    position="bottom"
+                    label={
+                        <Text>
                             {t(
-                                'components_common_dashboard_refresh_button.every',
-                            )}{' '}
-                            {
-                                REFRESH_INTERVAL_OPTIONS.find(
-                                    ({ value }) => refreshInterval === +value,
-                                )?.label
-                            }
+                                'components_common_dashboard_refresh_button.last_refreshed',
+                            )}
+                            :{' '}
+                            {lastRefreshTime
+                                ? lastRefreshTime.toLocaleTimeString()
+                                : t(
+                                      'components_common_dashboard_refresh_button.never',
+                                  )}
                         </Text>
-                    ) : null}
-                    <MantineIcon
-                        icon={IconRefresh}
-                        color={isOneAtLeastFetching ? 'transparent' : 'black'}
-                    />
-                </Button>
-            </Tooltip>
-            <Menu
-                withinPortal
-                withArrow
-                closeOnItemClick
-                closeOnClickOutside
-                opened={isOpen}
-                onClose={() => setIsOpen((prev) => !prev)}
-            >
-                <Menu.Target>
+                    }
+                >
                     <Button
                         size="xs"
-                        variant="default"
                         h={28}
-                        w="md"
-                        disabled={isOneAtLeastFetching}
-                        p={0}
-                        onClick={() => setIsOpen((prev) => !prev)}
+                        miw="sm"
+                        variant="default"
+                        loading={isOneAtLeastFetching}
+                        loaderPosition="center"
+                        onClick={() => invalidateAndSetRefreshTime()}
                     >
-                        <MantineIcon size="sm" icon={IconChevronDown} />
+                        {interval.active && refreshInterval ? (
+                            <Text
+                                span
+                                mr="xs"
+                                c={
+                                    isOneAtLeastFetching
+                                        ? 'transparent'
+                                        : 'gray.7'
+                                }
+                            >
+                                {t(
+                                    'components_common_dashboard_refresh_button.every',
+                                )}{' '}
+                                {
+                                    REFRESH_INTERVAL_OPTIONS.find(
+                                        ({ value }) =>
+                                            refreshInterval === +value,
+                                    )?.label
+                                }
+                            </Text>
+                        ) : null}
+                        <MantineIcon
+                            icon={IconRefresh}
+                            color={
+                                isOneAtLeastFetching ? 'transparent' : 'black'
+                            }
+                        />
                     </Button>
-                </Menu.Target>
-                <Menu.Dropdown>
-                    <Menu.Label>
-                        {t(
-                            'components_common_dashboard_refresh_button.auto_refresh',
-                        )}
-                    </Menu.Label>
-                    <Menu.Item
-                        fz="xs"
-                        onClick={() => {
-                            setRefreshInterval(undefined);
-                        }}
-                        disabled={refreshInterval === undefined}
-                        bg={refreshInterval === undefined ? 'blue' : 'white'}
-                        sx={{
-                            '&[disabled]': {
-                                color:
-                                    refreshInterval === undefined
-                                        ? 'white'
-                                        : 'black',
-                            },
-                        }}
-                    >
-                        {t('components_common_dashboard_refresh_button.off')}
-                    </Menu.Item>
-                    {REFRESH_INTERVAL_OPTIONS.map(({ value, label }) => (
+                </Tooltip>
+                <Menu
+                    withinPortal
+                    withArrow
+                    closeOnItemClick
+                    closeOnClickOutside
+                    opened={isOpen}
+                    onClose={() => setIsOpen((prev) => !prev)}
+                >
+                    <Menu.Target>
+                        <Button
+                            size="xs"
+                            variant="default"
+                            h={28}
+                            w="md"
+                            disabled={isOneAtLeastFetching}
+                            p={0}
+                            onClick={() => setIsOpen((prev) => !prev)}
+                        >
+                            <MantineIcon size="sm" icon={IconChevronDown} />
+                        </Button>
+                    </Menu.Target>
+                    <Menu.Dropdown>
+                        <Menu.Label>
+                            {t(
+                                'components_common_dashboard_refresh_button.auto_refresh',
+                            )}
+                        </Menu.Label>
                         <Menu.Item
                             fz="xs"
-                            key={value}
                             onClick={() => {
-                                setRefreshInterval(+value);
-                                showToastSuccess({
-                                    title: `${t(
-                                        'components_common_dashboard_refresh_button.toast_refresh',
-                                    )} ${
-                                        REFRESH_INTERVAL_OPTIONS.find(
-                                            (option) => value === option.value,
-                                        )?.label
-                                    }`,
-                                });
+                                setRefreshInterval(undefined);
                             }}
-                            bg={refreshInterval === +value ? 'blue' : 'white'}
-                            disabled={refreshInterval === +value}
+                            disabled={refreshInterval === undefined}
+                            bg={
+                                refreshInterval === undefined ? 'blue' : 'white'
+                            }
                             sx={{
                                 '&[disabled]': {
                                     color:
-                                        refreshInterval === +value
+                                        refreshInterval === undefined
                                             ? 'white'
                                             : 'black',
                                 },
                             }}
                         >
-                            {label}
+                            {t(
+                                'components_common_dashboard_refresh_button.off',
+                            )}
                         </Menu.Item>
-                    ))}
-                </Menu.Dropdown>
-            </Menu>
-        </Button.Group>
-    );
-};
+                        {REFRESH_INTERVAL_OPTIONS.map(({ value, label }) => (
+                            <Menu.Item
+                                fz="xs"
+                                key={value}
+                                onClick={() => {
+                                    const valNum = +value;
+                                    setRefreshInterval(valNum);
+                                    onIntervalChange(valNum);
+                                    showToastSuccess({
+                                        title: `${t(
+                                            'components_common_dashboard_refresh_button.toast_refresh',
+                                        )} ${
+                                            REFRESH_INTERVAL_OPTIONS.find(
+                                                (option) =>
+                                                    value === option.value,
+                                            )?.label
+                                        }`,
+                                    });
+                                }}
+                                bg={
+                                    refreshInterval === +value
+                                        ? 'blue'
+                                        : 'white'
+                                }
+                                disabled={refreshInterval === +value}
+                                sx={{
+                                    '&[disabled]': {
+                                        color:
+                                            refreshInterval === +value
+                                                ? 'white'
+                                                : 'black',
+                                    },
+                                }}
+                            >
+                                {label}
+                            </Menu.Item>
+                        ))}
+                    </Menu.Dropdown>
+                </Menu>
+            </Button.Group>
+        );
+    },
+);

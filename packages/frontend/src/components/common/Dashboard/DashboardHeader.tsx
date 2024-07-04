@@ -34,7 +34,7 @@ import {
     IconUpload,
 } from '@tabler/icons-react';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation, useParams } from 'react-router-dom';
 import { useToggle } from 'react-use';
@@ -183,6 +183,28 @@ const DashboardHeader = ({
         }),
     );
 
+    const handleDashboardRefreshUpdateEvent = useCallback(
+        (intervalMin?: number) => {
+            track({
+                name: EventName.DASHBOARD_AUTO_REFRESH_UPDATED,
+                properties: {
+                    userId: user.data?.userUuid,
+                    dashboardId: dashboardUuid,
+                    organizationId: organizationUuid,
+                    projectId: projectUuid,
+                    frequency: intervalMin ? `${intervalMin} minutes` : 'off',
+                },
+            });
+        },
+        [
+            dashboardUuid,
+            organizationUuid,
+            projectUuid,
+            track,
+            user.data?.userUuid,
+        ],
+    );
+
     return (
         <PageHeader
             cardProps={{
@@ -316,7 +338,11 @@ const DashboardHeader = ({
                 </PageActionsContainer>
             ) : (
                 <PageActionsContainer>
-                    {userCanExportData && <DashboardRefreshButton />}
+                    {userCanExportData && (
+                        <DashboardRefreshButton
+                            onIntervalChange={handleDashboardRefreshUpdateEvent}
+                        />
+                    )}
 
                     {!isEditMode && document.fullscreenEnabled && (
                         <Tooltip

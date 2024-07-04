@@ -328,7 +328,13 @@
         "close_sidebar": "关闭侧边栏"
     },
     "features_sql_runner_table_fields": {
-        "no_table_selected": "未选择表格"
+        "search_fields": "搜索字段",
+        "no_table_selected": "未选择表格",
+        "no_results_found": "未找到结果"
+    },
+    "features_sql_runner_tables": {
+        "search_tables": "搜索表格",
+        "no_results_found": "未找到结果"
     },
 
     "features_comments_components_comment_mentions": {
@@ -2683,7 +2689,12 @@
         "right": "右侧",
         "show_value": "显示值",
         "show_percentage": "显示百分比",
-        "configure": "配置"
+        "steps": "步骤",
+        "display": "显示",
+        "show_legend": "显示图例",
+        "orientation": "方向",
+        "horizontal": "水平",
+        "vertical": "垂直"
     },
     "components_visualization_configs_chart_pie": {
         "override_value_label_options": "覆盖值标签选项",

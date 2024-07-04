@@ -25,7 +25,7 @@ import {
     Stack,
 } from '@mantine/core';
 import { IconPercentage, IconPlus } from '@tabler/icons-react';
-import produce from 'immer';
+import { produce } from 'immer';
 import { Fragment, useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 

@@ -7,7 +7,7 @@ import {
     type FilterableItem,
 } from '@lightdash/common';
 import { Accordion } from '@mantine/core';
-import produce from 'immer';
+import { produce } from 'immer';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
