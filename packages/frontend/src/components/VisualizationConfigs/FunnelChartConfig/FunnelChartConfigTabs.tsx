@@ -1,6 +1,7 @@
 import {
     FunnelChartDataInput,
     FunnelChartLabelPosition,
+    FunnelChartLegendPosition,
     getItemId,
     isField,
     isTableCalculation,
@@ -10,10 +11,12 @@ import {
 import {
     Box,
     Checkbox,
+    Collapse,
     Group,
     MantineProvider,
     SegmentedControl,
     Stack,
+    Switch,
     Tabs,
     Tooltip,
 } from '@mantine/core';
@@ -25,6 +28,7 @@ import { isFunnelVisualizationConfig } from '../../LightdashVisualization/Visual
 import { useVisualizationContext } from '../../LightdashVisualization/VisualizationProvider';
 import { Config } from '../common/Config';
 import { themeOverride } from '../mantineTheme';
+import { StepConfig } from './StepConfig';
 
 export const ConfigTabs: FC = memo(() => {
     const { t } = useTranslation();
@@ -42,8 +46,18 @@ export const ConfigTabs: FC = memo(() => {
         onFieldChange,
         dataInput,
         setDataInput,
-        label,
-        onLabelChange,
+        labels,
+        onLabelsChange,
+        labelOverrides,
+        onLabelOverridesChange,
+        colorDefaults,
+        colorOverrides,
+        onColorOverridesChange,
+        data,
+        showLegend,
+        toggleShowLegend,
+        legendPosition,
+        legendPositionChange,
     } = visualizationConfig.chartConfig;
 
     return (
@@ -53,6 +67,16 @@ export const ConfigTabs: FC = memo(() => {
                     <Tabs.Tab px="sm" value="general">
                         {t(
                             'components_visualization_configs_chart_funnel.general',
+                        )}
+                    </Tabs.Tab>
+                    <Tabs.Tab px="sm" value="steps">
+                        {t(
+                            'components_visualization_configs_chart_funnel.steps',
+                        )}
+                    </Tabs.Tab>
+                    <Tabs.Tab px="sm" value="display">
+                        {t(
+                            'components_visualization_configs_chart_funnel.display',
                         )}
                     </Tabs.Tab>
                 </Tabs.List>
@@ -157,6 +181,10 @@ export const ConfigTabs: FC = memo(() => {
                                 </Config.Section>
                             )}
                         </Config>
+                    </Stack>
+                </Tabs.Panel>
+                <Tabs.Panel value="steps">
+                    <Stack>
                         <Config>
                             <Config.Section>
                                 <Config.Heading>
@@ -172,7 +200,7 @@ export const ConfigTabs: FC = memo(() => {
                                         )}
                                     </Config.Label>
                                     <SegmentedControl
-                                        value={label?.position}
+                                        value={labels?.position}
                                         data={[
                                             {
                                                 value: FunnelChartLabelPosition.LEFT,
@@ -193,11 +221,15 @@ export const ConfigTabs: FC = memo(() => {
                                                     'components_visualization_configs_chart_funnel.right',
                                                 ),
                                             },
+                                            {
+                                                value: FunnelChartLabelPosition.HIDDEN,
+                                                label: 'Hidden',
+                                            },
                                         ]}
                                         onChange={(
                                             newPosition: FunnelChartLabelPosition,
                                         ) =>
-                                            onLabelChange({
+                                            onLabelsChange({
                                                 position: newPosition,
                                             })
                                         }
@@ -206,9 +238,9 @@ export const ConfigTabs: FC = memo(() => {
 
                                 <Group spacing="xs">
                                     <Checkbox
-                                        checked={label?.showValue}
+                                        checked={labels?.showValue}
                                         onChange={(newValue) =>
-                                            onLabelChange({
+                                            onLabelsChange({
                                                 showValue:
                                                     newValue.currentTarget
                                                         .checked,
@@ -220,9 +252,9 @@ export const ConfigTabs: FC = memo(() => {
                                     />
 
                                     <Checkbox
-                                        checked={label?.showPercentage}
+                                        checked={labels?.showPercentage}
                                         onChange={(newValue) =>
-                                            onLabelChange({
+                                            onLabelsChange({
                                                 showPercentage:
                                                     newValue.currentTarget
                                                         .checked,
@@ -235,6 +267,89 @@ export const ConfigTabs: FC = memo(() => {
                                 </Group>
                             </Config.Section>
                         </Config>
+                        <Config>
+                            <Config.Section>
+                                <Config.Heading>
+                                    {t(
+                                        'components_visualization_configs_chart_funnel.steps',
+                                    )}
+                                </Config.Heading>
+                                {data
+                                    .sort((a, b) => b.value - a.value)
+                                    .map((step) => {
+                                        return (
+                                            <StepConfig
+                                                key={step.name}
+                                                defaultColor={
+                                                    colorDefaults[step.name]
+                                                }
+                                                defaultLabel={step.name}
+                                                swatches={[]}
+                                                color={
+                                                    colorOverrides[step.name]
+                                                }
+                                                label={
+                                                    labelOverrides[step.name]
+                                                }
+                                                onColorChange={
+                                                    onColorOverridesChange
+                                                }
+                                                onLabelChange={
+                                                    onLabelOverridesChange
+                                                }
+                                            />
+                                        );
+                                    })}
+                            </Config.Section>
+                        </Config>
+                    </Stack>
+                </Tabs.Panel>
+                <Tabs.Panel value="display">
+                    <Stack>
+                        <Config>
+                            <Group>
+                                <Config.Heading>
+                                    {t(
+                                        'components_visualization_configs_chart_funnel.show_legend',
+                                    )}
+                                </Config.Heading>
+                                <Switch
+                                    checked={showLegend}
+                                    onChange={toggleShowLegend}
+                                />
+                            </Group>
+                        </Config>
+
+                        <Collapse in={showLegend}>
+                            <Group spacing="xs">
+                                <Config.Label>
+                                    {t(
+                                        'components_visualization_configs_chart_funnel.orientation',
+                                    )}
+                                </Config.Label>
+                                <SegmentedControl
+                                    name="orient"
+                                    value={legendPosition}
+                                    onChange={(
+                                        val: FunnelChartLegendPosition,
+                                    ) => legendPositionChange(val)}
+                                    data={[
+                                        {
+                                            value: FunnelChartLegendPosition.HORIZONTAL,
+                                            label: t(
+                                                'components_visualization_configs_chart_funnel.horizontal',
+                                            ),
+                                        },
+                                        {
+                                            value: FunnelChartLegendPosition.VERTICAL,
+                                            label: t(
+                                                'components_visualization_configs_chart_funnel.vertical',
+                                            ),
+                                        },
+                                    ]}
+                                />
+                            </Group>
+                        </Collapse>
                     </Stack>
                 </Tabs.Panel>
             </Tabs>
