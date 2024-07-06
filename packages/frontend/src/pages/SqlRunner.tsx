@@ -5,16 +5,18 @@ import {
     getCustomLabelsFromTableConfig,
     NotFoundError,
 } from '@lightdash/common';
-import { Box, Group, Stack, Tabs } from '@mantine/core';
+import { Badge, Box, Group, Stack, Tabs, Tooltip } from '@mantine/core';
 import { getHotkeyHandler } from '@mantine/hooks';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { useMount } from 'react-use';
 
+import { IconAlertCircle } from '@tabler/icons-react';
 import { downloadCsvFromSqlRunner } from '../api/csv';
 import { ChartDownloadMenu } from '../components/ChartDownload';
 import CollapsableCard from '../components/common/CollapsableCard';
+import MantineIcon from '../components/common/MantineIcon';
 import Page from '../components/common/Page/Page';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import ShareShortLinkButton from '../components/common/ShareShortLinkButton';
@@ -97,6 +99,15 @@ const SqlRunnerPage = () => {
         initialState: initialState?.createSavedChart,
         sqlQueryMutation,
     });
+
+    const maxLimit = useMemo(
+        () => health.data?.query.maxLimit || 5000,
+        [health],
+    );
+
+    const showLimitReachedWarning = useMemo(() => {
+        return resultsData && resultsData.rows.length >= maxLimit;
+    }, [resultsData, maxLimit]);
 
     const sqlRunnerState = useMemo(
         () => ({
@@ -238,6 +249,36 @@ const SqlRunnerPage = () => {
                     </Box>
 
                     <Group spacing="sm">
+                        {showLimitReachedWarning && (
+                            <Tooltip
+                                width={400}
+                                label={t(
+                                    'pages_sql_runner.tooltip_search_waring.label',
+                                    {
+                                        maxLimit,
+                                    },
+                                )}
+                                multiline
+                                position={'bottom'}
+                            >
+                                <Badge
+                                    leftSection={
+                                        <MantineIcon
+                                            icon={IconAlertCircle}
+                                            size={'sm'}
+                                        />
+                                    }
+                                    color="yellow"
+                                    variant="outline"
+                                    tt="none"
+                                    sx={{ cursor: 'help' }}
+                                >
+                                    {t(
+                                        'pages_sql_runner.tooltip_search_waring.content',
+                                    )}
+                                </Badge>
+                            </Tooltip>
+                        )}
                         <RunSqlQueryButton
                             onSubmit={handleSubmit}
                             isLoading={isLoading}

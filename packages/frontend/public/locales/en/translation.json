@@ -336,6 +336,11 @@
         "search_tables": "Search tables",
         "no_results_found": "No results found"
     },
+    "features_sql_runner_query": {
+        "not_run_sql": "Could not run SQL query",
+        "error_parsing_json": "Error parsing JSON",
+        "not_fetch_query_results": "Could not fetch SQL query results"
+    },
 
     "features_comments_components_comment_mentions": {
         "add_comment": "Add comment (type @ to tag someone)",
@@ -3363,7 +3368,11 @@
         "sql_runner": "SQL Runner",
         "chart": "Chart",
         "sql": "SQL",
-        "results": "Results"
+        "results": "Results",
+        "tooltip_search_waring": {
+            "label": "A limit of {{maxLimit}} rows as been applied to prevent performance issues. Reach to your admin or support if you need to increase this limit.",
+            "content": "Results may be incomplete"
+        }
     },
     "components_sql_runner_query_button": {
         "run_query": "Run query"
