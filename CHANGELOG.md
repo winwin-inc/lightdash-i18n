@@ -1,3 +1,64 @@
+# [0.1161.0](https://github.com/lightdash/lightdash/compare/0.1160.1...0.1161.0) (2024-07-05)
+
+
+### Features
+
+* sql runner fields copy to clipboard ([#10621](https://github.com/lightdash/lightdash/issues/10621)) ([0059ed0](https://github.com/lightdash/lightdash/commit/0059ed08f03dba3582a3f76151e1e5971a2aa949))
+
+## [0.1160.1](https://github.com/lightdash/lightdash/compare/0.1160.0...0.1160.1) (2024-07-05)
+
+
+### Bug Fixes
+
+* alias join on the same table ([#10620](https://github.com/lightdash/lightdash/issues/10620)) ([80f0692](https://github.com/lightdash/lightdash/commit/80f069262ccaa4ac06ff0235dfc0d81ac5a7c2cc))
+
+# [0.1160.0](https://github.com/lightdash/lightdash/compare/0.1159.0...0.1160.0) (2024-07-05)
+
+
+### Features
+
+* show sql runner field type and truncate long names ([#10619](https://github.com/lightdash/lightdash/issues/10619)) ([b0eeaab](https://github.com/lightdash/lightdash/commit/b0eeaaba4fe11f68a6c94b8cf4c087f1612ab33c))
+
+# [0.1159.0](https://github.com/lightdash/lightdash/compare/0.1158.0...0.1159.0) (2024-07-05)
+
+
+### Bug Fixes
+
+* show edit button tooltip when user doesn't have permission to edit ([#10617](https://github.com/lightdash/lightdash/issues/10617)) ([1e94d21](https://github.com/lightdash/lightdash/commit/1e94d21863aba74366983ac119c143ea4a3c0bbd))
+
+
+### Features
+
+* add table only validation to cli ([#10597](https://github.com/lightdash/lightdash/issues/10597)) ([cc6270e](https://github.com/lightdash/lightdash/commit/cc6270e1142f3459a182c45432014bf3dce5e694))
+
+# [0.1158.0](https://github.com/lightdash/lightdash/compare/0.1157.1...0.1158.0) (2024-07-05)
+
+
+### Features
+
+* stream data to sql runner page ([#10608](https://github.com/lightdash/lightdash/issues/10608)) ([7a52a51](https://github.com/lightdash/lightdash/commit/7a52a51d21b4ea131342e4e0a4a84fa6859440de))
+
+## [0.1157.1](https://github.com/lightdash/lightdash/compare/0.1157.0...0.1157.1) (2024-07-04)
+
+
+### Bug Fixes
+
+* handle resize height and apply correct overflows ([#10599](https://github.com/lightdash/lightdash/issues/10599)) ([018f4cf](https://github.com/lightdash/lightdash/commit/018f4cfc6aa04d2abccf83293414a2a2ecc41aa6))
+
+# [0.1157.0](https://github.com/lightdash/lightdash/compare/0.1156.0...0.1157.0) (2024-07-04)
+
+
+### Features
+
+* s3 result streaming ([#10598](https://github.com/lightdash/lightdash/issues/10598)) ([8b5be2e](https://github.com/lightdash/lightdash/commit/8b5be2ec7f6dcf8cfef8bc991a0822a0f8e68f32))
+
+# [0.1156.0](https://github.com/lightdash/lightdash/compare/0.1155.0...0.1156.0) (2024-07-04)
+
+
+### Features
+
+* apply limit to SQL runner queries and show warning on missing l… ([#10596](https://github.com/lightdash/lightdash/issues/10596)) ([ba5b357](https://github.com/lightdash/lightdash/commit/ba5b357f1c8bbeaaa03b714662a8320905986eb7))
+
 # [0.1155.0](https://github.com/lightdash/lightdash/compare/0.1154.0...0.1155.0) (2024-07-03)
 
 

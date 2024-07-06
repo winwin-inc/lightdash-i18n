@@ -1,7 +1,8 @@
 import { ActionIcon, Group, Paper, Tooltip } from '@mantine/core';
 import { IconDatabase } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Provider } from 'react-redux';
 import { useParams } from 'react-router-dom';
 
 import MantineIcon from '../components/common/MantineIcon';
@@ -10,14 +11,35 @@ import { Sidebar } from '../features/sqlRunner';
 import { ContentPanel } from '../features/sqlRunner/components/ContentPanel';
 import { Header } from '../features/sqlRunner/components/Header';
 import { RightSidebar } from '../features/sqlRunner/components/RightSidebar';
+import { store } from '../features/sqlRunner/store';
+import {
+    useAppDispatch,
+    useAppSelector,
+} from '../features/sqlRunner/store/hooks';
+import { setProjectUuid } from '../features/sqlRunner/store/sqlRunnerSlice';
 
-const SqlRunnerNewPage = () => {
+const SqlRunnerNew = () => {
     const { t } = useTranslation();
 
+    const dispatch = useAppDispatch();
+    const projectUuid = useAppSelector(
+        (state: any) => state.sqlRunner.projectUuid,
+    );
+
     const params = useParams<{ projectUuid: string }>();
-    const selectedProjectUuid = params.projectUuid;
+
     const [isLeftSidebarOpen, setLeftSidebarOpen] = useState(true);
     const [isRightSidebarOpen, setRightSidebarOpen] = useState(false);
+
+    useEffect(() => {
+        if (!projectUuid && params.projectUuid) {
+            dispatch(setProjectUuid(params.projectUuid));
+        }
+    }, [dispatch, params.projectUuid, projectUuid]);
+
+    if (!projectUuid) {
+        return null;
+    }
 
     return (
         <Page
@@ -26,12 +48,7 @@ const SqlRunnerNewPage = () => {
             flexContent
             header={<Header />}
             isSidebarOpen={isLeftSidebarOpen}
-            sidebar={
-                <Sidebar
-                    projectUuid={selectedProjectUuid}
-                    setSidebarOpen={setLeftSidebarOpen}
-                />
-            }
+            sidebar={<Sidebar setSidebarOpen={setLeftSidebarOpen} />}
             isRightSidebarOpen={isRightSidebarOpen}
             rightSidebar={<RightSidebar setSidebarOpen={setRightSidebarOpen} />}
         >
@@ -77,6 +94,14 @@ const SqlRunnerNewPage = () => {
                 />
             </Group>
         </Page>
+    );
+};
+
+const SqlRunnerNewPage = () => {
+    return (
+        <Provider store={store}>
+            <SqlRunnerNew />
+        </Provider>
     );
 };
 export default SqlRunnerNewPage;

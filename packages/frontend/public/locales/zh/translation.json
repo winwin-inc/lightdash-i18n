@@ -336,6 +336,11 @@
         "search_tables": "搜索表格",
         "no_results_found": "未找到结果"
     },
+    "features_sql_runner_query": {
+        "not_run_sql": "无法运行SQL查询",
+        "error_parsing_json": "解析JSON时出错",
+        "not_fetch_query_results": "无法获取SQL查询结果"
+    },
 
     "features_comments_components_comment_mentions": {
         "add_comment": "添加评论 (输入 @ 可标记某人)",
@@ -3367,7 +3372,11 @@
         "sql_runner": "SQL 运行器",
         "chart": "图表",
         "sql": "SQL",
-        "results": "结果"
+        "results": "结果",
+        "tooltip_search_waring": {
+            "label": "为了防止性能问题,已经应用了 {{maxLimit}} 行的限制。如果需要增加此限制,请联系您的管理员或支持人员。",
+            "content": "结果可能不完整"
+        }
     },
     "components_sql_runner_query_button": {
         "run_query": "运行查询"
