@@ -23,27 +23,27 @@ import { useTranslation } from 'react-i18next';
 import { useUserCompleteMutation } from '../../hooks/user/useUserCompleteMutation';
 import { useApp } from '../../providers/AppProvider';
 
-const jobTitles = [
-    ...shuffle([
-        'Data/Analytics Leader (manager, director, etc.)',
-        'Data Scientist',
-        'Data Analyst',
-        'Data Engineer',
-        'Analytics Engineer',
-        'Software Engineer',
-        'Sales',
-        'Marketing',
-        'Product',
-        'Operations',
-        'Customer Service',
-        'Student',
-    ]),
-    'Other',
-];
-
 const UserCompletionModal: FC = () => {
     const { health, user } = useApp();
     const { t } = useTranslation();
+
+    const jobTitles = [
+        ...shuffle([
+            t('components_user_completion_modal.roles.role_1'),
+            t('components_user_completion_modal.roles.role_2'),
+            t('components_user_completion_modal.roles.role_3'),
+            t('components_user_completion_modal.roles.role_4'),
+            t('components_user_completion_modal.roles.role_5'),
+            t('components_user_completion_modal.roles.role_6'),
+            t('components_user_completion_modal.roles.role_7'),
+            t('components_user_completion_modal.roles.role_8'),
+            t('components_user_completion_modal.roles.role_9'),
+            t('components_user_completion_modal.roles.role_10'),
+            t('components_user_completion_modal.roles.role_11'),
+            t('components_user_completion_modal.roles.role_12'),
+        ]),
+        t('components_user_completion_modal.roles.role_13'),
+    ];
 
     const form = useForm<CompleteUserArgs>({
         initialValues: {

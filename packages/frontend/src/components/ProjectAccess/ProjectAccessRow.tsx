@@ -1,7 +1,6 @@
 import {
     getHighestProjectRole,
     ProjectMemberRole,
-    ProjectMemberRoleLabels,
     type InheritedRoles,
     type OrganizationMemberProfile,
     type ProjectRole,
@@ -16,7 +15,6 @@ import {
     Tooltip,
 } from '@mantine/core';
 import { IconInfoCircle, IconTrash } from '@tabler/icons-react';
-import { capitalize } from 'lodash';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -42,6 +40,33 @@ const ProjectAccessRow: FC<Props> = ({
     inheritedRoles,
 }) => {
     const { t } = useTranslation();
+
+    const RoleTypeLabels = {
+        organization: t(
+            'components_project_access_row.roles_types.organization',
+        ),
+        project: t('components_project_access_row.roles_types.project'),
+        group: t('components_project_access_row.roles_types.group'),
+        space_group: t('components_project_access_row.roles_types.space_group'),
+    };
+
+    const ProjectMemberRoleLabels = {
+        [ProjectMemberRole.VIEWER]: t(
+            'components_project_access_row.roles.viewer',
+        ),
+        [ProjectMemberRole.INTERACTIVE_VIEWER]: t(
+            'components_project_access_row.roles.interactive_viewer',
+        ),
+        [ProjectMemberRole.EDITOR]: t(
+            'components_project_access_row.roles.editor',
+        ),
+        [ProjectMemberRole.DEVELOPER]: t(
+            'components_project_access_row.roles.developer',
+        ),
+        [ProjectMemberRole.ADMIN]: t(
+            'components_project_access_row.roles.admin',
+        ),
+    } as Record<ProjectMemberRole, string>;
 
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
@@ -126,11 +151,22 @@ const ProjectAccessRow: FC<Props> = ({
                             label={
                                 <Text>
                                     {t(
-                                        'components_project_access_row.tooltip_user.label',
+                                        'components_project_access_row.tooltip_user.part_1',
                                     )}{' '}
                                     <Text span fw={600}>
-                                        {capitalize(highestRole.type)}
+                                        {t(
+                                            'components_project_access_row.tooltip_user.part_2',
+                                            {
+                                                roleType:
+                                                    RoleTypeLabels[
+                                                        highestRole.type
+                                                    ],
+                                            },
+                                        )}{' '}
                                     </Text>
+                                    {t(
+                                        'components_project_access_row.tooltip_user.part_3',
+                                    )}
                                 </Text>
                             }
                         >
@@ -171,18 +207,30 @@ const ProjectAccessRow: FC<Props> = ({
                                         'components_project_access_row.higher_role.part_1',
                                     )}{' '}
                                     <Text span fw={600}>
-                                        {
-                                            ProjectMemberRoleLabels[
-                                                highestRole.role
-                                            ]
-                                        }
+                                        {t(
+                                            'components_project_access_row.higher_role.part_2',
+                                            {
+                                                roleLabel:
+                                                    ProjectMemberRoleLabels[
+                                                        highestRole.role
+                                                    ],
+                                            },
+                                        )}
                                     </Text>{' '}
-                                    {t(
-                                        'components_project_access_row.higher_role.part_2',
-                                    )}{' '}
                                     <Text span fw={600}>
-                                        {capitalize(highestRole.type)}
+                                        {t(
+                                            'components_project_access_row.higher_role.part_3',
+                                            {
+                                                roleType:
+                                                    RoleTypeLabels[
+                                                        highestRole.type
+                                                    ],
+                                            },
+                                        )}{' '}
                                     </Text>
+                                    {t(
+                                        'components_project_access_row.higher_role.part_4',
+                                    )}{' '}
                                 </Text>
                             </Group>
                         )}
@@ -195,12 +243,13 @@ const ProjectAccessRow: FC<Props> = ({
                         label={
                             hasProjectRole
                                 ? t(
-                                      'components_project_access_row.tooltip_project_role.remove',
+                                      'components_project_access_row.tooltip_project_role.revoke',
                                   )
                                 : t(
-                                      'components_project_access_row.tooltip_project_role.remove',
+                                      'components_project_access_row.tooltip_project_role.cannot',
                                       {
-                                          type: capitalize(highestRole.type),
+                                          roleType:
+                                              RoleTypeLabels[highestRole.type],
                                       },
                                   )
                         }

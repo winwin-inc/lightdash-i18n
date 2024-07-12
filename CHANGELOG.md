@@ -1,3 +1,108 @@
+## [0.1168.1](https://github.com/lightdash/lightdash/compare/0.1168.0...0.1168.1) (2024-07-11)
+
+
+### Bug Fixes
+
+* run backend from packages/backend directory ([#10704](https://github.com/lightdash/lightdash/issues/10704)) ([4cd08f2](https://github.com/lightdash/lightdash/commit/4cd08f271809335479525be01de6334dd3660bdf))
+
+# [0.1168.0](https://github.com/lightdash/lightdash/compare/0.1167.1...0.1168.0) (2024-07-11)
+
+
+### Features
+
+* truncate tables and allow copying table reference ([#10688](https://github.com/lightdash/lightdash/issues/10688)) ([b29c2d0](https://github.com/lightdash/lightdash/commit/b29c2d065d9d90e280d935cda9093b1d88fd23d1))
+
+## [0.1167.1](https://github.com/lightdash/lightdash/compare/0.1167.0...0.1167.1) (2024-07-11)
+
+
+### Bug Fixes
+
+* handle SIGTERM gracefully on scheduler ([#10670](https://github.com/lightdash/lightdash/issues/10670)) ([a08bce5](https://github.com/lightdash/lightdash/commit/a08bce556c0f5079c80c9938e20ba34ebb83778e))
+
+# [0.1167.0](https://github.com/lightdash/lightdash/compare/0.1166.0...0.1167.0) (2024-07-11)
+
+
+### Features
+
+* disable sync ui ([#10662](https://github.com/lightdash/lightdash/issues/10662)) ([0328c1d](https://github.com/lightdash/lightdash/commit/0328c1dc75de4b157e1bba94fa2526f56945d54f))
+
+# [0.1166.0](https://github.com/lightdash/lightdash/compare/0.1165.0...0.1166.0) (2024-07-10)
+
+
+### Features
+
+* open results on successful sql query ([#10684](https://github.com/lightdash/lightdash/issues/10684)) ([ccd1d42](https://github.com/lightdash/lightdash/commit/ccd1d428b3e6b655ab67d36781e5c28df39d2293))
+
+# [0.1165.0](https://github.com/lightdash/lightdash/compare/0.1164.0...0.1165.0) (2024-07-10)
+
+
+### Features
+
+* support dbt postgres 1.8 ([#10680](https://github.com/lightdash/lightdash/issues/10680)) ([3e4c687](https://github.com/lightdash/lightdash/commit/3e4c6877b81e7017782005d45a7a94e7de1f721f))
+
+# [0.1164.0](https://github.com/lightdash/lightdash/compare/0.1163.1...0.1164.0) (2024-07-10)
+
+
+### Features
+
+* limit schedulers hourly ([#10671](https://github.com/lightdash/lightdash/issues/10671)) ([ef80c97](https://github.com/lightdash/lightdash/commit/ef80c979f209ee40bab38fd2a9b620d2011fd143))
+
+## [0.1163.1](https://github.com/lightdash/lightdash/compare/0.1163.0...0.1163.1) (2024-07-10)
+
+
+### Bug Fixes
+
+* custom sql dimensions not saving ([#10659](https://github.com/lightdash/lightdash/issues/10659)) ([1ee370b](https://github.com/lightdash/lightdash/commit/1ee370b3eab8c987cb451bcb670d492ff4eeafbc))
+
+# [0.1163.0](https://github.com/lightdash/lightdash/compare/0.1162.1...0.1163.0) (2024-07-10)
+
+
+### Features
+
+* add table config panel ([#10663](https://github.com/lightdash/lightdash/issues/10663)) ([b428b5d](https://github.com/lightdash/lightdash/commit/b428b5d2f0ccaf59676f2024127edf8ac6cce9af))
+
+## [0.1162.1](https://github.com/lightdash/lightdash/compare/0.1162.0...0.1162.1) (2024-07-10)
+
+
+### Bug Fixes
+
+* use project level role to show warning on frontend ([#10644](https://github.com/lightdash/lightdash/issues/10644)) ([02785ce](https://github.com/lightdash/lightdash/commit/02785ce53c9672a82d8c4a4ca62cab49c3f31d0f))
+
+# [0.1162.0](https://github.com/lightdash/lightdash/compare/0.1161.4...0.1162.0) (2024-07-09)
+
+
+### Features
+
+* sql runner monaco editor ([#10650](https://github.com/lightdash/lightdash/issues/10650)) ([16fbc7c](https://github.com/lightdash/lightdash/commit/16fbc7cff51b1d202953bdf0d1c7e54e90fa9070))
+
+## [0.1161.4](https://github.com/lightdash/lightdash/compare/0.1161.3...0.1161.4) (2024-07-09)
+
+
+### Bug Fixes
+
+* stream s3 sql runner results from backend ([#10654](https://github.com/lightdash/lightdash/issues/10654)) ([9150a7e](https://github.com/lightdash/lightdash/commit/9150a7eae56b10753bd4553be6ff501a67919aac))
+
+## [0.1161.3](https://github.com/lightdash/lightdash/compare/0.1161.2...0.1161.3) (2024-07-09)
+
+
+### Bug Fixes
+
+* embedding guide link ([#10632](https://github.com/lightdash/lightdash/issues/10632)) ([6726e7e](https://github.com/lightdash/lightdash/commit/6726e7ec8aa90f0661fa0ea7798ec28aa85fb07b))
+
+## [0.1161.2](https://github.com/lightdash/lightdash/compare/0.1161.1...0.1161.2) (2024-07-08)
+
+
+### Bug Fixes
+
+* pass empty array when null or undefined to resultHandler ([#10633](https://github.com/lightdash/lightdash/issues/10633)) ([74e9b1d](https://github.com/lightdash/lightdash/commit/74e9b1d45b138b72c94cd0851da7a92fdef447c4))
+
+## [0.1161.1](https://github.com/lightdash/lightdash/compare/0.1161.0...0.1161.1) (2024-07-08)
+
+
+### Bug Fixes
+
+* focus on editable text on pencil icon click ([#10622](https://github.com/lightdash/lightdash/issues/10622)) ([5400527](https://github.com/lightdash/lightdash/commit/5400527b3231d6b8d573961795f4770b109ee8e1))
+
 # [0.1161.0](https://github.com/lightdash/lightdash/compare/0.1160.1...0.1161.0) (2024-07-05)
 
 

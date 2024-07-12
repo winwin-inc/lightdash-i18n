@@ -177,8 +177,8 @@
             "success": "组访问权限已添加"
         },
         "no_group_found": {
-            "title": "未找到有权访问该项目的组",
-            "description": "点击 \"添加组访问权限\" 添加一个组到该项目"
+            "title": "未找到有权访问此项目的群组",
+            "description": "点击\"添加群组访问权限\"将群组添加到此项目中"
         },
         "table": {
             "group_name": "组名称",
@@ -301,17 +301,12 @@
     },
 
     "features_sql_runner_content_panel": {
-        "columns": {
-            "id": "ID",
-            "name": "名称",
-            "age": "年龄",
-            "country": "国家"
-        },
         "sql_panel": "SQL面板",
         "run_query": "运行查询",
         "results_chart_panel": "结果/图表面板",
         "collapse": "折叠",
-        "expand": "展开"
+        "expand": "展开",
+        "configure": "配置"
     },
     "features_sql_runner_header": {
         "untitled_sql_query": "无标题SQL查询",
@@ -321,7 +316,11 @@
     "features_sql_runner_right_sidebar": {
         "configure_chart": "配置图表",
         "close_sidebar": "关闭侧边栏",
-        "todo_form": "TODO: 表单"
+        "table": "表格",
+        "bar_chart": "柱状图",
+        "x_axis": "X 轴",
+        "y_axis": "Y 轴",
+        "series": "系列"
     },
     "features_sql_runner_sidebar": {
         "sql_runner": "SQL运行器",
@@ -340,6 +339,18 @@
         "not_run_sql": "无法运行SQL查询",
         "error_parsing_json": "解析JSON时出错",
         "not_fetch_query_results": "无法获取SQL查询结果"
+    },
+    "features_sql_runner_editor": {
+        "not_available": "项目数据不可用"
+    },
+    "features_sql_chart_modal": {
+        "save_chart": "保存图表",
+        "memorable": {
+            "label": "为您的图表输入一个易记的名称",
+            "placeholder": "例如: 我们每周活跃用户有多少?"
+        },
+        "cancel": "取消",
+        "save": "保存"
     },
 
     "features_comments_components_comment_mentions": {
@@ -1363,15 +1374,32 @@
     },
     "components_project_access_row": {
         "tooltip_user": {
-            "label": "用户继承了此角色"
+            "part_1": "用户在",
+            "part_2": "{{roleType}}",
+            "part_3": "中继承此角色"
         },
         "higher_role": {
-            "part_1": "用户继承了更高的角色",
-            "part_2": "从"
+            "part_1": "用户从",
+            "part_2": "{{roleLabel}}",
+            "part_3": "{{roleType}}",
+            "part_4": "继承了更高的角色"
         },
         "tooltip_project_role": {
-            "remove": "撤销项目访问权限",
-            "cannot": "无法撤销从 {{type}} 继承的访问权限"
+            "revoke": "撤销项目访问权限",
+            "cannot": "无法撤销从 {{roleType}} 继承的访问权限"
+        },
+        "roles": {
+            "viewer": "查看者",
+            "interactive_viewer": "交互式查看者",
+            "editor": "编辑者",
+            "developer": "开发者",
+            "admin": "管理员"
+        },
+        "roles_types": {
+            "organization": "组织",
+            "project": "项目",
+            "group": "群组",
+            "space_group": "空间和群组"
         }
     },
     "components_project_access_user": {
@@ -2063,6 +2091,21 @@
                 "label": "匿名化我的使用数据"
             },
             "next": "下一步"
+        },
+        "roles": {
+            "role_1": "数据/分析负责人(经理、主管等)",
+            "role_2": "数据科学家",
+            "role_3": "数据分析师",
+            "role_4": "数据工程师",
+            "role_5": "分析工程师",
+            "role_6": "软件工程师",
+            "role_7": "销售",
+            "role_8": "营销",
+            "role_9": "产品",
+            "role_10": "运营",
+            "role_11": "客户服务",
+            "role_12": "学生",
+            "role_13": "其他"
         }
     },
     "components_user_settings_profile_panel": {
@@ -2377,6 +2420,22 @@
             "role": "角色",
             "groups": "群组",
             "no_users_found": "未找到任何用户"
+        },
+        "roles_labels": {
+            "member": "成员",
+            "viewer": "查看者",
+            "interactive_viewer": "交互式查看者",
+            "editor": "编辑者",
+            "developer": "开发者",
+            "admin": "管理员"
+        },
+        "roles_description": {
+            "member": "默认无项目访问权限, 需要单独设置项目级权限",
+            "viewer": "仅有查看所有项目的权限",
+            "interactive_viewer": "有查看所有项目的权限, 并可以创建新项目, 但不能编辑现有项目",
+            "editor": "可以创建、编辑和删除项目",
+            "developer": "可以创建、编辑和删除项目",
+            "admin": "拥有整个项目的完全访问权限, 可管理所有项目和用户访问权限"
         }
     },
     "components_user_settings_attributes_panel": {
@@ -4765,12 +4824,12 @@
         "loading": "正在加载..."
     },
     "pages_verify_email": {
-        "great_tip": "Great, you're verified! 🎉",
-        "continue": "Continue",
-        "verify_your_email": "Verify your email",
+        "great_tip": "太棒了,您已经通过验证! 🎉",
+        "continue": "继续",
+        "verify_your_email": "验证您的电子邮箱",
         "should_tip": {
-            "part_1": "You need to verify your email to get access to Lightdash. If you need help, you can",
-            "part_2": "chat to support here."
+            "part_1": "您需要验证您的电子邮箱才能访问 Lightdash。如果您需要帮助,可以",
+            "part_2": "在此与支持人员聊天。"
         }
     }
 }

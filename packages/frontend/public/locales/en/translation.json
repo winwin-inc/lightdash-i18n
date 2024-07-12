@@ -56,7 +56,7 @@
         "title": "Sign in",
         "user_no_auth_tip": "Failed to authenticate",
         "user_no_login_tip": "Failed to login",
-        "form_dashboard": {
+        "form": {
             "email": {
                 "label": "Email address",
                 "placeholder": "Your Email"
@@ -301,17 +301,12 @@
     },
 
     "features_sql_runner_content_panel": {
-        "columns": {
-            "id": "ID",
-            "name": "Name",
-            "age": "Age",
-            "country": "Country"
-        },
         "sql_panel": "SQL panel",
         "run_query": "Run query",
         "results_chart_panel": "Results/Chart panel",
         "collapse": "Collapse",
-        "expand": "Expand"
+        "expand": "Expand",
+        "configure": "Configure"
     },
     "features_sql_runner_header": {
         "untitled_sql_query": "Untitled SQL query",
@@ -321,7 +316,11 @@
     "features_sql_runner_right_sidebar": {
         "configure_chart": "Configure chart",
         "close_sidebar": "Close sidebar",
-        "todo_form": "TODO: form"
+        "table": "Table",
+        "bar_chart": "Bar chart",
+        "x_axis": "X axis",
+        "y_axis": "Y axis",
+        "series": "Series"
     },
     "features_sql_runner_sidebar": {
         "sql_runner": "SQL RUNNER",
@@ -340,6 +339,18 @@
         "not_run_sql": "Could not run SQL query",
         "error_parsing_json": "Error parsing JSON",
         "not_fetch_query_results": "Could not fetch SQL query results"
+    },
+    "features_sql_runner_editor": {
+        "not_available": "roject data not available"
+    },
+    "features_sql_chart_modal": {
+        "save_chart": "Save chart",
+        "memorable": {
+            "label": "Enter a memorable name for your chart",
+            "placeholder": "eg. How many weekly active users do we have?"
+        },
+        "cancel": "Cancel",
+        "save": "Save"
     },
 
     "features_comments_components_comment_mentions": {
@@ -1363,15 +1374,32 @@
     },
     "components_project_access_row": {
         "tooltip_user": {
-            "label": "User inherits this role from"
+            "part_1": "User inherits this role from",
+            "part_2": "{{roleType}}",
+            "part_3": ""
         },
         "higher_role": {
-            "part_1": "User inherits higher role",
-            "part_2": "from"
+            "part_1": "User inherits higher role from",
+            "part_2": "{{roleLabel}}",
+            "part_3": "{{roleType}}",
+            "part_4": ""
         },
         "tooltip_project_role": {
-            "remove": "Revoke project access",
-            "cannot": "Cannot revoke inherited access from {{type}}"
+            "revoke": "Revoke project access",
+            "cannot": "Cannot revoke inherited access from {{roleType}}"
+        },
+        "roles": {
+            "viewer": "Viewer",
+            "interactive_viewer": "Interactive Viewer",
+            "editor": "Editor",
+            "developer": "Developer",
+            "admin": "Admin"
+        },
+        "roles_types": {
+            "organization": "Organization",
+            "project": "Project",
+            "group": "Group",
+            "space_group": "Space_Group"
         }
     },
     "components_project_access_user": {
@@ -2057,6 +2085,21 @@
                 "label": "Anonymize my usage data"
             },
             "next": "Next"
+        },
+        "roles": {
+            "role_1": "Data/Analytics Leader (manager, director, etc.)",
+            "role_2": "Data Scientist",
+            "role_3": "Data Analyst",
+            "role_4": "Data Engineer",
+            "role_5": "Analytics Engineer",
+            "role_6": "Software Engineer",
+            "role_7": "Sales",
+            "role_8": "Marketing",
+            "role_9": "Product",
+            "role_10": "Operations",
+            "role_11": "Customer Service",
+            "role_12": "Student",
+            "role_13": "Other"
         }
     },
     "components_user_settings_profile_panel": {
@@ -2371,6 +2414,22 @@
             "role": "Role",
             "groups": "Groups",
             "no_users_found": "No users found"
+        },
+        "roles_labels": {
+            "member": "member",
+            "viewer": "viewer",
+            "interactive_viewer": "interactive_viewer",
+            "editor": "editor",
+            "developer": "developer",
+            "admin": "admin"
+        },
+        "roles_description": {
+            "member": "No access to projects by default. Project level permissions to be set separately",
+            "viewer": "Has view only access to all projects",
+            "interactive_viewer": "Has view access to all projects and can create new projects but cannot edit existing projects",
+            "editor": "Can create, edit and delete projects",
+            "developer": "Can create, edit and delete projects",
+            "admin": "Full access to entire project, manage all projects and user access"
         }
     },
     "components_user_settings_attributes_panel": {

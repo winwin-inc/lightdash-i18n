@@ -58,6 +58,7 @@ const SqlRunnerNew = () => {
                 spacing="none"
                 p={0}
                 style={{ flex: 1 }}
+                w="100%"
             >
                 {!isLeftSidebarOpen && (
                     <Paper

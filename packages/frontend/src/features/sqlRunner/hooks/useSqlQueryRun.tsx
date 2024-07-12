@@ -36,7 +36,11 @@ const scheduleSqlJob = async ({
  * 2. Get the status of the scheduled job
  * 3. Fetch the results of the job
  */
-export const useSqlQueryRun = () => {
+export const useSqlQueryRun = ({
+    onSuccess,
+}: {
+    onSuccess: (data: ResultRow[] | undefined) => void;
+}) => {
     const { t } = useTranslation();
 
     const { showToastError } = useToaster();
@@ -127,7 +131,7 @@ export const useSqlQueryRun = () => {
 
             // Split the JSON strings by newline
             const jsonStrings = result.trim().split('\n');
-            const jsonObjects = jsonStrings
+            const jsonObjects: ResultRow[] = jsonStrings
                 .map((jsonString) => {
                     try {
                         return JSON.parse(jsonString);
@@ -154,6 +158,9 @@ export const useSqlQueryRun = () => {
                     SchedulerJobStatus.COMPLETED &&
                     scheduledDeliveryJobStatus?.details?.fileUrl !== undefined,
             ),
+            onSuccess: (data) => {
+                onSuccess(data);
+            },
         },
     );
 
