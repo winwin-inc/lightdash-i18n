@@ -177,8 +177,8 @@
             "success": "组访问权限已添加"
         },
         "no_group_found": {
-            "title": "未找到有权访问该项目的组",
-            "description": "点击 \"添加组访问权限\" 添加一个组到该项目"
+            "title": "未找到有权访问此项目的群组",
+            "description": "点击\"添加群组访问权限\"将群组添加到此项目中"
         },
         "table": {
             "group_name": "组名称",
@@ -1363,15 +1363,32 @@
     },
     "components_project_access_row": {
         "tooltip_user": {
-            "label": "用户继承了此角色"
+            "part_1": "用户在",
+            "part_2": "{{roleType}}",
+            "part_3": "中继承此角色"
         },
         "higher_role": {
-            "part_1": "用户继承了更高的角色",
-            "part_2": "从"
+            "part_1": "用户从",
+            "part_2": "{{roleLabel}}",
+            "part_3": "{{roleType}}",
+            "part_4": "继承了更高的角色"
         },
         "tooltip_project_role": {
-            "remove": "撤销项目访问权限",
-            "cannot": "无法撤销从 {{type}} 继承的访问权限"
+            "revoke": "撤销项目访问权限",
+            "cannot": "无法撤销从 {{roleType}} 继承的访问权限"
+        },
+        "roles": {
+            "viewer": "查看者",
+            "interactive_viewer": "交互式查看者",
+            "editor": "编辑者",
+            "developer": "开发者",
+            "admin": "管理员"
+        },
+        "roles_types": {
+            "organization": "组织",
+            "project": "项目",
+            "group": "群组",
+            "space_group": "空间和群组"
         }
     },
     "components_project_access_user": {
