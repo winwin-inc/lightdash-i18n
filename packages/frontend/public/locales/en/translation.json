@@ -301,17 +301,12 @@
     },
 
     "features_sql_runner_content_panel": {
-        "columns": {
-            "id": "ID",
-            "name": "Name",
-            "age": "Age",
-            "country": "Country"
-        },
         "sql_panel": "SQL panel",
         "run_query": "Run query",
         "results_chart_panel": "Results/Chart panel",
         "collapse": "Collapse",
-        "expand": "Expand"
+        "expand": "Expand",
+        "configure": "Configure"
     },
     "features_sql_runner_header": {
         "untitled_sql_query": "Untitled SQL query",
@@ -321,7 +316,11 @@
     "features_sql_runner_right_sidebar": {
         "configure_chart": "Configure chart",
         "close_sidebar": "Close sidebar",
-        "todo_form": "TODO: form"
+        "table": "Table",
+        "bar_chart": "Bar chart",
+        "x_axis": "X axis",
+        "y_axis": "Y axis",
+        "series": "Series"
     },
     "features_sql_runner_sidebar": {
         "sql_runner": "SQL RUNNER",
@@ -340,6 +339,18 @@
         "not_run_sql": "Could not run SQL query",
         "error_parsing_json": "Error parsing JSON",
         "not_fetch_query_results": "Could not fetch SQL query results"
+    },
+    "features_sql_runner_editor": {
+        "not_available": "roject data not available"
+    },
+    "features_sql_chart_modal": {
+        "save_chart": "Save chart",
+        "memorable": {
+            "label": "Enter a memorable name for your chart",
+            "placeholder": "eg. How many weekly active users do we have?"
+        },
+        "cancel": "Cancel",
+        "save": "Save"
     },
 
     "features_comments_components_comment_mentions": {

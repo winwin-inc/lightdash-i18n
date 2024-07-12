@@ -163,7 +163,7 @@ const UserAccessList: FC<UserAccessListProps> = ({
                 .sort(sortByRole(sessionUser?.userUuid))
                 .map((sharedUser) => {
                     const needsToBePromotedToInteractiveViewer =
-                        sharedUser.inheritedRole === ProjectMemberRole.VIEWER &&
+                        sharedUser.projectRole === ProjectMemberRole.VIEWER &&
                         sharedUser.role !== SpaceMemberRole.VIEWER;
                     const isSessionUser =
                         sharedUser.userUuid === sessionUser?.userUuid;

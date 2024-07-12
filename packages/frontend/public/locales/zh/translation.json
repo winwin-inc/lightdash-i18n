@@ -301,17 +301,12 @@
     },
 
     "features_sql_runner_content_panel": {
-        "columns": {
-            "id": "ID",
-            "name": "名称",
-            "age": "年龄",
-            "country": "国家"
-        },
         "sql_panel": "SQL面板",
         "run_query": "运行查询",
         "results_chart_panel": "结果/图表面板",
         "collapse": "折叠",
-        "expand": "展开"
+        "expand": "展开",
+        "configure": "配置"
     },
     "features_sql_runner_header": {
         "untitled_sql_query": "无标题SQL查询",
@@ -321,7 +316,11 @@
     "features_sql_runner_right_sidebar": {
         "configure_chart": "配置图表",
         "close_sidebar": "关闭侧边栏",
-        "todo_form": "TODO: 表单"
+        "table": "表格",
+        "bar_chart": "柱状图",
+        "x_axis": "X 轴",
+        "y_axis": "Y 轴",
+        "series": "系列"
     },
     "features_sql_runner_sidebar": {
         "sql_runner": "SQL运行器",
@@ -340,6 +339,18 @@
         "not_run_sql": "无法运行SQL查询",
         "error_parsing_json": "解析JSON时出错",
         "not_fetch_query_results": "无法获取SQL查询结果"
+    },
+    "features_sql_runner_editor": {
+        "not_available": "项目数据不可用"
+    },
+    "features_sql_chart_modal": {
+        "save_chart": "保存图表",
+        "memorable": {
+            "label": "为您的图表输入一个易记的名称",
+            "placeholder": "例如: 我们每周活跃用户有多少?"
+        },
+        "cancel": "取消",
+        "save": "保存"
     },
 
     "features_comments_components_comment_mentions": {
