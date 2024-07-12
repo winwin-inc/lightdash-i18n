@@ -2080,6 +2080,21 @@
                 "label": "匿名化我的使用数据"
             },
             "next": "下一步"
+        },
+        "roles": {
+            "role_1": "数据/分析负责人(经理、主管等)",
+            "role_2": "数据科学家",
+            "role_3": "数据分析师",
+            "role_4": "数据工程师",
+            "role_5": "分析工程师",
+            "role_6": "软件工程师",
+            "role_7": "销售",
+            "role_8": "营销",
+            "role_9": "产品",
+            "role_10": "运营",
+            "role_11": "客户服务",
+            "role_12": "学生",
+            "role_13": "其他"
         }
     },
     "components_user_settings_profile_panel": {
@@ -2394,6 +2409,22 @@
             "role": "角色",
             "groups": "群组",
             "no_users_found": "未找到任何用户"
+        },
+        "roles_labels": {
+            "member": "成员",
+            "viewer": "查看者",
+            "interactive_viewer": "交互式查看者",
+            "editor": "编辑者",
+            "developer": "开发者",
+            "admin": "管理员"
+        },
+        "roles_description": {
+            "member": "默认无项目访问权限, 需要单独设置项目级权限",
+            "viewer": "仅有查看所有项目的权限",
+            "interactive_viewer": "有查看所有项目的权限, 并可以创建新项目, 但不能编辑现有项目",
+            "editor": "可以创建、编辑和删除项目",
+            "developer": "可以创建、编辑和删除项目",
+            "admin": "拥有整个项目的完全访问权限, 可管理所有项目和用户访问权限"
         }
     },
     "components_user_settings_attributes_panel": {
@@ -4782,12 +4813,12 @@
         "loading": "正在加载..."
     },
     "pages_verify_email": {
-        "great_tip": "Great, you're verified! 🎉",
-        "continue": "Continue",
-        "verify_your_email": "Verify your email",
+        "great_tip": "太棒了,您已经通过验证! 🎉",
+        "continue": "继续",
+        "verify_your_email": "验证您的电子邮箱",
         "should_tip": {
-            "part_1": "You need to verify your email to get access to Lightdash. If you need help, you can",
-            "part_2": "chat to support here."
+            "part_1": "您需要验证您的电子邮箱才能访问 Lightdash。如果您需要帮助,可以",
+            "part_2": "在此与支持人员聊天。"
         }
     }
 }

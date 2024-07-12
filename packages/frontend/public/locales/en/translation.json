@@ -56,7 +56,7 @@
         "title": "Sign in",
         "user_no_auth_tip": "Failed to authenticate",
         "user_no_login_tip": "Failed to login",
-        "form_dashboard": {
+        "form": {
             "email": {
                 "label": "Email address",
                 "placeholder": "Your Email"
@@ -2074,6 +2074,21 @@
                 "label": "Anonymize my usage data"
             },
             "next": "Next"
+        },
+        "roles": {
+            "role_1": "Data/Analytics Leader (manager, director, etc.)",
+            "role_2": "Data Scientist",
+            "role_3": "Data Analyst",
+            "role_4": "Data Engineer",
+            "role_5": "Analytics Engineer",
+            "role_6": "Software Engineer",
+            "role_7": "Sales",
+            "role_8": "Marketing",
+            "role_9": "Product",
+            "role_10": "Operations",
+            "role_11": "Customer Service",
+            "role_12": "Student",
+            "role_13": "Other"
         }
     },
     "components_user_settings_profile_panel": {
@@ -2388,6 +2403,22 @@
             "role": "Role",
             "groups": "Groups",
             "no_users_found": "No users found"
+        },
+        "roles_labels": {
+            "member": "member",
+            "viewer": "viewer",
+            "interactive_viewer": "interactive_viewer",
+            "editor": "editor",
+            "developer": "developer",
+            "admin": "admin"
+        },
+        "roles_description": {
+            "member": "No access to projects by default. Project level permissions to be set separately",
+            "viewer": "Has view only access to all projects",
+            "interactive_viewer": "Has view access to all projects and can create new projects but cannot edit existing projects",
+            "editor": "Can create, edit and delete projects",
+            "developer": "Can create, edit and delete projects",
+            "admin": "Full access to entire project, manage all projects and user access"
         }
     },
     "components_user_settings_attributes_panel": {

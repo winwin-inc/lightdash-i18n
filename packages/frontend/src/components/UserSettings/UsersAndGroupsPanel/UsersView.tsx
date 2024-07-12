@@ -1,5 +1,4 @@
 import {
-    getRoleDescription,
     isOrganizationMemberProfileWithGroups,
     OrganizationMemberRole,
     type OrganizationMemberProfile,
@@ -32,7 +31,6 @@ import {
     IconTrash,
     IconX,
 } from '@tabler/icons-react';
-import capitalize from 'lodash/capitalize';
 import { useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -127,6 +125,41 @@ const UserNameDisplay: FC<{
     );
 };
 
+const useRoleDescription = () => {
+    const { t } = useTranslation();
+
+    return (role: OrganizationMemberRole) => {
+        switch (role) {
+            case OrganizationMemberRole.MEMBER:
+                return t(
+                    'components_user_settings_groups_panel_users_view.roles_description.member',
+                );
+            case OrganizationMemberRole.VIEWER:
+                return t(
+                    'components_user_settings_groups_panel_users_view.roles_description.viewer',
+                );
+            case OrganizationMemberRole.INTERACTIVE_VIEWER:
+                return t(
+                    'components_user_settings_groups_panel_users_view.roles_description.interactive_viewer',
+                );
+            case OrganizationMemberRole.EDITOR:
+                return t(
+                    'components_user_settings_groups_panel_users_view.roles_description.editor',
+                );
+            case OrganizationMemberRole.DEVELOPER:
+                return t(
+                    'components_user_settings_groups_panel_users_view.roles_description.developer',
+                );
+            case OrganizationMemberRole.ADMIN:
+                return t(
+                    'components_user_settings_groups_panel_users_view.roles_description.admin',
+                );
+            default:
+                return null;
+        }
+    };
+};
+
 const UserListItem: FC<{
     disabled: boolean;
     user: OrganizationMemberProfile | OrganizationMemberProfileWithGroups;
@@ -140,6 +173,8 @@ const UserListItem: FC<{
     const { track } = useTracking();
     const { user: activeUser, health } = useApp();
     const updateUser = useUpdateUserMutation(user.userUuid);
+
+    const getRoleDescription = useRoleDescription();
     const { t } = useTranslation();
 
     const handleDelete = () => mutate(user.userUuid);
@@ -150,6 +185,27 @@ const UserListItem: FC<{
         });
         inviteLink.mutate({ email: user.email, role: user.role });
         setShowInviteSuccess(true);
+    };
+
+    const RoleLabels = {
+        member: t(
+            'components_user_settings_groups_panel_users_view.roles_labels.member',
+        ),
+        viewer: t(
+            'components_user_settings_groups_panel_users_view.roles_labels.viewer',
+        ),
+        interactive_viewer: t(
+            'components_user_settings_groups_panel_users_view.roles_labels.interactive_viewer',
+        ),
+        editor: t(
+            'components_user_settings_groups_panel_users_view.roles_labels.editor',
+        ),
+        developer: t(
+            'components_user_settings_groups_panel_users_view.roles_labels.developer',
+        ),
+        admin: t(
+            'components_user_settings_groups_panel_users_view.roles_labels.admin',
+        ),
     };
 
     return (
@@ -177,9 +233,7 @@ const UserListItem: FC<{
                                 data={Object.values(OrganizationMemberRole).map(
                                     (orgMemberRole) => ({
                                         value: orgMemberRole,
-                                        label: capitalize(
-                                            orgMemberRole.replace('_', ' '),
-                                        ),
+                                        label: RoleLabels[orgMemberRole],
                                         description:
                                             getRoleDescription(orgMemberRole),
                                     }),
