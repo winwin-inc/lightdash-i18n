@@ -32,6 +32,7 @@ import {
 } from './types/field';
 import { type AdditionalMetric, type MetricQuery } from './types/metricQuery';
 import {
+    type ApiOrganizationMemberProfiles,
     type OrganizationMemberProfile,
     type OrganizationMemberRole,
 } from './types/organizationMemberProfile';
@@ -115,6 +116,11 @@ import {
     type ApiCatalogMetadataResults,
 } from './types/catalog';
 import { type ApiPromotionChangesResponse } from './types/promotion';
+import {
+    type ApiCreateSqlChart,
+    type ApiSqlChart,
+    type ApiUpdateSqlChart,
+} from './types/sqlRunner';
 import { TimeFrames } from './types/timeFrames';
 import { type ApiWarehouseTableFields } from './types/warehouse';
 import { convertAdditionalMetric } from './utils/additionalMetrics';
@@ -162,6 +168,7 @@ export * from './types/gdrive';
 export * from './types/gitIntegration';
 export * from './types/groups';
 export * from './types/job';
+export * from './types/knex-paginate';
 export * from './types/metricQuery';
 export * from './types/notifications';
 export * from './types/openIdIdentity';
@@ -193,7 +200,6 @@ export * from './types/user';
 export * from './types/userAttributes';
 export * from './types/userWarehouseCredentials';
 export * from './types/validation';
-export * from './types/visualizations';
 export * from './types/warehouse';
 export * from './utils/additionalMetrics';
 export * from './utils/api';
@@ -646,7 +652,11 @@ type ApiResults =
     | ApiCatalogAnalyticsResults
     | ApiPromotionChangesResponse['results']
     | ApiWarehouseTableFields['results']
-    | ApiTogglePinnedItem['results'];
+    | ApiTogglePinnedItem['results']
+    | ApiOrganizationMemberProfiles['results']
+    | ApiSqlChart['results']
+    | ApiCreateSqlChart['results']
+    | ApiUpdateSqlChart['results'];
 
 export type ApiResponse<T extends ApiResults = ApiResults> = {
     status: 'ok';

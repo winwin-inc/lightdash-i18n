@@ -309,7 +309,6 @@
         "configure": "配置"
     },
     "features_sql_runner_header": {
-        "untitled_sql_query": "无标题SQL查询",
         "save_chart": "保存图表",
         "share_url": "分享URL"
     },
@@ -335,15 +334,11 @@
         "search_tables": "搜索表格",
         "no_results_found": "未找到结果"
     },
-    "features_sql_runner_query": {
-        "not_run_sql": "无法运行SQL查询",
-        "error_parsing_json": "解析JSON时出错",
-        "not_fetch_query_results": "无法获取SQL查询结果"
-    },
     "features_sql_runner_editor": {
         "not_available": "项目数据不可用"
     },
     "features_sql_chart_modal": {
+        "test_saved_chart": "一个已保存的测试图表",
         "save_chart": "保存图表",
         "memorable": {
             "label": "为您的图表输入一个易记的名称",
@@ -351,6 +346,21 @@
         },
         "cancel": "取消",
         "save": "保存"
+    },
+    "features_sql_runner_query": {
+        "not_run_sql": "无法运行SQL查询",
+        "error_parsing_json": "解析JSON时出错",
+        "not_fetch_query_results": "无法获取SQL查询结果"
+    },
+    "features_sql_runner_charts": {
+        "created": {
+            "success": "成功!SQL 图表创建成功",
+            "failed": "创建图表失败"
+        },
+        "updated": {
+            "success": "成功!SQL 图表更新成功",
+            "failed": "更新图表失败"
+        }
     },
 
     "features_comments_components_comment_mentions": {
@@ -1546,7 +1556,21 @@
         "table_calculation": "表计算"
     },
     "components_open_in_sql_runner_button": {
-        "open": "在 SQL 运行器中打开"
+        "sql": "SQL",
+        "form": {
+            "name": {
+                "label": "名称",
+                "placeholder": "笔记本名称(例如:趋势分析)"
+            },
+            "workspace": {
+                "label": "工作区",
+                "placeholder": "选择工作区"
+            },
+            "show_code": "显示代码"
+        },
+        "open_in_sql_runner": "在 SQL runner 中打开",
+        "open_in_databricks": "在 Databricks 中打开",
+        "create_databricks_notebook": "创建 Databricks 笔记本"
     },
     "components_documentation_help_button": {
         "tooltip": {
@@ -1755,13 +1779,6 @@
             "save": "保存"
         },
         "default": {
-            "form_space_create": {
-                "name": {
-                    "label": "空间",
-                    "description": "创建新空间以添加此图表",
-                    "placeholder": "例如: KPIs"
-                }
-            },
             "form_space": {
                 "name": {
                     "label": "空间",
@@ -1773,7 +1790,7 @@
                 }
             },
             "form_dashboard": {
-                "uuid": {
+                "name": {
                     "label": "看板",
                     "description": "选择看板直接保存图表",
                     "nothingFound": "未找到匹配的看板"

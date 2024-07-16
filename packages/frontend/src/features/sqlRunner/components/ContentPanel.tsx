@@ -1,4 +1,3 @@
-import { SqlRunnerChartType } from '@lightdash/common/src/types/visualizations';
 import {
     ActionIcon,
     Box,
@@ -26,7 +25,8 @@ import MantineIcon from '../../../components/common/MantineIcon';
 import { useSqlQueryRun } from '../hooks/useSqlQueryRun';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 
-import { setInitialResultsAndSeries } from '../store/sqlRunnerSlice';
+import { ChartKind } from '@lightdash/common';
+import { setInitialResultsAndSeries, setSql } from '../store/sqlRunnerSlice';
 import { SqlEditor } from './SqlEditor';
 import BarChart from './visualizations/BarChart';
 import { Table } from './visualizations/Table';
@@ -47,13 +47,13 @@ export const ContentPanel: FC<Props> = ({
     const { t } = useTranslation();
 
     const dispatch = useAppDispatch();
+
     const {
         ref: inputSectionRef,
         width: inputSectionWidth,
         height: inputSectionHeight,
     } = useElementSize();
 
-    const [sql, setSql] = useState<string>('');
     const { ref: wrapperRef, height: wrapperHeight } = useElementSize();
     const [resultsHeight, setResultsHeight] = useState(MIN_RESULTS_HEIGHT);
     const maxResultsHeight = useMemo(() => wrapperHeight - 58, [wrapperHeight]);
@@ -62,6 +62,7 @@ export const ContentPanel: FC<Props> = ({
         [resultsHeight, wrapperHeight],
     );
 
+    const sql = useAppSelector((state) => state.sqlRunner.sql);
     const selectedChartType = useAppSelector(
         (state) => state.sqlRunner.selectedChartType,
     );
@@ -170,7 +171,10 @@ export const ContentPanel: FC<Props> = ({
                             width: inputSectionWidth,
                         }}
                     >
-                        <SqlEditor sql={sql} onSqlChange={setSql} />
+                        <SqlEditor
+                            sql={sql}
+                            onSqlChange={(newSql) => dispatch(setSql(newSql))}
+                        />
                     </Box>
                 </Paper>
                 <ResizableBox
@@ -280,10 +284,10 @@ export const ContentPanel: FC<Props> = ({
                             sx={{ flex: 1, overflow: 'auto' }}
                             h="100%"
                         >
-                            {selectedChartType === SqlRunnerChartType.TABLE && (
+                            {selectedChartType === ChartKind.TABLE && (
                                 <Table data={queryResults} />
                             )}
-                            {selectedChartType === SqlRunnerChartType.BAR && (
+                            {selectedChartType === ChartKind.VERTICAL_BAR && (
                                 <BarChart data={queryResults} />
                             )}
                         </Paper>
