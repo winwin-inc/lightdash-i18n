@@ -1,4 +1,4 @@
-import { SqlRunnerChartType } from '@lightdash/common/src/types/visualizations';
+import { ChartKind } from '@lightdash/common';
 import {
     ActionIcon,
     Group,
@@ -18,7 +18,7 @@ import {
     setSelectedChartType,
     updateChartAxisLabel,
     updateChartSeriesLabel,
-    updateResultsTableFieldConfigLabel,
+    updateTableChartFieldConfigLabel,
 } from '../store/sqlRunnerSlice';
 
 type Props = {
@@ -29,10 +29,12 @@ export const RightSidebar: FC<Props> = ({ setSidebarOpen }) => {
     const { t } = useTranslation();
 
     const dispatch = useAppDispatch();
-    const resultsTableConfig = useAppSelector(
-        (state) => state.sqlRunner.resultsTableConfig,
+    const tableChartConfig = useAppSelector(
+        (state) => state.sqlRunner.tableChartConfig,
     );
-    const chartConfig = useAppSelector((state) => state.sqlRunner.chartConfig);
+    const chartConfig = useAppSelector(
+        (state) => state.sqlRunner.barChartConfig,
+    );
     const selectedChartType = useAppSelector(
         (state) => state.sqlRunner.selectedChartType,
     );
@@ -60,46 +62,40 @@ export const RightSidebar: FC<Props> = ({ setSidebarOpen }) => {
             <SegmentedControl
                 size="xs"
                 value={selectedChartType}
-                onChange={(value: SqlRunnerChartType) =>
+                onChange={(value: ChartKind) =>
                     dispatch(setSelectedChartType(value))
                 }
                 data={[
                     {
-                        value: SqlRunnerChartType.TABLE,
+                        value: ChartKind.TABLE,
                         label: t('features_sql_runner_right_sidebar.table'),
                     },
                     {
-                        value: SqlRunnerChartType.BAR,
+                        value: ChartKind.VERTICAL_BAR,
                         label: t('features_sql_runner_right_sidebar.bar_chart'),
                     },
                 ]}
             />
 
-            {resultsTableConfig &&
-                selectedChartType === SqlRunnerChartType.TABLE && (
-                    <Stack spacing="xs">
-                        {Object.keys(resultsTableConfig.columns).map(
-                            (reference) => (
-                                <EditableText
-                                    key={reference}
-                                    value={
-                                        resultsTableConfig.columns[reference]
-                                            .label
-                                    }
-                                    onChange={(e) => {
-                                        dispatch(
-                                            updateResultsTableFieldConfigLabel({
-                                                reference: reference,
-                                                label: e.target.value,
-                                            }),
-                                        );
-                                    }}
-                                />
-                            ),
-                        )}
-                    </Stack>
-                )}
-            {chartConfig && selectedChartType === SqlRunnerChartType.BAR && (
+            {tableChartConfig && selectedChartType === ChartKind.TABLE && (
+                <Stack spacing="xs">
+                    {Object.keys(tableChartConfig.columns).map((reference) => (
+                        <EditableText
+                            key={reference}
+                            value={tableChartConfig.columns[reference].label}
+                            onChange={(e) => {
+                                dispatch(
+                                    updateTableChartFieldConfigLabel({
+                                        reference: reference,
+                                        label: e.target.value,
+                                    }),
+                                );
+                            }}
+                        />
+                    ))}
+                </Stack>
+            )}
+            {chartConfig && selectedChartType === ChartKind.VERTICAL_BAR && (
                 <Stack spacing="xs">
                     <Title order={6} fz="sm" c="gray.6">
                         {t('features_sql_runner_right_sidebar.x_axis')}

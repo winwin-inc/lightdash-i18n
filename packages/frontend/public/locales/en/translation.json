@@ -309,7 +309,6 @@
         "configure": "Configure"
     },
     "features_sql_runner_header": {
-        "untitled_sql_query": "Untitled SQL query",
         "save_chart": "Save chart",
         "share_url": "Share URL"
     },
@@ -335,15 +334,11 @@
         "search_tables": "Search tables",
         "no_results_found": "No results found"
     },
-    "features_sql_runner_query": {
-        "not_run_sql": "Could not run SQL query",
-        "error_parsing_json": "Error parsing JSON",
-        "not_fetch_query_results": "Could not fetch SQL query results"
-    },
     "features_sql_runner_editor": {
         "not_available": "roject data not available"
     },
     "features_sql_chart_modal": {
+        "test_saved_chart": "A test saved chart",
         "save_chart": "Save chart",
         "memorable": {
             "label": "Enter a memorable name for your chart",
@@ -351,6 +346,21 @@
         },
         "cancel": "Cancel",
         "save": "Save"
+    },
+    "features_sql_runner_query": {
+        "not_run_sql": "Could not run SQL query",
+        "error_parsing_json": "Error parsing JSON",
+        "not_fetch_query_results": "Could not fetch SQL query results"
+    },
+    "features_sql_runner_charts": {
+        "created": {
+            "success": "Success! SQL chart created",
+            "failed": "Failed to create chart"
+        },
+        "updated": {
+            "success": "Success! SQL chart updated",
+            "failed": "Failed to update chart"
+        }
     },
 
     "features_comments_components_comment_mentions": {
@@ -1546,7 +1556,21 @@
         "table_calculation": "Table calculation"
     },
     "components_open_in_sql_runner_button": {
-        "open": "Open in SQL runner"
+        "sql": "SQL",
+        "form": {
+            "name": {
+                "label": "Name",
+                "placeholder": "Notebook name (e.g. Trend analysis)"
+            },
+            "workspace": {
+                "label": "Workspace",
+                "placeholder": "Select workspace"
+            },
+            "show_code": "Show code"
+        },
+        "open_in_sql_runner": "Open in SQL runner",
+        "open_in_databricks": "Open in Databricks",
+        "create_databricks_notebook": "Create Databricks notebook"
     },
     "components_documentation_help_button": {
         "tooltip": {
@@ -1755,7 +1779,7 @@
             "save": "Save"
         },
         "default": {
-            "form_dashboard_space": {
+            "form_space": {
                 "name": {
                     "label": "Space",
                     "description": "Create a new space to add this chart to",
@@ -1766,7 +1790,7 @@
                     "description": "Select a space to save the chart directly to"
                 }
             },
-            "form_dashboard_dashboard": {
+            "form_dashboard": {
                 "name": {
                     "label": "Dashboard",
                     "description": "Select a dashboard to save the chart directly to",

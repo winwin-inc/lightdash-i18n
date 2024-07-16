@@ -1,3 +1,45 @@
+# [0.1171.0](https://github.com/lightdash/lightdash/compare/0.1170.0...0.1171.0) (2024-07-15)
+
+
+### Features
+
+* sql runner slug ([#10718](https://github.com/lightdash/lightdash/issues/10718)) ([decd76e](https://github.com/lightdash/lightdash/commit/decd76e8e0ce1f20de59f8043992065dde8f3106))
+
+# [0.1170.0](https://github.com/lightdash/lightdash/compare/0.1169.2...0.1170.0) (2024-07-13)
+
+
+### Features
+
+* save sql charts ([#10610](https://github.com/lightdash/lightdash/issues/10610)) ([96e5986](https://github.com/lightdash/lightdash/commit/96e5986e0f9882b1c2695bf9b4de8b908ca71890))
+
+## [0.1169.2](https://github.com/lightdash/lightdash/compare/0.1169.1...0.1169.2) (2024-07-12)
+
+
+### Bug Fixes
+
+* add user to group on creation okta ([#10713](https://github.com/lightdash/lightdash/issues/10713)) ([70c4e66](https://github.com/lightdash/lightdash/commit/70c4e66b14c8e6c7a665040d3fe42c7aefd95170))
+
+## [0.1169.1](https://github.com/lightdash/lightdash/compare/0.1169.0...0.1169.1) (2024-07-12)
+
+
+### Bug Fixes
+
+* fix duplicate copied tabbed dashboard error ([#10609](https://github.com/lightdash/lightdash/issues/10609)) ([1e8b53a](https://github.com/lightdash/lightdash/commit/1e8b53a0000094baf348a17a5abab2bf8f942685))
+
+# [0.1169.0](https://github.com/lightdash/lightdash/compare/0.1168.2...0.1169.0) (2024-07-12)
+
+
+### Features
+
+* user list pagination ([#10681](https://github.com/lightdash/lightdash/issues/10681)) ([ed6b78a](https://github.com/lightdash/lightdash/commit/ed6b78ab97acd0a468a5baea5e91eccfd1f91e87))
+
+## [0.1168.2](https://github.com/lightdash/lightdash/compare/0.1168.1...0.1168.2) (2024-07-12)
+
+
+### Bug Fixes
+
+* fix slugs for duplicated charts ([#10707](https://github.com/lightdash/lightdash/issues/10707)) ([b139aee](https://github.com/lightdash/lightdash/commit/b139aeec27e9021c4c3f3b4580e96aa936f271bb))
+
 ## [0.1168.1](https://github.com/lightdash/lightdash/compare/0.1168.0...0.1168.1) (2024-07-11)
 
 

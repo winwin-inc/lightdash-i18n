@@ -179,12 +179,12 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
                             variant="outline"
                         >
                             {t(
-                                'components_dashboard_tiles_forms_add_chart.cancel',
+                                'components_dashboard_tiles_forms_add_chart.form.cancel',
                             )}
                         </Button>
                         <Button type="submit" disabled={isInitialLoading}>
                             {t(
-                                'components_dashboard_tiles_forms_add_chart.add',
+                                'components_dashboard_tiles_forms_add_chart.form.add',
                             )}
                         </Button>
                     </Group>
