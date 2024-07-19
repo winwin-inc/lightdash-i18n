@@ -306,7 +306,9 @@
         "results_chart_panel": "Results/Chart panel",
         "collapse": "Collapse",
         "expand": "Expand",
-        "configure": "Configure"
+        "configure": "Configure",
+        "chart": "Chart",
+        "results": "Results"
     },
     "features_sql_runner_header": {
         "save_chart": "Save chart",
@@ -342,7 +344,8 @@
         "save_chart": "Save chart",
         "memorable": {
             "label": "Enter a memorable name for your chart",
-            "placeholder": "eg. How many weekly active users do we have?"
+            "placeholder": "eg. How many weekly active users do we have?",
+            "description": "Description"
         },
         "cancel": "Cancel",
         "save": "Save"
@@ -361,6 +364,10 @@
             "success": "Success! SQL chart updated",
             "failed": "Failed to update chart"
         }
+    },
+    "features_sql_chart_and_results": {
+        "not_run_sql_query": "Could not run SQL query",
+        "not_fetch_query_results": "Could not fetch SQL query results"
     },
 
     "features_comments_components_comment_mentions": {
@@ -504,7 +511,7 @@
             "decreased_by": "decreased by"
         },
         "no_slack": {
-            "stpe_1": "No Slack integration found",
+            "part_1": "No Slack integration found",
             "part_2": "To create a slack scheduled delivery, you need to",
             "part_3": "setup Slack",
             "part_4": "for your Lightdash instance"
@@ -549,6 +556,7 @@
                 },
                 "include_image_pdf": "Also include image as PDF attachment",
                 "formatting_options": "Formatting options",
+                "values": "Values",
                 "formatted": "Formatted",
                 "raw": "Raw",
                 "limit": "Limit",
@@ -1209,6 +1217,7 @@
     },
     "components_dashboard_tiles_forms_update_chart": {
         "edit_tile_content": "Edit tile content",
+        "title": "Title",
         "select_chart": "Select chart",
         "search": "Searching...",
         "cancel": "Cancel",
@@ -1275,6 +1284,7 @@
         "tried_to_reference": "Tried to reference field with unknown id: {{fieldId}}",
         "is_any_value": "is any value",
         "tooltip_editing_actions": "Finish editing dashboard to use these actions",
+        "tooltip_custom_dimensions": "This chart contains custom dimensions, you will not be able to run custom SQL on explore.",
         "menus": {
             "explore_from_here": "Explore from here",
             "export_csv": "Export CSV",
@@ -1288,6 +1298,10 @@
     },
     "components_dashboard_tiles_edit_chart_menu": {
         "edit_chart": "Edit chart"
+    },
+    "components_dashboard_tiles_sql_chart": {
+        "no_data_available": "No data available",
+        "no_data": "No data"
     },
 
     "components_schedulers_view": {
@@ -1556,21 +1570,7 @@
         "table_calculation": "Table calculation"
     },
     "components_open_in_sql_runner_button": {
-        "sql": "SQL",
-        "form": {
-            "name": {
-                "label": "Name",
-                "placeholder": "Notebook name (e.g. Trend analysis)"
-            },
-            "workspace": {
-                "label": "Workspace",
-                "placeholder": "Select workspace"
-            },
-            "show_code": "Show code"
-        },
-        "open_in_sql_runner": "Open in SQL runner",
-        "open_in_databricks": "Open in Databricks",
-        "create_databricks_notebook": "Create Databricks notebook"
+        "open_in_sql_runner": "Open in SQL runner"
     },
     "components_documentation_help_button": {
         "tooltip": {
@@ -1599,7 +1599,8 @@
     },
     "components_navbar_project_switcher": {
         "toast_viewing": {
-            "title": "You are now viewing"
+            "title": "You are now viewing",
+            "content": "Go to project home"
         },
         "select_a_project": "Select a project",
         "preview": "Preview"
@@ -2399,6 +2400,14 @@
             },
             "send_invite": "Send invite",
             "generate_invite": "Generate invite"
+        },
+        "roles_labels": {
+            "member": "member",
+            "viewer": "viewer",
+            "interactive_viewer": "interactive_viewer",
+            "editor": "editor",
+            "developer": "developer",
+            "admin": "admin"
         }
     },
     "components_user_settings_groups_panel_invites_success": {
@@ -2693,7 +2702,7 @@
             "show_grid": "Show grid"
         },
         "layout": {
-            "flip_axes": "Flip axis",
+            "flip_axis": "Flip axis",
             "group": "Group",
             "tip_metric": "You need at least one metric in your chart to add a group",
             "tip_select_field": "Select a field to group by",
@@ -3296,6 +3305,10 @@
             "big_value": "Big value",
             "custom": "Custom"
         }
+    },
+    "components_explorer_sql_card": {
+        "copied_to_clipboard": "Copied to clipboard",
+        "copy_sql": "Copy SQL"
     },
 
     "components_common_resource_view_grid": {

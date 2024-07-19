@@ -301,12 +301,14 @@
     },
 
     "features_sql_runner_content_panel": {
-        "sql_panel": "SQL面板",
+        "sql_panel": "SQL 面板",
         "run_query": "运行查询",
         "results_chart_panel": "结果/图表面板",
-        "collapse": "折叠",
+        "collapse": "收起",
         "expand": "展开",
-        "configure": "配置"
+        "configure": "配置",
+        "chart": "图表",
+        "results": "结果"
     },
     "features_sql_runner_header": {
         "save_chart": "保存图表",
@@ -338,29 +340,34 @@
         "not_available": "项目数据不可用"
     },
     "features_sql_chart_modal": {
-        "test_saved_chart": "一个已保存的测试图表",
+        "test_saved_chart": "一个测试保存的图表",
         "save_chart": "保存图表",
         "memorable": {
             "label": "为您的图表输入一个易记的名称",
-            "placeholder": "例如: 我们每周活跃用户有多少?"
+            "placeholder": "例如: 我们每周有多少活跃用户?",
+            "description": "描述"
         },
         "cancel": "取消",
         "save": "保存"
     },
     "features_sql_runner_query": {
-        "not_run_sql": "无法运行SQL查询",
-        "error_parsing_json": "解析JSON时出错",
-        "not_fetch_query_results": "无法获取SQL查询结果"
+        "not_run_sql": "无法运行 SQL 查询",
+        "not_run_sql_query": "无法运行 SQL 查询",
+        "not_fetch_query_results": "无法获取 SQL 查询结果"
     },
     "features_sql_runner_charts": {
         "created": {
-            "success": "成功!SQL 图表创建成功",
+            "success": "成功! SQL 图表创建成功",
             "failed": "创建图表失败"
         },
         "updated": {
-            "success": "成功!SQL 图表更新成功",
+            "success": "成功! SQL 图表更新成功",
             "failed": "更新图表失败"
         }
+    },
+    "features_sql_chart_and_results": {
+        "not_run_sql_query": "无法运行 SQL 查询",
+        "not_fetch_query_results": "无法获取 SQL 查询结果"
     },
 
     "features_comments_components_comment_mentions": {
@@ -504,7 +511,7 @@
             "decreased_by": "减少了"
         },
         "no_slack": {
-            "stpe_1": "未找到 Slack 集成",
+            "part_1": "未找到 Slack 集成",
             "part_2": "要创建 Slack 交付计划，您需要",
             "part_3": "设置 Slack",
             "part_4": "适用于您的 Lightdash 实例"
@@ -549,6 +556,7 @@
                 },
                 "include_image_pdf": "同时以PDF附件形式包含图像",
                 "formatting_options": "格式选项",
+                "values": "值",
                 "formatted": "格式化",
                 "raw": "原始",
                 "limit": "限制",
@@ -1209,6 +1217,7 @@
     },
     "components_dashboard_tiles_forms_update_chart": {
         "edit_tile_content": "编辑图块内容",
+        "title": "标题",
         "select_chart": "选择图表",
         "search": "搜索中...",
         "cancel": "取消",
@@ -1270,24 +1279,29 @@
     },
     "components_dashboard_tiles_chart_title": {
         "copied": "已复制到剪贴板!",
-        "duplicated_and_added": "图表已复制并添加到此看板的底部",
-        "dashboard_filter": "应用了看板筛选条件:",
+        "duplicated_and_added": "图表已复制并添加到此仪表板的底部",
+        "dashboard_filter": "已应用仪表板过滤器{{suffix}}:",
         "tried_to_reference": "尝试引用未知 ID 为 {{fieldId}} 的字段",
-        "is_any_value": "是任意值",
-        "tooltip_editing_actions": "完成看板编辑后才能使用这些操作",
+        "is_any_value": "是任何值",
+        "tooltip_editing_actions": "请完成仪表板编辑以使用这些操作",
+        "tooltip_custom_dimensions": "此图表包含自定义维度,您将无法在\"探索\"中运行自定义 SQL。",
         "menus": {
-            "explore_from_here": "从这里开始探索",
+            "explore_from_here": "从这里探索",
             "export_csv": "导出 CSV",
             "move_to_space": "移动到空间",
             "duplicate_chart": "复制图表",
             "copy_value": "复制值",
             "view_underlying_data": "查看基础数据"
         },
-        "tooltip_editing_chart": "完成看板编辑后才能编辑此图表",
-        "no_data_available": "无可用数据"
+        "tooltip_editing_chart": "请完成仪表板编辑以编辑此图表",
+        "no_data_available": "没有可用数据"
     },
     "components_dashboard_tiles_edit_chart_menu": {
         "edit_chart": "编辑图表"
+    },
+    "components_dashboard_tiles_sql_chart": {
+        "no_data_available": "没有可用数据",
+        "no_data": "没有数据"
     },
 
     "components_schedulers_view": {
@@ -1556,21 +1570,7 @@
         "table_calculation": "表计算"
     },
     "components_open_in_sql_runner_button": {
-        "sql": "SQL",
-        "form": {
-            "name": {
-                "label": "名称",
-                "placeholder": "笔记本名称(例如:趋势分析)"
-            },
-            "workspace": {
-                "label": "工作区",
-                "placeholder": "选择工作区"
-            },
-            "show_code": "显示代码"
-        },
-        "open_in_sql_runner": "在 SQL runner 中打开",
-        "open_in_databricks": "在 Databricks 中打开",
-        "create_databricks_notebook": "创建 Databricks 笔记本"
+        "open_in_sql_runner": "在 SQL runner 中打开"
     },
     "components_documentation_help_button": {
         "tooltip": {
@@ -1599,7 +1599,8 @@
     },
     "components_navbar_project_switcher": {
         "toast_viewing": {
-            "title": "您现在正在查看"
+            "title": "您现在正在查看",
+            "content": "转到项目主页"
         },
         "select_a_project": "选择一个项目",
         "preview": "预览"
@@ -2398,6 +2399,14 @@
             },
             "send_invite": "发送邀请",
             "generate_invite": "生成邀请"
+        },
+        "roles_labels": {
+            "member": "成员",
+            "viewer": "查看者",
+            "interactive_viewer": "交互式查看者",
+            "editor": "编辑者",
+            "developer": "开发者",
+            "admin": "管理员"
         }
     },
     "components_user_settings_groups_panel_invites_success": {
@@ -2691,6 +2700,16 @@
             "rotation": "旋转",
             "show_grid": "显示网格"
         },
+        "layout": {
+            "flip_axis": "翻转轴",
+            "group": "分组",
+            "tip_metric": "您需要至少一个指标来添加分组",
+            "tip_select_field": "选择一个字段进行分组",
+            "tip_x_axis": "x轴必须为非数字才能启用堆叠",
+            "stacking": "堆叠",
+            "none": "无",
+            "stack": "堆叠"
+        },
         "legend": {
             "custom_position": "自定义位置",
             "position": "位置",
@@ -2711,16 +2730,6 @@
             "average": "平均值",
             "user_series_average": "用户系列平均值",
             "reference_lines": "参考线"
-        },
-        "layout": {
-            "flip_axes": "翻转轴",
-            "group": "分组",
-            "tip_metric": "您需要至少一个指标来添加分组",
-            "tip_select_field": "选择一个字段进行分组",
-            "tip_x_axis": "x轴必须为非数字才能启用堆叠",
-            "stacking": "堆叠",
-            "none": "无",
-            "stack": "堆叠"
         },
         "series": {
             "type_options": {
@@ -3293,6 +3302,10 @@
             "big_value": "大数值",
             "custom": "自定义"
         }
+    },
+    "components_explorer_sql_card": {
+        "copied_to_clipboard": "已复制到剪贴板",
+        "copy_sql": "复制 SQL"
     },
 
     "components_common_resource_view_grid": {

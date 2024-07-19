@@ -1,3 +1,94 @@
+# [0.1181.0](https://github.com/lightdash/lightdash/compare/0.1180.0...0.1181.0) (2024-07-19)
+
+
+### Features
+
+* added a copy sql button when card is closed ([#10723](https://github.com/lightdash/lightdash/issues/10723)) ([1f1af01](https://github.com/lightdash/lightdash/commit/1f1af01d91d9ef47fe89c745ab03181e6544e3a6))
+
+# [0.1180.0](https://github.com/lightdash/lightdash/compare/0.1179.0...0.1180.0) (2024-07-19)
+
+
+### Features
+
+* Space page v2 ([#10767](https://github.com/lightdash/lightdash/issues/10767)) ([283359e](https://github.com/lightdash/lightdash/commit/283359e6b7a34f5b23a2bef50823e44ef2006eb9))
+
+# [0.1179.0](https://github.com/lightdash/lightdash/compare/0.1178.0...0.1179.0) (2024-07-19)
+
+
+### Features
+
+* allow for title editing of sql chart tiles ([#10770](https://github.com/lightdash/lightdash/issues/10770)) ([85543e5](https://github.com/lightdash/lightdash/commit/85543e53c6715047b38611650c8ae5aa0197e9ca))
+
+# [0.1178.0](https://github.com/lightdash/lightdash/compare/0.1177.0...0.1178.0) (2024-07-18)
+
+
+### Features
+
+* allow adding sql charts to dashboard ([#10758](https://github.com/lightdash/lightdash/issues/10758)) ([61398cf](https://github.com/lightdash/lightdash/commit/61398cf9a06da9b8583d5d236691a894caffdc39))
+
+# [0.1177.0](https://github.com/lightdash/lightdash/compare/0.1176.0...0.1177.0) (2024-07-18)
+
+
+### Features
+
+* Share sql chart url ([#10753](https://github.com/lightdash/lightdash/issues/10753)) ([1f99001](https://github.com/lightdash/lightdash/commit/1f9900110f9bfccfaef601e708663923523f9f05))
+
+# [0.1176.0](https://github.com/lightdash/lightdash/compare/0.1175.1...0.1176.0) (2024-07-18)
+
+
+### Features
+
+* v2 content endpoints ([#10741](https://github.com/lightdash/lightdash/issues/10741)) ([85e6891](https://github.com/lightdash/lightdash/commit/85e68915a3dd15a4c1cc58ac4b89ba13cd25cfb4))
+
+## [0.1175.1](https://github.com/lightdash/lightdash/compare/0.1175.0...0.1175.1) (2024-07-17)
+
+
+### Bug Fixes
+
+* filter out dbt model nodes with null meta field ([#10755](https://github.com/lightdash/lightdash/issues/10755)) ([3ee9bc4](https://github.com/lightdash/lightdash/commit/3ee9bc4e8847b0af6f492cded9615168e41ae782))
+
+# [0.1175.0](https://github.com/lightdash/lightdash/compare/0.1174.0...0.1175.0) (2024-07-17)
+
+
+### Features
+
+* display sql chart with new endpoint to get results in dashboard ([#10735](https://github.com/lightdash/lightdash/issues/10735)) ([59aae8d](https://github.com/lightdash/lightdash/commit/59aae8d9ec84c67420fa5eff3d56b335e0e61fee))
+
+# [0.1174.0](https://github.com/lightdash/lightdash/compare/0.1173.0...0.1174.0) (2024-07-17)
+
+
+### Features
+
+* save sql chart tile ([#10737](https://github.com/lightdash/lightdash/issues/10737)) ([97a07d9](https://github.com/lightdash/lightdash/commit/97a07d9fdf6875a9662df9f2784114ce7736049c))
+
+# [0.1173.0](https://github.com/lightdash/lightdash/compare/0.1172.0...0.1173.0) (2024-07-17)
+
+
+### Features
+
+* run query on cmd+enter ([#10740](https://github.com/lightdash/lightdash/issues/10740)) ([9d530c9](https://github.com/lightdash/lightdash/commit/9d530c9697e04a38aa52748f6b8b1cbd4eaada47))
+
+# [0.1172.0](https://github.com/lightdash/lightdash/compare/0.1171.2...0.1172.0) (2024-07-16)
+
+
+### Features
+
+* allow dashboards to render SQL runner charts  ([#10727](https://github.com/lightdash/lightdash/issues/10727)) ([5de82c0](https://github.com/lightdash/lightdash/commit/5de82c09bbe8b3384129bc533cedef8150dafd48))
+
+## [0.1171.2](https://github.com/lightdash/lightdash/compare/0.1171.1...0.1171.2) (2024-07-16)
+
+
+### Bug Fixes
+
+* auto join org to apply okta group ([#10729](https://github.com/lightdash/lightdash/issues/10729)) ([49b6687](https://github.com/lightdash/lightdash/commit/49b6687ef05754e77a688c7c20d8226c275b4f5c))
+
+## [0.1171.1](https://github.com/lightdash/lightdash/compare/0.1171.0...0.1171.1) (2024-07-16)
+
+
+### Bug Fixes
+
+* show warning custom dimension viewers ([#10699](https://github.com/lightdash/lightdash/issues/10699)) ([a949017](https://github.com/lightdash/lightdash/commit/a949017ebe67e9b33ea539495bdaff759c9021e2))
+
 # [0.1171.0](https://github.com/lightdash/lightdash/compare/0.1170.0...0.1171.0) (2024-07-15)
 
 

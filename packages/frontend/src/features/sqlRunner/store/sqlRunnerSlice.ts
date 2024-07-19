@@ -10,13 +10,23 @@ import {
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { createSlice } from '@reduxjs/toolkit';
 
+export enum VisTabs {
+    CHART = 'chart',
+    RESULTS = 'results',
+}
+
+export const DEFAULT_NAME = 'Untitled SQL Query';
+
 export interface SqlRunnerState {
     projectUuid: string;
     activeTable: string | undefined;
     savedChartUuid: string | undefined;
     name: string;
+    description: string;
+
     sql: string;
 
+    activeVisTab: VisTabs;
     selectedChartType: ChartKind;
 
     resultsTableConfig: SqlTableConfig | undefined;
@@ -28,14 +38,18 @@ export interface SqlRunnerState {
             isOpen: boolean;
         };
     };
+
+    quoteChar: string;
 }
 
 const initialState: SqlRunnerState = {
     projectUuid: '',
     activeTable: undefined,
     savedChartUuid: undefined,
-    name: 'Untitled SQL Query',
+    name: '',
+    description: '',
     sql: '',
+    activeVisTab: VisTabs.CHART,
     selectedChartType: ChartKind.VERTICAL_BAR,
     resultsTableConfig: undefined,
     barChartConfig: undefined,
@@ -45,12 +59,16 @@ const initialState: SqlRunnerState = {
             isOpen: false,
         },
     },
+    quoteChar: '"',
 };
 
 export const sqlRunnerSlice = createSlice({
     name: 'sqlRunner',
     initialState,
     reducers: {
+        loadState: (state, action: PayloadAction<SqlRunnerState>) => {
+            return action.payload;
+        },
         setProjectUuid: (state, action: PayloadAction<string>) => {
             state.projectUuid = action.payload;
         },
@@ -127,12 +145,20 @@ export const sqlRunnerSlice = createSlice({
                 };
             }
         },
+        updateName: (state, action: PayloadAction<string>) => {
+            state.name = action.payload;
+        },
         setSql: (state, action: PayloadAction<string>) => {
             state.sql = action.payload;
+        },
+        setActiveVisTab: (state, action: PayloadAction<VisTabs>) => {
+            state.activeVisTab = action.payload;
         },
         setSaveChartData: (state, action: PayloadAction<SqlChart>) => {
             state.savedChartUuid = action.payload.savedSqlUuid;
             state.name = action.payload.name;
+            state.description = action.payload.description || '';
+
             state.sql = action.payload.sql;
             state.selectedChartType =
                 action.payload.config.type === ChartKind.TABLE
@@ -155,19 +181,25 @@ export const sqlRunnerSlice = createSlice({
         },
         updateChartAxisLabel: (
             state,
-            action: PayloadAction<{ reference: string; label: string }>,
+            action: PayloadAction<{ reference?: string; label: string }>,
         ) => {
-            if (!state.barChartConfig) {
+            if (!state.barChartConfig || !action.payload.reference) {
                 return;
             }
             const { reference, label } = action.payload;
-            if (state.barChartConfig.axes.x.reference === reference) {
+            if (state.barChartConfig?.axes?.x.reference === reference) {
                 state.barChartConfig.axes.x.label = label;
             } else {
-                const index = state.barChartConfig.axes.y.findIndex(
+                const index = state.barChartConfig?.axes?.y.findIndex(
                     (axis) => axis.reference === reference,
                 );
-                state.barChartConfig.axes.y[index].label = label;
+
+                if (
+                    index !== undefined &&
+                    state.barChartConfig?.axes?.y[index]
+                ) {
+                    state.barChartConfig.axes.y[index].label = label;
+                }
             }
         },
         updateChartSeriesLabel: (
@@ -176,7 +208,12 @@ export const sqlRunnerSlice = createSlice({
         ) => {
             if (!state.barChartConfig) return;
             const { index, name } = action.payload;
-            state.barChartConfig.series[index].name = name;
+            if (
+                state.barChartConfig.series &&
+                state.barChartConfig.series[index]
+            ) {
+                state.barChartConfig.series[index].name = name;
+            }
         },
         setSelectedChartType: (state, action: PayloadAction<ChartKind>) => {
             state.selectedChartType = action.payload;
@@ -194,6 +231,9 @@ export const sqlRunnerSlice = createSlice({
             state.modals[action.payload].isOpen =
                 !state.modals[action.payload].isOpen;
         },
+        setQuoteChar: (state, action: PayloadAction<string>) => {
+            state.quoteChar = action.payload;
+        },
     },
 });
 
@@ -201,11 +241,15 @@ export const {
     toggleActiveTable,
     setProjectUuid,
     setInitialResultsAndSeries,
+    updateName,
     setSql,
+    setActiveVisTab,
     setSaveChartData,
     updateTableChartFieldConfigLabel,
     updateChartAxisLabel,
     updateChartSeriesLabel,
     setSelectedChartType,
     toggleModal,
+    loadState,
+    setQuoteChar,
 } = sqlRunnerSlice.actions;

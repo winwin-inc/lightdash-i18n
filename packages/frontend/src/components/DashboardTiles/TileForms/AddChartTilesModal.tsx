@@ -1,4 +1,6 @@
 import {
+    ChartKind,
+    ChartSourceType,
     DashboardTileTypes,
     defaultTileSize,
     type Dashboard,
@@ -6,6 +8,7 @@ import {
 import {
     Button,
     Flex,
+    getDefaultZIndex,
     Group,
     Modal,
     MultiSelect,
@@ -20,10 +23,10 @@ import React, { forwardRef, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { v4 as uuid4 } from 'uuid';
-
-import { useChartSummaries } from '../../../hooks/useChartSummaries';
+import { useChartSummariesV2 } from '../../../hooks/useChartSummariesV2';
 import { useDashboardContext } from '../../../providers/DashboardProvider';
 import MantineIcon from '../../common/MantineIcon';
+import { ChartIcon } from '../../common/ResourceIcon';
 
 type Props = {
     onAddTiles: (tiles: Dashboard['tiles'][number][]) => void;
@@ -33,18 +36,26 @@ type Props = {
 interface ItemProps extends React.ComponentPropsWithoutRef<'div'> {
     label: string;
     description?: string;
+    chartKind: ChartKind;
 }
 
 const SelectItem = forwardRef<HTMLDivElement, ItemProps>(
-    ({ label, description, ...others }: ItemProps, ref) => (
+    ({ label, description, chartKind, ...others }: ItemProps, ref) => (
         <div ref={ref} {...others}>
-            <Stack spacing="two">
+            <Stack spacing="one">
                 <Tooltip
                     label={description}
                     disabled={!description}
                     position="top-start"
                 >
-                    <Text>{label}</Text>
+                    <Group spacing="xs">
+                        <ChartIcon
+                            chartKind={chartKind ?? ChartKind.VERTICAL_BAR}
+                        />
+                        <Text c="gray.8" fw={500} fz="xs">
+                            {label}
+                        </Text>
+                    </Group>
                 </Tooltip>
             </Stack>
         </div>
@@ -54,8 +65,8 @@ const SelectItem = forwardRef<HTMLDivElement, ItemProps>(
 const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
     const { t } = useTranslation();
     const { projectUuid } = useParams<{ projectUuid: string }>();
-    const { data: savedCharts, isInitialLoading } =
-        useChartSummaries(projectUuid);
+    const { data: savedQueries, isInitialLoading } =
+        useChartSummariesV2(projectUuid);
 
     const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
     const dashboard = useDashboardContext((c) => c.dashboard);
@@ -66,45 +77,63 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
         },
     });
     const allSavedCharts = useMemo(() => {
-        const reorderedCharts = savedCharts?.sort((chartA, chartB) =>
-            chartA.spaceUuid === dashboard?.spaceUuid
+        const reorderedCharts = savedQueries?.sort((chartA, chartB) =>
+            chartA.space.uuid === dashboard?.spaceUuid
                 ? -1
-                : chartB.spaceUuid === dashboard?.spaceUuid
+                : chartB.space.uuid === dashboard?.spaceUuid
                 ? 1
                 : 0,
         );
-        return (reorderedCharts || []).map(({ uuid, name, spaceName }) => {
-            const alreadyAddedChart = dashboardTiles?.find((tile) => {
-                return (
-                    tile.type === DashboardTileTypes.SAVED_CHART &&
-                    tile.properties.savedChartUuid === uuid
-                );
-            });
+        return (reorderedCharts || []).map(
+            ({ uuid, name, space, chartKind }) => {
+                const alreadyAddedChart = dashboardTiles?.find((tile) => {
+                    return (
+                        (tile.type === DashboardTileTypes.SAVED_CHART &&
+                            tile.properties.savedChartUuid === uuid) ||
+                        (tile.type === DashboardTileTypes.SQL_CHART &&
+                            tile.properties.savedSqlUuid === uuid)
+                    );
+                });
 
-            return {
-                value: uuid,
-                label: name,
-                group: spaceName,
-                description: alreadyAddedChart
-                    ? t(
-                          'components_dashboard_tiles_forms_add_chart.already_added_chart',
-                      )
-                    : undefined,
-            };
-        });
-    }, [dashboardTiles, savedCharts, dashboard?.spaceUuid, t]);
+                return {
+                    value: uuid,
+                    label: name,
+                    group: space.name,
+                    description: alreadyAddedChart
+                        ? t(
+                              'components_dashboard_tiles_forms_add_chart.already_added_chart',
+                          )
+                        : undefined,
+                    chartKind,
+                };
+            },
+        );
+    }, [savedQueries, dashboard?.spaceUuid, dashboardTiles, t]);
 
     const handleSubmit = form.onSubmit(({ savedChartsUuids }) => {
         onAddTiles(
             savedChartsUuids.map((uuid) => {
-                const chart = savedCharts?.find((c) => c.uuid === uuid);
+                const chart = savedQueries?.find((c) => c.uuid === uuid);
+                const isSqlChart = chart?.source === ChartSourceType.SQL;
+                if (isSqlChart) {
+                    return {
+                        uuid: uuid4(),
+                        type: DashboardTileTypes.SQL_CHART,
+                        properties: {
+                            savedSqlUuid: uuid,
+                            chartName: chart?.name ?? '',
+                        },
+                        tabUuid: undefined,
+                        ...defaultTileSize,
+                    };
+                }
                 return {
                     uuid: uuid4(),
+                    type: DashboardTileTypes.SAVED_CHART,
                     properties: {
                         savedChartUuid: uuid,
                         chartName: chart?.name ?? '',
                     },
-                    type: DashboardTileTypes.SAVED_CHART,
                     tabUuid: undefined,
                     ...defaultTileSize,
                 };
@@ -113,7 +142,7 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
         onClose();
     });
 
-    if (!savedCharts || !dashboardTiles || isInitialLoading) return null;
+    if (!savedQueries || !dashboardTiles || isInitialLoading) return null;
 
     return (
         <Modal
@@ -149,10 +178,16 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
                                 position: 'sticky',
                                 top: 0,
                                 backgroundColor: 'white',
+                                zIndex: getDefaultZIndex('modal'),
                             },
                             separatorLabel: {
                                 color: theme.colors.gray[6],
                                 fontWeight: 500,
+                                backgroundColor: 'white',
+                            },
+                            item: {
+                                paddingTop: 4,
+                                paddingBottom: 4,
                             },
                         })}
                         id="saved-charts"

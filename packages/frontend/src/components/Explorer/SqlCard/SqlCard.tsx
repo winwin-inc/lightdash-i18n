@@ -1,5 +1,11 @@
 import { subject } from '@casl/ability';
+import { ActionIcon, CopyButton, Tooltip } from '@mantine/core';
+import { useHover } from '@mantine/hooks';
+import { IconCheck, IconClipboard } from '@tabler/icons-react';
 import { memo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { useCompiledSql } from '../../../hooks/useCompiledSql';
 import { useApp } from '../../../providers/AppProvider';
 import {
     ExplorerSection,
@@ -7,6 +13,7 @@ import {
 } from '../../../providers/ExplorerProvider';
 import { Can } from '../../common/Authorization';
 import CollapsableCard from '../../common/CollapsableCard';
+import MantineIcon from '../../common/MantineIcon';
 import { RenderedSql } from '../../RenderedSql';
 import OpenInSqlRunnerButton from './OpenInSqlRunnerButton';
 
@@ -15,6 +22,9 @@ interface SqlCardProps {
 }
 
 const SqlCard: FC<SqlCardProps> = memo(({ projectUuid }) => {
+    const { t } = useTranslation();
+
+    const { hovered, ref: headingRef } = useHover();
     const expandedSections = useExplorerContext(
         (context) => context.state.expandedSections,
     );
@@ -27,12 +37,55 @@ const SqlCard: FC<SqlCardProps> = memo(({ projectUuid }) => {
     const { user } = useApp();
 
     const sqlIsOpen = expandedSections.includes(ExplorerSection.SQL);
+    const { data, isSuccess } = useCompiledSql({
+        enabled: !!unsavedChartVersionTableName,
+    });
     return (
         <CollapsableCard
+            headingRef={headingRef}
             title="SQL"
             isOpen={sqlIsOpen}
             onToggle={() => toggleExpandedSection(ExplorerSection.SQL)}
             disabled={!unsavedChartVersionTableName}
+            headerElement={
+                hovered && data && isSuccess && !sqlIsOpen ? (
+                    <CopyButton value={data || ''} timeout={2000}>
+                        {({ copied, copy }) => (
+                            <Tooltip
+                                variant="xs"
+                                label={
+                                    copied
+                                        ? t(
+                                              'components_explorer_sql_card.copied_to_clipboard',
+                                          )
+                                        : t(
+                                              'components_explorer_sql_card.copy_sql',
+                                          )
+                                }
+                                withArrow
+                                position="right"
+                                color={copied ? 'green' : 'dark'}
+                                fw={500}
+                            >
+                                <ActionIcon
+                                    color={copied ? 'teal' : 'gray'}
+                                    onClick={copy}
+                                >
+                                    {
+                                        <MantineIcon
+                                            icon={
+                                                copied
+                                                    ? IconCheck
+                                                    : IconClipboard
+                                            }
+                                        />
+                                    }
+                                </ActionIcon>
+                            </Tooltip>
+                        )}
+                    </CopyButton>
+                ) : undefined
+            }
             rightHeaderElement={
                 sqlIsOpen && (
                     <Can

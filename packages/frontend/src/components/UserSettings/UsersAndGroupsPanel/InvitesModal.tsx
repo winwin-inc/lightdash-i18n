@@ -6,7 +6,7 @@ import {
 import { Button, Group, Modal, Select, TextInput, Title } from '@mantine/core';
 import { useForm, zodResolver } from '@mantine/form';
 import { IconUser } from '@tabler/icons-react';
-import React, { type FC } from 'react';
+import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
@@ -28,6 +28,29 @@ const InvitesModal: FC<{
     opened: boolean;
     onClose: () => void;
 }> = ({ opened, onClose }) => {
+    const { t } = useTranslation();
+
+    const RoleLabels = {
+        member: t(
+            'components_user_settings_groups_panel_invites.roles_labels.member',
+        ),
+        viewer: t(
+            'components_user_settings_groups_panel_invites.roles_labels.viewer',
+        ),
+        interactive_viewer: t(
+            'components_user_settings_groups_panel_invites.roles_labels.interactive_viewer',
+        ),
+        editor: t(
+            'components_user_settings_groups_panel_invites.roles_labels.editor',
+        ),
+        developer: t(
+            'components_user_settings_groups_panel_invites.roles_labels.developer',
+        ),
+        admin: t(
+            'components_user_settings_groups_panel_invites.roles_labels.admin',
+        ),
+    };
+
     const form = useForm<SendInviteFormProps>({
         initialValues: {
             email: '',
@@ -46,7 +69,6 @@ const InvitesModal: FC<{
         mutateAsync,
         isLoading,
     } = useCreateInviteLinkMutation();
-    const { t } = useTranslation();
 
     const handleSubmit = async (data: SendInviteFormProps) => {
         track({
@@ -113,7 +135,7 @@ const InvitesModal: FC<{
                                         OrganizationMemberRole,
                                     ).map((orgMemberRole) => ({
                                         value: orgMemberRole,
-                                        label: orgMemberRole.replace('_', ' '),
+                                        label: RoleLabels[orgMemberRole],
                                     }))}
                                     disabled={isLoading}
                                     required
