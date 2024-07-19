@@ -752,7 +752,9 @@ const SchedulerForm: FC<Props> = ({
                                         <Collapse in={showFormatting} pl="md">
                                             <Group align="start" spacing="xxl">
                                                 <Radio.Group
-                                                    label="Values"
+                                                    label={t(
+                                                        'features_scheduler_form.form.tabs_panel_setup.values',
+                                                    )}
                                                     {...form.getInputProps(
                                                         'options.formatted',
                                                     )}

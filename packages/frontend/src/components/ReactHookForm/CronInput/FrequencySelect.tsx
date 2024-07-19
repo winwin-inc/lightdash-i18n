@@ -36,7 +36,7 @@ const FrequencySelect: FC<{
         {
             value: Frequency.CUSTOM,
             label: t(
-                'components_react_hook_form.frequency_items.custon_cron_expression',
+                'components_react_hook_form.frequency_items.custom_cron_expression',
             ),
         },
     ];

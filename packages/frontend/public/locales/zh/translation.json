@@ -511,7 +511,7 @@
             "decreased_by": "减少了"
         },
         "no_slack": {
-            "stpe_1": "未找到 Slack 集成",
+            "part_1": "未找到 Slack 集成",
             "part_2": "要创建 Slack 交付计划，您需要",
             "part_3": "设置 Slack",
             "part_4": "适用于您的 Lightdash 实例"
@@ -556,6 +556,7 @@
                 },
                 "include_image_pdf": "同时以PDF附件形式包含图像",
                 "formatting_options": "格式选项",
+                "values": "值",
                 "formatted": "格式化",
                 "raw": "原始",
                 "limit": "限制",
@@ -2398,6 +2399,14 @@
             },
             "send_invite": "发送邀请",
             "generate_invite": "生成邀请"
+        },
+        "roles_labels": {
+            "member": "成员",
+            "viewer": "查看者",
+            "interactive_viewer": "交互式查看者",
+            "editor": "编辑者",
+            "developer": "开发者",
+            "admin": "管理员"
         }
     },
     "components_user_settings_groups_panel_invites_success": {
@@ -2691,6 +2700,16 @@
             "rotation": "旋转",
             "show_grid": "显示网格"
         },
+        "layout": {
+            "flip_axis": "翻转轴",
+            "group": "分组",
+            "tip_metric": "您需要至少一个指标来添加分组",
+            "tip_select_field": "选择一个字段进行分组",
+            "tip_x_axis": "x轴必须为非数字才能启用堆叠",
+            "stacking": "堆叠",
+            "none": "无",
+            "stack": "堆叠"
+        },
         "legend": {
             "custom_position": "自定义位置",
             "position": "位置",
@@ -2711,16 +2730,6 @@
             "average": "平均值",
             "user_series_average": "用户系列平均值",
             "reference_lines": "参考线"
-        },
-        "layout": {
-            "flip_axes": "翻转轴",
-            "group": "分组",
-            "tip_metric": "您需要至少一个指标来添加分组",
-            "tip_select_field": "选择一个字段进行分组",
-            "tip_x_axis": "x轴必须为非数字才能启用堆叠",
-            "stacking": "堆叠",
-            "none": "无",
-            "stack": "堆叠"
         },
         "series": {
             "type_options": {

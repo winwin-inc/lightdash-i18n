@@ -511,7 +511,7 @@
             "decreased_by": "decreased by"
         },
         "no_slack": {
-            "stpe_1": "No Slack integration found",
+            "part_1": "No Slack integration found",
             "part_2": "To create a slack scheduled delivery, you need to",
             "part_3": "setup Slack",
             "part_4": "for your Lightdash instance"
@@ -556,6 +556,7 @@
                 },
                 "include_image_pdf": "Also include image as PDF attachment",
                 "formatting_options": "Formatting options",
+                "values": "Values",
                 "formatted": "Formatted",
                 "raw": "Raw",
                 "limit": "Limit",
@@ -2399,6 +2400,14 @@
             },
             "send_invite": "Send invite",
             "generate_invite": "Generate invite"
+        },
+        "roles_labels": {
+            "member": "member",
+            "viewer": "viewer",
+            "interactive_viewer": "interactive_viewer",
+            "editor": "editor",
+            "developer": "developer",
+            "admin": "admin"
         }
     },
     "components_user_settings_groups_panel_invites_success": {
@@ -2693,7 +2702,7 @@
             "show_grid": "Show grid"
         },
         "layout": {
-            "flip_axes": "Flip axis",
+            "flip_axis": "Flip axis",
             "group": "Group",
             "tip_metric": "You need at least one metric in your chart to add a group",
             "tip_select_field": "Select a field to group by",
