@@ -1,6 +1,7 @@
 import { subject } from '@casl/ability';
 import {
     assertUnreachable,
+    ChartSourceType,
     ResourceViewItemType,
     type ResourceViewItem,
 } from '@lightdash/common';
@@ -148,6 +149,11 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
 
     switch (item.type) {
         case ResourceViewItemType.CHART: {
+            if (item.data.source === ChartSourceType.SQL) {
+                // Actions are not currently supported on SQL charts
+                // TODO implement
+                return null;
+            }
             const userAccess = spaces.find(
                 (space) => space.uuid === item.data.spaceUuid,
             )?.userAccess;
@@ -201,7 +207,6 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
         default:
             return assertUnreachable(item, 'Resource type not supported');
     }
-
     return (
         <>
             <Menu

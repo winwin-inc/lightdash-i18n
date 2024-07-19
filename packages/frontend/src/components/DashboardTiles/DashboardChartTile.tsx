@@ -30,6 +30,7 @@ import {
     ActionIcon,
     Badge,
     Box,
+    Group,
     HoverCard,
     Menu,
     Portal,
@@ -40,6 +41,7 @@ import {
 import { useClipboard } from '@mantine/hooks';
 import {
     IconAlertCircle,
+    IconAlertTriangle,
     IconCopy,
     IconFilter,
     IconFolders,
@@ -348,6 +350,13 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
             projectUuid: chart.projectUuid,
         }),
     );
+    const userCanRunCustomSql = user.data?.ability.can(
+        'manage',
+        subject('CustomSql', {
+            organizationUuid: chart.organizationUuid,
+            projectUuid: chart.projectUuid,
+        }),
+    );
 
     const { openUnderlyingDataModal } = useMetricQueryDataContext();
 
@@ -567,14 +576,29 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
         }),
         [chart, metricQuery],
     );
-    const { pathname: chartPathname, search: chartSearch } = useMemo(
-        () =>
-            getExplorerUrlFromCreateSavedChartVersion(
+    const cannotUseCustomDimensions =
+        !userCanRunCustomSql &&
+        chartWithDashboardFilters.metricQuery.customDimensions;
+
+    const { pathname: chartPathname, search: chartSearch } = useMemo(() => {
+        if (cannotUseCustomDimensions) {
+            const queryWithoutCustomDimensions = {
+                ...chartWithDashboardFilters,
+                metricQuery: {
+                    ...chartWithDashboardFilters.metricQuery,
+                    customDimensions: undefined,
+                },
+            };
+            return getExplorerUrlFromCreateSavedChartVersion(
                 chartWithDashboardFilters.projectUuid,
-                chartWithDashboardFilters,
-            ),
-        [chartWithDashboardFilters],
-    );
+                queryWithoutCustomDimensions,
+            );
+        }
+        return getExplorerUrlFromCreateSavedChartVersion(
+            chartWithDashboardFilters.projectUuid,
+            chartWithDashboardFilters,
+        );
+    }, [chartWithDashboardFilters, cannotUseCustomDimensions]);
 
     const [isCommentsMenuOpen, setIsCommentsMenuOpen] = useState(false);
     const showComments = useDashboardContext(
@@ -803,24 +827,45 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                     </Tooltip>
 
                                     {userCanManageExplore && chartPathname && (
-                                        <Menu.Item
-                                            icon={
-                                                <MantineIcon
-                                                    icon={IconTelescope}
-                                                />
-                                            }
-                                            disabled={isEditMode}
-                                            onClick={() =>
-                                                handleCreateShareUrl(
-                                                    chartPathname,
-                                                    chartSearch,
-                                                )
+                                        <Tooltip
+                                            label={t(
+                                                'components_dashboard_tiles_chart_title.tooltip_custom_dimensions',
+                                            )}
+                                            position="top-start"
+                                            variant="xs"
+                                            disabled={
+                                                !cannotUseCustomDimensions
                                             }
                                         >
-                                            {t(
-                                                'components_dashboard_tiles_chart_title.menus.explore_from_here',
-                                            )}
-                                        </Menu.Item>
+                                            <Menu.Item
+                                                icon={
+                                                    <MantineIcon
+                                                        icon={IconTelescope}
+                                                    />
+                                                }
+                                                disabled={isEditMode}
+                                                onClick={() =>
+                                                    handleCreateShareUrl(
+                                                        chartPathname,
+                                                        chartSearch,
+                                                    )
+                                                }
+                                            >
+                                                <Group>
+                                                    {t(
+                                                        'components_dashboard_tiles_chart_title.menus.explore_from_here',
+                                                    )}
+                                                    {!cannotUseCustomDimensions && (
+                                                        <MantineIcon
+                                                            icon={
+                                                                IconAlertTriangle
+                                                            }
+                                                            color="yellow.9"
+                                                        />
+                                                    )}
+                                                </Group>
+                                            </Menu.Item>
+                                        </Tooltip>
                                     )}
 
                                     {userCanExportData && (

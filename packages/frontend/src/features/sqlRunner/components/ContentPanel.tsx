@@ -1,32 +1,36 @@
+import { ChartKind } from '@lightdash/common';
 import {
     ActionIcon,
     Box,
-    Button,
     Divider,
     Group,
     Loader,
     Paper,
     Stack,
+    Tabs,
     Title,
     Tooltip,
 } from '@mantine/core';
-import { useElementSize } from '@mantine/hooks';
+import { useElementSize, useHotkeys } from '@mantine/hooks';
 import {
     IconAdjustmentsCog,
     IconLayoutNavbarCollapse,
     IconLayoutNavbarExpand,
-    IconPlayerPlay,
 } from '@tabler/icons-react';
 import { useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ResizableBox } from 'react-resizable';
 
 import MantineIcon from '../../../components/common/MantineIcon';
+import RunSqlQueryButton from '../../../components/SqlRunner/RunSqlQueryButton';
 import { useSqlQueryRun } from '../hooks/useSqlQueryRun';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-
-import { ChartKind } from '@lightdash/common';
-import { setInitialResultsAndSeries, setSql } from '../store/sqlRunnerSlice';
+import {
+    setActiveVisTab,
+    setInitialResultsAndSeries,
+    setSql,
+    VisTabs,
+} from '../store/sqlRunnerSlice';
 import { SqlEditor } from './SqlEditor';
 import BarChart from './visualizations/BarChart';
 import { Table } from './visualizations/Table';
@@ -56,15 +60,36 @@ export const ContentPanel: FC<Props> = ({
 
     const { ref: wrapperRef, height: wrapperHeight } = useElementSize();
     const [resultsHeight, setResultsHeight] = useState(MIN_RESULTS_HEIGHT);
-    const maxResultsHeight = useMemo(() => wrapperHeight - 58, [wrapperHeight]);
+    const maxResultsHeight = useMemo(() => wrapperHeight - 56, [wrapperHeight]);
     const isResultsHeightMoreThanHalf = useMemo(
         () => resultsHeight > wrapperHeight / 2,
         [resultsHeight, wrapperHeight],
     );
+    const isResultsPanelFullHeight = useMemo(
+        () => resultsHeight === maxResultsHeight,
+        [resultsHeight, maxResultsHeight],
+    );
 
     const sql = useAppSelector((state) => state.sqlRunner.sql);
+    const activeVisTab = useAppSelector(
+        (state) => state.sqlRunner.activeVisTab,
+    );
+
     const selectedChartType = useAppSelector(
         (state) => state.sqlRunner.selectedChartType,
+    );
+
+    // Static results table
+    const resultsTableConfig = useAppSelector(
+        (state) => state.sqlRunner.resultsTableConfig,
+    );
+    const barChartConfig = useAppSelector(
+        (state) => state.sqlRunner.barChartConfig,
+    );
+
+    // configurable table
+    const tableVisConfig = useAppSelector(
+        (state) => state.sqlRunner.tableChartConfig,
     );
 
     const {
@@ -82,6 +107,17 @@ export const ContentPanel: FC<Props> = ({
         },
     });
 
+    // Run query on cmd + enter
+    useHotkeys([
+        [
+            'mod + enter',
+            () => {
+                if (sql) runSqlQuery({ sql });
+            },
+            { preventDefault: true },
+        ],
+    ]);
+
     return (
         <Stack
             spacing="none"
@@ -89,7 +125,19 @@ export const ContentPanel: FC<Props> = ({
             ref={wrapperRef}
         >
             <Tooltip.Group>
-                <Paper shadow="none" radius={0} px="md" py="sm" withBorder>
+                <Paper
+                    shadow="none"
+                    radius={0}
+                    px="md"
+                    py="sm"
+                    sx={(theme) => ({
+                        borderWidth: isResultsPanelFullHeight
+                            ? '0 0 0 1px'
+                            : '0 0 1px 1px',
+                        borderStyle: 'solid',
+                        borderColor: theme.colors.gray[3],
+                    })}
+                >
                     <Group position="apart">
                         <Title order={5} c="gray.6">
                             {t('features_sql_runner_content_panel.sql_panel')}
@@ -128,31 +176,15 @@ export const ContentPanel: FC<Props> = ({
                                     />
                                 </ActionIcon>
                             </Tooltip>
-                            <Tooltip
-                                variant="xs"
-                                label={t(
-                                    'features_sql_runner_content_panel.run_query',
-                                )}
-                                position="bottom"
-                            >
-                                <Button
-                                    size="xs"
-                                    leftIcon={
-                                        <MantineIcon icon={IconPlayerPlay} />
-                                    }
-                                    loading={isLoading}
-                                    onClick={() => {
-                                        if (!sql) return;
-                                        runSqlQuery({
-                                            sql,
-                                        });
-                                    }}
-                                >
-                                    {t(
-                                        'features_sql_runner_content_panel.run_query',
-                                    )}
-                                </Button>
-                            </Tooltip>
+                            <RunSqlQueryButton
+                                isLoading={isLoading}
+                                onSubmit={() => {
+                                    if (!sql) return;
+                                    runSqlQuery({
+                                        sql,
+                                    });
+                                }}
+                            />
                         </Group>
                     </Group>
                 </Paper>
@@ -161,8 +193,12 @@ export const ContentPanel: FC<Props> = ({
                     shadow="none"
                     radius={0}
                     p="none"
-                    withBorder
                     style={{ flex: 1 }}
+                    sx={(theme) => ({
+                        borderWidth: '0 0 0 1px',
+                        borderStyle: 'solid',
+                        borderColor: theme.colors.gray[3],
+                    })}
                 >
                     <Box
                         sx={{
@@ -174,6 +210,7 @@ export const ContentPanel: FC<Props> = ({
                         <SqlEditor
                             sql={sql}
                             onSqlChange={(newSql) => dispatch(setSql(newSql))}
+                            onSubmit={() => runSqlQuery({ sql })}
                         />
                     </Box>
                 </Paper>
@@ -205,93 +242,151 @@ export const ContentPanel: FC<Props> = ({
                         setResultsHeight(data.size.height)
                     }
                 >
-                    <Paper shadow="none" radius={0} px="md" py="sm" withBorder>
-                        <Group position="apart">
-                            <Group spacing="xs">
-                                <Title order={5} c="gray.6">
-                                    {t(
-                                        'features_sql_runner_content_panel.results_chart_panel',
-                                    )}
-                                </Title>
-                                {isLoading && <Loader size="xs" />}
-                            </Group>
-
-                            <Group spacing="md">
-                                <Tooltip
-                                    key={String(isResultsHeightMoreThanHalf)}
-                                    variant="xs"
-                                    label={
-                                        isResultsHeightMoreThanHalf
-                                            ? t(
-                                                  'features_sql_runner_content_panel.collapse',
-                                              )
-                                            : t(
-                                                  'features_sql_runner_content_panel.expand',
-                                              )
-                                    }
-                                    position="bottom"
-                                >
-                                    <ActionIcon
-                                        size="xs"
-                                        onClick={() =>
-                                            setResultsHeight(
-                                                isResultsHeightMoreThanHalf
-                                                    ? MIN_RESULTS_HEIGHT
-                                                    : maxResultsHeight,
-                                            )
-                                        }
-                                    >
-                                        <MantineIcon
-                                            icon={
-                                                isResultsHeightMoreThanHalf
-                                                    ? IconLayoutNavbarExpand
-                                                    : IconLayoutNavbarCollapse
-                                            }
-                                        />
-                                    </ActionIcon>
-                                </Tooltip>
-                                <Tooltip
-                                    variant="xs"
-                                    label={t(
-                                        'features_sql_runner_content_panel.configure',
-                                    )}
-                                    position="bottom"
-                                >
-                                    <ActionIcon
-                                        size="xs"
-                                        onClick={
-                                            isChartConfigOpen
-                                                ? closeChartConfig
-                                                : openChartConfig
-                                        }
-                                    >
-                                        <MantineIcon
-                                            icon={IconAdjustmentsCog}
-                                        />
-                                    </ActionIcon>
-                                </Tooltip>
-                            </Group>
-                        </Group>
-                    </Paper>
-
-                    {queryResults && !isLoading && (
+                    <Stack h="100%" spacing={0}>
                         <Paper
                             shadow="none"
                             radius={0}
                             px="md"
-                            py="sm"
+                            pb={0}
+                            pt="sm"
                             withBorder
-                            sx={{ flex: 1, overflow: 'auto' }}
-                            h="100%"
                         >
-                            {selectedChartType === ChartKind.TABLE && (
-                                <Table data={queryResults} />
-                            )}
-                            {selectedChartType === ChartKind.VERTICAL_BAR && (
-                                <BarChart data={queryResults} />
-                            )}
+                            <Group position="apart" pb={0} noWrap>
+                                <Tabs
+                                    value={activeVisTab}
+                                    onTabChange={(val: VisTabs) => {
+                                        dispatch(setActiveVisTab(val));
+                                    }}
+                                    // Negative margin to ge the tab indicator on the border
+                                    mb={-2}
+                                >
+                                    <Tabs.List>
+                                        <Tabs.Tab
+                                            value={VisTabs.CHART}
+                                            disabled={isLoading}
+                                        >
+                                            {t(
+                                                'features_sql_runner_content_panel.chart',
+                                            )}
+                                        </Tabs.Tab>
+                                        <Tabs.Tab
+                                            value={VisTabs.RESULTS}
+                                            disabled={isLoading}
+                                        >
+                                            {t(
+                                                'features_sql_runner_content_panel.results',
+                                            )}
+                                        </Tabs.Tab>
+                                        {isLoading && (
+                                            <Loader mt="xs" size="xs" />
+                                        )}
+                                    </Tabs.List>
+                                </Tabs>
+
+                                <Group spacing="md" pb="sm" noWrap>
+                                    <Tooltip
+                                        key={String(
+                                            isResultsHeightMoreThanHalf,
+                                        )}
+                                        variant="xs"
+                                        label={
+                                            isResultsHeightMoreThanHalf
+                                                ? t(
+                                                      'features_sql_runner_content_panel.collapse',
+                                                  )
+                                                : t(
+                                                      'features_sql_runner_content_panel.expand',
+                                                  )
+                                        }
+                                        position="bottom"
+                                    >
+                                        <ActionIcon
+                                            size="xs"
+                                            onClick={() =>
+                                                setResultsHeight(
+                                                    isResultsHeightMoreThanHalf
+                                                        ? MIN_RESULTS_HEIGHT
+                                                        : maxResultsHeight,
+                                                )
+                                            }
+                                        >
+                                            <MantineIcon
+                                                icon={
+                                                    isResultsHeightMoreThanHalf
+                                                        ? IconLayoutNavbarExpand
+                                                        : IconLayoutNavbarCollapse
+                                                }
+                                            />
+                                        </ActionIcon>
+                                    </Tooltip>
+                                    <Tooltip
+                                        variant="xs"
+                                        label={t(
+                                            'features_sql_runner_content_panel.configure',
+                                        )}
+                                        position="bottom"
+                                    >
+                                        <ActionIcon
+                                            size="xs"
+                                            onClick={
+                                                isChartConfigOpen
+                                                    ? closeChartConfig
+                                                    : openChartConfig
+                                            }
+                                        >
+                                            <MantineIcon
+                                                icon={IconAdjustmentsCog}
+                                            />
+                                        </ActionIcon>
+                                    </Tooltip>
+                                </Group>
+                            </Group>
                         </Paper>
-                    )}
+
+                        {queryResults && !isLoading && (
+                            <Paper
+                                shadow="none"
+                                radius={0}
+                                px="md"
+                                py="sm"
+                                sx={(theme) => ({
+                                    flex: 1,
+                                    overflow: 'auto',
+                                    borderWidth: '0 0 1px 1px',
+                                    borderStyle: 'solid',
+                                    borderColor: theme.colors.gray[3],
+                                })}
+                                h="100%"
+                            >
+                                {activeVisTab === VisTabs.CHART && (
+                                    <>
+                                        {selectedChartType ===
+                                            ChartKind.TABLE && (
+                                            <Table
+                                                data={queryResults}
+                                                config={tableVisConfig}
+                                            />
+                                        )}
+                                        {selectedChartType ===
+                                            ChartKind.VERTICAL_BAR && (
+                                            <BarChart
+                                                data={queryResults}
+                                                config={barChartConfig}
+                                            />
+                                        )}
+                                    </>
+                                )}
+                                {activeVisTab === VisTabs.RESULTS && (
+                                    <>
+                                        <Table
+                                            data={queryResults}
+                                            config={resultsTableConfig}
+                                        />
+                                    </>
+                                )}
+                            </Paper>
+                        )}
+                    </Stack>
                 </ResizableBox>
             </Tooltip.Group>
         </Stack>

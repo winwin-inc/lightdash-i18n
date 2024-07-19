@@ -1,3 +1,4 @@
+import { getFieldQuoteChar } from '@lightdash/common';
 import { ActionIcon, Group, Paper, Tooltip } from '@mantine/core';
 import { IconDatabase } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
@@ -18,9 +19,14 @@ import {
     useAppSelector,
 } from '../features/sqlRunner/store/hooks';
 import {
+    loadState,
     setProjectUuid,
+    setQuoteChar,
     setSaveChartData,
 } from '../features/sqlRunner/store/sqlRunnerSlice';
+import { useProject } from '../hooks/useProject';
+import useSearchParams from '../hooks/useSearchParams';
+import { useGetShare } from '../hooks/useShare';
 
 const SqlRunnerNew = () => {
     const { t } = useTranslation();
@@ -31,9 +37,18 @@ const SqlRunnerNew = () => {
     );
 
     const params = useParams<{ projectUuid: string; slug?: string }>();
+    const state = useSearchParams('state');
 
+    const { data: sqlRunnerState } = useGetShare(state || undefined);
     const [isLeftSidebarOpen, setLeftSidebarOpen] = useState(true);
     const [isRightSidebarOpen, setRightSidebarOpen] = useState(false);
+    const { data: project } = useProject(projectUuid);
+
+    useEffect(() => {
+        if (sqlRunnerState) {
+            dispatch(loadState(JSON.parse(sqlRunnerState.params)));
+        }
+    }, [dispatch, sqlRunnerState]);
 
     useEffect(() => {
         if (!projectUuid && params.projectUuid) {
@@ -48,6 +63,15 @@ const SqlRunnerNew = () => {
             dispatch(setSaveChartData(data));
         },
     });
+    useEffect(() => {
+        if (project?.warehouseConnection?.type) {
+            dispatch(
+                setQuoteChar(
+                    getFieldQuoteChar(project?.warehouseConnection?.type),
+                ),
+            );
+        }
+    }, [dispatch, project?.warehouseConnection?.type]);
 
     if (!projectUuid) {
         return null;
@@ -78,7 +102,6 @@ const SqlRunnerNew = () => {
                         radius={0}
                         px="md"
                         py="lg"
-                        withBorder
                         style={{ flexGrow: 0 }}
                     >
                         <Tooltip

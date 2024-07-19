@@ -1,4 +1,9 @@
-import { type DashboardChartTile } from '@lightdash/common';
+import {
+    isDashboardChartTileType,
+    isDashboardSqlChartTile,
+    type DashboardChartTile,
+    type DashboardSqlChartTile,
+} from '@lightdash/common';
 import {
     ActionIcon,
     Button,
@@ -12,7 +17,7 @@ import {
     type ModalProps,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { IconChartAreaLine, IconEye, IconEyeOff } from '@tabler/icons-react';
+import { IconEye, IconEyeOff } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 
@@ -27,7 +32,7 @@ interface ChartUpdateModalProps extends ModalProps {
         newChartUuid: string,
         shouldHideTitle: boolean,
     ) => void;
-    tile: DashboardChartTile;
+    tile: DashboardChartTile | DashboardSqlChartTile;
 }
 
 const ChartUpdateModal = ({
@@ -40,7 +45,9 @@ const ChartUpdateModal = ({
     const { t } = useTranslation();
     const form = useForm({
         initialValues: {
-            uuid: tile.properties.savedChartUuid,
+            uuid: isDashboardSqlChartTile(tile)
+                ? tile.properties.savedSqlUuid
+                : tile.properties.savedChartUuid,
             title: tile.properties.title,
             hideTitle,
         },
@@ -65,18 +72,11 @@ const ChartUpdateModal = ({
         <Modal
             onClose={() => onClose?.()}
             title={
-                <Flex align="center" gap="xs">
-                    <MantineIcon
-                        icon={IconChartAreaLine}
-                        size="lg"
-                        color="blue.8"
-                    />
-                    <Title order={4}>
-                        {t(
-                            'components_dashboard_tiles_forms_update_chart.edit_tile_content',
-                        )}
-                    </Title>
-                </Flex>
+                <Title order={4}>
+                    {t(
+                        'components_dashboard_tiles_forms_update_chart.edit_tile_content',
+                    )}
+                </Title>
             }
             withCloseButton
             className="non-draggable"
@@ -86,7 +86,9 @@ const ChartUpdateModal = ({
                 <Stack spacing="md">
                     <Flex align="flex-end" gap="xs">
                         <TextInput
-                            label="Title"
+                            label={t(
+                                'components_dashboard_tiles_forms_update_chart.title',
+                            )}
                             placeholder={tile.properties.chartName || undefined}
                             {...form.getInputProps('title')}
                             style={{ flex: 1 }}
@@ -110,42 +112,43 @@ const ChartUpdateModal = ({
                             />
                         </ActionIcon>
                     </Flex>
-                    {!tile.properties.belongsToDashboard && (
-                        <Select
-                            styles={(theme) => ({
-                                separator: {
-                                    position: 'sticky',
-                                    top: 0,
-                                    backgroundColor: 'white',
-                                },
-                                separatorLabel: {
-                                    color: theme.colors.gray[6],
-                                    fontWeight: 500,
-                                },
-                            })}
-                            id="savedChartUuid"
-                            name="savedChartUuid"
-                            label={t(
-                                'components_dashboard_tiles_forms_update_chart.select_chart',
-                            )}
-                            data={(savedCharts || []).map(
-                                ({ uuid, name, spaceName }) => {
-                                    return {
-                                        value: uuid,
-                                        label: name,
-                                        group: spaceName,
-                                    };
-                                },
-                            )}
-                            disabled={isInitialLoading}
-                            withinPortal
-                            {...form.getInputProps('uuid')}
-                            searchable
-                            placeholder={t(
-                                'components_dashboard_tiles_forms_update_chart.search',
-                            )}
-                        />
-                    )}
+                    {isDashboardChartTileType(tile) &&
+                        tile.properties.belongsToDashboard && (
+                            <Select
+                                styles={(theme) => ({
+                                    separator: {
+                                        position: 'sticky',
+                                        top: 0,
+                                        backgroundColor: 'white',
+                                    },
+                                    separatorLabel: {
+                                        color: theme.colors.gray[6],
+                                        fontWeight: 500,
+                                    },
+                                })}
+                                id="savedChartUuid"
+                                name="savedChartUuid"
+                                label={t(
+                                    'components_dashboard_tiles_forms_update_chart.select_chart',
+                                )}
+                                data={(savedCharts || []).map(
+                                    ({ uuid, name, spaceName }) => {
+                                        return {
+                                            value: uuid,
+                                            label: name,
+                                            group: spaceName,
+                                        };
+                                    },
+                                )}
+                                disabled={isInitialLoading}
+                                withinPortal
+                                {...form.getInputProps('uuid')}
+                                searchable
+                                placeholder={t(
+                                    'components_dashboard_tiles_forms_update_chart.search',
+                                )}
+                            />
+                        )}
                     <Group spacing="xs" position="right" mt="md">
                         <Button onClick={() => onClose?.()} variant="outline">
                             {t(
