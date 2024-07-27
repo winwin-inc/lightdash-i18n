@@ -855,7 +855,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                                     {t(
                                                         'components_dashboard_tiles_chart_title.menus.explore_from_here',
                                                     )}
-                                                    {!cannotUseCustomDimensions && (
+                                                    {cannotUseCustomDimensions && (
                                                         <MantineIcon
                                                             icon={
                                                                 IconAlertTriangle
@@ -921,7 +921,12 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                     onClick={() =>
                                         duplicateChart({
                                             uuid: savedChartUuid,
-                                            name: chart.name,
+                                            name: t(
+                                                'components_dashboard_tiles_chart_title.menus.copy_of',
+                                                {
+                                                    name: chart.name,
+                                                },
+                                            ),
                                             description: chart.description,
                                         })
                                     }

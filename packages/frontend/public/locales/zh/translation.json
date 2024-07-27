@@ -86,7 +86,8 @@
             "invalid": "具有该标签的表计算/维度已存在",
             "error": "保存错误",
             "edit": "编辑表计算",
-            "add": "添加表计算"
+            "add": "添加表计算",
+            "empty": "SQL 不能为空"
         },
         "form": {
             "name": {
@@ -315,13 +316,10 @@
         "share_url": "分享URL"
     },
     "features_sql_runner_right_sidebar": {
-        "configure_chart": "配置图表",
+        "configure": "配置",
         "close_sidebar": "关闭侧边栏",
         "table": "表格",
-        "bar_chart": "柱状图",
-        "x_axis": "X 轴",
-        "y_axis": "Y 轴",
-        "series": "系列"
+        "bar_chart": "柱状图"
     },
     "features_sql_runner_sidebar": {
         "sql_runner": "SQL运行器",
@@ -353,7 +351,8 @@
     "features_sql_runner_query": {
         "not_run_sql": "无法运行 SQL 查询",
         "not_run_sql_query": "无法运行 SQL 查询",
-        "not_fetch_query_results": "无法获取 SQL 查询结果"
+        "not_fetch_query_results": "无法获取 SQL 查询结果",
+        "missing_file_url": "缺少文件 URL"
     },
     "features_sql_runner_charts": {
         "created": {
@@ -368,6 +367,15 @@
     "features_sql_chart_and_results": {
         "not_run_sql_query": "无法运行 SQL 查询",
         "not_fetch_query_results": "无法获取 SQL 查询结果"
+    },
+    "features_sql_runner_bar_chart_configuration": {
+        "select_y_axis": "选择 Y 轴",
+        "confirm": "确认",
+        "select_x_axis": "选择 X 轴",
+        "series": "系列"
+    },
+    "features_sql_runner_bar_chart_aggregation_config": {
+        "aggregation": "聚合"
     },
 
     "features_comments_components_comment_mentions": {
@@ -1290,6 +1298,7 @@
             "export_csv": "导出 CSV",
             "move_to_space": "移动到空间",
             "duplicate_chart": "复制图表",
+            "copy_of": "复制 {{name}}",
             "copy_value": "复制值",
             "view_underlying_data": "查看基础数据"
         },
@@ -4503,6 +4512,9 @@
             "warehouse": {
                 "label": "仓库",
                 "description": "这是仓库名称。"
+            },
+            "warehouse_override": {
+                "label": "总是使用此仓库"
             },
             "switch": {
                 "label": "要求用户提供自己的凭证"

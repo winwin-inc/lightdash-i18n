@@ -1,9 +1,11 @@
 import {
+    isErrorDetails,
     SchedulerJobStatus,
     type ApiError,
     type ApiJobScheduledResponse,
-    type ApiJobStatusResponse,
+    type ApiSqlRunnerJobStatusResponse,
     type ResultRow,
+    type SqlColumn,
     type SqlRunnerBody,
 } from '@lightdash/common';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -28,6 +30,11 @@ const scheduleSqlJob = async ({
         body: JSON.stringify({ sql }),
     });
 
+export type ResultsAndColumns = {
+    results: ResultRow[];
+    columns: SqlColumn[];
+};
+
 /**
  * Gets the SQL query results from the server
  *
@@ -39,7 +46,7 @@ const scheduleSqlJob = async ({
 export const useSqlQueryRun = ({
     onSuccess,
 }: {
-    onSuccess: (data: ResultRow[] | undefined) => void;
+    onSuccess: (data: ResultsAndColumns | undefined) => void;
 }) => {
     const { t } = useTranslation();
 
@@ -58,13 +65,15 @@ export const useSqlQueryRun = ({
     const { data: sqlQueryJob } = sqlQueryRunMutation;
 
     const { data: scheduledDeliveryJobStatus } = useQuery<
-        ApiJobStatusResponse['results'] | undefined,
+        ApiSqlRunnerJobStatusResponse['results'] | undefined,
         ApiError
     >(
         ['jobStatus', sqlQueryJob?.jobId],
         () => {
             if (!sqlQueryJob?.jobId) return;
-            return getSchedulerJobStatus(sqlQueryJob.jobId);
+            return getSchedulerJobStatus<ApiSqlRunnerJobStatusResponse>(
+                sqlQueryJob.jobId,
+            );
         },
         {
             refetchInterval: (data, query) => {
@@ -78,10 +87,12 @@ export const useSqlQueryRun = ({
             },
             onSuccess: (data) => {
                 if (data?.status === SchedulerJobStatus.ERROR) {
-                    showToastError({
-                        title: t('features_sql_runner_query.not_run_sql'),
-                        subtitle: data.details?.error,
-                    });
+                    if (isErrorDetails(data?.details)) {
+                        showToastError({
+                            title: t('features_sql_runner_query.not_run_sql'),
+                            subtitle: data?.details?.error,
+                        });
+                    }
                 }
             },
             enabled: Boolean(sqlQueryJob && sqlQueryJob?.jobId !== undefined),
@@ -90,11 +101,19 @@ export const useSqlQueryRun = ({
 
     const { data: sqlQueryResults, isLoading: isResultsLoading } = useQuery<
         ResultRow[] | undefined,
-        ApiError
+        ApiError,
+        ResultsAndColumns | undefined
     >(
         ['sqlQueryResults', sqlQueryJob?.jobId],
         async () => {
-            const url = scheduledDeliveryJobStatus?.details?.fileUrl;
+            const url =
+                !isErrorDetails(scheduledDeliveryJobStatus?.details) &&
+                scheduledDeliveryJobStatus?.details?.fileUrl;
+            if (!url) {
+                throw new Error(
+                    t('features_sql_runner_query.missing_file_url'),
+                );
+            }
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
@@ -146,18 +165,33 @@ export const useSqlQueryRun = ({
             return jsonObjects;
         },
         {
-            onError: () => {
+            onError: (data) => {
                 showToastError({
                     title: t(
                         'features_sql_runner_query.not_fetch_query_results',
                     ),
+                    subtitle: data.error.message,
                 });
             },
             enabled: Boolean(
                 scheduledDeliveryJobStatus?.status ===
                     SchedulerJobStatus.COMPLETED &&
+                    !isErrorDetails(scheduledDeliveryJobStatus?.details) &&
                     scheduledDeliveryJobStatus?.details?.fileUrl !== undefined,
             ),
+            select: (data) => {
+                if (
+                    !data ||
+                    isErrorDetails(scheduledDeliveryJobStatus?.details) ||
+                    !scheduledDeliveryJobStatus?.details?.columns
+                ) {
+                    return undefined;
+                }
+                return {
+                    results: data,
+                    columns: scheduledDeliveryJobStatus.details.columns,
+                };
+            },
             onSuccess: (data) => {
                 onSuccess(data);
             },

@@ -36,7 +36,7 @@ import {
 } from '../hooks/useTableFields';
 import { useAppSelector } from '../store/hooks';
 
-const TableFieldIcon: FC<{
+export const TableFieldIcon: FC<{
     fieldType: DimensionType;
 }> = memo(({ fieldType }) => {
     const Icon = useMemo(() => {

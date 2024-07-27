@@ -86,7 +86,8 @@
             "invalid": "Table calculation/Dimension with this label already exists",
             "error": "Error saving",
             "edit": "Edit table calculation",
-            "add": "Add table calculation"
+            "add": "Add table calculation",
+            "empty": "SQL cannot be empty"
         },
         "form": {
             "name": {
@@ -315,13 +316,10 @@
         "share_url": "Share URL"
     },
     "features_sql_runner_right_sidebar": {
-        "configure_chart": "Configure chart",
+        "configure": "Configure",
         "close_sidebar": "Close sidebar",
         "table": "Table",
-        "bar_chart": "Bar chart",
-        "x_axis": "X axis",
-        "y_axis": "Y axis",
-        "series": "Series"
+        "bar_chart": "Bar chart"
     },
     "features_sql_runner_sidebar": {
         "sql_runner": "SQL RUNNER",
@@ -353,7 +351,8 @@
     "features_sql_runner_query": {
         "not_run_sql": "Could not run SQL query",
         "error_parsing_json": "Error parsing JSON",
-        "not_fetch_query_results": "Could not fetch SQL query results"
+        "not_fetch_query_results": "Could not fetch SQL query results",
+        "missing_file_url": "Missing file URL"
     },
     "features_sql_runner_charts": {
         "created": {
@@ -368,6 +367,15 @@
     "features_sql_chart_and_results": {
         "not_run_sql_query": "Could not run SQL query",
         "not_fetch_query_results": "Could not fetch SQL query results"
+    },
+    "features_sql_runner_bar_chart_configuration": {
+        "select_y_axis": "Select Y axis",
+        "confirm": "Confirm",
+        "select_x_axis": "Select X axis",
+        "series": "Series"
+    },
+    "features_sql_runner_bar_chart_aggregation_config": {
+        "aggregation": "Aggregation"
     },
 
     "features_comments_components_comment_mentions": {
@@ -1290,6 +1298,7 @@
             "export_csv": "Export CSV",
             "move_to_space": "Move to space",
             "duplicate_chart": "Duplicate chart",
+            "copy_of": "Copy of {{name}}",
             "copy_value": "Copy value",
             "view_underlying_data": "View underlying data"
         },
@@ -4491,6 +4500,9 @@
             "warehouse": {
                 "label": "Warehouse",
                 "description": "This is the warehouse name."
+            },
+            "warehouse_override": {
+                "label": "Always use this warehouse"
             },
             "switch": {
                 "label": "Require users to provide their own credentials"

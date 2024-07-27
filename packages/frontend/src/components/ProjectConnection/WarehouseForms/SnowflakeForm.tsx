@@ -165,7 +165,14 @@ const SnowflakeForm: FC<{
                     })}
                     disabled={disabled}
                 />
-
+                <BooleanSwitch
+                    name="warehouse.override"
+                    documentationUrl="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#warehouse"
+                    label={t(
+                        'components_project_connection_warehouse_form.snowflake.warehouse_override.label',
+                    )}
+                    disabled={disabled}
+                />
                 <FormSection isOpen={isOpen} name="advanced">
                     <Stack style={{ marginTop: '8px' }}>
                         {isPassthroughLoginFeatureEnabled && (

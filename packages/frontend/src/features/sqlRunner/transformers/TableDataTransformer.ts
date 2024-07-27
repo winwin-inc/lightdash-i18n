@@ -1,24 +1,26 @@
 import {
-    SqlRunnerResultsTransformer,
+    SqlRunnerResultsTableTransformer,
     type ResultRow,
     type SqlTableConfig,
 } from '@lightdash/common';
 import { type ColumnDef } from '@tanstack/react-table';
 import { getRawValueCell } from '../../../hooks/useColumns';
-import { type useSqlQueryRun } from '../hooks/useSqlQueryRun';
+
 export class TableDataTransformer {
-    private transformer: SqlRunnerResultsTransformer;
+    private transformer: SqlRunnerResultsTableTransformer;
 
     private columns: ColumnDef<ResultRow, any>[];
 
     private config: SqlTableConfig | undefined;
 
     constructor(
-        private data: NonNullable<ReturnType<typeof useSqlQueryRun>['data']>,
+        private data: ResultRow[],
         private tableChartSqlConfig: SqlTableConfig | undefined,
     ) {
         this.config = this.tableChartSqlConfig;
-        this.transformer = new SqlRunnerResultsTransformer({ data: this.data });
+        this.transformer = new SqlRunnerResultsTableTransformer({
+            data: this.data,
+        });
         this.columns = this.createColumns();
     }
 

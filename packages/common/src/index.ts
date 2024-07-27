@@ -123,6 +123,7 @@ import { type ApiPromotionChangesResponse } from './types/promotion';
 import {
     type ApiCreateSqlChart,
     type ApiSqlChart,
+    type ApiSqlRunnerJobStatusResponse,
     type ApiUpdateSqlChart,
 } from './types/sqlRunner';
 import { TimeFrames } from './types/timeFrames';
@@ -224,6 +225,10 @@ export * from './utils/slugs';
 export * from './utils/time';
 export * from './utils/timeFrames';
 export * from './utils/warehouse';
+export * from './visualizations/BarChartDataTransformer';
+export * from './visualizations/ResultsTransformerBase';
+export * from './visualizations/SqlRunnerResultsTableTransformer';
+export * from './visualizations/SqlRunnerResultsTransformer';
 
 export const validateEmail = (email: string): boolean => {
     if (/\s/.test(email)) {
@@ -663,7 +668,8 @@ type ApiResults =
     | ApiCreateSqlChart['results']
     | ApiUpdateSqlChart['results']
     | ApiContentResponse['results']
-    | ApiChartContentResponse['results'];
+    | ApiChartContentResponse['results']
+    | ApiSqlRunnerJobStatusResponse['results'];
 
 export type ApiResponse<T extends ApiResults = ApiResults> = {
     status: 'ok';
