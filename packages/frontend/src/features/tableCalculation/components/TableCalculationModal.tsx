@@ -112,6 +112,11 @@ const TableCalculationModal: FC<Props> = ({
 
     const handleSubmit = form.onSubmit((data) => {
         const { name, sql } = data;
+        if (sql.length === 0)
+            return showToastError({
+                title: t('features_table_calculation_modal.tips.empty'),
+            });
+
         try {
             onSave({
                 name: getUniqueTableCalculationName(name, tableCalculations),

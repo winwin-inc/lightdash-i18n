@@ -1,27 +1,41 @@
 import { type BarChartConfig } from '@lightdash/common';
+import { Center } from '@mantine/core';
 import EChartsReact, { type EChartsReactProps } from 'echarts-for-react';
 import { type FC } from 'react';
-import { type useSqlQueryRun } from '../../hooks/useSqlQueryRun';
-import { useBarChartDataTransformer } from '../../transformers/useBarChartDataTransformer';
+import { type ResultsAndColumns } from '../../hooks/useSqlQueryRun';
+import { useBarChart } from '../../transformers/useBarChart';
 
 type BarChartProps = {
-    data: NonNullable<ReturnType<typeof useSqlQueryRun>['data']>;
-    config: BarChartConfig | undefined;
+    data: ResultsAndColumns;
+    config: BarChartConfig;
 } & Partial<Pick<EChartsReactProps, 'style'>>;
 
 const BarChart: FC<BarChartProps> = ({ data, config, style }) => {
-    const { spec } = useBarChartDataTransformer(data, config);
+    const { error, value: spec } = useBarChart(
+        data.results,
+        data.columns,
+        config,
+    );
+
+    if (error) {
+        return <Center>Error: {error.message}</Center>;
+    }
+
     return (
-        <EChartsReact
-            option={spec}
-            notMerge
-            opts={{
-                renderer: 'svg',
-                width: 'auto',
-                height: 'auto',
-            }}
-            style={style}
-        />
+        <>
+            {spec && (
+                <EChartsReact
+                    option={spec}
+                    notMerge
+                    opts={{
+                        renderer: 'svg',
+                        width: 'auto',
+                        height: 'auto',
+                    }}
+                    style={style}
+                />
+            )}
+        </>
     );
 };
 

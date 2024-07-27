@@ -170,10 +170,6 @@ ARG tz=Asia/Shanghai
 RUN ln -sf /usr/share/zoneinfo/$tz /etc/localtime \
   && echo $tz > /etc/timezone
 
-# Production config
-COPY lightdash.yml /usr/app/lightdash.yml
-ENV LIGHTDASH_CONFIG_FILE /usr/app/lightdash.yml
-
 # Run backend
 COPY ./docker/prod-entrypoint.sh /usr/bin/prod-entrypoint.sh
 

@@ -78,7 +78,13 @@ export const RefreshButton: FC<{ size?: MantineSize }> = memo(({ size }) => {
                     leftIcon={<MantineIcon icon={IconPlayerPlay} />}
                     loading={isLoading}
                     onClick={onClick}
-                    sx={{ flex: 1 }}
+                    sx={(theme) => ({
+                        flex: 1,
+                        borderRight: `1px solid ${theme.fn.rgba(
+                            theme.colors.gray[5],
+                            0.6,
+                        )}`,
+                    })}
                 >
                     {t('components_refresh_button.run_query')} ({limit})
                 </Button>

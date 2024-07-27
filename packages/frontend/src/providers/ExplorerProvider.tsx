@@ -590,6 +590,10 @@ function reducer(
                         sorts: state.unsavedChartVersion.metricQuery.sorts.filter(
                             (s) => s.fieldId !== action.payload,
                         ),
+                        tableCalculations:
+                            state.unsavedChartVersion.metricQuery.tableCalculations.filter(
+                                (tc) => tc.name !== action.payload,
+                            ),
                     },
                     tableConfig: {
                         ...state.unsavedChartVersion.tableConfig,
@@ -1391,6 +1395,9 @@ export const ExplorerProvider: FC<
         dispatch({
             type: ActionType.REMOVE_FIELD,
             payload: fieldId,
+            options: {
+                shouldFetchResults: true,
+            },
         });
     }, []);
 
@@ -1629,6 +1636,9 @@ export const ExplorerProvider: FC<
         dispatch({
             type: ActionType.DELETE_TABLE_CALCULATION,
             payload: name,
+            options: {
+                shouldFetchResults: true,
+            },
         });
     }, []);
 

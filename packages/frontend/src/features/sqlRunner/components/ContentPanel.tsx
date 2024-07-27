@@ -83,13 +83,14 @@ export const ContentPanel: FC<Props> = ({
     const resultsTableConfig = useAppSelector(
         (state) => state.sqlRunner.resultsTableConfig,
     );
-    const barChartConfig = useAppSelector(
-        (state) => state.sqlRunner.barChartConfig,
-    );
 
     // configurable table
     const tableVisConfig = useAppSelector(
-        (state) => state.sqlRunner.tableChartConfig,
+        (state) => state.tableVisConfig.config,
+    );
+
+    const barChartConfig = useAppSelector(
+        (state) => state.barChartConfig.config,
     );
 
     const {
@@ -343,7 +344,7 @@ export const ContentPanel: FC<Props> = ({
                             </Group>
                         </Paper>
 
-                        {queryResults && !isLoading && (
+                        {queryResults?.results && !isLoading && (
                             <Paper
                                 shadow="none"
                                 radius={0}
@@ -363,23 +364,24 @@ export const ContentPanel: FC<Props> = ({
                                         {selectedChartType ===
                                             ChartKind.TABLE && (
                                             <Table
-                                                data={queryResults}
+                                                data={queryResults.results}
                                                 config={tableVisConfig}
                                             />
                                         )}
                                         {selectedChartType ===
-                                            ChartKind.VERTICAL_BAR && (
-                                            <BarChart
-                                                data={queryResults}
-                                                config={barChartConfig}
-                                            />
-                                        )}
+                                            ChartKind.VERTICAL_BAR &&
+                                            barChartConfig && (
+                                                <BarChart
+                                                    data={queryResults}
+                                                    config={barChartConfig}
+                                                />
+                                            )}
                                     </>
                                 )}
                                 {activeVisTab === VisTabs.RESULTS && (
                                     <>
                                         <Table
-                                            data={queryResults}
+                                            data={queryResults.results}
                                             config={resultsTableConfig}
                                         />
                                     </>

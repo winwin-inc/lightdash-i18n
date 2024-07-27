@@ -93,6 +93,8 @@ type DashboardContext = {
     addResultsCacheTime: (cacheMetadata: CacheMetadata) => void;
     oldestCacheTime: Date | undefined;
     invalidateCache: boolean | undefined;
+    isAutoRefresh: boolean;
+    setIsAutoRefresh: (autoRefresh: boolean) => void;
     clearCacheAndFetch: () => void;
     allFilterableFieldsMap: Record<string, FilterableDimension>;
     allFilterableFields: FilterableDimension[] | undefined;
@@ -140,6 +142,8 @@ export const DashboardProvider: React.FC<
     const { dashboardUuid } = useParams<{
         dashboardUuid: string;
     }>();
+
+    const [isAutoRefresh, setIsAutoRefresh] = useState<boolean>(false);
 
     const {
         data: dashboard,
@@ -645,6 +649,8 @@ export const DashboardProvider: React.FC<
         oldestCacheTime,
         invalidateCache,
         clearCacheAndFetch,
+        isAutoRefresh,
+        setIsAutoRefresh,
         allFilterableFieldsMap,
         allFilterableFields: dashboardAvailableFiltersData?.allFilterableFields,
         isLoadingDashboardFilters,

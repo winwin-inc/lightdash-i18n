@@ -1,4 +1,5 @@
 import { subject } from '@casl/ability';
+import { FeatureFlags } from '@lightdash/common';
 import { Button, Menu } from '@mantine/core';
 import {
     IconFolder,
@@ -13,6 +14,7 @@ import { memo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useHistory } from 'react-router-dom';
 
+import { useFeatureFlagEnabled } from '../../hooks/useFeatureFlagEnabled';
 import { useApp } from '../../providers/AppProvider';
 import { Can } from '../common/Authorization';
 import LargeMenuItem from '../common/LargeMenuItem';
@@ -34,6 +36,8 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
     const [isCreateSpaceOpen, setIsCreateSpaceOpen] = useState<boolean>(false);
     const [isCreateDashboardOpen, setIsCreateDashboardOpen] =
         useState<boolean>(false);
+
+    const canSaveSqlChart = useFeatureFlagEnabled(FeatureFlags.SaveSqlChart);
 
     return (
         <>
@@ -107,7 +111,11 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                                 description={t(
                                     'components_navbar_explore_menu.menus.sql_runner.description',
                                 )}
-                                to={`/projects/${projectUuid}/sqlRunner`}
+                                to={`/projects/${projectUuid}/${
+                                    canSaveSqlChart
+                                        ? 'sql-runner-new'
+                                        : 'sqlRunner'
+                                }`}
                                 icon={IconTerminal2}
                             />
                         </Can>
