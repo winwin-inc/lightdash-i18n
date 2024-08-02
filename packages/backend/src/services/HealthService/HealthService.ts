@@ -133,6 +133,8 @@ export class HealthService extends BaseService {
                 oidc: {
                     loginPath: this.lightdashConfig.auth.oidc.loginPath,
                     enabled: !!this.lightdashConfig.auth.oidc.clientId,
+                    forceRedirect:
+                        this.lightdashConfig.auth.oidc.clientForceRedirect,
                 },
             },
             hasEmailClient: !!this.lightdashConfig.smtp,

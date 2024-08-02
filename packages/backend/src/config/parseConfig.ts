@@ -377,6 +377,7 @@ type AuthOidcConfig = {
     loginPath: string;
     clientId: string | undefined;
     clientSecret: string | undefined;
+    clientForceRedirect: boolean;
     metadataDocumentEndpoint: string | undefined;
     authSigningAlg: string | undefined;
     authMethod: ClientAuthMethod | undefined;
@@ -586,6 +587,8 @@ export const parseConfig = (): LightdashConfig => {
                 loginPath: '/login/oidc',
                 clientId: process.env.AUTH_OIDC_CLIENT_ID,
                 clientSecret: process.env.AUTH_OIDC_CLIENT_SECRET,
+                clientForceRedirect:
+                    process.env.AUTH_OIDC_CLIENT_FORCE_REDIRECT === 'true',
                 metadataDocumentEndpoint:
                     process.env.AUTH_OIDC_METADATA_DOCUMENT_URL,
                 x509PublicKeyCertPath: process.env.AUTH_OIDC_X509_CERT_PATH,

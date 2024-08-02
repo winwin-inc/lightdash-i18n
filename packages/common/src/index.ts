@@ -773,6 +773,7 @@ export type HealthState = {
         oidc: {
             enabled: boolean;
             loginPath: string;
+            forceRedirect: boolean;
         };
     };
     posthog: {
