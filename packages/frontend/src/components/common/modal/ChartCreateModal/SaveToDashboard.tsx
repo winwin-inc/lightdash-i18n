@@ -12,7 +12,10 @@ import { useCallback, useEffect, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import { z } from 'zod';
-import { appendNewTilesToBottom } from '../../../../hooks/dashboard/useDashboard';
+import {
+    appendNewTilesToBottom,
+    useDashboardQuery,
+} from '../../../../hooks/dashboard/useDashboard';
 import useDashboardStorage from '../../../../hooks/dashboard/useDashboardStorage';
 import useToaster from '../../../../hooks/toaster/useToaster';
 import { useCreateMutation } from '../../../../hooks/useSavedQuery';
@@ -48,7 +51,9 @@ export const SaveToDashboard: FC<Props> = ({
     const { t } = useTranslation();
     const { getEditingDashboardInfo } = useDashboardStorage();
     const editingDashboardInfo = getEditingDashboardInfo();
-
+    const { data: selectedDashboard } = useDashboardQuery(
+        dashboardUuid || undefined,
+    );
     useEffect(() => {
         if (
             dashboardInfoFromStorage.name &&
@@ -114,8 +119,13 @@ export const SaveToDashboard: FC<Props> = ({
                 },
                 ...getDefaultChartTileSize(savedData.chartConfig?.type),
             };
+            const existingTiles =
+                unsavedDashboardTiles?.length > 0
+                    ? unsavedDashboardTiles
+                    : selectedDashboard?.tiles;
+
             setUnsavedDashboardTiles(
-                appendNewTilesToBottom(unsavedDashboardTiles ?? [], [newTile]),
+                appendNewTilesToBottom(existingTiles || [], [newTile]),
             );
 
             clearIsEditingDashboardChart();
@@ -142,6 +152,7 @@ export const SaveToDashboard: FC<Props> = ({
             dashboardName,
             activeTabUuid,
             t,
+            selectedDashboard?.tiles,
         ],
     );
     return (

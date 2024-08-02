@@ -1,13 +1,9 @@
 import {
-    BarChartDataTransformer,
     SqlRunnerResultsTransformer,
-    type BarChartConfig,
     type ResultRow,
     type RowData,
     type SqlColumn,
 } from '@lightdash/common';
-import { useMemo } from 'react';
-import { useAsync } from 'react-use';
 import { duckDBFE } from '../duckDBQuery';
 
 const isResultRows = (rows: (RowData | ResultRow)[]): rows is ResultRow[] => {
@@ -43,31 +39,3 @@ export class SqlRunnerResultsTransformerFE extends SqlRunnerResultsTransformer {
         });
     }
 }
-
-export const useBarChart = (
-    rows: ResultRow[],
-    columns: SqlColumn[],
-    config: BarChartConfig,
-) => {
-    const transformer = useMemo(
-        () =>
-            new SqlRunnerResultsTransformerFE({
-                rows,
-                columns,
-            }),
-        [rows, columns],
-    );
-    const barChart = useMemo(
-        () =>
-            new BarChartDataTransformer({
-                transformer,
-            }),
-        [transformer],
-    );
-
-    const state = useAsync(async () => {
-        return barChart.getEchartsSpec(config.fieldConfig, config.display);
-    }, [config, barChart]);
-
-    return state;
-};

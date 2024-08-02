@@ -302,14 +302,8 @@
     },
 
     "features_sql_runner_content_panel": {
-        "sql_panel": "SQL 面板",
-        "run_query": "运行查询",
-        "results_chart_panel": "结果/图表面板",
-        "collapse": "收起",
-        "expand": "展开",
-        "configure": "配置",
-        "chart": "图表",
-        "results": "结果"
+        "sql": "SQL",
+        "chart": "图表"
     },
     "features_sql_runner_header": {
         "save_chart": "保存图表",
@@ -322,7 +316,8 @@
         "bar_chart": "柱状图"
     },
     "features_sql_runner_sidebar": {
-        "sql_runner": "SQL运行器",
+        "tables": "表格",
+        "visualization": "可视化",
         "close_sidebar": "关闭侧边栏"
     },
     "features_sql_runner_table_fields": {
@@ -362,6 +357,10 @@
         "updated": {
             "success": "成功! SQL 图表更新成功",
             "failed": "更新图表失败"
+        },
+        "deleted": {
+            "success": "成功! SQL 图表已删除",
+            "failed": "删除图表失败"
         }
     },
     "features_sql_chart_and_results": {
@@ -369,13 +368,77 @@
         "not_fetch_query_results": "无法获取 SQL 查询结果"
     },
     "features_sql_runner_bar_chart_configuration": {
+        "data": "数据",
+        "styling": "样式"
+    },
+    "features_sql_runner_bar_chart_field_configuartaion": {
+        "base_series": "柱状图系列",
+        "column_not_in_sql": "\"{{reference}}\" 列不在 SQL 中",
         "select_y_axis": "选择 Y 轴",
-        "confirm": "确认",
+        "aggregation": "聚合",
         "select_x_axis": "选择 X 轴",
-        "series": "系列"
+        "column_not_in_sql_query": "\"{{reference}}\" 列不在 SQL 查询中",
+        "select_group_by": "选择分组依据",
+        "x_axis": "X 轴",
+        "y_axis": "Y 轴",
+        "group_by": "分组依据"
     },
     "features_sql_runner_bar_chart_aggregation_config": {
         "aggregation": "聚合"
+    },
+    "features_sql_runner_bar_chart_styling": {
+        "x_axis_label": "X 轴标签",
+        "y_axis_label": "Y 轴标签",
+        "position": "位置",
+        "left": "左侧",
+        "right": "右侧"
+    },
+    "features_sql_runner_delete_sql_chart_modal": {
+        "title": "删除图表",
+        "content": "您确定要删除图表 {{name}} 吗?",
+        "cancel": "取消",
+        "delete": "删除"
+    },
+    "features_sql_runner_pie_chart_configuration": {
+        "data": "数据",
+        "group_by": "分组依据",
+        "select_x_axis": "选择 X 轴",
+        "column_not_in_sql_query": "\"{{field}}\" 列不在 SQL 查询中"
+    },
+    "features_sql_runner_table_vis_configuration": {
+        "column_labels": "列标签"
+    },
+    "features_sql_runner_update_sql_chart_modal": {
+        "title": "更新图表",
+        "name": {
+            "label": "为您的图表输入一个有意义的名称",
+            "placeholder": "例如: 我们每周活跃用户有多少?",
+            "description": "描述"
+        },
+        "cancel": "取消",
+        "save": "保存"
+    },
+    "features_sql_runner_visualization_config_panel": {
+        "chart_type": "图表类型"
+    },
+    "features_sql_runner_visualization_switcher": {
+        "table": "表格",
+        "bar_chart": "柱状图",
+        "pie_chart": "饼图"
+    },
+    "features_sql_runner_header_create": {
+        "title": "保存图表"
+    },
+    "features_sql_runner_header_edit": {
+        "title": "保存图表",
+        "back_to_view_page": "返回查看页面"
+    },
+    "features_sql_runner_header_view": {
+        "eidt_chart": "编辑图表",
+        "delete": "删除"
+    },
+    "features_sql_runner_transformers_sql_chart": {
+        "unknown_chart_type": "未知的图表类型"
     },
 
     "features_comments_components_comment_mentions": {
@@ -1721,6 +1784,9 @@
                 "title": "退出登录"
             }
         }
+    },
+    "components_navbar_main_navbar_content": {
+        "home": "首页"
     },
 
     "components_about_footer": {
@@ -4873,5 +4939,22 @@
             "part_1": "您需要验证您的电子邮箱才能访问 Lightdash。如果您需要帮助,可以",
             "part_2": "在此与支持人员聊天。"
         }
+    },
+
+    "pages_view_sql_chart": {
+        "title": "SQL 图表",
+        "tabs": {
+            "results": "结果",
+            "sql": "SQL"
+        }
+    },
+
+    "mobile_navbar": {
+        "home": "首页",
+        "project": "项目",
+        "spaces": "空间",
+        "dashboards": "仪表板",
+        "charts": "图表",
+        "logout": "注销"
     }
 }

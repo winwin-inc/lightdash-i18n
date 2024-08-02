@@ -5,20 +5,37 @@ import { useTranslation } from 'react-i18next';
 
 import { useTimeAgo } from '../../../hooks/useTimeAgo';
 
-export const UpdatedInfo: FC<{
+const TimeAgo: FC<{
     updatedAt: Date;
-    user: Partial<SessionUser> | undefined;
+    partiallyBold?: boolean;
+}> = ({ updatedAt, partiallyBold = true }) => {
+    const timeAgo = useTimeAgo(updatedAt || new Date());
+
+    return (
+        <Text span fw={partiallyBold ? 600 : 'default'}>
+            {timeAgo}
+        </Text>
+    );
+};
+
+export const UpdatedInfo: FC<{
+    updatedAt: Date | undefined;
+    user: Partial<SessionUser> | null | undefined;
     partiallyBold?: boolean;
 }> = ({ updatedAt, user, partiallyBold = true }) => {
-    const timeAgo = useTimeAgo(updatedAt);
     const { t } = useTranslation();
 
     return (
         <Text c="gray.6" fz="xs">
             {t('components_common_page_header.last_edited')}{' '}
-            <Text span fw={partiallyBold ? 600 : 'default'}>
-                {timeAgo}
-            </Text>{' '}
+            {updatedAt && (
+                <>
+                    <TimeAgo
+                        updatedAt={updatedAt}
+                        partiallyBold={partiallyBold}
+                    />{' '}
+                </>
+            )}
             {user && user.firstName ? (
                 <>
                     {t('components_common_page_header.by')}{' '}

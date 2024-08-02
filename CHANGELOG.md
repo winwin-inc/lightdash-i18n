@@ -1,3 +1,199 @@
+# [0.1201.0](https://github.com/lightdash/lightdash/compare/0.1200.3...0.1201.0) (2024-08-01)
+
+
+### Features
+
+* endpoint to fetch SQL chart results from slug ([#10965](https://github.com/lightdash/lightdash/issues/10965)) ([8b19360](https://github.com/lightdash/lightdash/commit/8b193600adfa4698e7ad4b0aea9cd03d6fea7165))
+
+## [0.1200.3](https://github.com/lightdash/lightdash/compare/0.1200.2...0.1200.3) (2024-08-01)
+
+
+### Bug Fixes
+
+* dont use conditional visibility for table overflows ([#10966](https://github.com/lightdash/lightdash/issues/10966)) ([221be77](https://github.com/lightdash/lightdash/commit/221be77750fa1ed140655c688a579ba02d2367ff))
+
+## [0.1200.2](https://github.com/lightdash/lightdash/compare/0.1200.1...0.1200.2) (2024-08-01)
+
+
+### Bug Fixes
+
+* change y axis aggregation based on index instead of reference ([#10961](https://github.com/lightdash/lightdash/issues/10961)) ([62f772c](https://github.com/lightdash/lightdash/commit/62f772cf2cc04e48a44b2049a15288471647aff8))
+
+## [0.1200.1](https://github.com/lightdash/lightdash/compare/0.1200.0...0.1200.1) (2024-08-01)
+
+
+### Bug Fixes
+
+* allow to update a dashboard whith SQL chart tiles where the uuid is null ([#10957](https://github.com/lightdash/lightdash/issues/10957)) ([8be3239](https://github.com/lightdash/lightdash/commit/8be323916ff2be535b72d82e45c644962ac7091c))
+* dashboard SQL chart tile loading state ([#10956](https://github.com/lightdash/lightdash/issues/10956)) ([c88d9a6](https://github.com/lightdash/lightdash/commit/c88d9a6a5c858487a4e7e35f735cbb35f40a2cbe))
+
+# [0.1200.0](https://github.com/lightdash/lightdash/compare/0.1199.0...0.1200.0) (2024-08-01)
+
+
+### Features
+
+* allow adding series ([#10932](https://github.com/lightdash/lightdash/issues/10932)) ([0879bf4](https://github.com/lightdash/lightdash/commit/0879bf464eb68789abf9c6891ea59942d1758688))
+
+# [0.1199.0](https://github.com/lightdash/lightdash/compare/0.1198.2...0.1199.0) (2024-08-01)
+
+
+### Features
+
+* show SQL chart details in header ([#10924](https://github.com/lightdash/lightdash/issues/10924)) ([708ddff](https://github.com/lightdash/lightdash/commit/708ddff75d43becb36fb94706104bad8faf761c4))
+
+## [0.1198.2](https://github.com/lightdash/lightdash/compare/0.1198.1...0.1198.2) (2024-07-31)
+
+
+### Bug Fixes
+
+* use time axes on bar charts ([#10943](https://github.com/lightdash/lightdash/issues/10943)) ([7fb3e21](https://github.com/lightdash/lightdash/commit/7fb3e21515e9e65c39069a554e82470323806f72))
+
+## [0.1198.1](https://github.com/lightdash/lightdash/compare/0.1198.0...0.1198.1) (2024-07-31)
+
+
+### Bug Fixes
+
+* notMerge eCharts on barcharts ([#10938](https://github.com/lightdash/lightdash/issues/10938)) ([855e011](https://github.com/lightdash/lightdash/commit/855e01173d5d3c177aa86db55e6a6ac741cb79f2))
+
+# [0.1198.0](https://github.com/lightdash/lightdash/compare/0.1197.2...0.1198.0) (2024-07-31)
+
+
+### Features
+
+* improved loading state for sql runner ([#10929](https://github.com/lightdash/lightdash/issues/10929)) ([7951778](https://github.com/lightdash/lightdash/commit/79517780114e7bc14598747f7c65403cc46e4026))
+
+## [0.1197.2](https://github.com/lightdash/lightdash/compare/0.1197.1...0.1197.2) (2024-07-31)
+
+
+### Bug Fixes
+
+* format date values with the new interval when changing date dimension ([#10930](https://github.com/lightdash/lightdash/issues/10930)) ([5eb5d13](https://github.com/lightdash/lightdash/commit/5eb5d13d4030c2de4da794eaf8d8ad4b5e189e01))
+
+## [0.1197.1](https://github.com/lightdash/lightdash/compare/0.1197.0...0.1197.1) (2024-07-31)
+
+
+### Bug Fixes
+
+* Table Calculation Modal (save and cancel) buttons ([#10901](https://github.com/lightdash/lightdash/issues/10901)) ([0c1b074](https://github.com/lightdash/lightdash/commit/0c1b07464308e0c7169aa86a7b83cc73b1c9b5fb))
+
+# [0.1197.0](https://github.com/lightdash/lightdash/compare/0.1196.2...0.1197.0) (2024-07-31)
+
+
+### Features
+
+* change the position of bar y-axis ([#10908](https://github.com/lightdash/lightdash/issues/10908)) ([0c719b9](https://github.com/lightdash/lightdash/commit/0c719b91ef9d4f726135e91f3b4d8685c6e7161b))
+
+## [0.1196.2](https://github.com/lightdash/lightdash/compare/0.1196.1...0.1196.2) (2024-07-31)
+
+
+### Bug Fixes
+
+* group by clear bar chart sql ([#10922](https://github.com/lightdash/lightdash/issues/10922)) ([2ba18c9](https://github.com/lightdash/lightdash/commit/2ba18c9cdef3ba939d7b27a02c7631abf4bb218e))
+
+## [0.1196.1](https://github.com/lightdash/lightdash/compare/0.1196.0...0.1196.1) (2024-07-30)
+
+
+### Bug Fixes
+
+* reset SQL runner redux state on page unmount ([#10912](https://github.com/lightdash/lightdash/issues/10912)) ([7a327a6](https://github.com/lightdash/lightdash/commit/7a327a6f13555d4626a8e5f50ca9a4d0c7126d46))
+
+# [0.1196.0](https://github.com/lightdash/lightdash/compare/0.1195.0...0.1196.0) (2024-07-30)
+
+
+### Features
+
+* allow to update SQL chart name, description and space ([#10904](https://github.com/lightdash/lightdash/issues/10904)) ([288c920](https://github.com/lightdash/lightdash/commit/288c920f1397302863ded5131e2ab06f77162330))
+
+# [0.1195.0](https://github.com/lightdash/lightdash/compare/0.1194.0...0.1195.0) (2024-07-30)
+
+
+### Bug Fixes
+
+* databricks log on close error ([#10896](https://github.com/lightdash/lightdash/issues/10896)) ([e09a926](https://github.com/lightdash/lightdash/commit/e09a92678a24d5c07ee6994719c97820b4476135))
+* packages/warehouses/package.json to reduce vulnerabilities ([#10875](https://github.com/lightdash/lightdash/issues/10875)) ([a8887ff](https://github.com/lightdash/lightdash/commit/a8887ffa2d0b86c94a20e9bf53cda8e2b1fd8438))
+
+
+### Features
+
+* add validation to bar chart field config ([#10905](https://github.com/lightdash/lightdash/issues/10905)) ([c27acd4](https://github.com/lightdash/lightdash/commit/c27acd4372185961818116934eafabb80b000767))
+* move sql chart config to left ([#10903](https://github.com/lightdash/lightdash/issues/10903)) ([f3fa36b](https://github.com/lightdash/lightdash/commit/f3fa36bc64b17acf4a0178e3b1512039daddaa7a))
+
+# [0.1194.0](https://github.com/lightdash/lightdash/compare/0.1193.0...0.1194.0) (2024-07-30)
+
+
+### Features
+
+* add pivot to bar charts ([#10899](https://github.com/lightdash/lightdash/issues/10899)) ([0c00d64](https://github.com/lightdash/lightdash/commit/0c00d644ad389528f84eb6836d1fc76774e061cd))
+
+# [0.1193.0](https://github.com/lightdash/lightdash/compare/0.1192.2...0.1193.0) (2024-07-30)
+
+
+### Features
+
+* option to delete SQL chart ([#10900](https://github.com/lightdash/lightdash/issues/10900)) ([bd6071c](https://github.com/lightdash/lightdash/commit/bd6071c59606b5de18fdfd4c79e3efe0cf35218c))
+
+## [0.1192.2](https://github.com/lightdash/lightdash/compare/0.1192.1...0.1192.2) (2024-07-30)
+
+
+### Bug Fixes
+
+* improve bar chart defaults ([#10891](https://github.com/lightdash/lightdash/issues/10891)) ([ee462bf](https://github.com/lightdash/lightdash/commit/ee462bfd0f37954d6bd6d55ab89cb1024972b9a6))
+
+## [0.1192.1](https://github.com/lightdash/lightdash/compare/0.1192.0...0.1192.1) (2024-07-30)
+
+
+### Bug Fixes
+
+* saving chat within dashboard as save as overrides dashboard ([#10877](https://github.com/lightdash/lightdash/issues/10877)) ([afc47ca](https://github.com/lightdash/lightdash/commit/afc47ca454a53a48432fff995ad7aef5d7e13c2e))
+
+# [0.1192.0](https://github.com/lightdash/lightdash/compare/0.1191.1...0.1192.0) (2024-07-30)
+
+
+### Features
+
+* rearrange content panel options ([#10890](https://github.com/lightdash/lightdash/issues/10890)) ([61ae753](https://github.com/lightdash/lightdash/commit/61ae7532828688fe4e10fbec1d31c5381172a729))
+
+## [0.1191.1](https://github.com/lightdash/lightdash/compare/0.1191.0...0.1191.1) (2024-07-29)
+
+
+### Bug Fixes
+
+* fix dbt 1.8 cli tests ([#10889](https://github.com/lightdash/lightdash/issues/10889)) ([2896956](https://github.com/lightdash/lightdash/commit/2896956071abc80f8f667451cfa36853cd04953f))
+
+# [0.1191.0](https://github.com/lightdash/lightdash/compare/0.1190.1...0.1191.0) (2024-07-29)
+
+
+### Features
+
+* view page for SQL chart ([#10873](https://github.com/lightdash/lightdash/issues/10873)) ([18939e5](https://github.com/lightdash/lightdash/commit/18939e5eccc03b1336363a8d9d69ce1135dbfe11))
+
+## [0.1190.1](https://github.com/lightdash/lightdash/compare/0.1190.0...0.1190.1) (2024-07-29)
+
+
+### Bug Fixes
+
+* bar chart loading state ([#10881](https://github.com/lightdash/lightdash/issues/10881)) ([2820f2e](https://github.com/lightdash/lightdash/commit/2820f2e048076f1a4776e5a8e00623f7f0685ede))
+* sql autofill ([#10882](https://github.com/lightdash/lightdash/issues/10882)) ([3b71b9f](https://github.com/lightdash/lightdash/commit/3b71b9f3463c4b437cbf1d50724c24fe6dee2534))
+
+# [0.1190.0](https://github.com/lightdash/lightdash/compare/0.1189.1...0.1190.0) (2024-07-29)
+
+
+### Bug Fixes
+
+* promotion upsert chart type ([#10878](https://github.com/lightdash/lightdash/issues/10878)) ([65997e6](https://github.com/lightdash/lightdash/commit/65997e6ab5d2167787038c45628ce28e7bb2ca30))
+
+
+### Features
+
+* update bar chart config & add styling ([#10867](https://github.com/lightdash/lightdash/issues/10867)) ([489b083](https://github.com/lightdash/lightdash/commit/489b0836a2c645126beb0b1bf233c99c53a85356))
+
+## [0.1189.1](https://github.com/lightdash/lightdash/compare/0.1189.0...0.1189.1) (2024-07-29)
+
+
+### Bug Fixes
+
+* revert customer yml description ([#10858](https://github.com/lightdash/lightdash/issues/10858)) ([fda9f9a](https://github.com/lightdash/lightdash/commit/fda9f9addc102e1a970167eb4cff5b3eadf7a19d))
+
 # [0.1189.0](https://github.com/lightdash/lightdash/compare/0.1188.0...0.1189.0) (2024-07-26)
 
 
