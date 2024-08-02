@@ -7,7 +7,6 @@ import Omnibar from '../../features/omnibar';
 import Logo from '../../svgs/logo-icon.svg?react';
 import BrowseMenu from './BrowseMenu';
 import ExploreMenu from './ExploreMenu';
-import HeadwayMenuItem from './HeadwayMenuItem';
 import HelpMenu from './HelpMenu';
 import { NotificationsMenu } from './NotificationsMenu';
 import ProjectSwitcher from './ProjectSwitcher';
@@ -65,10 +64,6 @@ export const MainNavBarContent: FC<Props> = ({
                     )}
 
                     <HelpMenu />
-
-                    {!isLoadingActiveProject && activeProjectUuid && (
-                        <HeadwayMenuItem projectUuid={activeProjectUuid} />
-                    )}
 
                     <ProjectSwitcher />
                 </Button.Group>

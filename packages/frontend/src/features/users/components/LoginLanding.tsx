@@ -40,6 +40,7 @@ import {
 
 const Login: FC<{}> = () => {
     const { health } = useApp();
+
     const { identify } = useTracking();
     const location = useLocation<{ from?: Location } | undefined>();
     const { t } = useTranslation();
@@ -56,6 +57,17 @@ const Login: FC<{}> = () => {
     }, [flashMessages.data, showToastError, t]);
 
     const [fetchOptionsEnabled, setFetchOptionsEnabled] = useState(false);
+
+    const oidcOptions = health.data?.auth.oidc;
+
+    if (
+        oidcOptions &&
+        oidcOptions.enabled &&
+        oidcOptions.forceRedirect &&
+        !health.data?.isAuthenticated
+    ) {
+        window.location.href = `/api/v1${oidcOptions.loginPath}`;
+    }
 
     const redirectUrl = location.state?.from
         ? `${location.state.from.pathname}${location.state.from.search}`
