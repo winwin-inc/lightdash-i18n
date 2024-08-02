@@ -40,6 +40,7 @@ export const BaseResponse: HealthState = {
         oidc: {
             enabled: false,
             loginPath: '',
+            forceRedirect: false,
         },
     },
     intercom: {

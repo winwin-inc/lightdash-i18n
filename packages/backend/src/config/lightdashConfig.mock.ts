@@ -52,6 +52,7 @@ export const lightdashConfigMock: LightdashConfig = {
             loginPath: '',
             clientId: undefined,
             clientSecret: undefined,
+            clientForceRedirect: false,
             metadataDocumentEndpoint: undefined,
             privateKeyFile: undefined,
             privateKeyFilePath: undefined,
