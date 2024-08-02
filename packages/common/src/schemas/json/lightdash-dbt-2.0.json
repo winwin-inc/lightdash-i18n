@@ -38,6 +38,19 @@
                             ]
                         }
                     },
+                    "data_tests": {
+                        "type": "array",
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "object"
+                                },
+                                {
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
                     "meta": {
                         "type": "object",
                         "properties": {
@@ -87,13 +100,16 @@
                                                 ]
                                             },
                                             "label": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "minLength": 1
                                             },
                                             "description": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "minLength": 1
                                             },
                                             "sql": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "minLength": 1
                                             },
                                             "hidden": {
                                                 "type": "boolean"
@@ -151,6 +167,19 @@
                                         ]
                                     }
                                 },
+                                "data_tests": {
+                                    "type": "array",
+                                    "items": {
+                                        "anyOf": [
+                                            {
+                                                "type": "object"
+                                            },
+                                            {
+                                                "type": "string"
+                                            }
+                                        ]
+                                    }
+                                },
                                 "tags": {
                                     "type": "array",
                                     "items": {
@@ -184,13 +213,16 @@
                                                             ]
                                                         },
                                                         "label": {
-                                                            "type": "string"
+                                                            "type": "string",
+                                                            "minLength": 1
                                                         },
                                                         "description": {
-                                                            "type": "string"
+                                                            "type": "string",
+                                                            "minLength": 1
                                                         },
                                                         "sql": {
-                                                            "type": "string"
+                                                            "type": "string",
+                                                            "minLength": 1
                                                         },
                                                         "hidden": {
                                                             "type": "boolean"
@@ -223,13 +255,16 @@
                                             "type": "object",
                                             "properties": {
                                                 "label": {
-                                                    "type": "string"
+                                                    "type": "string",
+                                                    "minLength": 1
                                                 },
                                                 "description": {
-                                                    "type": "string"
+                                                    "type": "string",
+                                                    "minLength": 1
                                                 },
                                                 "sql": {
-                                                    "type": "string"
+                                                    "type": "string",
+                                                    "minLength": 1
                                                 },
                                                 "hidden": {
                                                     "type": "boolean"
@@ -387,6 +422,12 @@
             }
         },
         "tests": {
+            "type": "array",
+            "items": {
+                "type": "object"
+            }
+        },
+        "unit_tests": {
             "type": "array",
             "items": {
                 "type": "object"

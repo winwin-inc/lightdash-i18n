@@ -1,7 +1,9 @@
 import {
     type BarChartDisplay,
+    type PieChartDisplay,
     type SqlColumn,
     type SqlTransformBarChartConfig,
+    type SqlTransformPieChartConfig,
 } from '../visualizations/SqlRunnerResultsTransformer';
 import { type Dashboard } from './dashboard';
 import { type Organization } from './organization';
@@ -56,6 +58,13 @@ export type ApiSqlRunnerJobStatusResponse = {
     };
 };
 
+export type SqlRunnerChartConfig = {
+    metadata: {
+        version: number;
+    };
+    type: ChartKind;
+};
+
 export type SqlTableConfig = {
     columns: {
         [key: string]: {
@@ -68,23 +77,22 @@ export type SqlTableConfig = {
     };
 };
 
-export type TableChartSqlConfig = SqlTableConfig & {
-    metadata: {
-        version: number;
+export type TableChartSqlConfig = SqlRunnerChartConfig &
+    SqlTableConfig & {
+        type: ChartKind.TABLE;
     };
-    type: ChartKind.TABLE;
-};
 
-export type BarChartConfig = {
-    metadata: {
-        version: number;
-    };
+export type BarChartSqlConfig = SqlRunnerChartConfig & {
     type: ChartKind.VERTICAL_BAR;
     fieldConfig: SqlTransformBarChartConfig | undefined;
     display: BarChartDisplay | undefined;
 };
 
-export type SqlRunnerChartConfig = TableChartSqlConfig | BarChartConfig;
+export type PieChartSqlConfig = SqlRunnerChartConfig & {
+    type: ChartKind.PIE;
+    fieldConfig: SqlTransformPieChartConfig | undefined;
+    display: PieChartDisplay | undefined;
+};
 
 export const isTableChartSQLConfig = (
     value: SqlRunnerChartConfig | undefined,
@@ -92,7 +100,12 @@ export const isTableChartSQLConfig = (
 
 export const isBarChartSQLConfig = (
     value: SqlRunnerChartConfig | undefined,
-): value is BarChartConfig => !!value && value.type === ChartKind.VERTICAL_BAR;
+): value is BarChartSqlConfig =>
+    !!value && value.type === ChartKind.VERTICAL_BAR;
+
+export const isPieChartSQLConfig = (
+    value: SqlRunnerChartConfig | undefined,
+): value is PieChartSqlConfig => !!value && value.type === ChartKind.PIE;
 
 export type SqlChart = {
     savedSqlUuid: string;

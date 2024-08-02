@@ -1,7 +1,11 @@
-import { ChartKind, type TableChartSqlConfig } from '@lightdash/common';
+import {
+    ChartKind,
+    isTableChartSQLConfig,
+    type TableChartSqlConfig,
+} from '@lightdash/common';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { createSlice } from '@reduxjs/toolkit';
-import { setInitialResultsAndSeries, setSaveChartData } from './sqlRunnerSlice';
+import { setSavedChartData, setSqlRunnerResults } from './sqlRunnerSlice';
 
 const initialState: { config: TableChartSqlConfig | undefined } = {
     config: undefined,
@@ -20,9 +24,21 @@ export const tableVisSlice = createSlice({
                 config.columns[reference].label = label;
             }
         },
+        updateColumnVisibility: (
+            { config },
+            action: PayloadAction<{
+                reference: string;
+                visible: boolean;
+            }>,
+        ) => {
+            const { reference, visible } = action.payload;
+            if (config && config.columns[reference]) {
+                config.columns[reference].visible = visible;
+            }
+        },
     },
     extraReducers: (builder) => {
-        builder.addCase(setInitialResultsAndSeries, (state, action) => {
+        builder.addCase(setSqlRunnerResults, (state, action) => {
             if (state.config === undefined) {
                 // TODO: this should come from the transformer
                 const columns = Object.keys(action.payload.results[0]).reduce<
@@ -49,12 +65,13 @@ export const tableVisSlice = createSlice({
                 };
             }
         });
-        builder.addCase(setSaveChartData, (state, action) => {
-            if (action.payload.config.type === ChartKind.TABLE) {
+        builder.addCase(setSavedChartData, (state, action) => {
+            if (isTableChartSQLConfig(action.payload.config)) {
                 state.config = action.payload.config;
             }
         });
     },
 });
 
-export const { updateFieldLabel } = tableVisSlice.actions;
+export const { updateFieldLabel, updateColumnVisibility } =
+    tableVisSlice.actions;

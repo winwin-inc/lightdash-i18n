@@ -6536,213 +6536,12 @@ const models: TsoaRoute.Models = {
         },
     },
     // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    SqlTableConfig: {
+    SqlRunnerChartConfig: {
         dataType: 'refAlias',
         type: {
             dataType: 'nestedObjectLiteral',
             nestedProperties: {
-                columns: {
-                    dataType: 'nestedObjectLiteral',
-                    nestedProperties: {},
-                    additionalProperties: {
-                        dataType: 'nestedObjectLiteral',
-                        nestedProperties: {
-                            order: { dataType: 'double' },
-                            frozen: { dataType: 'boolean', required: true },
-                            label: { dataType: 'string', required: true },
-                            reference: { dataType: 'string', required: true },
-                            visible: { dataType: 'boolean', required: true },
-                        },
-                    },
-                    required: true,
-                },
-            },
-            validators: {},
-        },
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    'ChartKind.TABLE': {
-        dataType: 'refEnum',
-        enums: ['table'],
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    TableChartSqlConfig: {
-        dataType: 'refAlias',
-        type: {
-            dataType: 'intersection',
-            subSchemas: [
-                { ref: 'SqlTableConfig' },
-                {
-                    dataType: 'nestedObjectLiteral',
-                    nestedProperties: {
-                        type: { ref: 'ChartKind.TABLE', required: true },
-                        metadata: {
-                            dataType: 'nestedObjectLiteral',
-                            nestedProperties: {
-                                version: { dataType: 'double', required: true },
-                            },
-                            required: true,
-                        },
-                    },
-                },
-            ],
-            validators: {},
-        },
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    'ChartKind.VERTICAL_BAR': {
-        dataType: 'refEnum',
-        enums: ['vertical_bar'],
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    AggregationOptions: {
-        dataType: 'refAlias',
-        type: { dataType: 'string', validators: {} },
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    SqlTransformBarChartConfig: {
-        dataType: 'refAlias',
-        type: {
-            dataType: 'nestedObjectLiteral',
-            nestedProperties: {
-                groupBy: {
-                    dataType: 'union',
-                    subSchemas: [
-                        {
-                            dataType: 'nestedObjectLiteral',
-                            nestedProperties: {
-                                reference: {
-                                    dataType: 'string',
-                                    required: true,
-                                },
-                            },
-                        },
-                        { dataType: 'undefined' },
-                    ],
-                    required: true,
-                },
-                y: {
-                    dataType: 'array',
-                    array: {
-                        dataType: 'nestedObjectLiteral',
-                        nestedProperties: {
-                            aggregation: {
-                                ref: 'AggregationOptions',
-                                required: true,
-                            },
-                            reference: { dataType: 'string', required: true },
-                        },
-                    },
-                    required: true,
-                },
-                x: {
-                    dataType: 'nestedObjectLiteral',
-                    nestedProperties: {
-                        reference: { dataType: 'string', required: true },
-                    },
-                    required: true,
-                },
-            },
-            validators: {},
-        },
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    XLayoutType: {
-        dataType: 'refEnum',
-        enums: ['time', 'category'],
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    'Record_string._label%3F%3Astring--yAxisIndex%3F%3Anumber--__': {
-        dataType: 'refAlias',
-        type: {
-            dataType: 'nestedObjectLiteral',
-            nestedProperties: {},
-            validators: {},
-        },
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    BarChartDisplay: {
-        dataType: 'refAlias',
-        type: {
-            dataType: 'nestedObjectLiteral',
-            nestedProperties: {
-                legend: {
-                    dataType: 'nestedObjectLiteral',
-                    nestedProperties: {
-                        align: {
-                            dataType: 'union',
-                            subSchemas: [
-                                { dataType: 'enum', enums: ['start'] },
-                                { dataType: 'enum', enums: ['center'] },
-                                { dataType: 'enum', enums: ['end'] },
-                            ],
-                            required: true,
-                        },
-                        position: {
-                            dataType: 'union',
-                            subSchemas: [
-                                { dataType: 'enum', enums: ['top'] },
-                                { dataType: 'enum', enums: ['bottom'] },
-                                { dataType: 'enum', enums: ['left'] },
-                                { dataType: 'enum', enums: ['right'] },
-                            ],
-                            required: true,
-                        },
-                    },
-                },
-                series: {
-                    ref: 'Record_string._label%3F%3Astring--yAxisIndex%3F%3Anumber--__',
-                },
-                yAxis: {
-                    dataType: 'array',
-                    array: {
-                        dataType: 'nestedObjectLiteral',
-                        nestedProperties: {
-                            position: {
-                                dataType: 'union',
-                                subSchemas: [
-                                    { dataType: 'enum', enums: ['left'] },
-                                    { dataType: 'enum', enums: ['right'] },
-                                ],
-                            },
-                            label: { dataType: 'string' },
-                        },
-                    },
-                },
-                xAxis: {
-                    dataType: 'nestedObjectLiteral',
-                    nestedProperties: {
-                        type: { ref: 'XLayoutType', required: true },
-                        label: { dataType: 'string' },
-                    },
-                },
-            },
-            validators: {},
-        },
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    BarChartConfig: {
-        dataType: 'refAlias',
-        type: {
-            dataType: 'nestedObjectLiteral',
-            nestedProperties: {
-                display: {
-                    dataType: 'union',
-                    subSchemas: [
-                        { ref: 'BarChartDisplay' },
-                        { dataType: 'undefined' },
-                    ],
-                    required: true,
-                },
-                fieldConfig: {
-                    dataType: 'union',
-                    subSchemas: [
-                        { ref: 'SqlTransformBarChartConfig' },
-                        { dataType: 'undefined' },
-                    ],
-                    required: true,
-                },
-                type: { ref: 'ChartKind.VERTICAL_BAR', required: true },
+                type: { ref: 'ChartKind', required: true },
                 metadata: {
                     dataType: 'nestedObjectLiteral',
                     nestedProperties: {
@@ -6751,18 +6550,6 @@ const models: TsoaRoute.Models = {
                     required: true,
                 },
             },
-            validators: {},
-        },
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    SqlRunnerChartConfig: {
-        dataType: 'refAlias',
-        type: {
-            dataType: 'union',
-            subSchemas: [
-                { ref: 'TableChartSqlConfig' },
-                { ref: 'BarChartConfig' },
-            ],
             validators: {},
         },
     },
@@ -14708,6 +14495,69 @@ export function RegisterRoutes(app: express.Router) {
                 }
 
                 const promise = controller.getSavedSqlChartBySlug.apply(
+                    controller,
+                    validatedArgs as any,
+                );
+                promiseHandler(controller, promise, response, 200, next);
+            } catch (err) {
+                return next(err);
+            }
+        },
+    );
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    app.get(
+        '/api/v1/projects/:projectUuid/sqlRunner/saved/slug/:slug/results-job',
+        ...fetchMiddlewares<RequestHandler>(SqlRunnerController),
+        ...fetchMiddlewares<RequestHandler>(
+            SqlRunnerController.prototype.getSavedSqlResultsJob,
+        ),
+
+        async function SqlRunnerController_getSavedSqlResultsJob(
+            request: any,
+            response: any,
+            next: any,
+        ) {
+            const args = {
+                slug: {
+                    in: 'path',
+                    name: 'slug',
+                    required: true,
+                    dataType: 'string',
+                },
+                projectUuid: {
+                    in: 'path',
+                    name: 'projectUuid',
+                    required: true,
+                    dataType: 'string',
+                },
+                req: {
+                    in: 'request',
+                    name: 'req',
+                    required: true,
+                    dataType: 'object',
+                },
+            };
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = getValidatedArgs(args, request, response);
+
+                const container: IocContainer =
+                    typeof iocContainer === 'function'
+                        ? (iocContainer as IocContainerFactory)(request)
+                        : iocContainer;
+
+                const controller: any =
+                    await container.get<SqlRunnerController>(
+                        SqlRunnerController,
+                    );
+                if (typeof controller['setStatus'] === 'function') {
+                    controller.setStatus(undefined);
+                }
+
+                const promise = controller.getSavedSqlResultsJob.apply(
                     controller,
                     validatedArgs as any,
                 );

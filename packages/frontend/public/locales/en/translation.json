@@ -302,14 +302,8 @@
     },
 
     "features_sql_runner_content_panel": {
-        "sql_panel": "SQL panel",
-        "run_query": "Run query",
-        "results_chart_panel": "Results/Chart panel",
-        "collapse": "Collapse",
-        "expand": "Expand",
-        "configure": "Configure",
-        "chart": "Chart",
-        "results": "Results"
+        "sql": "SQL",
+        "chart": "Chart"
     },
     "features_sql_runner_header": {
         "save_chart": "Save chart",
@@ -322,7 +316,8 @@
         "bar_chart": "Bar chart"
     },
     "features_sql_runner_sidebar": {
-        "sql_runner": "SQL RUNNER",
+        "tables": "TABLES",
+        "visualization": "VISUALIZATION",
         "close_sidebar": "Close sidebar"
     },
     "features_sql_runner_table_fields": {
@@ -362,6 +357,10 @@
         "updated": {
             "success": "Success! SQL chart updated",
             "failed": "Failed to update chart"
+        },
+        "deleted": {
+            "success": "Success! SQL chart deleted",
+            "failed": "Failed to delete chart"
         }
     },
     "features_sql_chart_and_results": {
@@ -369,13 +368,77 @@
         "not_fetch_query_results": "Could not fetch SQL query results"
     },
     "features_sql_runner_bar_chart_configuration": {
+        "data": "Data",
+        "styling": "Styling"
+    },
+    "features_sql_runner_bar_chart_field_configuartaion": {
+        "base_series": "Bar series",
+        "column_not_in_sql": "Column \"{{reference}}\" not in SQL",
         "select_y_axis": "Select Y axis",
-        "confirm": "Confirm",
+        "aggregation": "Aggregation",
         "select_x_axis": "Select X axis",
-        "series": "Series"
+        "column_not_in_sql_query": "Column \"{{reference}}\" not in SQL query",
+        "select_group_by": "Select group by",
+        "x_axis": "X-axis",
+        "y_axis": "Y-axis",
+        "group_by": "Group by"
     },
     "features_sql_runner_bar_chart_aggregation_config": {
         "aggregation": "Aggregation"
+    },
+    "features_sql_runner_bar_chart_styling": {
+        "x_axis_label": "X-axis label",
+        "y_axis_label": "Y-axis label",
+        "position": "Position",
+        "left": "Left",
+        "right": "Right"
+    },
+    "features_sql_runner_delete_sql_chart_modal": {
+        "title": "Delete chart",
+        "content": "Are you sure you want to delete the chart {{name}} ?",
+        "cancel": "Cancel",
+        "delete": "Delete"
+    },
+    "features_sql_runner_pie_chart_configuration": {
+        "data": "Data",
+        "group_by": "Group by",
+        "select_x_axis": "Select X axis",
+        "column_not_in_sql_query": "Column \"{{field}}\" not in SQL query"
+    },
+    "features_sql_runner_table_vis_configuration": {
+        "column_labels": "Column labels"
+    },
+    "features_sql_runner_update_sql_chart_modal": {
+        "title": "Update chart",
+        "name": {
+            "label": "Enter a memorable name for your chart",
+            "placeholder": "eg. How many weekly active users do we have?",
+            "description": "Description"
+        },
+        "cancel": "Cancel",
+        "save": "Save"
+    },
+    "features_sql_runner_visualization_config_panel": {
+        "chart_type": "Chart type"
+    },
+    "features_sql_runner_visualization_switcher": {
+        "table": "Table",
+        "bar_chart": "Bar chart",
+        "pie_chart": "Pie chart"
+    },
+    "features_sql_runner_header_create": {
+        "title": "Save chart"
+    },
+    "features_sql_runner_header_edit": {
+        "title": "Save chart",
+        "back_to_view_page": "Back to view page"
+    },
+    "features_sql_runner_header_view": {
+        "eidt_chart": "Edit chart",
+        "delete": "Delete"
+    },
+    "features_sql_runner_transformers_sql_chart": {
+        "unknown_chart_type": "Unknown chart type"
     },
 
     "features_comments_components_comment_mentions": {
@@ -4869,6 +4932,14 @@
         "should_tip": {
             "part_1": "You need to verify your email to get access to Lightdash. If you need help, you can",
             "part_2": "chat to support here."
+        }
+    },
+
+    "pages_view_sql_chart": {
+        "title": "SQL chart",
+        "tabs": {
+            "results": "Results",
+            "sql": "SQL"
         }
     }
 }

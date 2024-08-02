@@ -1,8 +1,7 @@
 import {
     ActionIcon,
-    Box,
-    Divider,
     Group,
+    ScrollArea,
     Stack,
     Title,
     Tooltip,
@@ -10,38 +9,31 @@ import {
 import { IconLayoutSidebarLeftCollapse } from '@tabler/icons-react';
 import { type Dispatch, type FC, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ResizableBox } from 'react-resizable';
 
 import MantineIcon from '../../../components/common/MantineIcon';
-import {
-    SIDEBAR_MAX_WIDTH,
-    SIDEBAR_MIN_WIDTH,
-} from '../../../components/common/Page/Sidebar';
 import { useAppSelector } from '../store/hooks';
-import { TableFields } from './TableFields';
-import { Tables } from './Tables';
-
-import 'react-resizable/css/styles.css';
+import { SidebarTabs } from '../store/sqlRunnerSlice';
+import { TablesPanel } from './TablesPanel';
+import { VisualizationConfigPanel } from './VisualizationConfigPanel';
 
 type Props = {
     setSidebarOpen: Dispatch<SetStateAction<boolean>>;
 };
 
-const DEFAULT_RESIZABLE_BOX_HEIGHT_PX = 250;
-const MIN_RESIZABLE_BOX_HEIGHT_PX = 150;
-const MAX_RESIZABLE_BOX_HEIGHT_PX = 500;
-
 export const Sidebar: FC<Props> = ({ setSidebarOpen }) => {
     const { t } = useTranslation();
-    const activeTable = useAppSelector(
-        (state: any) => state.sqlRunner.activeTable,
+
+    const activeSidebarTab = useAppSelector(
+        (state) => state.sqlRunner.activeSidebarTab,
     );
 
     return (
         <Stack spacing="xs" sx={{ flex: 1, overflow: 'hidden' }}>
             <Group position="apart">
                 <Title order={5} fz="sm" c="gray.6">
-                    {t('features_sql_runner_sidebar.sql_runner')}
+                    {activeSidebarTab === SidebarTabs.TABLES
+                        ? t('features_sql_runner_sidebar.tables')
+                        : t('features_sql_runner_sidebar.visualization')}
                 </Title>
                 <Tooltip
                     variant="xs"
@@ -57,42 +49,31 @@ export const Sidebar: FC<Props> = ({ setSidebarOpen }) => {
                 </Tooltip>
             </Group>
 
-            <Stack sx={{ flex: 1, overflow: 'hidden' }}>
-                <Tables />
-
-                {activeTable && (
-                    <Box pos="relative">
-                        <ResizableBox
-                            height={DEFAULT_RESIZABLE_BOX_HEIGHT_PX}
-                            minConstraints={[
-                                SIDEBAR_MIN_WIDTH,
-                                MIN_RESIZABLE_BOX_HEIGHT_PX,
-                            ]}
-                            maxConstraints={[
-                                SIDEBAR_MAX_WIDTH,
-                                MAX_RESIZABLE_BOX_HEIGHT_PX,
-                            ]}
-                            resizeHandles={['n']}
-                            axis="y"
-                            handle={
-                                <Divider
-                                    h={5}
-                                    bg="gray.3"
-                                    pos="absolute"
-                                    top={-2}
-                                    left={0}
-                                    right={0}
-                                    sx={{
-                                        cursor: 'ns-resize',
-                                    }}
-                                />
-                            }
-                        >
-                            <TableFields />
-                        </ResizableBox>
-                    </Box>
-                )}
+            <Stack
+                display={
+                    activeSidebarTab === SidebarTabs.TABLES ? 'inherit' : 'none'
+                }
+                sx={{ flex: 1, overflow: 'hidden' }}
+            >
+                <TablesPanel />
             </Stack>
+
+            <ScrollArea
+                offsetScrollbars
+                variant="primary"
+                className="only-vertical"
+                sx={{
+                    flex: 1,
+                    display:
+                        activeSidebarTab === SidebarTabs.VISUALIZATION
+                            ? 'inherit'
+                            : 'none',
+                }}
+            >
+                <Stack sx={{ flex: 1, overflow: 'hidden' }}>
+                    <VisualizationConfigPanel />
+                </Stack>
+            </ScrollArea>
         </Stack>
     );
 };
