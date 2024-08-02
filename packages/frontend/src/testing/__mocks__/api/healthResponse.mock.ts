@@ -71,6 +71,7 @@ export default function mockHealthResponse(
             oidc: {
                 loginPath: '/login/oidc',
                 enabled: false,
+                forceRedirect: false,
             },
         },
         hasEmailClient: false,
