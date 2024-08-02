@@ -1,6 +1,8 @@
 import { ActionIcon, Box, Button, Group } from '@mantine/core';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+
 import Omnibar from '../../features/omnibar';
 import Logo from '../../svgs/logo-icon.svg?react';
 import BrowseMenu from './BrowseMenu';
@@ -23,6 +25,8 @@ export const MainNavBarContent: FC<Props> = ({
     activeProjectUuid,
     isLoadingActiveProject,
 }) => {
+    const { t } = useTranslation();
+
     const homeUrl = activeProjectUuid
         ? `/projects/${activeProjectUuid}/home`
         : '/';
@@ -33,7 +37,7 @@ export const MainNavBarContent: FC<Props> = ({
                 <ActionIcon
                     component={Link}
                     to={homeUrl}
-                    title="Home"
+                    title={t('components_navbar_main_navbar_content.home')}
                     size="lg"
                 >
                     <Logo />

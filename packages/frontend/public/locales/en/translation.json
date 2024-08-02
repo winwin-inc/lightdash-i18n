@@ -1785,6 +1785,9 @@
             }
         }
     },
+    "components_navbar_main_navbar_content": {
+        "home": "Home"
+    },
 
     "components_about_footer": {
         "new_version": "New version available!",
@@ -4941,5 +4944,14 @@
             "results": "Results",
             "sql": "SQL"
         }
+    },
+
+    "mobile_navbar": {
+        "home": "Home",
+        "project": "Project",
+        "spaces": "Spaces",
+        "dashboards": "Dashboards",
+        "charts": "Charts",
+        "logout": "Logout"
     }
 }

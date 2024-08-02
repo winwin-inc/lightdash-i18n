@@ -19,7 +19,9 @@ import {
 } from '@tabler/icons-react';
 import posthog from 'posthog-js';
 import React, { useCallback, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, Redirect, Route, Switch } from 'react-router-dom';
+
 import AppRoute from './components/AppRoute';
 import MantineIcon from './components/common/MantineIcon';
 import RouterNavLink from './components/common/RouterNavLink';
@@ -45,6 +47,8 @@ import Logo from './svgs/logo-icon.svg?react';
 import { PageName } from './types/Events';
 
 const MobileNavBar: FC = () => {
+    const { t } = useTranslation();
+
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const toggleMenu = useCallback(
         () => setIsMenuOpen((prevValue) => !prevValue),
@@ -76,7 +80,7 @@ const MobileNavBar: FC = () => {
                     <ActionIcon
                         component={Link}
                         to={'/'}
-                        title="Home"
+                        title={t('mobile_navbar.home')}
                         size="lg"
                     >
                         <Logo />
@@ -87,34 +91,34 @@ const MobileNavBar: FC = () => {
 
             <Drawer opened={isMenuOpen} onClose={toggleMenu} size="75%">
                 <Title order={6} fw={600} mb="xs">
-                    Project
+                    {t('mobile_navbar.project')}
                 </Title>
                 <ProjectSwitcher />
                 <Divider my="lg" />
                 <RouterNavLink
                     exact
-                    label="Home"
+                    label={t('mobile_navbar.home')}
                     to={`/`}
                     icon={<MantineIcon icon={IconHome} />}
                     onClick={toggleMenu}
                 />
                 <RouterNavLink
                     exact
-                    label="Spaces"
+                    label={t('mobile_navbar.spaces')}
                     to={`/projects/${activeProjectUuid}/spaces`}
                     icon={<MantineIcon icon={IconFolders} />}
                     onClick={toggleMenu}
                 />
                 <RouterNavLink
                     exact
-                    label="Dashboards"
+                    label={t('mobile_navbar.dashboards')}
                     to={`/projects/${activeProjectUuid}/dashboards`}
                     icon={<MantineIcon icon={IconLayoutDashboard} />}
                     onClick={toggleMenu}
                 />
                 <RouterNavLink
                     exact
-                    label="Charts"
+                    label={t('mobile_navbar.charts')}
                     to={`/projects/${activeProjectUuid}/saved`}
                     icon={<MantineIcon icon={IconChartAreaLine} />}
                     onClick={toggleMenu}
@@ -122,7 +126,7 @@ const MobileNavBar: FC = () => {
                 <Divider my="lg" />
                 <RouterNavLink
                     exact
-                    label="Logout"
+                    label={t('mobile_navbar.logout')}
                     to={`/`}
                     icon={<MantineIcon icon={IconLogout} />}
                     onClick={() => logout()}

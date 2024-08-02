@@ -1785,6 +1785,9 @@
             }
         }
     },
+    "components_navbar_main_navbar_content": {
+        "home": "首页"
+    },
 
     "components_about_footer": {
         "new_version": "新版本已发布！",
@@ -4944,5 +4947,14 @@
             "results": "结果",
             "sql": "SQL"
         }
+    },
+
+    "mobile_navbar": {
+        "home": "首页",
+        "project": "项目",
+        "spaces": "空间",
+        "dashboards": "仪表板",
+        "charts": "图表",
+        "logout": "注销"
     }
 }
