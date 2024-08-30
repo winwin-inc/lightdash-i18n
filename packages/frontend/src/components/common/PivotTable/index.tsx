@@ -19,7 +19,7 @@ import React, { useCallback, useMemo, useRef, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { isSummable } from '../../../hooks/useColumnTotals';
-import { getColorFromRange } from '../../../utils/colorUtils';
+import { getColorFromRange, isHexCodeColor } from '../../../utils/colorUtils';
 import { useConditionalRuleLabel } from '../Filters/FilterInputs';
 import Table from '../LightTable';
 import { CELL_HEIGHT } from '../LightTable/styles';
@@ -423,7 +423,12 @@ const PivotTable: FC<PivotTableProps> = ({
                                             getColorFromRange,
                                         );
 
-                                    if (!conditionalFormattingColor) {
+                                    if (
+                                        !conditionalFormattingColor ||
+                                        !isHexCodeColor(
+                                            conditionalFormattingColor,
+                                        )
+                                    ) {
                                         return undefined;
                                     }
 

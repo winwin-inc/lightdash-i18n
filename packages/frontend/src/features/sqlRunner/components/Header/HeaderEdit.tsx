@@ -1,4 +1,12 @@
-import { ActionIcon, Group, Paper, Stack, Title, Tooltip } from '@mantine/core';
+import {
+    ActionIcon,
+    Button,
+    Group,
+    Paper,
+    Stack,
+    Title,
+    Tooltip,
+} from '@mantine/core';
 import {
     IconArrowBackUp,
     IconDeviceFloppy,
@@ -11,10 +19,10 @@ import { useHistory } from 'react-router-dom';
 import MantineIcon from '../../../../components/common/MantineIcon';
 import { UpdatedInfo } from '../../../../components/common/PageHeader/UpdatedInfo';
 import { ResourceInfoPopup } from '../../../../components/common/ResourceInfoPopup/ResourceInfoPopup';
+import { selectChartConfigByKind } from '../../../../components/DataViz/store/selectors';
 import { TitleBreadCrumbs } from '../../../../components/Explorer/SavedChartsHeader/TitleBreadcrumbs';
 import { useUpdateSqlChartMutation } from '../../hooks/useSavedSqlCharts';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { selectCurrentChartConfig } from '../../store/selectors';
 import { toggleModal } from '../../store/sqlRunnerSlice';
 import { DeleteSqlChartModal } from '../DeleteSqlChartModal';
 import { SaveSqlChartModal } from '../SaveSqlChartModal';
@@ -28,8 +36,14 @@ export const HeaderEdit: FC = () => {
     const savedSqlChart = useAppSelector(
         (state) => state.sqlRunner.savedSqlChart,
     );
-    const sql = useAppSelector((state) => state.sqlRunner.sql);
-    const config = useAppSelector((state) => selectCurrentChartConfig(state));
+    const { sql, selectedChartType } = useAppSelector(
+        (state) => state.sqlRunner,
+    );
+    const limit = useAppSelector((state) => state.sqlRunner.limit);
+
+    const config = useAppSelector((state) =>
+        selectChartConfigByKind(state, selectedChartType),
+    );
     const { mutate } = useUpdateSqlChartMutation(
         savedSqlChart?.project.projectUuid || '',
         savedSqlChart?.savedSqlUuid || '',
@@ -85,35 +99,33 @@ export const HeaderEdit: FC = () => {
                                 description={
                                     savedSqlChart.description ?? undefined
                                 }
-                                viewStats={1} // todo: update endpoint to return view stats
-                                firstViewedAt={undefined}
+                                viewStats={savedSqlChart.views}
+                                firstViewedAt={savedSqlChart.firstViewedAt}
                                 withChartData={false}
                             />
                         </Group>
                     </Stack>
 
                     <Group spacing="md">
-                        <Tooltip
-                            variant="xs"
-                            label={t('features_sql_runner_header_edit.title')}
-                            position="bottom"
+                        <Button
+                            variant="default"
+                            size="xs"
+                            disabled={!config || !sql}
+                            onClick={() => {
+                                if (config && sql) {
+                                    mutate({
+                                        versionedData: {
+                                            config,
+                                            sql,
+                                            limit,
+                                        },
+                                    });
+                                }
+                            }}
+                            leftIcon={<MantineIcon icon={IconDeviceFloppy} />}
                         >
-                            <ActionIcon size="xs" disabled={!config || !sql}>
-                                <MantineIcon
-                                    icon={IconDeviceFloppy}
-                                    onClick={() => {
-                                        if (config && sql) {
-                                            mutate({
-                                                versionedData: {
-                                                    config,
-                                                    sql,
-                                                },
-                                            });
-                                        }
-                                    }}
-                                />
-                            </ActionIcon>
-                        </Tooltip>
+                            {t('features_sql_runner_header_edit.title')}
+                        </Button>
                         <Tooltip
                             variant="xs"
                             label={t(
@@ -126,7 +138,7 @@ export const HeaderEdit: FC = () => {
                                     icon={IconArrowBackUp}
                                     onClick={() =>
                                         history.push(
-                                            `/projects/${savedSqlChart.project.projectUuid}/sql-runner-new/saved/${savedSqlChart.slug}`,
+                                            `/projects/${savedSqlChart.project.projectUuid}/sql-runner/${savedSqlChart.slug}`,
                                         )
                                     }
                                 />

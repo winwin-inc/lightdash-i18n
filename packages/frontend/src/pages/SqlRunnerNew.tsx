@@ -7,8 +7,10 @@ import { Provider } from 'react-redux';
 import { useParams } from 'react-router-dom';
 import { useUnmount } from 'react-use';
 
+import ErrorState from '../components/common/ErrorState';
 import MantineIcon from '../components/common/MantineIcon';
 import Page from '../components/common/Page/Page';
+import { setChartConfig } from '../components/DataViz/store/actions/commonChartActions';
 import { Sidebar } from '../features/sqlRunner';
 import { ContentPanel } from '../features/sqlRunner/components/ContentPanel';
 import { Header } from '../features/sqlRunner/components/Header';
@@ -49,7 +51,7 @@ const SqlRunnerNew = () => {
         }
     }, [dispatch, params.projectUuid, projectUuid]);
 
-    const { data } = useSavedSqlChart({
+    const { data, error: chartError } = useSavedSqlChart({
         projectUuid,
         slug: params.slug,
     });
@@ -57,6 +59,7 @@ const SqlRunnerNew = () => {
     useEffect(() => {
         if (data) {
             dispatch(setSavedChartData(data));
+            dispatch(setChartConfig(data.config));
         }
     }, [dispatch, data]);
 
@@ -70,8 +73,8 @@ const SqlRunnerNew = () => {
         }
     }, [dispatch, project?.warehouseConnection?.type]);
 
-    if (!projectUuid) {
-        return null;
+    if (chartError) {
+        return <ErrorState error={chartError.error} />;
     }
 
     return (
@@ -89,7 +92,7 @@ const SqlRunnerNew = () => {
                 spacing="none"
                 p={0}
                 style={{ flex: 1 }}
-                w="100%"
+                w={'100%'}
             >
                 {!isLeftSidebarOpen && (
                     <Paper

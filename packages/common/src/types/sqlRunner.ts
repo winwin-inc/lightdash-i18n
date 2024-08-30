@@ -1,44 +1,72 @@
+import { type ApiError, type PivotChartData } from '..';
 import {
-    type BarChartDisplay,
-    type PieChartDisplay,
-    type SqlColumn,
-    type SqlTransformBarChartConfig,
-    type SqlTransformPieChartConfig,
-} from '../visualizations/SqlRunnerResultsTransformer';
+    type VizAggregationOptions,
+    type VizBaseConfig,
+    type VizCartesianChartConfig,
+    type VizChartConfig,
+    type VizPieChartConfig,
+    type VizSqlColumn,
+    type VizTableConfig,
+} from '../visualizations/types';
 import { type Dashboard } from './dashboard';
 import { type Organization } from './organization';
 import { type Project } from './projects';
-import { type ResultRow } from './results';
-import { ChartKind } from './savedCharts';
-import {
-    type ApiJobScheduledResponse,
-    type SchedulerJobStatus,
-} from './scheduler';
-import { type Space } from './space';
+import { type RawResultRow } from './results';
+import { type ChartKind } from './savedCharts';
+import { SchedulerJobStatus, type ApiJobScheduledResponse } from './scheduler';
+import { type SpaceSummary } from './space';
 import { type LightdashUser } from './user';
 
 export type SqlRunnerPayload = {
     projectUuid: string;
-    sql: string;
     userUuid: string;
     organizationUuid: string | undefined;
+    sqlChartUuid?: string;
+    context: 'sqlChartView' | 'sqlRunner' | 'dashboardView'; // TODO: move scheduler types to Backend package. Can't import QueryExecutionProperties from LightdashAnalytics
+} & SqlRunnerBody;
+
+type ApiSqlRunnerPivotQueryPayload = {
+    indexColumn:
+        | {
+              reference: string;
+              type: string;
+          }
+        | undefined;
+    valuesColumns: {
+        reference: string;
+        aggregation: VizAggregationOptions;
+    }[];
+    groupByColumns: { reference: string }[] | undefined;
 };
+
+export type SqlRunnerPivotQueryPayload = SqlRunnerPayload &
+    ApiSqlRunnerPivotQueryPayload;
 
 export type SqlRunnerBody = {
     sql: string;
+    limit?: number;
 };
 
-export type SqlRunnerResults = ResultRow[];
+export type SqlRunnerPivotQueryBody = SqlRunnerBody &
+    ApiSqlRunnerPivotQueryPayload;
+
+export type SqlRunnerResults = RawResultRow[];
 
 export const sqlRunnerJob = 'sqlRunner';
+export const sqlRunnerPivotQueryJob = 'sqlRunnerPivotQuery';
 
 type SqlRunnerJobStatusSuccessDetails = {
     fileUrl: string;
-    columns: SqlColumn[];
+    columns: VizSqlColumn[];
 };
+
+type SqlRunnerPivotQueryJobStatusSuccessDetails =
+    SqlRunnerJobStatusSuccessDetails & Omit<PivotChartData, 'results'>;
 
 type SqlRunnerJobStatusErrorDetails = {
     error: string;
+    charNumber?: number;
+    lineNumber?: number;
     createdByUserUuid: string;
 };
 
@@ -58,54 +86,30 @@ export type ApiSqlRunnerJobStatusResponse = {
     };
 };
 
-export type SqlRunnerChartConfig = {
-    metadata: {
-        version: number;
-    };
-    type: ChartKind;
-};
-
-export type SqlTableConfig = {
-    columns: {
-        [key: string]: {
-            visible: boolean;
-            reference: string;
-            label: string;
-            frozen: boolean;
-            order?: number;
-        };
+export type ApiSqlRunnerJobSuccessResponse = ApiSqlRunnerJobStatusResponse & {
+    results: {
+        status: SchedulerJobStatus.COMPLETED;
+        details: SqlRunnerJobStatusSuccessDetails;
     };
 };
 
-export type TableChartSqlConfig = SqlRunnerChartConfig &
-    SqlTableConfig & {
-        type: ChartKind.TABLE;
+export const isApiSqlRunnerJobSuccessResponse = (
+    response: ApiSqlRunnerJobStatusResponse['results'] | ApiError,
+): response is ApiSqlRunnerJobSuccessResponse['results'] =>
+    response.status === SchedulerJobStatus.COMPLETED;
+
+// TODO: common type with semantic viewer and should be abstracted
+export type ApiSqlRunnerJobPivotQuerySuccessResponse = {
+    results: {
+        status: SchedulerJobStatus.COMPLETED;
+        details: SqlRunnerPivotQueryJobStatusSuccessDetails;
     };
-
-export type BarChartSqlConfig = SqlRunnerChartConfig & {
-    type: ChartKind.VERTICAL_BAR;
-    fieldConfig: SqlTransformBarChartConfig | undefined;
-    display: BarChartDisplay | undefined;
 };
 
-export type PieChartSqlConfig = SqlRunnerChartConfig & {
-    type: ChartKind.PIE;
-    fieldConfig: SqlTransformPieChartConfig | undefined;
-    display: PieChartDisplay | undefined;
-};
-
-export const isTableChartSQLConfig = (
-    value: SqlRunnerChartConfig | undefined,
-): value is TableChartSqlConfig => !!value && value.type === ChartKind.TABLE;
-
-export const isBarChartSQLConfig = (
-    value: SqlRunnerChartConfig | undefined,
-): value is BarChartSqlConfig =>
-    !!value && value.type === ChartKind.VERTICAL_BAR;
-
-export const isPieChartSQLConfig = (
-    value: SqlRunnerChartConfig | undefined,
-): value is PieChartSqlConfig => !!value && value.type === ChartKind.PIE;
+export const isApiSqlRunnerJobPivotQuerySuccessResponse = (
+    response: ApiSqlRunnerJobStatusResponse['results'] | ApiError,
+): response is ApiSqlRunnerJobPivotQuerySuccessResponse['results'] =>
+    response.status === SchedulerJobStatus.COMPLETED;
 
 export type SqlChart = {
     savedSqlUuid: string;
@@ -113,7 +117,9 @@ export type SqlChart = {
     description: string | null;
     slug: string;
     sql: string;
-    config: SqlRunnerChartConfig;
+    limit: number;
+    config: VizBaseConfig &
+        (VizCartesianChartConfig | VizPieChartConfig | VizTableConfig);
     chartKind: ChartKind;
     createdAt: Date;
     createdBy: Pick<
@@ -125,17 +131,21 @@ export type SqlChart = {
         LightdashUser,
         'userUuid' | 'firstName' | 'lastName'
     > | null;
-    space: Pick<Space, 'uuid' | 'name'>;
+    space: Pick<SpaceSummary, 'uuid' | 'name' | 'isPrivate' | 'userAccess'>;
     dashboard: Pick<Dashboard, 'uuid' | 'name'> | null;
     project: Pick<Project, 'projectUuid'>;
     organization: Pick<Organization, 'organizationUuid'>;
+    views: number;
+    firstViewedAt: Date;
+    lastViewedAt: Date;
 };
 
 export type CreateSqlChart = {
     name: string;
     description: string | null;
     sql: string;
-    config: SqlRunnerChartConfig;
+    limit: number;
+    config: VizChartConfig;
     spaceUuid: string;
 };
 
@@ -147,7 +157,8 @@ export type UpdateUnversionedSqlChart = {
 
 export type UpdateVersionedSqlChart = {
     sql: string;
-    config: SqlRunnerChartConfig;
+    limit: number;
+    config: VizChartConfig;
 };
 
 export type UpdateSqlChart = {

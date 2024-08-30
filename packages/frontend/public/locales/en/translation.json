@@ -302,8 +302,10 @@
     },
 
     "features_sql_runner_content_panel": {
-        "sql": "SQL",
-        "chart": "Chart"
+        "no_results": "Could not fetch SQL query results",
+        "sql": "Query",
+        "chart": "Chart",
+        "limit_rows": " Showing first {limit} rows"
     },
     "features_sql_runner_header": {
         "save_chart": "Save chart",
@@ -318,6 +320,7 @@
     "features_sql_runner_sidebar": {
         "tables": "TABLES",
         "visualization": "VISUALIZATION",
+        "refresh_tables": "Refresh tables",
         "close_sidebar": "Close sidebar"
     },
     "features_sql_runner_table_fields": {
@@ -372,13 +375,13 @@
         "styling": "Styling"
     },
     "features_sql_runner_bar_chart_field_configuartaion": {
-        "base_series": "Bar series",
-        "column_not_in_sql": "Column \"{{reference}}\" not in SQL",
+        "column_not_in_sql": "Column \"{{reference}}\" does not exist. Choose another",
         "select_y_axis": "Select Y axis",
         "aggregation": "Aggregation",
         "select_x_axis": "Select X axis",
-        "column_not_in_sql_query": "Column \"{{reference}}\" not in SQL query",
+        "column_not_in_sql_query": "Column \"{{reference}}\" does not exist. Choose another",
         "select_group_by": "Select group by",
+        "column_not_in_sql_group": "Column \"{{reference}}\" does not exist. Choose another",
         "x_axis": "X-axis",
         "y_axis": "Y-axis",
         "group_by": "Group by"
@@ -387,8 +390,13 @@
         "aggregation": "Aggregation"
     },
     "features_sql_runner_bar_chart_styling": {
+        "stacking": "Stacking",
+        "none": "None",
+        "stack": "Stacked",
         "x_axis_label": "X-axis label",
-        "y_axis_label": "Y-axis label",
+        "y_axis": "Y-axis",
+        "label": "Label",
+        "format": "Format",
         "position": "Position",
         "left": "Left",
         "right": "Right"
@@ -402,8 +410,12 @@
     "features_sql_runner_pie_chart_configuration": {
         "data": "Data",
         "group_by": "Group by",
-        "select_x_axis": "Select X axis",
-        "column_not_in_sql_query": "Column \"{{field}}\" not in SQL query"
+        "select_group_by": "Select group by",
+        "column_not_in_sql_query": "Column \"{{field}}\" not in SQL query",
+        "aggregate_by": "aggregate by",
+        "column_not_in_sql_aggregate": "Column \"{{reference}}\" not in SQL query",
+        "select_y_axis": "Select Y axis",
+        "aggregation": "Aggregation"
     },
     "features_sql_runner_table_vis_configuration": {
         "column_labels": "Column labels"
@@ -424,13 +436,14 @@
     "features_sql_runner_visualization_switcher": {
         "table": "Table",
         "bar_chart": "Bar chart",
+        "line_chart": "Line chart",
         "pie_chart": "Pie chart"
     },
     "features_sql_runner_header_create": {
-        "title": "Save chart"
+        "title": "Save"
     },
     "features_sql_runner_header_edit": {
-        "title": "Save chart",
+        "title": "Save",
         "back_to_view_page": "Back to view page"
     },
     "features_sql_runner_header_view": {
@@ -689,7 +702,8 @@
             "enabled": "Toggle off to temporarily pause notifications",
             "disabled": "Notifications paused. Toggle on to resume"
         },
-        "edit": "Edit"
+        "edit": "Edit",
+        "delete": "Delete"
     },
     "features_scheduler_constants": {
         "tablet": "Tablet (1000px)",
@@ -722,6 +736,45 @@
             "success": "Success! Scheduled delivery was updated.",
             "error": "Failed to update scheduled delivery"
         }
+    },
+
+    "features_semantic_content": {
+        "chart": "Chart",
+        "query": "Query"
+    },
+    "features_semantic_query_button": {
+        "no_results": "Could not fetch SQL query results"
+    },
+    "features_semantic_sidebar": {
+        "back_to_views": "Back to views",
+        "views": "Views",
+        "fields": "Fields"
+    },
+    "features_semantic_sidebar_views": {
+        "no_views": {
+            "part_1": "No views available",
+            "part_2": "No views have been created in this project yet."
+        }
+    },
+    "features_semantic_sidebar_view_fields": {
+        "error": {
+            "impossible_state": "Impossible state",
+            "no_fields": {
+                "part_1": "No fields available",
+                "part_2": "No fields have been created in this view yet."
+            }
+        },
+        "search_fields": "Search fields",
+        "selected_fields": "Selected fields",
+        "available_fields": "Available fields",
+        "unavailable_fields": "Unavailable fields",
+        "no_fields": {
+            "part_1": "No fields match search",
+            "part_2": "No fields match the search query."
+        }
+    },
+    "features_semantic_time_dimension_granularity_picker": {
+        "time_granularity": "Time granularity"
     },
 
     "features_sync": {
@@ -992,7 +1045,13 @@
             "is_on_or_after": "is on or after",
             "is_between": "is between"
         },
-        "completed": "completed "
+        "completed": "completed ",
+        "multi_value_paste_popver": {
+            "title": "Multiple comma-separated values detected:",
+            "subtitle": "Would you like to add them as single or multiple values?",
+            "single_value": "Single value",
+            "multiple_value": "Multiple values"
+        }
     },
 
     "components_common_light_table": {
@@ -1067,6 +1126,7 @@
                 "placeholder": "Label for {{label}}"
             },
             "value": "Value",
+            "tip": "Temporary filter values for required filters will be removed on dashboard save",
             "tooltip_eidt": {
                 "label": {
                     "on": "Toggle on to set a default filter value",
@@ -1372,6 +1432,7 @@
         "edit_chart": "Edit chart"
     },
     "components_dashboard_tiles_sql_chart": {
+        "edit_sql_chart": "Edit SQL chart",
         "no_data_available": "No data available",
         "no_data": "No data"
     },
@@ -4678,6 +4739,18 @@
         "back_to_home_page": "Back to home page"
     },
 
+    "components_dataviz_visualizations_chart_view": {
+        "error_tip": {
+            "title": "Incomplete chart configuration",
+            "content": {
+                "part_1": "You're missing an X axis",
+                "part_2": "You're missing a Y axis"
+            }
+        },
+        "error": "Some specified columns do not exist in the data",
+        "error_loading_tip": "Error generating chart"
+    },
+
     "pages_chart_history": {
         "title": "Charts version history",
         "bread_crumbs": {
@@ -4937,12 +5010,25 @@
             "part_2": "chat to support here."
         }
     },
+    "pages_auth_popup_result": {
+        "title": "Authentication - Lightdash",
+        "logo": "lightdash logo",
+        "success": {
+            "title": "Thank you for authenticating",
+            "description": "This window will close automatically"
+        },
+        "failed": {
+            "title": "Authentication failed. Please try again",
+            "description": "This window will close automatically"
+        }
+    },
 
     "pages_view_sql_chart": {
         "title": "SQL chart",
         "tabs": {
+            "chart": "Chart",
             "results": "Results",
-            "sql": "SQL"
+            "sql": "Query"
         }
     },
 

@@ -8,6 +8,7 @@ export const lightdashConfigMock: LightdashConfig = {
         enableGroupSync: false,
         disablePasswordAuthentication: false,
         enableOidcLinking: false,
+        enableOidcToEmailLinking: false,
         google: {
             loginPath: '',
             oauth2ClientId: undefined,
@@ -148,5 +149,13 @@ export const lightdashConfigMock: LightdashConfig = {
             reportOnly: false,
             allowedDomains: [],
         },
+    },
+    cube: {
+        token: '',
+    },
+    dbtCloud: {
+        domain: '',
+        bearerToken: '',
+        environmentId: '',
     },
 };

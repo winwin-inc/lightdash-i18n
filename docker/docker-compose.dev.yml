@@ -43,6 +43,10 @@ services:
             - AUTH_OIDC_CLIENT_FORCE_REDIRECT=${AUTH_OIDC_CLIENT_FORCE_REDIRECT}
             - AUTH_OIDC_AUTH_METHOD=${AUTH_OIDC_AUTH_METHOD}
             - AUTH_OIDC_METADATA_DOCUMENT_URL=${AUTH_OIDC_METADATA_DOCUMENT_URL}
+            - DBT_CLOUD_ENVIRONMENT_ID=${DBT_CLOUD_ENVIRONMENT_ID}
+            - DBT_CLOUD_BEARER_TOKEN=${DBT_CLOUD_BEARER_TOKEN}
+            - CUBE_TOKEN=${CUBE_TOKEN}
+            - CUBE_DOMAIN=${CUBE_DOMAIN}
         volumes:
             - '../:/usr/app'
             - '../examples/full-jaffle-shop-demo/dbt:/usr/app/dbt'

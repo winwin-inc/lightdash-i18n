@@ -302,8 +302,10 @@
     },
 
     "features_sql_runner_content_panel": {
-        "sql": "SQL",
-        "chart": "图表"
+        "no_results": "无法获取 SQL 查询结果",
+        "sql": "查询",
+        "chart": "图表",
+        "limit_rows": "显示前 {limit} 行"
     },
     "features_sql_runner_header": {
         "save_chart": "保存图表",
@@ -318,6 +320,7 @@
     "features_sql_runner_sidebar": {
         "tables": "表格",
         "visualization": "可视化",
+        "refresh_tables": "刷新表格",
         "close_sidebar": "关闭侧边栏"
     },
     "features_sql_runner_table_fields": {
@@ -372,13 +375,13 @@
         "styling": "样式"
     },
     "features_sql_runner_bar_chart_field_configuartaion": {
-        "base_series": "柱状图系列",
-        "column_not_in_sql": "\"{{reference}}\" 列不在 SQL 中",
+        "column_not_in_sql": "列 \"{{reference}}\" 不存在。选择其他列",
         "select_y_axis": "选择 Y 轴",
         "aggregation": "聚合",
         "select_x_axis": "选择 X 轴",
-        "column_not_in_sql_query": "\"{{reference}}\" 列不在 SQL 查询中",
+        "column_not_in_sql_query": "列 \"{{reference}}\" 不存在。选择其他列",
         "select_group_by": "选择分组依据",
+        "column_not_in_sql_group": "列 \"{{reference}}\" 不存在。选择其他列",
         "x_axis": "X 轴",
         "y_axis": "Y 轴",
         "group_by": "分组依据"
@@ -387,11 +390,16 @@
         "aggregation": "聚合"
     },
     "features_sql_runner_bar_chart_styling": {
+        "stacking": "堆叠",
+        "none": "无",
+        "stack": "堆叠",
         "x_axis_label": "X 轴标签",
-        "y_axis_label": "Y 轴标签",
+        "y_axis": "Y 轴",
+        "label": "标签",
+        "format": "格式",
         "position": "位置",
-        "left": "左侧",
-        "right": "右侧"
+        "left": "左",
+        "right": "右"
     },
     "features_sql_runner_delete_sql_chart_modal": {
         "title": "删除图表",
@@ -402,8 +410,12 @@
     "features_sql_runner_pie_chart_configuration": {
         "data": "数据",
         "group_by": "分组依据",
-        "select_x_axis": "选择 X 轴",
-        "column_not_in_sql_query": "\"{{field}}\" 列不在 SQL 查询中"
+        "select_group_by": "选择分组依据",
+        "column_not_in_sql_query": "列 \"{{field}}\" 不在 SQL 查询中",
+        "aggregate_by": "聚合依据",
+        "column_not_in_sql_aggregate": "列 \"{{reference}}\" 不在 SQL 查询中",
+        "select_y_axis": "选择 Y 轴",
+        "aggregation": "聚合"
     },
     "features_sql_runner_table_vis_configuration": {
         "column_labels": "列标签"
@@ -424,13 +436,14 @@
     "features_sql_runner_visualization_switcher": {
         "table": "表格",
         "bar_chart": "柱状图",
+        "line_chart": "折线图",
         "pie_chart": "饼图"
     },
     "features_sql_runner_header_create": {
-        "title": "保存图表"
+        "title": "保存"
     },
     "features_sql_runner_header_edit": {
-        "title": "保存图表",
+        "title": "保存",
         "back_to_view_page": "返回查看页面"
     },
     "features_sql_runner_header_view": {
@@ -689,7 +702,8 @@
             "enabled": "切换关闭以暂时暂停通知",
             "disabled": "通知已暂停。切换开启以恢复"
         },
-        "edit": "编辑"
+        "edit": "编辑",
+        "delete": "删除"
     },
     "features_scheduler_constants": {
         "tablet": "平板电脑 (1000px)",
@@ -722,6 +736,45 @@
             "success": "成功! 已更新已计划的交付。",
             "error": "更新已计划的交付失败"
         }
+    },
+
+    "features_semantic_content": {
+        "chart": "图表",
+        "query": "查询"
+    },
+    "features_semantic_query_button": {
+        "no_results": "无法获取 SQL 查询结果"
+    },
+    "features_semantic_sidebar": {
+        "back_to_views": "返回视图",
+        "views": "视图",
+        "fields": "字段"
+    },
+    "features_semantic_sidebar_views": {
+        "no_views": {
+            "part_1": "没有可用视图",
+            "part_2": "在此项目中尚未创建任何视图。"
+        }
+    },
+    "features_semantic_sidebar_view_fields": {
+        "error": {
+            "impossible_state": "不可能的状态",
+            "no_fields": {
+                "part_1": "没有可用字段",
+                "part_2": "在此视图中尚未创建任何字段。"
+            }
+        },
+        "search_fields": "搜索字段",
+        "selected_fields": "已选择字段",
+        "available_fields": "可用字段",
+        "unavailable_fields": "不可用字段",
+        "no_fields": {
+            "part_1": "没有字段匹配搜索",
+            "part_2": "没有字段匹配搜索查询。"
+        }
+    },
+    "features_semantic_time_dimension_granularity_picker": {
+        "time_granularity": "时间粒度"
     },
 
     "features_sync": {
@@ -992,7 +1045,13 @@
             "is_on_or_after": "is on or after",
             "is_between": "is between"
         },
-        "completed": "completed "
+        "completed": "completed ",
+        "multi_value_paste_popver": {
+            "title": "检测到多个以逗号分隔的值：",
+            "subtitle": "您想将它们添加为单个值还是多个值？",
+            "single_value": "单个值",
+            "multiple_value": "多个值"
+        }
     },
 
     "components_common_light_table": {
@@ -1067,6 +1126,7 @@
                 "placeholder": "{{label}} 的标签"
             },
             "value": "值",
+            "tip": "所需筛选器的临时筛选值将在看板保存时被移除",
             "tooltip_eidt": {
                 "label": {
                     "on": "打开以设置默认筛选器值",
@@ -1350,11 +1410,11 @@
     },
     "components_dashboard_tiles_chart_title": {
         "copied": "已复制到剪贴板!",
-        "duplicated_and_added": "图表已复制并添加到此仪表板的底部",
-        "dashboard_filter": "已应用仪表板过滤器{{suffix}}:",
+        "duplicated_and_added": "图表已复制并添加到此看板的底部",
+        "dashboard_filter": "已应用看板过滤器{{suffix}}:",
         "tried_to_reference": "尝试引用未知 ID 为 {{fieldId}} 的字段",
         "is_any_value": "是任何值",
-        "tooltip_editing_actions": "请完成仪表板编辑以使用这些操作",
+        "tooltip_editing_actions": "请完成看板编辑以使用这些操作",
         "tooltip_custom_dimensions": "此图表包含自定义维度,您将无法在\"探索\"中运行自定义 SQL。",
         "menus": {
             "explore_from_here": "从这里探索",
@@ -1365,13 +1425,14 @@
             "copy_value": "复制值",
             "view_underlying_data": "查看基础数据"
         },
-        "tooltip_editing_chart": "请完成仪表板编辑以编辑此图表",
+        "tooltip_editing_chart": "请完成看板编辑以编辑此图表",
         "no_data_available": "没有可用数据"
     },
     "components_dashboard_tiles_edit_chart_menu": {
         "edit_chart": "编辑图表"
     },
     "components_dashboard_tiles_sql_chart": {
+        "edit_sql_chart": "编辑 SQL 图表",
         "no_data_available": "没有可用数据",
         "no_data": "没有数据"
     },
@@ -4690,6 +4751,18 @@
         "back_to_home_page": "返回主页"
     },
 
+    "components_dataviz_visualizations_chart_view": {
+        "error_tip": {
+            "title": "图表配置不完整",
+            "content": {
+                "part_1": "缺少 X 轴",
+                "part_2": "缺少 Y 轴"
+            }
+        },
+        "error": "某些指定的列在数据中不存在",
+        "error_loading_tip": "生成图表时出错"
+    },
+
     "pages_chart_history": {
         "title": "图表版本历史记录",
         "bread_crumbs": {
@@ -4940,12 +5013,25 @@
             "part_2": "在此与支持人员聊天。"
         }
     },
+    "pages_auth_popup_result": {
+        "title": "身份验证 - Lightdash",
+        "logo": "lightdash 标志",
+        "success": {
+            "title": "感谢您的身份验证",
+            "description": "此窗口将自动关闭"
+        },
+        "failed": {
+            "title": "身份验证失败。请再试一次",
+            "description": "此窗口将自动关闭"
+        }
+    },
 
     "pages_view_sql_chart": {
         "title": "SQL 图表",
         "tabs": {
+            "chart": "图表",
             "results": "结果",
-            "sql": "SQL"
+            "sql": "查询"
         }
     },
 
@@ -4953,7 +5039,7 @@
         "home": "首页",
         "project": "项目",
         "spaces": "空间",
-        "dashboards": "仪表板",
+        "dashboards": "看板",
         "charts": "图表",
         "logout": "注销"
     }

@@ -90,7 +90,7 @@ const DbtCloudSettings: FC<DbtCloudSettingsProps> = ({ projectUuid }) => {
                             {t(
                                 'components_dbt_cloud_settings.form.content.part_2',
                             )}{' '}
-                            <Anchor href="https://docs.lightdash.com/guides/dbt-semantic-layer">
+                            <Anchor href="https://docs.lightdash.com/references/dbt-semantic-layer">
                                 {t(
                                     'components_dbt_cloud_settings.form.content.part_3',
                                 )}

@@ -7,7 +7,7 @@ import {
     Tooltip,
 } from '@mantine/core';
 import { IconExternalLink } from '@tabler/icons-react';
-import { useCallback, useState, type FC } from 'react';
+import { useCallback, useEffect, type FC } from 'react';
 import useDrivePicker from 'react-google-drive-picker';
 import { useTranslation } from 'react-i18next';
 
@@ -22,9 +22,6 @@ export const SelectGoogleSheetButton: FC = () => {
     const methods = useFormContext();
     const health = useHealth();
     const [openPicker] = useDrivePicker();
-
-    const [isGoogleAuthQueryEnabled, setIsGoogleAuthQueryEnabled] =
-        useState(false);
 
     const googleDriveId = methods.watch('options.gdriveId');
     const googleDriveName = methods.watch('options.gdriveName');
@@ -52,18 +49,18 @@ export const SelectGoogleSheetButton: FC = () => {
         [methods],
     );
 
-    useGdriveAccessToken({
-        enabled: isGoogleAuthQueryEnabled,
-        onSuccess: (accessToken) => {
-            if (
-                !health.data?.auth.google.oauth2ClientId ||
-                !health.data.auth.google.googleDriveApiKey
-            )
-                return;
+    const { mutate, token } = useGdriveAccessToken();
+
+    useEffect(() => {
+        if (
+            token &&
+            health.data?.auth.google.oauth2ClientId &&
+            health.data.auth.google.googleDriveApiKey
+        ) {
             openPicker({
-                clientId: health.data?.auth.google.oauth2ClientId,
+                clientId: health.data.auth.google.oauth2ClientId,
                 developerKey: health.data.auth.google.googleDriveApiKey,
-                token: accessToken,
+                token,
                 showUploadView: true,
                 viewId: 'SPREADSHEETS',
                 showUploadFolders: true,
@@ -73,9 +70,10 @@ export const SelectGoogleSheetButton: FC = () => {
                 multiselect: false,
                 callbackFunction: onGooglePickerSelect,
             });
-            setIsGoogleAuthQueryEnabled(false);
-        },
-    });
+        }
+        // Adding openPicker and onGooglePickerSelect to the dependency array causes an infinite loop
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [token, health.data]);
 
     if (googleDriveId) {
         return (
@@ -133,7 +131,7 @@ export const SelectGoogleSheetButton: FC = () => {
             <Button
                 size="xs"
                 onClick={() => {
-                    setIsGoogleAuthQueryEnabled(true);
+                    mutate();
                 }}
             >
                 {t('features_sync.select_google_sheet')}

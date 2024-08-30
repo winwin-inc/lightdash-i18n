@@ -1,6 +1,5 @@
 import {
     DashboardTileTypes,
-    isDashboardChartTileType,
     ResourceViewItemType,
     type Dashboard as IDashboard,
     type DashboardTab,
@@ -37,7 +36,6 @@ import { useOrganization } from '../hooks/organization/useOrganization';
 import { useDashboardPinningMutation } from '../hooks/pinning/useDashboardPinningMutation';
 import { usePinnedItems } from '../hooks/pinning/usePinnedItems';
 import useToaster from '../hooks/toaster/useToaster';
-import { deleteSavedQuery } from '../hooks/useSavedQuery';
 import { useSpaceSummaries } from '../hooks/useSpaces';
 import { useApp } from '../providers/AppProvider';
 import {
@@ -439,39 +437,17 @@ const Dashboard: FC = () => {
     );
 
     const handleCancel = useCallback(() => {
+        if (!dashboard) return;
+
         sessionStorage.clear();
 
-        // Delete charts that were created in edit mode
-        dashboardTiles?.forEach((tile) => {
-            if (
-                isDashboardChartTileType(tile) &&
-                tile.properties.belongsToDashboard &&
-                tile.properties.savedChartUuid
-            ) {
-                const isChartNew =
-                    (dashboard?.tiles || []).find(
-                        (_t) =>
-                            isDashboardChartTileType(_t) &&
-                            _t.properties.savedChartUuid ===
-                                tile.properties.savedChartUuid,
-                    ) === undefined;
-
-                if (isChartNew) {
-                    deleteSavedQuery(tile.properties.savedChartUuid).catch(
-                        () => {
-                            //ignore error
-                        },
-                    );
-                }
-            }
-        });
-
-        setDashboardTiles(dashboard?.tiles || []);
+        setDashboardTiles(dashboard.tiles);
         setHaveTilesChanged(false);
-        if (dashboard) setDashboardFilters(dashboard.filters);
+        setDashboardFilters(dashboard.filters);
         setHaveFiltersChanged(false);
         setHaveTabsChanged(false);
-        setDashboardTabs(dashboard?.tabs || []);
+        setDashboardTabs(dashboard.tabs);
+
         if (dashboardTabs.length > 0) {
             history.replace(
                 `/projects/${projectUuid}/dashboards/${dashboardUuid}/view/tabs/${activeTab?.uuid}`,
@@ -486,7 +462,6 @@ const Dashboard: FC = () => {
         dashboardUuid,
         history,
         projectUuid,
-        dashboardTiles,
         setDashboardTiles,
         setHaveFiltersChanged,
         setDashboardFilters,
@@ -647,14 +622,28 @@ const Dashboard: FC = () => {
                             haveTabsChanged
                         }
                         onAddTiles={handleAddTiles}
-                        onSaveDashboard={() =>
+                        onSaveDashboard={() => {
+                            const dimensionFilters = [
+                                ...dashboardFilters.dimensions,
+                                ...dashboardTemporaryFilters.dimensions,
+                            ];
+                            // Reset value for required filter on save dashboard
+                            const requiredFiltersWithoutValues =
+                                dimensionFilters.map((filter) => {
+                                    if (filter.required) {
+                                        return {
+                                            ...filter,
+                                            disabled: true,
+                                            values: [],
+                                        };
+                                    }
+                                    return filter;
+                                });
+
                             mutate({
                                 tiles: dashboardTiles,
                                 filters: {
-                                    dimensions: [
-                                        ...dashboardFilters.dimensions,
-                                        ...dashboardTemporaryFilters.dimensions,
-                                    ],
+                                    dimensions: requiredFiltersWithoutValues,
                                     metrics: [
                                         ...dashboardFilters.metrics,
                                         ...dashboardTemporaryFilters.metrics,
@@ -666,8 +655,8 @@ const Dashboard: FC = () => {
                                 },
                                 name: dashboard.name,
                                 tabs: dashboardTabs,
-                            })
-                        }
+                            });
+                        }}
                         onCancel={handleCancel}
                         onMoveToSpace={handleMoveDashboardToSpace}
                         onDuplicate={duplicateModalHandlers.open}

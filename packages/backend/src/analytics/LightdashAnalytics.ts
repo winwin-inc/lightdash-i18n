@@ -1,4 +1,5 @@
 /// <reference path="../@types/rudder-sdk-node.d.ts" />
+import { Type } from '@aws-sdk/client-s3';
 import {
     CartesianSeriesType,
     ChartKind,
@@ -25,6 +26,7 @@ import Analytics, {
 import { Request } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { LightdashConfig } from '../config/parseConfig';
+import Logger from '../logging/logger';
 import { VERSION } from '../version';
 
 type Identify = {
@@ -66,13 +68,6 @@ type PersonalAccessTokenEvent = BaseTrack & {
 
 type DbtCloudIntegration = BaseTrack & {
     event: 'dbt_cloud_integration.updated' | 'dbt_cloud_integration.deleted';
-    properties: {
-        projectId: string;
-    };
-};
-
-type SqlExecutedEvent = BaseTrack & {
-    event: 'sql.executed';
     properties: {
         projectId: string;
     };
@@ -162,6 +157,8 @@ export enum QueryExecutionContext {
     AUTOREFRESHED_DASHBOARD = 'autorefreshedDashboard',
     EXPLORE = 'exploreView',
     CHART = 'chartView',
+    SQL_CHART = 'sqlChartView',
+    SQL_RUNNER = 'sqlRunner',
     VIEW_UNDERLYING_DATA = 'viewUnderlyingData',
     CSV = 'csvDownload',
     GSHEETS = 'gsheets',
@@ -187,33 +184,42 @@ export const getContextFromHeader = (req: Request) => {
     }
 };
 
+type MetricQueryExecutionProperties = {
+    chartId?: string;
+    metricsCount: number;
+    dimensionsCount: number;
+    tableCalculationsCount: number;
+    tableCalculationsPercentFormatCount: number;
+    tableCalculationsCurrencyFormatCount: number;
+    tableCalculationsNumberFormatCount: number;
+    filtersCount: number;
+    sortsCount: number;
+    hasExampleMetric: boolean;
+    additionalMetricsCount: number;
+    additionalMetricsFilterCount: number;
+    additionalMetricsPercentFormatCount: number;
+    additionalMetricsCurrencyFormatCount: number;
+    additionalMetricsNumberFormatCount: number;
+    numFixedWidthBinCustomDimensions: number;
+    numFixedBinsBinCustomDimensions: number;
+    numCustomRangeBinCustomDimensions: number;
+    numCustomSqlDimensions: number;
+    dateZoomGranularity: string | null;
+    timezone?: string;
+};
+
+type SqlExecutionProperties = {
+    sqlChartId?: string;
+    usingStreaming: boolean;
+};
+
 type QueryExecutionEvent = BaseTrack & {
     event: 'query.executed';
     properties: {
-        projectId: string;
-        metricsCount: number;
-        dimensionsCount: number;
-        tableCalculationsCount: number;
-        tableCalculationsPercentFormatCount: number;
-        tableCalculationsCurrencyFormatCount: number;
-        tableCalculationsNumberFormatCount: number;
-        filtersCount: number;
-        sortsCount: number;
-        hasExampleMetric: boolean;
-        additionalMetricsCount: number;
-        additionalMetricsFilterCount: number;
-        additionalMetricsPercentFormatCount: number;
-        additionalMetricsCurrencyFormatCount: number;
-        additionalMetricsNumberFormatCount: number;
         context: QueryExecutionContext;
-        numFixedWidthBinCustomDimensions: number;
-        numFixedBinsBinCustomDimensions: number;
-        numCustomRangeBinCustomDimensions: number;
-        numCustomSqlDimensions: number;
-        dateZoomGranularity: string | null;
-        timezone?: string;
-        chartId?: string;
-    };
+        organizationId: string;
+        projectId: string;
+    } & (MetricQueryExecutionProperties | SqlExecutionProperties);
 };
 
 type CreateOrganizationEvent = BaseTrack & {
@@ -722,6 +728,11 @@ export type CreateSqlChartVersionEvent = BaseTrack & {
             yAxisCount: number;
             aggregationTypes: string[];
         };
+        lineChart?: {
+            groupByCount: number;
+            yAxisCount: number;
+            aggregationTypes: string[];
+        };
         pieChart?: {
             groupByCount: number;
         };
@@ -989,6 +1000,19 @@ export type GroupDeleteEvent = BaseTrack & {
     };
 };
 
+export type SemanticLayerView = BaseTrack & {
+    event: 'semantic_layer.get_views'; // started, completed, error suffix when using wrapEvent
+    userId: string;
+    properties: {
+        organizationId: string;
+        projectId: string;
+        // on completed
+        viewsCount?: number;
+        // on error
+        error?: string;
+    };
+};
+
 type TypedEvent =
     | TrackSimpleEvent
     | CreateUserEvent
@@ -1023,7 +1047,6 @@ type TypedEvent =
     | UserWarehouseCredentialsDeleteEvent
     | LoginEvent
     | IdentityLinkedEvent
-    | SqlExecutedEvent
     | DbtCloudIntegration
     | PersonalAccessTokenEvent
     | DuplicatedChartCreatedEvent
@@ -1064,6 +1087,8 @@ type TypedEvent =
     | CreateSqlChartVersionEvent
     | CommentsEvent;
 
+type WrapTypedEvent = SemanticLayerView;
+
 type UntypedEvent<T extends BaseTrack> = Omit<BaseTrack, 'event'> &
     T & {
         event: Exclude<T['event'], TypedEvent['event']>;
@@ -1075,6 +1100,7 @@ type LightdashAnalyticsArguments = {
     dataPlaneUrl: string;
     options?: ConstructorParameters<typeof Analytics>[2];
 };
+
 export class LightdashAnalytics extends Analytics {
     private readonly lightdashConfig: LightdashConfig;
 
@@ -1166,5 +1192,43 @@ export class LightdashAnalytics extends Analytics {
             ...payload,
             context: { ...this.lightdashContext }, // NOTE: spread because rudderstack manipulates arg
         });
+    }
+
+    async wrapEvent<T>(
+        payload: WrapTypedEvent,
+        func: () => Promise<T>,
+        extraProperties?: (r: T) => any,
+    ) {
+        try {
+            this.track({
+                ...payload,
+                event: `${payload.event}.started`,
+            });
+
+            const results = await func();
+
+            const properties = extraProperties ? extraProperties(results) : {};
+            this.track({
+                ...payload,
+                event: `${payload.event}.completed`,
+                properties: {
+                    ...payload.properties,
+                    ...properties,
+                },
+            });
+
+            return results;
+        } catch (e) {
+            await this.track({
+                ...payload,
+                event: `${payload.event}.error`,
+                properties: {
+                    ...payload.properties,
+                    error: e.message,
+                },
+            });
+            Logger.error(`Error in scheduler task: ${e}`);
+            throw e;
+        }
     }
 }

@@ -47,7 +47,10 @@ export const HeaderView: FC = () => {
         subject('SavedChart', {
             organizationUuid: user.data?.organizationUuid,
             projectUuid,
-            access: [], // todo: update endpoint to return space "isPrivate" and "access"
+            isPrivate: savedSqlChart?.space.isPrivate,
+            access: savedSqlChart?.space.userAccess
+                ? [savedSqlChart.space.userAccess]
+                : [],
         }),
     );
 
@@ -84,8 +87,8 @@ export const HeaderView: FC = () => {
                                 description={
                                     savedSqlChart.description ?? undefined
                                 }
-                                viewStats={1} // todo: update endpoint to return view stats
-                                firstViewedAt={undefined}
+                                viewStats={savedSqlChart.views}
+                                firstViewedAt={savedSqlChart.firstViewedAt}
                                 withChartData={false}
                             />
                         </Group>
@@ -104,7 +107,7 @@ export const HeaderView: FC = () => {
                                         icon={IconPencil}
                                         onClick={() =>
                                             history.push(
-                                                `/projects/${projectUuid}/sql-runner-new/saved/${savedSqlChart.slug}/edit`,
+                                                `/projects/${projectUuid}/sql-runner/${savedSqlChart.slug}/edit`,
                                             )
                                         }
                                     />
