@@ -156,7 +156,7 @@ export const CustomBinDimensionModal: FC<{
                         table: item.table,
                         customRange: values.binConfig.customRange,
                     },
-                    item.name,
+                    item.id,
                 );
 
                 showToastSuccess({

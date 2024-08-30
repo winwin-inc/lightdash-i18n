@@ -38,7 +38,7 @@ const FilterRuleForm: FC<Props> = ({
     const { t } = useTranslation();
     const getFilterOperatorOptions = useFilterOperatorOptions();
 
-    const { popoverProps } = useFiltersContext();
+    const { popoverProps, baseTable } = useFiltersContext();
     const activeField = useMemo(() => {
         return fields.find(
             (field) => getItemId(field) === filterRule.target.fieldId,
@@ -110,6 +110,7 @@ const FilterRuleForm: FC<Props> = ({
                     if (!field) return;
                     onFieldChange(getItemId(field));
                 }}
+                baseTable={baseTable}
             />
             <Select
                 size="xs"

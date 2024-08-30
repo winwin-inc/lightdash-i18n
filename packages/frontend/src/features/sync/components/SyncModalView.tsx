@@ -36,8 +36,10 @@ const ToggleSyncEnabled: FC<{ scheduler: Scheduler }> = ({ scheduler }) => {
     const [schedulerEnabled, setSchedulerEnabled] = useState<boolean>(
         scheduler.enabled,
     ); // To avoid delay on toggle
+
     return (
         <Tooltip
+            withinPortal
             label={
                 scheduler.enabled
                     ? 'Toggle off to temporarily pause notifications'
@@ -47,8 +49,6 @@ const ToggleSyncEnabled: FC<{ scheduler: Scheduler }> = ({ scheduler }) => {
             <Box>
                 <Switch
                     mr="sm"
-                    onLabel="on"
-                    offLabel="paused"
                     checked={schedulerEnabled}
                     onChange={() => {
                         mutateSchedulerEnabled(!schedulerEnabled);
@@ -59,6 +59,7 @@ const ToggleSyncEnabled: FC<{ scheduler: Scheduler }> = ({ scheduler }) => {
         </Tooltip>
     );
 };
+
 export const SyncModalView: FC<{ chartUuid: string }> = ({ chartUuid }) => {
     const { t } = useTranslation();
     const { data } = useChartSchedulers(chartUuid);

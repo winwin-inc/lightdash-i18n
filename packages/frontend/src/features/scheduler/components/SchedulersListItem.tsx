@@ -13,7 +13,7 @@ import {
     Tooltip,
 } from '@mantine/core';
 import { IconCircleFilled, IconPencil, IconTrash } from '@tabler/icons-react';
-import { type FC } from 'react';
+import { useCallback, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../components/common/MantineIcon';
@@ -34,6 +34,13 @@ const SchedulersListItem: FC<SchedulersListItemProps> = ({
     const { mutate: mutateSchedulerEnabled } =
         useSchedulersEnabledUpdateMutation(scheduler.schedulerUuid);
 
+    const handleToggle = useCallback(
+        (enabled: boolean) => {
+            mutateSchedulerEnabled(enabled);
+        },
+        [mutateSchedulerEnabled],
+    );
+
     return (
         <Paper p="sm" mb="xs" withBorder sx={{ overflow: 'hidden' }}>
             <Group noWrap position="apart">
@@ -41,22 +48,13 @@ const SchedulersListItem: FC<SchedulersListItemProps> = ({
                     <Text fw={600} truncate>
                         {scheduler.name}
                     </Text>
-                    <Group>
+                    <Group spacing="sm">
                         <Text color="gray" size={12}>
                             {getHumanReadableCronExpression(scheduler.cron)}
                         </Text>
 
-                        {/* TODO: This icon should use Mantine icon,
-                            but MantineIcon doesn't support filled icons atm.
-                            Util we fix that, this style is imperfect
-                        */}
-                        <Box
-                            sx={(theme) => ({
-                                color: theme.colors.gray[4],
-                                marginTop: '-6px',
-                            })}
-                        >
-                            <IconCircleFilled style={{ width: 5, height: 5 }} />
+                        <Box c="gray.4">
+                            <MantineIcon icon={IconCircleFilled} size={5} />
                         </Box>
 
                         <Text color="gray" size={12}>
@@ -67,6 +65,7 @@ const SchedulersListItem: FC<SchedulersListItemProps> = ({
                 </Stack>
                 <Group noWrap spacing="xs">
                     <Tooltip
+                        withinPortal
                         label={
                             scheduler.enabled
                                 ? t(
@@ -80,16 +79,18 @@ const SchedulersListItem: FC<SchedulersListItemProps> = ({
                         <Box>
                             <Switch
                                 mr="sm"
-                                onLabel="on"
-                                offLabel="paused"
                                 checked={scheduler.enabled}
-                                onChange={() => {
-                                    mutateSchedulerEnabled(!scheduler.enabled);
-                                }}
+                                onChange={() =>
+                                    handleToggle(!scheduler.enabled)
+                                }
                             />
                         </Box>
                     </Tooltip>
-                    <Tooltip label={t('features_scheduler_list_item.edit')}>
+
+                    <Tooltip
+                        withinPortal
+                        label={t('features_scheduler_list_item.edit')}
+                    >
                         <ActionIcon
                             variant="light"
                             onClick={() => onEdit(scheduler.schedulerUuid)}
@@ -97,12 +98,18 @@ const SchedulersListItem: FC<SchedulersListItemProps> = ({
                             <MantineIcon icon={IconPencil} />
                         </ActionIcon>
                     </Tooltip>
-                    <ActionIcon
-                        variant="light"
-                        onClick={() => onDelete(scheduler.schedulerUuid)}
+
+                    <Tooltip
+                        withinPortal
+                        label={t('features_scheduler_list_item.delete')}
                     >
-                        <MantineIcon color="red" icon={IconTrash} />
-                    </ActionIcon>
+                        <ActionIcon
+                            variant="light"
+                            onClick={() => onDelete(scheduler.schedulerUuid)}
+                        >
+                            <MantineIcon color="red" icon={IconTrash} />
+                        </ActionIcon>
+                    </Tooltip>
                 </Group>
             </Group>
         </Paper>

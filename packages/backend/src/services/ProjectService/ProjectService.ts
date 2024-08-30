@@ -1,8 +1,6 @@
-import { NotFound } from '@aws-sdk/client-s3';
 import { subject } from '@casl/ability';
 import {
     addDashboardFiltersToMetricQuery,
-    AdditionalMetric,
     AlreadyProcessingError,
     AndFilterGroup,
     ApiChartAndResults,
@@ -21,6 +19,7 @@ import {
     CreateJob,
     CreateProject,
     CreateProjectMember,
+    CreateSnowflakeCredentials,
     CreateWarehouseCredentials,
     CustomFormatType,
     DashboardAvailableFilters,
@@ -36,7 +35,6 @@ import {
     DownloadFileType,
     Explore,
     ExploreError,
-    Field,
     FilterableDimension,
     FilterGroupItem,
     FilterOperator,
@@ -64,12 +62,12 @@ import {
     JobStepType,
     JobType,
     MetricQuery,
-    MetricType,
     MissingWarehouseCredentialsError,
     MostPopularAndRecentlyUpdated,
     NotExistsError,
     NotFoundError,
     ParameterError,
+    PivotChartData,
     Project,
     ProjectCatalog,
     ProjectGroupAccess,
@@ -85,7 +83,8 @@ import {
     SortField,
     SpaceQuery,
     SpaceSummary,
-    SqlColumn,
+    SqlRunnerPayload,
+    SqlRunnerPivotQueryPayload,
     SummaryExplore,
     TablesConfiguration,
     TableSelectionType,
@@ -95,6 +94,7 @@ import {
     UpdateProjectMember,
     UserAttributeValueMap,
     UserWarehouseCredentials,
+    VizSqlColumn,
     WarehouseCatalog,
     WarehouseClient,
     WarehouseCredentials,
@@ -106,11 +106,9 @@ import { SshTunnel } from '@lightdash/warehouses';
 import * as Sentry from '@sentry/node';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
-import { ReadStream } from 'fs';
 import * as yaml from 'js-yaml';
 import { uniq } from 'lodash';
-import { nanoid } from 'nanoid';
-import { PassThrough, Readable } from 'stream';
+import { Readable } from 'stream';
 import { URL } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { Worker } from 'worker_threads';
@@ -136,8 +134,13 @@ import { SpaceModel } from '../../models/SpaceModel';
 import { SshKeyPairModel } from '../../models/SshKeyPairModel';
 import { UserAttributesModel } from '../../models/UserAttributesModel';
 import { UserWarehouseCredentialsModel } from '../../models/UserWarehouseCredentials/UserWarehouseCredentialsModel';
+import { WarehouseAvailableTablesModel } from '../../models/WarehouseAvailableTablesModel/WarehouseAvailableTablesModel';
 import { projectAdapterFromConfig } from '../../projectAdapters/projectAdapter';
-import { buildQuery, CompiledQuery } from '../../queryBuilder';
+import {
+    applyLimitToSqlQuery,
+    buildQuery,
+    CompiledQuery,
+} from '../../queryBuilder';
 import { compileMetricQuery } from '../../queryCompiler';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { ProjectAdapter } from '../../types';
@@ -177,6 +180,7 @@ type ProjectServiceArguments = {
     dashboardModel: DashboardModel;
     emailModel: EmailModel;
     userWarehouseCredentialsModel: UserWarehouseCredentialsModel;
+    warehouseAvailableTablesModel: WarehouseAvailableTablesModel;
     schedulerClient: SchedulerClient;
     downloadFileModel: DownloadFileModel;
     s3Client: S3Client;
@@ -213,6 +217,8 @@ export class ProjectService extends BaseService {
 
     userWarehouseCredentialsModel: UserWarehouseCredentialsModel;
 
+    warehouseAvailableTablesModel: WarehouseAvailableTablesModel;
+
     emailModel: EmailModel;
 
     schedulerClient: SchedulerClient;
@@ -236,6 +242,7 @@ export class ProjectService extends BaseService {
         analyticsModel,
         dashboardModel,
         userWarehouseCredentialsModel,
+        warehouseAvailableTablesModel,
         emailModel,
         schedulerClient,
         downloadFileModel,
@@ -257,6 +264,7 @@ export class ProjectService extends BaseService {
         this.analyticsModel = analyticsModel;
         this.dashboardModel = dashboardModel;
         this.userWarehouseCredentialsModel = userWarehouseCredentialsModel;
+        this.warehouseAvailableTablesModel = warehouseAvailableTablesModel;
         this.emailModel = emailModel;
         this.schedulerClient = schedulerClient;
         this.downloadFileModel = downloadFileModel;
@@ -284,6 +292,8 @@ export class ProjectService extends BaseService {
         return args;
     }
 
+    // TODO: getWarehouseCredentials could be moved to a client WarehouseClientManager. However, this client shouldn't be using a model. Perhaps this information can be passed as a prop to the client so that other services can use the warehouse client credentials logic?
+
     private async getWarehouseCredentials(
         projectUuid: string,
         userUuid: string,
@@ -292,6 +302,7 @@ export class ProjectService extends BaseService {
             await this.projectModel.getWarehouseCredentialsForProject(
                 projectUuid,
             );
+        let userWarehouseCredentialsUuid: string | undefined;
         if (credentials.requireUserCredentials) {
             const userWarehouseCredentials =
                 await this.userWarehouseCredentialsModel.findForProjectWithSecrets(
@@ -315,8 +326,12 @@ export class ProjectService extends BaseService {
                     'User warehouse credentials are not compatible',
                 );
             }
+            userWarehouseCredentialsUuid = userWarehouseCredentials.uuid;
         }
-        return credentials;
+        return {
+            ...credentials,
+            userWarehouseCredentialsUuid,
+        };
     }
 
     private async _getWarehouseClient(
@@ -344,12 +359,23 @@ export class ProjectService extends BaseService {
             return { warehouseClient: existingClient, sshTunnel };
         }
         // otherwise create a new client and cache for future use
+        const getSnowflakeWarehouse = (
+            snowflakeCredentials: CreateSnowflakeCredentials,
+        ): string => {
+            if (snowflakeCredentials.override) {
+                this.logger.debug(
+                    `Overriding snowflake warehouse ${snowflakeVirtualWarehouse} with ${snowflakeCredentials.warehouse}`,
+                );
+                return snowflakeCredentials.warehouse;
+            }
+            return snowflakeVirtualWarehouse || snowflakeCredentials.warehouse;
+        };
+
         const credentialsWithWarehouse =
             credentials.type === WarehouseTypes.SNOWFLAKE
                 ? {
                       ...warehouseSshCredentials,
-                      warehouse:
-                          snowflakeVirtualWarehouse || credentials.warehouse,
+                      warehouse: getSnowflakeWarehouse(credentials),
                   }
                 : warehouseSshCredentials;
         const client = this.projectModel.getWarehouseClientFromCredentials(
@@ -1769,6 +1795,7 @@ export class ProjectService extends BaseService {
                         userId: user.userUuid,
                         event: 'query.executed',
                         properties: {
+                            organizationId: organizationUuid,
                             projectId: projectUuid,
                             hasExampleMetric,
                             dimensionsCount: metricQuery.dimensions.length,
@@ -1909,11 +1936,14 @@ export class ProjectService extends BaseService {
             throw new ForbiddenError();
         }
 
-        await this.analytics.track({
+        this.analytics.track({
             userId: user.userUuid,
-            event: 'sql.executed',
+            event: 'query.executed',
             properties: {
+                organizationId: organizationUuid,
                 projectId: projectUuid,
+                context: QueryExecutionContext.SQL_RUNNER,
+                usingStreaming: false,
             },
         });
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
@@ -1927,112 +1957,42 @@ export class ProjectService extends BaseService {
         };
 
         // enforce limit for current SQL queries as it may crash server. We are working on a new SQL runner that supports streaming
-        const cteWithLimit = `
-            WITH cte AS (${sql})
-            SELECT *
-            FROM cte LIMIT ${this.lightdashConfig.query.maxLimit}`;
+        const cteWithLimit = applyLimitToSqlQuery({
+            sqlQuery: sql,
+            limit: this.lightdashConfig.query.maxLimit,
+        });
 
         const results = await warehouseClient.runQuery(cteWithLimit, queryTags);
         await sshTunnel.disconnect();
         return results;
     }
 
-    async streamResultsToCloudStorage(
-        projectUuid: string,
-        callback: (writer: (data: ResultRow) => void) => Promise<void>,
-    ): Promise<string> {
-        const downloadFileId = nanoid();
-        const passThrough = new PassThrough();
-        const s3FileId = `${downloadFileId}.jsonl`;
-        const endUpload = await this.s3Client.streamResults(
-            passThrough,
-            s3FileId,
-        );
-        try {
-            const writer = (data: ResultRow) => {
-                passThrough.write(`${JSON.stringify(data)}\n`);
-            };
-
-            await callback(writer);
-        } catch (err) {
-            this.logger.error('Error during streaming', err);
-            throw err;
-        } finally {
-            passThrough.end();
-        }
-
-        await endUpload();
-        // Instead of returning the s3 signed URL to download,
-        // we will store the fileId inside our downloadFile table
-        // and serve the s3 stream from the backend on the sqlRunner/results endpoint
-        await this.downloadFileModel.createDownloadFile(
-            downloadFileId,
-            s3FileId,
-            DownloadFileType.S3_JSONL,
-        );
-        this.logger.debug('File has been uploaded to S3.');
-
-        const serverUrl = `${this.lightdashConfig.siteUrl}/api/v1/projects/${projectUuid}/sqlRunner/results/${downloadFileId}`;
-        return serverUrl;
-    }
-
-    async streamResultsToLocalFile(
-        projectUuid: string,
-
-        callback: (writer: (data: ResultRow) => void) => Promise<void>,
-    ): Promise<string> {
-        const downloadFileId = nanoid(); // Creates a new nanoid for the download file because the jobId is already exposed
-        const filePath = `/tmp/${downloadFileId}.jsonl`;
-        await this.downloadFileModel.createDownloadFile(
-            downloadFileId,
-            filePath,
-            DownloadFileType.JSONL,
-        );
-        const writeStream = fs.createWriteStream(filePath, {
-            encoding: 'utf8',
-        });
-
-        writeStream.on('error', (err) => {
-            this.logger.error('Error writing to file', err);
-            throw new UnexpectedServerError('Error writing to file');
-        });
-
-        const writer = (data: ResultRow) => {
-            writeStream.write(`${JSON.stringify(data)}\n`);
-        };
-
-        try {
-            await callback(writer);
-        } catch (err) {
-            this.logger.error('Error during streaming', err);
-            throw err;
-        } finally {
-            writeStream.end(() => {
-                this.logger.debug('File has been saved.');
-            });
-        }
-
-        const serverUrl = `${this.lightdashConfig.siteUrl}/api/v1/projects/${projectUuid}/sqlRunner/results/${downloadFileId}`;
-        return serverUrl;
-    }
-
-    async streamSqlQueryIntoFile(
-        userUuid: string,
-        projectUuid: string,
-        sql: string,
-    ): Promise<{
+    // TODO: getWarehouseCredentials could be moved to a client WarehouseClientManager. However, this client shouldn't be using a model. We know that the warehouse client method shouldn't be in a model, but instead it should be its own client.
+    async streamSqlQueryIntoFile({
+        userUuid,
+        projectUuid,
+        sql,
+        limit,
+        sqlChartUuid,
+        context,
+    }: SqlRunnerPayload): Promise<{
         fileUrl: string;
-        columns: SqlColumn[];
+        columns: VizSqlColumn[];
     }> {
         const { organizationUuid } = await this.projectModel.getSummary(
             projectUuid,
         );
 
+        const query = applyLimitToSqlQuery({ sqlQuery: sql, limit });
+
         this.analytics.track({
             userId: userUuid,
-            event: 'sql.executed',
+            event: 'query.executed',
             properties: {
+                organizationId: organizationUuid,
                 projectId: projectUuid,
+                context: context as QueryExecutionContext,
+                sqlChartId: sqlChartUuid,
                 usingStreaming: true,
             },
         });
@@ -2046,38 +2006,231 @@ export class ProjectService extends BaseService {
             user_uuid: userUuid,
         };
 
-        const streamFunction = this.s3Client.isEnabled()
-            ? this.streamResultsToCloudStorage.bind(this)
-            : this.streamResultsToLocalFile.bind(this);
+        const columns: VizSqlColumn[] = [];
 
-        const columns: SqlColumn[] = [];
+        const fileUrl = await this.downloadFileModel.streamFunction(
+            this.s3Client,
+        )(
+            `${this.lightdashConfig.siteUrl}/api/v1/projects/${projectUuid}/sqlRunner/results`,
+            async (writer) => {
+                await warehouseClient.streamQuery(
+                    query,
+                    async ({ rows, fields }) => {
+                        if (!columns.length) {
+                            // Get column types from first row of results
+                            columns.push(
+                                ...Object.keys(fields).map((fieldName) => ({
+                                    reference: fieldName,
+                                    type: fields[fieldName].type,
+                                })),
+                            );
+                        }
 
-        const fileUrl = await streamFunction(projectUuid, async (writer) => {
-            await warehouseClient.streamQuery(
-                sql,
-                async ({ rows, fields }) => {
-                    if (!columns.length) {
-                        // Get column types from first row of results
-                        columns.push(
-                            ...Object.keys(fields).map((fieldName) => ({
-                                reference: fieldName,
-                                type: fields[fieldName].type,
-                            })),
-                        );
-                    }
-
-                    const formattedRows = formatRows(rows, {}); // TODO fields to itemmap
-                    formattedRows.forEach(writer);
-                },
-                {
-                    tags: queryTags,
-                },
-            );
-        });
+                        rows.forEach(writer);
+                    },
+                    {
+                        tags: queryTags,
+                    },
+                );
+            },
+            this.s3Client,
+        );
 
         await sshTunnel.disconnect();
 
         return { fileUrl, columns };
+    }
+
+    static applyPivotToSqlQuery({
+        sql,
+        limit,
+        indexColumn,
+        valuesColumns,
+        groupByColumns,
+    }: Pick<
+        SqlRunnerPivotQueryPayload,
+        'sql' | 'limit' | 'indexColumn' | 'valuesColumns' | 'groupByColumns'
+    >): string {
+        if (!indexColumn) throw new ParameterError('Index column is required');
+
+        const userSql = sql.replace(/;\s*$/, '');
+        const groupBySelectDimensions = [
+            ...(groupByColumns || []).map((col) => col.reference),
+            indexColumn.reference,
+        ];
+        const groupBySelectMetrics = [
+            ...(valuesColumns ?? []).map(
+                (col) =>
+                    `${col.aggregation}(${col.reference}) as ${col.reference}_${col.aggregation}`,
+            ),
+        ];
+        const groupByQuery = `SELECT ${[
+            ...new Set(groupBySelectDimensions), // Remove duplicate columns
+            ...groupBySelectMetrics,
+        ].join(', ')} FROM original_query group by ${Array.from(
+            new Set(groupBySelectDimensions),
+        ).join(', ')}`;
+
+        const selectReferences = [
+            indexColumn.reference,
+            ...(groupByColumns || []).map((col) => col.reference),
+            ...(valuesColumns || []).map((col) =>
+                groupByColumns && groupByColumns.length > 0
+                    ? `${col.reference}_${col.aggregation}`
+                    : `${col.reference}_${col.aggregation} as ${col.reference}`,
+            ),
+        ];
+
+        const pivotQuery = `SELECT ${selectReferences.join(
+            ', ',
+        )}, dense_rank() over (order by ${
+            indexColumn.reference
+        }) as row_index, dense_rank() over (order by ${
+            groupByColumns?.[0]?.reference
+        }) as column_index FROM group_by_query`;
+
+        if (groupByColumns && groupByColumns.length > 0) {
+            // Wrap the original query in a CTE
+            let pivotedSql = `WITH original_query AS (${userSql}), group_by_query AS (${groupByQuery}), pivot_query AS (${pivotQuery})`;
+
+            pivotedSql += `\nSELECT * FROM pivot_query WHERE row_index < ${
+                limit ?? 500
+            } and column_index < 10 order by row_index, column_index`;
+
+            return pivotedSql;
+        }
+
+        let sqlQuery = `WITH original_query AS (${userSql}), group_by_query AS (${groupByQuery})`;
+        sqlQuery += `\nSELECT * FROM group_by_query LIMIT ${limit ?? 500} `;
+
+        return sqlQuery;
+    }
+
+    async pivotQueryWorkerTask({
+        userUuid,
+        projectUuid,
+        sql,
+        limit,
+        sqlChartUuid,
+        context,
+        indexColumn,
+        valuesColumns,
+        groupByColumns,
+    }: SqlRunnerPivotQueryPayload): Promise<
+        {
+            fileUrl: string;
+        } & Omit<PivotChartData, 'results'>
+    > {
+        if (!indexColumn) throw new ParameterError('Index column is required');
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        // Apply limit and pivot to the SQL query
+        const pivotedSql = ProjectService.applyPivotToSqlQuery({
+            sql,
+            limit,
+            indexColumn,
+            valuesColumns,
+            groupByColumns,
+        });
+
+        this.analytics.track({
+            userId: userUuid,
+            event: 'query.executed',
+            properties: {
+                organizationId: organizationUuid,
+                projectId: projectUuid,
+                context: context as QueryExecutionContext,
+                sqlChartId: sqlChartUuid,
+                usingStreaming: true,
+            },
+        });
+        const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
+            projectUuid,
+            await this.getWarehouseCredentials(projectUuid, userUuid),
+        );
+        this.logger.debug(`Stream query against warehouse`);
+        const queryTags: RunQueryTags = {
+            organization_uuid: organizationUuid,
+            user_uuid: userUuid,
+        };
+
+        const columns: VizSqlColumn[] = [];
+
+        let currentRowIndex = 0;
+        let currentTransformedRow: ResultRow | undefined;
+        const valuesColumnReferences = new Set<string>(); // NOTE: This is used to pivot the data later with the same group by columns
+
+        const fileUrl = await this.downloadFileModel.streamFunction(
+            this.s3Client,
+        )(
+            `${this.lightdashConfig.siteUrl}/api/v1/projects/${projectUuid}/sqlRunner/results`,
+            async (writer) => {
+                await warehouseClient.streamQuery(
+                    pivotedSql,
+                    async ({ rows, fields }) => {
+                        if (!groupByColumns) {
+                            rows.forEach(writer);
+                            return;
+                        }
+                        if (!columns.length) {
+                            // Get column types from first row of results
+                            columns.push(
+                                ...Object.keys(fields).map((fieldName) => ({
+                                    reference: fieldName,
+                                    type: fields[fieldName].type,
+                                })),
+                            );
+                        }
+
+                        rows.forEach((row) => {
+                            // Write rows to file in order of row_index. This is so that we can pivot the data later
+                            if (currentRowIndex !== row.row_index) {
+                                if (currentTransformedRow) {
+                                    writer(currentTransformedRow);
+                                }
+                                currentTransformedRow = {
+                                    [indexColumn.reference]:
+                                        row[indexColumn.reference],
+                                };
+                                currentRowIndex = row.row_index;
+                            }
+                            // Suffix the value column with the group by columns to avoid collisions. E.g. if we have a row with the value 1 and the group by columns are ['a', 'b'], then the value column will be 'value_1_a_b'
+                            const valueSuffix = groupByColumns
+                                ?.map((col) => row[col.reference])
+                                .join('_');
+                            valuesColumns.forEach((col) => {
+                                const valueColumnReference = `${col.reference}_${valueSuffix}`;
+                                valuesColumnReferences.add(
+                                    valueColumnReference,
+                                );
+                                currentTransformedRow =
+                                    currentTransformedRow ?? {};
+                                currentTransformedRow[valueColumnReference] =
+                                    row[`${col.reference}_${col.aggregation}`];
+                            });
+                        });
+                    },
+                    {
+                        tags: queryTags,
+                    },
+                );
+            },
+            this.s3Client,
+        );
+
+        await sshTunnel.disconnect();
+
+        return {
+            fileUrl,
+            valuesColumns: groupByColumns
+                ? Array.from(valuesColumnReferences)
+                : valuesColumns.map(
+                      (col) => `${col.reference}_${col.aggregation}`,
+                  ),
+            indexColumn,
+        };
     }
 
     async getFileStream(
@@ -2100,7 +2253,6 @@ export class ProjectService extends BaseService {
         const downloadFile = await this.downloadFileModel.getDownloadFile(
             fileId,
         );
-
         switch (downloadFile.type) {
             case DownloadFileType.JSONL:
                 return fs.createReadStream(downloadFile.path);
@@ -2824,6 +2976,56 @@ export class ProjectService extends BaseService {
         }
     }
 
+    async populateWarehouseTablesCache(
+        user: SessionUser,
+        projectUuid: string,
+    ): Promise<WarehouseCatalog> {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+        if (
+            user.ability.cannot(
+                'manage',
+                subject('CustomSql', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const credentials = await this.getWarehouseCredentials(
+            projectUuid,
+            user.userUuid,
+        );
+
+        const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
+            projectUuid,
+            credentials,
+        );
+
+        const schema = ProjectService.getWarehouseSchema(credentials);
+
+        const warehouseTables = await warehouseClient.getAllTables(schema);
+
+        const catalog =
+            WarehouseAvailableTablesModel.toWarehouseCatalog(warehouseTables);
+
+        if (credentials.userWarehouseCredentialsUuid) {
+            await this.warehouseAvailableTablesModel.createAvailableTablesForUserWarehouseCredentials(
+                credentials.userWarehouseCredentialsUuid,
+                warehouseTables,
+            );
+        } else {
+            await this.warehouseAvailableTablesModel.createAvailableTablesForProjectWarehouseCredentials(
+                projectUuid,
+                warehouseTables,
+            );
+        }
+
+        await sshTunnel.disconnect();
+
+        return catalog;
+    }
+
     async getWarehouseTables(
         user: SessionUser,
         projectUuid: string,
@@ -2844,23 +3046,34 @@ export class ProjectService extends BaseService {
             projectUuid,
             user.userUuid,
         );
-        const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
-            projectUuid,
-            credentials,
-        );
 
-        const schema = ProjectService.getWarehouseSchema(credentials);
+        let catalog: WarehouseCatalog | null = null;
+        // Check the cache for catalog
+        if (credentials.userWarehouseCredentialsUuid) {
+            catalog =
+                await this.warehouseAvailableTablesModel.getTablesForUserWarehouseCredentials(
+                    credentials.userWarehouseCredentialsUuid,
+                );
+        } else {
+            catalog =
+                await this.warehouseAvailableTablesModel.getTablesForProjectWarehouseCredentials(
+                    projectUuid,
+                );
+        }
 
-        const queryTags: RunQueryTags = {
-            organization_uuid: user.organizationUuid,
-            project_uuid: projectUuid,
-            user_uuid: user.userUuid,
-        };
-        const warehouseTables = warehouseClient.getTables(schema, queryTags);
+        // If there was no cached catalog, generate it
+        if (!catalog || Object.keys(catalog).length === 0) {
+            catalog = await this.populateWarehouseTablesCache(
+                user,
+                projectUuid,
+            );
+        }
 
-        await sshTunnel.disconnect();
+        if (!catalog) {
+            throw new NotFoundError('Warehouse tables not found');
+        }
 
-        return warehouseTables;
+        return catalog;
     }
 
     async getWarehouseFields(
@@ -2917,37 +3130,6 @@ export class ProjectService extends BaseService {
         await sshTunnel.disconnect();
 
         return warehouseCatalog[database][schema][tableName];
-    }
-
-    async scheduleSqlJob(
-        user: SessionUser,
-        projectUuid: string,
-        sql: string,
-    ): Promise<{ jobId: string }> {
-        const { organizationUuid } = await this.projectModel.getSummary(
-            projectUuid,
-        );
-        if (
-            user.ability.cannot('create', 'Job') ||
-            user.ability.cannot(
-                'manage',
-                subject('SqlRunner', {
-                    organizationUuid,
-                    projectUuid,
-                }),
-            )
-        ) {
-            throw new ForbiddenError();
-        }
-
-        const jobId = await this.schedulerClient.runSql({
-            userUuid: user.userUuid,
-            organizationUuid,
-            projectUuid,
-            sql,
-        });
-
-        return { jobId };
     }
 
     async getTablesConfiguration(
@@ -3944,7 +4126,6 @@ export class ProjectService extends BaseService {
         if (user.ability.cannot('manage', subject('Project', projectSummary))) {
             throw new ForbiddenError();
         }
-
         const explores = await this.projectModel.getExploresFromCache(
             projectUuid,
         );

@@ -1,4 +1,4 @@
-import { ActionIcon, Group, Paper, Tooltip } from '@mantine/core';
+import { Button, Group, Paper } from '@mantine/core';
 import { IconDeviceFloppy } from '@tabler/icons-react';
 import { useCallback, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +18,7 @@ export const HeaderCreate: FC = () => {
 
     const dispatch = useAppDispatch();
     const name = useAppSelector((state) => state.sqlRunner.name);
+    const loadedColumns = useAppSelector((state) => state.sqlRunner.sqlColumns);
     const isSaveModalOpen = useAppSelector(
         (state) => state.sqlRunner.modals.saveChartModal.isOpen,
     );
@@ -40,22 +41,18 @@ export const HeaderCreate: FC = () => {
                             }
                         />
                     </Group>
-                    <Group spacing="md">
-                        <Tooltip
-                            variant="xs"
-                            label={t('features_sql_runner_header_create.title')}
-                            position="bottom"
-                        >
-                            <ActionIcon size="xs">
-                                <MantineIcon
-                                    icon={IconDeviceFloppy}
-                                    onClick={() => {
-                                        dispatch(toggleModal('saveChartModal'));
-                                    }}
-                                />
-                            </ActionIcon>
-                        </Tooltip>
-                    </Group>
+
+                    <Button
+                        variant="default"
+                        size="xs"
+                        disabled={!loadedColumns}
+                        onClick={() => {
+                            dispatch(toggleModal('saveChartModal'));
+                        }}
+                        leftIcon={<MantineIcon icon={IconDeviceFloppy} />}
+                    >
+                        {t('features_sql_runner_header_create.title')}
+                    </Button>
                 </Group>
             </Paper>
             <SaveSqlChartModal

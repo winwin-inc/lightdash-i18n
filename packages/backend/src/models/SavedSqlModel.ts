@@ -2,10 +2,12 @@ import {
     CreateSqlChart,
     generateSlug,
     NotFoundError,
+    SpaceSummary,
     SqlChart,
     UpdateSqlChart,
+    VizBaseConfig,
+    VizChartConfig,
 } from '@lightdash/common';
-import { SqlRunnerChartConfig } from '@lightdash/common/src/types/sqlRunner';
 import { Knex } from 'knex';
 import { DashboardsTableName } from '../database/entities/dashboards';
 import {
@@ -31,13 +33,17 @@ type SelectSavedSql = Pick<
     | 'dashboard_uuid'
     | 'created_at'
     | 'last_version_updated_at'
+    | 'views_count'
+    | 'first_viewed_at'
+    | 'last_viewed_at'
 > &
-    Pick<DbSavedSqlVersion, 'sql' | 'config' | 'chart_kind'> &
+    Pick<DbSavedSqlVersion, 'sql' | 'limit' | 'config' | 'chart_kind'> &
     Pick<DbSpace, 'space_uuid'> &
     Pick<DbProject, 'project_uuid'> &
     Pick<DbOrganization, 'organization_uuid'> & {
         updated_at: Date;
         spaceName: string;
+        space_is_private: boolean;
         dashboardName: string | null;
         created_by_user_uuid: string | null;
         created_by_user_first_name: string | null;
@@ -54,7 +60,12 @@ export class SavedSqlModel {
         this.database = args.database;
     }
 
-    static convertSelectSavedSql(row: SelectSavedSql): SqlChart {
+    static convertSelectSavedSql(row: SelectSavedSql): Omit<
+        SqlChart,
+        'space'
+    > & {
+        space: Pick<SpaceSummary, 'uuid' | 'name' | 'isPrivate'>;
+    } {
         return {
             savedSqlUuid: row.saved_sql_uuid,
             name: row.name,
@@ -79,11 +90,13 @@ export class SavedSqlModel {
                   }
                 : null,
             sql: row.sql,
-            config: row.config as SqlRunnerChartConfig,
+            limit: row.limit,
+            config: row.config as SqlChart['config'],
             chartKind: row.chart_kind,
             space: {
                 uuid: row.space_uuid,
                 name: row.spaceName,
+                isPrivate: row.space_is_private,
             },
             project: {
                 projectUuid: row.project_uuid,
@@ -97,6 +110,9 @@ export class SavedSqlModel {
             organization: {
                 organizationUuid: row.organization_uuid,
             },
+            views: row.views_count,
+            firstViewedAt: row.first_viewed_at || new Date(),
+            lastViewedAt: row.last_viewed_at || new Date(),
         };
     }
 
@@ -157,8 +173,12 @@ export class SavedSqlModel {
                 `${SavedSqlTableName}.created_at`,
                 `${SavedSqlTableName}.slug`,
                 `${SavedSqlTableName}.last_version_updated_at`,
+                `${SavedSqlTableName}.views_count`,
+                `${SavedSqlTableName}.first_viewed_at`,
+                `${SavedSqlTableName}.last_viewed_at`,
                 `${DashboardsTableName}.name as dashboardName`,
                 `${SavedSqlVersionsTableName}.sql`,
+                `${SavedSqlVersionsTableName}.limit`,
                 `${SavedSqlVersionsTableName}.config`,
                 `${SavedSqlVersionsTableName}.chart_kind`,
                 `${OrganizationTableName}.organization_uuid`,
@@ -170,6 +190,7 @@ export class SavedSqlModel {
                 `updatedByUser.last_name as last_version_updated_by_user_last_name`,
                 `${SpaceTableName}.space_uuid`,
                 `${SpaceTableName}.name as spaceName`,
+                `${SpaceTableName}.is_private as space_is_private`,
             ])
             .where((builder) => {
                 if (options.uuid) {
@@ -234,8 +255,9 @@ export class SavedSqlModel {
         data: {
             savedSqlUuid: string;
             userUuid: string;
-            config: SqlRunnerChartConfig;
+            config: VizChartConfig;
             sql: string;
+            limit: number;
         },
     ): Promise<string> {
         const [{ saved_sql_version_uuid: savedSqlVersionUuid }] = await trx(
@@ -244,6 +266,7 @@ export class SavedSqlModel {
             {
                 saved_sql_uuid: data.savedSqlUuid,
                 sql: data.sql,
+                limit: data.limit,
                 config: data.config,
                 chart_kind: data.config.type,
                 created_by_user_uuid: data.userUuid,
@@ -307,6 +330,7 @@ export class SavedSqlModel {
                 userUuid,
                 config: data.config,
                 sql: data.sql,
+                limit: data.limit,
             });
             return { savedSqlUuid, slug, savedSqlVersionUuid };
         });
@@ -335,6 +359,7 @@ export class SavedSqlModel {
                     userUuid: data.userUuid,
                     config: data.sqlChart.versionedData.config,
                     sql: data.sqlChart.versionedData.sql,
+                    limit: data.sqlChart.versionedData.limit,
                 });
             }
 

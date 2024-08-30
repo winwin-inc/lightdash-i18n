@@ -271,6 +271,7 @@ const FiltersCard: FC = memo(() => {
                 popoverProps={{
                     withinPortal: true,
                 }}
+                baseTable={data?.baseTable}
             >
                 <FiltersForm
                     isEditMode={isEditMode}

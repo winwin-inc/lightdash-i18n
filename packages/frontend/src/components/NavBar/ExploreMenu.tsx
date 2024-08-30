@@ -112,9 +112,7 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                                     'components_navbar_explore_menu.menus.sql_runner.description',
                                 )}
                                 to={`/projects/${projectUuid}/${
-                                    canSaveSqlChart
-                                        ? 'sql-runner-new'
-                                        : 'sqlRunner'
+                                    canSaveSqlChart ? 'sql-runner' : 'sqlRunner'
                                 }`}
                                 icon={IconTerminal2}
                             />

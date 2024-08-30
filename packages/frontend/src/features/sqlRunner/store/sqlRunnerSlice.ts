@@ -1,9 +1,9 @@
 import {
     ChartKind,
     type SqlChart,
-    type SqlColumn,
-    type SqlTableConfig,
-    type TableChartSqlConfig,
+    type VizSqlColumn,
+    type VizTableColumnsConfig,
+    type VizTableConfig,
 } from '@lightdash/common';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { createSlice } from '@reduxjs/toolkit';
@@ -28,10 +28,11 @@ export interface SqlRunnerState {
     name: string;
     description: string;
     sql: string;
+    limit: number;
     activeSidebarTab: SidebarTabs;
     activeEditorTab: EditorTabs;
     selectedChartType: ChartKind | undefined;
-    resultsTableConfig: SqlTableConfig | undefined;
+    resultsTableConfig: VizTableColumnsConfig | undefined;
     modals: {
         saveChartModal: {
             isOpen: boolean;
@@ -44,7 +45,8 @@ export interface SqlRunnerState {
         };
     };
     quoteChar: string;
-    sqlColumns: SqlColumn[] | undefined;
+    sqlColumns: VizSqlColumn[] | undefined;
+    activeConfigs: ChartKind[];
 }
 
 const initialState: SqlRunnerState = {
@@ -54,9 +56,10 @@ const initialState: SqlRunnerState = {
     name: '',
     description: '',
     sql: '',
+    limit: 500,
     activeSidebarTab: SidebarTabs.TABLES,
     activeEditorTab: EditorTabs.SQL,
-    selectedChartType: undefined,
+    selectedChartType: ChartKind.VERTICAL_BAR,
     resultsTableConfig: undefined,
     modals: {
         saveChartModal: {
@@ -71,6 +74,7 @@ const initialState: SqlRunnerState = {
     },
     quoteChar: '"',
     sqlColumns: undefined,
+    activeConfigs: [ChartKind.VERTICAL_BAR],
 };
 
 export const sqlRunnerSlice = createSlice({
@@ -94,7 +98,7 @@ export const sqlRunnerSlice = createSlice({
             state.sqlColumns = action.payload.columns;
             // Set the initial results table config
             const columns = Object.keys(action.payload.results[0]).reduce<
-                TableChartSqlConfig['columns']
+                VizTableConfig['columns']
             >(
                 (acc, key) => ({
                     ...acc,
@@ -137,11 +141,16 @@ export const sqlRunnerSlice = createSlice({
             state.name = action.payload.name;
             state.description = action.payload.description || '';
             state.sql = action.payload.sql;
+            state.limit = action.payload.limit || 500;
             state.selectedChartType =
                 action.payload.config.type || ChartKind.VERTICAL_BAR;
+            state.activeConfigs.push(action.payload.config.type);
         },
         setSelectedChartType: (state, action: PayloadAction<ChartKind>) => {
             state.selectedChartType = action.payload;
+            if (!state.activeConfigs.includes(action.payload)) {
+                state.activeConfigs.push(action.payload);
+            }
         },
         toggleActiveTable: (
             state,

@@ -3,18 +3,13 @@ import { useForm, zodResolver } from '@mantine/form';
 import { forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
-
-import useHealth from '../../hooks/health/useHealth';
 import { type Props } from './index';
 
-type LimitFormProps = Pick<Props, 'limit' | 'onLimitChange'>;
+type LimitFormProps = Pick<Props, 'limit' | 'maxLimit' | 'onLimitChange'>;
 
 const LimitForm = forwardRef<HTMLFormElement, LimitFormProps>(
-    ({ limit, onLimitChange }, ref) => {
+    ({ limit, maxLimit, onLimitChange }, ref) => {
         const { t } = useTranslation();
-
-        const health = useHealth();
-        const max = health.data?.query.maxLimit || 5000;
 
         const schema = z.object({
             limit: z
@@ -31,10 +26,10 @@ const LimitForm = forwardRef<HTMLFormElement, LimitFormProps>(
                     )}: 1`,
                 )
                 .max(
-                    max,
+                    maxLimit,
                     `${t(
                         'components_limit_button.schema_error.maximum_value',
-                    )}: ${max}`,
+                    )}: ${maxLimit}`,
                 ),
         });
 
@@ -44,9 +39,7 @@ const LimitForm = forwardRef<HTMLFormElement, LimitFormProps>(
             initialValues: { limit },
         });
 
-        if (!health.data) {
-            return null;
-        }
+        if (!maxLimit) return null;
 
         return (
             <form

@@ -36,10 +36,14 @@ export const DataOps: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                         clearable
                         data={
                             projects
-                                ?.filter(
-                                    (project) =>
-                                        project.type === ProjectType.DEFAULT,
-                                ) //Filter preview projects
+                                ?.sort((a, b) => {
+                                    if (a.type === b.type) {
+                                        return 0;
+                                    }
+                                    return a.type === ProjectType.PREVIEW
+                                        ? 1
+                                        : -1;
+                                })
                                 .map((project) => ({
                                     label: project.name,
                                     value: project.projectUuid,
@@ -48,6 +52,10 @@ export const DataOps: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                                     selected:
                                         project.projectUuid ===
                                         currentProject?.upstreamProjectUuid,
+                                    group:
+                                        project.type === ProjectType.PREVIEW
+                                            ? 'Preview projects'
+                                            : 'Production projects',
                                 })) || []
                         }
                         label={t('components_data_pos.select.label')}

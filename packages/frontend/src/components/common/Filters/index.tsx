@@ -62,7 +62,7 @@ const getInvalidFilterRules = (
 
 const FiltersForm: FC<Props> = ({ filters, setFilters, isEditMode }) => {
     const { t } = useTranslation();
-    const { itemsMap } = useFiltersContext<FieldsWithSuggestions>();
+    const { itemsMap, baseTable } = useFiltersContext<FieldsWithSuggestions>();
     const [isOpen, toggleFieldInput] = useToggle(false);
     const fields = useMemo<FieldWithSuggestions[]>(() => {
         return Object.values(itemsMap);
@@ -265,6 +265,7 @@ const FiltersForm: FC<Props> = ({ filters, setFilters, isEditMode }) => {
                             maw={300}
                             autoFocus
                             hasGrouping
+                            baseTable={baseTable}
                             items={fields}
                             onChange={(field) => {
                                 if (!field) return;

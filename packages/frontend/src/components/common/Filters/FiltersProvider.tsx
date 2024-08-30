@@ -20,6 +20,7 @@ type DefaultFieldsMap = Record<
 type FiltersContext<T extends DefaultFieldsMap = DefaultFieldsMap> = {
     projectUuid?: string;
     itemsMap: T;
+    baseTable?: string;
     startOfWeek?: WeekDay;
     getField: (filterRule: FilterRule) => T[keyof T] | undefined;
     getAutocompleteFilterGroup: (
@@ -34,6 +35,7 @@ const Context = createContext<FiltersContext | undefined>(undefined);
 type Props<T extends DefaultFieldsMap> = {
     projectUuid?: string;
     itemsMap?: T;
+    baseTable?: string;
     startOfWeek?: WeekDay;
     dashboardFilters?: DashboardFilters;
     popoverProps?: Omit<PopoverProps, 'children'>;
@@ -43,6 +45,7 @@ type Props<T extends DefaultFieldsMap> = {
 export const FiltersProvider = <T extends DefaultFieldsMap = DefaultFieldsMap>({
     projectUuid,
     itemsMap = {} as T,
+    baseTable,
     startOfWeek,
     dashboardFilters,
     popoverProps,
@@ -82,6 +85,7 @@ export const FiltersProvider = <T extends DefaultFieldsMap = DefaultFieldsMap>({
                 projectUuid,
                 itemsMap,
                 startOfWeek,
+                baseTable,
                 getField,
                 getAutocompleteFilterGroup,
                 popoverProps,
