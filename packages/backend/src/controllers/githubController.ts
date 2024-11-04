@@ -1,5 +1,4 @@
-import { ApiSuccessEmpty, ForbiddenError, GitRepo } from '@lightdash/common';
-import { Octokit as OctokitRest } from '@octokit/rest';
+import { ApiSuccessEmpty, GitRepo } from '@lightdash/common';
 import {
     Delete,
     Get,
@@ -11,12 +10,8 @@ import {
     SuccessResponse,
 } from '@tsoa/runtime';
 import express from 'express';
-import { getGithubApp, getOctokitRestForApp } from '../clients/github/Github';
-import { lightdashConfig } from '../config/lightdashConfig';
 import { isAuthenticated, unauthorisedInDemo } from './authentication';
 import { BaseController } from './baseController';
-
-const githubAppName = 'lightdash-dev';
 
 /** HOW it works
  *
@@ -44,19 +39,17 @@ export class GithubInstallController extends BaseController {
     async installGithubAppForOrganization(
         @Request() req: express.Request,
     ): Promise<void> {
-        const redirectUrl = new URL(
-            '/generalSettings/integrations',
-            lightdashConfig.siteUrl,
-        );
-        const state = req.user!.userUuid; // todo: encrypt this?
+        const context = await this.services
+            .getGithubAppService()
+            .installRedirect(req.user!);
+
         req.session.oauth = {};
-        req.session.oauth.returnTo = redirectUrl.href;
-        req.session.oauth.state = state;
+        req.session.oauth.returnTo = context.returnToUrl;
+        req.session.oauth.state = context.state;
+        req.session.oauth.inviteCode = context.inviteCode;
+
         this.setStatus(302);
-        this.setHeader(
-            'Location',
-            `https://github.com/apps/${githubAppName}/installations/new?state=${state}`,
-        );
+        this.setHeader('Location', context.installUrl);
     }
 
     /**
@@ -81,53 +74,18 @@ export class GithubInstallController extends BaseController {
             this.setStatus(400);
             throw new Error('State does not match');
         }
-        if (setup_action === 'review') {
-            // User attempted to setup the app, didn't have permission in GitHub and sent a request to the admins
-            // We can't do anything at this point
-            this.setStatus(200);
-        }
-
-        if (!installation_id) {
-            this.setStatus(400);
-            throw new Error('Installation id not provided');
-        }
-        if (code) {
-            const userToServerToken = await getGithubApp().oauth.createToken({
+        const redirectUrl = await this.services
+            .getGithubAppService()
+            .installCallback(
+                req.user!,
+                req.session.oauth,
                 code,
-            });
-
-            const { token, refreshToken } = userToServerToken.authentication;
-            if (refreshToken === undefined)
-                throw new ForbiddenError('Invalid authentication token');
-
-            // Verify installation
-            const response =
-                await new OctokitRest().apps.listInstallationsForAuthenticatedUser(
-                    {
-                        headers: {
-                            authorization: `Bearer ${token}`,
-                        },
-                    },
-                );
-            const installation = response.data.installations.find(
-                (i) => `${i.id}` === installation_id,
+                state,
+                installation_id,
+                setup_action,
             );
-            if (installation === undefined)
-                throw new Error('Invalid installation id');
-
-            await this.services
-                .getGithubAppService()
-                .upsertInstallation(
-                    state,
-                    installation_id,
-                    token,
-                    refreshToken,
-                );
-            const redirectUrl = new URL(req.session.oauth?.returnTo || '/');
-            req.session.oauth = {};
-            this.setStatus(302);
-            this.setHeader('Location', redirectUrl.href);
-        }
+        this.setStatus(302);
+        this.setHeader('Location', redirectUrl);
     }
 
     @Middlewares([isAuthenticated, unauthorisedInDemo])
@@ -139,7 +97,7 @@ export class GithubInstallController extends BaseController {
         await this.services
             .getGithubAppService()
             .deleteAppInstallation(req.user!);
-        // todo: uninstall app with octokit
+
         this.setStatus(200);
         return {
             status: 'ok',
@@ -157,25 +115,11 @@ export class GithubInstallController extends BaseController {
     }> {
         this.setStatus(200);
 
-        // todo: move all to service
-        const installationId = await this.services
-            .getGithubAppService()
-            .getInstallationId(req.user!);
-
-        if (installationId === undefined)
-            throw new Error('Invalid Github installation id');
-        const appOctokit = getOctokitRestForApp(installationId);
-
-        const { data } =
-            await appOctokit.apps.listReposAccessibleToInstallation();
-
         return {
             status: 'ok',
-            results: data.repositories.map((repo) => ({
-                name: repo.name,
-                ownerLogin: repo.owner.login,
-                fullName: repo.full_name,
-            })),
+            results: await this.services
+                .getGithubAppService()
+                .getRepos(req.user!),
         };
     }
 }

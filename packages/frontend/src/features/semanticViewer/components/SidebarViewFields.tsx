@@ -14,12 +14,13 @@ import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../components/common/MantineIcon';
 import SuboptimalState from '../../../components/common/SuboptimalState/SuboptimalState';
+import useToaster from '../../../hooks/toaster/useToaster';
+import { useAppDispatch, useAppSelector } from '../../sqlRunner/store/hooks';
 import { useSemanticLayerViewFields } from '../api/hooks';
-import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
     selectAllSelectedFieldNames,
-    selectAllSelectedFieldsByKind,
     selectSemanticLayerInfo,
+    selectSemanticLayerQuery,
 } from '../store/selectors';
 import { setFields } from '../store/semanticViewerSlice';
 import SidebarViewFieldsGroup from './SidebarViewFieldsGroup';
@@ -41,34 +42,35 @@ const getSearchResults = (
 
 const SidebarViewFields = () => {
     const { t } = useTranslation();
+    const { showToastError } = useToaster();
 
     const { projectUuid } = useAppSelector(selectSemanticLayerInfo);
-    const { view } = useAppSelector((state) => state.semanticViewer);
-    const allSelectedFieldNames = useAppSelector(selectAllSelectedFieldNames);
-    const allSelectedFieldsBykind = useAppSelector(
-        selectAllSelectedFieldsByKind,
+    const semanticLayerView = useAppSelector(
+        (state) => state.semanticViewer.semanticLayerView,
     );
+    const semanticLayerQuery = useAppSelector(selectSemanticLayerQuery);
+    const allSelectedFieldNames = useAppSelector(selectAllSelectedFieldNames);
 
     const dispatch = useAppDispatch();
 
     const [searchQuery, setSearchQuery] = useState('');
 
-    if (!view) {
+    if (!semanticLayerView) {
         throw new Error(
             t('features_semantic_sidebar_view_fields.error.impossible_state'),
         );
     }
 
     const fields = useSemanticLayerViewFields(
-        {
-            projectUuid,
-            view,
-            selectedFields: allSelectedFieldsBykind,
-        },
-        {
-            keepPreviousData: true,
-        },
+        { projectUuid, semanticLayerView, semanticLayerQuery },
+        { keepPreviousData: true },
     );
+
+    useEffect(() => {
+        if (!fields.data) return;
+
+        dispatch(setFields(fields.data));
+    }, [dispatch, fields.data]);
 
     const searchedFields = useMemo(() => {
         if (!fields.data) return;
@@ -76,21 +78,30 @@ const SidebarViewFields = () => {
         return getSearchResults(fields.data, searchQuery);
     }, [fields.data, searchQuery]);
 
-    useEffect(() => {
-        if (fields.data) {
-            dispatch(setFields(fields.data));
-        }
-    }, [dispatch, fields.data]);
-
-    if (fields.isError) {
-        throw fields.error;
-    }
-
     if (fields.isLoading) {
         return (
             <Center sx={{ flexGrow: 1 }}>
                 <Loader color="gray" size="sm" />
             </Center>
+        );
+    }
+
+    if (fields.isError) {
+        showToastError({
+            title: t(
+                'features_semantic_sidebar_view_fields.error.fetch_failed',
+            ),
+        });
+
+        return (
+            <SuboptimalState
+                title="Failed to fetch fields"
+                description={
+                    fields.error.error.statusCode !== 500
+                        ? fields.error.error.message
+                        : t('features_semantic_sidebar_view_fields.error.wrong')
+                }
+            />
         );
     }
 
@@ -140,6 +151,7 @@ const SidebarViewFields = () => {
                             'features_semantic_sidebar_view_fields.search_fields',
                         )}
                         value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                     />
 
                     <SidebarViewFieldsGroup

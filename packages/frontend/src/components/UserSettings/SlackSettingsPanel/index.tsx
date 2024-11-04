@@ -29,10 +29,10 @@ import {
     IconRefresh,
     IconTrash,
 } from '@tabler/icons-react';
+import { debounce } from 'lodash';
 import intersection from 'lodash/intersection';
-import { useEffect, useMemo, type FC } from 'react';
+import { useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import {
     useDeleteSlack,
     useGetSlack,
@@ -51,6 +51,7 @@ export const hasRequiredScopes = (slackSettings: SlackSettings) => {
 };
 
 const SLACK_INSTALL_URL = `/api/v1/slack/install/`;
+const MAX_SLACK_CHANNELS = 100000;
 
 const SlackSettingsPanel: FC = () => {
     const { t } = useTranslation();
@@ -58,8 +59,12 @@ const SlackSettingsPanel: FC = () => {
     const { data: slackInstallation, isInitialLoading } = useGetSlack();
     const organizationHasSlack = !!slackInstallation?.organizationUuid;
 
+    const [search, setSearch] = useState('');
+
+    const debounceSetSearch = debounce((val) => setSearch(val), 1500);
+
     const { data: slackChannels, isInitialLoading: isLoadingSlackChannels } =
-        useSlackChannels({
+        useSlackChannels(search, {
             enabled: organizationHasSlack,
         });
 
@@ -101,6 +106,9 @@ const SlackSettingsPanel: FC = () => {
             })) ?? []
         );
     }, [slackChannels]);
+
+    let responsiveChannelsSearchEnabled =
+        slackChannelOptions.length >= MAX_SLACK_CHANNELS || search.length > 0; // enable responvive channels search if there are more than MAX_SLACK_CHANNELS defined channels
 
     if (isInitialLoading) {
         return <Loader />;
@@ -193,11 +201,17 @@ const SlackSettingsPanel: FC = () => {
                                 )}
                                 searchable
                                 clearable
+                                limit={500}
                                 nothingFound={t(
                                     'components_user_settings_slack_settings_panel.from.select.nothingFound',
                                 )}
                                 data={slackChannelOptions}
                                 {...form.getInputProps('notificationChannel')}
+                                onSearchChange={(val) => {
+                                    if (responsiveChannelsSearchEnabled) {
+                                        debounceSetSearch(val);
+                                    }
+                                }}
                                 onChange={(value) => {
                                     setFieldValue('notificationChannel', value);
                                 }}

@@ -30,6 +30,7 @@ import {
     NotificationFrequency,
     NotificationPayloadBase,
     operatorActionValue,
+    QueryExecutionContext,
     ScheduledDeliveryPayload,
     SchedulerAndTargets,
     SchedulerFilterRule,
@@ -39,6 +40,7 @@ import {
     semanticLayerQueryJob,
     SemanticLayerQueryPayload,
     SessionUser,
+    setCatalogChartUsagesJob,
     SlackInstallationNotFoundError,
     SlackNotificationPayload,
     sqlRunnerJob,
@@ -49,7 +51,8 @@ import {
     ThresholdOptions,
     UploadMetricGsheetPayload,
     ValidateProjectPayload,
-    VizSqlColumn,
+    VizColumn,
+    type SchedulersetCatalogChartUsagesPayload,
 } from '@lightdash/common';
 import { nanoid } from 'nanoid';
 import slackifyMarkdown from 'slackify-markdown';
@@ -57,7 +60,6 @@ import {
     DownloadCsv,
     LightdashAnalytics,
     parseAnalyticsLimit,
-    QueryExecutionContext,
 } from '../analytics/LightdashAnalytics';
 import { S3Client } from '../clients/Aws/s3';
 import EmailClient from '../clients/EmailClient/EmailClient';
@@ -72,6 +74,7 @@ import {
 } from '../clients/Slack/SlackMessageBlocks';
 import { LightdashConfig } from '../config/parseConfig';
 import Logger from '../logging/logger';
+import type { CatalogService } from '../services/CatalogService/CatalogService';
 import { CsvService } from '../services/CsvService/CsvService';
 import { DashboardService } from '../services/DashboardService/DashboardService';
 import { ProjectService } from '../services/ProjectService/ProjectService';
@@ -98,8 +101,16 @@ type SchedulerTaskArguments = {
     schedulerClient: SchedulerClient;
     slackClient: SlackClient;
     semanticLayerService: SemanticLayerService;
+    catalogService: CatalogService;
 };
 
+type RunQueryTags = {
+    project_uuid?: string;
+    user_uuid?: string;
+    organization_uuid?: string;
+    chart_uuid?: string;
+    dashboard_uuid?: string;
+};
 export default class SchedulerTask {
     protected readonly lightdashConfig: LightdashConfig;
 
@@ -131,6 +142,8 @@ export default class SchedulerTask {
 
     private readonly semanticLayerService: SemanticLayerService;
 
+    private readonly catalogService: CatalogService;
+
     constructor(args: SchedulerTaskArguments) {
         this.lightdashConfig = args.lightdashConfig;
         this.analytics = args.analytics;
@@ -147,6 +160,7 @@ export default class SchedulerTask {
         this.schedulerClient = args.schedulerClient;
         this.slackClient = args.slackClient;
         this.semanticLayerService = args.semanticLayerService;
+        this.catalogService = args.catalogService;
     }
 
     protected async getChartOrDashboard(
@@ -154,6 +168,8 @@ export default class SchedulerTask {
         dashboardUuid: string | null,
         schedulerUuid: string | undefined,
         sendNowSchedulerFilters: SchedulerFilterRule[] | undefined,
+        context: DownloadCsv['properties']['context'],
+        selectedTabs: string[] | undefined,
     ) {
         if (chartUuid) {
             const chart =
@@ -162,7 +178,7 @@ export default class SchedulerTask {
                 );
             return {
                 url: `${this.lightdashConfig.siteUrl}/projects/${chart.projectUuid}/saved/${chartUuid}`,
-                minimalUrl: `${this.lightdashConfig.siteUrl}/minimal/projects/${chart.projectUuid}/saved/${chartUuid}`,
+                minimalUrl: `${this.lightdashConfig.headlessBrowser.internalLightdashHost}/minimal/projects/${chart.projectUuid}/saved/${chartUuid}?context=${context}`,
                 details: {
                     name: chart.name,
                     description: chart.description,
@@ -179,18 +195,25 @@ export default class SchedulerTask {
                     dashboardUuid,
                 );
 
+            const queryParams = new URLSearchParams();
+            if (schedulerUuid) queryParams.set('schedulerUuid', schedulerUuid);
+            if (sendNowSchedulerFilters)
+                queryParams.set(
+                    'sendNowSchedulerFilters',
+                    JSON.stringify(sendNowSchedulerFilters),
+                );
+            if (selectedTabs)
+                queryParams.set('selectedTabs', JSON.stringify(selectedTabs));
+            if (context) queryParams.set('context', context);
+
             return {
                 url: `${this.lightdashConfig.siteUrl}/projects/${dashboard.projectUuid}/dashboards/${dashboardUuid}/view`,
-                minimalUrl: `${this.lightdashConfig.siteUrl}/minimal/projects/${
+                minimalUrl: `${
+                    this.lightdashConfig.headlessBrowser.internalLightdashHost
+                }/minimal/projects/${
                     dashboard.projectUuid
                 }/dashboards/${dashboardUuid}${
-                    schedulerUuid ? `?schedulerUuid=${schedulerUuid}` : ''
-                }${
-                    sendNowSchedulerFilters
-                        ? `?sendNowchedulerFilters=${encodeURI(
-                              JSON.stringify(sendNowSchedulerFilters),
-                          )}`
-                        : ''
+                    queryParams.toString() ? `?${queryParams.toString()}` : ''
                 }`,
                 details: {
                     name: dashboard.name,
@@ -233,6 +256,16 @@ export default class SchedulerTask {
                 ? scheduler.filters
                 : undefined;
 
+        const selectedTabs = isDashboardScheduler(scheduler)
+            ? scheduler.selectedTabs
+            : undefined;
+
+        const context =
+            scheduler.thresholds === undefined ||
+            scheduler.thresholds.length === 0
+                ? QueryExecutionContext.SCHEDULED_DELIVERY
+                : QueryExecutionContext.ALERT;
+
         const {
             url,
             minimalUrl,
@@ -245,8 +278,9 @@ export default class SchedulerTask {
             dashboardUuid,
             schedulerUuid,
             sendNowSchedulerFilters,
+            context,
+            selectedTabs,
         );
-
         switch (format) {
             case SchedulerFormat.IMAGE:
                 try {
@@ -327,25 +361,27 @@ export default class SchedulerTask {
                             userId: userUuid,
                             properties: {
                                 ...baseAnalyticsProperties,
-                                context: 'scheduled delivery dashboard',
+                                context,
                             },
                         });
 
-                        csvUrls = await this.csvService.getCsvsForDashboard(
+                        csvUrls = await this.csvService.getCsvsForDashboard({
+                            jobId,
                             user,
                             dashboardUuid,
-                            csvOptions,
-                            isDashboardScheduler(scheduler)
+                            options: csvOptions,
+                            schedulerFilters: isDashboardScheduler(scheduler)
                                 ? scheduler.filters
                                 : undefined,
-                        );
+                            selectedTabs,
+                        });
 
                         this.analytics.track({
                             event: 'download_results.completed',
                             userId: userUuid,
                             properties: {
                                 ...baseAnalyticsProperties,
-                                context: 'scheduled delivery dashboard',
+                                context,
                                 numCharts: csvUrls.length,
                             },
                         });
@@ -435,6 +471,7 @@ export default class SchedulerTask {
                 dashboardUuid,
                 name,
                 cron,
+                timezone,
                 thresholds,
             } = scheduler;
 
@@ -443,7 +480,6 @@ export default class SchedulerTask {
                 schedulerUuid,
                 jobId,
                 jobGroup: notification.jobGroup,
-
                 scheduledTime,
                 target: channel,
                 targetType: 'slack',
@@ -466,6 +502,11 @@ export default class SchedulerTask {
                 // pdfFile, // TODO: add pdf to slack
             } = notificationPageData;
 
+            const defaultSchedulerTimezone =
+                await this.schedulerService.getSchedulerDefaultTimezone(
+                    schedulerUuid,
+                );
+
             const getBlocksArgs = {
                 title: name,
                 name: details.name,
@@ -477,6 +518,7 @@ export default class SchedulerTask {
                     schedulerUuid || ''
                 }|scheduled delivery> ${getHumanReadableCronExpression(
                     cron,
+                    timezone ?? defaultSchedulerTimezone,
                 )} from Lightdash\n${
                     this.s3Client.getExpirationWarning()?.slack || ''
                 }`,
@@ -908,13 +950,7 @@ export default class SchedulerTask {
                 scheduledTime,
                 details: { createdByUserUuid: payload.userUuid },
             },
-            async () => {
-                const { fileUrl } =
-                    await this.semanticLayerService.streamQueryIntoFile(
-                        payload,
-                    );
-                return { fileUrl };
-            },
+            async () => this.semanticLayerService.streamQueryIntoFile(payload),
         );
     }
 
@@ -923,7 +959,7 @@ export default class SchedulerTask {
         scheduledTime: Date,
         payload: SqlRunnerPayload,
     ) {
-        await this.logWrapper<string | VizSqlColumn[]>(
+        await this.logWrapper<string | VizColumn[]>(
             {
                 task: sqlRunnerJob,
                 jobId,
@@ -994,6 +1030,11 @@ export default class SchedulerTask {
             const user = await this.userService.getSessionByUserUuid(
                 payload.userUuid,
             );
+            const queryTags: RunQueryTags = {
+                project_uuid: payload.projectUuid,
+                user_uuid: payload.userUuid,
+                organization_uuid: payload.organizationUuid,
+            };
 
             const { rows } = await this.projectService.runMetricQuery({
                 user,
@@ -1003,7 +1044,9 @@ export default class SchedulerTask {
                 csvLimit: undefined,
                 context: QueryExecutionContext.GSHEETS,
                 chartUuid: undefined,
+                queryTags,
             });
+
             const refreshToken = await this.userService.getRefreshToken(
                 payload.userUuid,
             );
@@ -1129,6 +1172,11 @@ export default class SchedulerTask {
 
             const schedulerUrl = `${url}?scheduler_uuid=${schedulerUuid}`;
 
+            const defaultSchedulerTimezone =
+                await this.schedulerService.getSchedulerDefaultTimezone(
+                    schedulerUuid,
+                );
+
             if (thresholds !== undefined && thresholds.length > 0) {
                 // We assume the threshold is possitive , so we don't need to get results here
                 if (imageUrl === undefined) {
@@ -1183,7 +1231,10 @@ export default class SchedulerTask {
                     details.description || '',
                     scheduler.message,
                     new Date().toLocaleDateString('en-GB'),
-                    getHumanReadableCronExpression(scheduler.cron),
+                    getHumanReadableCronExpression(
+                        scheduler.cron,
+                        scheduler.timezone ?? defaultSchedulerTimezone,
+                    ),
                     imageUrl,
                     url,
                     schedulerUrl,
@@ -1201,7 +1252,10 @@ export default class SchedulerTask {
                     details.description || '',
                     scheduler.message,
                     new Date().toLocaleDateString('en-GB'),
-                    getHumanReadableCronExpression(scheduler.cron),
+                    getHumanReadableCronExpression(
+                        scheduler.cron,
+                        scheduler.timezone ?? defaultSchedulerTimezone,
+                    ),
                     csvUrl,
                     url,
                     schedulerUrl,
@@ -1211,6 +1265,7 @@ export default class SchedulerTask {
                 if (csvUrls === undefined) {
                     throw new Error('Missing CSV URLS');
                 }
+
                 await this.emailClient.sendDashboardCsvNotificationEmail(
                     recipient,
                     name,
@@ -1218,7 +1273,10 @@ export default class SchedulerTask {
                     details.description || '',
                     scheduler.message,
                     new Date().toLocaleDateString('en-GB'),
-                    getHumanReadableCronExpression(scheduler.cron),
+                    getHumanReadableCronExpression(
+                        scheduler.cron,
+                        scheduler.timezone ?? defaultSchedulerTimezone,
+                    ),
                     csvUrls,
                     url,
                     schedulerUrl,
@@ -1293,14 +1351,23 @@ export default class SchedulerTask {
         if (thresholds.length < 1 || results.length < 1) {
             return false;
         }
+
         const { fieldId, operator, value: thresholdValue } = thresholds[0];
 
         const getValue = (resultIdx: number) => {
-            if (resultIdx >= results.length) {
+            if (results.length === 0) {
                 throw new NotEnoughResults(
-                    `Threshold alert error: Can't find enough results`,
+                    `Threshold alert error: Query returned no rows.`,
                 );
             }
+
+            // If we are trying to access beyond available rows, throw a general error
+            if (resultIdx >= results.length) {
+                throw new NotEnoughResults(
+                    `Threshold alert error: Expected at least ${resultIdx} rows, but only ${results.length} row(s) were returned.`,
+                );
+            }
+
             const result = results[resultIdx];
 
             if (!(fieldId in result)) {
@@ -1311,14 +1378,23 @@ export default class SchedulerTask {
             }
             return parseFloat(result[fieldId]);
         };
+
         const latestValue = getValue(0);
         switch (operator) {
             case ThresholdOperator.GREATER_THAN:
                 return latestValue > thresholdValue;
+
             case ThresholdOperator.LESS_THAN:
                 return latestValue < thresholdValue;
+
             case ThresholdOperator.INCREASED_BY:
             case ThresholdOperator.DECREASED_BY:
+                // Ensure at least two rows exist for these operations
+                if (results.length < 2) {
+                    throw new NotEnoughResults(
+                        `Threshold alert error: Increase/decrease comparison requires at least two rows, but only ${results.length} row(s) were returned.`,
+                    );
+                }
                 const previousValue = getValue(1);
                 if (operator === ThresholdOperator.INCREASED_BY) {
                     const percentageIncrease =
@@ -1335,6 +1411,7 @@ export default class SchedulerTask {
                     `Unknown threshold alert operator: ${operator}`,
                 );
         }
+
         return false;
     }
 
@@ -1400,6 +1477,12 @@ export default class SchedulerTask {
                 const chart = await this.schedulerService.savedChartModel.get(
                     savedChartUuid,
                 );
+
+                const defaultSchedulerTimezone =
+                    await this.schedulerService.getSchedulerDefaultTimezone(
+                        schedulerUuid,
+                    );
+
                 const { rows } = await this.projectService.getResultsForChart(
                     user,
                     savedChartUuid,
@@ -1439,7 +1522,10 @@ export default class SchedulerTask {
                 await this.googleDriveClient.uploadMetadata(
                     refreshToken,
                     gdriveId,
-                    getHumanReadableCronExpression(scheduler.cron),
+                    getHumanReadableCronExpression(
+                        scheduler.cron,
+                        scheduler.timezone ?? defaultSchedulerTimezone,
+                    ),
                     undefined,
                     reportUrl,
                 );
@@ -1460,6 +1546,12 @@ export default class SchedulerTask {
                     user,
                     dashboardUuid,
                 );
+
+                const defaultSchedulerTimezone =
+                    await this.schedulerService.getSchedulerDefaultTimezone(
+                        schedulerUuid,
+                    );
+
                 const chartUuids = dashboard.tiles.reduce<string[]>(
                     (acc, tile) => {
                         if (
@@ -1502,7 +1594,10 @@ export default class SchedulerTask {
                 await this.googleDriveClient.uploadMetadata(
                     refreshToken,
                     gdriveId,
-                    getHumanReadableCronExpression(scheduler.cron),
+                    getHumanReadableCronExpression(
+                        scheduler.cron,
+                        scheduler.timezone ?? defaultSchedulerTimezone,
+                    ),
                     Object.values(chartNames),
                 );
 
@@ -1873,5 +1968,28 @@ export default class SchedulerTask {
             }
             throw e; // Cascade error to it can be retried by graphile
         }
+    }
+
+    protected async setCatalogChartUsages(
+        jobId: string,
+        scheduledTime: Date,
+        payload: SchedulersetCatalogChartUsagesPayload,
+    ) {
+        await this.logWrapper(
+            {
+                task: setCatalogChartUsagesJob,
+                jobId,
+                scheduledTime,
+                details: {
+                    createdByUserUuid: payload.userUuid,
+                    projectUuid: payload.projectUuid,
+                },
+            },
+            async () =>
+                this.catalogService.setChartUsages(
+                    payload.projectUuid,
+                    payload.catalogFieldMap,
+                ),
+        );
     }
 }

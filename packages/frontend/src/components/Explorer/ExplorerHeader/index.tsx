@@ -1,5 +1,7 @@
+import { FeatureFlags } from '@lightdash/common';
 import { Badge, Box, Group, Tooltip } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
+import { useFeatureFlagEnabled } from 'posthog-js/react';
 import { memo, useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
@@ -34,6 +36,13 @@ const ExplorerHeader: FC = memo(() => {
         (context) => context.state.unsavedChartVersion.metricQuery.limit,
     );
 
+    const selectedTimezone = useExplorerContext(
+        (context) => context.state.unsavedChartVersion.metricQuery.timezone,
+    );
+    const setTimeZone = useExplorerContext(
+        (context) => context.actions.setTimeZone,
+    );
+
     const { getHasDashboardChanges } = useDashboardStorage();
 
     const userCanCreateCharts = useCreateInAnySpaceAccess(
@@ -54,6 +63,11 @@ const ExplorerHeader: FC = memo(() => {
             window.removeEventListener('beforeunload', checkReload);
         };
     }, [getHasDashboardChanges, t]);
+
+    // FEATURE FLAG: this component doesn't appear when the feature flag is disabled
+    const userTimeZonesEnabled = useFeatureFlagEnabled(
+        FeatureFlags.EnableUserTimezones,
+    );
 
     return (
         <Group position="apart">
@@ -93,7 +107,12 @@ const ExplorerHeader: FC = memo(() => {
                     </Tooltip>
                 )}
 
-                <TimeZonePicker />
+                {userTimeZonesEnabled && (
+                    <TimeZonePicker
+                        onChange={setTimeZone}
+                        value={selectedTimezone}
+                    />
+                )}
 
                 <RefreshButton size="xs" />
 

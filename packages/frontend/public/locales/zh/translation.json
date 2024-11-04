@@ -30,6 +30,11 @@
     "hooks_async_clipboard": {
         "toast_copied": "链接已复制到剪贴板"
     },
+    "hooks_project_preview": {
+        "preview": "项目预览已创建",
+        "open": "打开预览项目",
+        "failed": "创建预览项目失败"
+    },
 
     "providers_active_job": {
         "toast_refresh_error": "刷新服务器失败",
@@ -164,7 +169,9 @@
             "chart": "图表",
             "space": "空间",
             "table": "表格",
-            "page": "页面"
+            "page": "页面",
+            "sql_chart": "SQL 图表",
+            "semantic_viewer_charts": "语义查看器图表"
         },
         "date": {
             "from": "从",
@@ -303,9 +310,11 @@
 
     "features_sql_runner_content_panel": {
         "no_results": "无法获取 SQL 查询结果",
-        "sql": "查询",
+        "no_run_query": "您尚未运行此查询。",
+        "run_query": "运行查询以查看图表",
+        "sql": "SQL",
         "chart": "图表",
-        "limit_rows": "显示前 {limit} 行"
+        "limit_rows": " 显示前 {limit} 行"
     },
     "features_sql_runner_header": {
         "save_chart": "保存图表",
@@ -324,6 +333,8 @@
         "close_sidebar": "关闭侧边栏"
     },
     "features_sql_runner_table_fields": {
+        "copied_to_clipboard": "已复制到剪贴板",
+        "copy": "复制",
         "search_fields": "搜索字段",
         "no_table_selected": "未选择表格",
         "no_results_found": "未找到结果"
@@ -333,9 +344,52 @@
         "no_results_found": "未找到结果"
     },
     "features_sql_runner_editor": {
-        "not_available": "项目数据不可用"
+        "not_available": "数据仓库连接不可用"
+    },
+    "features_sql_runner_download": {
+        "format": "格式",
+        "download": "下载",
+        "limit": "限制",
+        "download_results": "下载结果为 .csv"
+    },
+    "features_sql_runner_alert": {
+        "title": "在保存之前修复错误",
+        "content": {
+            "part_1": "您在图表配置中有错误。请修复这些错误后再试。",
+            "part_2": "修复错误"
+        }
+    },
+    "features_sql_runner_before_save_alert": {
+        "title": "您尚未运行查询",
+        "content": "您可以在保存之前验证您的查询，或者稍后查看。"
+    },
+    "features_sql_runner_query_history": {
+        "open": "在查询编辑器中打开",
+        "query_history": "SQL 查询历史"
+    },
+    "features_sql_runner_write_back": {
+        "write_back": "写回到 dbt",
+        "create_new_modal": "从此 SQL 查询在您的 dbt 项目中创建一个新模型。这将创建一个新分支并开始一个拉取请求。",
+        "name": {
+            "title": "名称",
+            "content": {
+                "part_1": "将要创建的文件在",
+                "part_2": "在新标签页中打开 \"{{url}}\""
+            }
+        },
+        "cancel": "取消",
+        "open": "打开拉取请求"
     },
     "features_sql_chart_modal": {
+        "form": {
+            "chart_name": {
+                "label": "图表名称",
+                "placeholder": "例如：我们有多少周活跃用户？"
+            },
+            "description": {
+                "label": "描述"
+            }
+        },
         "test_saved_chart": "一个测试保存的图表",
         "save_chart": "保存图表",
         "memorable": {
@@ -344,6 +398,8 @@
             "description": "描述"
         },
         "cancel": "取消",
+        "next": "下一步",
+        "back": "返回",
         "save": "保存"
     },
     "features_sql_runner_query": {
@@ -375,16 +431,19 @@
         "styling": "样式"
     },
     "features_sql_runner_bar_chart_field_configuartaion": {
-        "column_not_in_sql": "列 \"{{reference}}\" 不存在。选择其他列",
+        "column_not_in_sql": "列 \"{{reference}}\" 不存在。请选择其他列",
         "select_y_axis": "选择 Y 轴",
+        "remove_y_axis": "移除 Y 轴",
         "aggregation": "聚合",
         "select_x_axis": "选择 X 轴",
-        "column_not_in_sql_query": "列 \"{{reference}}\" 不存在。选择其他列",
-        "select_group_by": "选择分组依据",
-        "column_not_in_sql_group": "列 \"{{reference}}\" 不存在。选择其他列",
+        "column_not_in_sql_query": "列 \"{{reference}}\" 不存在。请选择其他列",
+        "remove_x_axis": "移除 X 轴",
+        "select_group_by": "选择分组",
+        "column_not_in_sql_group": "列 \"{{reference}}\" 不存在。请选择其他列",
+        "add_y_axis": "添加 Y 轴",
         "x_axis": "X 轴",
         "y_axis": "Y 轴",
-        "group_by": "分组依据"
+        "group_by": "分组"
     },
     "features_sql_runner_bar_chart_aggregation_config": {
         "aggregation": "聚合"
@@ -423,7 +482,7 @@
     "features_sql_runner_update_sql_chart_modal": {
         "title": "更新图表",
         "name": {
-            "label": "为您的图表输入一个有意义的名称",
+            "label": "图表名称",
             "placeholder": "例如: 我们每周活跃用户有多少?",
             "description": "描述"
         },
@@ -440,14 +499,33 @@
         "pie_chart": "饼图"
     },
     "features_sql_runner_header_create": {
-        "title": "保存"
+        "title": "保存",
+        "save": {
+            "label": "保存图表",
+            "description": "保存为临时查询"
+        },
+        "virtual_view": {
+            "label": "创建虚拟视图",
+            "description": "保存为可重用查询"
+        },
+        "back_to_dbt": {
+            "label": "写回到 dbt",
+            "description": "保存为 dbt 中的模型"
+        },
+        "tips": {
+            "shared": "共享 URL 已复制到剪贴板！",
+            "enable": "请在设置 > 集成 > GitHub 中启用 GitHub 集成，以便写回到 dbt"
+        }
     },
     "features_sql_runner_header_edit": {
         "title": "保存",
-        "back_to_view_page": "返回查看页面"
+        "back_to_view_page": "返回查看页面",
+        "delete": "删除"
     },
     "features_sql_runner_header_view": {
-        "eidt_chart": "编辑图表",
+        "edit_chart": "编辑图表",
+        "manage": "管理",
+        "add_to_dashboard": "添加到仪表板",
         "delete": "删除"
     },
     "features_sql_runner_transformers_sql_chart": {
@@ -632,6 +710,7 @@
                 "run_frequency": "运行频率",
                 "delivery_frequency": "交付频率",
                 "threshold_alert": "这是Lightdash查询数据变化的频率。(如果满足最新数值的条件,您将收到通知)",
+                "default_project": "项目默认",
                 "format": "格式",
                 "image_disabled": {
                     "part_1": "您必须启用",
@@ -648,6 +727,12 @@
                 "all_results": "全部结果",
                 "custom": "自定义...",
                 "results_are_limited": "每个文件的结果被限制在 {{limit}} 个单元格内",
+                "tabs": {
+                    "title": "选项卡",
+                    "tooltip": "选择所有选项卡以将所有选项卡包含在交付中。如果您不选择此选项，则仅选定的选项卡将包含在交付中。",
+                    "checkbox": "包含所有选项卡",
+                    "multi_select": "选择要包含在交付中的选项卡"
+                },
                 "destinations": "目标",
                 "enter_email_address": "输入电子邮件地址",
                 "enter_email_validation_error": "'{{val}}' 似乎不是有效的电子邮件地址",
@@ -740,9 +825,20 @@
 
     "features_semantic_content": {
         "chart": "图表",
-        "query": "查询"
+        "query": "查询",
+        "select_view": {
+            "title": "选择一个视图",
+            "description": "请从侧边栏选择一个视图以开始构建查询"
+        },
+        "select_field": {
+            "title": "选择一个字段",
+            "description": "请从侧边栏选择一个字段以开始构建查询"
+        }
     },
     "features_semantic_query_button": {
+        "limit_warning": "已达到查询限制 {{limit}}。可能还有未显示的额外结果。要查看更多，增加查询限制或尝试缩小过滤条件。",
+        "incomplete_results": "结果可能不完整",
+        "run_query": "运行查询",
         "no_results": "无法获取 SQL 查询结果"
     },
     "features_semantic_sidebar": {
@@ -759,6 +855,8 @@
     "features_semantic_sidebar_view_fields": {
         "error": {
             "impossible_state": "不可能的状态",
+            "fetch_failed": "获取字段失败",
+            "wrong": "尝试获取字段时出现问题",
             "no_fields": {
                 "part_1": "没有可用字段",
                 "part_2": "在此视图中尚未创建任何字段。"
@@ -799,8 +897,10 @@
                 "label": "命名您的同步"
             },
             "frequency": {
-                "label": "设置频率"
+                "label": "设置频率",
+                "require_field": "必填字段"
             },
+            "default_project": "项目默认",
             "cancel": "取消",
             "save_changes": "保存更改",
             "sync": "同步"
@@ -825,6 +925,38 @@
         }
     },
 
+    "features_metrics": {
+        "charts": {
+            "title": "指标使用情况",
+            "content": {
+                "part_1": "此指标在以下图表中使用：",
+                "part_2": "加载中...",
+                "part_3": "未找到使用此指标的图表"
+            }
+        },
+        "catalog": {
+            "title": "指标目录"
+        },
+        "table": {
+            "metric_name": "指标名称",
+            "description": "描述",
+            "table": "表格",
+            "popularity": "受欢迎程度",
+            "explore": "探索",
+            "search": "通过指标名称或描述搜索",
+            "bootom_toolbar": {
+                "part_1": "加载更多...",
+                "part_2": "向下滚动以查看更多指标（已加载 {{length}} 个）",
+                "part_3": "所有指标已加载"
+            }
+        }
+    },
+
+    "components_common_paginate": {
+        "page": "页",
+        "of": "的"
+    },
+
     "components_common_page_header": {
         "last_edited": "最近编辑",
         "by": "由",
@@ -847,7 +979,8 @@
         "space_role_inheritance_info": "继承自他们的 {{inheritedFrom}} 角色的访问权限",
         "select_users": {
             "placeholder": "选择要与之共享此空间的用户",
-            "nothingFound": "未找到用户"
+            "nothingFound": "未找到用户",
+            "load_more": "加载更多"
         },
         "space_access_options": {
             "restricted_access": {
@@ -971,6 +1104,8 @@
     "components_common_filters": {
         "tried_to_reference": "尝试引用未知 ID 的字段:",
         "add_filter": "添加筛选器",
+        "clear_all_filters": "清除所有过滤器",
+        "clear_all": "清除所有",
         "group_form": {
             "tip": "下列 {{conditionLabel}} 条件匹配:",
             "add_group_rule": "添加分组规则"
@@ -1295,6 +1430,94 @@
             "error": "错误"
         }
     },
+    "components_settings_scheduler": {
+        "tips": {
+            "success": "成功更新项目的调度时区设置",
+            "failed": "更新项目的调度时区设置失败"
+        },
+        "title": "定时交付设置",
+        "form": {
+            "time_zone": {
+                "label": {
+                    "part_1": "默认时区",
+                    "part_2": "项目定时交付的默认时区"
+                }
+            },
+            "update": "更新"
+        }
+    },
+
+    "components_settings_semantic_layer": {
+        "semantic_layer": {
+            "dbt": "dbt 语义层",
+            "cube": "Cube"
+        },
+        "tips_submit": {
+            "success": "成功更新项目的语义层连接，凭据为 {{title}}。",
+            "failed": "保存语义层连接失败"
+        },
+        "tips_delete": {
+            "success": "成功删除项目的语义层连接。"
+        },
+        "content": {
+            "part_1": "语义层集成",
+            "part_2": "连接您的第三方语义层，以便在 Lightdash 中探索和报告您的指标定义。",
+            "part_3": "了解更多"
+        },
+        "cube": {
+            "error": {
+                "token": "需要令牌"
+            },
+            "form": {
+                "password": "输入令牌以通过 Cube API 进行身份验证",
+                "token": "服务令牌",
+                "token_tooltip": {
+                    "part_1": "可以通过登录 Cube，点击所需部署，然后转到",
+                    "part_2": "集成",
+                    "part_3": "API 凭据",
+                    "part_4": "REST API"
+                },
+                "domain": {
+                    "title": "域名",
+                    "placeholder": "输入您的 Cube 部署域名"
+                },
+                "domain_tip": {
+                    "part_1": "可以通过登录 Cube，点击所需部署，然后转到",
+                    "part_2": "集成",
+                    "part_3": "API 凭据"
+                }
+            },
+            "save": "保存"
+        },
+        "dbt": {
+            "error": {
+                "token": "需要令牌"
+            },
+            "form": {
+                "password": "输入令牌以通过 dbt API 进行身份验证",
+                "token": "服务令牌",
+                "token_tooltip": {
+                    "part_1": "服务令牌可以在您的 dbt Cloud 账户设置中找到：",
+                    "part_2": "dbt 设置",
+                    "part_3": "API 令牌",
+                    "part_4": "服务令牌 - 令牌需要至少",
+                    "part_5": "仅限语义层",
+                    "part_6": "权限"
+                },
+                "domain": {
+                    "title": "域名",
+                    "placeholder": "选择或输入域名",
+                    "custom": "+ 添加自定义域名"
+                },
+                "environment": {
+                    "title": "环境 ID",
+                    "placeholder": "输入您的 dbt 环境 ID"
+                },
+                "environment_tooltip": "dbt 生产环境的唯一标识符，您可以在部署下导航到环境时从 dbt Cloud URL 中检索。如果您的 URL 以 .../environments/222222 结尾，则您的 environmentId 为 222222"
+            },
+            "save": "保存"
+        }
+    },
 
     "components_data_pos": {
         "tip": "在此项目上执行数据操作",
@@ -1334,7 +1557,16 @@
         "delete_chart": "删除图表",
         "remove_tile": "移除图块"
     },
+    "components_dashboard_tiles_download_csv": {
+        "export_csv": "导出 CSV"
+    },
+    "components_dashboard_tiles_chart_tile": {
+        "edit": "编辑语义查看器图表",
+        "no_data": "没有可用数据"
+    },
     "components_dashboard_tiles_forms_add_chart": {
+        "disabled": "您无法在看板上混合来自不同语义层连接创建的图表",
+        "already_added": "此图表已被添加到该看板",
         "already_added_chart": "此图表已添加到此看板",
         "add_saved_charts": "添加已保存的图表",
         "form": {
@@ -1426,7 +1658,9 @@
             "view_underlying_data": "查看基础数据"
         },
         "tooltip_editing_chart": "请完成看板编辑以编辑此图表",
-        "no_data_available": "没有可用数据"
+        "no_data_available": "没有可用数据",
+        "cannot_edit_chart": "无法编辑属于空间的图表：",
+        "not_have_permission": "您没有权限编辑此图表"
     },
     "components_dashboard_tiles_edit_chart_menu": {
         "edit_chart": "编辑图表"
@@ -1608,26 +1842,26 @@
             },
             "radio_with_tags": {
                 "label": "显示带有这些标签的模型",
-                "description": "编写您想要包含的标签列表, 用逗号分隔。",
+                "description": "写下您想要包含的标签列表，用逗号分隔。虚拟视图默认包含在内。",
                 "select": {
                     "label": "标签",
                     "placeholder": "例如 lightdash, prod",
                     "nothingFound": {
                         "loading": "正在加载...",
-                        "no_results": "没有找到结果"
+                        "no_results": "未找到结果"
                     },
                     "error": "您的 dbt 项目没有可用的标签"
                 }
             },
             "radio_with_names": {
                 "label": "显示这个列表中的模型",
-                "description": "编写您想要包含的模型列表, 用逗号分隔。",
+                "description": "写下您想要包含的模型列表，用逗号分隔。虚拟视图默认包含在内。",
                 "select": {
                     "label": "名称",
                     "placeholder": "例如 users, orders",
                     "nothingFound": {
                         "loading": "正在加载...",
-                        "no_results": "没有找到结果"
+                        "no_results": "未找到结果"
                     }
                 }
             }
@@ -1731,12 +1965,27 @@
         "content": "这是预览环境。您在此处所做的任何更改都不会影响生产环境。"
     },
     "components_navbar_project_switcher": {
+        "modal": {
+            "title": "从 {{projectName}} 创建预览",
+            "content": {
+                "part_1": "这将从",
+                "part_2": "创建一个预览项目。新项目将具有相同的连接和凭据。"
+            },
+            "preview_name": {
+                "title": "预览名称",
+                "value": "预览 {{projectName}}"
+            },
+            "creating": "正在创建预览",
+            "create": "创建预览"
+        },
         "toast_viewing": {
             "title": "您现在正在查看",
-            "content": "转到项目主页"
+            "content": "前往项目主页"
         },
         "select_a_project": "选择一个项目",
-        "preview": "预览"
+        "preview": "预览",
+        "all_projects": "所有项目",
+        "create_preview": "创建预览"
     },
     "components_navbar_user_credentials_switcher": {
         "create_new": "创建新的",
@@ -1756,9 +2005,9 @@
                 "title": "表查询",
                 "description": "建立查询并将其保存为图表"
             },
-            "dbt_semantic": {
-                "title": "dbt 语义层查询",
-                "description": "使用 dbt 语义层构建查询"
+            "query_semantic": {
+                "title": "来自 {{name}} 语义层的查询",
+                "description": "使用您的 {{name}} 语义层连接构建查询"
             },
             "sql_runner": {
                 "title": "SQL 运行器查询",
@@ -1870,7 +2119,7 @@
         "title": "更新图表",
         "form": {
             "name": {
-                "label": "为图表输入一个容易记住的名称",
+                "label": "图表名称",
                 "placeholder": "例如: 我们每周有多少活跃用户？"
             },
             "description": {
@@ -1885,7 +2134,7 @@
         "title": "复制图表",
         "form": {
             "name": {
-                "label": "为图表输入一个容易记住的名称",
+                "label": "图表名称",
                 "placeholder": "例如: 我们每周有多少活跃用户？"
             },
             "description": {
@@ -1901,7 +2150,7 @@
         "add": {
             "form": {
                 "name": {
-                    "label": "为图表输入一个容易记住的名称",
+                    "label": "图表名称",
                     "placeholder": "例如: 我们每周有多少活跃用户？"
                 },
                 "description": {
@@ -1935,10 +2184,9 @@
             },
             "create": "创建新空间",
             "save": "保存到已存在空间",
-
             "boxs": {
                 "name": {
-                    "label": "为图表输入一个容易记住的名称",
+                    "label": "图表名称",
                     "placeholder": "例如: 我们每周有多少活跃用户？"
                 },
                 "description": {
@@ -1957,6 +2205,30 @@
             },
             "cancel": "取消",
             "submit": "保存"
+        },
+        "save_dashboard": {
+            "form": {
+                "dashboard": {
+                    "label": "仪表板",
+                    "description": "选择一个仪表板以直接保存图表",
+                    "nothing_found": "未找到匹配的仪表板"
+                }
+            }
+        },
+        "save_space": {
+            "form": {
+                "space_create": {
+                    "label": "空间",
+                    "description": "创建一个新空间以添加此图表",
+                    "placeholder": "例如：KPIs"
+                },
+                "space_select": {
+                    "label": "空间",
+                    "description": "选择一个空间以直接保存图表"
+                },
+                "save": "保存到现有空间",
+                "create": "创建新空间"
+            }
         }
     },
     "components_common_modal_chart_delete": {
@@ -2043,12 +2315,12 @@
         "export_dashboard": "导出看板"
     },
     "components_common_modal_dashboard_update": {
-        "update_dashboard": "更新仪看板",
+        "update_dashboard": "更新看板",
         "form": {
-            "title": "更新仪看板",
+            "title": "更新看板",
             "dashboards": {
-                "label": "为您的仪看板输入一个容易记住的名称",
-                "placeholder": "例如: KPI 仪看板"
+                "label": "为您的看板输入一个容易记住的名称",
+                "placeholder": "例如: KPI 看板"
             },
             "description": {
                 "label": "描述",
@@ -2720,7 +2992,12 @@
         },
         "reinstall": "重新安装",
         "delete": "删除",
-        "install": "安装"
+        "install": "安装",
+        "waiting_for": {
+            "label": "您 GitHub 组织中的管理员需要批准此应用程序的安装。他们应该已收到来自 GitHub 的 \"请求安装 lightdash\" 的电子邮件。",
+            "pending": "待批准",
+            "install": "安装"
+        }
     },
     "components_user_settings_my_warehouse_connections_panel": {
         "create_credentials": {
@@ -2991,14 +3268,15 @@
             "remove_condition": "删除条件"
         },
         "settings": {
-            "maximum_error": "已达到最大透视数量",
+            "maximum_error": "达到最大透视数",
             "columns": "列",
-            "drag_dimensions": "将维度拖拽到此区域以透视您的表格",
+            "drag_dimensions": "将维度拖到此区域以透视您的表格",
             "rows": "行",
-            "drag_dimensions_to_area": "将维度拖拽到此区域以对数据进行分组",
+            "drag_dimensions_to_area": "将维度拖到此区域以对数据进行分组",
             "metrics": "指标",
-            "use_metrics": "要将指标用作行,需要将维度移动到\"列\"",
-            "show_metrics": "以行的形式显示指标",
+            "metrics_not_available": "启用小计时，无法将指标作为行使用",
+            "use_metrics": "要将指标用作行，您需要将一个维度移到 \"列\"",
+            "show_metrics": "将指标显示为行",
             "display": "显示",
             "show_table_names": "显示表名",
             "show_row_numbers": "显示行号",
@@ -3006,8 +3284,9 @@
             "show_row_totals": "显示行总计",
             "show_column_totals": "显示列总计",
             "show_number_of_results": "显示结果数量",
-            "at_least_two_dimensions": "只有在表格至少有两个维度的情况下才能使用小计",
-            "can_use_subtotals": "只有在未进行透视的表格上才能使用小计",
+            "subtotals_cant_be_used": "小计不能与指标作为行一起使用",
+            "at_least_two_dimensions": "小计只能用于至少有两个 {{privoted}} 维度的表",
+            "can_use_subtotals": "小计只能用于未透视的表",
             "show_subtotals": "显示小计"
         },
         "configure": "配置",
@@ -3018,7 +3297,7 @@
     },
 
     "components_chart_download": {
-        "chart_error": "无法访问图表实例",
+        "chart_error": "图表实例不可用",
         "options": "选项",
         "opaque": "不透明",
         "transparent": "透明",
@@ -3096,7 +3375,11 @@
         "remove_custom_dimension": "删除自定义维度",
         "add_custom_metrics": "添加自定义指标",
         "add_custom_dimensions": "添加自定义维度",
-        "view_options": "查看选项"
+        "view_options": "查看选项",
+        "copy_custom_metric": "自定义指标复制成功",
+        "duplicate_custom_metric": "重复自定义指标",
+        "copy_custom_dimension": "自定义维度复制成功",
+        "duplicate_custom_dimension": "重复自定义维度"
     },
     "components_explorer_sider_bar": {
         "error": "无法加载探索数据",
@@ -3202,7 +3485,9 @@
         "add_filter": "添加筛选器"
     },
     "components_explorer_panel": {
-        "tables": "表格"
+        "tables": "表格",
+        "edit_virtual_view": "编辑虚拟视图",
+        "delete": "删除"
     },
     "components_explorer_header": {
         "unsaved_changes": "您有未保存的看板更改! 您确定要离开而不保存吗?",
@@ -3352,6 +3637,7 @@
                 "label": "您必须先在设置中启用上游项目 > 数据操作",
                 "content": "推广图表"
             },
+            "delete": "删除",
             "integrations": "集成",
             "scheduled_deliveries": "预定交付",
             "alerts": "警告",
@@ -3610,6 +3896,10 @@
         "description": "单击运行查询以查看结果"
     },
     "pages_sql_runner_new": {
+        "error": {
+            "unable_load_sql": "无法加载共享的 SQL 运行器状态",
+            "unable_parse_sql": "无法从共享 URL 解析 SQL 运行器 Redux 状态"
+        },
         "sql_runner": "SQL运行器",
         "open_sidebar": "打开侧边栏"
     },
@@ -3671,10 +3961,11 @@
             },
             "view": {
                 "title": "查看基础数据"
-            },
-            "drill": {
-                "title": "深入研究"
             }
+        },
+        "cell_context": {
+            "copied": "已复制到剪贴板！",
+            "copy_value": "复制值"
         }
     },
     "components_sort_button": {
@@ -3813,7 +4104,8 @@
                 "syncs_scheduled_deliveries": "同步与定时交付",
                 "validator": "验证器",
                 "data_ops": "数据操作",
-                "custom_sql": "自定义 SQL"
+                "custom_sql": "自定义 SQL",
+                "semantic_layer_integration": "语义层集成"
             }
         },
         "routes": {
@@ -3961,7 +4253,9 @@
             "part_3": "了解更多信息。"
         },
         "save_and_test": "保存并测试",
-        "test_compile_project": "测试和编译项目"
+        "test_compile_project": "测试并编译项目",
+        "my_project": "我的项目",
+        "test_deploy_project": "测试并部署项目"
     },
     "components_project_connection_dbt_settings": {
         "type": "类型",
@@ -4752,6 +5046,7 @@
     },
 
     "components_dataviz_visualizations_chart_view": {
+        "vizchartview_error": "VizChartView 不应用于表格可视化",
         "error_tip": {
             "title": "图表配置不完整",
             "content": {
@@ -4761,6 +5056,86 @@
         },
         "error": "某些指定的列在数据中不存在",
         "error_loading_tip": "生成图表时出错"
+    },
+    "components_dataviz_cartesian_chart": {
+        "vertical_bar": "垂直柱状图",
+        "line": "折线图"
+    },
+    "components_dataviz_aggregation_config": {
+        "any_value": "任何值",
+        "aggregation_type": "聚合类型"
+    },
+    "components_dataviz_sort_config": {
+        "sort": {
+            "asc": "升序排序",
+            "desc": "降序排序",
+            "no_sort": "不排序"
+        },
+        "select": {
+            "asc": "升序",
+            "desc": "降序",
+            "no_sort": "不排序"
+        },
+        "sort_by": "排序依据"
+    },
+
+    "components_virtual_view": {
+        "create": {
+            "title": "创建虚拟视图",
+            "content": {
+                "part_1": "创建一个虚拟视图，以便其他人可以在 Lightdash 中重用此查询。该查询不会保存到您的 dbt 项目中，也不会进行管理。",
+                "part_2": "如果您希望定期重用此查询，我们建议将其写回到 dbt。"
+            },
+            "cancel": "取消",
+            "create": "创建"
+        },
+        "delete": {
+            "title": "删除虚拟视图",
+            "content": "您确定要删除此虚拟视图吗？此操作无法撤消，基于该虚拟视图的图表将无法使用。",
+            "cancel": "取消",
+            "delete": "删除"
+        },
+        "edit": {
+            "title": "您有未保存的更改",
+            "content": "您确定要离开此页面吗？您对查询所做的更改将不会被保存。",
+            "cancel": "取消",
+            "discard": "放弃并继续",
+            "loading": "正在加载 SQL 运行器..."
+        },
+        "head": {
+            "list_item": {
+                "delete": "已删除",
+                "changed": "类型已更改为"
+            },
+            "changes_review": {
+                "title": "检测到模式更改",
+                "content": {
+                    "part_1": "您的更改重命名或删除了一个字段。",
+                    "part_2": "添加了新列"
+                },
+                "show_less": "显示更少",
+                "show_more": "显示更多",
+                "affected": "以下图表将受到影响：",
+                "changes": {
+                    "part_1": "这些更改可能会破坏使用此虚拟视图的现有内容。",
+                    "part_2": "您确定要保存这些更改吗？"
+                },
+                "cancel": "取消",
+                "save_anyway": "还是保存"
+            },
+            "vritual": {
+                "tips_error": {
+                    "title": "运行查询时出错",
+                    "no_results": "没有返回结果",
+                    "no_columns": "没有返回列"
+                },
+                "loader": "正在验证您的更改...",
+                "no_changes_to_save": "没有要保存的更改",
+                "editing": "编辑中",
+                "save": "保存",
+                "cancel": "取消"
+            }
+        }
     },
 
     "pages_chart_history": {
@@ -5033,6 +5408,11 @@
             "results": "结果",
             "sql": "查询"
         }
+    },
+    "pages_semantic_viewer": {
+        "title": "语义查看器",
+        "chart": "图表",
+        "results": "结果"
     },
 
     "mobile_navbar": {

@@ -73,11 +73,11 @@ const GeneralSettings: FC = () => {
         const newValue = !metricsAsRows;
 
         if (newValue) {
-            setShowColumnCalculation(showRowCalculation);
-            setShowRowCalculation(showColumnCalculation);
+            setShowColumnCalculation(showColumnCalculation);
+            setShowRowCalculation(showRowCalculation);
         } else {
-            setShowColumnCalculation(showRowCalculation);
-            setShowRowCalculation(showColumnCalculation);
+            setShowColumnCalculation(showColumnCalculation);
+            setShowRowCalculation(showRowCalculation);
         }
 
         setMetricsAsRows(newValue);
@@ -215,10 +215,16 @@ const GeneralSettings: FC = () => {
                         )}
                     </Config.Heading>
                     <Tooltip
-                        disabled={!!isPivotTableEnabled}
-                        label={t(
-                            'components_visualization_configs_table.settings.use_metrics',
-                        )}
+                        disabled={!!isPivotTableEnabled && !showSubtotals}
+                        label={
+                            showSubtotals
+                                ? t(
+                                      'components_visualization_configs_table.settings.metrics_not_available',
+                                  )
+                                : t(
+                                      'components_visualization_configs_table.settings.use_metrics',
+                                  )
+                        }
                         w={300}
                         multiline
                         withinPortal
@@ -226,7 +232,7 @@ const GeneralSettings: FC = () => {
                     >
                         <Box>
                             <Switch
-                                disabled={!isPivotTableEnabled}
+                                disabled={!isPivotTableEnabled || showSubtotals}
                                 label={t(
                                     'components_visualization_configs_table.settings.show_metrics',
                                 )}
@@ -308,14 +314,19 @@ const GeneralSettings: FC = () => {
                     }}
                 />
                 <Tooltip
-                    disabled={!isPivotTableEnabled && canUseSubtotals}
+                    disabled={canUseSubtotals}
                     label={
-                        !canUseSubtotals
+                        metricsAsRows
                             ? t(
-                                  'components_visualization_configs_table.settings.at_least_two_dimensions',
+                                  'components_visualization_configs_table.settings.subtotals_cant_be_used',
                               )
                             : t(
-                                  'components_visualization_configs_table.settings.can_use_subtotals',
+                                  'components_visualization_configs_table.settings.at_least_two_dimensions',
+                                  {
+                                      privoted: isPivotTableEnabled
+                                          ? 'un-pivoted'
+                                          : '',
+                                  },
                               )
                     }
                     w={300}
@@ -330,13 +341,13 @@ const GeneralSettings: FC = () => {
                             )}
                             checked={
                                 canUseSubtotals &&
-                                !isPivotTableEnabled &&
+                                !metricsAsRows &&
                                 showSubtotals
                             }
                             onChange={() => {
                                 setShowSubtotals(!showSubtotals);
                             }}
-                            disabled={!!isPivotTableEnabled || !canUseSubtotals}
+                            disabled={!canUseSubtotals || metricsAsRows}
                         />
                     </Box>
                 </Tooltip>

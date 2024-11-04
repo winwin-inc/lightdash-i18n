@@ -3,12 +3,12 @@ import {
     ApiQueryResults,
     ChartKind,
     ChartType,
-    DbtCloudIDEProjectConfig,
     DbtProjectType,
     DefaultSupportedDbtVersion,
     DimensionType,
     Explore,
     ExploreError,
+    ExploreType,
     FieldType,
     Job,
     JobLabels,
@@ -64,6 +64,7 @@ export const validExplore: Explore = {
     label: 'valid_explore',
     tags: [],
     baseTable: 'a',
+    type: ExploreType.DEFAULT,
     joinedTables: [],
     tables: {
         a: {
@@ -172,6 +173,7 @@ export const expectedAllExploreSummary: SummaryExplore[] = [
         databaseName: validExplore.tables[validExplore.baseTable].database,
         schemaName: validExplore.tables[validExplore.baseTable].schema,
         description: validExplore.tables[validExplore.baseTable].description,
+        type: ExploreType.DEFAULT,
     },
     {
         name: exploreWithError.name,
@@ -240,6 +242,7 @@ export const projectWithSensitiveFields: Project = {
         api_key: 'api_key',
         environment_id: 'environment_id',
     },
+    schedulerTimezone: 'UTC',
 };
 
 export const projectSummary: ProjectSummary = {

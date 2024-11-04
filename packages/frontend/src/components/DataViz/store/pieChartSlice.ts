@@ -3,28 +3,58 @@ import {
     isVizPieChartConfig,
     VIZ_DEFAULT_AGGREGATION,
     type VizAggregationOptions,
-    type VizChartLayout,
+    type VizConfigErrors,
     type VizIndexType,
     type VizPieChartConfig,
     type VizPieChartOptions,
 } from '@lightdash/common';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { createSlice } from '@reduxjs/toolkit';
-import { onResults, setChartConfig } from './actions/commonChartActions';
+import { prepareAndFetchChartData } from '../../../features/sqlRunner/store/thunks';
+import {
+    resetChartState,
+    setChartConfig,
+    setChartOptionsAndConfig,
+} from './actions/commonChartActions';
 
 export type PieChartState = {
-    defaultFieldConfig: VizChartLayout | undefined;
-    config: VizPieChartConfig | undefined;
+    metadata: {
+        version: number;
+    };
+    fieldConfig: VizPieChartConfig['fieldConfig'] | undefined;
+    display: VizPieChartConfig['display'];
     options: VizPieChartOptions;
+    errors: VizConfigErrors | undefined;
+    chartDataLoading: boolean;
+    chartDataError: Error | undefined;
+    chartData:
+        | Awaited<
+              ReturnType<
+                  typeof prepareAndFetchChartData['fulfilled']
+              >['payload']
+          >
+        | undefined;
+    series: string[] | undefined;
 };
 
 const initialState: PieChartState = {
-    defaultFieldConfig: undefined,
-    config: undefined,
+    metadata: {
+        version: 1,
+    },
+    fieldConfig: undefined,
+    display: {
+        isDonut: false,
+    },
     options: {
         groupFieldOptions: [],
         metricFieldOptions: [],
+        customMetricFieldOptions: [],
     },
+    errors: undefined,
+    chartDataLoading: false,
+    chartDataError: undefined,
+    chartData: undefined,
+    series: undefined,
 };
 
 export const pieChartConfigSlice = createSlice({
@@ -32,16 +62,16 @@ export const pieChartConfigSlice = createSlice({
     initialState,
     reducers: {
         setGroupFieldIds: (
-            { config },
+            { fieldConfig },
             action: PayloadAction<{
                 reference: string;
-                type: VizIndexType;
+                axisType: VizIndexType;
             }>,
         ) => {
-            if (config?.fieldConfig?.x) {
-                config.fieldConfig.x = {
+            if (fieldConfig?.x) {
+                fieldConfig.x = {
                     reference: action.payload.reference,
-                    type: action.payload.type,
+                    type: action.payload.axisType,
                 };
             }
         },
@@ -52,51 +82,73 @@ export const pieChartConfigSlice = createSlice({
                 index: number;
             }>,
         ) => {
-            if (state.config?.fieldConfig?.y) {
-                const yAxis = state.config.fieldConfig.y[action.payload.index];
+            if (state.fieldConfig?.y) {
+                const yAxis = state.fieldConfig.y[action.payload.index];
                 if (yAxis) {
                     yAxis.reference = action.payload.reference;
                     yAxis.aggregation =
                         state.options.metricFieldOptions.find(
                             (option) =>
                                 option.reference === action.payload.reference,
-                        )?.aggregationOptions[0] ?? VIZ_DEFAULT_AGGREGATION;
+                        )?.aggregationOptions?.[0] ?? VIZ_DEFAULT_AGGREGATION;
                 }
             }
         },
         setYAxisAggregation: (
-            { config },
+            { fieldConfig },
             action: PayloadAction<{
                 index: number;
                 aggregation: VizAggregationOptions;
             }>,
         ) => {
-            if (!config) return;
-            if (!config?.fieldConfig?.y) return;
+            if (!fieldConfig?.y) return;
 
-            const yAxis = config.fieldConfig.y[action.payload.index];
+            const yAxis = fieldConfig.y[action.payload.index];
             if (yAxis) {
                 yAxis.aggregation = action.payload.aggregation;
             }
         },
     },
     extraReducers: (builder) => {
-        builder.addCase(onResults, (state, action) => {
+        // Include the extraReducers from cartesianChartConfigSlice
+        builder.addCase(prepareAndFetchChartData.pending, (state) => {
+            state.chartDataLoading = true;
+            state.chartDataError = undefined;
+        });
+        builder.addCase(prepareAndFetchChartData.fulfilled, (state, action) => {
+            state.chartDataLoading = false;
+            state.series = action.payload?.valuesColumns;
+            state.chartData = action.payload;
+        });
+        builder.addCase(prepareAndFetchChartData.rejected, (state, action) => {
+            state.chartDataLoading = false;
+            state.chartData = undefined;
+            state.chartDataError = new Error(action.error.message);
+        });
+        builder.addCase(setChartOptionsAndConfig, (state, action) => {
             if (action.payload.type !== ChartKind.PIE) {
                 return;
             }
 
             state.options = action.payload.options;
 
-            if (!state.config) {
-                state.config = action.payload.config;
+            // Only set the initial config if it's not already set and the fieldConfig is present
+            if (!state.fieldConfig && action.payload.config.fieldConfig) {
+                state.fieldConfig = action.payload.config.fieldConfig;
             }
+            if (!state.display && action.payload.config.display) {
+                state.display = action.payload.config.display;
+            }
+
+            state.errors = action.payload.errors;
         });
         builder.addCase(setChartConfig, (state, action) => {
             if (isVizPieChartConfig(action.payload)) {
-                state.config = action.payload;
+                state.fieldConfig = action.payload.fieldConfig;
+                state.display = action.payload.display;
             }
         });
+        builder.addCase(resetChartState, () => initialState);
     },
 });
 export const { setGroupFieldIds, setYAxisReference, setYAxisAggregation } =

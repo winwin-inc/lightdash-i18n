@@ -14,18 +14,17 @@ interface OpenInSqlRunnerButtonProps {
 
 const OpenInSqlRunnerButton: FC<OpenInSqlRunnerButtonProps> = memo(
     ({ projectUuid }) => {
-        const { data, isInitialLoading, error } = useCompiledSql();
         const { t } = useTranslation();
-
-        const searchParams = new URLSearchParams({
-            sql_runner: JSON.stringify({ sql: data ?? '' }),
-        });
+        const { data, isInitialLoading, error } = useCompiledSql();
 
         return (
             <Button
                 {...COLLAPSABLE_CARD_BUTTON_PROPS}
                 component={Link}
-                to={`/projects/${projectUuid}/sqlRunner?${searchParams.toString()}`}
+                to={{
+                    pathname: `/projects/${projectUuid}/sql-runner`,
+                    state: { sql: data }, // pass SQL as location state
+                }}
                 leftIcon={<MantineIcon icon={IconTerminal2} color="gray" />}
                 disabled={isInitialLoading || !!error}
             >

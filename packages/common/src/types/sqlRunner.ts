@@ -1,11 +1,19 @@
-import { type ApiError, type PivotChartData } from '..';
 import {
+    type ApiError,
+    type Explore,
+    type PivotChartData,
+    type PivotChartLayout,
+    type PullRequestCreated,
+    type QueryExecutionContext,
+} from '..';
+import {
+    type AllVizChartConfig,
+    type PivotIndexColum,
     type VizAggregationOptions,
     type VizBaseConfig,
     type VizCartesianChartConfig,
-    type VizChartConfig,
+    type VizColumn,
     type VizPieChartConfig,
-    type VizSqlColumn,
     type VizTableConfig,
 } from '../visualizations/types';
 import { type Dashboard } from './dashboard';
@@ -13,7 +21,7 @@ import { type Organization } from './organization';
 import { type Project } from './projects';
 import { type RawResultRow } from './results';
 import { type ChartKind } from './savedCharts';
-import { SchedulerJobStatus, type ApiJobScheduledResponse } from './scheduler';
+import { SchedulerJobStatus } from './scheduler';
 import { type SpaceSummary } from './space';
 import { type LightdashUser } from './user';
 
@@ -22,21 +30,18 @@ export type SqlRunnerPayload = {
     userUuid: string;
     organizationUuid: string | undefined;
     sqlChartUuid?: string;
-    context: 'sqlChartView' | 'sqlRunner' | 'dashboardView'; // TODO: move scheduler types to Backend package. Can't import QueryExecutionProperties from LightdashAnalytics
+    context: QueryExecutionContext;
 } & SqlRunnerBody;
 
 type ApiSqlRunnerPivotQueryPayload = {
-    indexColumn:
-        | {
-              reference: string;
-              type: string;
-          }
-        | undefined;
+    savedSqlUuid?: string;
+    indexColumn: PivotIndexColum;
     valuesColumns: {
         reference: string;
         aggregation: VizAggregationOptions;
     }[];
     groupByColumns: { reference: string }[] | undefined;
+    sortBy: PivotChartLayout['sortBy'] | undefined;
 };
 
 export type SqlRunnerPivotQueryPayload = SqlRunnerPayload &
@@ -57,7 +62,7 @@ export const sqlRunnerPivotQueryJob = 'sqlRunnerPivotQuery';
 
 type SqlRunnerJobStatusSuccessDetails = {
     fileUrl: string;
-    columns: VizSqlColumn[];
+    columns: VizColumn[];
 };
 
 type SqlRunnerPivotQueryJobStatusSuccessDetails =
@@ -97,6 +102,10 @@ export const isApiSqlRunnerJobSuccessResponse = (
     response: ApiSqlRunnerJobStatusResponse['results'] | ApiError,
 ): response is ApiSqlRunnerJobSuccessResponse['results'] =>
     response.status === SchedulerJobStatus.COMPLETED;
+
+export const isApiSqlRunnerJobErrorResponse = (
+    response: ApiSqlRunnerJobStatusResponse['results'] | ApiError,
+): response is ApiError => response.status === SchedulerJobStatus.ERROR;
 
 // TODO: common type with semantic viewer and should be abstracted
 export type ApiSqlRunnerJobPivotQuerySuccessResponse = {
@@ -145,7 +154,7 @@ export type CreateSqlChart = {
     description: string | null;
     sql: string;
     limit: number;
-    config: VizChartConfig;
+    config: AllVizChartConfig;
     spaceUuid: string;
 };
 
@@ -158,7 +167,7 @@ export type UpdateUnversionedSqlChart = {
 export type UpdateVersionedSqlChart = {
     sql: string;
     limit: number;
-    config: VizChartConfig;
+    config: AllVizChartConfig;
 };
 
 export type UpdateSqlChart = {
@@ -187,10 +196,31 @@ export type ApiUpdateSqlChart = {
     };
 };
 
-export type ApiSqlChartWithResults = {
+export type ApiCreateVirtualView = {
+    status: 'ok';
+    results: Pick<Explore, 'name'>;
+};
+
+export type CreateVirtualViewPayload = {
+    name: string;
+    sql: string;
+    columns: VizColumn[];
+};
+
+export type UpdateVirtualViewPayload = CreateVirtualViewPayload;
+
+export type ApiGithubDbtWriteBack = {
+    status: 'ok';
+    results: PullRequestCreated;
+};
+
+export type ApiGithubDbtWritePreview = {
     status: 'ok';
     results: {
-        jobId: ApiJobScheduledResponse['results']['jobId'];
-        chart: SqlChart;
+        url: string;
+        repo: string;
+        path: string;
+        files: string[];
+        owner: string;
     };
 };

@@ -15,6 +15,7 @@ import {
 } from '@lightdash/common';
 import { ActionIcon, Box, Menu, Tooltip, type MenuProps } from '@mantine/core';
 import {
+    IconCopy,
     IconDots,
     IconEdit,
     IconFilter,
@@ -23,7 +24,8 @@ import {
 } from '@tabler/icons-react';
 import { useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
+import { v4 as uuidv4 } from 'uuid';
+import useToaster from '../../../../../hooks/toaster/useToaster';
 import { useFilters } from '../../../../../hooks/useFilters';
 import { useExplorerContext } from '../../../../../providers/ExplorerProvider';
 import { useTracking } from '../../../../../providers/TrackingProvider';
@@ -78,6 +80,7 @@ const TreeSingleNodeActions: FC<Props> = ({
     hasDescription,
     onViewDescription,
 }) => {
+    const { showToastSuccess } = useToaster();
     const { addFilter } = useFilters();
     const { track } = useTracking();
     const { t } = useTranslation();
@@ -94,7 +97,12 @@ const TreeSingleNodeActions: FC<Props> = ({
     const toggleCustomDimensionModal = useExplorerContext(
         (context) => context.actions.toggleCustomDimensionModal,
     );
-
+    const addAdditionalMetric = useExplorerContext(
+        (context) => context.actions.addAdditionalMetric,
+    );
+    const addAdditionalDimension = useExplorerContext(
+        (context) => context.actions.addCustomDimension,
+    );
     const customMetrics = useMemo(() => {
         if (isCustomSqlDimension(item)) {
             return getCustomMetricType(item.dimensionType);
@@ -102,6 +110,42 @@ const TreeSingleNodeActions: FC<Props> = ({
         return isDimension(item) ? getCustomMetricType(item.type) : [];
     }, [item]);
 
+    const duplicateCustomMetric = (customMetric: AdditionalMetric) => {
+        const newDeepCopyItem = JSON.parse(JSON.stringify(customMetric));
+        let newId = uuidv4();
+        let newIdSubstring = newId.replace(/-/g, '').substring(0, 16);
+        let currentName = newDeepCopyItem.name;
+        const pattern = '_8id9_';
+        const patternIndex = currentName.indexOf(pattern);
+        if (patternIndex !== -1) {
+            currentName =
+                currentName.substring(0, patternIndex + pattern.length) +
+                newIdSubstring;
+        } else {
+            currentName = currentName + pattern + newIdSubstring;
+        }
+        newDeepCopyItem.label = 'Copy ' + newDeepCopyItem.label;
+        newDeepCopyItem.uuid = newId;
+        newDeepCopyItem.name = currentName;
+        addAdditionalMetric(newDeepCopyItem);
+    };
+    const duplicateCustomDimension = (customDimension: CustomDimension) => {
+        const newDeepCopyItem = JSON.parse(JSON.stringify(customDimension));
+        let newIdSubstring = uuidv4().replace(/-/g, '').substring(0, 16);
+        let currentId = newDeepCopyItem.id;
+        const pattern = '_8id9_';
+        const patternIndex = currentId.indexOf(pattern);
+        if (patternIndex !== -1) {
+            currentId =
+                currentId.substring(0, patternIndex + pattern.length) +
+                newIdSubstring;
+        } else {
+            currentId = currentId + pattern + newIdSubstring;
+        }
+        newDeepCopyItem.name = 'Copy ' + newDeepCopyItem.name;
+        newDeepCopyItem.id = currentId;
+        addAdditionalDimension(newDeepCopyItem);
+    };
     return isHovered || isSelected || isOpened ? (
         <Menu
             withArrow
@@ -147,6 +191,26 @@ const TreeSingleNodeActions: FC<Props> = ({
                         >
                             {t(
                                 'components_explorer_table_tree.edit_custom_metric',
+                            )}
+                        </Menu.Item>
+                        <Menu.Item
+                            component="button"
+                            icon={<MantineIcon icon={IconCopy} />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                duplicateCustomMetric(item);
+                                track({
+                                    name: EventName.ADD_CUSTOM_METRIC_CLICKED,
+                                });
+                                showToastSuccess({
+                                    title: t(
+                                        'components_explorer_table_tree.copy_custom_metric',
+                                    ),
+                                });
+                            }}
+                        >
+                            {t(
+                                'components_explorer_table_tree.duplicate_custom_metric',
                             )}
                         </Menu.Item>
                         <Menu.Item
@@ -198,6 +262,26 @@ const TreeSingleNodeActions: FC<Props> = ({
                         >
                             {t(
                                 'components_explorer_table_tree.edit_custom_dimension',
+                            )}
+                        </Menu.Item>
+                        <Menu.Item
+                            component="button"
+                            icon={<MantineIcon icon={IconCopy} />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                duplicateCustomDimension(item);
+                                track({
+                                    name: EventName.ADD_CUSTOM_DIMENSION_CLICKED,
+                                });
+                                showToastSuccess({
+                                    title: t(
+                                        'components_explorer_table_tree.copy_custom_dimension',
+                                    ),
+                                });
+                            }}
+                        >
+                            {t(
+                                'components_explorer_table_tree.duplicate_custom_dimension',
                             )}
                         </Menu.Item>
                         <Menu.Item

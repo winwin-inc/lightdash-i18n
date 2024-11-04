@@ -48,7 +48,7 @@ const FrequencySelect: FC<{
             withinPortal
             disabled={disabled}
             onChange={onChange}
-            w={210}
+            w={110}
             sx={{ alignSelf: 'start' }}
         />
     );

@@ -1,35 +1,42 @@
 import {
     DimensionType,
     type ChartKind,
-    type VizChartLayout,
+    type PivotChartLayout,
+    type VizColumn,
+    type VizConfigErrors,
     type VizIndexLayoutOptions,
     type VizPivotLayoutOptions,
-    type VizSqlColumn,
-    type VizValuesLayoutOptions,
 } from '@lightdash/common';
-import { Box } from '@mantine/core';
+import { ActionIcon, Box, Group, Stack, Tooltip } from '@mantine/core';
+import { IconMinus, IconPlus, IconX } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { AddButton } from '../../VisualizationConfigs/common/AddButton';
+import {
+    useAppDispatch as useVizDispatch,
+    useAppSelector as useVizSelector,
+} from '../../../features/sqlRunner/store/hooks';
+import MantineIcon from '../../common/MantineIcon';
 import { Config } from '../../VisualizationConfigs/common/Config';
 import { FieldReferenceSelect } from '../FieldReferenceSelect';
-import {
-    useVizDispatch,
-    useVizSelector,
-    type CartesianChartActionsType,
-} from '../store';
+import { type BarChartActionsType } from '../store/barChartSlice';
+import { type LineChartActionsType } from '../store/lineChartSlice';
 import { cartesianChartSelectors } from '../store/selectors';
 import { DataVizAggregationConfig } from './DataVizAggregationConfig';
+import { DataVizSortConfig } from './DataVizSortConfig';
 
 const YFieldsAxisConfig: FC<{
-    field: VizChartLayout['y'][number];
-    yLayoutOptions: VizValuesLayoutOptions[];
+    field: PivotChartLayout['y'][number];
+    yLayoutOptions: VizIndexLayoutOptions[];
     isSingle: boolean;
     index: number;
-    actions: CartesianChartActionsType;
-    sqlColumns: VizSqlColumn[];
-}> = ({ field, yLayoutOptions, isSingle, index, actions, sqlColumns }) => {
+    actions: BarChartActionsType | LineChartActionsType;
+    columns: VizColumn[];
+    error:
+        | NonNullable<
+              VizConfigErrors['customMetricFieldError']
+          >['references'][number]
+        | undefined;
+}> = ({ field, yLayoutOptions, isSingle, index, actions, columns, error }) => {
     const { t } = useTranslation();
     const dispatch = useVizDispatch();
 
@@ -45,71 +52,87 @@ const YFieldsAxisConfig: FC<{
             >
                 <Config>
                     <Config.Section>
-                        <FieldReferenceSelect
-                            clearable
-                            data={yLayoutOptions.map((y) => ({
-                                value: y.reference,
-                                label: y.reference,
-                            }))}
-                            value={field.reference}
-                            error={
-                                yLayoutOptions.find(
-                                    (y) => y.reference === field.reference,
-                                ) === undefined &&
-                                t(
-                                    'features_sql_runner_bar_chart_field_configuartaion.column_not_in_sql',
-                                    {
-                                        reference: field.reference,
-                                    },
-                                )
-                            }
-                            placeholder={t(
-                                'features_sql_runner_bar_chart_field_configuartaion.select_y_axis',
-                            )}
-                            onChange={(value) => {
-                                if (!value) {
-                                    dispatch(actions.removeYAxisField(index));
-                                } else
-                                    dispatch(
-                                        actions.setYAxisReference({
-                                            reference: value,
-                                            index,
-                                        }),
-                                    );
-                            }}
-                            fieldType={
-                                sqlColumns?.find(
-                                    (x) => x.reference === field.reference,
-                                )?.type ?? DimensionType.STRING
-                            }
-                        />
-
-                        <Config.Group>
-                            <Config.Label>
-                                {t(
-                                    'features_sql_runner_bar_chart_field_configuartaion.aggregation',
-                                )}
-                            </Config.Label>
-
-                            <DataVizAggregationConfig
-                                options={
-                                    yLayoutOptions.find(
-                                        (layout) =>
-                                            layout.reference ===
-                                            field.reference,
-                                    )?.aggregationOptions
+                        <Group spacing="xs">
+                            <FieldReferenceSelect
+                                sx={{
+                                    flex: 1,
+                                }}
+                                data={yLayoutOptions.map((y) => ({
+                                    value: y.reference,
+                                    label: y.reference,
+                                }))}
+                                value={field.reference}
+                                error={
+                                    !!error &&
+                                    t(
+                                        'features_sql_runner_bar_chart_field_configuartaion',
+                                        {
+                                            reference: error,
+                                        },
+                                    )
                                 }
-                                aggregation={field.aggregation}
-                                onChangeAggregation={(value) =>
-                                    dispatch(
-                                        actions.setYAxisAggregation({
-                                            index,
-                                            aggregation: value,
-                                        }),
+                                placeholder={t(
+                                    'features_sql_runner_bar_chart_field_configuartaion.select_y_axis',
+                                )}
+                                onChange={(value) => {
+                                    if (value) {
+                                        dispatch(
+                                            actions.setYAxisReference({
+                                                reference: value,
+                                                index,
+                                            }),
+                                        );
+                                    }
+                                }}
+                                fieldType={
+                                    columns?.find(
+                                        (x) => x.reference === field.reference,
+                                    )?.type ?? DimensionType.STRING
+                                }
+                                rightSection={
+                                    field?.reference && (
+                                        <DataVizAggregationConfig
+                                            options={
+                                                yLayoutOptions.find(
+                                                    (layout) =>
+                                                        layout.reference ===
+                                                        field.reference,
+                                                )?.aggregationOptions
+                                            }
+                                            aggregation={field.aggregation}
+                                            onChangeAggregation={(value) =>
+                                                dispatch(
+                                                    actions.setYAxisAggregation(
+                                                        {
+                                                            index,
+                                                            aggregation: value,
+                                                        },
+                                                    ),
+                                                )
+                                            }
+                                        />
                                     )
                                 }
                             />
-                        </Config.Group>
+                            <Tooltip
+                                variant="xs"
+                                label={t(
+                                    'features_sql_runner_bar_chart_field_configuartaion.remove_y_axis',
+                                )}
+                            >
+                                <ActionIcon
+                                    color="gray.6"
+                                    variant="subtle"
+                                    onClick={() =>
+                                        dispatch(
+                                            actions.removeYAxisField(index),
+                                        )
+                                    }
+                                >
+                                    <MantineIcon icon={IconMinus} />
+                                </ActionIcon>
+                            </Tooltip>
+                        </Group>
                     </Config.Section>
                 </Config>
             </Box>
@@ -121,51 +144,83 @@ const XFieldAxisConfig = ({
     field,
     xLayoutOptions,
     actions,
-    sqlColumns,
+    columns,
+    error,
 }: {
-    sqlColumns: VizSqlColumn[];
-
-    field: VizChartLayout['x'] | undefined;
+    columns: VizColumn[];
+    field: ReturnType<typeof cartesianChartSelectors.getXAxisField> | undefined;
     xLayoutOptions: VizIndexLayoutOptions[];
-    actions: CartesianChartActionsType;
+    actions: BarChartActionsType | LineChartActionsType;
+    error: VizConfigErrors['indexFieldError'];
 }) => {
     const { t } = useTranslation();
     const dispatch = useVizDispatch();
 
     return (
-        <FieldReferenceSelect
-            clearable
-            data={xLayoutOptions.map((x) => ({
-                value: x.reference,
-                label: x.reference,
-            }))}
-            value={field?.reference ?? null}
-            placeholder={t(
-                'features_sql_runner_bar_chart_field_configuartaion.select_x_axis',
-            )}
-            onChange={(value) => {
-                if (!value) {
-                    dispatch(actions.removeXAxisField());
-                } else dispatch(actions.setXAxisReference(value));
-            }}
-            error={
-                field?.reference &&
-                xLayoutOptions.find((x) => x.reference === field.reference) ===
-                    undefined &&
-                t(
-                    'features_sql_runner_bar_chart_field_configuartaion.column_not_in_sql_query',
-                    {
-                        reference: field.reference,
-                    },
-                )
-            }
-            fieldType={
-                (field?.reference &&
-                    sqlColumns?.find((x) => x.reference === field.reference)
-                        ?.type) ||
-                DimensionType.STRING
-            }
-        />
+        <Group spacing="xs">
+            <FieldReferenceSelect
+                sx={{
+                    flex: 1,
+                }}
+                data={xLayoutOptions.map((x) => ({
+                    value: x.reference,
+                    label: x.reference,
+                }))}
+                value={field?.reference ?? null}
+                placeholder={t(
+                    'features_sql_runner_bar_chart_field_configuartaion.select_x_axis',
+                )}
+                onChange={(value) =>
+                    value && dispatch(actions.setXAxisReference(value))
+                }
+                error={
+                    error &&
+                    t(
+                        'features_sql_runner_bar_chart_field_configuartaion.column_not_in_sql_query',
+                        {
+                            reference: error.reference || error,
+                        },
+                    )
+                }
+                fieldType={
+                    (field?.reference &&
+                        columns?.find((x) => x.reference === field.reference)
+                            ?.type) ||
+                    DimensionType.STRING
+                }
+                rightSection={
+                    field?.reference && (
+                        <DataVizSortConfig
+                            sortBy={field.sortBy?.direction}
+                            onChangeSortBy={(value) =>
+                                field.reference &&
+                                dispatch(
+                                    actions.setSortBy({
+                                        reference: field.reference,
+                                        direction: value,
+                                    }),
+                                )
+                            }
+                        />
+                    )
+                }
+            />
+            <Tooltip
+                variant="xs"
+                label={t(
+                    'features_sql_runner_bar_chart_field_configuartaion.remove_x_axis',
+                )}
+            >
+                <ActionIcon
+                    color="gray.6"
+                    variant="subtle"
+                    onClick={() => dispatch(actions.removeXAxisField())}
+                    data-testid="remove-x-axis-field"
+                >
+                    <MantineIcon icon={IconMinus} />
+                </ActionIcon>
+            </Tooltip>
+        </Group>
     );
 };
 
@@ -173,19 +228,39 @@ const GroupByFieldAxisConfig = ({
     field,
     groupByOptions = [],
     actions,
-    sqlColumns,
+    columns,
+    error,
 }: {
-    sqlColumns: VizSqlColumn[];
-
+    columns: VizColumn[];
     field: undefined | { reference: string };
     groupByOptions?: VizPivotLayoutOptions[];
-    actions: CartesianChartActionsType;
+    actions: BarChartActionsType | LineChartActionsType;
+    error: VizConfigErrors['groupByFieldError'];
 }) => {
     const { t } = useTranslation();
     const dispatch = useVizDispatch();
-
+    const groupByError = error?.references[0]
+        ? t(
+              'features_sql_runner_bar_chart_field_configuartaion.column_not_in_sql',
+              {
+                  reference: error.references[0],
+              },
+          )
+        : undefined;
     return (
         <FieldReferenceSelect
+            rightSection={
+                // When the field is deleted, the error state prevents the clear button from showing
+                groupByError && (
+                    <ActionIcon
+                        onClick={() =>
+                            dispatch(actions.unsetGroupByReference())
+                        }
+                    >
+                        <MantineIcon icon={IconX} />
+                    </ActionIcon>
+                )
+            }
             clearable
             data={groupByOptions.map((groupBy) => ({
                 value: groupBy.reference,
@@ -195,16 +270,7 @@ const GroupByFieldAxisConfig = ({
             placeholder={t(
                 'features_sql_runner_bar_chart_field_configuartaion.select_group_by',
             )}
-            error={
-                field !== undefined &&
-                !groupByOptions.find((x) => x.reference === field.reference) &&
-                t(
-                    'features_sql_runner_bar_chart_field_configuartaion.column_not_in_sql_group',
-                    {
-                        reference: field.reference,
-                    },
-                )
-            }
+            error={groupByError}
             onChange={(value) => {
                 if (!value) {
                     dispatch(actions.unsetGroupByReference());
@@ -217,22 +283,21 @@ const GroupByFieldAxisConfig = ({
                 }
             }}
             fieldType={
-                sqlColumns?.find((x) => x.reference === field?.reference)
-                    ?.type ?? DimensionType.STRING
+                columns?.find((x) => x.reference === field?.reference)?.type ??
+                DimensionType.STRING
             }
         />
     );
 };
 
 export const CartesianChartFieldConfiguration = ({
-    sqlColumns,
+    columns,
     actions,
     selectedChartType,
 }: {
     selectedChartType: ChartKind;
-    sqlColumns: VizSqlColumn[];
-
-    actions: CartesianChartActionsType;
+    columns: VizColumn[];
+    actions: BarChartActionsType | LineChartActionsType;
 }) => {
     const { t } = useTranslation();
     const dispatch = useVizDispatch();
@@ -245,6 +310,7 @@ export const CartesianChartFieldConfiguration = ({
             selectedChartType,
         ),
     );
+
     const xAxisField = useVizSelector((state) =>
         cartesianChartSelectors.getXAxisField(state, selectedChartType),
     );
@@ -257,8 +323,13 @@ export const CartesianChartFieldConfiguration = ({
     const groupByLayoutOptions = useVizSelector((state) =>
         cartesianChartSelectors.getPivotLayoutOptions(state, selectedChartType),
     );
+
+    const errors = useVizSelector((state) =>
+        cartesianChartSelectors.getErrors(state, selectedChartType),
+    );
+
     return (
-        <>
+        <Stack spacing="xl" mt="sm">
             <Config>
                 <Config.Section>
                     <Config.Heading>
@@ -268,10 +339,11 @@ export const CartesianChartFieldConfiguration = ({
                     </Config.Heading>
                     {xLayoutOptions && (
                         <XFieldAxisConfig
-                            sqlColumns={sqlColumns}
+                            columns={columns}
                             field={xAxisField}
                             xLayoutOptions={xLayoutOptions}
                             actions={actions}
+                            error={errors?.indexFieldError}
                         />
                     )}
                 </Config.Section>
@@ -279,14 +351,26 @@ export const CartesianChartFieldConfiguration = ({
             <Config>
                 <Config.Section>
                     <Config.Group>
-                        <Config.Heading>
-                            {t(
-                                'features_sql_runner_bar_chart_field_configuartaion.y_axis',
+                        <Config.Heading>{`${t(
+                            'features_sql_runner_bar_chart_field_configuartaion.y_axis',
+                        )}`}</Config.Heading>
+                        <Tooltip
+                            variant="xs"
+                            label={t(
+                                'features_sql_runner_bar_chart_field_configuartaion.add_y_axis',
                             )}
-                        </Config.Heading>
-                        <AddButton
-                            onClick={() => dispatch(actions.addYAxisField())}
-                        ></AddButton>
+                        >
+                            <ActionIcon
+                                color="gray.6"
+                                variant="subtle"
+                                onClick={() =>
+                                    dispatch(actions.addYAxisField())
+                                }
+                                data-testid="add-y-axis-field"
+                            >
+                                <MantineIcon icon={IconPlus} />
+                            </ActionIcon>
+                        </Tooltip>
                     </Config.Group>
                     {yLayoutOptions &&
                         yAxisFields &&
@@ -294,11 +378,17 @@ export const CartesianChartFieldConfiguration = ({
                             <YFieldsAxisConfig
                                 key={field.reference + index}
                                 field={field}
-                                yLayoutOptions={yLayoutOptions}
+                                yLayoutOptions={
+                                    yLayoutOptions.customAggregations
+                                }
                                 isSingle={yAxisFields.length === 1}
                                 index={index}
                                 actions={actions}
-                                sqlColumns={sqlColumns}
+                                columns={columns}
+                                error={errors?.customMetricFieldError?.references.find(
+                                    (reference: string) =>
+                                        reference === field.reference,
+                                )}
                             />
                         ))}
                 </Config.Section>
@@ -311,13 +401,14 @@ export const CartesianChartFieldConfiguration = ({
                         )}
                     </Config.Heading>
                     <GroupByFieldAxisConfig
-                        sqlColumns={sqlColumns}
+                        columns={columns}
                         field={groupByField}
                         groupByOptions={groupByLayoutOptions}
                         actions={actions}
+                        error={errors?.groupByFieldError}
                     />
                 </Config.Section>
             </Config>
-        </>
+        </Stack>
     );
 };

@@ -1,4 +1,4 @@
-import { type ApiError } from '@lightdash/common';
+import { InvalidUser, type ApiError } from '@lightdash/common';
 import { captureException } from '@sentry/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
@@ -15,7 +15,7 @@ const useQueryError = ({
 }: opts = {}): Dispatch<SetStateAction<ApiError | undefined>> => {
     const queryClient = useQueryClient();
     const [errorResponse, setErrorResponse] = useState<ApiError | undefined>();
-    const { showToastError, showToastApiError } = useToaster();
+    const { showToastError, addToastError } = useToaster();
     useEffect(() => {
         (async function doIfError() {
             const { error } = errorResponse || {};
@@ -29,7 +29,7 @@ const useQueryError = ({
                     // we will handle this on pages showing a nice message
 
                     if (forceToastOnForbidden) {
-                        showToastApiError({
+                        addToastError({
                             title: forbiddenToastTitle ?? 'Forbidden',
                             apiError: error,
                         });
@@ -63,8 +63,12 @@ const useQueryError = ({
                             subtitle: JSON.stringify(error),
                         });
                     }
+                } else if (error.name === InvalidUser.name) {
+                    if (window.location.pathname !== '/login') {
+                        window.location.href = '/login';
+                    }
                 } else {
-                    showToastApiError({
+                    addToastError({
                         apiError: error,
                     });
                 }
@@ -76,7 +80,7 @@ const useQueryError = ({
         forceToastOnForbidden,
         queryClient,
         showToastError,
-        showToastApiError,
+        addToastError,
     ]);
     return setErrorResponse;
 };

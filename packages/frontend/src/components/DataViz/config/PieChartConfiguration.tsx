@@ -1,10 +1,13 @@
-import { DimensionType, type VizSqlColumn } from '@lightdash/common';
+import { DimensionType, type VizColumn } from '@lightdash/common';
 import { Stack, Title } from '@mantine/core';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-
+import {
+    useAppDispatch as useVizDispatch,
+    useAppSelector as useVizSelector,
+} from '../../../features/sqlRunner/store/hooks';
 import { Config } from '../../VisualizationConfigs/common/Config';
 import { FieldReferenceSelect } from '../FieldReferenceSelect';
-import { useVizDispatch, useVizSelector } from '../store';
 import {
     setGroupFieldIds,
     setYAxisAggregation,
@@ -13,27 +16,41 @@ import {
 import { DataVizAggregationConfig } from './DataVizAggregationConfig';
 
 export const PieChartConfiguration = ({
-    sqlColumns,
+    columns,
 }: {
-    sqlColumns: VizSqlColumn[];
+    columns: VizColumn[];
 }) => {
     const { t } = useTranslation();
     const dispatch = useVizDispatch();
 
     const groupField = useVizSelector(
-        (state) => state.pieChartConfig.config?.fieldConfig?.x?.reference,
+        (state) => state.pieChartConfig.fieldConfig?.x?.reference,
     );
     const groupFieldOptions = useVizSelector(
         (state) => state.pieChartConfig.options.groupFieldOptions,
     );
 
     const aggregateField = useVizSelector(
-        (state) => state.pieChartConfig.config?.fieldConfig?.y[0],
+        (state) => state.pieChartConfig.fieldConfig?.y[0],
     );
 
+    // NOTE that this form is only used on semantic viewer, so uses customMetricFieldOptions
     const aggregateFieldOptions = useVizSelector(
-        (state) => state.pieChartConfig.options.metricFieldOptions,
+        (state) => state.pieChartConfig.options.customMetricFieldOptions,
     );
+
+    const errors = useVizSelector((state) => state.pieChartConfig.errors);
+
+    const errorMessage = useMemo(() => {
+        return errors?.groupByFieldError?.references
+            ? t(
+                  'features_sql_runner_pie_chart_configuration.column_not_in_sql_query',
+                  {
+                      field: errors?.groupByFieldError?.references[0],
+                  },
+              )
+            : undefined;
+    }, [errors?.groupByFieldError?.references, t]);
 
     return (
         <Stack spacing="sm" mb="lg">
@@ -65,19 +82,15 @@ export const PieChartConfiguration = ({
                         dispatch(setGroupFieldIds(field));
                     }}
                     error={
-                        !!groupField &&
-                        groupFieldOptions.find(
-                            (x) => x.reference === groupField,
-                        ) === undefined &&
-                        t(
-                            'features_sql_runner_pie_chart_configuration.column_not_in_sql_query',
-                            {
-                                field: groupField,
-                            },
-                        )
+                        errors?.groupByFieldError?.references
+                            ? t('features_sql_runner_pie_chart_configuration', {
+                                  reference:
+                                      errors?.groupByFieldError?.references[0],
+                              })
+                            : undefined
                     }
                     fieldType={
-                        sqlColumns?.find((x) => x.reference === groupField)
+                        columns?.find((x) => x.reference === groupField)
                             ?.type ?? DimensionType.STRING
                     }
                 />
@@ -96,17 +109,7 @@ export const PieChartConfiguration = ({
                         label: y.reference,
                     }))}
                     value={aggregateField?.reference}
-                    error={
-                        aggregateFieldOptions.find(
-                            (y) => y.reference === aggregateField?.reference,
-                        ) === undefined &&
-                        t(
-                            'features_sql_runner_pie_chart_configuration.column_not_in_sql_aggregate',
-                            {
-                                reference: aggregateField?.reference,
-                            },
-                        )
-                    }
+                    error={errorMessage}
                     placeholder={t(
                         'features_sql_runner_pie_chart_configuration.select_y_axis',
                     )}
@@ -120,7 +123,7 @@ export const PieChartConfiguration = ({
                         );
                     }}
                     fieldType={
-                        sqlColumns?.find(
+                        columns?.find(
                             (x) => x.reference === aggregateField?.reference,
                         )?.type ?? DimensionType.STRING
                     }

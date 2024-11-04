@@ -3,7 +3,9 @@ import { type Dashboard } from './dashboard';
 import { type Table } from './explore';
 import { type Dimension, type Metric } from './field';
 import { type ChartKind, type SavedChart } from './savedCharts';
+import type { SavedSemanticViewerChart } from './semanticLayer';
 import { type Space } from './space';
+import { type SqlChart } from './sqlRunner';
 import {
     type ValidationErrorChartResponse,
     type ValidationErrorDashboardResponse,
@@ -33,6 +35,24 @@ export type SavedChartSearchResult = Pick<
     validationErrors: {
         validationId: ValidationErrorChartResponse['validationId'];
     }[];
+} & RankedItem;
+
+export type SqlChartSearchResult = Pick<
+    SqlChart,
+    'name' | 'description' | 'slug'
+> & {
+    uuid: SqlChart['savedSqlUuid'];
+    chartType: ChartKind;
+    spaceUuid: SqlChart['space']['uuid'];
+} & RankedItem;
+
+export type SemanticViewerChartSearchResults = Pick<
+    SavedSemanticViewerChart,
+    'name' | 'description' | 'slug'
+> & {
+    uuid: SavedSemanticViewerChart['savedSemanticViewerChartUuid'];
+    chartType: ChartKind;
+    spaceUuid: SavedSemanticViewerChart['space']['uuid'];
 } & RankedItem;
 
 export type TableSearchResult = Pick<
@@ -83,6 +103,8 @@ export type SearchResult =
     | SpaceSearchResult
     | DashboardSearchResult
     | SavedChartSearchResult
+    | SqlChartSearchResult
+    | SemanticViewerChartSearchResults
     | TableErrorSearchResult
     | TableSearchResult
     | FieldSearchResult
@@ -105,6 +127,8 @@ export type SearchResults = {
     spaces: SpaceSearchResult[];
     dashboards: DashboardSearchResult[];
     savedCharts: SavedChartSearchResult[];
+    sqlCharts: SqlChartSearchResult[];
+    semanticViewerCharts: SemanticViewerChartSearchResults[];
     tables: (TableSearchResult | TableErrorSearchResult)[];
     fields: FieldSearchResult[];
     pages: PageResult[];
@@ -126,6 +150,8 @@ export const getSearchResultId = (meta: SearchResult | undefined) => {
 export enum SearchItemType {
     DASHBOARD = 'dashboard',
     CHART = 'saved_chart',
+    SQL_CHART = 'sql_chart',
+    SEMANTIC_VIEWER_CHART = 'semantic_viewer_chart',
     SPACE = 'space',
     TABLE = 'table',
     FIELD = 'field',
@@ -148,6 +174,10 @@ export function getSearchItemTypeFromResultKey(
             return SearchItemType.FIELD;
         case 'pages':
             return SearchItemType.PAGE;
+        case 'sqlCharts':
+            return SearchItemType.SQL_CHART;
+        case 'semanticViewerCharts':
+            return SearchItemType.SEMANTIC_VIEWER_CHART;
         default:
             return assertUnreachable(
                 searchResultKey,

@@ -17,6 +17,8 @@ import { useCallback, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../components/common/MantineIcon';
+import { useActiveProjectUuid } from '../../../hooks/useActiveProject';
+import { useProject } from '../../../hooks/useProject';
 import { useSchedulersEnabledUpdateMutation } from '../hooks/useSchedulersUpdateMutation';
 
 type SchedulersListItemProps = {
@@ -41,6 +43,13 @@ const SchedulersListItem: FC<SchedulersListItemProps> = ({
         [mutateSchedulerEnabled],
     );
 
+    const { activeProjectUuid } = useActiveProjectUuid();
+    const { data: project } = useProject(activeProjectUuid);
+
+    if (!project) {
+        return null;
+    }
+
     return (
         <Paper p="sm" mb="xs" withBorder sx={{ overflow: 'hidden' }}>
             <Group noWrap position="apart">
@@ -50,7 +59,10 @@ const SchedulersListItem: FC<SchedulersListItemProps> = ({
                     </Text>
                     <Group spacing="sm">
                         <Text color="gray" size={12}>
-                            {getHumanReadableCronExpression(scheduler.cron)}
+                            {getHumanReadableCronExpression(
+                                scheduler.cron,
+                                scheduler.timezone ?? project.schedulerTimezone,
+                            )}
                         </Text>
 
                         <Box c="gray.4">

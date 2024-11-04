@@ -24,8 +24,9 @@ const getCustomMetrics = async (projectUuid: string) => {
 
 const useCustomMetrics = (projectUuid: string) =>
     useQuery<CustomMetricData[], ApiError>({
-        queryKey: ['custom-metrics'],
+        queryKey: ['custom-metrics', projectUuid],
         queryFn: () => getCustomMetrics(projectUuid),
+        refetchOnMount: 'always',
     });
 
 const CustomSqlPanel: FC<{ projectUuid: string }> = ({ projectUuid }) => {

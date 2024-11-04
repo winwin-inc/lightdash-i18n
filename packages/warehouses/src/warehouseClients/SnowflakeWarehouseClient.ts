@@ -23,8 +23,17 @@ import * as Util from 'util';
 import { WarehouseCatalog } from '../types';
 import WarehouseBaseClient from './WarehouseBaseClient';
 
+const assertIsSnowflakeLoggingLevel = (
+    x: string | undefined,
+): x is 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'TRACE' =>
+    x !== undefined && ['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'].includes(x);
+
 // Prevent snowflake sdk from flooding the output with info logs
-configure({ logLevel: 'ERROR' });
+configure({
+    logLevel: assertIsSnowflakeLoggingLevel(process.env.SNOWFLAKE_SDK_LOG_LEVEL)
+        ? process.env.SNOWFLAKE_SDK_LOG_LEVEL
+        : 'ERROR',
+});
 
 export enum SnowflakeTypes {
     NUMBER = 'NUMBER',
@@ -123,21 +132,29 @@ export class SnowflakeWarehouseClient extends WarehouseBaseClient<CreateSnowflak
 
     constructor(credentials: CreateSnowflakeCredentials) {
         super(credentials);
-        let decodedPrivateKey: string | Buffer | undefined =
-            credentials.privateKey;
-        if (credentials.privateKey && credentials.privateKeyPass) {
-            // Get the private key from the file as an object.
-            const privateKeyObject = crypto.createPrivateKey({
-                key: credentials.privateKey,
-                format: 'pem',
-                passphrase: credentials.privateKeyPass,
-            });
 
-            // Extract the private key from the object as a PEM-encoded string.
-            decodedPrivateKey = privateKeyObject.export({
-                format: 'pem',
-                type: 'pkcs8',
-            });
+        let privateKey: string | undefined;
+        if (credentials.privateKey) {
+            if (
+                typeof credentials.privateKeyPass === 'string' &&
+                credentials.privateKeyPass.length > 0
+            ) {
+                // Get the private key from the file as an object and
+                // extract the private key from the object as a PEM-encoded string.
+                privateKey = crypto
+                    .createPrivateKey({
+                        key: credentials.privateKey,
+                        format: 'pem',
+                        passphrase: credentials.privateKeyPass,
+                    })
+                    .export({
+                        format: 'pem',
+                        type: 'pkcs8',
+                    })
+                    .toString();
+            } else {
+                privateKey = credentials.privateKey;
+            }
         }
 
         if (typeof credentials.quotedIdentifiersIgnoreCase !== 'undefined') {
@@ -146,18 +163,18 @@ export class SnowflakeWarehouseClient extends WarehouseBaseClient<CreateSnowflak
         }
 
         let authenticationOptions: Partial<ConnectionOptions> = {};
-
         if (credentials.password) {
             authenticationOptions = {
                 password: credentials.password,
                 authenticator: 'SNOWFLAKE',
             };
-        } else if (decodedPrivateKey) {
+        } else if (privateKey) {
             authenticationOptions = {
-                privateKey: decodedPrivateKey,
+                privateKey,
                 authenticator: 'SNOWFLAKE_JWT',
             };
         }
+
         this.connectionOptions = {
             account: credentials.account,
             username: credentials.user,
@@ -169,7 +186,7 @@ export class SnowflakeWarehouseClient extends WarehouseBaseClient<CreateSnowflak
             ...(credentials.accessUrl?.length
                 ? { accessUrl: credentials.accessUrl }
                 : {}),
-        } as ConnectionOptions; // force type because accessUrl property is not recognised
+        };
     }
 
     async streamQuery(
@@ -184,7 +201,7 @@ export class SnowflakeWarehouseClient extends WarehouseBaseClient<CreateSnowflak
         let connection: Connection;
         try {
             connection = createConnection(this.connectionOptions);
-            await Util.promisify(connection.connect)();
+            await Util.promisify(connection.connect.bind(connection))();
         } catch (e) {
             throw new WarehouseConnectionError(`Snowflake error: ${e.message}`);
         }
@@ -367,7 +384,7 @@ export class SnowflakeWarehouseClient extends WarehouseBaseClient<CreateSnowflak
                 schema,
                 database,
             });
-            await Util.promisify(connection.connect)();
+            await Util.promisify(connection.connect.bind(connection))();
         } catch (e) {
             throw new WarehouseConnectionError(`Snowflake error: ${e.message}`);
         }
@@ -462,14 +479,18 @@ export class SnowflakeWarehouseClient extends WarehouseBaseClient<CreateSnowflak
         const whereSql = databaseName ? `AND TABLE_CATALOG ILIKE ?` : '';
         const query = `
             SELECT
-                LOWER(TABLE_CATALOG) as "table_catalog",
-                LOWER(TABLE_SCHEMA) as "table_schema",
-                LOWER(TABLE_NAME) as "table_name"
+                TABLE_CATALOG as "table_catalog",
+                TABLE_SCHEMA as "table_schema",
+                TABLE_NAME as "table_name"
             FROM information_schema.tables
-            WHERE TABLE_TYPE = 'BASE TABLE'
+            WHERE TABLE_TYPE IN ('BASE TABLE', 'VIEW')
             ${whereSql}
             ORDER BY 1,2,3
         `;
+        console.debug('Running query to fetch all tables: ', {
+            query,
+            databaseName,
+        });
         const { rows } = await this.runQuery(
             query,
             {},
@@ -486,26 +507,33 @@ export class SnowflakeWarehouseClient extends WarehouseBaseClient<CreateSnowflak
     async getFields(
         tableName: string,
         schema?: string,
+        database?: string,
         tags?: Record<string, string>,
     ): Promise<WarehouseCatalog> {
-        const schemaFilter = schema ? `AND TABLE_SCHEMA ILIKE ?` : '';
-
         const query = `
-            SELECT LOWER(TABLE_CATALOG) as "table_catalog",
-                   LOWER(TABLE_SCHEMA)  as "table_schema",
-                   LOWER(TABLE_NAME)    as "table_name",
-                   LOWER(COLUMN_NAME)   as "column_name",
+            SELECT TABLE_CATALOG as "table_catalog",
+                   TABLE_SCHEMA  as "table_schema",
+                   TABLE_NAME    as "table_name",
+                   COLUMN_NAME   as "column_name",
                    DATA_TYPE            as "data_type"
             FROM information_schema.columns
-            WHERE TABLE_NAME ILIKE ? ${schemaFilter}
+            WHERE TABLE_NAME = ?
+            ${schema ? 'AND TABLE_SCHEMA = ?' : ''}
+            ${database ? 'AND TABLE_CATALOG = ?' : ''}
             ORDER BY 1, 2, 3;
         `;
-        const { rows } = await this.runQuery(
+        const values = [tableName];
+        if (schema) {
+            values.push(schema);
+        }
+        if (database) {
+            values.push(database);
+        }
+        console.debug('Running query to fetch fields: ', {
             query,
-            tags,
-            undefined,
-            schema ? [tableName, schema] : [tableName],
-        );
+            values,
+        });
+        const { rows } = await this.runQuery(query, tags, undefined, values);
         return this.parseWarehouseCatalog(rows, mapFieldType);
     }
 

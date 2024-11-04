@@ -1,4 +1,6 @@
 import {
+    formatMinutesOffset,
+    getTzMinutesOffset,
     SchedulerFormat,
     type CreateSchedulerAndTargetsWithoutIds,
     type UpdateSchedulerAndTargetsWithoutId,
@@ -13,17 +15,20 @@ import {
     TextInput,
 } from '@mantine/core';
 import { IconCirclesRelation } from '@tabler/icons-react';
-import { useEffect, type FC } from 'react';
+import { useEffect, useMemo, type FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import ErrorState from '../../../components/common/ErrorState';
 import MantineIcon from '../../../components/common/MantineIcon';
 import SuboptimalState from '../../../components/common/SuboptimalState/SuboptimalState';
+import TimeZonePicker from '../../../components/common/TimeZonePicker';
 import CronInput from '../../../components/ReactHookForm/CronInput';
 import { useChartSchedulerCreateMutation } from '../../../features/scheduler/hooks/useChartSchedulers';
 import { useScheduler } from '../../../features/scheduler/hooks/useScheduler';
 import { useSchedulersUpdateMutation } from '../../../features/scheduler/hooks/useSchedulersUpdateMutation';
+import { useActiveProjectUuid } from '../../../hooks/useActiveProject';
+import { useProject } from '../../../hooks/useProject';
 import { isInvalidCronExpression } from '../../../utils/fieldValidators';
 import { SyncModalAction, useSyncModal } from '../providers/SyncModalProvider';
 import { SelectGoogleSheetButton } from './SelectGoogleSheetButton';
@@ -53,6 +58,9 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
         isSuccess: isCreateChartSyncSuccess,
     } = useChartSchedulerCreateMutation();
 
+    const { activeProjectUuid } = useActiveProjectUuid();
+    const { data: project } = useProject(activeProjectUuid);
+
     const isLoading = isCreateChartSyncLoading || isUpdateChartSyncLoading;
     const isSuccess = isCreateChartSyncSuccess || isUpdateChartSyncSuccess;
 
@@ -67,12 +75,14 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                 gdriveOrganizationName: '',
                 url: '',
             },
+            timezone: undefined,
         },
     });
 
     useEffect(() => {
         if (schedulerData && isEditing) {
             methods.reset(schedulerData);
+            methods.setValue('timezone', schedulerData.timezone);
         }
     }, [isEditing, methods, schedulerData]);
 
@@ -113,6 +123,16 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
 
     const hasSetGoogleSheet = methods.watch('options.gdriveId') !== '';
 
+    const projectDefaultOffsetString = useMemo(() => {
+        if (!project) {
+            return;
+        }
+        const minsOffset = getTzMinutesOffset('UTC', project.schedulerTimezone);
+        return formatMinutesOffset(minsOffset);
+    }, [project]);
+
+    const timezoneValue = methods.watch('timezone');
+
     if (isEditing && isLoadingSchedulerData) {
         return (
             <SuboptimalState
@@ -135,26 +155,54 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                         required
                         {...methods.register('name')}
                     />
-                    <Input.Wrapper
-                        label={t('features_sync.form.frequency.label')}
-                        required
-                    >
-                        <Box>
-                            <CronInput
-                                name="cron"
-                                defaultValue="0 9 * * 1"
-                                rules={{
-                                    required: 'Required field',
-                                    validate: {
-                                        isValidCronExpression:
-                                            isInvalidCronExpression(
-                                                'Cron expression',
-                                            ),
-                                    },
-                                }}
-                            />
-                        </Box>
-                    </Input.Wrapper>
+                    <Group align="flex-end">
+                        <Input.Wrapper
+                            label={t('features_sync.form.frequency.label')}
+                            required
+                        >
+                            <Box>
+                                <CronInput
+                                    name="cron"
+                                    defaultValue="0 9 * * 1"
+                                    rules={{
+                                        required: t(
+                                            'features_sync.form.frequency.require_field',
+                                        ),
+                                        validate: {
+                                            isValidCronExpression:
+                                                isInvalidCronExpression(
+                                                    'Cron expression',
+                                                ),
+                                        },
+                                    }}
+                                />
+                            </Box>
+                        </Input.Wrapper>
+                        <TimeZonePicker
+                            size="sm"
+                            style={{ flexGrow: 1 }}
+                            placeholder={`${t(
+                                'features_sync.form.default_project',
+                            )}t ${
+                                projectDefaultOffsetString
+                                    ? `(UTC ${projectDefaultOffsetString})`
+                                    : ''
+                            }`}
+                            maw={350}
+                            searchable
+                            clearable
+                            variant="default"
+                            withinPortal
+                            {...methods.register('timezone')}
+                            onChange={(value) => {
+                                methods.setValue(
+                                    'timezone',
+                                    value ?? undefined,
+                                );
+                            }}
+                            value={timezoneValue}
+                        />
+                    </Group>
 
                     <SelectGoogleSheetButton />
 

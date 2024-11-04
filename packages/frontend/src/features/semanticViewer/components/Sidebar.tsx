@@ -11,35 +11,74 @@ import {
 import { IconChevronLeft } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router-dom';
 
 import MantineIcon from '../../../components/common/MantineIcon';
-import { VisualizationConfigPanel } from '../../../components/DataViz/VisualizationConfigPanel';
-import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { useAppDispatch, useAppSelector } from '../../sqlRunner/store/hooks';
 import { selectSemanticLayerInfo } from '../store/selectors';
 import {
     resetState,
-    setSelectedChartType,
+    setActiveChartKind,
     SidebarTabs,
 } from '../store/semanticViewerSlice';
+import SaveSemanticViewerChartModal from './Modals/SaveSemanticViewerChartModal';
+import SaveSemanticViewerChart from './SaveSemanticViewerChart';
+import { SemanticViewerVizConfig } from './SemanticViewerVizConfig';
 import SidebarViewFields from './SidebarViewFields';
 import SidebarViews from './SidebarViews';
 
-const Sidebar: FC = () => {
+type SidebarProps = {
+    shouldShowSave?: boolean;
+};
+
+const Sidebar: FC<SidebarProps> = ({ shouldShowSave }) => {
     const { t } = useTranslation();
 
-    const { features } = useAppSelector(selectSemanticLayerInfo);
-    const { view } = useAppSelector((state) => state.semanticViewer);
+    const { features, projectUuid } = useAppSelector(selectSemanticLayerInfo);
+    const { semanticLayerView, saveModalOpen } = useAppSelector(
+        (state) => state.semanticViewer,
+    );
+    const history = useHistory();
     const dispatch = useAppDispatch();
 
     const handleExitView = () => {
         dispatch(resetState());
     };
-    const { activeSidebarTab, selectedChartType, columns } = useAppSelector(
+
+    const { activeSidebarTab, activeChartKind, columns } = useAppSelector(
         (state) => state.semanticViewer,
     );
 
+    const handleCreate = (slug: string) => {
+        history.replace(`/projects/${projectUuid}/semantic-viewer/${slug}`);
+    };
+
     return (
         <Stack spacing="xs" sx={{ flex: 1, overflow: 'hidden' }}>
+            <Group
+                h="4xl"
+                pl="sm"
+                pr="md"
+                bg="gray.1"
+                spacing="xs"
+                noWrap
+                sx={(theme) => ({
+                    flexShrink: 0,
+                    borderBottom: `1px solid ${theme.colors.gray[3]}`,
+                })}
+            >
+                {semanticLayerView && shouldShowSave && (
+                    <>
+                        <SaveSemanticViewerChart />
+                        {saveModalOpen && (
+                            <SaveSemanticViewerChartModal
+                                onSave={handleCreate}
+                            />
+                        )}
+                    </>
+                )}
+            </Group>
+
             <Stack
                 display={
                     activeSidebarTab === SidebarTabs.TABLES ? 'inherit' : 'none'
@@ -47,9 +86,9 @@ const Sidebar: FC = () => {
                 spacing="xs"
                 sx={{ flex: 1, overflow: 'hidden' }}
             >
-                <Title order={5} fz="sm" c="gray.6">
+                <Title order={5} fz="sm" c="gray.6" px="sm">
                     <Group spacing="xs">
-                        {features.views && view && (
+                        {features.views && semanticLayerView && (
                             <Tooltip
                                 variant="xs"
                                 label={t(
@@ -63,7 +102,7 @@ const Sidebar: FC = () => {
                             </Tooltip>
                         )}
 
-                        {!view
+                        {!semanticLayerView
                             ? t('features_semantic_sidebar.views')
                             : t('features_semantic_sidebar.fields')}
                     </Group>
@@ -72,10 +111,16 @@ const Sidebar: FC = () => {
                 <Flex
                     direction="column"
                     sx={{ flexGrow: 1, overflowY: 'auto' }}
+                    px="sm"
                 >
-                    {!view ? <SidebarViews /> : <SidebarViewFields />}
+                    {!semanticLayerView ? (
+                        <SidebarViews />
+                    ) : (
+                        <SidebarViewFields />
+                    )}
                 </Flex>
             </Stack>
+
             <ScrollArea
                 offsetScrollbars
                 variant="primary"
@@ -88,15 +133,15 @@ const Sidebar: FC = () => {
                             : 'none',
                 }}
             >
-                <Stack sx={{ flex: 1, overflow: 'hidden' }}>
-                    <VisualizationConfigPanel
+                <Stack sx={{ flex: 1, overflow: 'hidden' }} px="sm" pt="xxs">
+                    <SemanticViewerVizConfig
                         selectedChartType={
-                            selectedChartType || ChartKind.VERTICAL_BAR
+                            activeChartKind ?? ChartKind.VERTICAL_BAR
                         }
                         setSelectedChartType={(value) =>
-                            dispatch(setSelectedChartType(value))
+                            dispatch(setActiveChartKind(value))
                         }
-                        sqlColumns={columns}
+                        columns={columns}
                     />
                 </Stack>
             </ScrollArea>

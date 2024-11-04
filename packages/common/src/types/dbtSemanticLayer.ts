@@ -35,6 +35,18 @@ export enum DbtQueryStatus {
     FAILED = 'FAILED',
 }
 
+// TODO: add more operators, there is probably reusable code in our semantic layer
+export enum DbtWhereOperator {
+    IN = 'IN',
+    NOT_IN = 'NOT IN',
+    EQUALS = '=',
+    NOT_EQUALS = '!=',
+    GTE = '>=',
+    GT = '>',
+    LTE = '<=',
+    LT = '<',
+}
+
 export type DbtGraphQLMetricInput = {
     name: string;
 };

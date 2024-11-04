@@ -2,6 +2,7 @@ import { subject } from '@casl/ability';
 import {
     convertOrganizationRoleToProjectRole,
     getHighestProjectRole,
+    isGroupWithMembers,
     type OrganizationMemberRole,
     type ProjectMemberRole,
 } from '@lightdash/common';
@@ -82,7 +83,7 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
                     const group = groups.find(
                         (g) => g.uuid === groupAccess.groupUuid,
                     );
-                    if (!group) return userRoles;
+                    if (!group || !isGroupWithMembers(group)) return userRoles;
                     if (!group.memberUuids.includes(orgUser.userUuid))
                         return userRoles;
 

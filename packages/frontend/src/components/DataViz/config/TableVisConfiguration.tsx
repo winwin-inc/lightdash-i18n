@@ -1,29 +1,29 @@
-import { type VizSqlColumn } from '@lightdash/common';
+import { type VizColumn } from '@lightdash/common';
 import { ActionIcon, ScrollArea, TextInput } from '@mantine/core';
 import { IconEye, IconEyeOff } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
+import {
+    useAppDispatch as useVizDispatch,
+    useAppSelector as useVizSelector,
+} from '../../../features/sqlRunner/store/hooks';
 import MantineIcon from '../../common/MantineIcon';
 import { Config } from '../../VisualizationConfigs/common/Config';
 import { TableFieldIcon } from '../Icons';
-import { useVizDispatch, useVizSelector } from '../store';
 import {
     updateColumnVisibility,
     updateFieldLabel,
 } from '../store/tableVisSlice';
 
-const TableVisConfiguration: FC<{ sqlColumns: VizSqlColumn[] }> = ({
-    sqlColumns,
-}) => {
+const TableVisConfiguration: FC<{ columns: VizColumn[] }> = ({ columns }) => {
     const { t } = useTranslation();
     const dispatch = useVizDispatch();
 
-    const tableVisConfig = useVizSelector(
-        (state) => state.tableVisConfig.config,
+    const columnsConfig = useVizSelector(
+        (state) => state.tableVisConfig.columns,
     );
 
-    if (!tableVisConfig) {
+    if (!columnsConfig) {
         return null;
     }
 
@@ -44,8 +44,8 @@ const TableVisConfiguration: FC<{ sqlColumns: VizSqlColumn[] }> = ({
                         )}
                     </Config.Heading>
 
-                    {Object.keys(tableVisConfig.columns).map((reference) => {
-                        const fieldType = sqlColumns?.find(
+                    {Object.keys(columnsConfig).map((reference) => {
+                        const fieldType = columns?.find(
                             (c) => c.reference === reference,
                         )?.type;
 
@@ -53,12 +53,13 @@ const TableVisConfiguration: FC<{ sqlColumns: VizSqlColumn[] }> = ({
                             <TextInput
                                 key={reference}
                                 radius="md"
-                                value={tableVisConfig.columns[reference].label}
+                                value={columnsConfig[reference].label}
                                 icon={
                                     fieldType && (
                                         <TableFieldIcon fieldType={fieldType} />
                                     )
                                 }
+                                readOnly={!columnsConfig[reference].visible}
                                 rightSection={
                                     <ActionIcon
                                         onClick={() =>
@@ -66,7 +67,7 @@ const TableVisConfiguration: FC<{ sqlColumns: VizSqlColumn[] }> = ({
                                                 updateColumnVisibility({
                                                     reference,
                                                     visible:
-                                                        !tableVisConfig.columns[
+                                                        !columnsConfig[
                                                             reference
                                                         ].visible,
                                                 }),
@@ -75,9 +76,7 @@ const TableVisConfiguration: FC<{ sqlColumns: VizSqlColumn[] }> = ({
                                     >
                                         <MantineIcon
                                             icon={
-                                                tableVisConfig.columns[
-                                                    reference
-                                                ].visible
+                                                columnsConfig[reference].visible
                                                     ? IconEye
                                                     : IconEyeOff
                                             }
@@ -92,6 +91,19 @@ const TableVisConfiguration: FC<{ sqlColumns: VizSqlColumn[] }> = ({
                                         }),
                                     );
                                 }}
+                                styles={(theme) => ({
+                                    input: {
+                                        backgroundColor: !columnsConfig[
+                                            reference
+                                        ].visible
+                                            ? theme.colors.gray[1]
+                                            : '',
+                                        cursor: !columnsConfig[reference]
+                                            .visible
+                                            ? 'not-allowed'
+                                            : 'text',
+                                    },
+                                })}
                             />
                         );
                     })}

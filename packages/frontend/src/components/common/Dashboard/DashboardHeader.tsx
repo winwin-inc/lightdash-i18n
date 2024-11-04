@@ -71,6 +71,7 @@ type DashboardHeaderProps = {
     dashboard: Dashboard;
     organizationUuid?: string;
     hasDashboardChanged: boolean;
+    hasNewSemanticLayerChart: boolean;
     isEditMode: boolean;
     isSaving: boolean;
     isFullscreen: boolean;
@@ -95,6 +96,7 @@ const DashboardHeader = ({
     dashboard,
     organizationUuid,
     hasDashboardChanged,
+    hasNewSemanticLayerChart,
     isEditMode,
     isSaving,
     isFullscreen,
@@ -300,10 +302,12 @@ const DashboardHeader = ({
                     <AddTileButton
                         onAddTiles={onAddTiles}
                         disabled={isSaving}
+                        hasNewSemanticLayerChart={hasNewSemanticLayerChart}
                         setAddingTab={setAddingTab}
                         activeTabUuid={activeTabUuid}
                         dashboardTabs={dashboardTabs}
                     />
+
                     <Tooltip
                         fz="xs"
                         withinPortal
@@ -588,20 +592,23 @@ const DashboardHeader = ({
                                     </Menu.Item>
                                 )}
 
-                                {!!userCanCreateDeliveries && (
-                                    <Menu.Item
-                                        icon={<MantineIcon icon={IconSend} />}
-                                        onClick={() => {
-                                            toggleScheduledDeliveriesModal(
-                                                true,
-                                            );
-                                        }}
-                                    >
-                                        {t(
-                                            'components_common_dashboard_header.menus.scheduled_delivery',
-                                        )}
-                                    </Menu.Item>
-                                )}
+                                {!!userCanCreateDeliveries &&
+                                    !hasNewSemanticLayerChart && (
+                                        <Menu.Item
+                                            icon={
+                                                <MantineIcon icon={IconSend} />
+                                            }
+                                            onClick={() => {
+                                                toggleScheduledDeliveriesModal(
+                                                    true,
+                                                );
+                                            }}
+                                        >
+                                            {t(
+                                                'components_common_dashboard_header.menus.scheduled_delivery',
+                                            )}
+                                        </Menu.Item>
+                                    )}
 
                                 {userCanPromoteDashboard && (
                                     <Tooltip
@@ -642,16 +649,22 @@ const DashboardHeader = ({
                                 )}
 
                                 {(userCanExportData ||
-                                    userCanManageDashboard) && (
-                                    <Menu.Item
-                                        icon={<MantineIcon icon={IconUpload} />}
-                                        onClick={onExport}
-                                    >
-                                        {t(
-                                            'components_common_dashboard_header.menus.export_dashboard',
-                                        )}{' '}
-                                    </Menu.Item>
-                                )}
+                                    userCanManageDashboard) &&
+                                    !hasNewSemanticLayerChart && (
+                                        <Menu.Item
+                                            icon={
+                                                <MantineIcon
+                                                    icon={IconUpload}
+                                                />
+                                            }
+                                            onClick={onExport}
+                                        >
+                                            {t(
+                                                'components_common_dashboard_header.menus.export_dashboard',
+                                            )}
+                                        </Menu.Item>
+                                    )}
+
                                 {userCanManageDashboard && (
                                     <>
                                         <Menu.Divider />

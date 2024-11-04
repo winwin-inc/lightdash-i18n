@@ -23,6 +23,7 @@ import {
     UpdateOrganization,
     validateOrganizationEmailDomains,
 } from '@lightdash/common';
+import { groupBy } from 'lodash';
 import { LightdashAnalytics } from '../../analytics/LightdashAnalytics';
 import { LightdashConfig } from '../../config/parseConfig';
 import { GroupsModel } from '../../models/GroupsModel';
@@ -204,7 +205,13 @@ export class OrganizationService extends BaseService {
         searchQuery?: string,
     ): Promise<KnexPaginatedData<OrganizationMemberProfile[]>> {
         const { organizationUuid } = user;
-        if (user.ability.cannot('view', 'OrganizationMemberProfile')) {
+
+        if (
+            user.ability.cannot(
+                'view',
+                subject('OrganizationMemberProfile', { organizationUuid }),
+            )
+        ) {
             throw new ForbiddenError();
         }
         if (organizationUuid === undefined) {
@@ -475,7 +482,7 @@ export class OrganizationService extends BaseService {
     async addGroupToOrganization(
         actor: SessionUser,
         createGroup: CreateGroup,
-    ): Promise<Group | GroupWithMembers> {
+    ): Promise<GroupWithMembers> {
         if (
             actor.organizationUuid === undefined ||
             actor.ability.cannot(
@@ -488,27 +495,11 @@ export class OrganizationService extends BaseService {
             throw new ForbiddenError();
         }
 
-        const group = await this.groupsModel.createGroup({
+        const groupWithMembers = await this.groupsModel.createGroup({
             organizationUuid: actor.organizationUuid,
             ...createGroup,
         });
 
-        if (createGroup.members === undefined) {
-            return group;
-        }
-
-        await Promise.all(
-            createGroup.members.map((member) =>
-                this.groupsModel.addGroupMember({
-                    groupUuid: group.uuid,
-                    userUuid: member.userUuid,
-                }),
-            ),
-        );
-
-        const groupWithMembers = await this.groupsModel.getGroupWithMembers(
-            group.uuid,
-        );
         this.analytics.track({
             userId: actor.userUuid,
             event: 'group.created',
@@ -526,30 +517,47 @@ export class OrganizationService extends BaseService {
     async listGroupsInOrganization(
         actor: SessionUser,
         includeMembers?: number,
-    ): Promise<Group[] | GroupWithMembers[]> {
+        paginateArgs?: KnexPaginateArgs,
+        searchQuery?: string,
+    ): Promise<KnexPaginatedData<Group[] | GroupWithMembers[]>> {
         if (actor.organizationUuid === undefined) {
             throw new ForbiddenError();
         }
-        const groups = await this.groupsModel.find({
-            organizationUuid: actor.organizationUuid,
-        });
+        const { pagination, data: groups } = await this.groupsModel.find(
+            {
+                organizationUuid: actor.organizationUuid,
+                searchQuery,
+            },
+            paginateArgs,
+        );
+
         const allowedGroups = groups.filter((group) =>
             actor.ability.can('view', subject('Group', group)),
         );
 
         if (includeMembers === undefined) {
-            return allowedGroups;
+            return {
+                pagination,
+                data: allowedGroups,
+            };
         }
 
-        const groupsWithMembers = await Promise.all(
-            allowedGroups.map((group) =>
-                this.groupsModel.getGroupWithMembers(
-                    group.uuid,
-                    includeMembers,
-                ),
-            ),
-        );
+        // fetch members for each group
+        const { data: groupMembers } = await this.groupsModel.findGroupMembers({
+            organizationUuid: actor.organizationUuid,
+            groupUuids: allowedGroups.map((group) => group.uuid),
+        });
+        const groupMembersMap = groupBy(groupMembers, 'groupUuid');
 
-        return groupsWithMembers;
+        return {
+            pagination,
+            data: allowedGroups.map<GroupWithMembers>((group) => ({
+                ...group,
+                members: groupMembersMap[group.uuid] || [],
+                memberUuids: (groupMembersMap[group.uuid] || []).map(
+                    (member) => member.userUuid,
+                ),
+            })),
+        };
     }
 }

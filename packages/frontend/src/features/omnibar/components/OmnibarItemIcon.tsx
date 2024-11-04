@@ -43,6 +43,9 @@ export const getOmnibarItemColor = (itemType: SearchItemType) => {
             return 'cyan.8';
         case SearchItemType.PAGE:
             return 'gray.7';
+        case SearchItemType.SQL_CHART:
+        case SearchItemType.SEMANTIC_VIEWER_CHART:
+            return 'blue.7';
         default:
             return assertUnreachable(
                 itemType,
@@ -62,6 +65,8 @@ const getOmnibarItemIcon = (item: SearchItem) => {
         case SearchItemType.DASHBOARD:
             return IconLayoutDashboard;
         case SearchItemType.CHART:
+        case SearchItemType.SEMANTIC_VIEWER_CHART:
+        case SearchItemType.SQL_CHART:
             return getChartIcon(
                 // FIXME: typing is loose here
                 (item.item as SavedChartSearchResult)?.chartType,

@@ -82,6 +82,14 @@ export class OrganizationMemberProfileModel {
     private static parseRow(
         member: DbOrganizationMemberProfile,
     ): OrganizationMemberProfile {
+        const isInviteExpired =
+            !member.is_active &&
+            !!member.expires_at &&
+            member.expires_at < new Date();
+
+        const isPending =
+            !member.is_active && !isInviteExpired && !!member.expires_at;
+
         return {
             userUuid: member.user_uuid,
             firstName: member.first_name,
@@ -90,9 +98,8 @@ export class OrganizationMemberProfileModel {
             organizationUuid: member.organization_uuid,
             role: member.role,
             isActive: member.is_active,
-            isInviteExpired:
-                !member.is_active &&
-                (!member.expires_at || member.expires_at < new Date()),
+            isInviteExpired,
+            isPending,
         };
     }
 
@@ -115,6 +122,7 @@ export class OrganizationMemberProfileModel {
         organizationUuid: string,
         paginateArgs?: KnexPaginateArgs,
         searchQuery?: string,
+        sort?: { column: string; direction: 'asc' | 'desc' },
     ): Promise<KnexPaginatedData<OrganizationMemberProfile[]>> {
         let query = this.queryBuilder()
             .where(
@@ -122,7 +130,7 @@ export class OrganizationMemberProfileModel {
                 organizationUuid,
             )
             .select<DbOrganizationMemberProfile[]>(SelectColumns);
-
+        // apply search query if present
         if (searchQuery) {
             query = getColumnMatchRegexQuery(query, searchQuery, [
                 'first_name',
@@ -131,12 +139,15 @@ export class OrganizationMemberProfileModel {
                 'role',
             ]);
         }
-
+        // apply sorting if present
+        if (sort && sort.column && sort.direction) {
+            query = query.orderBy(sort.column, sort.direction);
+        }
+        // paginate the results
         const { pagination, data } = await KnexPaginate.paginate(
             query,
             paginateArgs,
         );
-
         return {
             pagination,
             data: data.map(OrganizationMemberProfileModel.parseRow),
@@ -278,6 +289,47 @@ export class OrganizationMemberProfileModel {
             'organization_memberships',
         ).insert<DbOrganizationMembershipIn>(membershipIn);
     };
+
+    async createOrganizationMembershipByUuid({
+        organizationUuid,
+        userUuid,
+        role,
+    }: {
+        organizationUuid: string;
+        userUuid: string;
+        role: OrganizationMemberRole;
+    }): Promise<void> {
+        // Look up user_id from user_uuid
+        const user = await this.database
+            .select('user_id')
+            .from(UserTableName)
+            .where('user_uuid', userUuid)
+            .first();
+
+        if (!user) {
+            throw new NotFoundError(`User with UUID ${userUuid} not found.`);
+        }
+
+        // Look up organization_id from organization_uuid
+        const organization = await this.database
+            .select('organization_id')
+            .from(OrganizationTableName)
+            .where('organization_uuid', organizationUuid)
+            .first();
+
+        if (!organization) {
+            throw new NotFoundError(
+                `Organization with UUID ${organizationUuid} not found.`,
+            );
+        }
+
+        // Insert new organization membership
+        await this.createOrganizationMembership({
+            user_id: user.user_id,
+            organization_id: organization.organization_id,
+            role,
+        });
+    }
 
     async getOrganizationMemberByUuid(
         organizationUuid: string,

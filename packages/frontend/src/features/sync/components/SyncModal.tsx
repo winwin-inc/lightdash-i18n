@@ -50,7 +50,7 @@ const SyncModalBaseAndManager: FC<Props> = ({ chartUuid, opened, onClose }) => {
 
     return (
         <Modal
-            size="md"
+            size="xl"
             opened={opened}
             title={
                 <Flex align="center" gap="xs">

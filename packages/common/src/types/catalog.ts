@@ -9,6 +9,7 @@ import {
     type Field,
     type FieldType,
 } from './field';
+import type { KnexPaginatedData } from './knex-paginate';
 import { type ChartSummary } from './savedCharts';
 import { type TableBase } from './table';
 
@@ -34,6 +35,7 @@ export type ApiCatalogSearch = {
     type?: CatalogType;
     filter?: CatalogFilter;
 };
+
 export type CatalogField = Pick<
     Field,
     'name' | 'label' | 'fieldType' | 'tableLabel' | 'description'
@@ -44,6 +46,7 @@ export type CatalogField = Pick<
         tableName: string;
         tableGroupLabel?: string;
         tags?: string[]; // Tags from table, for filtering
+        chartUsage: number | undefined;
     };
 
 export type CatalogTable = Pick<
@@ -55,10 +58,18 @@ export type CatalogTable = Pick<
     groupLabel?: string;
     tags?: string[];
     joinedTables?: CompiledExploreJoin[]; // Matched type in explore
+    chartUsage: number | undefined;
 };
 
 export type CatalogItem = CatalogField | CatalogTable;
 export type ApiCatalogResults = CatalogItem[];
+
+export type ApiMetricsCatalogResults = CatalogField[];
+
+export type ApiMetricsCatalog = {
+    status: 'ok';
+    results: KnexPaginatedData<ApiMetricsCatalogResults>;
+};
 
 export type CatalogMetadata = {
     name: string;
@@ -121,3 +132,28 @@ export const getBasicType = (
             return assertUnreachable(type, `Invalid field type ${type}`);
     }
 };
+
+export type CatalogFieldMap = {
+    [fieldId: string]: {
+        fieldName: string;
+        tableName: string;
+        cachedExploreUuid: string;
+    };
+};
+
+export type SchedulersetCatalogChartUsagesPayload = {
+    projectUuid: string;
+    catalogFieldMap: CatalogFieldMap;
+    userUuid: string;
+};
+
+export type CatalogFieldWhere = {
+    fieldName: string;
+    cachedExploreUuid: string;
+};
+
+export type ChartUsageIn = CatalogFieldWhere & {
+    chartUsage: number;
+};
+
+export const setCatalogChartUsagesJob = 'setCatalogChartUsages';

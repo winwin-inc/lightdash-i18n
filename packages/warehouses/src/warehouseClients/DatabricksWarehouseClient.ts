@@ -396,6 +396,21 @@ export class DatabricksWarehouseClient extends WarehouseBaseClient<CreateDatabri
         }
     }
 
+    async getAllTables() {
+        const query = `
+            SELECT table_catalog, table_schema, table_name
+            FROM information_schema.tables
+            WHERE table_type = 'MANAGED' 
+            ORDER BY 1,2,3
+        `;
+        const { rows } = await this.runQuery(query, {}, undefined, undefined);
+        return rows.map((row) => ({
+            database: row.table_catalog,
+            schema: row.table_schema,
+            table: row.table_name,
+        }));
+    }
+
     async getTables(
         schema?: string,
         tags?: Record<string, string>,
@@ -420,10 +435,9 @@ export class DatabricksWarehouseClient extends WarehouseBaseClient<CreateDatabri
     async getFields(
         tableName: string,
         schema?: string,
+        database?: string,
         tags?: Record<string, string>,
     ): Promise<WarehouseCatalog> {
-        const schemaFilter = schema ? `AND table_schema = ?` : '';
-
         const query = `
             SELECT table_catalog,
                    table_schema,
@@ -432,15 +446,17 @@ export class DatabricksWarehouseClient extends WarehouseBaseClient<CreateDatabri
                    data_type
             FROM information_schema.columns
             WHERE table_name = ?
-            ${schemaFilter};
+            ${schema ? 'AND table_schema = ?' : ''}
+            ${database ? 'AND table_catalog = ?' : ''}
         `;
-        const { rows } = await this.runQuery(
-            query,
-            tags,
-            undefined,
-            schema ? [tableName, schema] : [tableName],
-        );
-
+        const values = [tableName];
+        if (schema) {
+            values.push(schema);
+        }
+        if (database) {
+            values.push(database);
+        }
+        const { rows } = await this.runQuery(query, tags, undefined, values);
         return this.parseWarehouseCatalog(rows, mapFieldType);
     }
 }

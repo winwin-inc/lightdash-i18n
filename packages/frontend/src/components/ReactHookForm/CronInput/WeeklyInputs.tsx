@@ -25,19 +25,16 @@ const WeeklyInputs: FC<{
         );
     };
     return (
-        <>
+        <Group noWrap spacing="sm">
             <Input.Label>{t('components_react_hook_form.on')}</Input.Label>
             <WeekDaySelect value={weekDay} onChange={onDayChange} />
             <Input.Label>{t('components_react_hook_form.at')}</Input.Label>
-            <Group noWrap spacing="sm">
-                <TimePicker
-                    disabled={disabled}
-                    cronExpression={cronExpression}
-                    onChange={onTimeChange}
-                />
-                <Input.Label>UTC</Input.Label>
-            </Group>
-        </>
+            <TimePicker
+                disabled={disabled}
+                cronExpression={cronExpression}
+                onChange={onTimeChange}
+            />
+        </Group>
     );
 };
 export default WeeklyInputs;

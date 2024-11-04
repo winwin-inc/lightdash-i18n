@@ -313,7 +313,7 @@ export const UpdateProjectConnection: FC<{
                     {data?.dbtConnection?.type === DbtProjectType.NONE
                         ? t('components_project_connection.save_and_test')
                         : t(
-                              'components_project_connection.test_compile_project',
+                              'components_project_connection.test_deploy_project',
                           )}
                 </Button>
             </Card>
@@ -359,7 +359,10 @@ export const CreateProjectConnection: FC<CreateProjectConnectionProps> = ({
         });
         if (selectedWarehouse) {
             const data = await mutateAsync({
-                name: name || user.data?.organizationName || 'My project',
+                name:
+                    name ||
+                    user.data?.organizationName ||
+                    t('components_project_connection.my_project'),
                 type: ProjectType.DEFAULT,
                 dbtConnection,
                 dbtVersion,
@@ -412,7 +415,7 @@ export const CreateProjectConnection: FC<CreateProjectConnectionProps> = ({
                     type="submit"
                     loading={isSavingProject}
                 >
-                    {t('components_project_connection.test_compile_project')}
+                    {t('components_project_connection.test_deploy_project')}
                 </Button>
             </ProjectFormProvider>
         </FormContainer>

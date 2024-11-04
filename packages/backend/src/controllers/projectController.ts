@@ -13,9 +13,20 @@ import {
     CalculateTotalFromQuery,
     CreateProjectMember,
     DbtExposure,
+    isDuplicateDashboardParams,
+    ParameterError,
+    RequestMethod,
     UpdateMetadata,
     UpdateProjectMember,
     UserWarehouseCredentials,
+    type ApiCreateDashboardResponse,
+    type ApiGetDashboardsResponse,
+    type ApiUpdateDashboardsResponse,
+    type CreateDashboard,
+    type DuplicateDashboardParams,
+    type SemanticLayerConnectionUpdate,
+    type UpdateMultipleDashboards,
+    type UpdateSchedulerSettings,
 } from '@lightdash/common';
 import {
     Body,
@@ -27,6 +38,7 @@ import {
     Patch,
     Path,
     Post,
+    Query,
     Request,
     Response,
     Route,
@@ -91,6 +103,7 @@ export class ProjectController extends BaseController {
      * List all charts summaries in a project
      * @param projectUuid The uuid of the project to get charts for
      * @param req express request
+     * @param excludeChartsSavedInDashboard Whether to exclude charts that are saved in dashboards
      */
     @Middlewares([allowApiKeyAuthentication, isAuthenticated])
     @SuccessResponse('200', 'Success')
@@ -99,13 +112,18 @@ export class ProjectController extends BaseController {
     async getChartSummariesInProject(
         @Path() projectUuid: string,
         @Request() req: express.Request,
+        @Query() excludeChartsSavedInDashboard?: boolean,
     ): Promise<ApiChartSummaryListResponse> {
         this.setStatus(200);
         return {
             status: 'ok',
             results: await this.services
                 .getProjectService()
-                .getChartSummaries(req.user!, projectUuid),
+                .getChartSummaries(
+                    req.user!,
+                    projectUuid,
+                    excludeChartsSavedInDashboard,
+                ),
         };
     }
 
@@ -449,6 +467,242 @@ export class ProjectController extends BaseController {
         await this.services
             .getProjectService()
             .updateMetadata(req.user!, projectUuid, body);
+        return {
+            status: 'ok',
+            results: undefined,
+        };
+    }
+
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @SuccessResponse('200', 'Success')
+    @Patch('{projectUuid}/semantic-layer-connection')
+    @OperationId('updateProjectSemanticLayerConnection')
+    async updateProjectSemanticLayerConnection(
+        @Path() projectUuid: string,
+        @Body() body: SemanticLayerConnectionUpdate,
+        @Request() req: express.Request,
+    ): Promise<ApiSuccessEmpty> {
+        this.setStatus(200);
+
+        await this.services
+            .getProjectService()
+            .updateSemanticLayerConnection(req.user!, projectUuid, body);
+
+        return {
+            status: 'ok',
+            results: undefined,
+        };
+    }
+
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @SuccessResponse('200', 'Success')
+    @Delete('{projectUuid}/semantic-layer-connection')
+    @OperationId('deleteProjectSemanticLayerConnection')
+    async deleteProjectSemanticLayerConnection(
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+    ): Promise<ApiSuccessEmpty> {
+        this.setStatus(200);
+
+        await this.services
+            .getProjectService()
+            .deleteSemanticLayerConnection(req.user!, projectUuid);
+
+        return {
+            status: 'ok',
+            results: undefined,
+        };
+    }
+
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Get('{projectUuid}/dashboards')
+    @OperationId('getDashboards')
+    async getDashboards(
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+    ): Promise<ApiGetDashboardsResponse> {
+        this.setStatus(200);
+
+        const chartUuid: string | undefined =
+            typeof req.query.chartUuid === 'string'
+                ? req.query.chartUuid.toString()
+                : undefined;
+
+        const includePrivate = req.query.includePrivate !== 'false';
+
+        const results = await this.services
+            .getDashboardService()
+            .getAllByProject(req.user!, projectUuid, chartUuid, includePrivate);
+
+        return {
+            status: 'ok',
+            results,
+        };
+    }
+
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @SuccessResponse('201', 'Created')
+    @Post('{projectUuid}/dashboards')
+    @OperationId('createDashboard')
+    async createDashboard(
+        @Path() projectUuid: string,
+        @Body() body: DuplicateDashboardParams | CreateDashboard,
+        @Request() req: express.Request,
+        @Query() duplicateFrom?: string,
+    ): Promise<ApiCreateDashboardResponse> {
+        const dashboardService = this.services.getDashboardService();
+        this.setStatus(201);
+
+        let results: ApiCreateDashboardResponse['results'];
+
+        if (duplicateFrom) {
+            if (!isDuplicateDashboardParams(body)) {
+                throw new ParameterError(
+                    'Invalid parameters to duplicate dashbaord',
+                );
+            }
+
+            results = await dashboardService.duplicate(
+                req.user!,
+                projectUuid,
+                duplicateFrom.toString(),
+                body,
+            );
+        } else {
+            if (isDuplicateDashboardParams(body)) {
+                throw new ParameterError(
+                    'Invalid parameters to duplicate dashbaord',
+                );
+            }
+
+            results = await dashboardService.create(
+                req.user!,
+                projectUuid,
+                body,
+            );
+        }
+
+        return {
+            status: 'ok',
+            results,
+        };
+    }
+
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @SuccessResponse('200', 'Updated')
+    @Patch('{projectUuid}/dashboards')
+    @OperationId('updateDashboards')
+    async updateDashboards(
+        @Path() projectUuid: string,
+        @Body() body: UpdateMultipleDashboards[],
+        @Request() req: express.Request,
+    ): Promise<ApiUpdateDashboardsResponse> {
+        this.setStatus(200);
+
+        const results = await this.services
+            .getDashboardService()
+            .updateMultiple(req.user!, projectUuid, body);
+
+        return {
+            status: 'ok',
+            results,
+        };
+    }
+
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @SuccessResponse('200', 'Created')
+    @Post('{projectUuid}/createPreview')
+    @OperationId('createPreview')
+    async createPreview(
+        @Path() projectUuid: string,
+        @Body()
+        body: {
+            name: string;
+            copyContent: boolean;
+        },
+        @Request() req: express.Request,
+    ): Promise<{ status: 'ok'; results: string }> {
+        this.setStatus(200);
+
+        const results = await this.services
+            .getProjectService()
+            .createPreview(req.user!, projectUuid, body, RequestMethod.WEB_APP);
+
+        return {
+            status: 'ok',
+            results,
+        };
+    }
+
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @SuccessResponse('200', 'Updated')
+    @Patch('{projectUuid}/schedulerSettings')
+    @OperationId('updateSchedulerSettings')
+    async updateSchedulerSettings(
+        @Path() projectUuid: string,
+        @Body() body: UpdateSchedulerSettings,
+        @Request() req: express.Request,
+    ): Promise<ApiSuccessEmpty> {
+        this.setStatus(200);
+
+        const { schedulerTimezone: oldDefaultProjectTimezone } =
+            await this.services
+                .getProjectService()
+                .getProject(projectUuid, req.user!);
+
+        await this.services
+            .getProjectService()
+            .updateDefaultSchedulerTimezone(
+                req.user!,
+                projectUuid,
+                body.schedulerTimezone,
+            );
+
+        try {
+            await this.services
+                .getSchedulerService()
+                .updateSchedulersWithDefaultTimezone(req.user!, projectUuid, {
+                    oldDefaultProjectTimezone,
+                    newDefaultProjectTimezone: body.schedulerTimezone,
+                });
+        } catch (e) {
+            // reset the old timezone when it fails to set the hours
+            await this.services
+                .getProjectService()
+                .updateDefaultSchedulerTimezone(
+                    req.user!,
+                    projectUuid,
+                    oldDefaultProjectTimezone,
+                );
+
+            throw e;
+        }
+
         return {
             status: 'ok',
             results: undefined,

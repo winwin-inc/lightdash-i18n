@@ -24,7 +24,6 @@ const DailyInputs: FC<{
                 cronExpression={cronExpression}
                 onChange={handleChange}
             />
-            <Input.Label>UTC</Input.Label>
         </Group>
     );
 };

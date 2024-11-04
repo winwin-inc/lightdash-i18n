@@ -1,5 +1,6 @@
 import {
     ChartKind,
+    ChartSourceType,
     ChartType,
     convertOrganizationRoleToProjectRole,
     convertProjectRoleToSpaceRole,
@@ -52,6 +53,8 @@ import {
     SavedChartsTableName,
     SavedChartVersionsTableName,
 } from '../database/entities/savedCharts';
+import { SavedSemanticViewerChartsTableName } from '../database/entities/savedSemanticViewerCharts';
+import { SavedSqlTableName } from '../database/entities/savedSql';
 import {
     DbSpace,
     SpaceGroupAccessTableName,
@@ -61,6 +64,7 @@ import {
 import { UserTableName } from '../database/entities/users';
 import { DbValidationTable } from '../database/entities/validation';
 import { wrapSentryTransaction } from '../utils';
+import { generateUniqueSlug } from '../utils/SlugUtils';
 import type { GetDashboardDetailsQuery } from './DashboardModel/DashboardModel';
 
 type SpaceModelArguments = {
@@ -521,6 +525,7 @@ export class SpaceModel {
                             SELECT json_agg(validations.*)
                             FROM validations
                             WHERE validations.dashboard_uuid = ${DashboardsTableName}.dashboard_uuid
+                            AND validations.job_id IS NULL
                         ), '[]'
                     ) as validation_errors
                 `),
@@ -914,6 +919,197 @@ export class SpaceModel {
         });
     }
 
+    private async getSpaceCharts(
+        chartsTable: {
+            name: string;
+            uuidColumnName: string;
+            chartSourceType: ChartSourceType;
+        },
+        spaceUuids: string[],
+        filters?: {
+            recentlyUpdated?: boolean;
+            mostPopular?: boolean;
+        },
+    ) {
+        const {
+            name: chartTable,
+            uuidColumnName,
+            chartSourceType,
+        } = chartsTable;
+
+        let spaceChartsQuery = this.database(chartTable)
+            .whereIn(`${SpaceTableName}.space_uuid`, spaceUuids)
+            .leftJoin(
+                SpaceTableName,
+                `${chartTable}.space_uuid`,
+                `${SpaceTableName}.space_uuid`,
+            )
+            .leftJoin(
+                'users',
+                `${chartTable}.last_version_updated_by_user_uuid`,
+                'users.user_uuid',
+            )
+            /* .leftJoin(
+            PinnedChartTableName,
+            `${PinnedChartTableName}.saved_chart_uuid`,
+            `${chartTable}.saved_sql_uuid`,
+            )
+            .leftJoin(
+                PinnedListTableName,
+                `${PinnedListTableName}.pinned_list_uuid`,
+                `${PinnedChartTableName}.pinned_list_uuid`,
+            ) */
+            .leftJoin(
+                ProjectTableName,
+                `${ProjectTableName}.project_id`,
+                `${SpaceTableName}.project_id`,
+            )
+            .leftJoin(
+                OrganizationTableName,
+                `${OrganizationTableName}.organization_id`,
+                `${ProjectTableName}.organization_id`,
+            )
+            .leftJoin(
+                DashboardsTableName,
+                `${DashboardsTableName}.dashboard_uuid`,
+                `${chartTable}.dashboard_uuid`,
+            )
+            .select<
+                {
+                    uuid: string;
+                    name: string;
+                    description?: string;
+                    created_at: Date;
+                    user_uuid: string;
+                    first_name: string;
+                    last_name: string;
+                    views_count: number;
+                    first_viewed_at: Date | null;
+                    chart_kind: ChartKind;
+                    // pinned_list_uuid: string;
+                    // order: number;
+                    space_uuid: string;
+                    space_name: string;
+                    project_uuid: string;
+                    organization_uuid: string;
+                    dashboard_uuid: string | null;
+                    dashboard_name: string | null;
+                    slug: string;
+                }[]
+            >([
+                `${chartTable}.${uuidColumnName} as uuid`,
+                `${chartTable}.name`,
+                `${chartTable}.description`,
+                `${chartTable}.last_version_updated_at as created_at`,
+                `users.user_uuid`,
+                `users.first_name`,
+                `users.last_name`,
+                `${chartTable}.views_count`,
+                `${chartTable}.first_viewed_at`,
+                `${chartTable}.last_version_chart_kind as chart_kind`,
+
+                // `${PinnedListTableName}.pinned_list_uuid`,
+                // `${PinnedChartTableName}.order`,
+                `${SpaceTableName}.space_uuid`,
+                `${SpaceTableName}.name as space_name`,
+                `${ProjectTableName}.project_uuid`,
+                `${OrganizationTableName}.organization_uuid`,
+                `${DashboardsTableName}.dashboard_uuid`,
+                `${DashboardsTableName}.name as dashboard_name`,
+                `${chartTable}.slug`,
+            ]);
+
+        if (filters?.recentlyUpdated || filters?.mostPopular) {
+            spaceChartsQuery = spaceChartsQuery
+                .orderBy(
+                    filters.mostPopular
+                        ? [
+                              {
+                                  column: 'views_count',
+                                  order: 'desc',
+                              },
+                          ]
+                        : [
+                              {
+                                  column: `${chartTable}.last_version_updated_at`,
+                                  order: 'desc',
+                              },
+                          ],
+                )
+                .limit(this.MOST_POPULAR_OR_RECENTLY_UPDATED_LIMIT);
+        } else {
+            spaceChartsQuery = spaceChartsQuery.orderBy([
+                {
+                    column: `${chartTable}.last_version_updated_at`,
+                    order: 'desc',
+                },
+            ]);
+        }
+
+        return (await spaceChartsQuery).map((savedChart) => ({
+            uuid: savedChart.uuid,
+            name: savedChart.name,
+            spaceName: savedChart.space_name,
+            dashboardName: savedChart.dashboard_name,
+            organizationUuid: savedChart.organization_uuid,
+            projectUuid: savedChart.project_uuid,
+            dashboardUuid: savedChart.dashboard_uuid,
+            description: savedChart.description,
+            updatedAt: savedChart.created_at,
+            updatedByUser: {
+                userUuid: savedChart.user_uuid,
+                firstName: savedChart.first_name,
+                lastName: savedChart.last_name,
+            },
+            spaceUuid: savedChart.space_uuid,
+            views: savedChart.views_count,
+            firstViewedAt: savedChart.first_viewed_at,
+            chartType: ChartType.CARTESIAN,
+            chartKind: savedChart.chart_kind,
+            pinnedListUuid: '', // savedQuery.pinned_list_uuid,
+            pinnedListOrder: 0, // savedQuery.order,
+            validationErrors: [],
+            slug: savedChart.slug,
+            source: chartSourceType,
+        }));
+    }
+
+    async getSpaceSqlCharts(
+        spaceUuids: string[],
+        filters?: {
+            recentlyUpdated?: boolean;
+            mostPopular?: boolean;
+        },
+    ): Promise<SpaceQuery[]> {
+        return this.getSpaceCharts(
+            {
+                name: SavedSqlTableName,
+                uuidColumnName: 'saved_sql_uuid',
+                chartSourceType: ChartSourceType.SQL,
+            },
+            spaceUuids,
+            filters,
+        );
+    }
+
+    async getSpaceSemanticViewerCharts(
+        spaceUuids: string[],
+        filters?: {
+            recentlyUpdated?: boolean;
+            mostPopular?: boolean;
+        },
+    ): Promise<SpaceQuery[]> {
+        return this.getSpaceCharts(
+            {
+                name: SavedSemanticViewerChartsTableName,
+                uuidColumnName: 'saved_semantic_viewer_chart_uuid',
+                chartSourceType: ChartSourceType.SEMANTIC_LAYER,
+            },
+            spaceUuids,
+            filters,
+        );
+    }
+
     async getSpaceQueries(
         spaceUuids: string[],
         filters?: {
@@ -1004,6 +1200,7 @@ export class SpaceModel {
                             SELECT json_agg(validations.*)
                             FROM validations
                             WHERE validations.saved_chart_uuid = saved_queries.saved_query_uuid
+                            AND validations.job_id IS NULL
                         ), '[]'
                     ) as validation_errors
                 `),
@@ -1075,6 +1272,7 @@ export class SpaceModel {
                 }),
             ),
             slug: savedQuery.slug,
+            source: ChartSourceType.DBT_EXPLORE,
         }));
     }
 
@@ -1173,35 +1371,40 @@ export class SpaceModel {
         userId: number,
         isPrivate: boolean,
         slug: string,
+        forceSameSlug: boolean = false,
     ): Promise<Space> {
-        const [project] = await this.database('projects')
-            .select('project_id')
-            .where('project_uuid', projectUuid);
+        return this.database.transaction(async (trx) => {
+            const [project] = await trx('projects')
+                .select('project_id')
+                .where('project_uuid', projectUuid);
 
-        const [space] = await this.database(SpaceTableName)
-            .insert({
-                project_id: project.project_id,
-                is_private: isPrivate,
-                name,
-                created_by_user_id: userId,
-                slug,
-            })
-            .returning('*');
+            const [space] = await trx(SpaceTableName)
+                .insert({
+                    project_id: project.project_id,
+                    is_private: isPrivate,
+                    name,
+                    created_by_user_id: userId,
+                    slug: forceSameSlug
+                        ? slug
+                        : await generateUniqueSlug(trx, SpaceTableName, slug),
+                })
+                .returning('*');
 
-        return {
-            organizationUuid: space.organization_uuid,
-            name: space.name,
-            queries: [],
-            isPrivate: space.is_private,
-            uuid: space.space_uuid,
-            projectUuid,
-            dashboards: [],
-            access: [],
-            groupsAccess: [],
-            pinnedListUuid: null,
-            pinnedListOrder: null,
-            slug: space.slug,
-        };
+            return {
+                organizationUuid: space.organization_uuid,
+                name: space.name,
+                queries: [],
+                isPrivate: space.is_private,
+                uuid: space.space_uuid,
+                projectUuid,
+                dashboards: [],
+                access: [],
+                groupsAccess: [],
+                pinnedListUuid: null,
+                pinnedListOrder: null,
+                slug: space.slug,
+            };
+        });
     }
 
     async deleteSpace(spaceUuid: string): Promise<void> {
@@ -1210,9 +1413,12 @@ export class SpaceModel {
             .delete();
     }
 
-    async update(spaceUuid: string, space: UpdateSpace): Promise<Space> {
+    async update(
+        spaceUuid: string,
+        space: Partial<UpdateSpace>,
+    ): Promise<Space> {
         await this.database(SpaceTableName)
-            .update<UpdateSpace>({
+            .update({
                 name: space.name,
                 is_private: space.isPrivate,
             })

@@ -22,11 +22,11 @@ import {
     TextInput,
     Title,
 } from '@mantine/core';
-import { useForm } from '@mantine/form';
+import { useForm, zodResolver } from '@mantine/form';
 import { IconX } from '@tabler/icons-react';
 import { useEffect, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
+import { z } from 'zod';
 import useToaster from '../../../hooks/toaster/useToaster';
 import { useExplorerContext } from '../../../providers/ExplorerProvider';
 import MantineIcon from '../../common/MantineIcon';
@@ -62,7 +62,60 @@ export const CustomBinDimensionModal: FC<{
     );
     const { t } = useTranslation();
 
-    const form = useForm({
+    const formSchema = z.object({
+        customDimensionLabel: z.string().refine(
+            (label) => {
+                if (!label) return true;
+                if (!item) return true;
+                if (isEditing && label === item.name) return true;
+
+                const dimensionName = sanitizeId(
+                    label,
+                    isEditing && isCustomDimension(item)
+                        ? item.dimensionId
+                        : item.name,
+                );
+
+                if (
+                    isEditing &&
+                    isCustomDimension(item) &&
+                    dimensionName === item.id
+                ) {
+                    return true;
+                }
+
+                return !customDimensions?.some(
+                    (customDimension) => customDimension.id === dimensionName,
+                );
+            },
+            {
+                message: t(
+                    'components_explorer_custom_dimension_modal.tips.dimension_is_exists',
+                ),
+            },
+        ),
+        binType: z.nativeEnum(BinType),
+        binConfig: z.object({
+            fixedNumber: z.object({
+                binNumber: z.number().positive(),
+            }),
+            fixedWidth: z.object({
+                binWidth: z.number().positive(),
+            }),
+            customRange: z.array(
+                z
+                    .object({
+                        from: z.number({ coerce: true }).optional(),
+                        to: z.number({ coerce: true }).optional(),
+                    })
+                    .transform((o) => ({ from: o.from, to: o.to })),
+            ),
+        }),
+    });
+
+    type FormValues = z.infer<typeof formSchema>;
+
+    const form = useForm<FormValues>({
         initialValues: {
             customDimensionLabel: '',
             binType: BinType.FIXED_NUMBER,
@@ -76,39 +129,7 @@ export const CustomBinDimensionModal: FC<{
                 customRange: DEFAULT_CUSTOM_RANGE,
             },
         },
-        validate: {
-            customDimensionLabel: (label) => {
-                if (!label) return null;
-
-                if (!item) return null;
-
-                if (isEditing && label === item.name) {
-                    return null;
-                }
-                const dimensionName = sanitizeId(
-                    label,
-                    isEditing && isCustomDimension(item)
-                        ? item.dimensionId
-                        : item.name,
-                );
-
-                if (
-                    isEditing &&
-                    isCustomDimension(item) &&
-                    dimensionName === item.id
-                ) {
-                    return null;
-                }
-
-                return customDimensions?.some(
-                    (customDimension) => customDimension.id === dimensionName,
-                )
-                    ? t(
-                          'components_explorer_custom_dimension_modal.tips.dimension_is_exists',
-                      )
-                    : null;
-            },
-        },
+        validate: zodResolver(formSchema),
     });
 
     const { setFieldValue } = form;
@@ -134,7 +155,12 @@ export const CustomBinDimensionModal: FC<{
         }
     }, [setFieldValue, item, isEditing]);
 
-    const handleOnSubmit = form.onSubmit((values) => {
+    const handleOnSubmit = form.onSubmit((unparsedValues) => {
+        // mantine form does not produce zod parsed values
+        // so, number({ coerce: true }) does not work
+        // that's why we need to parse the values manually
+        const values = formSchema.parse(unparsedValues);
+
         if (item) {
             const sanitizedId = sanitizeId(
                 values.customDimensionLabel,
@@ -337,7 +363,7 @@ export const CustomBinDimensionModal: FC<{
                                                     &lt;{toProps.value}{' '}
                                                 </Text>
 
-                                                <NumberInput
+                                                <TextInput
                                                     w={100}
                                                     required
                                                     type="number"
@@ -365,7 +391,7 @@ export const CustomBinDimensionModal: FC<{
                                                     ≥{fromProps.value}{' '}
                                                 </Text>
 
-                                                <NumberInput
+                                                <TextInput
                                                     w={100}
                                                     required
                                                     type="number"
@@ -398,7 +424,7 @@ export const CustomBinDimensionModal: FC<{
                                                     {toProps.value}
                                                 </Text>
 
-                                                <NumberInput
+                                                <TextInput
                                                     w={100}
                                                     required
                                                     type="number"
@@ -408,7 +434,7 @@ export const CustomBinDimensionModal: FC<{
                                                     to{' '}
                                                 </Text>
 
-                                                <NumberInput
+                                                <TextInput
                                                     w={100}
                                                     required
                                                     type="number"

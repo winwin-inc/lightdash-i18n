@@ -1,6 +1,7 @@
 import assertUnreachable from '../utils/assertUnreachable';
 import { type ViewStatistics } from './analytics';
 import { type ConditionalFormattingConfig } from './conditionalFormatting';
+import { type ChartSourceType } from './content';
 import { type CompactOrAlias } from './field';
 import { type MetricQuery, type MetricQueryRequest } from './metricQuery';
 // eslint-disable-next-line import/no-cycle
@@ -582,6 +583,30 @@ export const getChartKind = (
     }
 };
 
+export const getEChartsChartTypeFromChartKind = (
+    chartKind:
+        | ChartKind.VERTICAL_BAR
+        | ChartKind.LINE
+        | ChartKind.AREA
+        | ChartKind.SCATTER,
+): CartesianSeriesType => {
+    switch (chartKind) {
+        case ChartKind.VERTICAL_BAR:
+            return CartesianSeriesType.BAR;
+        case ChartKind.LINE:
+            return CartesianSeriesType.LINE;
+        case ChartKind.AREA:
+            return CartesianSeriesType.AREA;
+        case ChartKind.SCATTER:
+            return CartesianSeriesType.SCATTER;
+        default:
+            return assertUnreachable(
+                chartKind,
+                `Unknown chart kind: ${chartKind}`,
+            );
+    }
+};
+
 export type ChartSummary = Pick<
     SavedChart,
     | 'uuid'
@@ -595,7 +620,11 @@ export type ChartSummary = Pick<
     | 'dashboardUuid'
     | 'dashboardName'
     | 'slug'
-> & { chartType?: ChartType | undefined; chartKind?: ChartKind | undefined };
+> & {
+    chartType?: ChartType | undefined;
+    chartKind?: ChartKind | undefined;
+    source?: ChartSourceType;
+};
 
 export type SpaceQuery = ChartSummary &
     Pick<SavedChart, 'updatedAt' | 'updatedByUser' | 'pinnedListOrder'> &

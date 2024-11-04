@@ -363,52 +363,46 @@ export const Layout: FC<Props> = ({ items }) => {
                                 );
                             })}
                     </Stack>
-                    {pivotDimensions &&
-                        pivotDimensions.length > 0 &&
-                        canBeStacked && (
-                            <Tooltip
-                                variant="xs"
-                                label={t(
-                                    'components_visualization_configs_chart.layout.tip_x_axis',
-                                )}
-                                withinPortal
-                                position="top-start"
-                                disabled={!isXAxisFieldNumeric}
-                            >
-                                <Group spacing="xs">
-                                    <Config.Label>
-                                        {t(
-                                            'components_visualization_configs_chart.layout.stacking',
-                                        )}
-                                    </Config.Label>
-                                    <SegmentedControl
-                                        disabled={isXAxisFieldNumeric}
-                                        value={
-                                            !isXAxisFieldNumeric && isStacked
-                                                ? 'stack'
-                                                : 'noStacking'
-                                        }
-                                        onChange={(value) =>
-                                            setStacking(value === 'stack')
-                                        }
-                                        data={[
-                                            {
-                                                label: t(
-                                                    'components_visualization_configs_chart.layout.none',
-                                                ),
-                                                value: 'noStacking',
-                                            },
-                                            {
-                                                label: t(
-                                                    'components_visualization_configs_chart.layout.stack',
-                                                ),
-                                                value: 'stack',
-                                            },
-                                        ]}
-                                    />
-                                </Group>
-                            </Tooltip>
-                        )}
+                    {canBeStacked && (
+                        <Tooltip
+                            variant="xs"
+                            label={t(
+                                'components_visualization_configs_chart.layout.tip_x_axis',
+                            )}
+                            withinPortal
+                            position="top-start"
+                            disabled={!isXAxisFieldNumeric}
+                        >
+                            <Group spacing="xs">
+                                <Config.Label>Stacking</Config.Label>
+                                <SegmentedControl
+                                    disabled={isXAxisFieldNumeric}
+                                    value={
+                                        !isXAxisFieldNumeric && isStacked
+                                            ? 'stack'
+                                            : 'noStacking'
+                                    }
+                                    onChange={(value) =>
+                                        setStacking(value === 'stack')
+                                    }
+                                    data={[
+                                        {
+                                            label: t(
+                                                'components_visualization_configs_chart.layout.none',
+                                            ),
+                                            value: 'noStacking',
+                                        },
+                                        {
+                                            label: t(
+                                                'components_visualization_configs_chart.layout.stack',
+                                            ),
+                                            value: 'stack',
+                                        },
+                                    ]}
+                                />
+                            </Group>
+                        </Tooltip>
+                    )}
                 </Config.Section>
             </Config>
         </Stack>

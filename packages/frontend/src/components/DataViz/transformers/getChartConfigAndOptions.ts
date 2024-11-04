@@ -7,14 +7,14 @@ import {
     isVizTableConfig,
     PieChartDataModel,
     TableDataModel,
-    type VizChartConfig,
+    type AllVizChartConfig,
+    type IResultsRunner,
 } from '@lightdash/common';
-import { type ResultsRunner } from './ResultsRunner';
 
-const getChartConfigAndOptions = (
-    resultsRunner: ResultsRunner,
+export const getChartConfigAndOptions = (
+    resultsRunner: IResultsRunner,
     chartType: ChartKind,
-    currentVizConfig?: VizChartConfig,
+    currentVizConfig?: AllVizChartConfig,
 ) => {
     switch (chartType) {
         case ChartKind.PIE:
@@ -24,13 +24,20 @@ const getChartConfigAndOptions = (
 
             const pieChartDataModel = new PieChartDataModel({
                 resultsRunner,
-                config: currentVizConfig,
             });
+
+            const pieConfig = pieChartDataModel.mergeConfig(
+                chartType,
+                currentVizConfig,
+            );
 
             return {
                 type: chartType,
                 options: pieChartDataModel.getResultOptions(),
-                config: pieChartDataModel.mergeConfig(chartType),
+                config: pieConfig,
+                errors: pieChartDataModel.getConfigErrors(
+                    currentVizConfig?.fieldConfig,
+                ),
             } as const;
         case ChartKind.TABLE:
             if (currentVizConfig && !isVizTableConfig(currentVizConfig)) {
@@ -39,12 +46,13 @@ const getChartConfigAndOptions = (
 
             const tableChartDataModel = new TableDataModel({
                 resultsRunner,
-                config: currentVizConfig,
+                columnsConfig: currentVizConfig?.columns,
             });
             return {
                 type: chartType,
                 options: tableChartDataModel.getResultOptions(),
                 config: tableChartDataModel.mergeConfig(chartType),
+                errors: undefined, // TODO: Implement error tracking for table viz
             } as const;
         case ChartKind.VERTICAL_BAR:
             if (currentVizConfig && !isVizBarChartConfig(currentVizConfig)) {
@@ -53,13 +61,22 @@ const getChartConfigAndOptions = (
 
             const barChartModel = new CartesianChartDataModel({
                 resultsRunner,
-                config: currentVizConfig,
+                fieldConfig: currentVizConfig?.fieldConfig,
+                type: chartType,
             });
+
+            const barConfig = barChartModel.mergeConfig(
+                chartType,
+                currentVizConfig,
+            );
 
             return {
                 type: chartType,
-                options: barChartModel.getResultOptions(),
-                config: barChartModel.mergeConfig(chartType),
+                options: barChartModel.getChartOptions(),
+                config: barConfig,
+                errors: barChartModel.getConfigErrors(
+                    currentVizConfig?.fieldConfig,
+                ),
             } as const;
 
         case ChartKind.LINE:
@@ -69,17 +86,24 @@ const getChartConfigAndOptions = (
 
             const lineChartModel = new CartesianChartDataModel({
                 resultsRunner,
-                config: currentVizConfig,
+                fieldConfig: currentVizConfig?.fieldConfig,
+                type: chartType,
             });
+
+            const lineConfig = lineChartModel.mergeConfig(
+                chartType,
+                currentVizConfig,
+            );
 
             return {
                 type: chartType,
-                options: lineChartModel.getResultOptions(),
-                config: lineChartModel.mergeConfig(chartType),
+                options: lineChartModel.getChartOptions(),
+                config: lineConfig,
+                errors: lineChartModel.getConfigErrors(
+                    currentVizConfig?.fieldConfig,
+                ),
             } as const;
         default:
             throw new Error(`Not implemented for chart type: ${chartType}`);
     }
 };
-
-export default getChartConfigAndOptions;
