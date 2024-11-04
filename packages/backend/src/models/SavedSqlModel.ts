@@ -1,4 +1,5 @@
 import {
+    AllVizChartConfig,
     CreateSqlChart,
     generateSlug,
     NotFoundError,
@@ -6,7 +7,6 @@ import {
     SqlChart,
     UpdateSqlChart,
     VizBaseConfig,
-    VizChartConfig,
 } from '@lightdash/common';
 import { Knex } from 'knex';
 import { DashboardsTableName } from '../database/entities/dashboards';
@@ -23,6 +23,7 @@ import {
 } from '../database/entities/savedSql';
 import { DbSpace, SpaceTableName } from '../database/entities/spaces';
 import { UserTableName } from '../database/entities/users';
+import { generateUniqueSlug } from '../utils/SlugUtils';
 
 type SelectSavedSql = Pick<
     DbSavedSql,
@@ -255,7 +256,7 @@ export class SavedSqlModel {
         data: {
             savedSqlUuid: string;
             userUuid: string;
-            config: VizChartConfig;
+            config: AllVizChartConfig;
             sql: string;
             limit: number;
         },
@@ -283,21 +284,6 @@ export class SavedSqlModel {
         return savedSqlVersionUuid;
     }
 
-    static async generateSavedSqlSlug(trx: Knex, name: string) {
-        const baseSlug = generateSlug(name);
-        const matchingSlugs: string[] = await trx(SavedSqlTableName)
-            .select('slug')
-            .where('slug', 'like', `${baseSlug}%`)
-            .pluck('slug');
-        let slug = generateSlug(name);
-        let inc = 0;
-        while (matchingSlugs.includes(slug)) {
-            inc += 1;
-            slug = `${baseSlug}-${inc}`; // generate new slug with number suffix
-        }
-        return slug;
-    }
-
     async create(
         userUuid: string,
         projectUuid: string,
@@ -312,8 +298,9 @@ export class SavedSqlModel {
                 SavedSqlTableName,
             ).insert(
                 {
-                    slug: await SavedSqlModel.generateSavedSqlSlug(
+                    slug: await generateUniqueSlug(
                         trx,
+                        SavedSqlTableName,
                         data.name,
                     ),
                     name: data.name,

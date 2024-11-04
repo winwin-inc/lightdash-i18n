@@ -33,6 +33,8 @@ export const ResourceInfoPopup: FC<Props> = ({
               )} ${dayjs(firstViewedAt).format('MMM D, YYYY h:mm A')}`
             : undefined;
 
+    if (!viewStats && !description && !withChartData) return null;
+
     return (
         <HoverCard
             offset={-1}
@@ -46,7 +48,7 @@ export const ResourceInfoPopup: FC<Props> = ({
             </HoverCard.Target>
             <HoverCard.Dropdown maw={300}>
                 <Stack spacing="xs">
-                    {viewStats && (
+                    {viewStats && viewStats > 0 ? (
                         <Stack spacing="two">
                             <Text fz="xs" fw={600} color="gray.6">
                                 {t(
@@ -65,7 +67,8 @@ export const ResourceInfoPopup: FC<Props> = ({
                                 </Group>
                             </Tooltip>
                         </Stack>
-                    )}
+                    ) : null}
+
                     {description && (
                         <Stack spacing="two">
                             <Text fz="xs" fw={600} color="gray.6">

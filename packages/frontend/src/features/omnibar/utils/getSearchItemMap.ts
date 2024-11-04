@@ -46,6 +46,32 @@ export const getSearchItemMap = (
         },
     }));
 
+    const sqlCharts = results.sqlCharts.map<SearchItem>((item) => ({
+        type: SearchItemType.SQL_CHART,
+        icon: 'chart',
+        title: item.name,
+        description: item.description || undefined,
+        item: item,
+        searchRank: item.search_rank,
+        location: {
+            pathname: `/projects/${projectUuid}/sql-runner/${item.slug}`,
+        },
+    }));
+
+    const semanticViewerCharts = results.semanticViewerCharts.map<SearchItem>(
+        (item) => ({
+            type: SearchItemType.SEMANTIC_VIEWER_CHART,
+            icon: 'chart',
+            title: item.name,
+            description: item.description || undefined,
+            item: item,
+            searchRank: item.search_rank,
+            location: {
+                pathname: `/projects/${projectUuid}/semantic-viewer/${item.slug}`,
+            },
+        }),
+    );
+
     const tables = results.tables.map<SearchItem>((item) => {
         if (isTableErrorSearchResult(item)) {
             return {
@@ -133,6 +159,8 @@ export const getSearchItemMap = (
         spaces,
         dashboards,
         savedCharts,
+        sqlCharts,
+        semanticViewerCharts,
         tables,
         fields,
         pages,

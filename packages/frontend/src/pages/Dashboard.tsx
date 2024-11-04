@@ -5,7 +5,7 @@ import {
     type DashboardTab,
     type DashboardTile,
 } from '@lightdash/common';
-import { Box, Button, Group, Modal, Stack, Text } from '@mantine/core';
+import { Box, Button, Flex, Group, Modal, Stack, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { captureException, useProfiler } from '@sentry/react';
 import { IconAlertCircle } from '@tabler/icons-react';
@@ -170,6 +170,14 @@ const Dashboard: FC = () => {
             ),
         );
     }, [dashboardUuid, pinnedItems]);
+
+    const hasNewSemanticLayerChart = useMemo(() => {
+        if (!dashboardTiles) return false;
+
+        return dashboardTiles.some(
+            (tile) => tile.type === DashboardTileTypes.SEMANTIC_VIEWER_CHART,
+        );
+    }, [dashboardTiles]);
 
     // tabs state
     const [activeTab, setActiveTab] = useState<DashboardTab | undefined>();
@@ -600,7 +608,6 @@ const Dashboard: FC = () => {
             </Modal>
 
             <Page
-                withPaddedContent
                 title={dashboard.name}
                 header={
                     <DashboardHeader
@@ -621,6 +628,7 @@ const Dashboard: FC = () => {
                             hasTemporaryFilters ||
                             haveTabsChanged
                         }
+                        hasNewSemanticLayerChart={hasNewSemanticLayerChart}
                         onAddTiles={handleAddTiles}
                         onSaveDashboard={() => {
                             const dimensionFilters = [
@@ -666,33 +674,38 @@ const Dashboard: FC = () => {
                         onTogglePin={handleDashboardPinning}
                     />
                 }
+                withFullHeight={true}
             >
-                <Group position="apart" align="flex-start" noWrap>
+                <Group position="apart" align="flex-start" noWrap px={'lg'}>
                     {dashboardChartTiles && dashboardChartTiles.length > 0 && (
                         <DashboardFilter
                             isEditMode={isEditMode}
                             activeTabUuid={activeTab?.uuid}
                         />
                     )}
-                    {hasDashboardTiles && <DateZoom isEditMode={isEditMode} />}
+                    {hasDashboardTiles && !hasNewSemanticLayerChart && (
+                        <DateZoom isEditMode={isEditMode} />
+                    )}
                 </Group>
-                <DashboardTabs
-                    isEditMode={isEditMode}
-                    hasRequiredDashboardFiltersToSet={
-                        hasRequiredDashboardFiltersToSet
-                    }
-                    addingTab={addingTab}
-                    dashboardTiles={dashboardTiles}
-                    handleAddTiles={handleAddTiles}
-                    handleUpdateTiles={handleUpdateTiles}
-                    handleDeleteTile={handleDeleteTile}
-                    handleBatchDeleteTiles={handleBatchDeleteTiles}
-                    handleEditTile={handleEditTiles}
-                    setGridWidth={setGridWidth}
-                    activeTab={activeTab}
-                    setActiveTab={setActiveTab}
-                    setAddingTab={setAddingTab}
-                />
+                <Flex style={{ flexGrow: 1, flexDirection: 'column' }}>
+                    <DashboardTabs
+                        isEditMode={isEditMode}
+                        hasRequiredDashboardFiltersToSet={
+                            hasRequiredDashboardFiltersToSet
+                        }
+                        addingTab={addingTab}
+                        dashboardTiles={dashboardTiles}
+                        handleAddTiles={handleAddTiles}
+                        handleUpdateTiles={handleUpdateTiles}
+                        handleDeleteTile={handleDeleteTile}
+                        handleBatchDeleteTiles={handleBatchDeleteTiles}
+                        handleEditTile={handleEditTiles}
+                        setGridWidth={setGridWidth}
+                        activeTab={activeTab}
+                        setActiveTab={setActiveTab}
+                        setAddingTab={setAddingTab}
+                    />
+                </Flex>
                 {isDeleteModalOpen && (
                     <DashboardDeleteModal
                         opened
@@ -732,6 +745,7 @@ const DashboardPage: FC = () => {
     const dashboardCommentsCheck = useDashboardCommentsCheck(user?.data);
 
     useProfiler('Dashboard');
+
     return (
         <DashboardProvider
             projectUuid={projectUuid}

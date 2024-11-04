@@ -10,14 +10,21 @@ import {
     Stack,
     Text,
     Title,
+    Tooltip,
 } from '@mantine/core';
-import { IconAlertCircle, IconRefresh, IconTrash } from '@tabler/icons-react';
+import {
+    IconAlertCircle,
+    IconClock,
+    IconRefresh,
+    IconTrash,
+} from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type FC } from 'react';
+import { useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { lightdashApi } from '../../../api';
 import useToaster from '../../../hooks/toaster/useToaster';
+import useSearchParams from '../../../hooks/useSearchParams';
 import githubIcon from '../../../svgs/github-icon.svg';
 import MantineIcon from '../../common/MantineIcon';
 import { SettingsGridCard } from '../../common/Settings/SettingsCard';
@@ -29,13 +36,23 @@ const getGithubRepositories = async () =>
         body: undefined,
     });
 
-const useGitHubRepositories = () =>
-    useQuery<GitRepo[], ApiError>({
+export const useGitHubRepositories = () => {
+    const { showToastApiError } = useToaster();
+
+    return useQuery<GitRepo[], ApiError>({
         queryKey: ['github_branches'],
         queryFn: () => getGithubRepositories(),
         retry: false,
-    });
+        onError: ({ error }) => {
+            if (error.statusCode === 404) return; // Ignore missing installation errors
 
+            showToastApiError({
+                title: 'Failed to get GitHub integration',
+                apiError: error,
+            });
+        },
+    });
+};
 const deleteGithubInstallation = async () =>
     lightdashApi<null>({
         url: `/github/uninstall`,
@@ -82,7 +99,34 @@ const GithubSettingsPanel: FC = () => {
     const { data, isError, isInitialLoading } = useGitHubRepositories();
     const deleteGithubInstallationMutation =
         useDeleteGithubInstallationMutation();
+
+    const status = useSearchParams('status');
+    const { showToastWarning } = useToaster();
+    const isWaitingForGithubRequest = status === 'github_request_sent';
+
     const isValidGithubInstallation = data !== undefined && !isError;
+
+    useEffect(() => {
+        if (
+            isWaitingForGithubRequest &&
+            !isValidGithubInstallation &&
+            !isInitialLoading
+        ) {
+            const toastKey = 'github_request_sent';
+            showToastWarning({
+                title: 'GitHub app installation pending',
+                subtitle:
+                    'The GitHub app is waiting to be authorized by a Github admin.',
+                key: toastKey,
+            });
+        }
+    }, [
+        isWaitingForGithubRequest,
+        isValidGithubInstallation,
+        isInitialLoading,
+        showToastWarning,
+    ]);
+
     if (isInitialLoading) {
         return <Loader />;
     }
@@ -140,6 +184,19 @@ const GithubSettingsPanel: FC = () => {
                                 variant="default"
                                 href={GITHUB_INSTALL_URL}
                                 leftIcon={<MantineIcon icon={IconRefresh} />}
+                                onClick={() => {
+                                    deleteGithubInstallationMutation.mutate(
+                                        undefined,
+                                        {
+                                            onSuccess: () => {
+                                                window.open(
+                                                    GITHUB_INSTALL_URL,
+                                                    '_blank',
+                                                );
+                                            },
+                                        },
+                                    );
+                                }}
                             >
                                 {t(
                                     'components_user_settings_github_settings_panel.reinstall',
@@ -163,17 +220,41 @@ const GithubSettingsPanel: FC = () => {
                     </Stack>
                 ) : (
                     <Flex justify="end">
-                        <Button
-                            size="xs"
-                            component="a"
-                            target="_blank"
-                            color="blue"
-                            href={GITHUB_INSTALL_URL}
-                        >
-                            {t(
-                                'components_user_settings_github_settings_panel.install',
-                            )}
-                        </Button>
+                        {isWaitingForGithubRequest ? (
+                            <Tooltip
+                                multiline
+                                maw={400}
+                                label={t(
+                                    'components_user_settings_github_settings_panel.waiting_for.label',
+                                )}
+                            >
+                                <Button
+                                    size="xs"
+                                    component="a"
+                                    target="_blank"
+                                    color="yellow"
+                                    variant="outline"
+                                    href={GITHUB_INSTALL_URL}
+                                    leftIcon={<MantineIcon icon={IconClock} />}
+                                >
+                                    {t(
+                                        'components_user_settings_github_settings_panel.waiting_for.pending',
+                                    )}
+                                </Button>
+                            </Tooltip>
+                        ) : (
+                            <Button
+                                size="xs"
+                                component="a"
+                                target="_blank"
+                                color="blue"
+                                href={GITHUB_INSTALL_URL}
+                            >
+                                {t(
+                                    'components_user_settings_github_settings_panel.waiting_for.install',
+                                )}
+                            </Button>
+                        )}
                     </Flex>
                 )}
             </Stack>

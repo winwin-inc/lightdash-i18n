@@ -29,9 +29,9 @@ import {
     IconUsers,
     type Icon as TablerIconType,
 } from '@tabler/icons-react';
-import { forwardRef, useCallback, useMemo, type FC } from 'react';
+import { chunk } from 'lodash';
+import { forwardRef, useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import useToaster from '../../../hooks/toaster/useToaster';
 import {
     useAddGroupSpaceShareMutation,
@@ -40,6 +40,8 @@ import {
     useDeleteSpaceShareMutation,
 } from '../../../hooks/useSpaces';
 import MantineIcon from '../MantineIcon';
+import PaginateControl from '../PaginateControl';
+import { DEFAULT_PAGE_SIZE } from '../Table/types';
 import {
     UserAccessAction,
     useUserAccessOptions,
@@ -147,159 +149,187 @@ type UserAccessListProps = {
         action: UserAccessAction,
         currentUserAccess: SpaceShare,
     ) => void;
+    pageSize?: number;
 };
 const UserAccessList: FC<UserAccessListProps> = ({
     isPrivate,
     accessList,
     sessionUser,
     onAccessChange,
+    pageSize,
 }) => {
     const UserAccessOptions = useUserAccessOptions();
     const { t } = useTranslation();
+    const [page, setPage] = useState(1);
+
+    // TODO: Paginate space access from backend
+    const paginatedList: SpaceShare[][] = useMemo(() => {
+        const sortedList = structuredClone(accessList).sort(
+            sortByRole(sessionUser?.userUuid),
+        );
+
+        return chunk(sortedList, pageSize ?? DEFAULT_PAGE_SIZE);
+    }, [accessList, pageSize, sessionUser?.userUuid]);
+
+    const handleNextPage = useCallback(() => {
+        if (page < paginatedList.length) {
+            setPage((prev) => prev + 1);
+        }
+    }, [page, paginatedList.length]);
+
+    const handlePreviousPage = useCallback(() => {
+        if (page > 1) {
+            setPage((prev) => prev - 1);
+        }
+    }, [page]);
 
     return (
         <Stack spacing="sm">
-            {accessList
-                .sort(sortByRole(sessionUser?.userUuid))
-                .map((sharedUser) => {
-                    const needsToBePromotedToInteractiveViewer =
-                        sharedUser.projectRole === ProjectMemberRole.VIEWER &&
-                        sharedUser.role !== SpaceMemberRole.VIEWER;
-                    const isSessionUser =
-                        sharedUser.userUuid === sessionUser?.userUuid;
+            {paginatedList[page - 1]?.map((sharedUser) => {
+                const needsToBePromotedToInteractiveViewer =
+                    sharedUser.projectRole === ProjectMemberRole.VIEWER &&
+                    sharedUser.role !== SpaceMemberRole.VIEWER;
+                const isSessionUser =
+                    sharedUser.userUuid === sessionUser?.userUuid;
 
-                    const userAccessTypes = UserAccessOptions.filter(
-                        (accessType) =>
-                            accessType.value !== UserAccessAction.DELETE ||
-                            sharedUser.hasDirectAccess,
-                    ).map((accessType) =>
-                        accessType.value === UserAccessAction.DELETE &&
-                        !isPrivate
-                            ? {
-                                  ...accessType,
-                                  title: t(
-                                      'components_common_share_space_modal.reset_access.title',
-                                  ),
-                                  selectDescription: t(
-                                      'components_common_share_space_modal.reset_access.select_description',
-                                  ),
-                              }
-                            : accessType,
-                    );
+                const userAccessTypes = UserAccessOptions.filter(
+                    (accessType) =>
+                        accessType.value !== UserAccessAction.DELETE ||
+                        sharedUser.hasDirectAccess,
+                ).map((accessType) =>
+                    accessType.value === UserAccessAction.DELETE && !isPrivate
+                        ? {
+                              ...accessType,
+                              title: t(
+                                  'components_common_share_space_modal.reset_access.title',
+                              ),
+                              selectDescription: t(
+                                  'components_common_share_space_modal.reset_access.select_description',
+                              ),
+                          }
+                        : accessType,
+                );
 
-                    return (
-                        <Group
-                            key={sharedUser.userUuid}
-                            spacing="sm"
-                            position="apart"
-                            noWrap
-                        >
-                            <Group>
-                                <Avatar
-                                    size={'sm'}
-                                    radius="xl"
-                                    tt="uppercase"
-                                    color="blue"
-                                >
-                                    {getInitials(
-                                        sharedUser.userUuid,
-                                        sharedUser.firstName,
-                                        sharedUser.lastName,
-                                        sharedUser.email,
-                                    )}
-                                </Avatar>
+                return (
+                    <Group
+                        key={sharedUser.userUuid}
+                        spacing="sm"
+                        position="apart"
+                        noWrap
+                    >
+                        <Group>
+                            <Avatar
+                                size={'sm'}
+                                radius="xl"
+                                tt="uppercase"
+                                color="blue"
+                            >
+                                {getInitials(
+                                    sharedUser.userUuid,
+                                    sharedUser.firstName,
+                                    sharedUser.lastName,
+                                    sharedUser.email,
+                                )}
+                            </Avatar>
 
-                                <Text fw={600} fz="sm">
-                                    {getUserNameOrEmail(
-                                        sharedUser.userUuid,
-                                        sharedUser.firstName,
-                                        sharedUser.lastName,
-                                        sharedUser.email,
-                                    )}
-                                    {isSessionUser ? (
-                                        <Text fw={400} span c="gray.6">
-                                            {' '}
-                                            (
-                                            {t(
-                                                'components_common_share_space_modal.you',
-                                            )}
-                                            )
-                                        </Text>
-                                    ) : null}
-                                </Text>
-                            </Group>
-                            {isSessionUser ||
-                            (!sharedUser.hasDirectAccess &&
-                                sharedUser.inheritedRole ===
-                                    ProjectMemberRole.ADMIN) ? (
-                                <Badge
-                                    size="xs"
-                                    color="gray.6"
-                                    radius="xs"
-                                    mr={'xs'}
-                                >
-                                    {UserAccessOptions.find(
-                                        (option) =>
-                                            option.value === sharedUser.role,
-                                    )?.title ?? sharedUser.role}
-                                </Badge>
-                            ) : (
-                                <Tooltip
-                                    disabled={
-                                        !needsToBePromotedToInteractiveViewer
-                                    }
-                                    withinPortal
-                                    label={t(
-                                        'components_common_share_space_modal.tooltip_user.label',
-                                    )}
-                                    maw={350}
-                                    multiline
-                                >
-                                    <Select
-                                        styles={{
-                                            input: {
-                                                fontWeight: 500,
-                                                textAlign: 'right',
-                                            },
-                                            rightSection: {
-                                                pointerEvents: 'none',
-                                            },
-                                        }}
-                                        size="xs"
-                                        variant="unstyled"
-                                        withinPortal
-                                        data={userAccessTypes.map((u) => ({
-                                            label: u.title,
-                                            ...u,
-                                        }))}
-                                        value={sharedUser.role}
-                                        itemComponent={UserAccessSelectItem}
-                                        onChange={(userAccessOption) => {
-                                            if (userAccessOption) {
-                                                onAccessChange(
-                                                    userAccessOption as UserAccessAction,
-                                                    sharedUser,
-                                                );
-                                            }
-                                        }}
-                                        error={
-                                            needsToBePromotedToInteractiveViewer
-                                        }
-                                        rightSection={
-                                            needsToBePromotedToInteractiveViewer ? (
-                                                <MantineIcon
-                                                    icon={IconAlertCircle}
-                                                    size="sm"
-                                                    color="red.6"
-                                                />
-                                            ) : null
-                                        }
-                                    />
-                                </Tooltip>
-                            )}
+                            <Text fw={600} fz="sm">
+                                {getUserNameOrEmail(
+                                    sharedUser.userUuid,
+                                    sharedUser.firstName,
+                                    sharedUser.lastName,
+                                    sharedUser.email,
+                                )}
+                                {isSessionUser ? (
+                                    <Text fw={400} span c="gray.6">
+                                        {' '}
+                                        (
+                                        {t(
+                                            'components_common_share_space_modal.you',
+                                        )}
+                                        )
+                                    </Text>
+                                ) : null}
+                            </Text>
                         </Group>
-                    );
-                })}
+                        {isSessionUser ||
+                        (!sharedUser.hasDirectAccess &&
+                            sharedUser.inheritedRole ===
+                                ProjectMemberRole.ADMIN) ? (
+                            <Badge
+                                size="xs"
+                                color="gray.6"
+                                radius="xs"
+                                mr={'xs'}
+                            >
+                                {UserAccessOptions.find(
+                                    (option) =>
+                                        option.value === sharedUser.role,
+                                )?.title ?? sharedUser.role}
+                            </Badge>
+                        ) : (
+                            <Tooltip
+                                disabled={!needsToBePromotedToInteractiveViewer}
+                                withinPortal
+                                label={t(
+                                    'components_common_share_space_modal.tooltip_user.label',
+                                )}
+                                maw={350}
+                                multiline
+                            >
+                                <Select
+                                    styles={{
+                                        input: {
+                                            fontWeight: 500,
+                                            textAlign: 'right',
+                                        },
+                                        rightSection: {
+                                            pointerEvents: 'none',
+                                        },
+                                    }}
+                                    size="xs"
+                                    variant="unstyled"
+                                    withinPortal
+                                    data={userAccessTypes.map((u) => ({
+                                        label: u.title,
+                                        ...u,
+                                    }))}
+                                    value={sharedUser.role}
+                                    itemComponent={UserAccessSelectItem}
+                                    onChange={(userAccessOption) => {
+                                        if (userAccessOption) {
+                                            onAccessChange(
+                                                userAccessOption as UserAccessAction,
+                                                sharedUser,
+                                            );
+                                        }
+                                    }}
+                                    error={needsToBePromotedToInteractiveViewer}
+                                    rightSection={
+                                        needsToBePromotedToInteractiveViewer ? (
+                                            <MantineIcon
+                                                icon={IconAlertCircle}
+                                                size="sm"
+                                                color="red.6"
+                                            />
+                                        ) : null
+                                    }
+                                />
+                            </Tooltip>
+                        )}
+                    </Group>
+                );
+            })}
+            {paginatedList.length > 1 && (
+                <PaginateControl
+                    currentPage={page}
+                    totalPages={paginatedList.length}
+                    hasNextPage={page < paginatedList.length}
+                    hasPreviousPage={page > 1}
+                    onNextPage={handleNextPage}
+                    onPreviousPage={handlePreviousPage}
+                    style={{ alignSelf: 'flex-end' }}
+                />
+            )}
         </Stack>
     );
 };
@@ -311,18 +341,38 @@ type GroupAccessListProps = {
         action: UserAccessAction,
         currentGroupAccess: SpaceGroup,
     ) => void;
+    pageSize?: number;
 };
 const GroupsAccessList: FC<GroupAccessListProps> = ({
     isPrivate,
     onAccessChange,
     groupsAccess,
+    pageSize,
 }) => {
-    const UserAccessOptions = useUserAccessOptions();
-    const { t } = useTranslation();
+    const [page, setPage] = useState(1);
+
+    // TODO: Paginate group access from backend
+    const paginatedList: SpaceGroup[][] = useMemo(() => {
+        const sortedList = structuredClone(groupsAccess);
+
+        return chunk(sortedList, pageSize ?? DEFAULT_PAGE_SIZE);
+    }, [groupsAccess, pageSize]);
+
+    const handleNextPage = useCallback(() => {
+        if (page < paginatedList.length) {
+            setPage((prev) => prev + 1);
+        }
+    }, [page, paginatedList.length]);
+
+    const handlePreviousPage = useCallback(() => {
+        if (page > 1) {
+            setPage((prev) => prev - 1);
+        }
+    }, [page]);
 
     return (
         <Stack spacing="sm">
-            {groupsAccess.map((group) => {
+            {paginatedList[page - 1]?.map((group) => {
                 const userAccessTypes = UserAccessOptions.map((accessType) =>
                     accessType.value === UserAccessAction.DELETE
                         ? {
@@ -396,6 +446,17 @@ const GroupsAccessList: FC<GroupAccessListProps> = ({
                     </Group>
                 );
             })}
+            {paginatedList.length > 1 && (
+                <PaginateControl
+                    currentPage={page}
+                    totalPages={paginatedList.length}
+                    hasNextPage={page < paginatedList.length}
+                    hasPreviousPage={page > 1}
+                    onNextPage={handleNextPage}
+                    onPreviousPage={handlePreviousPage}
+                    style={{ alignSelf: 'flex-end' }}
+                />
+            )}
         </Stack>
     );
 };
@@ -569,6 +630,7 @@ export const ShareSpaceUserList: FC<ShareSpaceUserListProps> = ({
                         isPrivate={space.isPrivate}
                         groupsAccess={space.groupsAccess}
                         onAccessChange={handleGroupAccessChange}
+                        pageSize={5}
                     />
                 </>
             )}
@@ -582,6 +644,7 @@ export const ShareSpaceUserList: FC<ShareSpaceUserListProps> = ({
                         accessList={accessByType.direct}
                         sessionUser={sessionUser}
                         onAccessChange={handleAccessChange}
+                        pageSize={5}
                     />
                 </>
             )}

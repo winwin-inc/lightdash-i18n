@@ -31,21 +31,42 @@ const TableField: FC<{
     field: WarehouseTableField;
     search: string | undefined;
 }> = memo(({ activeTable, field, search }) => {
+    const { t } = useTranslation();
     const { ref: hoverRef, hovered } = useHover();
     const { ref: truncatedRef, isTruncated } = useIsTruncated<HTMLDivElement>();
+
     return (
         <Group spacing={'xs'} noWrap ref={hoverRef}>
             {hovered ? (
                 <Box display={hovered ? 'block' : 'none'}>
                     <CopyButton value={`${activeTable}.${field.name}`}>
                         {({ copied, copy }) => (
-                            <ActionIcon size={16} onClick={copy} bg="gray.1">
-                                <MantineIcon
-                                    icon={IconCopy}
-                                    color={copied ? 'green' : 'blue'}
+                            <Tooltip
+                                variant="xs"
+                                label={
+                                    copied
+                                        ? t(
+                                              'features_sql_runner_table_fields.copied_to_clipboard',
+                                          )
+                                        : t(
+                                              'features_sql_runner_table_fields.copy',
+                                          )
+                                }
+                                withArrow
+                                position="right"
+                            >
+                                <ActionIcon
+                                    size={16}
                                     onClick={copy}
-                                />
-                            </ActionIcon>
+                                    bg="gray.1"
+                                >
+                                    <MantineIcon
+                                        icon={IconCopy}
+                                        color={copied ? 'green' : 'blue'}
+                                        onClick={copy}
+                                    />
+                                </ActionIcon>
+                            </Tooltip>
                         )}
                     </CopyButton>
                 </Box>
@@ -85,11 +106,10 @@ const TableField: FC<{
 export const TableFields: FC = () => {
     const { t } = useTranslation();
 
-    const projectUuid = useAppSelector(
-        (state: any) => state.sqlRunner.projectUuid,
-    );
-    const activeTable = useAppSelector(
-        (state: any) => state.sqlRunner.activeTable,
+    const projectUuid = useAppSelector((state) => state.sqlRunner.projectUuid);
+    const activeTable = useAppSelector((state) => state.sqlRunner.activeTable);
+    const activeSchema = useAppSelector(
+        (state) => state.sqlRunner.activeSchema,
     );
 
     const [search, setSearch] = useState<string>('');
@@ -98,6 +118,7 @@ export const TableFields: FC = () => {
     const isValidSearch = Boolean(
         debouncedSearch && debouncedSearch.trim().length > 2,
     );
+
     const {
         data: tableFields,
         isLoading,
@@ -105,13 +126,14 @@ export const TableFields: FC = () => {
     } = useTableFields({
         projectUuid,
         tableName: activeTable,
+        schema: activeSchema,
         search: isValidSearch ? debouncedSearch : undefined,
     });
 
     return (
-        <Stack pt="sm" spacing="xs" h="calc(100% - 20px)" py="xs">
+        <Stack spacing="xs" h="calc(100% - 20px)" pt="sm" py="xs">
             {activeTable ? (
-                <>
+                <Box px="sm">
                     <Text fz="sm" fw={600} c="gray.7">
                         {activeTable}
                     </Text>
@@ -147,7 +169,7 @@ export const TableFields: FC = () => {
                             },
                         })}
                     />
-                </>
+                </Box>
             ) : (
                 <Center p="md">
                     <Text c="gray.4">
@@ -164,6 +186,8 @@ export const TableFields: FC = () => {
                     className="only-vertical"
                     sx={{ flex: 1 }}
                     type="auto"
+                    scrollbarSize={8}
+                    pl="sm"
                 >
                     <Stack spacing={0}>
                         {tableFields.map((field) => (

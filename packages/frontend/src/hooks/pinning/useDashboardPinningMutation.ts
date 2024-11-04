@@ -36,8 +36,9 @@ export const useDashboardPinningMutation = () => {
                 await queryClient.invalidateQueries([
                     'most-popular-and-recently-updated',
                 ]);
+                await queryClient.invalidateQueries(['content']);
 
-                if (dashboard.pinnedListUuid) {
+                if (dashboard.isPinned) {
                     showToastSuccess({
                         title: t(
                             'hooks_pinning.toast_dashboard_pinned.success.pinned',

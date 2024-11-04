@@ -1,9 +1,24 @@
-import { ProjectType, type OrganizationProject } from '@lightdash/common';
-import { Badge, Button, Group, Menu, Text, Tooltip } from '@mantine/core';
-import { IconArrowRight } from '@tabler/icons-react';
-import { useCallback, useMemo, type FC } from 'react';
+import { subject } from '@casl/ability';
+import {
+    assertUnreachable,
+    ProjectType,
+    type OrganizationProject,
+} from '@lightdash/common';
+import {
+    Badge,
+    Box,
+    Button,
+    Group,
+    MantineProvider,
+    Menu,
+    Modal,
+    Text,
+    TextInput,
+    Tooltip,
+} from '@mantine/core';
+import { IconArrowRight, IconPlus } from '@tabler/icons-react';
+import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import { useHistory, useRouteMatch } from 'react-router-dom';
 
 import useToaster from '../../hooks/toaster/useToaster';
@@ -12,8 +27,96 @@ import {
     useUpdateActiveProjectMutation,
 } from '../../hooks/useActiveProject';
 import { useIsTruncated } from '../../hooks/useIsTruncated';
+import { useCreatePreviewMutation } from '../../hooks/useProjectPreview';
 import { useProjects } from '../../hooks/useProjects';
+import { useApp } from '../../providers/AppProvider';
+import MantineIcon from '../common/MantineIcon';
 
+const MENU_TEXT_PROPS = {
+    c: 'gray.2',
+    fz: 'xs',
+    fw: 500,
+};
+
+const CreatePreviewModal = ({
+    isOpened,
+    onClose,
+    projectName,
+    projectUuid,
+}: {
+    isOpened: boolean;
+    onClose: () => void;
+    projectName: string;
+    projectUuid: string;
+}) => {
+    const { t } = useTranslation();
+    const { mutateAsync: createPreviewProject, isLoading: isPreviewCreating } =
+        useCreatePreviewMutation();
+
+    const [previewName, setPreviewName] = useState<string | undefined>();
+
+    return (
+        <MantineProvider inherit theme={{ colorScheme: 'light' }}>
+            <Modal
+                opened={isOpened}
+                onClose={() => onClose()}
+                title={t('components_navbar_project_switcher.modal.title', {
+                    projectName,
+                })}
+            >
+                <Text>
+                    {t(
+                        'components_navbar_project_switcher.modal.content.part_1',
+                    )}
+                    <Text span fw={500}>
+                        {projectName}
+                    </Text>
+                    {t(
+                        'components_navbar_project_switcher.modal.content.part_2',
+                    )}
+                </Text>
+                <TextInput
+                    mt="sm"
+                    mb="sm"
+                    label={t(
+                        'components_navbar_project_switcher.modal.preview_name.title',
+                    )}
+                    value={previewName}
+                    defaultValue={t(
+                        'components_navbar_project_switcher.modal.preview_name.value',
+                        {
+                            projectName,
+                        },
+                    )}
+                    onChange={(e) => {
+                        setPreviewName(e.currentTarget.value);
+                    }}
+                />
+                <Button
+                    disabled={isPreviewCreating}
+                    onClick={async () => {
+                        await createPreviewProject({
+                            projectUuid: projectUuid,
+                            name:
+                                previewName ||
+                                t(
+                                    'components_navbar_project_switcher.modal.preview_name.value',
+                                    {
+                                        projectName,
+                                    },
+                                ),
+                        });
+                        onClose();
+                    }}
+                >
+                    {isPreviewCreating
+                        ? t('components_navbar_project_switcher.modal.creating')
+                        : t('components_navbar_project_switcher.modal.create')}
+                </Button>
+            </Modal>
+        </MantineProvider>
+    );
+};
 const InactiveProjectItem: FC<{
     item: OrganizationProject;
     handleProjectChange: (newUuid: string) => void;
@@ -38,15 +141,14 @@ const InactiveProjectItem: FC<{
                 >
                     <Text
                         ref={truncatedRef}
-                        c="gray.2"
-                        fz="xs"
-                        fw={500}
+                        {...MENU_TEXT_PROPS}
                         truncate
                         maw={350}
                     >
                         {item.name}
                     </Text>
                 </Tooltip>
+
                 {item.type === ProjectType.PREVIEW && (
                     <Badge
                         color="yellow.1"
@@ -98,6 +200,8 @@ const ProjectSwitcher = () => {
 
     const { showToastSuccess } = useToaster();
     const history = useHistory();
+
+    const { user } = useApp();
 
     const { isInitialLoading: isLoadingProjects, data: projects } =
         useProjects();
@@ -176,10 +280,49 @@ const ProjectSwitcher = () => {
         return projects.find((p) => p.projectUuid === activeProjectUuid);
     }, [activeProjectUuid, projects]);
 
+    // user has permission to create preview project on an organization level
+    const orgRoleCanCreatePreviews = useMemo(() => {
+        return user.data?.ability.can(
+            'create',
+            subject('Project', {
+                organizationUuid: user.data.organizationUuid,
+                type: ProjectType.PREVIEW,
+            }),
+        );
+    }, [user.data]);
+
     const inactiveProjects = useMemo(() => {
         if (!activeProjectUuid || !projects) return [];
-        return projects.filter((p) => p.projectUuid !== activeProjectUuid);
-    }, [activeProjectUuid, projects]);
+        return projects
+            .filter((p) => p.projectUuid !== activeProjectUuid)
+            .filter((project) => {
+                switch (project.type) {
+                    case ProjectType.DEFAULT:
+                        return true;
+                    case ProjectType.PREVIEW:
+                        // check if user has permission to create preview project on an organization level (developer, admin)
+                        // or check if user has permission to create preview project on a project level
+                        // - they should have permission (developer, admin) to the upstream project
+                        return (
+                            orgRoleCanCreatePreviews ||
+                            user.data?.ability.can(
+                                'create',
+                                subject('Project', {
+                                    upstreamProjectUuid: project.projectUuid,
+                                    type: ProjectType.PREVIEW,
+                                }),
+                            )
+                        );
+                    default:
+                        return assertUnreachable(
+                            project.type,
+                            `Unknown project type: ${project.type}`,
+                        );
+                }
+            });
+    }, [activeProjectUuid, projects, orgRoleCanCreatePreviews, user.data]);
+
+    const [isCreatePreviewOpen, setIsCreatePreview] = useState(false);
 
     if (
         isLoadingProjects ||
@@ -190,60 +333,120 @@ const ProjectSwitcher = () => {
         return null;
     }
 
-    const hasMultipleProjects = projects.length > 1;
-
     return (
-        <Menu
-            position="bottom-end"
-            withArrow
-            shadow="lg"
-            arrowOffset={16}
-            offset={-2}
-            disabled={!hasMultipleProjects}
-            styles={{
-                dropdown: {
-                    maxHeight: 450,
-                    overflow: 'auto',
-                },
-            }}
-        >
-            <Menu.Target>
-                <Button
-                    maw={200}
-                    variant="default"
-                    size="xs"
-                    disabled={
-                        isLoadingProjects ||
-                        isLoadingActiveProjectUuid ||
-                        !hasMultipleProjects
-                    }
-                    sx={(theme) => ({
-                        '&:disabled': {
-                            color: theme.white,
-                            backgroundColor: theme.colors.dark[6],
-                            borderColor: theme.colors.dark[4],
-                        },
-                    })}
-                >
-                    <Text truncate>
-                        {activeProject?.name ??
-                            t(
-                                'components_navbar_project_switcher.select_a_project',
-                            )}
-                    </Text>
-                </Button>
-            </Menu.Target>
+        <>
+            <Menu
+                position="bottom-end"
+                withArrow
+                shadow="lg"
+                arrowOffset={16}
+                offset={-2}
+                styles={{
+                    dropdown: {
+                        maxHeight: 450,
+                        overflow: 'auto',
+                    },
+                }}
+            >
+                <Menu.Target>
+                    <Button
+                        maw={200}
+                        variant="default"
+                        size="xs"
+                        disabled={
+                            isLoadingProjects || isLoadingActiveProjectUuid
+                        }
+                        sx={(theme) => ({
+                            '&:disabled': {
+                                color: theme.white,
+                                backgroundColor: theme.colors.dark[6],
+                                borderColor: theme.colors.dark[4],
+                            },
+                        })}
+                    >
+                        <Text truncate>
+                            {activeProject?.name ??
+                                t(
+                                    'components_navbar_project_switcher.select_a_project',
+                                )}
+                        </Text>
+                    </Button>
+                </Menu.Target>
 
-            <Menu.Dropdown maw={400}>
-                {inactiveProjects.map((item) => (
-                    <InactiveProjectItem
-                        key={item.projectUuid}
-                        item={item}
-                        handleProjectChange={handleProjectChange}
-                    />
-                ))}
-            </Menu.Dropdown>
-        </Menu>
+                <Menu.Dropdown maw={400}>
+                    <Box
+                        pos="sticky"
+                        top={0}
+                        bg="gray.9"
+                        sx={(theme) => ({
+                            boxShadow: `0 -4px ${theme.colors.gray[9]}`,
+                        })}
+                    >
+                        <Menu.Label py={0}>
+                            {t(
+                                'components_navbar_project_switcher.all_projects',
+                            )}
+                        </Menu.Label>
+                        <Menu.Divider />
+                    </Box>
+
+                    {inactiveProjects.map((item) => (
+                        <InactiveProjectItem
+                            key={item.projectUuid}
+                            item={item}
+                            handleProjectChange={handleProjectChange}
+                        />
+                    ))}
+
+                    {activeProject &&
+                    activeProject.type === ProjectType.DEFAULT &&
+                    (orgRoleCanCreatePreviews ||
+                        user.data?.ability.can(
+                            'create',
+                            // user has permission to create preview from the upstream project (developer, admin)
+                            subject('Project', {
+                                upstreamProjectUuid: activeProject.projectUuid,
+                                type: ProjectType.PREVIEW,
+                            }),
+                        )) ? (
+                        <Box
+                            pos="sticky"
+                            bottom={0}
+                            bg="gray.9"
+                            sx={(theme) => ({
+                                // fixes scroll overlap
+                                boxShadow: `0 4px ${theme.colors.gray[9]}`,
+                            })}
+                        >
+                            <Menu.Divider />
+
+                            <Menu.Item
+                                onClick={(e) => {
+                                    setIsCreatePreview(!isCreatePreviewOpen);
+                                    e.stopPropagation();
+                                }}
+                                icon={<MantineIcon icon={IconPlus} size="md" />}
+                            >
+                                <Text {...MENU_TEXT_PROPS}>
+                                    {t(
+                                        'components_navbar_project_switcher.create_preview',
+                                    )}
+                                </Text>
+                            </Menu.Item>
+                        </Box>
+                    ) : null}
+                </Menu.Dropdown>
+            </Menu>
+
+            {activeProject && (
+                <CreatePreviewModal
+                    isOpened={isCreatePreviewOpen}
+                    onClose={() => setIsCreatePreview(false)}
+                    projectName={activeProject.name}
+                    projectUuid={activeProject.projectUuid}
+                />
+            )}
+        </>
     );
 };
 

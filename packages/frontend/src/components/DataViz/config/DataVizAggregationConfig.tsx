@@ -1,21 +1,31 @@
 import {
     MetricType,
-    type VizAggregationOptions,
+    VizAggregationOptions,
     type VizValuesLayoutOptions,
 } from '@lightdash/common';
-import { Box, Group, Select, Text } from '@mantine/core';
 import {
+    Box,
+    Group,
+    Select,
+    Text,
+    Tooltip,
+    useMantineTheme,
+} from '@mantine/core';
+import {
+    IconAsterisk,
     IconMathFunction,
     IconMathMax,
     IconMathMin,
     IconMathOff,
-    IconNumber1,
     IconSum,
     IconTrendingUp,
 } from '@tabler/icons-react';
 import { capitalize } from 'lodash';
 import { forwardRef, type ComponentPropsWithoutRef, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../common/MantineIcon';
+import { usePillSelectStyles } from '../hooks/usePillSelectStyles';
 
 // TODO: this should be a typed enum (VizAggregationOptions) and exhaustive switch case
 const AggregationIcon: FC<{ aggregation: string | undefined }> = ({
@@ -30,6 +40,7 @@ const AggregationIcon: FC<{ aggregation: string | undefined }> = ({
             icon = IconSum;
             break;
         case MetricType.AVERAGE:
+        case VizAggregationOptions.AVERAGE:
             icon = IconTrendingUp;
             break;
         case MetricType.MIN:
@@ -38,8 +49,8 @@ const AggregationIcon: FC<{ aggregation: string | undefined }> = ({
         case MetricType.MAX:
             icon = IconMathMax;
             break;
-        case 'first':
-            icon = IconNumber1;
+        case VizAggregationOptions.ANY:
+            icon = IconAsterisk;
             break;
         default:
             icon = IconMathOff;
@@ -50,12 +61,8 @@ const AggregationIcon: FC<{ aggregation: string | undefined }> = ({
 
 type Props = {
     options: VizValuesLayoutOptions['aggregationOptions'] | undefined;
-    aggregation:
-        | VizValuesLayoutOptions['aggregationOptions'][number]
-        | undefined;
-    onChangeAggregation: (
-        value: VizValuesLayoutOptions['aggregationOptions'][number],
-    ) => void;
+    aggregation: VizAggregationOptions | undefined;
+    onChangeAggregation: (value: VizAggregationOptions) => void;
 };
 
 const AggregationItem = forwardRef<
@@ -75,40 +82,51 @@ export const DataVizAggregationConfig: FC<Props> = ({
     onChangeAggregation,
     aggregation,
 }) => {
+    const { t } = useTranslation();
+    const { colors } = useMantineTheme();
+    const { classes } = usePillSelectStyles({
+        backgroundColor: colors.indigo[0],
+        textColor: colors.indigo[4],
+    });
     const aggregationOptionsWithNone = options ?? [];
 
+    const selectOptions = aggregationOptionsWithNone.map((option) => ({
+        value: option,
+        label:
+            option === VizAggregationOptions.ANY
+                ? t('components_dataviz_aggregation_config.any_value')
+                : capitalize(option),
+    }));
+
     return (
-        <Select
-            radius="md"
-            data={aggregationOptionsWithNone.map((option) => ({
-                value: option,
-                label: capitalize(option),
-            }))}
-            itemComponent={AggregationItem}
-            icon={aggregation && <AggregationIcon aggregation={aggregation} />}
-            value={aggregation ?? aggregationOptionsWithNone?.[0]}
-            onChange={(value: VizAggregationOptions | null) =>
-                value && onChangeAggregation(value)
-            }
-            styles={(theme) => ({
-                input: {
-                    width: '110px',
-                    fontWeight: 500,
-                },
-                item: {
-                    '&[data-selected="true"]': {
-                        color: theme.colors.gray[7],
-                        fontWeight: 500,
-                        backgroundColor: theme.colors.gray[2],
+        <Tooltip
+            label={t('components_dataviz_aggregation_config.aggregation_type')}
+            variant="xs"
+            withinPortal
+        >
+            <Select
+                withinPortal
+                data={selectOptions}
+                itemComponent={AggregationItem}
+                value={aggregation ?? aggregationOptionsWithNone?.[0]}
+                onChange={(value: VizAggregationOptions | null) =>
+                    value && onChangeAggregation(value)
+                }
+                classNames={{
+                    item: classes.item,
+                    dropdown: classes.dropdown,
+                    input: classes.input,
+                    rightSection: classes.rightSection,
+                }}
+                styles={{
+                    input: {
+                        width:
+                            aggregation === VizAggregationOptions.ANY
+                                ? '70px'
+                                : '50px',
                     },
-                    '&[data-selected="true"]:hover': {
-                        backgroundColor: theme.colors.gray[3],
-                    },
-                    '&:hover': {
-                        backgroundColor: theme.colors.gray[1],
-                    },
-                },
-            })}
-        />
+                }}
+            />
+        </Tooltip>
     );
 };

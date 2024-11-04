@@ -53,8 +53,8 @@ const TableCalculationModal: FC<Props> = ({
     const theme = useMantineTheme();
     const [isFullscreen, toggleFullscreen] = useToggle(false);
 
-    const { showToastError } = useToaster();
     const { t } = useTranslation();
+    const { addToastError } = useToaster();
 
     const tableCalculations = useExplorerContext(
         (context) =>
@@ -113,8 +113,9 @@ const TableCalculationModal: FC<Props> = ({
     const handleSubmit = form.onSubmit((data) => {
         const { name, sql } = data;
         if (sql.length === 0)
-            return showToastError({
+            return addToastError({
                 title: t('features_table_calculation_modal.tips.empty'),
+                key: 'table-calculation-modal',
             });
 
         try {
@@ -126,9 +127,10 @@ const TableCalculationModal: FC<Props> = ({
                 type: data.type,
             });
         } catch (e) {
-            showToastError({
+            addToastError({
                 title: t('features_table_calculation_modal.tips.error'),
                 subtitle: e.message,
+                key: 'table-calculation-modal',
             });
         }
     });

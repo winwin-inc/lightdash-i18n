@@ -80,8 +80,12 @@ export class SearchService extends BaseService {
         const spaceUuids = [
             ...new Set([
                 ...results.dashboards.map((dashboard) => dashboard.spaceUuid),
+                ...results.sqlCharts.map((sqlChart) => sqlChart.spaceUuid),
                 ...results.savedCharts.map(
                     (savedChart) => savedChart.spaceUuid,
+                ),
+                ...results.semanticViewerCharts.map(
+                    (semanticViewerChart) => semanticViewerChart.spaceUuid,
                 ),
                 ...results.spaces.map((space) => space.uuid),
             ]),
@@ -179,9 +183,19 @@ export class SearchService extends BaseService {
         const hasDashboardAccess = await Promise.all(
             results.dashboards.map(filterItem),
         );
+
         const hasSavedChartAccess = await Promise.all(
             results.savedCharts.map(filterItem),
         );
+
+        const hasSqlChartAccess = await Promise.all(
+            results.sqlCharts.map(filterItem),
+        );
+
+        const hasSemanticViewerChartAccess = await Promise.all(
+            results.semanticViewerCharts.map(filterItem),
+        );
+
         const hasSpaceAccess = await Promise.all(
             results.spaces.map(filterItem),
         );
@@ -196,6 +210,12 @@ export class SearchService extends BaseService {
             savedCharts: results.savedCharts.filter(
                 (_, index) => hasSavedChartAccess[index],
             ),
+            sqlCharts: results.sqlCharts.filter(
+                (_, index) => hasSqlChartAccess[index],
+            ),
+            semanticViewerCharts: results.semanticViewerCharts.filter(
+                (_, index) => hasSemanticViewerChartAccess[index],
+            ),
             spaces: results.spaces.filter((_, index) => hasSpaceAccess[index]),
             pages: user.ability.can(
                 'view',
@@ -206,6 +226,7 @@ export class SearchService extends BaseService {
                 ? results.pages
                 : [], // For now there is only 1 page and it is for admins only
         };
+
         this.analytics.track({
             event: 'project.search',
             userId: user.userUuid,
@@ -214,10 +235,14 @@ export class SearchService extends BaseService {
                 spacesResultsCount: filteredResults.spaces.length,
                 dashboardsResultsCount: filteredResults.dashboards.length,
                 savedChartsResultsCount: filteredResults.savedCharts.length,
+                sqlChartsResultsCount: filteredResults.sqlCharts.length,
+                semanticViewerChartsResultsCount:
+                    filteredResults.semanticViewerCharts.length,
                 tablesResultsCount: filteredResults.tables.length,
                 fieldsResultsCount: filteredResults.fields.length,
             },
         });
+
         return filteredResults;
     }
 }

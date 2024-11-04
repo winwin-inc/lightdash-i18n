@@ -19,6 +19,11 @@ import {
     TablesConfiguration,
     TableSelectionType,
     UserAttributeValueMap,
+    type ApiSort,
+    type CatalogFieldMap,
+    type ChartUsageIn,
+    type KnexPaginateArgs,
+    type KnexPaginatedData,
 } from '@lightdash/common';
 import { LightdashAnalytics } from '../../analytics/LightdashAnalytics';
 import { LightdashConfig } from '../../config/parseConfig';
@@ -106,15 +111,17 @@ export class CatalogService<
         explore: Pick<SummaryExplore, 'tags' | 'name'>,
     ) {
         // Optimization tip:
-        // Perhaps we should filter these in catalong on `index` rather than in real time (requires dbt refresh on table config changes)
+        // Perhaps we should filter these in catalog on `index` rather than in real time (requires dbt refresh on table config changes)
         const {
             tableSelection: { type, value },
         } = tablesConfiguration;
 
         if (type === TableSelectionType.WITH_TAGS) {
+            // TODO: Add support for custom explores - don't filter them out
             return hasIntersection(explore.tags || [], value || []);
         }
         if (type === TableSelectionType.WITH_NAMES) {
+            // TODO: Add support for custom explores - don't filter them out
             return (value || []).includes(explore.name);
         }
         return true;
@@ -150,6 +157,7 @@ export class CatalogService<
                             explore.tables?.[explore.baseTable]?.description,
                         type: CatalogType.Table,
                         joinedTables: explore.joinedTables,
+                        chartUsage: undefined,
                     },
                 ];
             }
@@ -171,6 +179,7 @@ export class CatalogService<
                         groupLabel: explore.groupLabel,
                         joinedTables: explore.joinedTables,
                         tags: explore.tags,
+                        chartUsage: undefined,
                     },
                 ];
             }
@@ -180,11 +189,13 @@ export class CatalogService<
 
     private async searchCatalog(
         projectUuid: string,
-        query: string,
         userAttributes: UserAttributeValueMap,
+        query?: string,
         type?: CatalogType,
         filter?: CatalogFilter,
-    ): Promise<(CatalogTable | CatalogField)[]> {
+        paginateArgs?: KnexPaginateArgs,
+        sortArgs?: ApiSort,
+    ): Promise<KnexPaginatedData<(CatalogTable | CatalogField)[]>> {
         const tablesConfiguration =
             await this.projectModel.getTablesConfiguration(projectUuid);
 
@@ -195,8 +206,8 @@ export class CatalogService<
                 userAttributesSize: Object.keys(userAttributes).length,
                 query,
             },
-            async () => {
-                const catalog = await wrapSentryTransaction(
+            async () =>
+                wrapSentryTransaction(
                     'CatalogService.searchCatalog.modelSearch',
                     {},
                     async () =>
@@ -205,36 +216,12 @@ export class CatalogService<
                             searchQuery: query,
                             filter,
                             type,
-                        }),
-                );
-                // Filter table selection
-                const catalogFiltered = catalog.filter((c) => {
-                    if (c.type === CatalogType.Table)
-                        return CatalogService.isExploreFiltered(
+                            paginateArgs,
                             tablesConfiguration,
-                            c,
-                        );
-                    return CatalogService.isExploreFiltered(
-                        tablesConfiguration,
-                        { name: c.tableName, tags: c.tags },
-                    );
-                });
-
-                // Filter required attributes
-                return wrapSentryTransaction(
-                    'CatalogService.searchCatalog.filterAttributes',
-                    {
-                        catalogSize: catalog.length,
-                    },
-                    async () =>
-                        catalogFiltered.filter((c) =>
-                            hasUserAttributes(
-                                c.requiredAttributes,
-                                userAttributes,
-                            ),
-                        ),
-                );
-            },
+                            userAttributes,
+                            sortArgs,
+                        }),
+                ),
         );
     }
 
@@ -242,7 +229,7 @@ export class CatalogService<
         user: SessionUser,
         projectUuid: string,
         { search, type, filter }: ApiCatalogSearch,
-    ) {
+    ): Promise<KnexPaginatedData<(CatalogField | CatalogTable)[]>> {
         const { organizationUuid } = await this.projectModel.getSummary(
             projectUuid,
         );
@@ -258,9 +245,13 @@ export class CatalogService<
         const explores = await this.projectModel.getExploresFromCache(
             projectUuid,
         );
+
         if (!explores) {
-            return [];
+            return {
+                data: [],
+            };
         }
+
         const userAttributes =
             await this.userAttributesModel.getAttributeValuesForOrgMember({
                 organizationUuid,
@@ -301,24 +292,30 @@ export class CatalogService<
             // On search we don't show explore errors, because they are not indexed
             return this.searchCatalog(
                 projectUuid,
-                search,
                 userAttributes,
+                search,
                 type,
                 filter,
             );
         }
-        if (type === CatalogType.Field)
-            return CatalogService.getCatalogFields(
-                filteredExplores,
-                userAttributes,
-            );
+
+        if (type === CatalogType.Field) {
+            return {
+                data: await CatalogService.getCatalogFields(
+                    filteredExplores,
+                    userAttributes,
+                ),
+            };
+        }
 
         // all tables
-        return this.getCatalogTables(
-            projectUuid,
-            filteredExplores,
-            userAttributes,
-        );
+        return {
+            data: await this.getCatalogTables(
+                projectUuid,
+                filteredExplores,
+                userAttributes,
+            ),
+        };
     }
 
     async getMetadata(user: SessionUser, projectUuid: string, table: string) {
@@ -445,8 +442,7 @@ export class CatalogService<
     async getFieldAnalytics(
         user: SessionUser,
         projectUuid: string,
-        table: string,
-        field: string,
+        fieldId: string,
     ): Promise<CatalogAnalytics> {
         const { organizationUuid } = user;
         if (
@@ -458,39 +454,100 @@ export class CatalogService<
             throw new ForbiddenError();
         }
 
-        const chartSummaries = await this.savedChartModel.find({
-            projectUuid,
-            exploreName: table,
-        });
+        const chartUsageByFieldId =
+            await this.savedChartModel.getChartUsageByFieldId(projectUuid, [
+                fieldId,
+            ]);
 
-        const chartsWithAccess = await this.filterChartsWithAccess(
-            user,
-            projectUuid,
-            chartSummaries,
-        );
-
-        const chartsPromises = chartsWithAccess.map((chart) =>
-            this.savedChartModel.get(chart.uuid),
-        );
-        const charts = await Promise.all(chartsPromises);
-        const chartsWithFields = charts.filter((chart) => {
-            const fields = [
-                ...chart.metricQuery.dimensions,
-                ...chart.metricQuery.metrics,
-            ];
-            const fieldRef = `${table}_${field}`;
-            return fields.includes(fieldRef);
-        });
-        const chartAnalytics: CatalogAnalytics['charts'] = chartsWithFields.map(
-            (chart) => ({
+        const chartAnalytics =
+            chartUsageByFieldId[fieldId]?.map((chart) => ({
                 name: chart.name,
                 uuid: chart.uuid,
                 spaceUuid: chart.spaceUuid,
                 spaceName: chart.spaceName,
                 dashboardName: chart.dashboardName,
                 dashboardUuid: chart.dashboardUuid,
-            }),
-        );
+            })) ?? [];
+
         return { charts: chartAnalytics };
+    }
+
+    async getMetricsCatalog(
+        user: SessionUser,
+        projectUuid: string,
+        paginateArgs?: KnexPaginateArgs,
+        { search }: ApiCatalogSearch = {},
+        sortArgs?: ApiSort,
+    ): Promise<KnexPaginatedData<CatalogField[]>> {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'view',
+                subject('Project', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const userAttributes =
+            await this.userAttributesModel.getAttributeValuesForOrgMember({
+                organizationUuid,
+                userUuid: user.userUuid,
+            });
+
+        const paginatedCatalog = await this.searchCatalog(
+            projectUuid,
+            userAttributes,
+            search,
+            CatalogType.Field,
+            CatalogFilter.Metrics,
+            paginateArgs,
+            sortArgs,
+        );
+
+        const { data: catalogMetrics, pagination } = paginatedCatalog;
+
+        const paginatedCatalogMetrics = catalogMetrics.filter(
+            (item): item is CatalogField => item.type === CatalogType.Field, // This is for type narrowing the values returned from `searchCatalog`
+        );
+
+        return {
+            pagination,
+            data: paginatedCatalogMetrics,
+        };
+    }
+
+    async setChartUsages(
+        projectUuid: string,
+        catalogFieldMap: CatalogFieldMap,
+    ) {
+        const chartUsagesByFieldId =
+            await this.savedChartModel.getChartUsageByFieldId(
+                projectUuid,
+                Object.keys(catalogFieldMap),
+            );
+
+        const chartUsageUpdates = Object.entries(chartUsagesByFieldId).reduce<
+            ChartUsageIn[]
+        >((acc, [fieldId, chartSummaries]) => {
+            const { fieldName, cachedExploreUuid } = catalogFieldMap[fieldId];
+
+            acc.push({
+                fieldName,
+                chartUsage: chartSummaries.length,
+                cachedExploreUuid,
+            });
+
+            return acc;
+        }, []);
+
+        await this.catalogModel.setChartUsages(projectUuid, chartUsageUpdates);
+
+        return {
+            chartUsageUpdates,
+        };
     }
 }

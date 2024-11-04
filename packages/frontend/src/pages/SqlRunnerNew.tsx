@@ -4,13 +4,15 @@ import { IconLayoutSidebarLeftExpand } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Provider } from 'react-redux';
-import { useParams } from 'react-router-dom';
-import { useUnmount } from 'react-use';
-
+import { useHistory, useLocation, useParams } from 'react-router-dom';
+import { useMount, useUnmount } from 'react-use';
 import ErrorState from '../components/common/ErrorState';
 import MantineIcon from '../components/common/MantineIcon';
 import Page from '../components/common/Page/Page';
-import { setChartConfig } from '../components/DataViz/store/actions/commonChartActions';
+import {
+    resetChartState,
+    setChartConfig,
+} from '../components/DataViz/store/actions/commonChartActions';
 import { Sidebar } from '../features/sqlRunner';
 import { ContentPanel } from '../features/sqlRunner/components/ContentPanel';
 import { Header } from '../features/sqlRunner/components/Header';
@@ -22,27 +24,91 @@ import {
 } from '../features/sqlRunner/store/hooks';
 import {
     resetState,
+    setFetchResultsOnLoad,
+    setMode,
     setProjectUuid,
     setQuoteChar,
     setSavedChartData,
+    setSql,
+    setState,
+    setWarehouseConnectionType,
+    type SqlRunnerState,
 } from '../features/sqlRunner/store/sqlRunnerSlice';
+import { HeaderVirtualView } from '../features/virtualView';
+import { type VirtualViewState } from '../features/virtualView/components/HeaderVirtualView';
+import useToaster from '../hooks/toaster/useToaster';
 import { useProject } from '../hooks/useProject';
+import useSearchParams from '../hooks/useSearchParams';
+import { useGetShare } from '../hooks/useShare';
 
-const SqlRunnerNew = () => {
+const SqlRunnerNew = ({
+    isEditMode,
+    virtualViewState,
+}: {
+    isEditMode?: boolean;
+    virtualViewState?: VirtualViewState;
+}) => {
     const { t } = useTranslation();
-
     const dispatch = useAppDispatch();
-    const projectUuid = useAppSelector(
-        (state: any) => state.sqlRunner.projectUuid,
-    );
+    const projectUuid = useAppSelector((state) => state.sqlRunner.projectUuid);
+    const mode = useAppSelector((state) => state.sqlRunner.mode);
 
     const params = useParams<{ projectUuid: string; slug?: string }>();
+    const share = useSearchParams('share');
+    const { data: sqlRunnerState, error: shareError } = useGetShare(
+        share || undefined,
+    );
+
+    const location = useLocation<{ sql?: string }>();
+    const history = useHistory();
 
     const [isLeftSidebarOpen, setLeftSidebarOpen] = useState(true);
     const { data: project } = useProject(projectUuid);
+    const { showToastError } = useToaster();
 
+    useEffect(() => {
+        if (shareError) {
+            showToastError({
+                title: t('pages_sql_runner_new.error.unable_load_sql'),
+                subtitle: shareError.error.message,
+            });
+            return;
+        }
+        if (sqlRunnerState?.params) {
+            try {
+                const reduxState = JSON.parse(
+                    sqlRunnerState.params,
+                ) as SqlRunnerState;
+                dispatch(setState(reduxState));
+            } catch (e) {
+                console.error(t('pages_sql_runner_new.error.unable_parse_sql'));
+            }
+        }
+    }, [sqlRunnerState, dispatch, shareError, showToastError, t]);
     useUnmount(() => {
         dispatch(resetState());
+        dispatch(resetChartState());
+    });
+
+    useMount(() => {
+        const shouldFetch = !!isEditMode || !!virtualViewState;
+        // If we are editing a virtual view, we don't want to open the chart on load
+        const shouldOpenChartOnLoad = !!isEditMode && !virtualViewState;
+
+        if (shouldFetch) {
+            dispatch(
+                setFetchResultsOnLoad({
+                    shouldFetch,
+                    shouldOpenChartOnLoad,
+                }),
+            );
+        }
+        if (virtualViewState) {
+            // remove wrapping parenthesis if they exist
+            const sql = virtualViewState.sql.replace(/^[()]+|[()]+$/g, '');
+            dispatch(setSql(sql));
+            dispatch(setMode('virtualView'));
+        }
     });
 
     useEffect(() => {
@@ -50,6 +116,15 @@ const SqlRunnerNew = () => {
             dispatch(setProjectUuid(params.projectUuid));
         }
     }, [dispatch, params.projectUuid, projectUuid]);
+
+    // Use the SQL string from the location state if available
+    useEffect(() => {
+        if (location.state?.sql) {
+            dispatch(setSql(location.state.sql));
+            // clear the location state - this prevents state from being preserved on page refresh
+            history.replace({ ...location, state: undefined });
+        }
+    }, [dispatch, location, history]);
 
     const { data, error: chartError } = useSavedSqlChart({
         projectUuid,
@@ -65,6 +140,9 @@ const SqlRunnerNew = () => {
 
     useEffect(() => {
         if (project?.warehouseConnection?.type) {
+            dispatch(
+                setWarehouseConnectionType(project.warehouseConnection.type),
+            );
             dispatch(
                 setQuoteChar(
                     getFieldQuoteChar(project?.warehouseConnection?.type),
@@ -82,12 +160,19 @@ const SqlRunnerNew = () => {
             title={t('pages_sql_runner_new.sql_runner')}
             noContentPadding
             flexContent
-            header={<Header mode={params.slug ? 'edit' : 'create'} />}
+            header={
+                mode === 'virtualView' && virtualViewState ? (
+                    <HeaderVirtualView virtualViewState={virtualViewState} />
+                ) : (
+                    <Header mode={params.slug ? 'edit' : 'create'} />
+                )
+            }
             isSidebarOpen={isLeftSidebarOpen}
             sidebar={<Sidebar setSidebarOpen={setLeftSidebarOpen} />}
+            noSidebarPadding
         >
             <Group
-                align={'stretch'}
+                align="stretch"
                 grow
                 spacing="none"
                 p={0}
@@ -108,10 +193,12 @@ const SqlRunnerNew = () => {
                                 label={t('pages_sql_runner_new.open_sidebar')}
                                 position="right"
                             >
-                                <ActionIcon size="sm">
+                                <ActionIcon
+                                    size="sm"
+                                    onClick={() => setLeftSidebarOpen(true)}
+                                >
                                     <MantineIcon
                                         icon={IconLayoutSidebarLeftExpand}
-                                        onClick={() => setLeftSidebarOpen(true)}
                                     />
                                 </ActionIcon>
                             </Tooltip>
@@ -124,11 +211,21 @@ const SqlRunnerNew = () => {
     );
 };
 
-const SqlRunnerNewPage = () => {
+const SqlRunnerNewPage = ({
+    isEditMode,
+    virtualViewState,
+}: {
+    isEditMode?: boolean;
+    virtualViewState?: VirtualViewState;
+}) => {
     return (
         <Provider store={store}>
-            <SqlRunnerNew />
+            <SqlRunnerNew
+                isEditMode={isEditMode}
+                virtualViewState={virtualViewState}
+            />
         </Provider>
     );
 };
+
 export default SqlRunnerNewPage;

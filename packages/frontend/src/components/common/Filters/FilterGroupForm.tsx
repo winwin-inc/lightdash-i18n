@@ -38,7 +38,7 @@ import FilterRuleForm from './FilterRuleForm';
 type Props = {
     hideButtons?: boolean;
     hideLine?: boolean;
-    allowConvertToGroup?: boolean;
+    groupDepth?: number;
     fields: FilterableField[];
     filterGroup: FilterGroup;
     isEditMode: boolean;
@@ -46,10 +46,12 @@ type Props = {
     onDelete: () => void;
 };
 
+const ALLOW_CONVERT_TO_GROUP_UP_TO_DEPTH = 2;
+
 const FilterGroupForm: FC<Props> = ({
     hideButtons,
     hideLine,
-    allowConvertToGroup,
+    groupDepth = 0,
     fields,
     filterGroup,
     isEditMode,
@@ -219,7 +221,8 @@ const FilterGroupForm: FC<Props> = ({
                                 onChange={(value) => onChangeItem(index, value)}
                                 onDelete={() => onDeleteItem(index)}
                                 onConvertToGroup={
-                                    allowConvertToGroup
+                                    ALLOW_CONVERT_TO_GROUP_UP_TO_DEPTH >
+                                    groupDepth
                                         ? () =>
                                               onChangeItem(
                                                   index,
@@ -239,7 +242,7 @@ const FilterGroupForm: FC<Props> = ({
                             />
                         ) : (
                             <FilterGroupForm
-                                allowConvertToGroup={false}
+                                groupDepth={groupDepth + 1}
                                 isEditMode={isEditMode}
                                 filterGroup={item}
                                 fields={availableFieldsForGroupRules}

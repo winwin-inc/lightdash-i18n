@@ -84,7 +84,7 @@ const UserNameDisplay: FC<{
                         </Badge>
                     )}
                 </Stack>
-            ) : (
+            ) : user.isInviteExpired || user.isPending ? (
                 <Stack spacing="xxs">
                     {user.email && <Title order={6}>{user.email}</Title>}
                     <Group spacing="xs">
@@ -122,6 +122,23 @@ const UserNameDisplay: FC<{
                             </Anchor>
                         )}
                     </Group>
+                </Stack>
+            ) : (
+                <Stack spacing="xxs">
+                    <Title order={6} color="gray.6">
+                        {user.firstName} {user.lastName}
+                    </Title>
+                    <Badge
+                        variant="filled"
+                        color="red.4"
+                        radius="xs"
+                        sx={{ textTransform: 'none' }}
+                        px="xxs"
+                    >
+                        <Text fz="xs" fw={400} color="gray.8">
+                            Inactive
+                        </Text>
+                    </Badge>
                 </Stack>
             )}
         </Flex>
@@ -450,6 +467,7 @@ const UsersView: FC = () => {
                 title={t(
                     'components_user_settings_groups_panel_users_view.loading_users',
                 )}
+                size="md"
             />
         );
     }

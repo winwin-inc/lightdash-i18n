@@ -4,6 +4,10 @@ import {
     ApiCatalogResults,
     ApiCatalogSearch,
     ApiErrorPayload,
+    ApiMetricsCatalog,
+    getItemId,
+    type ApiSort,
+    type KnexPaginateArgs,
 } from '@lightdash/common';
 import {
     Get,
@@ -51,9 +55,10 @@ export class CatalogController extends BaseController {
             filter,
         };
 
-        const results = await this.services
+        const { data: results } = await this.services
             .getCatalogService()
             .getCatalog(req.user!, projectUuid, query);
+
         return {
             status: 'ok',
             results,
@@ -132,7 +137,70 @@ export class CatalogController extends BaseController {
         this.setStatus(200);
         const results = await this.services
             .getCatalogService()
-            .getFieldAnalytics(req.user!, projectUuid, table, field);
+            .getFieldAnalytics(
+                req.user!,
+                projectUuid,
+                getItemId({
+                    name: field,
+                    table,
+                }),
+            );
+        return {
+            status: 'ok',
+            results,
+        };
+    }
+
+    /**
+     * Get metrics catalog
+     * @param projectUuid
+     * @param query contains filters for the catalog items as well as pagination
+     * - search: string
+     * - page: number
+     * - pageSize: number
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Get('/metrics')
+    @OperationId('getMetricsCatalog')
+    async getMetricsCatalog(
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+        @Query() search?: ApiCatalogSearch['search'],
+        @Query() page?: number,
+        @Query() pageSize?: number,
+        @Query() sort?: ApiSort['sort'],
+        @Query() order?: ApiSort['order'],
+    ): Promise<ApiMetricsCatalog> {
+        this.setStatus(200);
+
+        const paginateArgs: KnexPaginateArgs | undefined =
+            page && pageSize
+                ? {
+                      page,
+                      pageSize,
+                  }
+                : undefined;
+
+        const sortArgs: ApiSort | undefined = sort
+            ? {
+                  sort,
+                  order,
+              }
+            : undefined;
+
+        const results = await this.services
+            .getCatalogService()
+            .getMetricsCatalog(
+                req.user!,
+                projectUuid,
+                paginateArgs,
+                {
+                    search,
+                },
+                sortArgs,
+            );
+
         return {
             status: 'ok',
             results,

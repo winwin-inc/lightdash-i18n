@@ -6,7 +6,12 @@ import {
     type SqlChart,
     type UpdateSqlChart,
 } from '@lightdash/common';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+    useMutation,
+    useQuery,
+    useQueryClient,
+    type UseQueryOptions,
+} from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 
@@ -20,7 +25,7 @@ export type GetSavedSqlChartParams = {
     onSuccess?: (data: SqlChart) => void;
 };
 
-const fetchSavedSqlChart = async ({
+export const fetchSavedSqlChart = async ({
     projectUuid,
     slug,
     uuid,
@@ -51,20 +56,16 @@ const updateSavedSqlChart = async (
         body: JSON.stringify(data),
     });
 
-export const useSavedSqlChart = ({
-    projectUuid,
-    slug,
-    uuid,
-    onSuccess,
-}: GetSavedSqlChartParams) => {
+export const useSavedSqlChart = (
+    { projectUuid, slug, uuid }: GetSavedSqlChartParams,
+    useQueryParams?: UseQueryOptions<SqlChart, ApiError & { slug?: string }>,
+) => {
     return useQuery<SqlChart, ApiError>({
         queryKey: ['sqlRunner', 'savedSqlChart', projectUuid, slug, uuid],
         queryFn: () => fetchSavedSqlChart({ projectUuid, slug, uuid }),
         retry: false,
         enabled: !!slug || !!uuid,
-        onSuccess: (data) => {
-            if (onSuccess) onSuccess(data);
-        },
+        ...useQueryParams,
     });
 };
 
@@ -99,17 +100,35 @@ export const useCreateSqlChartMutation = (projectUuid: string) => {
 export const useUpdateSqlChartMutation = (
     projectUuid: string,
     savedSqlUuid: string,
+    slug: string,
 ) => {
     const { t } = useTranslation();
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
 
-    return useMutation<{ savedSqlUuid: string }, ApiError, UpdateSqlChart>(
-        (data) => updateSavedSqlChart(projectUuid, savedSqlUuid!, data),
+    return useMutation<
+        { savedSqlUuid: string },
+        ApiError,
+        UpdateSqlChart & { savedSqlUuid?: string }
+    >(
+        (data) =>
+            updateSavedSqlChart(
+                projectUuid,
+                data.savedSqlUuid || savedSqlUuid!,
+                data,
+            ),
         {
             mutationKey: ['sqlRunner', 'updateSqlChart', savedSqlUuid],
             onSuccess: async () => {
-                await queryClient.invalidateQueries(['sqlRunner']);
+                await queryClient.resetQueries(['savedSqlChart', slug]);
+                await queryClient.resetQueries(['savedSqlChartResults', slug]);
+                await queryClient.invalidateQueries(['spaces']);
+                await queryClient.invalidateQueries(['space']);
+                await queryClient.invalidateQueries(['pinned_items']);
+                await queryClient.invalidateQueries([
+                    'most-popular-and-recently-updated',
+                ]);
+                await queryClient.invalidateQueries(['content']);
                 showToastSuccess({
                     title: t('features_sql_runner_charts.updated.success'),
                 });
@@ -145,6 +164,14 @@ export const useDeleteSqlChartMutation = (
             mutationKey: ['sqlRunner', 'deleteSqlChart', savedSqlUuid],
             onSuccess: async () => {
                 await queryClient.invalidateQueries(['sqlRunner']);
+                await queryClient.invalidateQueries(['spaces']);
+                await queryClient.invalidateQueries(['space']);
+                await queryClient.invalidateQueries(['pinned_items']);
+                await queryClient.invalidateQueries([
+                    'most-popular-and-recently-updated',
+                ]);
+                await queryClient.invalidateQueries(['content']);
+
                 showToastSuccess({
                     title: t('features_sql_runner_charts.deleted.success'),
                 });

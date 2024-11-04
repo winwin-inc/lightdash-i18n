@@ -21,6 +21,7 @@ import {
     Group,
     Stack,
     Text,
+    Tooltip,
 } from '@mantine/core';
 import { IconAlertCircle, IconPlus, IconX } from '@tabler/icons-react';
 import { useCallback, useMemo, type FC } from 'react';
@@ -69,6 +70,9 @@ const FiltersForm: FC<Props> = ({ filters, setFilters, isEditMode }) => {
     }, [itemsMap]);
 
     const totalFilterRules = getTotalFilterRules(filters);
+    const clearAllFilters = useCallback(() => {
+        setFilters({}, false);
+    }, [setFilters]);
     const invalidFilterRules = getInvalidFilterRules(fields, totalFilterRules);
     const hasInvalidFilterRules = invalidFilterRules.length > 0;
 
@@ -198,7 +202,6 @@ const FiltersForm: FC<Props> = ({ filters, setFilters, isEditMode }) => {
                                 isEditMode={isEditMode}
                                 onChange={updateFiltersFromGroup}
                                 onDelete={() => setFilters({}, true)}
-                                allowConvertToGroup
                             />
                         )}
                     </>
@@ -246,18 +249,40 @@ const FiltersForm: FC<Props> = ({ filters, setFilters, isEditMode }) => {
                     </Stack>
                 ))}
 
-            {isEditMode ? (
+            {isEditMode && (
                 <Box bg="white" pos="relative" style={{ zIndex: 2 }}>
                     {!isOpen ? (
-                        <Button
-                            variant="outline"
-                            size="xs"
-                            leftIcon={<MantineIcon icon={IconPlus} />}
-                            disabled={fields.length <= 0}
-                            onClick={toggleFieldInput}
-                        >
-                            {t('components_common_filters.add_filter')}
-                        </Button>
+                        <Group align="center" position="apart" sx={{ flex: 1 }}>
+                            <Button
+                                variant="outline"
+                                size="xs"
+                                leftIcon={<MantineIcon icon={IconPlus} />}
+                                disabled={fields.length <= 0}
+                                onClick={toggleFieldInput}
+                            >
+                                {t('components_common_filters.add_filter')}
+                            </Button>
+                            {totalFilterRules.length > 0 && (
+                                <Tooltip
+                                    label={t(
+                                        'components_common_filters.clear_all_filters',
+                                    )}
+                                    position="bottom"
+                                >
+                                    <Button
+                                        variant="light"
+                                        size="xs"
+                                        color="gray"
+                                        onClick={clearAllFilters}
+                                        disabled={totalFilterRules.length === 0}
+                                    >
+                                        {t(
+                                            'components_common_filters.clear_all',
+                                        )}
+                                    </Button>
+                                </Tooltip>
+                            )}
+                        </Group>
                     ) : (
                         <FieldSelect
                             size="xs"
@@ -280,7 +305,7 @@ const FiltersForm: FC<Props> = ({ filters, setFilters, isEditMode }) => {
                         />
                     )}
                 </Box>
-            ) : null}
+            )}
         </Stack>
     );
 };

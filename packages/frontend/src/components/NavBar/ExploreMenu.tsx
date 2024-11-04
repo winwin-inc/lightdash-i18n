@@ -4,7 +4,7 @@ import { Button, Menu } from '@mantine/core';
 import {
     IconFolder,
     IconFolderPlus,
-    IconLayersIntersect,
+    IconLayersLinked,
     IconLayoutDashboard,
     IconSquareRoundedPlus,
     IconTable,
@@ -14,6 +14,7 @@ import { memo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useHistory } from 'react-router-dom';
 
+import { useSemanticLayerInfo } from '../../features/semanticViewer/api/hooks';
 import { useFeatureFlagEnabled } from '../../hooks/useFeatureFlagEnabled';
 import { useApp } from '../../providers/AppProvider';
 import { Can } from '../common/Authorization';
@@ -27,17 +28,23 @@ type Props = {
 };
 
 const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
-    const { user, health } = useApp();
     const history = useHistory();
     const { t } = useTranslation();
 
-    const [isOpen, setIsOpen] = useState<boolean>(false);
+    const isSemanticLayerEnabled = useFeatureFlagEnabled(
+        FeatureFlags.SemanticLayerEnabled,
+    );
 
-    const [isCreateSpaceOpen, setIsCreateSpaceOpen] = useState<boolean>(false);
-    const [isCreateDashboardOpen, setIsCreateDashboardOpen] =
-        useState<boolean>(false);
+    const { user } = useApp();
 
-    const canSaveSqlChart = useFeatureFlagEnabled(FeatureFlags.SaveSqlChart);
+    const semanticLayerInfoQuery = useSemanticLayerInfo(
+        { projectUuid },
+        { enabled: isSemanticLayerEnabled },
+    );
+
+    const [isOpen, setIsOpen] = useState(false);
+    const [isCreateSpaceOpen, setIsCreateSpaceOpen] = useState(false);
+    const [isCreateDashboardOpen, setIsCreateDashboardOpen] = useState(false);
 
     return (
         <>
@@ -83,19 +90,40 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                             to={`/projects/${projectUuid}/tables`}
                             icon={IconTable}
                         />
-                        {health.data?.hasDbtSemanticLayer && (
-                            <LargeMenuItem
-                                component={Link}
-                                title={t(
-                                    'components_navbar_explore_menu.menus.dbt_semantic.title',
-                                )}
-                                description={t(
-                                    'components_navbar_explore_menu.menus.dbt_semantic.description',
-                                )}
-                                to={`/projects/${projectUuid}/dbtsemanticlayer`}
-                                icon={IconLayersIntersect}
-                            />
-                        )}
+
+                        {isSemanticLayerEnabled &&
+                            semanticLayerInfoQuery.isSuccess &&
+                            semanticLayerInfoQuery.data !== null && (
+                                <Can
+                                    I="manage"
+                                    this={subject('SemanticViewer', {
+                                        organizationUuid:
+                                            user.data?.organizationUuid,
+                                        projectUuid,
+                                    })}
+                                >
+                                    <LargeMenuItem
+                                        component={Link}
+                                        title={t(
+                                            'components_navbar_explore_menu.menus.query_semantic.title',
+                                            {
+                                                name: semanticLayerInfoQuery
+                                                    .data.name,
+                                            },
+                                        )}
+                                        description={t(
+                                            'components_navbar_explore_menu.menus.query_semantic.title',
+                                            {
+                                                name: semanticLayerInfoQuery
+                                                    .data.name,
+                                            },
+                                        )}
+                                        to={`/projects/${projectUuid}/semantic-viewer`}
+                                        icon={IconLayersLinked}
+                                    />
+                                </Can>
+                            )}
+
                         <Can
                             I="manage"
                             this={subject('SqlRunner', {
@@ -111,9 +139,20 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                                 description={t(
                                     'components_navbar_explore_menu.menus.sql_runner.description',
                                 )}
-                                to={`/projects/${projectUuid}/${
-                                    canSaveSqlChart ? 'sql-runner' : 'sqlRunner'
-                                }`}
+                                to={`/projects/${projectUuid}/sql-runner`}
+                                onClick={(event) => {
+                                    if (
+                                        history.location.pathname.startsWith(
+                                            `/projects/${projectUuid}/sql-runner`,
+                                        )
+                                    ) {
+                                        event.preventDefault();
+                                        window.open(
+                                            `/projects/${projectUuid}/sql-runner`,
+                                            '_blank',
+                                        );
+                                    }
+                                }}
                                 icon={IconTerminal2}
                             />
                         </Can>

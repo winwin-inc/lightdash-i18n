@@ -7,36 +7,28 @@ import {
     Stack,
     Text,
 } from '@mantine/core';
-import { Prism } from '@mantine/prism';
-import {
-    IconChartHistogram,
-    IconCodeCircle,
-    IconTable,
-} from '@tabler/icons-react';
-import { useEffect, useMemo, useState } from 'react';
+import { IconChartHistogram, IconTable } from '@tabler/icons-react';
+import type { EChartsInstance } from 'echarts-for-react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Provider } from 'react-redux';
 import { useParams } from 'react-router-dom';
-import { useUnmount } from 'react-use';
 
+import { ConditionalVisibility } from '../components/common/ConditionalVisibility';
 import ErrorState from '../components/common/ErrorState';
 import MantineIcon from '../components/common/MantineIcon';
 import Page from '../components/common/Page/Page';
-import { setChartConfig } from '../components/DataViz/store/actions/commonChartActions';
-import { selectChartConfigByKind } from '../components/DataViz/store/selectors';
+import { ChartDataTable } from '../components/DataViz/visualizations/ChartDataTable';
 import ChartView from '../components/DataViz/visualizations/ChartView';
 import { Table } from '../components/DataViz/visualizations/Table';
+import { ChartDownload } from '../features/sqlRunner/components/Download/ChartDownload';
+import { ResultsDownloadFromData } from '../features/sqlRunner/components/Download/ResultsDownloadFromData';
+import { ResultsDownloadFromUrl } from '../features/sqlRunner/components/Download/ResultsDownloadFromUrl';
 import { Header } from '../features/sqlRunner/components/Header';
-import { useSavedSqlChart } from '../features/sqlRunner/hooks/useSavedSqlCharts';
-import { useSqlChartResults } from '../features/sqlRunner/hooks/useSqlChartResults';
-import { SqlRunnerResultsRunner } from '../features/sqlRunner/runners/SqlRunnerResultsRunner';
+import { useSavedSqlChartResults } from '../features/sqlRunner/hooks/useSavedSqlChartResults';
 import { store } from '../features/sqlRunner/store';
+import { useAppDispatch } from '../features/sqlRunner/store/hooks';
 import {
-    useAppDispatch,
-    useAppSelector,
-} from '../features/sqlRunner/store/hooks';
-import {
-    resetState,
     setProjectUuid,
     setSavedChartData,
 } from '../features/sqlRunner/store/sqlRunnerSlice';
@@ -49,60 +41,38 @@ enum TabOption {
 
 const ViewSqlChart = () => {
     const { t } = useTranslation();
-
-    const dispatch = useAppDispatch();
     const params = useParams<{ projectUuid: string; slug?: string }>();
+    const dispatch = useAppDispatch();
     const [activeTab, setActiveTab] = useState<TabOption>(TabOption.CHART);
-    const projectUuid = useAppSelector((state) => state.sqlRunner.projectUuid);
-    const { resultsTableConfig, selectedChartType, sql } = useAppSelector(
-        (state) => state.sqlRunner,
-    );
 
-    const currentVisConfig = useAppSelector((state) =>
-        selectChartConfigByKind(state, selectedChartType),
-    );
-    const { error: chartError, data: sqlChart } = useSavedSqlChart({
-        projectUuid,
+    const [echartsInstance, setEchartsInstance] = useState<EChartsInstance>();
+
+    const {
+        chartQuery: {
+            data: chartData,
+            isLoading: isChartLoading,
+            error: chartError,
+        },
+        chartResultsQuery: {
+            data: chartResultsData,
+            isLoading: isChartResultsLoading,
+            error: chartResultsError,
+            isFetching: isChartResultsFetching,
+        },
+    } = useSavedSqlChartResults({
+        projectUuid: params.projectUuid,
         slug: params.slug,
     });
-    const {
-        data,
-        isLoading,
-        error: resultsError,
-    } = useSqlChartResults(projectUuid, params.slug);
 
-    useUnmount(() => {
-        dispatch(resetState());
-    });
-
+    // TODO: remove state sync - this is because the <Header /> component depends on the Redux state
     useEffect(() => {
-        if (!projectUuid && params.projectUuid) {
+        if (chartData) {
+            dispatch(setSavedChartData(chartData));
+        }
+        if (params.projectUuid) {
             dispatch(setProjectUuid(params.projectUuid));
         }
-    }, [dispatch, params.projectUuid, projectUuid]);
-
-    useEffect(() => {
-        if (sqlChart) {
-            dispatch(setSavedChartData(sqlChart));
-            dispatch(setChartConfig(sqlChart.config));
-        }
-    }, [dispatch, sqlChart]);
-
-    const resultsRunner = useMemo(
-        () =>
-            new SqlRunnerResultsRunner({
-                rows: data?.results ?? [],
-                columns: data?.columns ?? [],
-            }),
-        [data],
-    );
-
-    if (chartError) {
-        return <ErrorState error={chartError.error} />;
-    }
-    if (resultsError) {
-        return <ErrorState error={resultsError.error} />;
-    }
+    }, [dispatch, chartData, params.projectUuid]);
 
     return (
         <Page
@@ -123,104 +93,185 @@ const ViewSqlChart = () => {
             >
                 <Stack h="100%">
                     <Group position="apart">
-                        <SegmentedControl
-                            color="dark"
-                            size="sm"
-                            radius="sm"
-                            disabled={isLoading}
-                            data={[
-                                {
-                                    value: TabOption.CHART,
-                                    label: (
-                                        <Group spacing="xs" noWrap>
-                                            <MantineIcon
-                                                icon={IconChartHistogram}
-                                            />
-                                            <Text>
-                                                {t(
-                                                    'pages_view_sql_chart.tabs.chart',
-                                                )}
-                                            </Text>
-                                        </Group>
-                                    ),
-                                },
-                                {
-                                    value: TabOption.RESULTS,
-                                    label: (
-                                        <Group spacing="xs" noWrap>
-                                            <MantineIcon icon={IconTable} />
-                                            <Text>
-                                                {t(
-                                                    'pages_view_sql_chart.tabs.results',
-                                                )}
-                                            </Text>
-                                        </Group>
-                                    ),
-                                },
-                                {
-                                    value: TabOption.SQL,
-                                    label: (
-                                        <Group spacing="xs" noWrap>
-                                            <MantineIcon
-                                                icon={IconCodeCircle}
-                                            />
-                                            <Text>
-                                                {t(
-                                                    'pages_view_sql_chart.tabs.sql',
-                                                )}
-                                            </Text>
-                                        </Group>
-                                    ),
-                                },
-                            ]}
-                            value={activeTab}
-                            onChange={(val: TabOption) => setActiveTab(val)}
-                        />
+                        <Group position="apart">
+                            <SegmentedControl
+                                color="dark"
+                                size="sm"
+                                radius="sm"
+                                disabled={isChartResultsLoading}
+                                data={[
+                                    {
+                                        value: TabOption.CHART,
+                                        label: (
+                                            <Group spacing="xs" noWrap>
+                                                <MantineIcon
+                                                    icon={IconChartHistogram}
+                                                />
+                                                <Text>
+                                                    {t(
+                                                        'pages_view_sql_chart.tabs.chart',
+                                                    )}
+                                                </Text>
+                                            </Group>
+                                        ),
+                                    },
+                                    {
+                                        value: TabOption.RESULTS,
+                                        label: (
+                                            <Group spacing="xs" noWrap>
+                                                <MantineIcon icon={IconTable} />
+                                                <Text>
+                                                    {t(
+                                                        'pages_view_sql_chart.tabs.results',
+                                                    )}
+                                                </Text>
+                                            </Group>
+                                        ),
+                                    },
+                                ]}
+                                value={activeTab}
+                                onChange={(val: TabOption) => setActiveTab(val)}
+                            />
+                        </Group>
+                        {(activeTab === TabOption.RESULTS ||
+                            (activeTab === TabOption.CHART &&
+                                isVizTableConfig(chartData?.config))) &&
+                            chartResultsData &&
+                            // Table charts don't have a fileUrl,
+                            // So we will download the file directly from the resultsData
+                            (chartResultsData?.fileUrl ? (
+                                <ResultsDownloadFromUrl
+                                    fileUrl={chartResultsData.fileUrl}
+                                    columnNames={
+                                        chartResultsData.chartUnderlyingData
+                                            ?.columns ?? []
+                                    }
+                                    chartName={chartData?.name}
+                                />
+                            ) : (
+                                <ResultsDownloadFromData
+                                    rows={
+                                        chartResultsData.chartUnderlyingData
+                                            ?.rows ?? []
+                                    }
+                                    columns={
+                                        // visible columns are sorted and filtered, we need to respect this order
+                                        chartResultsData.chartSpec.spec
+                                            ?.visibleColumns ?? []
+                                    }
+                                    columnsConfig={
+                                        chartResultsData.chartSpec.spec
+                                            ?.columns ?? []
+                                    }
+                                    chartName={chartData?.name}
+                                />
+                            ))}
+                        {activeTab === TabOption.CHART && echartsInstance && (
+                            <ChartDownload
+                                echartsInstance={echartsInstance}
+                                fileUrl={chartResultsData?.fileUrl}
+                                columnNames={
+                                    chartResultsData?.chartUnderlyingData
+                                        ?.columns ?? []
+                                }
+                                chartName={chartData?.name}
+                            />
+                        )}
                     </Group>
 
-                    {data && !isLoading && (
+                    {chartError && <ErrorState error={chartError.error} />}
+                    {chartResultsError && (
+                        <ErrorState error={chartResultsError.error} />
+                    )}
+
+                    {chartData && !isChartLoading && (
                         <Box
+                            h="100%"
                             sx={{
                                 position: 'relative',
                                 flex: 1,
                             }}
                         >
-                            {activeTab === TabOption.CHART && currentVisConfig && (
-                                <>
-                                    {isVizTableConfig(currentVisConfig) && (
-                                        <Table
-                                            resultsRunner={resultsRunner}
-                                            config={currentVisConfig}
+                            <ConditionalVisibility
+                                isVisible={activeTab === TabOption.CHART}
+                            >
+                                {
+                                    <>
+                                        {isVizTableConfig(chartData.config) &&
+                                            chartResultsData && (
+                                                <Table
+                                                    resultsRunner={
+                                                        chartResultsData.resultsRunner
+                                                    }
+                                                    columnsConfig={
+                                                        chartData.config.columns
+                                                    }
+                                                    flexProps={{
+                                                        mah: 'calc(100vh - 250px)',
+                                                    }}
+                                                />
+                                            )}
+                                        {!isVizTableConfig(chartData.config) &&
+                                            params.slug &&
+                                            chartData.sql && (
+                                                <ChartView
+                                                    config={chartData.config}
+                                                    spec={
+                                                        chartResultsData?.chartSpec
+                                                    }
+                                                    isLoading={
+                                                        isChartLoading ||
+                                                        isChartResultsFetching
+                                                    }
+                                                    error={
+                                                        chartResultsError?.error
+                                                    }
+                                                    style={{ height: '100%' }}
+                                                    onChartReady={
+                                                        setEchartsInstance
+                                                    }
+                                                />
+                                            )}
+                                    </>
+                                }
+                            </ConditionalVisibility>
+                            <ConditionalVisibility
+                                isVisible={activeTab === TabOption.RESULTS}
+                            >
+                                {!isVizTableConfig(chartData.config) &&
+                                    chartResultsData && (
+                                        <ChartDataTable
+                                            columnNames={
+                                                chartResultsData
+                                                    .chartUnderlyingData
+                                                    ?.columns ?? []
+                                            }
+                                            rows={
+                                                chartResultsData
+                                                    .chartUnderlyingData
+                                                    ?.rows ?? []
+                                            }
+                                            flexProps={{
+                                                mah: '100%',
+                                            }}
                                         />
                                     )}
-                                    {!isVizTableConfig(currentVisConfig) &&
-                                        data && (
-                                            <ChartView
-                                                resultsRunner={resultsRunner}
-                                                isLoading={isLoading}
-                                                data={data}
-                                                config={currentVisConfig}
-                                                style={{
-                                                    height: '100%',
-                                                    width: '100%',
-                                                }}
-                                                sql={sql}
-                                                projectUuid={projectUuid}
-                                            />
-                                        )}
-                                </>
-                            )}
-                            {activeTab === TabOption.RESULTS && (
-                                <Table
-                                    resultsRunner={resultsRunner}
-                                    config={resultsTableConfig}
-                                />
-                            )}
-                            {activeTab === TabOption.SQL && (
-                                <Prism language="sql" withLineNumbers>
-                                    {sql || ''}
-                                </Prism>
-                            )}
+
+                                {isVizTableConfig(chartData.config) &&
+                                    chartResultsData && (
+                                        <Table
+                                            resultsRunner={
+                                                chartResultsData.resultsRunner
+                                            }
+                                            columnsConfig={
+                                                chartData.config.columns
+                                            }
+                                            flexProps={{
+                                                mah: 'calc(100vh - 250px)',
+                                            }}
+                                        />
+                                    )}
+                            </ConditionalVisibility>
                         </Box>
                     )}
                 </Stack>

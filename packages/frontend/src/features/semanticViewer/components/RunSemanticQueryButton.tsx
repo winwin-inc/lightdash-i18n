@@ -1,173 +1,136 @@
 import {
+    Badge,
     Button,
     Group,
     Kbd,
     MantineProvider,
     Text,
     Tooltip,
+    type GroupProps,
 } from '@mantine/core';
 import { useOs } from '@mantine/hooks';
-import { IconPlayerPlay } from '@tabler/icons-react';
-import { useCallback, useEffect, type FC } from 'react';
+import { IconAlertCircle, IconPlayerPlay } from '@tabler/icons-react';
+import { useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../components/common/MantineIcon';
-import { onResults } from '../../../components/DataViz/store/actions/commonChartActions';
-import { selectChartConfigByKind } from '../../../components/DataViz/store/selectors';
-import getChartConfigAndOptions from '../../../components/DataViz/transformers/getChartConfigAndOptions';
 import LimitButton from '../../../components/LimitButton';
-import useToaster from '../../../hooks/toaster/useToaster';
-import { useSemanticLayerQueryResults } from '../api/hooks';
-import { SemanticViewerResultsRunner } from '../runners/SemanticViewerResultsRunner';
-import { useAppDispatch, useAppSelector } from '../store/hooks';
-import {
-    selectAllSelectedFieldNames,
-    selectAllSelectedFieldsByKind,
-    selectSemanticLayerInfo,
-} from '../store/selectors';
-import { setLimit, setResults } from '../store/semanticViewerSlice';
+import { useAppDispatch, useAppSelector } from '../../sqlRunner/store/hooks';
+import { selectAllSelectedFieldNames, selectLimit } from '../store/selectors';
+import { setLimit } from '../store/semanticViewerSlice';
 
-export const RunSemanticQueryButton: FC = () => {
+type Props = GroupProps & {
+    onClick: () => void;
+    isLoading?: boolean;
+    maxQueryLimit: number;
+};
+
+export const RunSemanticQueryButton: FC<Props> = ({
+    onClick,
+    isLoading,
+    maxQueryLimit,
+    ...groupProps
+}) => {
+    const os = useOs();
+    const dispatch = useAppDispatch();
     const { t } = useTranslation();
 
-    const os = useOs();
-    const { showToastError } = useToaster();
-
-    const { projectUuid, config } = useAppSelector(selectSemanticLayerInfo);
-
     const allSelectedFields = useAppSelector(selectAllSelectedFieldNames);
-    const { columns, limit, sortBy, selectedChartType } = useAppSelector(
-        (state) => state.semanticViewer,
-    );
-    const currentVizConfig = useAppSelector((state) =>
-        selectChartConfigByKind(state, selectedChartType),
-    );
-    const allSelectedFieldsByKind = useAppSelector(
-        selectAllSelectedFieldsByKind,
-    );
-    const dispatch = useAppDispatch();
-
-    const {
-        data: resultsData,
-        mutateAsync: runSemanticViewerQuery,
-        isLoading,
-    } = useSemanticLayerQueryResults(projectUuid, {
-        onError: (data) => {
-            showToastError({
-                title: t('features_semantic_query_button.no_results'),
-                subtitle: data.error.message,
-            });
-        },
-    });
-
-    useEffect(() => {
-        if (!resultsData || selectedChartType === undefined) return;
-
-        const usedColumns = columns.filter((c) =>
-            allSelectedFields.includes(c.reference),
-        );
-        dispatch(
-            setResults({
-                results: resultsData,
-                columns: usedColumns,
-            }),
-        );
-
-        const resultsRunner = new SemanticViewerResultsRunner({
-            rows: resultsData,
-            columns: usedColumns,
-            query: {
-                ...allSelectedFieldsByKind,
-                sortBy,
-                limit,
-            },
-            projectUuid,
-        });
-
-        const chartResultOptions = getChartConfigAndOptions(
-            resultsRunner,
-            selectedChartType,
-            currentVizConfig,
-        );
-
-        dispatch(onResults(chartResultOptions));
-    }, [
-        allSelectedFields,
-        allSelectedFieldsByKind,
-        columns,
-        currentVizConfig,
-        dispatch,
-        limit,
-        projectUuid,
-        resultsData,
-        selectedChartType,
-        sortBy,
-    ]);
-
-    const handleSubmit = useCallback(
-        () =>
-            runSemanticViewerQuery({
-                ...allSelectedFieldsByKind,
-                sortBy,
-                limit,
-            }),
-        [allSelectedFieldsByKind, runSemanticViewerQuery, sortBy, limit],
-    );
+    const limit = useAppSelector(selectLimit);
+    const { results } = useAppSelector((state) => state.semanticViewer);
 
     const handleLimitChange = useCallback(
         (newLimit: number) => dispatch(setLimit(newLimit)),
         [dispatch],
     );
 
+    const currentLimit = useMemo(() => {
+        return limit ?? maxQueryLimit;
+    }, [limit, maxQueryLimit]);
+
+    const showLimitWarning = useMemo(() => {
+        return results.length >= currentLimit;
+    }, [results, currentLimit]);
+
     return (
-        <Button.Group>
-            <Tooltip
-                label={
-                    <MantineProvider inherit theme={{ colorScheme: 'dark' }}>
-                        <Group spacing="xxs">
-                            <Kbd fw={600}>
-                                {os === 'macos' || os === 'ios' ? '⌘' : 'ctrl'}
-                            </Kbd>
-
-                            <Text fw={600}>+</Text>
-
-                            <Kbd fw={600}>Enter</Kbd>
-                        </Group>
-                    </MantineProvider>
-                }
-                position="bottom"
-                withArrow
-                withinPortal
-                disabled={isLoading}
-            >
-                <Button
-                    size="xs"
-                    pr={limit ? 'xs' : undefined}
-                    leftIcon={<MantineIcon icon={IconPlayerPlay} />}
-                    onClick={handleSubmit}
-                    loading={isLoading}
-                    disabled={allSelectedFields.length === 0}
-                    sx={(theme) => ({
-                        flex: 1,
-                        borderRight: `1px solid ${theme.fn.rgba(
-                            theme.colors.gray[5],
-                            0.6,
-                        )}`,
+        <Group {...groupProps}>
+            {showLimitWarning && (
+                <Tooltip
+                    width={400}
+                    label={t('features_semantic_query_button.limit_warning', {
+                        limit,
                     })}
+                    multiline
+                    position={'bottom'}
                 >
-                    {`Run query ${limit ? `(${limit})` : ''}`}
-                </Button>
-            </Tooltip>
-
-            {handleLimitChange !== undefined && (
-                <LimitButton
-                    disabled={allSelectedFields.length === 0}
-                    size="xs"
-                    maxLimit={config.maxQueryLimit}
-                    limit={limit ?? config.maxQueryLimit}
-                    onLimitChange={handleLimitChange}
-                />
+                    <Badge
+                        leftSection={
+                            <MantineIcon icon={IconAlertCircle} size={'sm'} />
+                        }
+                        color="yellow"
+                        variant="outline"
+                        tt="none"
+                        sx={{ cursor: 'help' }}
+                    >
+                        {t('features_semantic_query_button.incomplete_results')}
+                    </Badge>
+                </Tooltip>
             )}
-        </Button.Group>
+            <Button.Group>
+                <Tooltip
+                    label={
+                        <MantineProvider
+                            inherit
+                            theme={{ colorScheme: 'dark' }}
+                        >
+                            <Group spacing="xxs">
+                                <Kbd fw={600}>
+                                    {os === 'macos' || os === 'ios'
+                                        ? '⌘'
+                                        : 'ctrl'}
+                                </Kbd>
+
+                                <Text fw={600}>+</Text>
+
+                                <Kbd fw={600}>Enter</Kbd>
+                            </Group>
+                        </MantineProvider>
+                    }
+                    position="bottom"
+                    withArrow
+                    withinPortal
+                    disabled={isLoading}
+                >
+                    <Button
+                        size="xs"
+                        pr={limit ? 'xs' : undefined}
+                        leftIcon={<MantineIcon icon={IconPlayerPlay} />}
+                        onClick={onClick}
+                        loading={isLoading}
+                        disabled={allSelectedFields.length === 0}
+                        sx={(theme) => ({
+                            flex: 1,
+                            borderRight: `1px solid ${theme.fn.rgba(
+                                theme.colors.gray[5],
+                                0.6,
+                            )}`,
+                        })}
+                    >
+                        {t('features_semantic_query_button.run_query')} (
+                        {currentLimit})
+                    </Button>
+                </Tooltip>
+
+                {handleLimitChange !== undefined && (
+                    <LimitButton
+                        disabled={allSelectedFields.length === 0}
+                        size="xs"
+                        maxLimit={maxQueryLimit}
+                        limit={currentLimit}
+                        onLimitChange={handleLimitChange}
+                    />
+                )}
+            </Button.Group>
+        </Group>
     );
 };

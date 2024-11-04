@@ -1,6 +1,6 @@
 import { Draggable } from '@hello-pangea/dnd';
 import type { DashboardTab } from '@lightdash/common';
-import { ActionIcon, Box, Group, Menu, Tabs } from '@mantine/core';
+import { ActionIcon, Box, Menu, Tabs, Title } from '@mantine/core';
 import { mergeRefs, useHover } from '@mantine/hooks';
 import {
     IconDots,
@@ -19,6 +19,7 @@ type DraggableTabProps = {
     isEditMode: boolean;
     sortedTabs: DashboardTab[];
     currentTabHasTiles: boolean;
+    isActive: boolean;
     setEditingTab: (value: React.SetStateAction<boolean>) => void;
     setDeletingTab: (value: React.SetStateAction<boolean>) => void;
     handleDeleteTab: (tabUuid: string) => void;
@@ -30,6 +31,7 @@ const DraggableTab: FC<DraggableTabProps> = ({
     isEditMode,
     sortedTabs,
     currentTabHasTiles,
+    isActive,
     setEditingTab,
     handleDeleteTab,
     setDeletingTab,
@@ -48,25 +50,11 @@ const DraggableTab: FC<DraggableTabProps> = ({
                     <Tabs.Tab
                         key={idx}
                         value={tab.uuid}
-                        mx="md"
-                        style={{
-                            marginLeft: 0,
-                            marginRight: 0,
-                        }}
-                    >
-                        <Group
-                            style={{
-                                paddingLeft: 16,
-                                paddingRight: 16,
-                            }}
-                        >
-                            {isEditMode ? (
-                                <Box
-                                    pos="absolute"
-                                    left={0}
-                                    p={4}
-                                    {...provided.dragHandleProps}
-                                >
+                        mr="xs"
+                        bg={isActive ? 'white' : 'var(--mantine-color-gray-0)'}
+                        icon={
+                            isEditMode ? (
+                                <Box {...provided.dragHandleProps} w={'sm'}>
                                     <MantineIcon
                                         display={isHovered ? 'block' : 'none'}
                                         size="sm"
@@ -74,9 +62,10 @@ const DraggableTab: FC<DraggableTabProps> = ({
                                         icon={IconGripVertical}
                                     />
                                 </Box>
-                            ) : null}
-                            {tab.name}
-                            {isEditMode ? (
+                            ) : null
+                        }
+                        rightSection={
+                            isEditMode ? (
                                 <Menu
                                     position="bottom"
                                     withArrow
@@ -86,7 +75,12 @@ const DraggableTab: FC<DraggableTabProps> = ({
                                 >
                                     <Menu.Target>
                                         <ActionIcon variant="subtle" size="xs">
-                                            <MantineIcon icon={IconDots} />
+                                            <MantineIcon
+                                                icon={IconDots}
+                                                display={
+                                                    isHovered ? 'block' : 'none'
+                                                }
+                                            />
                                         </ActionIcon>
                                     </Menu.Target>
                                     <Menu.Dropdown>
@@ -131,8 +125,12 @@ const DraggableTab: FC<DraggableTabProps> = ({
                                         )}
                                     </Menu.Dropdown>
                                 </Menu>
-                            ) : null}
-                        </Group>
+                            ) : null
+                        }
+                    >
+                        <Title order={6} fw={500} color="gray.7">
+                            {tab.name}
+                        </Title>
                     </Tabs.Tab>
                 </div>
             )}

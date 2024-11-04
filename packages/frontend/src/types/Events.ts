@@ -34,8 +34,8 @@ export enum PageName {
     SAVED_DASHBOARDS = 'saved_dashboards',
     DASHBOARD = 'DASHBOARD',
     SQL_RUNNER = 'SQL_RUNNER',
-    SEMANTIC_VIEWER = 'SEMANTIC_VIEWER',
-    METRIC_FLOW = 'METRIC_FLOW',
+    SEMANTIC_VIEWER_VIEW = 'SEMANTIC_VIEWER_VIEW',
+    SEMANTIC_VIEWER_EDIT = 'SEMANTIC_VIEWER_EDIT',
     SOCIAL_LOGIN_SETTINGS = 'social_login_settings',
     APPEARANCE = 'appearance_settings',
     ACCESS_TOKENS = 'access_tokens',
@@ -48,6 +48,7 @@ export enum PageName {
     VERIFY_EMAIL = 'verify_email',
     JOIN_ORGANIZATION = 'join_organization',
     CATALOG = 'catalog',
+    METRICS_CATALOG = 'metrics_catalog',
 }
 
 export enum CategoryName {
@@ -112,4 +113,7 @@ export enum EventName {
     COMMENTS_CLICKED = 'comments.clicked',
     NOTIFICATIONS_COMMENTS_ITEM_CLICKED = 'notifications_comments_item.clicked',
     DASHBOARD_AUTO_REFRESH_UPDATED = 'dashboard_auto_refresh.updated',
+    METRICS_CATALOG_CHART_USAGE_CLICKED = 'metrics_catalog_chart_usage.clicked',
+    METRICS_CATALOG_CHART_USAGE_CHART_CLICKED = 'metrics_catalog_chart_usage_chart.clicked',
+    METRICS_CATALOG_EXPLORE_CLICKED = 'metrics_catalog_explore.clicked',
 }

@@ -39,13 +39,11 @@ const MonthlyInputs: FC<{
                 max={31}
             />
             <Input.Label>{t('components_react_hook_form.at')}</Input.Label>
-
             <TimePicker
                 disabled={disabled}
                 cronExpression={cronExpression}
                 onChange={onTimeChange}
             />
-            <Input.Label>UTC</Input.Label>
         </Group>
     );
 };

@@ -1,6 +1,15 @@
 import { subject } from '@casl/ability';
-import { ActionIcon, Group, Paper, Stack, Title, Tooltip } from '@mantine/core';
-import { IconPencil, IconTrash } from '@tabler/icons-react';
+import { DashboardTileTypes } from '@lightdash/common';
+import {
+    ActionIcon,
+    Button,
+    Group,
+    Menu,
+    Paper,
+    Stack,
+    Title,
+} from '@mantine/core';
+import { IconDots, IconLayoutGridAdd, IconTrash } from '@tabler/icons-react';
 import { useCallback, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
@@ -9,6 +18,7 @@ import MantineIcon from '../../../../components/common/MantineIcon';
 import { UpdatedInfo } from '../../../../components/common/PageHeader/UpdatedInfo';
 import { ResourceInfoPopup } from '../../../../components/common/ResourceInfoPopup/ResourceInfoPopup';
 import { TitleBreadCrumbs } from '../../../../components/Explorer/SavedChartsHeader/TitleBreadcrumbs';
+import AddTilesToDashboardModal from '../../../../components/SavedDashboards/AddTilesToDashboardModal';
 import { useApp } from '../../../../providers/AppProvider';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { toggleModal } from '../../store/sqlRunnerSlice';
@@ -27,6 +37,12 @@ export const HeaderView: FC = () => {
     const savedSqlChart = useAppSelector(
         (state) => state.sqlRunner.savedSqlChart,
     );
+    const isAddToDashboardModalOpen = useAppSelector(
+        (state) => state.sqlRunner.modals.addToDashboard.isOpen,
+    );
+    const onCloseAddToDashboardModal = useCallback(() => {
+        dispatch(toggleModal('addToDashboard'));
+    }, [dispatch]);
     const isDeleteModalOpen = useAppSelector(
         (state) => state.sqlRunner.modals.deleteChartModal.isOpen,
     );
@@ -93,50 +109,85 @@ export const HeaderView: FC = () => {
                             />
                         </Group>
                     </Stack>
+
                     <Group spacing="md">
                         {canManageSqlRunner && canManageChart && (
-                            <Tooltip
-                                variant="xs"
-                                label={t(
-                                    'features_sql_runner_header_view.edit_chart',
-                                )}
-                                position="bottom"
+                            <Button
+                                size="xs"
+                                variant="default"
+                                onClick={() =>
+                                    history.push(
+                                        `/projects/${projectUuid}/sql-runner/${savedSqlChart.slug}/edit`,
+                                    )
+                                }
                             >
-                                <ActionIcon size="xs">
-                                    <MantineIcon
-                                        icon={IconPencil}
+                                {t(
+                                    'features_sql_runner_header_view.eidt_chart',
+                                )}
+                            </Button>
+                        )}
+
+                        {canManageChart && (
+                            <Menu
+                                position="bottom"
+                                withArrow
+                                withinPortal
+                                shadow="md"
+                                width={200}
+                            >
+                                <Menu.Target>
+                                    <ActionIcon variant="default">
+                                        <MantineIcon icon={IconDots} />
+                                    </ActionIcon>
+                                </Menu.Target>
+                                <Menu.Dropdown>
+                                    <Menu.Label>
+                                        {t(
+                                            'features_sql_runner_header_view.manage',
+                                        )}
+                                    </Menu.Label>
+                                    <Menu.Item
+                                        icon={
+                                            <MantineIcon
+                                                icon={IconLayoutGridAdd}
+                                            />
+                                        }
                                         onClick={() =>
-                                            history.push(
-                                                `/projects/${projectUuid}/sql-runner/${savedSqlChart.slug}/edit`,
+                                            dispatch(
+                                                toggleModal('addToDashboard'),
                                             )
                                         }
-                                    />
-                                </ActionIcon>
-                            </Tooltip>
-                        )}
-                        {canManageChart && (
-                            <Tooltip
-                                variant="xs"
-                                label={t(
-                                    'features_sql_runner_header_view.delete',
-                                )}
-                                position="bottom"
-                            >
-                                <ActionIcon size="xs">
-                                    <MantineIcon
-                                        icon={IconTrash}
+                                    >
+                                        {t(
+                                            'features_sql_runner_header_view.add_to_dashboard',
+                                        )}
+                                    </Menu.Item>
+                                    <Menu.Item
+                                        icon={
+                                            <MantineIcon
+                                                icon={IconTrash}
+                                                color="red"
+                                            />
+                                        }
+                                        color="red"
+                                        disabled={!canManageSqlRunner}
                                         onClick={() =>
                                             dispatch(
                                                 toggleModal('deleteChartModal'),
                                             )
                                         }
-                                    />
-                                </ActionIcon>
-                            </Tooltip>
+                                    >
+                                        {t(
+                                            'features_sql_runner_header_view.delete',
+                                        )}
+                                    </Menu.Item>
+                                </Menu.Dropdown>
+                            </Menu>
                         )}
                     </Group>
                 </Group>
             </Paper>
+
             <DeleteSqlChartModal
                 projectUuid={projectUuid}
                 savedSqlUuid={savedSqlChart.savedSqlUuid}
@@ -145,6 +196,15 @@ export const HeaderView: FC = () => {
                 onClose={onCloseDeleteModal}
                 onSuccess={() => history.push(`/projects/${projectUuid}/home`)}
             />
+            {isAddToDashboardModalOpen && (
+                <AddTilesToDashboardModal
+                    isOpen={true}
+                    projectUuid={projectUuid}
+                    uuid={savedSqlChart.savedSqlUuid}
+                    dashboardTileType={DashboardTileTypes.SQL_CHART}
+                    onClose={onCloseAddToDashboardModal}
+                />
+            )}
         </>
     );
 };

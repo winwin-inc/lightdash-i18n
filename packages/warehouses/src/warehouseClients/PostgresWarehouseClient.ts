@@ -314,6 +314,16 @@ export class PostgresClient<
         if (databases.size <= 0 || schemas.size <= 0 || tables.size <= 0) {
             return {};
         }
+
+        const { rows: pgVersionRows } = await this.runQuery('SELECT version()');
+        const pgVersionString = pgVersionRows[0]?.version ?? '';
+        const versionRegex = /PostgreSQL (\d+)\./;
+        const versionMatch = pgVersionString.match(versionRegex);
+        const supportsMatviews =
+            versionMatch && versionMatch[1]
+                ? parseInt(versionMatch[1], 10) >= 12
+                : false;
+
         const query = `
             SELECT table_catalog,
                    table_schema,
@@ -324,7 +334,29 @@ export class PostgresClient<
             WHERE table_catalog IN (${Array.from(databases)})
               AND table_schema IN (${Array.from(schemas)})
               AND table_name IN (${Array.from(tables)})
-        `;
+            ${
+                supportsMatviews
+                    ? `
+
+            UNION ALL
+
+            SELECT mv.matviewowner AS table_catalog,
+                n.nspname AS table_schema,
+                c.relname AS table_name,
+                a.attname AS column_name,
+                pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type
+            FROM pg_catalog.pg_attribute a
+            JOIN pg_catalog.pg_class c ON a.attrelid = c.oid
+            JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+            JOIN pg_catalog.pg_matviews mv ON n.nspname = mv.schemaname AND c.relname = mv.matviewname
+            WHERE c.relkind = 'm'
+            AND mv.matviewowner IN (${Array.from(databases)})
+            AND n.nspname IN (${Array.from(schemas)})
+            AND c.relname IN (${Array.from(tables)})
+            AND a.attnum > 0
+            AND NOT a.attisdropped`
+                    : ''
+            }`;
 
         const { rows } = await this.runQuery(query);
         const catalog = rows.reduce(
@@ -389,10 +421,9 @@ export class PostgresClient<
     async getFields(
         tableName: string,
         schema?: string,
+        database?: string,
         tags?: Record<string, string>,
     ): Promise<WarehouseCatalog> {
-        const schemaFilter = schema ? `AND table_schema = $2` : '';
-
         const query = `
             SELECT table_catalog,
                    table_schema,
@@ -401,14 +432,17 @@ export class PostgresClient<
                    data_type
             FROM information_schema.columns
             WHERE table_name = $1
-                ${schemaFilter};
+            ${schema ? 'AND table_schema = $2' : ''}
+            ${database ? 'AND table_catalog = $3' : ''}
         `;
-        const { rows } = await this.runQuery(
-            query,
-            tags,
-            undefined,
-            schema ? [tableName, schema] : [tableName],
-        );
+        const values = [tableName];
+        if (schema) {
+            values.push(schema);
+        }
+        if (database) {
+            values.push(database);
+        }
+        const { rows } = await this.runQuery(query, tags, undefined, values);
 
         return this.parseWarehouseCatalog(rows, mapFieldType);
     }

@@ -1816,7 +1816,7 @@ const useEchartsCartesianConfig = (
                                 dim = dimensionNames[1];
                             } else {
                                 dim =
-                                    encode?.y[0] !== undefined
+                                    encode?.y?.[0] !== undefined
                                         ? dimensionNames[encode?.y[0]]
                                         : '';
                             }
@@ -1916,8 +1916,8 @@ const useEchartsCartesianConfig = (
 
     if (
         !itemsMap ||
-        series.length <= 0 ||
         rows.length <= 0 ||
+        !eChartsOptions ||
         !validCartesianConfig
     ) {
         return undefined;

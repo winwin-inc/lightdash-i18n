@@ -2,33 +2,30 @@ import { subject } from '@casl/ability';
 import {
     ApiCreateSqlChart,
     CreateSqlChart,
-    FeatureFlags,
     ForbiddenError,
     isVizBarChartConfig,
     isVizLineChartConfig,
     isVizPieChartConfig,
     Organization,
     Project,
+    QueryExecutionContext,
     SessionUser,
     SpaceShare,
     SpaceSummary,
     SqlChart,
     SqlRunnerPivotQueryBody,
-    SqlRunnerPivotQueryPayload,
     UpdateSqlChart,
+    VIZ_DEFAULT_AGGREGATION,
 } from '@lightdash/common';
 import { uniq } from 'lodash';
 import {
     CreateSqlChartVersionEvent,
     LightdashAnalytics,
-    QueryExecutionContext,
 } from '../../analytics/LightdashAnalytics';
 import { AnalyticsModel } from '../../models/AnalyticsModel';
 import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedSqlModel } from '../../models/SavedSqlModel';
 import { SpaceModel } from '../../models/SpaceModel';
-import { isFeatureFlagEnabled } from '../../postHog';
-import { applyLimitToSqlQuery } from '../../queryBuilder';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { BaseService } from '../BaseService';
 
@@ -80,7 +77,7 @@ export class SavedSqlService extends BaseService {
                       yAxisCount: (config.fieldConfig?.y ?? []).length,
                       aggregationTypes: uniq(
                           (config.fieldConfig?.y ?? []).map(
-                              (y) => y.aggregation,
+                              (y) => y.aggregation ?? VIZ_DEFAULT_AGGREGATION,
                           ),
                       ),
                   }
@@ -91,7 +88,7 @@ export class SavedSqlService extends BaseService {
                       yAxisCount: (config.fieldConfig?.y ?? []).length,
                       aggregationTypes: uniq(
                           (config.fieldConfig?.y ?? []).map(
-                              (y) => y.aggregation,
+                              (y) => y.aggregation ?? VIZ_DEFAULT_AGGREGATION,
                           ),
                       ),
                   }
@@ -119,11 +116,6 @@ export class SavedSqlService extends BaseService {
             spaceUuid,
         );
 
-        const hasFeatureFlag = await isFeatureFlagEnabled(
-            FeatureFlags.SaveSqlChart,
-            user,
-        );
-
         const hasPermission = user.ability.can(
             action,
             subject('SavedChart', {
@@ -135,7 +127,7 @@ export class SavedSqlService extends BaseService {
         );
 
         return {
-            hasAccess: hasFeatureFlag && hasPermission,
+            hasAccess: hasPermission,
             userAccess: access[0],
         };
     }
@@ -174,6 +166,7 @@ export class SavedSqlService extends BaseService {
         }
         const { hasAccess: hasViewAccess, userAccess } =
             await this.hasSavedChartAccess(user, 'view', savedChart);
+
         if (!hasViewAccess) {
             throw new ForbiddenError("You don't have access to this chart");
         }
@@ -386,7 +379,10 @@ export class SavedSqlService extends BaseService {
             projectUuid,
         );
         if (
-            user.ability.cannot('create', 'Job') ||
+            user.ability.cannot(
+                'create',
+                subject('Job', { organizationUuid, projectUuid }),
+            ) ||
             user.ability.cannot(
                 'manage',
                 subject('SqlRunner', {
@@ -414,19 +410,43 @@ export class SavedSqlService extends BaseService {
         user: SessionUser,
         projectUuid: string,
         body: SqlRunnerPivotQueryBody,
+        context?: QueryExecutionContext,
     ): Promise<{ jobId: string }> {
+        const { savedSqlUuid } = body;
         const { organizationUuid } = await this.projectModel.getSummary(
             projectUuid,
         );
+
+        let savedChart;
+
+        if (savedSqlUuid) {
+            savedChart = await this.savedSqlModel.getByUuid(savedSqlUuid, {
+                projectUuid,
+            });
+
+            if (!savedChart) {
+                throw new Error('Saved chart not found');
+            }
+        }
+
+        const { hasAccess: savedChartViewAccess } = savedChart
+            ? await this.hasSavedChartAccess(user, 'view', savedChart)
+            : { hasAccess: false };
+
         if (
-            user.ability.cannot('create', 'Job') ||
-            user.ability.cannot(
-                'manage',
-                subject('SqlRunner', {
-                    organizationUuid,
-                    projectUuid,
-                }),
-            )
+            // If it's not a saved chart, check if the user has access to run a pivot query
+            !savedChartViewAccess &&
+            (user.ability.cannot(
+                'create',
+                subject('Job', { organizationUuid, projectUuid }),
+            ) ||
+                user.ability.cannot(
+                    'manage',
+                    subject('SqlRunner', {
+                        organizationUuid,
+                        projectUuid,
+                    }),
+                ))
         ) {
             throw new ForbiddenError();
         }
@@ -435,7 +455,7 @@ export class SavedSqlService extends BaseService {
             userUuid: user.userUuid,
             organizationUuid,
             projectUuid,
-            context: QueryExecutionContext.SQL_RUNNER,
+            context: context || QueryExecutionContext.SQL_RUNNER,
         });
 
         return { jobId };
@@ -444,12 +464,22 @@ export class SavedSqlService extends BaseService {
     async getSqlChartResultJob(
         user: SessionUser,
         projectUuid: string,
-        slug: string,
+        slug?: string,
+        chartUuid?: string,
+        context?: QueryExecutionContext,
     ): Promise<{ jobId: string }> {
-        const savedChart = await this.savedSqlModel.getBySlug(
-            projectUuid,
-            slug,
-        );
+        let savedChart;
+        if (chartUuid) {
+            savedChart = await this.savedSqlModel.getByUuid(chartUuid, {
+                projectUuid,
+            });
+        }
+        if (slug) {
+            savedChart = await this.savedSqlModel.getBySlug(projectUuid, slug);
+        }
+        if (!savedChart) {
+            throw new Error('Either chartUuid or slug must be provided');
+        }
 
         const { hasAccess: hasViewAccess } = await this.hasSavedChartAccess(
             user,
@@ -467,7 +497,7 @@ export class SavedSqlService extends BaseService {
             sql: savedChart.sql,
             limit: savedChart.limit,
             sqlChartUuid: savedChart.savedSqlUuid,
-            context: QueryExecutionContext.SQL_CHART,
+            context: context || QueryExecutionContext.SQL_CHART,
         });
 
         await this.analyticsModel.addSqlChartViewEvent(
@@ -476,43 +506,6 @@ export class SavedSqlService extends BaseService {
         );
         return {
             jobId,
-        };
-    }
-
-    async getChartWithResultJob(
-        user: SessionUser,
-        projectUuid: string,
-        savedSqlUuid: string,
-    ): Promise<{ jobId: string; chart: SqlChart }> {
-        const savedChart = await this.savedSqlModel.getByUuid(savedSqlUuid, {
-            projectUuid,
-        });
-
-        const { hasAccess: hasViewAccess, userAccess } =
-            await this.hasSavedChartAccess(user, 'view', savedChart);
-        if (!hasViewAccess) {
-            throw new ForbiddenError("You don't have access to this chart");
-        }
-
-        const jobId = await this.schedulerClient.runSql({
-            userUuid: user.userUuid,
-            organizationUuid: savedChart.organization.organizationUuid,
-            projectUuid: savedChart.project.projectUuid,
-            sql: savedChart.sql,
-            limit: savedChart.limit,
-            sqlChartUuid: savedSqlUuid,
-            context: QueryExecutionContext.DASHBOARD,
-        });
-
-        return {
-            jobId,
-            chart: {
-                ...savedChart,
-                space: {
-                    ...savedChart.space,
-                    userAccess,
-                },
-            },
         };
     }
 }

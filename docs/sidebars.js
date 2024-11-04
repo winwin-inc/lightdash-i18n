@@ -139,49 +139,6 @@ module.exports = {
             items: [
                 {
                     type: 'category',
-                    label: 'CLI',
-                    link: {
-                        type: 'generated-index',
-                        title: 'CLI References',
-                        description:
-                            'Below are reference docs for all Lightdash CLI commands.',
-                        slug: '/references/cli',
-                    },
-                    items: [
-                        {
-                            type: 'doc',
-                            id: 'guides/cli/cli-authentication',
-                            label: 'Lightdash Login',
-                        },
-                        {
-                            type: 'doc',
-                            id: 'guides/cli/how-to-auto-generate-schema-files',
-                            label: 'Lightdash Generate',
-                        },
-                        {
-                            type: 'doc',
-                            id: 'guides/cli/how-to-use-lightdash-preview',
-                            label: 'Lightdash Preview',
-                        },
-                        {
-                            type: 'doc',
-                            id: 'guides/cli/how-to-use-lightdash-deploy',
-                            label: 'Lightdash Deploy',
-                        },
-                        {
-                            type: 'doc',
-                            id: 'guides/cli/how-to-compile-your-lightdash-project',
-                            label: 'Lightdash Compile',
-                        },
-                        {
-                            type: 'doc',
-                            id: 'guides/cli/how-to-use-lightdash-validate',
-                            label: 'Lightdash Validate',
-                        },
-                    ],
-                },
-                {
-                    type: 'category',
                     label: 'Lightdash Development',
                     link: {
                         type: 'generated-index',
@@ -216,7 +173,27 @@ module.exports = {
                             id: 'references/validating-your-content',
                             label: 'Validator',
                         },
-                        'references/sql-runner',
+                        {
+                            type: 'category',
+                            label: 'SQL Runner',
+                            items: [
+                                {
+                                    type: 'doc',
+                                    id: 'references/sql-runner',
+                                    label: 'SQL Runner',
+                                },
+                                {
+                                    type: 'doc',
+                                    id: 'references/virtual-views',
+                                    label: 'Virtual Views',
+                                },
+                                {
+                                    type: 'doc',
+                                    id: 'references/dbt-write-back',
+                                    label: 'dbt Write Back',
+                                },
+                            ]
+                        },
                         'references/sql-variables',
                     ],
                 },
@@ -242,9 +219,15 @@ module.exports = {
                             id: 'references/filters',
                             label: 'Filters',
                         },
+                        'references/custom-fields',
                         'references/table-calculations',
                         'references/spaces',
                     ],
+                },
+                {
+                    type: 'doc',
+                    id: 'references/lightdash-cli',
+                    label: 'CLI',
                 },
                 {
                     type: 'category',
@@ -258,11 +241,15 @@ module.exports = {
                     },
                     items: [
                         'references/dbt-projects',
-                        'references/dbt-semantic-layer',
                         {
-                          type: 'doc',
-                          id: 'references/slack-integration',
-                          label: 'Slack',
+                            type: 'doc',
+                            id: 'references/dbt-semantic-layer',
+                            label: 'dbt Semantic Layer',
+                        },
+                        {
+                            type: 'doc',
+                            id: 'references/slack-integration',
+                            label: 'Slack',
                         },
                         'references/google-sheets',
                     ],

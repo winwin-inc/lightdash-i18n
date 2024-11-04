@@ -5,11 +5,11 @@ import {
     IconBuildingSkyscraper,
     IconCalendarStats,
     IconChecklist,
-    IconCloudSearch,
     IconDatabase,
     IconDatabaseCog,
     IconDatabaseExport,
     IconKey,
+    IconLayersLinked,
     IconLock,
     IconPalette,
     IconPlug,
@@ -65,6 +65,10 @@ const Settings: FC = () => {
 
     const isCustomSQLEnabled = useFeatureFlagEnabled(
         FeatureFlags.CustomSQLEnabled,
+    );
+
+    const isSemanticLayerEnabled = useFeatureFlagEnabled(
+        FeatureFlags.SemanticLayerEnabled,
     );
 
     const {
@@ -371,6 +375,28 @@ const Settings: FC = () => {
                                         }
                                     />
 
+                                    {user.ability?.can(
+                                        'manage',
+                                        subject('Project', {
+                                            organizationUuid:
+                                                project.organizationUuid,
+                                            projectUuid: project.projectUuid,
+                                        }),
+                                    ) && isSemanticLayerEnabled ? (
+                                        <RouterNavLink
+                                            label={t(
+                                                'pages_settings.scroll_area_box_update.navs.semantic_layer_integration',
+                                            )}
+                                            exact
+                                            to={`/generalSettings/projectManagement/${project.projectUuid}/semanticLayer`}
+                                            icon={
+                                                <MantineIcon
+                                                    icon={IconLayersLinked}
+                                                />
+                                            }
+                                        />
+                                    ) : null}
+
                                     <RouterNavLink
                                         label={t(
                                             'pages_settings.scroll_area_box_update.navs.tables_configuration',
@@ -392,27 +418,6 @@ const Settings: FC = () => {
                                         to={`/generalSettings/projectManagement/${project.projectUuid}/projectAccess`}
                                         icon={<MantineIcon icon={IconUsers} />}
                                     />
-                                    {user.ability?.can(
-                                        'manage',
-                                        subject('Project', {
-                                            organizationUuid:
-                                                project.organizationUuid,
-                                            projectUuid: project.projectUuid,
-                                        }),
-                                    ) ? (
-                                        <RouterNavLink
-                                            label={t(
-                                                'pages_settings.scroll_area_box_update.navs.dbt_semantic_layer',
-                                            )}
-                                            exact
-                                            to={`/generalSettings/projectManagement/${project.projectUuid}/integrations/dbtCloud`}
-                                            icon={
-                                                <MantineIcon
-                                                    icon={IconCloudSearch}
-                                                />
-                                            }
-                                        />
-                                    ) : null}
 
                                     {user.ability.can(
                                         'view',
@@ -657,7 +662,6 @@ const Settings: FC = () => {
                         <Route
                             path={[
                                 '/generalSettings/projectManagement/:projectUuid/:tab?',
-                                '/generalSettings/projectManagement/:projectUuid/integrations/:tab',
                             ]}
                             exact
                         >

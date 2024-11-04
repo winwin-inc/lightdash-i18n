@@ -8,7 +8,6 @@ import {
     type DashboardBasicDetails,
     type DashboardSummary,
 } from './types/dashboard';
-import { type DbtCloudIntegration } from './types/dbtCloud';
 import { type Explore, type SummaryExplore } from './types/explore';
 import {
     DimensionType,
@@ -114,15 +113,24 @@ import { type ValidationResponse } from './types/validation';
 import {
     type ApiCatalogAnalyticsResults,
     type ApiCatalogMetadataResults,
+    type ApiMetricsCatalog,
 } from './types/catalog';
 import {
     type ApiChartContentResponse,
     type ApiContentResponse,
 } from './types/content';
+import type { ApiGroupListResponse } from './types/groups';
 import { type ApiPromotionChangesResponse } from './types/promotion';
-import { type ApiSemanticLayerClientInfo } from './types/semanticLayer';
+import {
+    type ApiSemanticLayerClientInfo,
+    type ApiSemanticViewerChartCreate,
+    type ApiSemanticViewerChartGet,
+    type ApiSemanticViewerChartUpdate,
+} from './types/semanticLayer';
 import {
     type ApiCreateSqlChart,
+    type ApiCreateVirtualView,
+    type ApiGithubDbtWritePreview,
     type ApiSqlChart,
     type ApiSqlRunnerJobStatusResponse,
     type ApiUpdateSqlChart,
@@ -148,9 +156,9 @@ export * from './types/analytics';
 export * from './types/api';
 export * from './types/api/comments';
 export * from './types/api/errors';
-export * from './types/api/integrations';
 export * from './types/api/notifications';
 export * from './types/api/share';
+export * from './types/api/sort';
 export * from './types/api/success';
 export * from './types/api/uuid';
 export * from './types/catalog';
@@ -161,7 +169,6 @@ export * from './types/content';
 export * from './types/csv';
 export * from './types/dashboard';
 export * from './types/dbt';
-export * from './types/dbtCloud';
 export * from './types/dbtSemanticLayer';
 export * from './types/downloadFile';
 export * from './types/email';
@@ -214,6 +221,7 @@ export * from './utils/api';
 export { default as assertUnreachable } from './utils/assertUnreachable';
 export * from './utils/conditionalFormatting';
 export * from './utils/convertToDbt';
+export * from './utils/dashboard';
 export * from './utils/email';
 export * from './utils/fields';
 export * from './utils/filters';
@@ -223,9 +231,11 @@ export * from './utils/item';
 export * from './utils/projectMemberRole';
 export * from './utils/sanitizeHtml';
 export * from './utils/scheduler';
+export * from './utils/semanticLayer';
 export * from './utils/slugs';
 export * from './utils/time';
 export * from './utils/timeFrames';
+export * from './utils/virtualView';
 export * from './utils/warehouse';
 export * from './visualizations/CartesianChartDataModel';
 export * from './visualizations/PieChartDataModel';
@@ -532,6 +542,7 @@ export type UpdateUserArgs = {
     isMarketingOptedIn: boolean;
     isTrackingAnonymized: boolean;
     isSetupComplete: boolean;
+    isActive: boolean;
 };
 
 export type PasswordResetLink = {
@@ -624,7 +635,6 @@ type ApiResults =
     | ProjectGroupAccess
     | SearchResults
     | Space
-    | DbtCloudIntegration
     | ShareUrl
     | SlackSettings
     | ApiSlackChannelsResponse['results']
@@ -673,7 +683,14 @@ type ApiResults =
     | ApiContentResponse['results']
     | ApiChartContentResponse['results']
     | ApiSqlRunnerJobStatusResponse['results']
-    | ApiSemanticLayerClientInfo['results'];
+    | ApiSemanticLayerClientInfo['results']
+    | ApiSemanticViewerChartCreate['results']
+    | ApiSemanticViewerChartGet['results']
+    | ApiSemanticViewerChartUpdate['results']
+    | ApiCreateVirtualView['results']
+    | ApiGithubDbtWritePreview['results']
+    | ApiMetricsCatalog['results']
+    | ApiGroupListResponse['results'];
 
 export type ApiResponse<T extends ApiResults = ApiResults> = {
     status: 'ok';
@@ -691,6 +708,12 @@ export type ApiError = {
     status: 'error';
     error: ApiErrorDetail;
 };
+
+export const isApiError = (error: unknown): error is ApiError =>
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    error.status === 'error';
 
 export enum LightdashMode {
     DEFAULT = 'default',
@@ -779,10 +802,13 @@ export type HealthState = {
             forceRedirect: boolean;
         };
     };
-    posthog: {
-        projectApiKey: string;
-        apiHost: string;
-    };
+    posthog:
+        | {
+              projectApiKey: string;
+              feApiHost: string;
+              beApiHost: string;
+          }
+        | undefined;
     siteUrl: string;
     intercom: {
         appId: string;
@@ -804,7 +830,6 @@ export type HealthState = {
     hasSlack: boolean;
     hasGithub: boolean;
     hasHeadlessBrowser: boolean;
-    hasDbtSemanticLayer: boolean;
     hasGroups: boolean;
     hasExtendedUsageAnalytics: boolean;
 };
@@ -831,14 +856,14 @@ export const DbtProjectTypeLabels: Record<DbtProjectType, string> = {
 
 export type CreateProject = Omit<
     Project,
-    'projectUuid' | 'organizationUuid'
+    'projectUuid' | 'organizationUuid' | 'schedulerTimezone'
 > & {
     warehouseConnection: CreateWarehouseCredentials;
 };
 
 export type UpdateProject = Omit<
     Project,
-    'projectUuid' | 'organizationUuid' | 'type'
+    'projectUuid' | 'organizationUuid' | 'type' | 'schedulerTimezone'
 > & {
     warehouseConnection: CreateWarehouseCredentials;
 };
@@ -1119,4 +1144,25 @@ export const deepEqual = (
             (!areObjects && val1 !== val2)
         );
     });
+};
+
+export const getProjectDirectory = (
+    dbtConnection?: DbtProjectConfig,
+): string | undefined => {
+    if (!dbtConnection) return undefined;
+
+    switch (dbtConnection.type) {
+        case DbtProjectType.DBT:
+            return dbtConnection.project_dir;
+        case DbtProjectType.GITHUB:
+        case DbtProjectType.GITLAB:
+        case DbtProjectType.BITBUCKET:
+        case DbtProjectType.AZURE_DEVOPS:
+            return dbtConnection.project_sub_path;
+        case DbtProjectType.DBT_CLOUD_IDE:
+        case DbtProjectType.NONE:
+            return undefined;
+        default:
+            return undefined;
+    }
 };

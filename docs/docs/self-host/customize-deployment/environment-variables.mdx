@@ -15,6 +15,7 @@ This is a reference to all environment variables that can be used to configure a
 | `COOKIES_MAX_AGE_HOURS`                      | How many hours a user session exists before the user is automatically signed out. For example if 24, then the user will be automatically after 24 hours of inactivity.                                        |           |                                                                 |
 | `TRUST_PROXY`                                | This tells the Lightdash server that it can trust the `X-Forwarded-Proto` header it receives in requests. This is useful if you use `SECURE_COOKIES=true` behind a HTTPS terminated proxy that you can trust. |           | `false`                                                         |
 | `SITE_URL`                                   | Site url where Lightdash is being hosted. It should include the protocol. E.g https://lightdash.mycompany.com                                                                                                 |           | `http://localhost:8080`                                         |
+| `INTERNAL_LIGHTDASH_HOST`                    | Internal Lightdash host for the Headless browser to send requests when your Lightdash instance is not accessible from the Internet.                                                                           |           | Same as SITE_URL                                                |
 | `STATIC_IP`                                  | Server static IP so users can add the IP to their warehouse allow-list.                                                                                                                                       |           | `http://localhost:8080`                                         |
 | `LIGHTDASH_QUERY_MAX_LIMIT`                  | Query max rows limit                                                                                                                                                                                          |           | `5000`                                                          |
 | `SCHEDULER_ENABLED`                          | Enables/Disables the scheduler worker that triggers the scheduled deliveries.                                                                                                                                 |           | `true`                                                          |
@@ -86,14 +87,6 @@ These variables enable you to control Single Sign On (SSO) functionality.
 | `LIGHTDASH_LOG_FILE_LEVEL`     | The minimum level of log messages to write to the log file  |           | `LIGHTDASH_LOG_LEVEL`  |
 | `LIGHTDASH_LOG_FILE_FORMAT`    | The format of log messages in the log file                  |           | `LIGHTDASH_LOG_FORMAT` |
 | `LIGHTDASH_LOG_FILE_PATH`      | The path to the log file                                    |           | `./logs/all.log`       |
-
-## dbt semantic layer environment variables
-
-| Variable                   | Description                         | Required?                                                                                                                                                      | Default                                 |
-| -------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `DBT_CLOUD_DOMAIN`         | dbt cloud Semantic Layer API domain | Only required if your dbt cloud URL is similar to this `client123.us1.dbt.com`. If so, you should set the value `https://client123.semantic-layer.us1.dbt.com` | https://semantic-layer.cloud.getdbt.com |
-| `DBT_CLOUD_ENVIRONMENT_ID` | dbt environment ID                  | ✅                                                                                                                                                             |                                         |
-| `DBT_CLOUD_BEARER_TOKEN`   | dbt cloud bearer token              | ✅                                                                                                                                                             |                                         |
 
 ## Prometheus environment variables
 

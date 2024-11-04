@@ -245,6 +245,7 @@ export const useUpdateDashboard = (
                     'dashboards-containing-chart',
                 ]);
                 await queryClient.resetQueries(['saved_dashboard_query', id]);
+                await queryClient.invalidateQueries(['content']);
                 const onlyUpdatedName: boolean =
                     Object.keys(variables).length === 1 &&
                     Object.keys(variables).includes('name');
@@ -262,6 +263,7 @@ export const useUpdateDashboard = (
                                   ),
                           }
                         : undefined,
+                    autoClose: 10000,
                 });
             },
             onError: ({ error }) => {
@@ -294,6 +296,7 @@ export const useMoveDashboardMutation = () => {
                 await queryClient.invalidateQueries([
                     'most-popular-and-recently-updated',
                 ]);
+                await queryClient.invalidateQueries(['content']);
                 queryClient.setQueryData(
                     ['saved_dashboard_query', data.uuid],
                     data,
@@ -395,6 +398,7 @@ export const useDuplicateDashboardMutation = (
                 await queryClient.invalidateQueries([
                     'most-popular-and-recently-updated',
                 ]);
+                await queryClient.invalidateQueries(['content']);
                 showToastSuccess({
                     title: `Dashboard successfully duplicated!`,
                     action: options?.showRedirectButton
@@ -434,6 +438,7 @@ export const useDashboardDeleteMutation = () => {
             await queryClient.invalidateQueries([
                 'most-popular-and-recently-updated',
             ]);
+            await queryClient.invalidateQueries(['content']);
             showToastSuccess({
                 title: `Deleted! Dashboard was deleted.`,
             });
