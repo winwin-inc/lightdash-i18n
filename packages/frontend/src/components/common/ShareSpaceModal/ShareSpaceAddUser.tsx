@@ -24,6 +24,8 @@ import {
     useState,
     type FC,
 } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useInfiniteOrganizationGroups } from '../../../hooks/useOrganizationGroups';
 import { useInfiniteOrganizationUsers } from '../../../hooks/useOrganizationUsers';
 import { useProjectAccess } from '../../../hooks/useProjectAccess';
