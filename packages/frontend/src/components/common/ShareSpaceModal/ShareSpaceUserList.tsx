@@ -158,8 +158,9 @@ const UserAccessList: FC<UserAccessListProps> = ({
     onAccessChange,
     pageSize,
 }) => {
-    const UserAccessOptions = useUserAccessOptions();
     const { t } = useTranslation();
+    const UserAccessOptions = useUserAccessOptions();
+
     const [page, setPage] = useState(1);
 
     // TODO: Paginate space access from backend
@@ -349,6 +350,9 @@ const GroupsAccessList: FC<GroupAccessListProps> = ({
     groupsAccess,
     pageSize,
 }) => {
+    const { t } = useTranslation();
+    const UserAccessOptions = useUserAccessOptions();
+
     const [page, setPage] = useState(1);
 
     // TODO: Paginate group access from backend

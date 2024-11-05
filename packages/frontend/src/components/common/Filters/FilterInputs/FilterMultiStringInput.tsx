@@ -2,6 +2,7 @@ import { Group, MultiSelect, Text, type MultiSelectProps } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import uniq from 'lodash/uniq';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../MantineIcon';
 import MultiValuePastePopover from './MultiValuePastePopover';
@@ -18,6 +19,8 @@ const FilterMultiStringInput: FC<Props> = ({
     placeholder,
     ...rest
 }) => {
+    const { t } = useTranslation();
+
     const [search, setSearch] = useState('');
     const [pastePopUpOpened, setPastePopUpOpened] = useState(false);
     const [tempPasteValues, setTempPasteValues] = useState<
