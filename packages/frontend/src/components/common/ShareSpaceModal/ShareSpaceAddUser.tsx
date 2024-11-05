@@ -35,6 +35,7 @@ import {
 } from '../../../hooks/useSpaces';
 import MantineIcon from '../MantineIcon';
 import { DEFAULT_PAGE_SIZE } from '../Table/types';
+import { useUserAccessOptions } from './ShareSpaceSelect';
 import { getInitials, getUserNameOrEmail } from './Utils';
 
 interface ShareSpaceAddUserProps {
