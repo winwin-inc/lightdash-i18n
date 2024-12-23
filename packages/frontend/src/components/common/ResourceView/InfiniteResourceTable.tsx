@@ -240,7 +240,7 @@ const InfiniteResourceTable = ({
                                             <span>
                                                 {item.data.views || '0'}{' '}
                                                 {t(
-                                                    'components_common_resource_view_action_menu.infinite_resource_table.columns.views',
+                                                    'components_common_resource_view_action_menu.infinite_resource_table.columns.name.views',
                                                 )}
                                             </span>
                                         </Tooltip>
