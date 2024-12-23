@@ -57,10 +57,61 @@
         "update_error": "Failed to update user's permissions"
     },
     "hooks_refresh_server": {
-        "error": "Error syncing dbt project"
+        "error": "Error syncing dbt project",
+        "job_status": {
+            "done": "Successfully synced dbt project!",
+            "started": "Pending sync",
+            "error": "Error while syncing dbt project",
+            "running": "Syncing dbt project",
+            "unknown": "Unknown job status"
+        },
+        "job_steps_status": {
+            "done": "Completed",
+            "pending": "Pending",
+            "skipped": "Skipped",
+            "error": "Error",
+            "running": "Running",
+            "unknown": "Unknown job step status"
+        }
+    },
+    "hooks_spaces": {
+        "delete_success": "Success! Space was deleted.",
+        "delete_error": "Failed to delete space",
+        "updated_success": "Success! Space was updated.",
+        "updated_error": "Failed to update space",
+        "create_success": "Success! Space was created.",
+        "create_error": "Failed to create space",
+        "updated_access_success": "Success! Space access updated!",
+        "updated_access_error": "Failed to update space access",
+        "updated_group_success": "Success! Space group access updated!",
+        "updated_group_error": "Failed to update space group access"
+    },
+    "hooks_dashboards": {
+        "success": "Success! Dashboards were updated.",
+        "error": "Failed to update dashboard"
+    },
+    "hooks_saved_query": {
+        "to_space": "Go to space",
+        "open_chart": "Open chart",
+        "open_dashboard": "Open dashboard",
+        "revert_success": "Success! Chart was reverted.",
+        "revert_failed": "Failed to revert chart",
+        "delete_success": "Success! Chart was deleted.",
+        "delete_error": "Failed to delete chart",
+        "updated_success": "Success! Charts were updated.",
+        "updated_error": "Failed to save chart",
+        "save_success": "Success! Chart was saved.",
+        "save_error": "Failed to save chart",
+        "move_success": "Chart has been moved to {{spaceName}}",
+        "move_error": "Failed to move chart",
+        "duplicated_success": "Chart successfully duplicat,ed!",
+        "duplicated_error": "Failed to duplicate chart",
+        "update_success": "Success! Chart was updated.",
+        "update_error": "Failed to update chart"
     },
 
     "providers_active_job": {
+        "view_log": "View log",
         "toast_refresh_error": "Failed to refresh server",
         "active_job_used": "useActiveJob must be used within a ActiveJobProvider"
     },
@@ -1172,7 +1223,6 @@
         "page": "Page",
         "of": "of"
     },
-
     "components_common_page_header": {
         "last_edited": "Last edited",
         "by": "by",
@@ -2439,6 +2489,7 @@
             "save": "Save"
         },
         "default": {
+            "save_to": "Save to",
             "form_space": {
                 "name": {
                     "label": "Space",
@@ -3027,6 +3078,11 @@
         "table": {
             "select_all": "Select all",
             "name": "Name"
+        },
+        "tabs": {
+            "all": "All",
+            "projects": "Projects",
+            "preview": "Preview Projects"
         }
     },
     "components_user_settings_groups_panel": {
@@ -4209,6 +4265,11 @@
             "custom_visualization": "Custom visualization",
             "not_supported": "Chart type {{chartKind}} not supported"
         }
+    },
+    "components_common_resource_view_content_type": {
+        "all": "All",
+        "dashboards": "Dashboards",
+        "charts": "Charts"
     },
 
     "component_saved_dashboards_files_add": {
@@ -5741,6 +5802,7 @@
         }
     },
     "pages_saved_dashboards": {
+        "dashboards": "Dashboards",
         "loading_dashboards": "Loading dashboards",
         "bread_crumbs": {
             "home": "Home",

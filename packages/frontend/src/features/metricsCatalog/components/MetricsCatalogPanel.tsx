@@ -160,6 +160,8 @@ const LearnMorePopover: FC<{ buttonStyles?: ButtonProps['sx'] }> = ({
 };
 
 export const MetricsCatalogPanel = () => {
+    const { t } = useTranslation();
+
     const dispatch = useAppDispatch();
     const theme = useMantineTheme();
     const { show: showIntercom } = useIntercom();
@@ -180,6 +182,7 @@ export const MetricsCatalogPanel = () => {
         Date | undefined
     >();
     const timeAgo = useTimeAgo(lastDbtRefreshAt || new Date());
+
     const params = useParams<{ projectUuid: string }>();
     const { data: project } = useProject(projectUuid);
     const { user } = useApp();

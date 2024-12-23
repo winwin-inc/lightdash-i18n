@@ -57,10 +57,61 @@
         "update_error": "更新用户权限失败。"
     },
     "hooks_refresh_server": {
-        "error": "同步 dbt 项目时出错"
+        "error": "同步 dbt 项目时出错",
+        "job_status": {
+            "done": "成功同步 dbt 项目！",
+            "started": "同步待处理",
+            "error": "同步 dbt 项目时出错",
+            "running": "正在同步 dbt 项目",
+            "unknown": "未知的作业状态"
+        },
+        "job_steps_status": {
+            "done": "已完成",
+            "pending": "待处理",
+            "skipped": "已跳过",
+            "error": "出错",
+            "running": "正在运行",
+            "unknown": "未知的作业步骤状态"
+        }
+    },
+    "hooks_spaces": {
+        "delete_success": "成功！空间已删除。",
+        "delete_error": "删除空间失败",
+        "updated_success": "成功！空间已更新。",
+        "updated_error": "更新空间失败",
+        "create_success": "成功！空间已创建。",
+        "create_error": "创建空间失败",
+        "updated_access_success": "成功！空间访问权限已更新！",
+        "updated_access_error": "更新空间访问权限失败",
+        "updated_group_success": "成功！空间组访问权限已更新！",
+        "updated_group_error": "更新空间组访问权限失败"
+    },
+    "hooks_dashboards": {
+        "success": "成功！看板已更新。",
+        "error": "更新看板失败"
+    },
+    "hooks_saved_query": {
+        "to_space": "前往空间",
+        "open_chart": "打开图表",
+        "open_dashboard": "打开看板",
+        "revert_success": "成功！图表已恢复。",
+        "revert_failed": "恢复图表失败",
+        "delete_success": "成功！图表已删除。",
+        "delete_error": "删除图表失败",
+        "updated_success": "成功！图表已更新。",
+        "updated_error": "保存图表失败",
+        "save_success": "成功！图表已保存。",
+        "save_error": "保存图表失败",
+        "move_success": "图表已移动到 {{spaceName}}",
+        "move_error": "移动图表失败",
+        "duplicated_success": "图表成功复制！",
+        "duplicated_error": "复制图表失败",
+        "update_success": "成功！图表已更新。",
+        "update_error": "更新图表失败"
     },
 
     "providers_active_job": {
+        "view_log": "查看日志",
         "toast_refresh_error": "刷新服务器失败",
         "active_job_used": "必须在 ActiveJobProvider 内部使用 useActiveJob"
     },
@@ -1008,7 +1059,7 @@
                 "part_2": "您最多只能选择 30 个指标用于指标树",
                 "part_3": "所选指标之间没有连接"
             },
-            "bottom_toolbar": {
+            "bootom_toolbar": {
                 "part_1": "正在加载更多...",
                 "part_2": "向下滚动以查看更多指标",
                 "part_3": "所有指标已加载",
@@ -2440,6 +2491,7 @@
             "save": "保存"
         },
         "default": {
+            "save_to": "保存到",
             "form_space": {
                 "name": {
                     "label": "空间",
@@ -3027,6 +3079,11 @@
         "table": {
             "select_all": "全选",
             "name": "名称"
+        },
+        "tabs": {
+            "all": "全部",
+            "projects": "项目",
+            "preview": "预览项目"
         }
     },
     "components_user_settings_groups_panel": {
@@ -4207,6 +4264,11 @@
             "custom_visualization": "自定义可视化",
             "not_supported": "不支持 {{chartKind}} 图表类型"
         }
+    },
+    "components_common_resource_view_content_type": {
+        "all": "全部",
+        "dashboards": "看板",
+        "charts": "图表"
     },
 
     "component_saved_dashboards_files_add": {
@@ -5742,6 +5804,7 @@
         }
     },
     "pages_saved_dashboards": {
+        "dashboards": "看板",
         "loading_dashboards": "正在加载看板",
         "bread_crumbs": {
             "home": "首页",

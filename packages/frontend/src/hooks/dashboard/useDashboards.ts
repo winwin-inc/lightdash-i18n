@@ -9,6 +9,8 @@ import {
     useQueryClient,
     type UseQueryOptions,
 } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+
 import { lightdashApi } from '../../api';
 import useToaster from '../toaster/useToaster';
 import useQueryError from '../useQueryError';
@@ -89,6 +91,8 @@ const updateMultipleDashboard = async (
 export const useUpdateMultipleDashboard = (projectUuid: string) => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<null, ApiError, UpdateMultipleDashboards[]>(
         (data) => updateMultipleDashboard(projectUuid, data),
         {
@@ -111,12 +115,12 @@ export const useUpdateMultipleDashboard = (projectUuid: string) => {
                 await queryClient.invalidateQueries(invalidateQueries);
 
                 showToastSuccess({
-                    title: `Success! Dashboards were updated.`,
+                    title: t('hooks_dashboards.success'),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to update dashboard`,
+                    title: t('hooks_dashboards.error'),
                     apiError: error,
                 });
             },

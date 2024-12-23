@@ -51,7 +51,7 @@ const SavedDashboards = () => {
 
     return (
         <Page
-            title="Dashboards"
+            title={t('pages_saved_dashboards.dashboards')}
             withCenteredRoot
             withCenteredContent
             withXLargePaddedContent

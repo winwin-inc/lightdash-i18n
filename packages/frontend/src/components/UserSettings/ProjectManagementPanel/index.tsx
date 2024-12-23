@@ -106,7 +106,7 @@ const ProjectListItem: FC<ProjectListItemProps> = ({
                             )}
                         </Badge>
                     )}
-                    {type === ProjectType.PREVIEW && (
+                    {project.type === ProjectType.PREVIEW && (
                         <Badge>
                             {t(
                                 'components_user_settings_project_management_panel.preview',
@@ -176,19 +176,33 @@ enum TabsValue {
     PREVIEW = 'preview',
 }
 
-const TABS = [
-    { value: TabsValue.ALL, label: 'All' },
-    { value: TabsValue.DEFAULT, label: 'Projects' },
-    { value: TabsValue.PREVIEW, label: 'Preview Projects' },
-];
-
 const ProjectManagementPanel: FC = () => {
     const { t } = useTranslation();
 
     const tableStyles = useTableStyles();
     const tableTabStyles = useTableTabStyles();
-
     const { user } = useApp();
+
+    const TABS = [
+        {
+            value: TabsValue.ALL,
+            label: t(
+                'components_user_settings_project_management_panel.tabs.all',
+            ),
+        },
+        {
+            value: TabsValue.DEFAULT,
+            label: t(
+                'components_user_settings_project_management_panel.tabs.projects',
+            ),
+        },
+        {
+            value: TabsValue.PREVIEW,
+            label: t(
+                'components_user_settings_project_management_panel.tabs.preview',
+            ),
+        },
+    ];
 
     const { data: projects = [], isInitialLoading: isLoadingProjects } =
         useProjects();

@@ -11,6 +11,8 @@ import {
     useQueryClient,
     type UseQueryOptions,
 } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+
 import { lightdashApi } from '../api';
 import useToaster from './toaster/useToaster';
 import useUser from './user/useUser';
@@ -75,6 +77,7 @@ const deleteQuery = async (projectUuid: string, spaceUuid: string) =>
 export const useSpaceDeleteMutation = (projectUuid: string) => {
     const { showToastSuccess, showToastApiError } = useToaster();
     const queryClient = useQueryClient();
+    const { t } = useTranslation();
 
     return useMutation<null, ApiError, string>(
         (spaceUuid) => deleteQuery(projectUuid, spaceUuid),
@@ -88,12 +91,12 @@ export const useSpaceDeleteMutation = (projectUuid: string) => {
                 ]);
                 await queryClient.invalidateQueries(['pinned_items']);
                 showToastSuccess({
-                    title: `Success! Space was deleted.`,
+                    title: t('hooks_spaces.delete_success'),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to delete space`,
+                    title: t('hooks_spaces.delete_error'),
                     apiError: error,
                 });
             },
@@ -115,6 +118,7 @@ const updateSpace = async (
 export const useUpdateMutation = (projectUuid: string, spaceUuid: string) => {
     const { showToastSuccess, showToastApiError } = useToaster();
     const queryClient = useQueryClient();
+    const { t } = useTranslation();
 
     return useMutation<Space, ApiError, UpdateSpace>(
         (data) => updateSpace(projectUuid, spaceUuid, data),
@@ -134,12 +138,12 @@ export const useUpdateMutation = (projectUuid: string, spaceUuid: string) => {
                 );
 
                 showToastSuccess({
-                    title: `Success! Space was updated.`,
+                    title: t('hooks_spaces.updated_success'),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to update space`,
+                    title: t('hooks_spaces.updated_error'),
                     apiError: error,
                 });
             },
@@ -162,6 +166,7 @@ export const useCreateMutation = (
 ) => {
     const { showToastSuccess, showToastApiError } = useToaster();
     const queryClient = useQueryClient();
+    const { t } = useTranslation();
 
     return useMutation<Space, ApiError, CreateSpace>(
         (data) => createSpace(projectUuid, data),
@@ -177,12 +182,12 @@ export const useCreateMutation = (
                 options?.onSuccess?.(space);
 
                 showToastSuccess({
-                    title: `Success! Space was created.`,
+                    title: t('hooks_spaces.create_success'),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to create space`,
+                    title: t('hooks_spaces.create_error'),
                     apiError: error,
                 });
             },
@@ -208,6 +213,7 @@ export const useAddSpaceShareMutation = (
 ) => {
     const { showToastSuccess, showToastApiError } = useToaster();
     const queryClient = useQueryClient();
+    const { t } = useTranslation();
 
     return useMutation<Space, ApiError, [string, string]>(
         ([userUuid, spaceRole]) =>
@@ -223,12 +229,12 @@ export const useAddSpaceShareMutation = (
                 ]);
 
                 showToastSuccess({
-                    title: `Success! Space access updated!`,
+                    title: t('hooks_spaces.updated_access_success'),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to update space access`,
+                    title: t('hooks_spaces.updated_access_error'),
                     apiError: error,
                 });
             },
@@ -253,6 +259,7 @@ export const useDeleteSpaceShareMutation = (
 ) => {
     const { showToastSuccess, showToastApiError } = useToaster();
     const queryClient = useQueryClient();
+    const { t } = useTranslation();
 
     return useMutation<null, ApiError, string>(
         (userUuid) => deleteSpaceShare(projectUuid, spaceUuid, userUuid),
@@ -267,12 +274,12 @@ export const useDeleteSpaceShareMutation = (
                 ]);
 
                 showToastSuccess({
-                    title: `Success! Space access updated!`,
+                    title: t('hooks_spaces.updated_access_success'),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to update space access`,
+                    title: t('hooks_spaces.updated_access_error'),
                     apiError: error,
                 });
             },
@@ -298,6 +305,7 @@ export const useAddGroupSpaceShareMutation = (
 ) => {
     const { showToastSuccess, showToastError } = useToaster();
     const queryClient = useQueryClient();
+    const { t } = useTranslation();
 
     return useMutation<Space, ApiError, [string, string]>(
         ([groupUuid, spaceRole]) =>
@@ -313,12 +321,12 @@ export const useAddGroupSpaceShareMutation = (
                 ]);
 
                 showToastSuccess({
-                    title: `Success! Space group access updated!`,
+                    title: t('hooks_spaces.updated_group_success'),
                 });
             },
             onError: (error) => {
                 showToastError({
-                    title: `Failed to update space group access`,
+                    title: t('hooks_spaces.updated_group_error'),
                     subtitle: error.error.message,
                 });
             },
@@ -343,6 +351,7 @@ export const useDeleteSpaceGroupAccessMutation = (
 ) => {
     const { showToastSuccess, showToastError } = useToaster();
     const queryClient = useQueryClient();
+    const { t } = useTranslation();
 
     return useMutation<null, ApiError, string>(
         (groupUuid) => deleteGroupSpaceShare(projectUuid, spaceUuid, groupUuid),
@@ -357,12 +366,12 @@ export const useDeleteSpaceGroupAccessMutation = (
                 ]);
 
                 showToastSuccess({
-                    title: `Success! Space group access updated!`,
+                    title: t('hooks_spaces.updated_group_success'),
                 });
             },
             onError: (error) => {
                 showToastError({
-                    title: `Failed to update space group access`,
+                    title: t('hooks_spaces.updated_group_error'),
                     subtitle: error.error.message,
                 });
             },

@@ -223,7 +223,9 @@ const Settings: FC = () => {
 
                                 {user.ability.can('manage', 'Organization') && (
                                     <RouterNavLink
-                                        label={t('pages_settings.navs.general')}
+                                        label={t(
+                                            'pages_settings.scroll_area_box_create.navs.general',
+                                        )}
                                         to="/generalSettings/organization"
                                         exact
                                         icon={
@@ -242,10 +244,10 @@ const Settings: FC = () => {
                                         label={
                                             isGroupManagementEnabled
                                                 ? t(
-                                                      'pages_settings.navs.users.users_groups',
+                                                      'pages_settings.scroll_area_box_create.navs.users.users_groups',
                                                   )
                                                 : t(
-                                                      'pages_settings.navs.users.user_management',
+                                                      'pages_settings.scroll_area_box_create.navs.users.user_management',
                                                   )
                                         }
                                         to="/generalSettings/userManagement"
@@ -266,10 +268,10 @@ const Settings: FC = () => {
                                         label={
                                             isGroupManagementEnabled
                                                 ? t(
-                                                      'pages_settings.navs.user_attributes.user_group_attributes',
+                                                      'pages_settings.scroll_area_box_create.navs.user_attributes.user_group_attributes',
                                                   )
                                                 : t(
-                                                      'pages_settings.navs.user_attributes.user_attributes',
+                                                      'pages_settings.scroll_area_box_create.navs.user_attributes.user_attributes',
                                                   )
                                         }
                                         to="/generalSettings/userAttributes"
@@ -285,7 +287,7 @@ const Settings: FC = () => {
                                 {user.ability.can('update', 'Organization') && (
                                     <RouterNavLink
                                         label={t(
-                                            'pages_settings.navs.appearance',
+                                            'pages_settings.scroll_area_box_create.navs.appearance',
                                         )}
                                         exact
                                         to="/generalSettings/appearance"
@@ -298,7 +300,7 @@ const Settings: FC = () => {
                                 {user.ability.can('manage', 'Organization') && (
                                     <RouterNavLink
                                         label={t(
-                                            'pages_settings.navs.integrations',
+                                            'pages_settings.scroll_area_box_create.navs.integrations',
                                         )}
                                         exact
                                         to="/generalSettings/integrations"
@@ -311,7 +313,7 @@ const Settings: FC = () => {
                                     user.ability.can('view', 'Project') && (
                                         <RouterNavLink
                                             label={t(
-                                                'pages_settings.navs.all_projects',
+                                                'pages_settings.scroll_area_box_create.navs.all_projects',
                                             )}
                                             to="/generalSettings/projectManagement"
                                             exact

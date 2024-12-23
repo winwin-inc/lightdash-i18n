@@ -62,9 +62,9 @@ import ResourceActionHandlers, {
 import ResourceActionMenu from './ResourceActionMenu';
 import ResourceLastEdited from './ResourceLastEdited';
 import {
-    getResourceTypeName,
     getResourceUrl,
     getResourceViewsSinceWhenDescription,
+    useResourceTypeName,
 } from './resourceUtils';
 
 type ResourceView2Props = {
@@ -82,6 +82,7 @@ const InfiniteResourceTable = ({
     contentTypeFilter,
 }: ResourceView2Props) => {
     const { t } = useTranslation();
+    const getResourceTypeName = useResourceTypeName();
 
     const theme = useMantineTheme();
     const history = useHistory();
