@@ -334,13 +334,7 @@ const AddResourceToSpaceModal: FC<Props> = ({ resourceType, onClose }) => {
                             'components_explorer_space_browser.add_modal.cancel',
                         )}
                     </Button>
-                    <Button disabled={isLoading} type="submit">
-                        {t('components_explorer_space_browser.add_modal.move', {
-                            resourceType: getResourceTypeLabel(resourceType),
-                        })}
-                    </Button>
                     <Button disabled={isInitialLoading} type="submit">
-                        {' '}
                         {t('components_explorer_space_browser.add_modal.move', {
                             resourceType,
                         })}
