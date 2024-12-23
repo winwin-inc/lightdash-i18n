@@ -10,6 +10,7 @@ import {
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
+
 import { lightdashApi } from '../api';
 
 export const MAX_AUTOCOMPLETE_RESULTS = 100;
@@ -19,6 +20,7 @@ const getFieldValues = async (
     table: string | undefined,
     fieldId: string,
     search: string,
+    forceRefresh: boolean,
     filters: AndFilterGroup | undefined,
     limit: number = MAX_AUTOCOMPLETE_RESULTS,
 ) => {
@@ -34,6 +36,7 @@ const getFieldValues = async (
             limit,
             table,
             filters,
+            forceRefresh,
         }),
     });
 };
@@ -45,6 +48,7 @@ export const useFieldValues = (
     field: FilterableItem,
     filters: AndFilterGroup | undefined,
     debounce: boolean = true,
+    forceRefresh: boolean = false,
     useQueryOptions?: UseQueryOptions<FieldValueSearchResult, ApiError>,
 ) => {
     const [fieldName, setFieldName] = useState<string>(field.name);
@@ -54,6 +58,7 @@ export const useFieldValues = (
     const [resultCounts, setResultCounts] = useState<Map<string, number>>(
         new Map(),
     );
+    const [refreshedAt, setRefreshedAt] = useState<Date>(new Date());
 
     const tableName = useMemo(
         () => (isField(field) ? field.table : undefined),
@@ -69,6 +74,7 @@ export const useFieldValues = (
                 setResults(new Set(initialData));
                 setResultCounts(new Map());
             }
+            setRefreshedAt(new Date(data.refreshedAt));
             setSearches((s) => {
                 return s.add(data.search);
             });
@@ -87,14 +93,23 @@ export const useFieldValues = (
         },
         [filters, initialData],
     );
+    const cachekey = [
+        'project',
+        projectId,
+        tableName,
+        fieldName,
+        'search',
+        debouncedSearch,
+    ];
     const query = useQuery<FieldValueSearchResult, ApiError>(
-        ['project', projectId, tableName, fieldName, 'search', debouncedSearch],
+        cachekey,
         () =>
             getFieldValues(
                 projectId,
                 tableName,
                 fieldId,
                 debouncedSearch,
+                forceRefresh,
                 filters,
             ),
         {
@@ -113,6 +128,8 @@ export const useFieldValues = (
                 const normalizedData = {
                     search: newSearch,
                     results: normalizedNewResults,
+                    cached: data.cached,
+                    refreshedAt: data.refreshedAt,
                 };
 
                 handleUpdateResults(normalizedData);
@@ -136,7 +153,7 @@ export const useFieldValues = (
             setResults(new Set(initialData));
             setResultCounts(new Map());
         }
-    }, [initialData, fieldName, field.name]);
+    }, [initialData, fieldName, field.name, forceRefresh]);
 
     return {
         ...query,
@@ -144,5 +161,6 @@ export const useFieldValues = (
         searches,
         results,
         resultCounts,
+        refreshedAt,
     };
 };

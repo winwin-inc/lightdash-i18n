@@ -2,8 +2,10 @@ import { ChartKind, isVizTableConfig, TableDataModel } from '@lightdash/common';
 import { Box, Tabs, useMantineTheme } from '@mantine/core';
 import { IconTable } from '@tabler/icons-react';
 import { useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useAsync } from 'react-use';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import {
     selectChartDisplayByKind,
@@ -34,6 +36,7 @@ type ContentChartsProps = {
 };
 
 const ContentCharts: FC<ContentChartsProps> = ({ onTableHeaderClick }) => {
+    const { t } = useTranslation();
     const mantineTheme = useMantineTheme();
     const { data: organization } = useOrganization();
     const { projectUuid } = useAppSelector(selectSemanticLayerInfo);
@@ -104,7 +107,8 @@ const ContentCharts: FC<ContentChartsProps> = ({ onTableHeaderClick }) => {
         setOpenPanel(undefined);
     };
 
-    // ! TODO: THIS SHOULD COME FROM THE CORRESPONDING TABLE DATA MODELS
+    // TODO: this is a static method on the table, but the sort
+    // is really a property of the page/query. Is there a better place for it?
     const tableVizSorts = useMemo(() => {
         return TableDataModel.getTableHeaderSortConfig(
             resultsRunner.getColumnNames(),
@@ -212,7 +216,9 @@ const ContentCharts: FC<ContentChartsProps> = ({ onTableHeaderClick }) => {
                             px="lg"
                             icon={<MantineIcon icon={IconTable} />}
                         >
-                            Results
+                            {t(
+                                'features_semantic_viewer_content_charts.results',
+                            )}
                         </Tabs.Tab>
                     </Tabs.List>
                 </Tabs>

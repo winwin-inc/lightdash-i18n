@@ -35,6 +35,30 @@
         "open": "Open preview project",
         "failed": "Failed to create preview project"
     },
+    "hooks_access_token": {
+        "toast_created": "Failed to create token",
+        "toast_deleted": "Success! Your token was deleted.",
+        "toast_deleted_error": "Failed to delete token"
+    },
+    "hooks_big_number_config": {
+        "compare": "{{comparisonValue}} compared to previous row",
+        "no_change": "No change compared to previous row",
+        "not_number": "The previous row's value is not a number",
+        "no_previous_row": "There is no previous row to compare to"
+    },
+    "hooks_email_varification": {
+        "not_send": "We couldn't send a verification e-mail to your inbox.",
+        "success": "Success! Your e-mail has been verified."
+    },
+    "hooks_organzation_users": {
+        "delete_success": "Success! User was deleted.",
+        "delete_error": "Failed to delete user",
+        "update_success": "Success! User was updated.",
+        "update_error": "Failed to update user's permissions"
+    },
+    "hooks_refresh_server": {
+        "error": "Error syncing dbt project"
+    },
 
     "providers_active_job": {
         "toast_refresh_error": "Failed to refresh server",
@@ -92,7 +116,8 @@
             "error": "Error saving",
             "edit": "Edit table calculation",
             "add": "Add table calculation",
-            "empty": "SQL cannot be empty"
+            "empty": "SQL cannot be empty",
+            "name": "Name cannot be empty"
         },
         "form": {
             "name": {
@@ -379,6 +404,10 @@
         "cancel": "Cancel",
         "open": "Open Pull Request"
     },
+    "features_sql_runner_tables_panel": {
+        "hang_on": "Hang on, still loading..."
+    },
+
     "features_sql_chart_modal": {
         "form": {
             "chart_name": {
@@ -427,7 +456,9 @@
     },
     "features_sql_runner_bar_chart_configuration": {
         "data": "Data",
-        "styling": "Styling"
+        "styling": "Styling",
+        "series": "Series",
+        "display": "Display"
     },
     "features_sql_runner_bar_chart_field_configuartaion": {
         "column_not_in_sql": "Column \"{{reference}}\" does not exist. Choose another",
@@ -554,6 +585,7 @@
     },
 
     "features_date_zoom": {
+        "add_date_zoom": "Add date zoom",
         "date_zoom": "Date zoom",
         "guanularity": "Granularity",
         "default": "Default",
@@ -746,7 +778,9 @@
                 "add_slack_disabled": "If delivering to a private Slack channel, please type the name of the channel in the input box exactly as it appears in Slack. Also ensure you invite the Lightdash Slackbot into that channel."
             },
             "tabs_panel_customization": {
-                "title": "Customize delivery message body"
+                "title": "Customize delivery message body",
+                "switch": "Include links to Lightdash",
+                "tooltip": "Include links to the shared content in your Lightdash project. \n We recommend turning this off if you're sharing with users who do not have access to your Lightdash project"
             }
         }
     },
@@ -872,6 +906,9 @@
     "features_semantic_time_dimension_granularity_picker": {
         "time_granularity": "Time granularity"
     },
+    "features_semantic_viewer_content_charts": {
+        "results": "Results"
+    },
 
     "features_sync": {
         "select_google_sheet": "Select Google Sheet via Google drive",
@@ -932,8 +969,30 @@
                 "part_3": "No charts found using this metric"
             }
         },
+        "learn_more": {
+            "title": "Learn more",
+            "content": {
+                "part_1": "✨ Lightdash Spotlight is here!",
+                "part_2": "Explore and curate your key Metrics in the",
+                "part_3": "Catalog",
+                "part_4": "and click to visualize them over time in the",
+                "part_5": "Explorer"
+            },
+            "view_demo": "View demo",
+            "learn_more": "Learn more"
+        },
         "catalog": {
-            "title": "Metrics Catalog"
+            "title": "Metrics Catalog",
+            "tooltip": {
+                "part_1": "This feature is in beta. We're actively testing and improving it—your feedback is welcome!",
+                "part_2": "Beta"
+            },
+            "content": {
+                "part_1": "Browse all Metrics & KPIs across this project",
+                "part_2": "Last refreshed {{timeAgo}}",
+                "part_3": "Refresh catalog",
+                "part_4": "Refreshing catalog"
+            }
         },
         "table": {
             "metric_name": "Metric Name",
@@ -942,10 +1001,169 @@
             "popularity": "Popularity",
             "explore": "Explore",
             "search": "Search by metric name or description",
+            "tooltip_control": {
+                "part_1": "There are no metrics to display in the metrics tree",
+                "part_2": "You can only select up to 30 metrics for the metrics tree",
+                "part_3": "There are no connections between the selected metrics"
+            },
             "bootom_toolbar": {
                 "part_1": "Loading more...",
-                "part_2": "Scroll for more metrics ({{length}} loaded)",
-                "part_3": "All metrics loaded"
+                "part_2": "Scroll for more metrics",
+                "part_3": "All metrics loaded",
+                "part_4": "{{length}} loaded"
+            },
+            "not_available": {
+                "part_1": "Metrics tree not available",
+                "part_2": "There are no connections between the selected metrics'",
+                "part_3": "Please narrow your search to display up to 30 metrics'",
+                "invalid_metric": "Invalid metric catalog view"
+            }
+        }
+    },
+    "features_metrics_catalog": {
+        "title": "Click to view this in the Metrics Explorer",
+        "explore": "Explore"
+    },
+    "features_metrics_catalog_form": {
+        "edit_category": "Edit category",
+        "category_name": "Category name",
+        "delete_tag": "Delete this tag permanently",
+        "save": "Save"
+    },
+    "features_metrics_catalog_components": {
+        "usage_button": {
+            "used_by": " Used by {{chartUsage}} charts.",
+            "click_to_view": "Click to view the full list."
+        },
+        "usage_modal": {
+            "title": "Metric Usage",
+            "content": {
+                "part_1": "This metric is used in the following charts:",
+                "part_2": "Loading...",
+                "part_3": "No charts found using this metric"
+            }
+        },
+        "peek_modal": {
+            "comparison": "Comparison",
+            "clear": "Clear",
+            "keyword_shortcuts": " Keyboard shortcuts",
+            "navigate_between_metrics": "to navigate between metrics"
+        },
+        "category_form": {
+            "search": "Search",
+            "select_category": "Select a category or create a new one",
+            "create": "Create"
+        },
+        "column_name": {
+            "remove": "Remove"
+        },
+        "columns": {
+            "metric": {
+                "label": "Metric"
+            },
+            "description": {
+                "label": "Description",
+                "content": "Defined in the metric's .yml file"
+            },
+            "category": {
+                "label": "Category",
+                "content": "Categories help you organize your metrics and KPIs. Click on the cell to add or edit a category, if you have the required permissions.",
+                "add": " Click to add"
+            },
+            "popularity": {
+                "label": "Popularity",
+                "content": "Shows how many charts use this metric"
+            }
+        },
+        "top_toolbar_categories_filter": {
+            "filter_metrics": "Filter metrics by category",
+            "all_categories": "All categories",
+            "filter_by_categories": "Filter by categories",
+            "filter_content": "No categories added yet. Click on the category cells to assign categories to your metrics.",
+            "clear_all": "Clear all categories"
+        },
+        "top_toolbar": {
+            "search": "Search by name or description",
+            "metrics": "{{length}} metrics"
+        },
+        "empty_state": {
+            "unavailable": "Data unavailable for selected range",
+            "content": "We'd love to show you more, but the data isn't available for this range. Try selecting a different range to continue exploring!"
+        },
+        "metric_tree": {
+            "clean_up": "Clean up"
+        },
+        "metric_explore_tooltip": {
+            "change": "Change:"
+        },
+        "metric_peek_comparison": {
+            "compare_previous": {
+                "label": "Compare to previous year",
+                "tooltip": "Show data from the same period in the previous year"
+            },
+            "compare_another": {
+                "label": "Compare to another metric",
+                "tooltip": "Compare \"{{baseMetricLabel}}\" to another metric"
+            },
+            "select": "Select a metric",
+            "content": {
+                "part_1": "Only metrics with a time dimension defined in the .yml can be compared.",
+                "part_2": "Learn more"
+            }
+        },
+        "metric_peek_date_picker": {
+            "change_granularity": "Change granularity",
+            "cancel": "Cancel",
+            "apply": "Apply"
+        },
+        "metric_peek_segmentation_picker": {
+            "segment": "Segment",
+            "clear": "Clear",
+            "tooltip": {
+                "label": "There are no available fields to segment this metric by",
+                "placeholder": "Segment by",
+                "content": "Only the first {{MAX_SEGMENT_DIMENSION_UNIQUE_VALUES}} series are displayed to maintain a clear and readable chart."
+            }
+        },
+        "metric_visualization": {
+            "different": {
+                "part_1": "X-axis is set to",
+                "part_2": "and",
+                "part_3": ", as defined in the .yml files."
+            },
+            "date": "Date",
+            "available": "Define a default x-axis in your .yml file to skip this step and simplify the experience for your users"
+        },
+        "time_dimension_interval_picker": {
+            "daily": "Daily",
+            "weekly": "Weekly",
+            "monthly": "Monthly",
+            "yearly": "Yearly"
+        },
+        "metric_peek_date": {
+            "today": {
+                "label": "Today",
+                "control": "Today"
+            },
+            "past_7_days": {
+                "label": "Past 7 days",
+                "control": "7D"
+            },
+            "past_30_days": {
+                "label": "Past 30 days",
+                "control": "30D"
+            },
+            "past_3_months": {
+                "label": "Past 3 months",
+                "control": "3M"
+            },
+            "past_12_months": {
+                "label": "Past 12 months",
+                "control": "12M"
+            },
+            "past_5_years": {
+                "label": "Past 5 years",
+                "control": "5Y"
             }
         }
     },
@@ -1146,6 +1364,10 @@
             "part_4": "Start",
             "part_5": "typing..."
         },
+        "autocomple_results": {
+            "refresh": "Click here to refresh cache filter values",
+            "loaded": "Results loaded at"
+        },
         "no_data": {
             "loading": "Loading...",
             "no_results": "No results found"
@@ -1344,14 +1566,36 @@
         },
         "delete_tab_modal": {
             "title": "Remove tab",
+            "toast": {
+                "move": {
+                    "part_1": "Tab \"{{tabName}}\" was removed and {{numTiles}} tiles were successfully transferred.",
+                    "part_2": "Tab \"{{tabName}}\" was removed and {{numTiles}} tile was successfully transferred."
+                },
+                "remove": {
+                    "part_1": "Tab \"{{tab.name}}\" was removed and {{numTiles}} tiles deleted.",
+                    "part_2": "Tab \"{{tab.name}}\" was removed and {{numTiles}} tile deleted."
+                }
+            },
+            "tabs": {
+                "title": "What would you like to do with the tiles in this tab before removing it?",
+                "delete": "Delete all tiles in this tab",
+                "transfer": "Transfer all tiles to another tab",
+                "pick_tab": "Pick a tab"
+            },
             "content": {
                 "part_1": "Are you sure you want to remove tab",
-                "part_2": "and",
-                "part_3": "tiles from this dashboard?",
-                "part_4": "Once you save changes to your dashboard, this action will also permanently delete the following charts that were created from within it:"
+                "part_2": "and its",
+                "part_3": "tiles",
+                "part_4": "tile",
+                "part_5": "On save, this action will also permanently delete the following",
+                "part_6": "chart that was",
+                "part_7": "charts that were",
+                "part_8": "created from within it:"
             },
             "cancel": "Cancel",
-            "remove": "Remove"
+            "remove": "Remove",
+            "transfer": "Transfer",
+            "delete": "Delete tiles"
         },
         "edit_tab_modal": {
             "title": "Edit your tab",
@@ -1558,6 +1802,9 @@
     "components_dashboard_tiles_download_csv": {
         "export_csv": "Export CSV"
     },
+    "components_dashboard_tiles_export_image": {
+        "export_image": "Export image"
+    },
     "components_dashboard_tiles_chart_tile": {
         "edit": "Edit Semantic Viewer chart",
         "no_data": "No data available"
@@ -1581,6 +1828,8 @@
         "title": "Title",
         "select_chart": "Select chart",
         "search": "Searching...",
+        "no_charts_found": "No charts found",
+        "load_more": "Load more",
         "cancel": "Cancel",
         "update": "Update"
     },
@@ -2037,6 +2286,9 @@
             },
             "charts": {
                 "title": "All saved charts"
+            },
+            "metrics": {
+                "title": "Metric Catalog"
             }
         },
         "divider_label": "Spaces"
@@ -2096,6 +2348,29 @@
     },
     "components_navbar_main_navbar_content": {
         "home": "Home"
+    },
+    "components_navbar_create_preview_project_modal": {
+        "create": {
+            "part_1": "Create a preview project",
+            "part_2": "from"
+        },
+        "will_create": {
+            "part_1": "This will create a preview project",
+            "part_2": "from",
+            "part_3": "Learn more about preview projects"
+        },
+        "project": {
+            "label": "Project",
+            "placeholder": "Select Project"
+        },
+        "preview_name": {
+            "label": "Preview name",
+            "placeholder": "Enter preview name",
+            "tooltip": "Generate unique name"
+        },
+        "cancel": "Cancel",
+        "creating_preview": "Creating preview",
+        "create_preview": "Create Preview"
     },
 
     "components_about_footer": {
@@ -2624,9 +2899,14 @@
     },
     "components_user_settings_access_tokens_panel_tokens_table": {
         "no_expiration_date": "No expiration date",
+        "last_rotated_at": "Last rotated at",
+        "copied": "Copied",
+        "copy": "Copy",
         "table_columns": {
             "name": "Name",
-            "expiration_date": "Expiration date"
+            "expiration_date": "Expiration date",
+            "last_used_at": "Last used at",
+            "uuid": "UUID"
         },
         "modal": {
             "delete_token": "Delete token",
@@ -2743,7 +3023,9 @@
         "settings": "Settings",
         "project_management_settings": "Project management settings",
         "create_new": "Create new",
+        "delete": "Delete {{length}} selected",
         "table": {
+            "select_all": "Select all",
             "name": "Name"
         }
     },
@@ -2835,8 +3117,13 @@
         }
     },
     "components_user_settings_groups_panel_users_view": {
+        "inactive": "Inactive",
         "pending": "Pending",
         "link_expired": "Link expired",
+        "groups": {
+            "part_1": "{{ length }} groups",
+            "part_2": "{{ length }} group"
+        },
         "send_new_invite": "Send new invite",
         "get_new_link": "Get new link",
         "user_groups": "User groups:",
@@ -2984,6 +3271,9 @@
         "toast_error": {
             "title": "Failed to delete GitHub integration"
         },
+        "toast_error_get": {
+            "title": "Failed to get GitHub integration"
+        },
         "title": "GitHub",
         "content": {
             "part_1": "Installing GitHub App allows Lightdash to access your GitHub repositories and create pull requests.",
@@ -2997,6 +3287,10 @@
             "label": "An admin from your GitHub organization needs to approve this app installation. They should have received an email for a \"Request to install lightdash\" from GitHub.",
             "pending": " Pending approval",
             "install": "Install"
+        },
+        "install_pending": {
+            "title": "GitHub app installation pending",
+            "subtitle": "The GitHub app is waiting to be authorized by a Github admin."
         }
     },
     "components_user_settings_my_warehouse_connections_panel": {
@@ -3052,6 +3346,31 @@
     },
     "components_user_settings_social_logins_panel": {
         "toast_error": "Failed to authenticate"
+    },
+    "components_user_settings_delete_project_panel": {
+        "stats": {
+            "active": "Active",
+            "preview": "preview",
+            "project": "project"
+        },
+        "project": {
+            "part_1": "project",
+            "part_2": "projects"
+        },
+        "preview": {
+            "part_1": "preview project",
+            "part_2": "preview projects"
+        },
+        "modal": {
+            "title": "Delete projects in bulk",
+            "content": {
+                "part_1": "You are about to delete:",
+                "part_2": "Type in",
+                "part_3": "to confirm. This action is not reversible."
+            },
+            "cancel": "Cancel",
+            "delete": "Delete"
+        }
     },
 
     "components_version_auto_updater": {
@@ -3205,7 +3524,8 @@
         "config_tabs": {
             "layout": "Layout",
             "series": "Series",
-            "display": "Display"
+            "display": "Display",
+            "label_max_length": "Label max length"
         },
         "display_config": {
             "show_legend": "Show legend",
@@ -3240,7 +3560,7 @@
     "components_visualization_configs_table": {
         "column_configuration": {
             "tooltip_columns": {
-                "part_1": "Can't hide pivot dimensions",
+                "part_1": "Cannot hide dimensions when pivoting",
                 "part_2": "Cannot hide dimensions when pivoting",
                 "part_3": "Hide column",
                 "part_4": "Show column"
@@ -3380,6 +3700,15 @@
         "duplicate_custom_metric": "Duplicate custom metric",
         "copy_custom_dimension": "Copy of Custom Dimension added successfully",
         "duplicate_custom_dimension": "Duplicate custom dimension"
+    },
+    "components_explorer_table_tree_single_node": {
+        "no_availailable": "No description available.",
+        "missing": "This field from '{table}}' table is no longer available",
+        "tooltip_filter": {
+            "filtered": "This field is filtered",
+            "click": "Click here to add filter"
+        },
+        "hidden": "This field has been hidden in the dbt project. It's recommend to remove it from the query"
     },
     "components_explorer_sider_bar": {
         "error": "Could not load explores",
@@ -3635,7 +3964,10 @@
             "pin": "Pin to homepage",
             "version_history": "Version history",
             "tooltip_can_prompote": {
-                "label": "You must enable first an upstram project in settings > Data ops",
+                "label": {
+                    "part_1": "You must enable first an upstram project in settings > Data ops",
+                    "part_2": "You don't have permissions to promote this chart on the upstream project"
+                },
                 "content": "Promote chart"
             },
             "delete": "Delete",
@@ -3668,6 +4000,9 @@
             "added": "already added on this space",
             "title": "Add {{resourceType} to space",
             "content": "Select the {{resourceType}}s that you would like to move into",
+            "search": "Search for a {{resourceType}}",
+            "nothing_found": "No {{resourceType}}s found",
+            "load_more": "Load more",
             "cancel": "Cancel",
             "move": "Move {{resourceType}}s"
         },
@@ -3765,6 +4100,33 @@
         "space_type_labels": {
             "shared_with_me": "Shared with me",
             "admin_content_view": "Public content view"
+        },
+        "infinite_resource_table": {
+            "columns": {
+                "name": {
+                    "label": "Name",
+                    "content": {
+                        "part_1": "This content is broken. Learn more about the validation error(s)",
+                        "part_2": "here",
+                        "part_3": "There's an error with this",
+                        "part_4": "chart",
+                        "part_5": "dashboard"
+                    },
+                    "views": "views"
+                },
+                "space": {
+                    "label": "Space"
+                },
+                "updated": {
+                    "label": "Last Edited"
+                }
+            },
+            "toolbar": {
+                "search": "Search by name",
+                "load_more": "Loading more...",
+                "scroll": "Scroll for more results",
+                "all_results": "All results loaded"
+            }
         },
         "resource_view_labels": {
             "chart": "chart",
@@ -4215,7 +4577,11 @@
             "view_all_spaces": "View all public and private spaces in your organization",
             "spaces": "Spaces",
             "no_spaces": "No spaces added yet",
-            "create_space": "Create space"
+            "create_space": "Create space",
+            "update_space": "Update space",
+            "update": "Update",
+            "delete_space": "Delete space",
+            "delete": "Delete"
         },
         "create_new_space": "Create new space",
         "create": "Create"
@@ -5035,6 +5401,28 @@
         "back_to_home_page": "Back to home page"
     },
 
+    "components_dataviz_config": {
+        "x_axis": "X-axis label",
+        "y_axis": {
+            "part_1": "Y-axis",
+            "part_2": "Y-axis(left)",
+            "part_3": "Y-axis(right)"
+        },
+        "label": "Label",
+        "format": "Format"
+    },
+    "components_dataviz_config_cartesian_chart": {
+        "title": "No series found. Add a metric to create a series.",
+        "stacking": "Stacking",
+        "none": "None",
+        "stacked": "Stacked",
+        "label": "Label",
+        "chart_type": "Chart type",
+        "y_axis": "Y Axis",
+        "left": "Left",
+        "right": "Right",
+        "values_labels": "Values labels"
+    },
     "components_dataviz_visualizations_chart_view": {
         "vizchartview_error": "VizChartView should not be used for table visualization",
         "error_tip": {
@@ -5047,8 +5435,12 @@
         "error": "Some specified columns do not exist in the data",
         "error_loading_tip": "Error generating chart"
     },
+    "components_dataviz_visualizations_chart_data_table": {
+        "tooltip": "You cannot sort by a group column"
+    },
     "components_dataviz_cartesian_chart": {
         "vertical_bar": "Vertical Bar",
+        "bar": "Bar",
         "line": "Line"
     },
     "components_dataviz_aggregation_config": {

@@ -9,6 +9,7 @@ import {
     getHiddenTableFields,
     getItemId,
     getItemMap,
+    getPivotConfig,
     getVisibleFields,
     hasCustomDimension,
     isChartTile,
@@ -50,12 +51,14 @@ import {
     IconTableExport,
     IconTelescope,
 } from '@tabler/icons-react';
+import type EChartsReact from 'echarts-for-react';
 import React, {
     useCallback,
     useEffect,
     useMemo,
     useState,
     type FC,
+    type RefObject,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
@@ -93,6 +96,7 @@ import MetricQueryDataProvider, {
 } from '../MetricQueryData/MetricQueryDataProvider';
 import UnderlyingDataModal from '../MetricQueryData/UnderlyingDataModal';
 import { type EchartSeriesClickEvent } from '../SimpleChart';
+import { DashboardExportImage } from './DashboardExportImage';
 import { DashboardMinimalDownloadCsv } from './DashboardMinimalDownloadCsv';
 import EditChartMenuItem from './EditChartMenuItem';
 import TileBase from './TileBase/index';
@@ -156,6 +160,7 @@ const ExportGoogleSheet: FC<{ savedChart: SavedChart; disabled?: boolean }> = ({
                 savedChart.chartConfig.config,
             ),
             hiddenFields: getHiddenTableFields(savedChart.chartConfig),
+            pivotConfig: getPivotConfig(savedChart),
         });
     };
 
@@ -177,11 +182,13 @@ const ValidDashboardChartTile: FC<{
         e: EchartSeriesClickEvent,
         series: EChartSeries[],
     ) => void;
+    setEchartsRef?: (ref: RefObject<EChartsReact> | undefined) => void;
 }> = ({
     tileUuid,
     isTitleHidden = false,
     chartAndResults: { chart, metricQuery, rows, cacheMetadata, fields },
     onSeriesContextMenu,
+    setEchartsRef,
 }) => {
     const addResultsCacheTime = useDashboardContext(
         (c) => c.addResultsCacheTime,
@@ -223,6 +230,7 @@ const ValidDashboardChartTile: FC<{
             dashboardFilters={dashboardFilters}
             invalidateCache={invalidateCache}
             colorPalette={chart.colorPalette}
+            setEchartsRef={setEchartsRef}
         >
             <LightdashVisualization
                 isDashboard
@@ -238,10 +246,12 @@ const ValidDashboardChartTileMinimal: FC<{
     isTitleHidden?: boolean;
     title: string;
     chartAndResults: ApiChartAndResults;
+    setEchartsRef?: (ref: RefObject<EChartsReact> | undefined) => void;
 }> = ({
     tileUuid,
     chartAndResults: { chart, metricQuery, rows, cacheMetadata, fields },
     isTitleHidden = false,
+    setEchartsRef,
 }) => {
     const { health } = useApp();
 
@@ -268,6 +278,7 @@ const ValidDashboardChartTileMinimal: FC<{
             savedChartUuid={chart.uuid}
             dashboardFilters={dashboardFilters}
             colorPalette={chart.colorPalette}
+            setEchartsRef={setEchartsRef}
         >
             <LightdashVisualization
                 isDashboard
@@ -287,6 +298,7 @@ interface DashboardChartTileMainProps
     chartAndResults: ApiChartAndResults;
     onAddTiles?: (tiles: Dashboard['tiles'][number][]) => void;
     canExportCsv?: boolean;
+    canExportImages?: boolean;
 }
 
 const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
@@ -320,7 +332,9 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
     const addDimensionDashboardFilter = useDashboardContext(
         (c) => c.addDimensionDashboardFilter,
     );
-
+    const [echartRef, setEchartRef] = useState<
+        RefObject<EChartsReact> | undefined
+    >();
     const setDashboardTiles = useDashboardContext((c) => c.setDashboardTiles);
 
     const [contextMenuIsOpen, setContextMenuIsOpen] = useState(false);
@@ -591,11 +605,13 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
             return getExplorerUrlFromCreateSavedChartVersion(
                 chartWithDashboardFilters.projectUuid,
                 queryWithoutCustomDimensions,
+                true,
             );
         }
         return getExplorerUrlFromCreateSavedChartVersion(
             chartWithDashboardFilters.projectUuid,
             chartWithDashboardFilters,
+            true,
         );
     }, [chartWithDashboardFilters, cannotUseCustomDimensions]);
 
@@ -877,22 +893,38 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                     )}
 
                                     {userCanExportData && (
-                                        <Menu.Item
-                                            icon={
-                                                <MantineIcon
-                                                    icon={IconTableExport}
-                                                />
-                                            }
-                                            disabled={isEditMode}
-                                            onClick={() =>
-                                                setIsCSVExportModalOpen(true)
-                                            }
-                                        >
-                                            {t(
-                                                'components_dashboard_tiles_chart_title.menus.export_csv',
-                                            )}
-                                        </Menu.Item>
+                                        <>
+                                            <Menu.Item
+                                                icon={
+                                                    <MantineIcon
+                                                        icon={IconTableExport}
+                                                    />
+                                                }
+                                                disabled={isEditMode}
+                                                onClick={() =>
+                                                    setIsCSVExportModalOpen(
+                                                        true,
+                                                    )
+                                                }
+                                            >
+                                                {t(
+                                                    'components_dashboard_tiles_chart_title.menus.export_csv',
+                                                )}
+                                            </Menu.Item>
+                                        </>
                                     )}
+                                    {chart.chartConfig.type !==
+                                        ChartType.TABLE &&
+                                        userCanExportData &&
+                                        chart.chartConfig.type !==
+                                            ChartType.BIG_NUMBER && (
+                                            <DashboardExportImage
+                                                echartRef={echartRef}
+                                                chartName={chart.name}
+                                                isMinimal={false}
+                                            />
+                                        )}
+
                                     {chart.chartConfig.type ===
                                         ChartType.TABLE &&
                                         userCanExportData && (
@@ -904,23 +936,24 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                             />
                                         )}
 
-                                    {chart.dashboardUuid && userCanManageChart && (
-                                        <Menu.Item
-                                            icon={
-                                                <MantineIcon
-                                                    icon={IconFolders}
-                                                />
-                                            }
-                                            onClick={() =>
-                                                setIsMovingChart(true)
-                                            }
-                                            disabled={isEditMode}
-                                        >
-                                            {t(
-                                                'components_dashboard_tiles_chart_title.menus.move_to_space',
-                                            )}
-                                        </Menu.Item>
-                                    )}
+                                    {chart.dashboardUuid &&
+                                        userCanManageChart && (
+                                            <Menu.Item
+                                                icon={
+                                                    <MantineIcon
+                                                        icon={IconFolders}
+                                                    />
+                                                }
+                                                onClick={() =>
+                                                    setIsMovingChart(true)
+                                                }
+                                                disabled={isEditMode}
+                                            >
+                                                {t(
+                                                    'components_dashboard_tiles_chart_title.menus.move_to_space',
+                                                )}
+                                            </Menu.Item>
+                                        )}
                                 </Box>
                             </Tooltip>
                             {userCanManageChart && isEditMode && (
@@ -1042,6 +1075,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                         project={projectUuid}
                         isTitleHidden={hideTitle}
                         onSeriesContextMenu={onSeriesContextMenu}
+                        setEchartsRef={setEchartRef}
                     />
                 </>
             </TileBase>
@@ -1097,9 +1131,13 @@ const DashboardChartTileMinimal: FC<DashboardChartTileMainProps> = (props) => {
         },
         chartAndResults,
         canExportCsv,
+        canExportImages,
     } = props;
     const { chart } = chartAndResults;
     const { projectUuid } = useParams<{ projectUuid: string }>();
+    const [echartRef, setEchartRef] = useState<
+        RefObject<EChartsReact> | undefined
+    >();
 
     return (
         <TileBase
@@ -1109,11 +1147,26 @@ const DashboardChartTileMinimal: FC<DashboardChartTileMainProps> = (props) => {
             isLoading={false}
             minimal={true}
             extraMenuItems={
-                canExportCsv && (
-                    <DashboardMinimalDownloadCsv
-                        chartAndResults={chartAndResults}
-                    />
-                )
+                canExportCsv ||
+                (canExportImages &&
+                    !isTableChartConfig(chart.chartConfig.config)) ? (
+                    <>
+                        {canExportCsv && (
+                            <DashboardMinimalDownloadCsv
+                                chartAndResults={chartAndResults}
+                            />
+                        )}
+                        {canExportImages &&
+                            chart.chartConfig.type !== ChartType.TABLE &&
+                            chart.chartConfig.type !== ChartType.BIG_NUMBER && (
+                                <DashboardExportImage
+                                    echartRef={echartRef}
+                                    chartName={chart.name}
+                                    isMinimal={true}
+                                />
+                            )}
+                    </>
+                ) : undefined
             }
             {...props}
         >
@@ -1122,6 +1175,7 @@ const DashboardChartTileMinimal: FC<DashboardChartTileMainProps> = (props) => {
                 isTitleHidden={hideTitle}
                 chartAndResults={chartAndResults}
                 title={title || chart.name}
+                setEchartsRef={setEchartRef}
             />
         </TileBase>
     );
@@ -1133,6 +1187,7 @@ type DashboardChartTileProps = Omit<
 > & {
     minimal?: boolean;
     canExportCsv?: boolean;
+    canExportImages?: boolean;
 };
 
 // Abstraction needed for enterprise version
@@ -1151,6 +1206,7 @@ export const GenericDashboardChartTile: FC<
     data,
     error,
     canExportCsv = false,
+    canExportImages = false,
     ...rest
 }) => {
     const { t } = useTranslation();
@@ -1237,6 +1293,7 @@ export const GenericDashboardChartTile: FC<
                     isEditMode={isEditMode}
                     chartAndResults={data}
                     canExportCsv={canExportCsv}
+                    canExportImages={canExportImages}
                 />
             ) : (
                 <DashboardChartTileMain

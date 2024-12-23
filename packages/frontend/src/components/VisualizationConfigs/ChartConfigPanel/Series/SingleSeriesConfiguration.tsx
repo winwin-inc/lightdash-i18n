@@ -55,7 +55,7 @@ const SingleSeriesConfiguration: FC<Props> = ({
     series,
     getSingleSeries,
     updateSingleSeries,
-    isGrouped,
+    isGrouped = false,
     isSingle,
     isOpen,
     toggleIsOpen,
@@ -319,10 +319,6 @@ const SingleSeriesConfiguration: FC<Props> = ({
             </Collapse>
         </Box>
     );
-};
-
-SingleSeriesConfiguration.defaultProps = {
-    isGrouped: false,
 };
 
 export default SingleSeriesConfiguration;

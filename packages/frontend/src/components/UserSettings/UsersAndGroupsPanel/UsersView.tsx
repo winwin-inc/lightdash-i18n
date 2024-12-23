@@ -1,4 +1,5 @@
 import {
+    FeatureFlags,
     isOrganizationMemberProfileWithGroups,
     OrganizationMemberRole,
     type OrganizationMemberProfile,
@@ -37,6 +38,7 @@ import { useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useTableStyles } from '../../../hooks/styles/useTableStyles';
+import { useFeatureFlag } from '../../../hooks/useFeatureFlagEnabled';
 import { useCreateInviteLinkMutation } from '../../../hooks/useInviteLink';
 import {
     useDeleteOrganizationUserMutation,
@@ -64,28 +66,29 @@ const UserNameDisplay: FC<{
 
     return (
         <Flex justify="space-between" align="center">
-            {user.isActive ? (
-                <Stack spacing="xxs">
-                    <Title order={6}>
-                        {user.firstName} {user.lastName}
+            {!user.isActive ? (
+                <Stack spacing="xxs" align="flex-start">
+                    <Title order={6} color="gray.6">
+                        {user.firstName
+                            ? `${user.firstName} ${user.lastName}`
+                            : user.email}
                     </Title>
-
-                    {user.email && (
-                        <Badge
-                            variant="filled"
-                            color="gray.2"
-                            radius="xs"
-                            sx={{ textTransform: 'none' }}
-                            px="xxs"
-                        >
-                            <Text fz="xs" fw={400} color="gray.8">
-                                {user.email}
-                            </Text>
-                        </Badge>
-                    )}
+                    <Badge
+                        variant="filled"
+                        color="red.4"
+                        radius="xs"
+                        sx={{ textTransform: 'none' }}
+                        px="xxs"
+                    >
+                        <Text fz="xs" fw={400} color="gray.8">
+                            {t(
+                                'components_user_settings_groups_panel_users_view.inactive',
+                            )}
+                        </Text>
+                    </Badge>
                 </Stack>
-            ) : user.isInviteExpired || user.isPending ? (
-                <Stack spacing="xxs">
+            ) : user.isPending ? (
+                <Stack spacing="xxs" align="flex-start">
                     {user.email && <Title order={6}>{user.email}</Title>}
                     <Group spacing="xs">
                         <Badge
@@ -124,21 +127,24 @@ const UserNameDisplay: FC<{
                     </Group>
                 </Stack>
             ) : (
-                <Stack spacing="xxs">
-                    <Title order={6} color="gray.6">
+                <Stack spacing="xxs" align="flex-start">
+                    <Title order={6}>
                         {user.firstName} {user.lastName}
                     </Title>
-                    <Badge
-                        variant="filled"
-                        color="red.4"
-                        radius="xs"
-                        sx={{ textTransform: 'none' }}
-                        px="xxs"
-                    >
-                        <Text fz="xs" fw={400} color="gray.8">
-                            Inactive
-                        </Text>
-                    </Badge>
+
+                    {user.email && (
+                        <Badge
+                            variant="filled"
+                            color="gray.2"
+                            radius="xs"
+                            sx={{ textTransform: 'none' }}
+                            px="xxs"
+                        >
+                            <Text fz="xs" fw={400} color="gray.8">
+                                {user.email}
+                            </Text>
+                        </Badge>
+                    )}
                 </Stack>
             )}
         </Flex>
@@ -298,13 +304,25 @@ const UserListItem: FC<{
                                         disabled={user.groups.length < 1}
                                     >
                                         <HoverCard.Target>
-                                            <Text color="gray">{`${
-                                                user.groups.length
-                                            } group${
-                                                user.groups.length !== 1
-                                                    ? 's'
-                                                    : ''
-                                            }`}</Text>
+                                            <Text color="gray">
+                                                {user.groups.length
+                                                    ? t(
+                                                          'components_user_settings_groups_panel_users_view.groups.part_1',
+                                                          {
+                                                              length: user
+                                                                  .groups
+                                                                  .length,
+                                                          },
+                                                      )
+                                                    : t(
+                                                          'components_user_settings_groups_panel_users_view.groups.part_2',
+                                                          {
+                                                              length: user
+                                                                  .groups
+                                                                  .length,
+                                                          },
+                                                      )}
+                                            </Text>
                                         </HoverCard.Target>
                                         <HoverCard.Dropdown p="sm">
                                             <Text
@@ -423,7 +441,10 @@ const UserListItem: FC<{
 
 const UsersView: FC = () => {
     const [showInviteModal, setShowInviteModal] = useState(false);
-    const { user, health } = useApp();
+    const { user } = useApp();
+    const { data: UserGroupsFeatureFlag } = useFeatureFlag(
+        FeatureFlags.UserGroupsEnabled,
+    );
     const { classes } = useTableStyles();
     const { t } = useTranslation();
 
@@ -457,9 +478,9 @@ const UsersView: FC = () => {
         return paginatedUsers?.pagination;
     }, [paginatedUsers]);
 
-    if (!user.data || !health.data) return null;
+    if (!user.data || !UserGroupsFeatureFlag) return null;
 
-    const isGroupManagementEnabled = health.data.hasGroups;
+    const isGroupManagementEnabled = UserGroupsFeatureFlag?.enabled;
 
     if (isLoadingUsers) {
         return (

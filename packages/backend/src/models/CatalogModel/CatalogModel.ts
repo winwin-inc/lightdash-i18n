@@ -1,55 +1,146 @@
 import {
-    CatalogField,
     CatalogFilter,
-    CatalogTable,
+    CatalogItemIcon,
+    CatalogItemsWithIcons,
     CatalogType,
     Explore,
     FieldType,
     NotFoundError,
     TableSelectionType,
     UnexpectedServerError,
+    type ApiCatalogSearch,
     type ApiSort,
+    type CatalogFieldMap,
     type CatalogFieldWhere,
     type CatalogItem,
+    type CatalogItemSummary,
+    type CatalogItemWithTagUuids,
+    type CatalogMetricsTreeEdge,
+    type ChartFieldUsageChanges,
     type ChartUsageIn,
     type KnexPaginateArgs,
     type KnexPaginatedData,
+    type SessionUser,
     type TablesConfiguration,
+    type Tag,
     type UserAttributeValueMap,
 } from '@lightdash/common';
 import { Knex } from 'knex';
+import type { LightdashConfig } from '../../config/parseConfig';
 import {
     CatalogTableName,
+    CatalogTagsTableName,
     getDbCatalogColumnFromCatalogProperty,
+    MetricsTreeEdgesTableName,
     type DbCatalog,
+    type DbCatalogIn,
+    type DbCatalogTagsMigrateIn,
+    type DbMetricsTreeEdge,
+    type DbMetricsTreeEdgeDelete,
+    type DbMetricsTreeEdgeIn,
 } from '../../database/entities/catalog';
 import { CachedExploreTableName } from '../../database/entities/projects';
+import { TagsTableName } from '../../database/entities/tags';
 import KnexPaginate from '../../database/pagination';
+import Logger from '../../logging/logger';
 import { wrapSentryTransaction } from '../../utils';
 import {
     getFullTextSearchQuery,
     getFullTextSearchRankCalcSql,
 } from '../SearchModel/utils/search';
+import { convertExploresToCatalog } from './utils';
 import { parseCatalog } from './utils/parser';
 
-type SearchModelArguments = {
+export type CatalogModelArguments = {
     database: Knex;
+    lightdashConfig: LightdashConfig;
 };
 
 export class CatalogModel {
     protected database: Knex;
 
-    constructor(args: SearchModelArguments) {
+    protected lightdashConfig: LightdashConfig;
+
+    constructor(args: CatalogModelArguments) {
         this.database = args.database;
+        this.lightdashConfig = args.lightdashConfig;
     }
 
-    // Index catalog happens inside projectModel, inside `saveExploresToCache`
+    async indexCatalog(
+        projectUuid: string,
+        cachedExplores: (Explore & { cachedExploreUuid: string })[],
+    ): Promise<{
+        catalogInserts: DbCatalogIn[];
+        catalogFieldMap: CatalogFieldMap;
+    }> {
+        if (cachedExplores.length === 0) {
+            return {
+                catalogInserts: [],
+                catalogFieldMap: {},
+            };
+        }
+
+        try {
+            const wrapped = await wrapSentryTransaction(
+                'indexCatalog',
+                { projectUuid, cachedExploresSize: cachedExplores.length },
+                async () => {
+                    const { catalogInserts, catalogFieldMap } =
+                        await wrapSentryTransaction(
+                            'indexCatalog.convertExploresToCatalog',
+                            {
+                                projectUuid,
+                                cachedExploresLength: cachedExplores.length,
+                            },
+                            async () =>
+                                convertExploresToCatalog(
+                                    projectUuid,
+                                    cachedExplores,
+                                ),
+                        );
+
+                    const transactionInserts = await wrapSentryTransaction(
+                        'indexCatalog.insert',
+                        { projectUuid, catalogSize: catalogInserts.length },
+                        () =>
+                            this.database.transaction(async (trx) => {
+                                await trx(CatalogTableName)
+                                    .where('project_uuid', projectUuid)
+                                    .delete();
+
+                                const inserts = await this.database
+                                    .batchInsert(
+                                        CatalogTableName,
+                                        catalogInserts,
+                                    )
+                                    .returning('*')
+                                    .transacting(trx);
+
+                                return inserts;
+                            }),
+                    );
+
+                    return {
+                        catalogInserts: transactionInserts,
+                        catalogFieldMap,
+                    };
+                },
+            );
+
+            return wrapped;
+        } catch (e) {
+            Logger.error(`Failed to index catalog ${projectUuid}, ${e}`);
+            return {
+                catalogInserts: [],
+                catalogFieldMap: {},
+            };
+        }
+    }
+
     async search({
-        searchQuery,
         projectUuid,
         exploreName,
-        type,
-        filter,
+        catalogSearch: { catalogTags, filter, searchQuery = '', type },
         limit = 50,
         excludeUnmatched = true,
         searchRankFunction = getFullTextSearchRankCalcSql,
@@ -58,11 +149,9 @@ export class CatalogModel {
         paginateArgs,
         sortArgs,
     }: {
-        searchQuery?: string;
         projectUuid: string;
         exploreName?: string;
-        filter?: CatalogFilter;
-        type?: CatalogType;
+        catalogSearch: ApiCatalogSearch;
         limit?: number;
         excludeUnmatched?: boolean;
         searchRankFunction?: (args: {
@@ -73,33 +162,56 @@ export class CatalogModel {
         userAttributes: UserAttributeValueMap;
         paginateArgs?: KnexPaginateArgs;
         sortArgs?: ApiSort;
-    }): Promise<KnexPaginatedData<(CatalogTable | CatalogField)[]>> {
-        const searchRankRawSql = searchQuery
-            ? searchRankFunction({
-                  database: this.database,
-                  variables: {
-                      searchVectorColumn: `${CatalogTableName}.search_vector`,
-                      searchQuery,
-                  },
-              })
-            : undefined;
+    }): Promise<KnexPaginatedData<CatalogItem[]>> {
+        const searchRankRawSql = searchRankFunction({
+            database: this.database,
+            variables: {
+                searchVectorColumn: `${CatalogTableName}.search_vector`,
+                searchQuery,
+            },
+        });
 
         let catalogItemsQuery = this.database(CatalogTableName)
             .column(
+                `${CatalogTableName}.catalog_search_uuid`,
                 `${CatalogTableName}.name`,
                 'description',
                 'type',
-                {
-                    search_rank: searchRankRawSql ?? 0,
-                },
                 `${CachedExploreTableName}.explore`,
                 `required_attributes`,
                 `chart_usage`,
+                `icon`,
+                // Add tags as an aggregated JSON array
+                {
+                    search_rank: searchRankRawSql,
+                    catalog_tags: this.database.raw(`
+                        COALESCE(
+                            JSON_AGG(
+                                DISTINCT JSONB_BUILD_OBJECT(
+                                    'tagUuid', ${TagsTableName}.tag_uuid,
+                                    'name', ${TagsTableName}.name,
+                                    'color', ${TagsTableName}.color
+                                )
+                            ) FILTER (WHERE ${TagsTableName}.tag_uuid IS NOT NULL),
+                            '[]'
+                        )
+                    `),
+                },
             )
             .leftJoin(
                 CachedExploreTableName,
                 `${CatalogTableName}.cached_explore_uuid`,
                 `${CachedExploreTableName}.cached_explore_uuid`,
+            )
+            .leftJoin(
+                CatalogTagsTableName,
+                `${CatalogTableName}.catalog_search_uuid`,
+                `${CatalogTagsTableName}.catalog_search_uuid`,
+            )
+            .leftJoin(
+                TagsTableName,
+                `${CatalogTagsTableName}.tag_uuid`,
+                `${TagsTableName}.tag_uuid`,
             )
             .where(`${CatalogTableName}.project_uuid`, projectUuid)
             // tables configuration filtering
@@ -126,11 +238,9 @@ export class CatalogModel {
                     tableSelectionType === TableSelectionType.WITH_NAMES
                 ) {
                     // For table names, we check if the baseTable matches any of the required names
-                    void this.whereRaw(
-                        `
-                        (explore->>'baseTable')::text = ANY(?)
-                    `,
-                        [value ?? []],
+                    void this.whereIn(
+                        `${CatalogTableName}.table_name`,
+                        value ?? [],
                     );
                 }
             })
@@ -161,7 +271,7 @@ export class CatalogModel {
                                                 SELECT jsonb_array_elements_text(?::jsonb -> key)
                                             )
                                         )
-                                    
+
                                     -- Case 2: Required attribute is a single value (e.g., "is_admin": "true")
                                     ELSE
                                         -- Extract the single value and check if it exists in user's attributes array
@@ -194,6 +304,7 @@ export class CatalogModel {
                 type,
             );
         }
+
         if (filter) {
             if (filter === CatalogFilter.Dimensions) {
                 catalogItemsQuery = catalogItemsQuery.andWhere(
@@ -209,12 +320,40 @@ export class CatalogModel {
             }
         }
 
+        if (catalogTags) {
+            catalogItemsQuery = catalogItemsQuery.whereExists(
+                function getAllCatalogCategoriesThatMatchTags() {
+                    void this.select('*')
+                        .from(CatalogTagsTableName)
+                        .whereRaw(
+                            `${CatalogTagsTableName}.catalog_search_uuid = ${CatalogTableName}.catalog_search_uuid`,
+                        )
+                        .whereIn(
+                            `${CatalogTagsTableName}.tag_uuid`,
+                            catalogTags,
+                        );
+                },
+            );
+        }
+
         if (excludeUnmatched && searchQuery) {
             catalogItemsQuery = catalogItemsQuery.andWhereRaw(
                 `"${CatalogTableName}".search_vector @@ to_tsquery('lightdash_english_config', ?)`,
                 getFullTextSearchQuery(searchQuery),
             );
         }
+
+        catalogItemsQuery = catalogItemsQuery.groupBy(
+            `${CatalogTableName}.catalog_search_uuid`,
+            `${CatalogTableName}.name`,
+            `${CatalogTableName}.description`,
+            `${CatalogTableName}.type`,
+            `${CachedExploreTableName}.explore`,
+            `${CatalogTableName}.required_attributes`,
+            `${CatalogTableName}.chart_usage`,
+            `${CatalogTableName}.search_vector`,
+            'search_rank',
+        );
 
         catalogItemsQuery = catalogItemsQuery
             .orderBy('search_rank', 'desc')
@@ -231,7 +370,12 @@ export class CatalogModel {
         }
 
         const paginatedCatalogItems = await KnexPaginate.paginate(
-            catalogItemsQuery.select<(DbCatalog & { explore: Explore })[]>(),
+            catalogItemsQuery.select<
+                (DbCatalog & {
+                    explore: Explore;
+                    catalog_tags: Pick<Tag, 'tagUuid' | 'name' | 'color'>[];
+                })[]
+            >(),
             paginateArgs,
         );
 
@@ -288,49 +432,89 @@ export class CatalogModel {
         });
     }
 
-    async updateChartUsages(
+    async updateFieldsChartUsage(
         projectUuid: string,
-        {
-            fieldsToIncrement,
-            fieldsToDecrement,
-        }: {
-            fieldsToIncrement: CatalogFieldWhere[];
-            fieldsToDecrement: CatalogFieldWhere[];
-        },
+        { fieldsToIncrement, fieldsToDecrement }: ChartFieldUsageChanges,
     ) {
-        await this.database.transaction(async (trx) => {
-            const incrementPromises = fieldsToIncrement.map(
-                ({ fieldName, cachedExploreUuid }) =>
+        return this.database.transaction(async (trx) => {
+            const transactions: Knex.QueryBuilder[] = [];
+
+            // Increment
+            if (fieldsToIncrement.length > 0) {
+                transactions.push(
                     trx(CatalogTableName)
-                        .where(`${CatalogTableName}.name`, fieldName)
-                        .andWhere(
-                            `${CatalogTableName}.cached_explore_uuid`,
-                            cachedExploreUuid,
-                        )
+                        .where((builder) => {
+                            fieldsToIncrement.forEach(
+                                ({
+                                    cachedExploreUuid,
+                                    fieldName,
+                                    fieldType,
+                                }) => {
+                                    void builder.orWhere((orBuilder) =>
+                                        orBuilder
+                                            .where(
+                                                `${CatalogTableName}.cached_explore_uuid`,
+                                                cachedExploreUuid,
+                                            )
+                                            .andWhere(
+                                                `${CatalogTableName}.name`,
+                                                fieldName,
+                                            )
+                                            .andWhere(
+                                                `${CatalogTableName}.field_type`,
+                                                fieldType,
+                                            ),
+                                    );
+                                },
+                            );
+                        })
                         .andWhere(
                             `${CatalogTableName}.project_uuid`,
                             projectUuid,
                         )
                         .increment('chart_usage', 1),
-            );
+                );
+            }
 
-            const decrementPromises = fieldsToDecrement.map(
-                ({ fieldName, cachedExploreUuid }) =>
+            // Decrement
+            if (fieldsToDecrement.length > 0) {
+                transactions.push(
                     trx(CatalogTableName)
-                        .where(`${CatalogTableName}.name`, fieldName)
-                        .andWhere(
-                            `${CatalogTableName}.cached_explore_uuid`,
-                            cachedExploreUuid,
-                        )
+                        .where((builder) => {
+                            fieldsToDecrement.forEach(
+                                ({
+                                    cachedExploreUuid,
+                                    fieldName,
+                                    fieldType,
+                                }) => {
+                                    void builder.orWhere((orBuilder) =>
+                                        orBuilder
+                                            .where(
+                                                `${CatalogTableName}.cached_explore_uuid`,
+                                                cachedExploreUuid,
+                                            )
+                                            .andWhere(
+                                                `${CatalogTableName}.name`,
+                                                fieldName,
+                                            )
+                                            .andWhere(
+                                                `${CatalogTableName}.field_type`,
+                                                fieldType,
+                                            ),
+                                    );
+                                },
+                            );
+                        })
                         .andWhere(
                             `${CatalogTableName}.project_uuid`,
                             projectUuid,
                         )
-                        .where('chart_usage', '>', 0) // Ensure we don't decrement below 0
+                        .andWhere('chart_usage', '>', 0) // Ensure we don't decrement below 0
                         .decrement('chart_usage', 1),
-            );
+                );
+            }
 
-            await Promise.all([...incrementPromises, ...decrementPromises]);
+            await Promise.all(transactions);
         });
     }
 
@@ -357,5 +541,355 @@ export class CatalogModel {
                 {},
             );
         });
+    }
+
+    async getCatalogItem(catalogSearchUuid: string) {
+        return this.database(CatalogTableName)
+            .where(`${CatalogTableName}.catalog_search_uuid`, catalogSearchUuid)
+            .first();
+    }
+
+    async getCatalogItemByName(
+        projectUuid: string,
+        metricName: string,
+        tableName: string,
+        type: CatalogType,
+    ) {
+        return this.database(CatalogTableName)
+            .where(`${CatalogTableName}.name`, metricName)
+            .andWhere(`${CatalogTableName}.table_name`, tableName)
+            .andWhere(`${CatalogTableName}.type`, type)
+            .andWhere(`${CatalogTableName}.project_uuid`, projectUuid)
+            .first();
+    }
+
+    async tagCatalogItem(
+        user: SessionUser,
+        catalogSearchUuid: string,
+        tagUuid: string,
+    ) {
+        await this.database(CatalogTagsTableName).insert({
+            catalog_search_uuid: catalogSearchUuid,
+            tag_uuid: tagUuid,
+            created_by_user_uuid: user.userUuid,
+        });
+    }
+
+    async untagCatalogItem(catalogSearchUuid: string, tagUuid: string) {
+        await this.database(CatalogTagsTableName)
+            .where({
+                catalog_search_uuid: catalogSearchUuid,
+                tag_uuid: tagUuid,
+            })
+            .delete();
+    }
+
+    async getCatalogItemsSummary(
+        projectUuid: string,
+    ): Promise<CatalogItemSummary[]> {
+        const catalogItems = await this.database(CatalogTableName)
+            .where(`${CatalogTableName}.project_uuid`, projectUuid)
+            .select('*');
+
+        return catalogItems.map<CatalogItemSummary>((i) => ({
+            catalogSearchUuid: i.catalog_search_uuid,
+            cachedExploreUuid: i.cached_explore_uuid,
+            projectUuid: i.project_uuid,
+            name: i.name,
+            type: i.type,
+            tableName: i.table_name,
+            fieldType: i.field_type,
+        }));
+    }
+
+    async getCatalogItemsWithTags(
+        projectUuid: string,
+        opts?: { onlyTagged?: boolean },
+    ) {
+        const { onlyTagged = false } = opts ?? {};
+
+        let query = this.database(CatalogTableName)
+            .column(
+                `${CatalogTableName}.catalog_search_uuid`,
+                `${CatalogTableName}.cached_explore_uuid`,
+                `${CatalogTableName}.project_uuid`,
+                `${CatalogTableName}.name`,
+                `${CatalogTableName}.type`,
+                `${CatalogTableName}.field_type`,
+                `${CatalogTableName}.table_name`,
+                {
+                    catalog_tag_uuids: this.database.raw(`
+                    COALESCE(
+                        JSON_AGG(
+                            DISTINCT JSONB_BUILD_OBJECT(
+                                'tagUuid', ${CatalogTagsTableName}.tag_uuid,
+                                'createdByUserUuid', ${CatalogTagsTableName}.created_by_user_uuid,
+                                'createdAt', ${CatalogTagsTableName}.created_at
+                            )
+                        ) FILTER (WHERE ${CatalogTagsTableName}.tag_uuid IS NOT NULL),
+                        '[]'
+                    )
+                `),
+                },
+            )
+            .leftJoin(
+                CachedExploreTableName,
+                `${CatalogTableName}.cached_explore_uuid`,
+                `${CachedExploreTableName}.cached_explore_uuid`,
+            );
+
+        if (onlyTagged) {
+            query = query.innerJoin(
+                CatalogTagsTableName,
+                `${CatalogTableName}.catalog_search_uuid`,
+                `${CatalogTagsTableName}.catalog_search_uuid`,
+            );
+        } else {
+            query = query.leftJoin(
+                CatalogTagsTableName,
+                `${CatalogTableName}.catalog_search_uuid`,
+                `${CatalogTagsTableName}.catalog_search_uuid`,
+            );
+        }
+
+        query = query
+            .where(`${CatalogTableName}.project_uuid`, projectUuid)
+            .groupBy(
+                `${CatalogTableName}.catalog_search_uuid`,
+                `${CatalogTableName}.cached_explore_uuid`,
+                `${CatalogTableName}.project_uuid`,
+                `${CatalogTableName}.name`,
+                `${CatalogTableName}.type`,
+                `${CatalogTableName}.field_type`,
+                `${CatalogTableName}.table_name`,
+            );
+
+        const itemsWithTags: (DbCatalog & {
+            catalog_tag_uuids: {
+                tagUuid: string;
+                createdByUserUuid: string | null;
+                createdAt: Date;
+            }[];
+        })[] = await query;
+
+        return itemsWithTags.map<CatalogItemWithTagUuids>((i) => ({
+            catalogSearchUuid: i.catalog_search_uuid,
+            cachedExploreUuid: i.cached_explore_uuid,
+            projectUuid: i.project_uuid,
+            name: i.name,
+            type: i.type,
+            fieldType: i.field_type,
+            tableName: i.table_name,
+            catalogTags: i.catalog_tag_uuids,
+        }));
+    }
+
+    async migrateCatalogItemTags(
+        catalogTagsMigrateIn: DbCatalogTagsMigrateIn[],
+    ) {
+        return this.database.batchInsert(
+            CatalogTagsTableName,
+            catalogTagsMigrateIn,
+        );
+    }
+
+    async getCatalogItemsWithIcons(projectUuid: string) {
+        let query = this.database(CatalogTableName)
+            .column(
+                `${CatalogTableName}.catalog_search_uuid`,
+                `${CatalogTableName}.cached_explore_uuid`,
+                `${CatalogTableName}.project_uuid`,
+                `${CatalogTableName}.name`,
+                `${CatalogTableName}.type`,
+                `${CatalogTableName}.field_type`,
+                `${CatalogTableName}.icon`,
+                `${CatalogTableName}.table_name`,
+            )
+            .leftJoin(
+                CachedExploreTableName,
+                `${CatalogTableName}.cached_explore_uuid`,
+                `${CachedExploreTableName}.cached_explore_uuid`,
+            );
+
+        query = query
+            .where(`${CatalogTableName}.project_uuid`, projectUuid)
+            .whereNotNull(`${CatalogTableName}.icon`)
+            .groupBy(
+                `${CatalogTableName}.catalog_search_uuid`,
+                `${CatalogTableName}.cached_explore_uuid`,
+                `${CatalogTableName}.project_uuid`,
+                `${CatalogTableName}.name`,
+                `${CatalogTableName}.type`,
+                `${CatalogTableName}.field_type`,
+                `${CatalogTableName}.table_name`,
+            );
+
+        const itemsWithIcons: DbCatalog[] = await query;
+
+        return itemsWithIcons.map<CatalogItemsWithIcons>((i) => ({
+            catalogSearchUuid: i.catalog_search_uuid,
+            cachedExploreUuid: i.cached_explore_uuid,
+            projectUuid: i.project_uuid,
+            name: i.name,
+            type: i.type,
+            fieldType: i.field_type,
+            tableName: i.table_name,
+            icon: i.icon,
+        }));
+    }
+
+    async updateCatalogItemIcon(
+        updates: Array<{
+            catalogSearchUuid: string;
+            icon: CatalogItemIcon | null;
+        }>,
+    ): Promise<void> {
+        if (updates.length === 0) return;
+
+        await this.database.transaction(async (trx) => {
+            const updatePromises = updates.map(({ catalogSearchUuid, icon }) =>
+                trx(CatalogTableName)
+                    .where('catalog_search_uuid', catalogSearchUuid)
+                    .update({ icon }),
+            );
+
+            await Promise.all(updatePromises);
+        });
+    }
+
+    async getMetricsTree(
+        projectUuid: string,
+        metricUuids: string[],
+    ): Promise<{ edges: CatalogMetricsTreeEdge[] }> {
+        const edges = await this.database(MetricsTreeEdgesTableName)
+            .select<
+                (DbMetricsTreeEdge & {
+                    source_metric_name: string;
+                    source_metric_table_name: string;
+                    target_metric_name: string;
+                    target_metric_table_name: string;
+                })[]
+            >({
+                source_metric_catalog_search_uuid: `${MetricsTreeEdgesTableName}.source_metric_catalog_search_uuid`,
+                target_metric_catalog_search_uuid: `${MetricsTreeEdgesTableName}.target_metric_catalog_search_uuid`,
+                created_at: `${MetricsTreeEdgesTableName}.created_at`,
+                created_by_user_uuid: `${MetricsTreeEdgesTableName}.created_by_user_uuid`,
+                source_metric_name: `source_metric.name`,
+                source_metric_table_name: `source_metric.table_name`,
+                target_metric_name: `target_metric.name`,
+                target_metric_table_name: `target_metric.table_name`,
+            })
+            .innerJoin(
+                { source_metric: CatalogTableName },
+                `${MetricsTreeEdgesTableName}.source_metric_catalog_search_uuid`,
+                `source_metric.catalog_search_uuid`,
+            )
+            .innerJoin(
+                { target_metric: CatalogTableName },
+                `${MetricsTreeEdgesTableName}.target_metric_catalog_search_uuid`,
+                `target_metric.catalog_search_uuid`,
+            )
+            .where(function sourceNodeWhere() {
+                void this.whereIn(
+                    'source_metric_catalog_search_uuid',
+                    metricUuids,
+                );
+            })
+            .andWhere(function targetNodeWhere() {
+                void this.whereIn(
+                    'target_metric_catalog_search_uuid',
+                    metricUuids,
+                );
+            })
+            .andWhere('source_metric.project_uuid', projectUuid)
+            .andWhere('target_metric.project_uuid', projectUuid);
+
+        return {
+            edges: edges.map((e) => ({
+                source: {
+                    catalogSearchUuid: e.source_metric_catalog_search_uuid,
+                    name: e.source_metric_name,
+                    tableName: e.source_metric_table_name,
+                },
+                target: {
+                    catalogSearchUuid: e.target_metric_catalog_search_uuid,
+                    name: e.target_metric_name,
+                    tableName: e.target_metric_table_name,
+                },
+                createdAt: e.created_at,
+                createdByUserUuid: e.created_by_user_uuid,
+                projectUuid,
+            })),
+        };
+    }
+
+    async getAllMetricsTreeEdges(
+        projectUuid: string,
+    ): Promise<CatalogMetricsTreeEdge[]> {
+        const edges = await this.database(MetricsTreeEdgesTableName)
+            .select<
+                (DbMetricsTreeEdge & {
+                    source_metric_name: string;
+                    source_metric_table_name: string;
+                    target_metric_name: string;
+                    target_metric_table_name: string;
+                })[]
+            >({
+                source_metric_catalog_search_uuid: `${MetricsTreeEdgesTableName}.source_metric_catalog_search_uuid`,
+                target_metric_catalog_search_uuid: `${MetricsTreeEdgesTableName}.target_metric_catalog_search_uuid`,
+                created_at: `${MetricsTreeEdgesTableName}.created_at`,
+                created_by_user_uuid: `${MetricsTreeEdgesTableName}.created_by_user_uuid`,
+                source_metric_name: `source_metric.name`,
+                source_metric_table_name: `source_metric.table_name`,
+                target_metric_name: `target_metric.name`,
+                target_metric_table_name: `target_metric.table_name`,
+            })
+            .innerJoin(
+                { source_metric: CatalogTableName },
+                `${MetricsTreeEdgesTableName}.source_metric_catalog_search_uuid`,
+                `source_metric.catalog_search_uuid`,
+            )
+            .innerJoin(
+                { target_metric: CatalogTableName },
+                `${MetricsTreeEdgesTableName}.target_metric_catalog_search_uuid`,
+                `target_metric.catalog_search_uuid`,
+            )
+            .where('source_metric.project_uuid', projectUuid)
+            .andWhere('target_metric.project_uuid', projectUuid);
+
+        return edges.map((e) => ({
+            source: {
+                catalogSearchUuid: e.source_metric_catalog_search_uuid,
+                name: e.source_metric_name,
+                tableName: e.source_metric_table_name,
+            },
+            target: {
+                catalogSearchUuid: e.target_metric_catalog_search_uuid,
+                name: e.target_metric_name,
+                tableName: e.target_metric_table_name,
+            },
+            createdAt: e.created_at,
+            createdByUserUuid: e.created_by_user_uuid,
+            projectUuid,
+        }));
+    }
+
+    async createMetricsTreeEdge(metricsTreeEdge: DbMetricsTreeEdgeIn) {
+        return this.database(MetricsTreeEdgesTableName).insert(metricsTreeEdge);
+    }
+
+    async deleteMetricsTreeEdge(metricsTreeEdge: DbMetricsTreeEdgeDelete) {
+        return this.database(MetricsTreeEdgesTableName)
+            .where(metricsTreeEdge)
+            .delete();
+    }
+
+    async migrateMetricsTreeEdges(
+        metricTreeEdgesMigrateIn: DbMetricsTreeEdgeIn[],
+    ) {
+        return this.database.batchInsert(
+            MetricsTreeEdgesTableName,
+            metricTreeEdgesMigrateIn,
+        );
     }
 }

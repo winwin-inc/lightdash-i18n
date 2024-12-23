@@ -5,14 +5,24 @@ import {
     Loader,
     MultiSelect,
     ScrollArea,
+    Stack,
     Text,
+    Tooltip,
     type MultiSelectProps,
 } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import uniq from 'lodash/uniq';
-import { useCallback, useMemo, useState, type FC, type ReactNode } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type FC,
+    type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
+import useHealth from '../../../../hooks/health/useHealth';
 import {
     MAX_AUTOCOMPLETE_RESULTS,
     useFieldValues,
@@ -48,27 +58,45 @@ const FilterStringAutoComplete: FC<Props> = ({
         throw new Error(t('components_common_filters_inputs.filters_error'));
     }
 
+    const { data: healthData } = useHealth();
+
     const [search, setSearch] = useState('');
     const [pastePopUpOpened, setPastePopUpOpened] = useState(false);
     const [tempPasteValues, setTempPasteValues] = useState<
         string | undefined
     >();
 
+    const [forceRefresh, setForceRefresh] = useState<boolean>(false);
+
     const autocompleteFilterGroup = useMemo(
         () => getAutocompleteFilterGroup(filterId, field),
         [field, filterId, getAutocompleteFilterGroup],
     );
 
-    const { isInitialLoading, results: resultsSet } = useFieldValues(
+    const {
+        isInitialLoading,
+        results: resultsSet,
+        refreshedAt,
+        refetch,
+    } = useFieldValues(
         search,
         initialSuggestionData,
         projectUuid,
         field,
         autocompleteFilterGroup,
         true,
-        { refetchOnMount: 'always' },
+        forceRefresh,
+        {
+            refetchOnMount: 'always',
+        },
     );
 
+    useEffect(() => {
+        if (forceRefresh) {
+            refetch().then().catch(console.error); // This will skip queryKey cache from react query and refetch from backend
+            setForceRefresh(false);
+        }
+    }, [forceRefresh, refetch]);
     const results = useMemo(() => [...resultsSet], [resultsSet]);
 
     const handleResetSearch = useCallback(() => {
@@ -133,40 +161,79 @@ const FilterStringAutoComplete: FC<Props> = ({
     // memo override component so list doesn't scroll to the top on each click
     const DropdownComponentOverride = useCallback(
         ({ children, ...props }: { children: ReactNode }) => (
-            <ScrollArea {...props}>
-                {searchedMaxResults ? (
-                    <Text
-                        color="dimmed"
-                        size="xs"
-                        px="sm"
-                        pt="xs"
-                        pb="xxs"
-                        bg="white"
-                    >
-                        {t(
-                            'components_common_filters_inputs.scroll_area.part_1',
-                        )}{' '}
-                        {MAX_AUTOCOMPLETE_RESULTS}{' '}
-                        {t(
-                            'components_common_filters_inputs.scroll_area.part_2',
-                        )}{' '}
-                        {search
-                            ? t(
-                                  'components_common_filters_inputs.scroll_area.part_3',
-                              )
-                            : t(
-                                  'components_common_filters_inputs.scroll_area.part_4',
-                              )}{' '}
-                        {t(
-                            'components_common_filters_inputs.scroll_area.part_5',
-                        )}
-                    </Text>
-                ) : null}
+            <Stack w="100%" spacing={0}>
+                <ScrollArea {...props}>
+                    {searchedMaxResults ? (
+                        <Text
+                            color="dimmed"
+                            size="xs"
+                            px="sm"
+                            pt="xs"
+                            pb="xxs"
+                            bg="white"
+                        >
+                            {t(
+                                'components_common_filters_inputs.scroll_area.part_1',
+                            )}{' '}
+                            {MAX_AUTOCOMPLETE_RESULTS}{' '}
+                            {t(
+                                'components_common_filters_inputs.scroll_area.part_2',
+                            )}{' '}
+                            {search
+                                ? t(
+                                      'components_common_filters_inputs.scroll_area.part_3',
+                                  )
+                                : t(
+                                      'components_common_filters_inputs.scroll_area.part_4',
+                                  )}{' '}
+                            {t(
+                                'components_common_filters_inputs.scroll_area.part_5',
+                            )}
+                        </Text>
+                    ) : null}
 
-                {children}
-            </ScrollArea>
+                    {children}
+                </ScrollArea>
+                {healthData?.hasCacheAutocompleResults ? (
+                    <>
+                        <Tooltip
+                            withinPortal
+                            position="left"
+                            label={t(
+                                'components_common_filters_inputs.autocomple_results.refresh',
+                            )}
+                        >
+                            <Text
+                                color="dimmed"
+                                size="xs"
+                                px="sm"
+                                p="xxs"
+                                sx={(theme) => ({
+                                    cursor: 'pointer',
+                                    borderTop: `1px solid ${theme.colors.gray[2]}`,
+                                    '&:hover': {
+                                        backgroundColor: theme.colors.gray[1],
+                                    },
+                                })}
+                                onClick={() => setForceRefresh(true)}
+                            >
+                                {t(
+                                    'components_common_filters_inputs.autocomple_results.loaded',
+                                )}{' '}
+                                {refreshedAt.toLocaleString()}
+                            </Text>
+                        </Tooltip>
+                    </>
+                ) : null}
+            </Stack>
         ),
-        [searchedMaxResults, search, t],
+        [
+            searchedMaxResults,
+            search,
+            refreshedAt,
+            healthData?.hasCacheAutocompleResults,
+            t,
+        ],
     );
 
     return (

@@ -290,11 +290,11 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                 grow
                                 pt={tabsEnabled ? 'lg' : undefined}
                                 pb="lg"
-                                px="lg"
+                                px="xs"
                             >
                                 <ResponsiveGridLayout
                                     {...getResponsiveGridLayoutProps()}
-                                    className={`react-grid-layout-dashboard ${
+                                    className={`${
                                         hasRequiredDashboardFiltersToSet
                                             ? 'locked'
                                             : ''
@@ -383,6 +383,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                     <TabDeleteModal
                                         tab={activeTab}
                                         dashboardTiles={dashboardTiles}
+                                        dashboardTabs={dashboardTabs}
                                         onClose={() => setDeletingTab(false)}
                                         opened={
                                             isDeletingTab &&
@@ -391,6 +392,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         onDeleteTab={(uuid) => {
                                             handleDeleteTab(uuid);
                                         }}
+                                        onMoveTile={handleEditTile}
                                     />
                                 </>
                             )}

@@ -3,6 +3,7 @@ import {
     isCustomDimension,
     isDimension,
     isField,
+    isFilterableField,
     isMetric,
     isTableCalculation,
     isTimeInterval,
@@ -11,6 +12,7 @@ import {
     type Item,
 } from '@lightdash/common';
 import {
+    ActionIcon,
     Group,
     Highlight,
     HoverCard,
@@ -21,9 +23,13 @@ import {
 import { IconAlertTriangle, IconFilter } from '@tabler/icons-react';
 import { darken, lighten } from 'polished';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
+
 import { getItemBgColor } from '../../../../../hooks/useColumns';
 import { useFilters } from '../../../../../hooks/useFilters';
+import { useTracking } from '../../../../../providers/TrackingProvider';
+import { EventName } from '../../../../../types/Events';
 import FieldIcon from '../../../../common/Filters/FieldIcon';
 import MantineIcon from '../../../../common/MantineIcon';
 import { useItemDetail } from '../ItemDetailContext';
@@ -36,6 +42,8 @@ type Props = {
 };
 
 const TreeSingleNode: FC<Props> = ({ node }) => {
+    const { t } = useTranslation();
+
     const {
         itemsMap,
         selectedItems,
@@ -48,6 +56,9 @@ const TreeSingleNode: FC<Props> = ({ node }) => {
     } = useTableTreeContext();
     const { isFilteredField } = useFilters();
     const { showItemDetail } = useItemDetail();
+
+    const { addFilter } = useFilters();
+    const { track } = useTracking();
 
     const [isHover, toggleHover] = useToggle(false);
     const [isMenuOpen, toggleMenu] = useToggle(false);
@@ -116,7 +127,11 @@ const TreeSingleNode: FC<Props> = ({ node }) => {
             detail: description ? (
                 <ItemDetailMarkdown source={description}></ItemDetailMarkdown>
             ) : (
-                <Text color="gray">No description available.</Text>
+                <Text color="gray">
+                    {t(
+                        'components_explorer_table_tree_single_node.no_availailable',
+                    )}
+                </Text>
             ),
         });
     };
@@ -190,7 +205,12 @@ const TreeSingleNode: FC<Props> = ({ node }) => {
                             onClick={(event) => event.stopPropagation()}
                         >
                             {isMissing ? (
-                                `This field from '${item.table}' table is no longer available`
+                                t(
+                                    'components_explorer_table_tree_single_node.missing',
+                                    {
+                                        table: item.table,
+                                    },
+                                )
                             ) : (
                                 <ItemDetailPreview
                                     onViewDescription={onOpenDescriptionView}
@@ -200,20 +220,45 @@ const TreeSingleNode: FC<Props> = ({ node }) => {
                         </HoverCard.Dropdown>
                     </HoverCard>
 
-                    {isFiltered ? (
-                        <Tooltip withinPortal label="This field is filtered">
-                            <MantineIcon
-                                icon={IconFilter}
-                                color="gray.7"
-                                style={{ flexShrink: 0 }}
-                            />
+                    {(isFiltered || isHover) &&
+                    !isAdditionalMetric(item) &&
+                    isFilterableField(item) ? (
+                        <Tooltip
+                            withinPortal
+                            label={
+                                isFiltered
+                                    ? t(
+                                          'components_explorer_table_tree_single_node.tooltip_filter.filtered',
+                                      )
+                                    : t(
+                                          'components_explorer_table_tree_single_node.tooltip_filter.click',
+                                      )
+                            }
+                        >
+                            <ActionIcon
+                                onClick={(e) => {
+                                    track({
+                                        name: EventName.ADD_FILTER_CLICKED,
+                                    });
+                                    if (!isFiltered) addFilter(item, undefined);
+                                    e.stopPropagation(); // Do not toggle the field on filter click
+                                }}
+                            >
+                                <MantineIcon
+                                    icon={IconFilter}
+                                    color="gray.7"
+                                    style={{ flexShrink: 0 }}
+                                />
+                            </ActionIcon>
                         </Tooltip>
                     ) : null}
 
                     {isField(item) && item.hidden ? (
                         <Tooltip
                             withinPortal
-                            label="This field has been hidden in the dbt project. It's recommend to remove it from the query"
+                            label={t(
+                                'components_explorer_table_tree_single_node.hidden',
+                            )}
                         >
                             <MantineIcon
                                 icon={IconAlertTriangle}

@@ -3,7 +3,6 @@ import {
     DashboardTileTypes,
     FeatureFlags,
     type ApiError,
-    type GitIntegrationConfiguration,
     type PullRequestCreated,
 } from '@lightdash/common';
 import {
@@ -43,7 +42,7 @@ import {
     IconSend,
     IconTrash,
 } from '@tabler/icons-react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { Fragment, useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation, useParams } from 'react-router-dom';
@@ -63,6 +62,7 @@ import {
 import { SyncModal as GoogleSheetsSyncModal } from '../../../features/sync/components';
 import { useChartViewStats } from '../../../hooks/chart/useChartViewStats';
 import useDashboardStorage from '../../../hooks/dashboard/useDashboardStorage';
+import { useGitIntegration } from '../../../hooks/gitIntegration/useGitIntegration';
 import useToaster from '../../../hooks/toaster/useToaster';
 import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
 import { useProject } from '../../../hooks/useProject';
@@ -112,20 +112,6 @@ const useSpaceTypeLabels = () => {
         ),
     };
 };
-
-const getGitIntegration = async (projectUuid: string) =>
-    lightdashApi<any>({
-        url: `/projects/${projectUuid}/git-integration`,
-        method: 'GET',
-        body: undefined,
-    });
-
-const useGitIntegration = (projectUuid: string) =>
-    useQuery<GitIntegrationConfiguration, ApiError>({
-        queryKey: ['git-integration'],
-        queryFn: () => getGitIntegration(projectUuid),
-        retry: false,
-    });
 
 const createPullRequestForChartFields = async (
     projectUuid: string,
@@ -431,6 +417,10 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
             });
     };
 
+    const promoteDisabled = !(
+        project?.upstreamProjectUuid !== undefined && userCanPromoteChart
+    );
+
     return (
         <TrackSection name={SectionName.EXPLORER_TOP_BUTTONS}>
             <Modal
@@ -682,30 +672,33 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                         </Menu.Item>
                                     )}
 
-                                {!chartBelongsToDashboard && userCanPinChart && (
-                                    <Menu.Item
-                                        component="button"
-                                        role="menuitem"
-                                        icon={
-                                            isPinned ? (
-                                                <MantineIcon
-                                                    icon={IconPinnedOff}
-                                                />
-                                            ) : (
-                                                <MantineIcon icon={IconPin} />
-                                            )
-                                        }
-                                        onClick={onTogglePin}
-                                    >
-                                        {isPinned
-                                            ? t(
-                                                  'components_explorer_save_charts_header.menus.unpin',
-                                              )
-                                            : t(
-                                                  'components_explorer_save_charts_header.menus.pin',
-                                              )}
-                                    </Menu.Item>
-                                )}
+                                {!chartBelongsToDashboard &&
+                                    userCanPinChart && (
+                                        <Menu.Item
+                                            component="button"
+                                            role="menuitem"
+                                            icon={
+                                                isPinned ? (
+                                                    <MantineIcon
+                                                        icon={IconPinnedOff}
+                                                    />
+                                                ) : (
+                                                    <MantineIcon
+                                                        icon={IconPin}
+                                                    />
+                                                )
+                                            }
+                                            onClick={onTogglePin}
+                                        >
+                                            {isPinned
+                                                ? t(
+                                                      'components_explorer_save_charts_header.menus.unpin',
+                                                  )
+                                                : t(
+                                                      'components_explorer_save_charts_header.menus.pin',
+                                                  )}
+                                        </Menu.Item>
+                                    )}
 
                                 {userCanManageChart &&
                                     !chartBelongsToDashboard && (
@@ -863,23 +856,23 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                         )}
                                     </Menu.Item>
                                 )}
-                                {userCanPromoteChart && (
+                                {
                                     <Tooltip
-                                        label={t(
-                                            'components_explorer_save_charts_header.menus.tooltip_can_prompote.label',
-                                        )}
-                                        disabled={
-                                            project?.upstreamProjectUuid !==
-                                            undefined
+                                        label={
+                                            userCanPromoteChart
+                                                ? t(
+                                                      'components_explorer_save_charts_header.menus.tooltip_can_prompote.label.part_1',
+                                                  )
+                                                : t(
+                                                      'components_explorer_save_charts_header.menus.tooltip_can_prompote.label.part_2',
+                                                  )
                                         }
+                                        disabled={!promoteDisabled}
                                         withinPortal
                                     >
                                         <div>
                                             <Menu.Item
-                                                disabled={
-                                                    project?.upstreamProjectUuid ===
-                                                    undefined
-                                                }
+                                                disabled={promoteDisabled}
                                                 icon={
                                                     <MantineIcon
                                                         icon={
@@ -888,9 +881,10 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                                     />
                                                 }
                                                 onClick={() => {
-                                                    getPromoteChartDiff(
-                                                        savedChart?.uuid,
-                                                    );
+                                                    if (savedChart)
+                                                        getPromoteChartDiff(
+                                                            savedChart?.uuid,
+                                                        );
                                                 }}
                                             >
                                                 {t(
@@ -899,7 +893,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                             </Menu.Item>
                                         </div>
                                     </Tooltip>
-                                )}
+                                }
 
                                 <Menu.Divider />
                                 <Menu.Label>

@@ -26,6 +26,8 @@ const SOFT_WRAP_LOCAL_STORAGE_KEY = 'lightdash-sql-form-soft-wrap';
 type Props = {
     form: TableCalculationForm;
     isFullScreen: boolean;
+    focusOnRender?: boolean;
+    onCmdEnter?: () => void;
 };
 
 export const SqlEditor = styled(AceEditor)<
@@ -46,7 +48,12 @@ export const SqlEditor = styled(AceEditor)<
               `}
 `;
 
-export const SqlForm: FC<Props> = ({ form, isFullScreen }) => {
+export const SqlForm: FC<Props> = ({
+    form,
+    isFullScreen,
+    focusOnRender = false,
+    onCmdEnter,
+}) => {
     const theme = useMantineTheme();
     const [isSoftWrapEnabled, setSoftWrapEnabled] = useLocalStorage({
         key: SOFT_WRAP_LOCAL_STORAGE_KEY,
@@ -55,6 +62,27 @@ export const SqlForm: FC<Props> = ({ form, isFullScreen }) => {
     const { t } = useTranslation();
 
     const { setAceEditor } = useTableCalculationAceEditorCompleter();
+
+    const handleEditorLoad = (editor: any) => {
+        setAceEditor(editor);
+        editor.commands.addCommand({
+            name: 'executeCmdEnter',
+            bindKey: { win: 'Ctrl-Enter', mac: 'Cmd-Enter' },
+            exec: () => {
+                if (onCmdEnter) {
+                    onCmdEnter();
+                }
+            },
+        });
+        if (focusOnRender) {
+            // set timeout throws the focus to the end of the event loop (after the render)
+            // without it the focus would be set before the editor is fully rendered (and not work)
+            setTimeout(() => {
+                editor.focus(); // focus the editor
+                editor.navigateFileEnd(); // navigate to the end of the content
+            }, 0);
+        }
+    };
 
     return (
         <>
@@ -70,7 +98,7 @@ export const SqlForm: FC<Props> = ({ form, isFullScreen }) => {
                         autoScrollEditorIntoView: true,
                     }}
                     style={{ zIndex: 0 }}
-                    onLoad={setAceEditor}
+                    onLoad={handleEditorLoad}
                     enableLiveAutocompletion
                     enableBasicAutocompletion
                     showPrintMargin={false}

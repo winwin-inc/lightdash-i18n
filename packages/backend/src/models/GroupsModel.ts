@@ -1,4 +1,5 @@
 import {
+    AlreadyExistsError,
     CreateGroup,
     Group,
     GroupMember,
@@ -6,6 +7,7 @@ import {
     GroupWithMembers,
     NotExistsError,
     NotFoundError,
+    ParameterError,
     ProjectGroupAccess,
     UnexpectedDatabaseError,
     UpdateGroupWithMembers,
@@ -20,7 +22,7 @@ import {
     DbGroupMembership,
     GroupMembershipTableName,
 } from '../database/entities/groupMemberships';
-import type { DbGroup } from '../database/entities/groups';
+import { DbGroup, GroupTableName } from '../database/entities/groups';
 import {
     OrganizationTableName,
     type DbOrganization,
@@ -99,7 +101,11 @@ export class GroupsModel {
     }
 
     async find(
-        filters: { organizationUuid: string; searchQuery?: string },
+        filters: {
+            organizationUuid: string;
+            searchQuery?: string; // will fuzzy search on name
+            name?: string; // will exact match on name
+        },
         paginateArgs?: KnexPaginateArgs,
     ): Promise<KnexPaginatedData<Group[]>> {
         let query = this.database('groups')
@@ -108,8 +114,12 @@ export class GroupsModel {
                 'groups.organization_id',
                 'organizations.organization_id',
             )
-            .select<(DbGroup & DbOrganization)[]>();
+            .select<(DbGroup & Pick<DbOrganization, 'organization_uuid'>)[]>(
+                'groups.*',
+                'organizations.organization_uuid',
+            );
 
+        // Exact match for organization UUID
         if (filters.organizationUuid) {
             query = query.where(
                 'organizations.organization_uuid',
@@ -117,6 +127,12 @@ export class GroupsModel {
             );
         }
 
+        // Exact match for name
+        if (filters.name) {
+            query = query.where('groups.name', filters.name);
+        }
+
+        // Fuzzy search using regex if searchQuery is provided
         if (filters.searchQuery) {
             query = getColumnMatchRegexQuery(query, filters.searchQuery, [
                 'name',
@@ -134,6 +150,9 @@ export class GroupsModel {
                 uuid: group.group_uuid,
                 name: group.name,
                 createdAt: group.created_at,
+                createdByUserUuid: group.created_by_user_uuid,
+                updatedAt: group.updated_at,
+                updatedByUserUuid: group.updated_by_user_uuid,
                 organizationUuid: group.organization_uuid,
             })),
         };
@@ -211,35 +230,53 @@ export class GroupsModel {
         };
     }
 
-    async createGroup(
-        createGroup: CreateGroup & { organizationUuid: string },
-    ): Promise<GroupWithMembers> {
+    async createGroup({
+        createdByUserUuid,
+        createGroup,
+    }: {
+        createdByUserUuid: string | null;
+        createGroup: CreateGroup & { organizationUuid: string };
+    }): Promise<GroupWithMembers> {
         const groupUuid = await this.database.transaction(async (trx) => {
-            const results = await trx.raw<{
-                rows: { created_at: Date; group_uuid: string }[];
-            }>(
-                `
-                    INSERT INTO groups (name, organization_id)
-                    SELECT ?, organization_id
+            try {
+                const results = await trx.raw<{
+                    rows: { created_at: Date; group_uuid: string }[];
+                }>(
+                    `
+                    INSERT INTO groups (name, created_by_user_uuid, organization_id)
+                    SELECT ?, ?, organization_id
                     FROM organizations
                     WHERE organization_uuid = ? RETURNING group_uuid, groups.created_at
                 `,
-                [createGroup.name, createGroup.organizationUuid],
-            );
-            const [row] = results.rows;
-            if (row === undefined) {
-                throw new UnexpectedDatabaseError(`Failed to create group`);
-            }
-
-            if (createGroup.members && createGroup.members.length > 0) {
-                await GroupsModel.addGroupMembers(
-                    trx,
-                    row.group_uuid,
-                    createGroup.members.map((m) => m.userUuid),
+                    [
+                        createGroup.name.trim(),
+                        createdByUserUuid,
+                        createGroup.organizationUuid,
+                    ],
                 );
+
+                const [row] = results.rows;
+                if (row === undefined) {
+                    throw new UnexpectedDatabaseError(`Failed to create group`);
+                }
+
+                if (createGroup.members && createGroup.members.length > 0) {
+                    await GroupsModel.addGroupMembers(
+                        trx,
+                        row.group_uuid,
+                        createGroup.members.map((m) => m.userUuid),
+                    );
+                }
+                return row.group_uuid;
+            } catch (error) {
+                // Unique violation in PostgreSQL
+                if (error.code === '23505') {
+                    throw new AlreadyExistsError(`Group name already exists`);
+                }
+                throw error; // Re-throw other errors
             }
-            return row.group_uuid;
         });
+
         return this.getGroupWithMembers(groupUuid);
     }
 
@@ -251,7 +288,10 @@ export class GroupsModel {
                 'organizations.organization_id',
             )
             .where('group_uuid', groupUuid)
-            .select();
+            .select<(DbGroup & Pick<DbOrganization, 'organization_uuid'>)[]>(
+                'groups.*',
+                'organizations.organization_uuid',
+            );
         if (group === undefined) {
             throw new NotFoundError(`No group found`);
         }
@@ -259,6 +299,9 @@ export class GroupsModel {
             uuid: group.group_uuid,
             name: group.name,
             createdAt: group.created_at,
+            createdByUserUuid: group.created_by_user_uuid,
+            updatedAt: group.updated_at,
+            updatedByUserUuid: group.updated_by_user_uuid,
             organizationUuid: group.organization_uuid,
         };
     }
@@ -314,10 +357,7 @@ export class GroupsModel {
         );
 
         return {
-            uuid: group.uuid,
-            name: group.name,
-            createdAt: group.createdAt,
-            organizationUuid: group.organizationUuid,
+            ...group,
             members: memberProfiles.map((row) => ({
                 userUuid: row.user_uuid,
                 email: row.email,
@@ -353,11 +393,15 @@ export class GroupsModel {
         return deletedRows.length > 0;
     }
 
-    async updateGroup(
-        groupUuid: string,
-        update: UpdateGroupWithMembers,
-    ): Promise<GroupWithMembers> {
-        // TODO: fix include member count
+    async updateGroup({
+        updatedByUserUuid,
+        groupUuid,
+        update,
+    }: {
+        updatedByUserUuid: string | null;
+        groupUuid: string;
+        update: UpdateGroupWithMembers;
+    }): Promise<GroupWithMembers> {
         const existingGroup = await this.getGroupWithMembers(groupUuid, 10000);
         if (existingGroup === undefined) {
             throw new NotFoundError(`No group found`);
@@ -365,10 +409,25 @@ export class GroupsModel {
 
         await this.database.transaction(async (trx) => {
             if (update.name) {
-                await trx('groups')
-                    .update({ name: update.name })
-                    .where('group_uuid', groupUuid);
+                try {
+                    await trx(GroupTableName)
+                        .update({
+                            name: update.name.trim(),
+                            updated_at: new Date(),
+                            updated_by_user_uuid: updatedByUserUuid,
+                        })
+                        .where('group_uuid', groupUuid);
+                } catch (error) {
+                    // Unique violation in PostgreSQL
+                    if (error.code === '23505') {
+                        throw new AlreadyExistsError(
+                            `Group name already exists`,
+                        );
+                    }
+                    throw new UnexpectedDatabaseError(error.message);
+                }
             }
+
             if (update.members !== undefined) {
                 const membersToAdd = differenceBy(
                     update.members,
@@ -404,6 +463,12 @@ export class GroupsModel {
                         )
                         .andWhere('groups.group_uuid', groupUuid);
 
+                    if (newMembers.length !== membersToAdd.length) {
+                        throw new ParameterError(
+                            'Some provided user UUIDs are invalid',
+                        );
+                    }
+
                     await trx('group_memberships')
                         .insert(newMembers)
                         .onConflict()
@@ -425,7 +490,6 @@ export class GroupsModel {
                 }
             }
         });
-        // TODO: fix include member count
         return this.getGroupWithMembers(groupUuid, 10000);
     }
 

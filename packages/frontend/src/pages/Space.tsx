@@ -1,6 +1,7 @@
 import { subject } from '@casl/ability';
 import {
     contentToResourceViewItems,
+    ContentType,
     LightdashMode,
     ResourceViewItemType,
     type ResourceViewItem,
@@ -10,7 +11,6 @@ import {
     IconDots,
     IconFolderCog,
     IconFolderX,
-    IconLayoutDashboard,
     IconPlus,
     IconSquarePlus,
 } from '@tabler/icons-react';
@@ -25,8 +25,7 @@ import MantineIcon from '../components/common/MantineIcon';
 import DashboardCreateModal from '../components/common/modal/DashboardCreateModal';
 import Page from '../components/common/Page/Page';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
-import { ResourceTypeIcon } from '../components/common/ResourceIcon';
-import ResourceView from '../components/common/ResourceView';
+import InfiniteResourceTable from '../components/common/ResourceView/InfiniteResourceTable';
 import ShareSpaceModal from '../components/common/ShareSpaceModal';
 import SpaceActionModal, {
     ActionType,
@@ -57,7 +56,7 @@ const Space: FC = () => {
 
     const { data: allItems, isLoading: isContentLoading } = useContent(
         {
-            projectUuid,
+            projectUuids: [projectUuid],
             spaceUuids: [spaceUuid],
             pageSize: Number.MAX_SAFE_INTEGER,
         },
@@ -136,8 +135,14 @@ const Space: FC = () => {
     );
 
     return (
-        <Page title={space?.name} withFixedContent withPaddedContent>
-            <Stack spacing="xl">
+        <Page
+            title={space?.name}
+            withCenteredRoot
+            withCenteredContent
+            withXLargePaddedContent
+            withLargeContent
+        >
+            <Stack spacing="xxl" w="100%">
                 <Group position="apart">
                     <PageBreadcrumbs
                         items={[
@@ -303,8 +308,10 @@ const Space: FC = () => {
                                     projectUuid={projectUuid}
                                     spaceUuid={space?.uuid}
                                     actionType={ActionType.UPDATE}
-                                    title="Update space"
-                                    confirmButtonLabel="Update"
+                                    title={t('pages_spaces.tabs.update_space')}
+                                    confirmButtonLabel={t(
+                                        'pages_spaces.tabs.update',
+                                    )}
                                     icon={IconFolderCog}
                                     onClose={() => setUpdateSpace(false)}
                                 />
@@ -314,8 +321,10 @@ const Space: FC = () => {
                                     projectUuid={projectUuid}
                                     spaceUuid={space?.uuid}
                                     actionType={ActionType.DELETE}
-                                    title="Delete space"
-                                    confirmButtonLabel="Delete"
+                                    title={t('pages_spaces.tabs.delete_space')}
+                                    confirmButtonLabel={t(
+                                        'pages_spaces.tabs.delete',
+                                    )}
                                     confirmButtonColor="red"
                                     icon={IconFolderX}
                                     onSubmitForm={() => {
@@ -338,42 +347,15 @@ const Space: FC = () => {
                         </Can>
                     </Group>
                 </Group>
-                <ResourceView
-                    items={allItems || []}
-                    listProps={{
-                        defaultColumnVisibility: { space: false },
+
+                <InfiniteResourceTable
+                    filters={{
+                        projectUuid,
+                        spaceUuids: [spaceUuid],
                     }}
-                    tabs={[
-                        {
-                            id: 'dashboards',
-                            icon: (
-                                <ResourceTypeIcon
-                                    type={ResourceViewItemType.DASHBOARD}
-                                />
-                            ),
-                            name: t('pages_space.tabs.dashboards'),
-                            filter: (item) =>
-                                item.type === ResourceViewItemType.DASHBOARD,
-                        },
-                        {
-                            id: 'charts',
-                            icon: (
-                                <ResourceTypeIcon
-                                    type={ResourceViewItemType.CHART}
-                                />
-                            ),
-                            name: t('pages_space.tabs.charts'),
-                            filter: (item) =>
-                                item.type === ResourceViewItemType.CHART,
-                        },
-                        {
-                            id: 'all-items',
-                            name: t('pages_space.tabs.all_items'),
-                        },
-                    ]}
-                    emptyStateProps={{
-                        icon: <IconLayoutDashboard size={30} />,
-                        title: t('pages_space.tabs.no_items'),
+                    contentTypeFilter={{
+                        defaultValue: ContentType.DASHBOARD,
+                        options: [ContentType.DASHBOARD, ContentType.CHART],
                     }}
                 />
 

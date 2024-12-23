@@ -8,6 +8,7 @@ import {
     isField,
     isMetric,
     isNumericItem,
+    isSummable,
     MetricType,
     type ConditionalFormattingConfig,
     type ItemsMap,
@@ -32,7 +33,6 @@ import { readableColor } from 'polished';
 import React, { useCallback, useEffect, useMemo, useRef, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getDecimalPrecision } from '../../../hooks/tableVisualization/getDataAndColumns';
-import { isSummable } from '../../../hooks/useColumnTotals';
 import { getColorFromRange, isHexCodeColor } from '../../../utils/colorUtils';
 import { useConditionalRuleLabel } from '../Filters/FilterInputs';
 import Table from '../LightTable';

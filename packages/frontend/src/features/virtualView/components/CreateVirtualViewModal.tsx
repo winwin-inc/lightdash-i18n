@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
 import MantineIcon from '../../../components/common/MantineIcon';
-import { useGitHubRepositories } from '../../../components/UserSettings/GithubSettingsPanel';
+import { useGitIntegration } from '../../../hooks/gitIntegration/useGitIntegration';
 import useHealth from '../../../hooks/health/useHealth';
 import { useProject } from '../../../hooks/useProject';
 import { useAppSelector } from '../../sqlRunner/store/hooks';
@@ -52,11 +52,11 @@ export const CreateVirtualViewModal: FC<Props> = ({ opened, onClose }) => {
     });
 
     const { data: project } = useProject(projectUuid);
-    const { data: githubRepositories, isError } = useGitHubRepositories();
+    const { data: gitIntegration, isError } = useGitIntegration(projectUuid);
 
     const canWriteToDbtProject = !!(
         health.data?.hasGithub &&
-        githubRepositories !== undefined &&
+        gitIntegration?.enabled === true &&
         !isError &&
         project?.dbtConnection.type === DbtProjectType.GITHUB
     );

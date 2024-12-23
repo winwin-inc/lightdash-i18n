@@ -1,8 +1,11 @@
 import { Ability, AbilityBuilder, subject } from '@casl/ability';
-import { type OrganizationMemberProfile } from '../types/organizationMemberProfile';
+import {
+    OrganizationMemberRole,
+    type OrganizationMemberProfile,
+} from '../types/organizationMemberProfile';
 import { ProjectType } from '../types/projects';
 import { SpaceMemberRole } from '../types/space';
-import { organizationMemberAbilities } from './organizationMemberAbility';
+import applyOrganizationMemberAbilities from './organizationMemberAbility';
 import {
     ORGANIZATION_ADMIN,
     ORGANIZATION_DEVELOPER,
@@ -20,10 +23,26 @@ const defineAbilityForOrganizationMember = (
               'role' | 'organizationUuid' | 'userUuid'
           >
         | undefined,
+    permissionsConfig?: {
+        pat: {
+            enabled: boolean;
+            allowedOrgRoles: OrganizationMemberRole[];
+        };
+    },
 ): MemberAbility => {
     const builder = new AbilityBuilder<MemberAbility>(Ability);
     if (member) {
-        organizationMemberAbilities[member.role](member, builder);
+        applyOrganizationMemberAbilities({
+            role: member.role,
+            member,
+            builder,
+            permissionsConfig: permissionsConfig ?? {
+                pat: {
+                    enabled: true,
+                    allowedOrgRoles: Object.values(OrganizationMemberRole),
+                },
+            },
+        });
     }
     return builder.build();
 };
@@ -669,7 +688,7 @@ describe('Organization member permissions', () => {
                             isPrivate: false,
                         }),
                     ),
-                ).toEqual(false);
+                ).toEqual(true);
                 expect(
                     ability.can(
                         'view',
@@ -1780,86 +1799,231 @@ describe('Organization member permissions', () => {
         [
             {
                 membership: ORGANIZATION_ADMIN,
+
                 canCreateProject: true,
                 canCreatePreview: true,
+
+                canDeleteProject: true,
+                canDeletePreview: true,
             },
             {
                 membership: ORGANIZATION_DEVELOPER,
                 canCreateProject: false,
                 canCreatePreview: true,
+
+                canDeleteProject: false,
+                canDeletePreview: true,
             },
             {
                 membership: ORGANIZATION_MEMBER,
                 canCreateProject: false,
                 canCreatePreview: false,
+
+                canDeleteProject: false,
+                canDeletePreview: false,
             },
             {
                 membership: ORGANIZATION_VIEWER,
                 canCreateProject: false,
                 canCreatePreview: false,
+
+                canDeleteProject: false,
+                canDeletePreview: false,
             },
             {
                 membership: ORGANIZATION_INTERACTIVE_VIEWER,
                 canCreateProject: false,
                 canCreatePreview: false,
+
+                canDeleteProject: false,
+                canDeletePreview: false,
             },
             {
                 membership: ORGANIZATION_EDITOR,
                 canCreateProject: false,
                 canCreatePreview: false,
+
+                canDeleteProject: false,
+                canDeletePreview: false,
             },
-        ].forEach(({ membership, canCreateProject, canCreatePreview }) => {
-            const ability = defineAbilityForOrganizationMember(membership);
+        ].forEach(
+            ({
+                membership,
+                canCreateProject,
+                canCreatePreview,
+                canDeleteProject,
+                canDeletePreview,
+            }) => {
+                const ability = defineAbilityForOrganizationMember(membership);
 
-            describe(`user is '${membership.role}' role`, () => {
-                it('checks if users can create project in organization they belong to', () => {
-                    expect(
-                        ability.can(
-                            'create',
-                            subject('Project', {
-                                organizationUuid: membership.organizationUuid,
-                                type: ProjectType.DEFAULT,
-                            }),
-                        ),
-                    ).toEqual(canCreateProject);
-                });
+                describe(`user is '${membership.role}' role`, () => {
+                    it('checks if users can create project in organization they belong to', () => {
+                        expect(
+                            ability.can(
+                                'create',
+                                subject('Project', {
+                                    organizationUuid:
+                                        membership.organizationUuid,
+                                    type: ProjectType.DEFAULT,
+                                }),
+                            ),
+                        ).toEqual(canCreateProject);
+                    });
 
-                it('checks that users cannot create a project in another organization', () => {
-                    expect(
-                        ability.can(
-                            'create',
-                            subject('Project', {
-                                organizationUuid: '789',
-                                type: ProjectType.DEFAULT,
-                            }),
-                        ),
-                    ).toEqual(false);
-                });
+                    it('checks that users cannot create a project in another organization', () => {
+                        expect(
+                            ability.can(
+                                'create',
+                                subject('Project', {
+                                    organizationUuid: '789',
+                                    type: ProjectType.DEFAULT,
+                                }),
+                            ),
+                        ).toEqual(false);
+                    });
 
-                it('checks if users can create a PREVIEW project in organization they belong to', () => {
-                    expect(
-                        ability.can(
-                            'create',
-                            subject('Project', {
-                                organizationUuid: membership.organizationUuid,
-                                type: ProjectType.PREVIEW,
-                            }),
-                        ),
-                    ).toEqual(canCreatePreview);
-                });
+                    it('checks if users can create a PREVIEW project in organization they belong to', () => {
+                        expect(
+                            ability.can(
+                                'create',
+                                subject('Project', {
+                                    organizationUuid:
+                                        membership.organizationUuid,
+                                    type: ProjectType.PREVIEW,
+                                }),
+                            ),
+                        ).toEqual(canCreatePreview);
+                    });
 
-                it('checks that users cannot create a PREVIEW project in another organization', () => {
-                    expect(
-                        ability.can(
-                            'create',
-                            subject('Project', {
-                                organizationUuid: '789',
-                                type: ProjectType.PREVIEW,
-                            }),
-                        ),
-                    ).toEqual(false);
+                    it('checks that users cannot create a PREVIEW project in another organization', () => {
+                        expect(
+                            ability.can(
+                                'create',
+                                subject('Project', {
+                                    organizationUuid: '789',
+                                    type: ProjectType.PREVIEW,
+                                }),
+                            ),
+                        ).toEqual(false);
+                    });
+
+                    it('checks if users can delete a project in organization they belong to', () => {
+                        expect(
+                            ability.can(
+                                'delete',
+                                subject('Project', {
+                                    organizationUuid:
+                                        membership.organizationUuid,
+                                }),
+                            ),
+                        ).toEqual(canDeleteProject);
+                    });
+
+                    it('checks that users cannot delete a project in another organization', () => {
+                        expect(
+                            ability.can(
+                                'delete',
+                                subject('Project', {
+                                    organizationUuid: '789',
+                                }),
+                            ),
+                        ).toEqual(false);
+                    });
+
+                    it('checks if users can delete a PREVIEW project in organization they belong to', () => {
+                        expect(
+                            ability.can(
+                                'delete',
+                                subject('Project', {
+                                    organizationUuid:
+                                        membership.organizationUuid,
+                                    type: ProjectType.PREVIEW,
+                                }),
+                            ),
+                        ).toEqual(canDeletePreview);
+                    });
+
+                    it('checks that users cannot delete a PREVIEW project in another organization', () => {
+                        expect(
+                            ability.can(
+                                'delete',
+                                subject('Project', {
+                                    organizationUuid: '789',
+                                    type: ProjectType.PREVIEW,
+                                }),
+                            ),
+                        ).toEqual(false);
+                    });
                 });
-            });
+            },
+        );
+    });
+
+    // test permissionsConfig
+    describe('Personal Access Tokens permissions', () => {
+        it('cannot create a personal access token as PAT is disabled', () => {
+            const ability = defineAbilityForOrganizationMember(
+                ORGANIZATION_ADMIN,
+                {
+                    pat: {
+                        enabled: false,
+                        allowedOrgRoles: Object.values(OrganizationMemberRole),
+                    },
+                },
+            );
+
+            expect(
+                ability.can(
+                    'create',
+                    subject('PersonalAccessToken', {
+                        organizationUuid: ORGANIZATION_ADMIN.organizationUuid,
+                        userUuid: ORGANIZATION_ADMIN.userUuid,
+                    }),
+                ),
+            ).toEqual(false);
+        });
+        it('cannot create a personal access token as PAT allowed roles dont match', () => {
+            const ability = defineAbilityForOrganizationMember(
+                ORGANIZATION_DEVELOPER,
+                {
+                    pat: {
+                        enabled: true,
+                        allowedOrgRoles: [OrganizationMemberRole.ADMIN],
+                    },
+                },
+            );
+
+            expect(
+                ability.can(
+                    'create',
+                    subject('PersonalAccessToken', {
+                        organizationUuid:
+                            ORGANIZATION_DEVELOPER.organizationUuid,
+                        userUuid: ORGANIZATION_DEVELOPER.userUuid,
+                    }),
+                ),
+            ).toEqual(false);
+        });
+        it('can create a personal access token as PAT is enabled', () => {
+            const ability = defineAbilityForOrganizationMember(
+                ORGANIZATION_ADMIN,
+                {
+                    pat: {
+                        enabled: true,
+                        allowedOrgRoles: [OrganizationMemberRole.ADMIN],
+                    },
+                },
+            );
+
+            expect(
+                ability.can(
+                    'create',
+                    subject('PersonalAccessToken', {
+                        organizationUuid: ORGANIZATION_ADMIN.organizationUuid,
+                        userUuid: ORGANIZATION_ADMIN.userUuid,
+                    }),
+                ),
+            ).toEqual(true);
         });
     });
 });

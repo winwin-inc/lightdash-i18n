@@ -51,7 +51,7 @@ const ExplorerPage = memo(() => {
     const { projectUuid } = useParams<{ projectUuid: string }>();
 
     const explorerUrlState = useExplorerUrlState();
-    const { user } = useApp();
+    const { user, health } = useApp();
 
     const dateZoomGranularity = useDateZoomGranularitySearch();
 
@@ -81,6 +81,7 @@ const ExplorerPage = memo(() => {
             isEditMode={true}
             initialState={explorerUrlState}
             queryResults={queryResults}
+            defaultLimit={health.data?.query.defaultLimit}
         >
             <ExplorerWithUrlParams />
         </ExplorerProvider>

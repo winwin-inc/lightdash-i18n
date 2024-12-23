@@ -1,4 +1,5 @@
 import {
+    PieChartLegendLabelMaxLengthDefault,
     PieChartLegendPositions,
     type PieChartLegendPosition,
 } from '@lightdash/common';
@@ -8,6 +9,7 @@ import {
     SegmentedControl,
     Stack,
     Switch,
+    TextInput,
 } from '@mantine/core';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -27,6 +29,8 @@ export const Display: React.FC = () => {
         toggleShowLegend,
         legendPosition,
         legendPositionChange,
+        legendMaxItemLength,
+        legendMaxItemLengthChange,
     } = visualizationConfig.chartConfig;
 
     return (
@@ -43,26 +47,51 @@ export const Display: React.FC = () => {
             </Config>
 
             <Collapse in={showLegend}>
-                <Group spacing="xs">
-                    <Config.Label>
-                        {t(
-                            'components_visualization_configs_chart_pie.display_config.orientation',
-                        )}
-                    </Config.Label>
-                    <SegmentedControl
-                        name="orient"
-                        value={legendPosition}
-                        onChange={(val: PieChartLegendPosition) =>
-                            legendPositionChange(val)
-                        }
-                        data={Object.entries(PieChartLegendPositions).map(
-                            ([position, label]) => ({
-                                label,
-                                value: position,
-                            }),
-                        )}
-                    />
-                </Group>
+                <Stack spacing="xs">
+                    <Group spacing="xs">
+                        <Config.Label>
+                            {t(
+                                'components_visualization_configs_chart_pie.display_config.orientation',
+                            )}
+                        </Config.Label>
+                        <SegmentedControl
+                            name="orient"
+                            value={legendPosition}
+                            onChange={(val: PieChartLegendPosition) =>
+                                legendPositionChange(val)
+                            }
+                            data={Object.entries(PieChartLegendPositions).map(
+                                ([position, label]) => ({
+                                    label,
+                                    value: position,
+                                }),
+                            )}
+                        />
+                    </Group>
+                    <Group>
+                        <Config.Label>
+                            {t(
+                                'components_visualization_configs_chart_pie.display_config.label_max_length',
+                            )}
+                        </Config.Label>
+                        <TextInput
+                            type="number"
+                            value={legendMaxItemLength}
+                            placeholder={PieChartLegendLabelMaxLengthDefault.toString()}
+                            onChange={(e) => {
+                                const parsedNumber = Number.parseInt(
+                                    e.target.value,
+                                    10,
+                                );
+                                legendMaxItemLengthChange(
+                                    !Number.isNaN(parsedNumber)
+                                        ? parsedNumber
+                                        : undefined,
+                                );
+                            }}
+                        />
+                    </Group>
+                </Stack>
             </Collapse>
         </Stack>
     );

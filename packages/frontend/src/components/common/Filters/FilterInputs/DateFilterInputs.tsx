@@ -7,6 +7,7 @@ import {
     isFilterRule,
     parseDate,
     TimeFrames,
+    timeframeToUnitOfTime,
     type ConditionalRule,
     type DateFilterRule,
 } from '@lightdash/common';
@@ -257,6 +258,11 @@ const DateFilterInputs = <T extends ConditionalRule = DateFilterRule>(
                         disabled={disabled}
                         sx={{ flexShrink: 0, flexGrow: 3 }}
                         isTimestamp={isTimestamp}
+                        minUnitOfTime={
+                            isDimension(field) && field.timeInterval
+                                ? timeframeToUnitOfTime(field.timeInterval)
+                                : undefined
+                        }
                         unitOfTime={rule.settings?.unitOfTime}
                         completed={rule.settings?.completed || false}
                         withinPortal={popoverProps?.withinPortal}
@@ -282,6 +288,11 @@ const DateFilterInputs = <T extends ConditionalRule = DateFilterRule>(
                     disabled={disabled}
                     isTimestamp={isTimestamp}
                     unitOfTime={rule.settings?.unitOfTime}
+                    minUnitOfTime={
+                        isDimension(field) && field.timeInterval
+                            ? timeframeToUnitOfTime(field.timeInterval)
+                            : undefined
+                    }
                     showOptionsInPlural={false}
                     showCompletedOptions={false}
                     completed={false}

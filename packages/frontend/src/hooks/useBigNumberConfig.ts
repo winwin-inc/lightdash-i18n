@@ -8,6 +8,7 @@ import {
     getCustomFormatFromLegacy,
     getItemId,
     getItemLabel,
+    hasFormatOptions,
     isField,
     isMetric,
     isNumericItem,
@@ -20,8 +21,9 @@ import {
     type TableCalculationMetadata,
 } from '@lightdash/common';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
-const calculateComparisonValue = (
+export const calculateComparisonValue = (
     a: number,
     b: number,
     format: ComparisonFormatTypes | undefined,
@@ -114,6 +116,8 @@ const useBigNumberConfig = (
     itemsMap: ItemsMap | undefined,
     tableCalculationsMetadata?: TableCalculationMetadata[],
 ) => {
+    const { t } = useTranslation();
+
     const availableFieldsIds = useMemo(() => {
         const itemsSortedByType = Object.values(itemsMap || {}).sort((a, b) => {
             return getItemPriority(a) - getItemPriority(b);
@@ -251,6 +255,23 @@ const useBigNumberConfig = (
             );
         } else if (item !== undefined && isTableCalculation(item)) {
             return formatItemValue(item, firstRowValueRaw);
+        } else if (item !== undefined && hasFormatOptions(item)) {
+            // Custom metrics case
+
+            // If the custom metric has no format, but the big number has
+            // compact, treat the custom metric as a number
+            const type =
+                item.formatOptions?.type === CustomFormatType.DEFAULT
+                    ? bigNumberStyle
+                        ? CustomFormatType.NUMBER
+                        : CustomFormatType.DEFAULT
+                    : item.formatOptions?.type;
+
+            return applyCustomFormat(firstRowValueRaw, {
+                ...item.formatOptions,
+                type,
+                compact: bigNumberStyle ?? item.formatOptions?.compact,
+            });
         } else {
             return applyCustomFormat(
                 firstRowValueRaw,
@@ -320,15 +341,17 @@ const useBigNumberConfig = (
         switch (comparisonDiff) {
             case ComparisonDiffTypes.POSITIVE:
             case ComparisonDiffTypes.NEGATIVE:
-                return `${comparisonValue} compared to previous row`;
+                return t(`hooks_big_number_config.compare`, {
+                    comparisonValue,
+                });
             case ComparisonDiffTypes.NONE:
-                return `No change compared to previous row`;
+                return t(`hooks_big_number_config.no_change`);
             case ComparisonDiffTypes.NAN:
-                return `The previous row's value is not a number`;
+                return t(`hooks_big_number_config.not_number`);
             case ComparisonDiffTypes.UNDEFINED:
-                return `There is no previous row to compare to`;
+                return t(`hooks_big_number_config.no_previous_row`);
         }
-    }, [comparisonValue, comparisonDiff]);
+    }, [comparisonValue, comparisonDiff, t]);
 
     const showStyle =
         isNumber(item, firstRowValueRaw) &&

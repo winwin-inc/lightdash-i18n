@@ -57,7 +57,8 @@ type TrackSimpleEvent = BaseTrack & {
         | 'invite_link.all_revoked'
         | 'password_reset_link.created'
         | 'password_reset_link.used'
-        | 'personal_access_token.deleted';
+        | 'personal_access_token.deleted'
+        | 'personal_access_token.rotated';
 };
 
 type PersonalAccessTokenEvent = BaseTrack & {
@@ -90,26 +91,39 @@ type IdentityLinkedEvent = BaseTrack & {
     };
 };
 
-type CreateUserEvent = BaseTrack & {
+export type CreateUserEvent = BaseTrack & {
     event: 'user.created';
+    userId?: string;
     properties: {
+        context: string; // context on where/why this user was created
+        createdUserId: string;
+        organizationId: string | undefined; // undefined because they can join an org later
         userConnectionType: 'password' | OpenIdIdentityIssuerType;
     };
 };
 
-type DeleteUserEvent = BaseTrack & {
+export type DeleteUserEvent = BaseTrack & {
     event: 'user.deleted';
+    userId?: string;
     properties: {
+        context: string; // context on where/why this user was delete
         firstName: string;
         lastName: string;
-        email: string;
-        organizationId: string;
+        email: string | undefined;
+        organizationId: string | undefined;
+        deletedUserId: string;
     };
 };
 
-type UpdateUserEvent = BaseTrack & {
+export type UpdateUserEvent = BaseTrack & {
     event: 'user.updated';
-    properties: LightdashUser & { jobTitle?: string };
+    userId?: string;
+    properties: Omit<LightdashUser, 'userUuid' | 'organizationUuid'> & {
+        updatedUserId: string;
+        organizationId: string | undefined;
+        jobTitle?: string;
+        context: string; // context on where/why this user was updated
+    };
 };
 
 function isUserUpdatedEvent(event: BaseTrack): event is UpdateUserEvent {
@@ -273,13 +287,6 @@ type OrganizationAllowedEmailDomainUpdatedEvent = BaseTrack & {
         role: OrganizationMemberRole;
         projectIds: string[];
         projectRoles: ProjectMemberRole[];
-    };
-};
-
-type TrackUserDeletedEvent = BaseTrack & {
-    event: 'user.deleted';
-    properties: {
-        deletedUserUuid: string;
     };
 };
 
@@ -851,6 +858,7 @@ export type SchedulerUpsertEvent = BaseTrack & {
             type: 'slack' | 'email';
         }>;
         timeZone: string | undefined;
+        includeLinks: boolean;
     };
 };
 export type SchedulerTimezoneUpdateEvent = BaseTrack & {
@@ -968,6 +976,7 @@ export type DownloadCsv = BaseTrack & {
         numRows?: number;
         numColumns?: number;
         error?: string;
+        numPivotDimensions?: number;
     };
 };
 
@@ -1037,8 +1046,9 @@ export type UserAttributeDeleteEvent = BaseTrack & {
 
 export type GroupCreateAndUpdateEvent = BaseTrack & {
     event: 'group.created' | 'group.updated';
-    userId: string;
+    userId?: string;
     properties: {
+        context: string; // context on where/why this group was created/updated
         organizationId: string;
         groupId: string;
         name: string;
@@ -1049,8 +1059,9 @@ export type GroupCreateAndUpdateEvent = BaseTrack & {
 
 export type GroupDeleteEvent = BaseTrack & {
     event: 'group.deleted';
-    userId: string;
+    userId?: string;
     properties: {
+        context: string; // context on where/why this group was deleted
         organizationId: string;
         groupId: string;
     };
@@ -1107,6 +1118,16 @@ export type WriteBackEvent = BaseTrack & {
     };
 };
 
+type CreateTagEvent = BaseTrack & {
+    event: 'category.created';
+    userId: string;
+    properties: {
+        name: string;
+        projectId: string;
+        organizationId: string;
+    };
+};
+
 type TypedEvent =
     | TrackSimpleEvent
     | CreateUserEvent
@@ -1123,7 +1144,6 @@ type TypedEvent =
     | ViewChartVersionEvent
     | RollbackChartVersionEvent
     | CreateSavedChartVersionEvent
-    | TrackUserDeletedEvent
     | ProjectErrorEvent
     | ApiErrorEvent
     | ProjectEvent
@@ -1183,7 +1203,8 @@ type TypedEvent =
     | VirtualViewEvent
     | GithubInstallEvent
     | WriteBackEvent
-    | SchedulerTimezoneUpdateEvent;
+    | SchedulerTimezoneUpdateEvent
+    | CreateTagEvent;
 
 type WrapTypedEvent = SemanticLayerView;
 

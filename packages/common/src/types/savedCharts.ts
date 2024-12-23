@@ -79,6 +79,8 @@ export type PieChartLegendPosition = keyof typeof PieChartLegendPositions;
 export const PieChartLegendPositionDefault = Object.keys(
     PieChartLegendPositions,
 )[0] as PieChartLegendPosition;
+export const PieChartLegendLabelMaxLengthDefault = 30;
+export const PieChartTooltipLabelMaxLength = 40;
 
 export type SeriesMetadata = {
     color: string;
@@ -96,6 +98,7 @@ export type PieChart = {
     groupSortOverrides?: string[];
     showLegend?: boolean;
     legendPosition?: PieChartLegendPosition;
+    legendMaxItemLength?: number;
     metadata?: Record<string, SeriesMetadata>;
 };
 
@@ -584,11 +587,7 @@ export const getChartKind = (
 };
 
 export const getEChartsChartTypeFromChartKind = (
-    chartKind:
-        | ChartKind.VERTICAL_BAR
-        | ChartKind.LINE
-        | ChartKind.AREA
-        | ChartKind.SCATTER,
+    chartKind: ChartKind,
 ): CartesianSeriesType => {
     switch (chartKind) {
         case ChartKind.VERTICAL_BAR:
@@ -600,10 +599,7 @@ export const getEChartsChartTypeFromChartKind = (
         case ChartKind.SCATTER:
             return CartesianSeriesType.SCATTER;
         default:
-            return assertUnreachable(
-                chartKind,
-                `Unknown chart kind: ${chartKind}`,
-            );
+            return CartesianSeriesType.BAR;
     }
 };
 

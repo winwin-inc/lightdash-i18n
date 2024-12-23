@@ -1,5 +1,5 @@
 import { subject } from '@casl/ability';
-import { type UserAttribute } from '@lightdash/common';
+import { FeatureFlags, type UserAttribute } from '@lightdash/common';
 import {
     ActionIcon,
     Box,
@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import { useTableStyles } from '../../../hooks/styles/useTableStyles';
+import { useFeatureFlag } from '../../../hooks/useFeatureFlagEnabled';
 import {
     useUserAttributes,
     useUserAttributesDeleteMutation,
@@ -158,7 +159,10 @@ const UserListItem: FC<{
 
 const UserAttributesPanel: FC = () => {
     const { classes } = useTableStyles();
-    const { user, health } = useApp();
+    const { user } = useApp();
+    const { data: UserGroupsFeatureFlag } = useFeatureFlag(
+        FeatureFlags.UserGroupsEnabled,
+    );
     const [showAddAttributeModal, addAttributeModal] = useDisclosure(false);
     const { t } = useTranslation();
 
@@ -186,9 +190,9 @@ const UserAttributesPanel: FC = () => {
             />
         );
 
-    if (!user.data || !health.data) return null;
+    if (!user.data || !UserGroupsFeatureFlag) return null;
 
-    const isGroupManagementEnabled = health.data.hasGroups;
+    const isGroupManagementEnabled = UserGroupsFeatureFlag?.enabled;
 
     return (
         <Stack>

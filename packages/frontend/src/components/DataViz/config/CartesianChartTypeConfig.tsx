@@ -1,4 +1,8 @@
-import { ChartKind, type CartesianChartDisplay } from '@lightdash/common';
+import {
+    CartesianSeriesType,
+    ChartKind,
+    type CartesianChartDisplay,
+} from '@lightdash/common';
 import { Box, Group, Select, Text } from '@mantine/core';
 import { forwardRef, type ComponentPropsWithoutRef, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,20 +11,28 @@ import MantineIcon from '../../common/MantineIcon';
 import { getChartIcon } from '../../common/ResourceIcon';
 
 type Props = {
-    type: ChartKind | undefined;
+    type: CartesianSeriesType | undefined;
     onChangeType: (
         value: NonNullable<CartesianChartDisplay['series']>[number]['type'],
     ) => void;
     canSelectDifferentTypeFromBaseChart: boolean;
 };
 
-const ChartTypeIcon: FC<{ type: ChartKind }> = ({ type }) => (
-    <MantineIcon icon={getChartIcon(type)} color="indigo.4" />
-);
+const ChartTypeIcon: FC<{ type: CartesianSeriesType }> = ({ type }) => {
+    const chartKind =
+        type === CartesianSeriesType.BAR
+            ? ChartKind.VERTICAL_BAR
+            : ChartKind.LINE;
+
+    return <MantineIcon icon={getChartIcon(chartKind)} color="indigo.4" />;
+};
 
 const ChartTypeItem = forwardRef<
     HTMLDivElement,
-    ComponentPropsWithoutRef<'div'> & { value: ChartKind; label: string }
+    ComponentPropsWithoutRef<'div'> & {
+        value: CartesianSeriesType;
+        label: string;
+    }
 >(({ value, label, ...others }, ref) => (
     <Box ref={ref} {...others}>
         <Group noWrap spacing="xs">
@@ -35,11 +47,11 @@ export const CartesianChartTypeConfig: FC<Props> = ({ onChangeType, type }) => {
 
     const options = [
         {
-            value: ChartKind.VERTICAL_BAR,
-            label: t('components_dataviz_cartesian_chart.vertical_bar'),
+            value: CartesianSeriesType.BAR,
+            label: t('components_dataviz_cartesian_chart.bar'),
         },
         {
-            value: ChartKind.LINE,
+            value: CartesianSeriesType.LINE,
             label: t('components_dataviz_cartesian_chart.line'),
         },
     ];
@@ -56,8 +68,8 @@ export const CartesianChartTypeConfig: FC<Props> = ({ onChangeType, type }) => {
             value={type}
             onChange={(
                 value: Extract<
-                    ChartKind,
-                    ChartKind.LINE | ChartKind.VERTICAL_BAR
+                    CartesianSeriesType,
+                    CartesianSeriesType.LINE | CartesianSeriesType.BAR
                 >,
             ) => value && onChangeType(value)}
             styles={(theme) => ({

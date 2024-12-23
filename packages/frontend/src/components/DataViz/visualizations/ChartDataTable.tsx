@@ -4,10 +4,12 @@ import {
     type VizColumnsConfig,
     type VizTableHeaderSortConfig,
 } from '@lightdash/common';
-import { Badge, Flex, Group, type FlexProps } from '@mantine/core';
+import { Badge, Flex, Group, Tooltip, type FlexProps } from '@mantine/core';
 import { IconArrowDown, IconArrowUp } from '@tabler/icons-react';
 import { flexRender } from '@tanstack/react-table';
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { SMALL_TEXT_LENGTH } from '../../common/LightTable';
 import MantineIcon from '../../common/MantineIcon';
 import BodyCell from '../../common/Table/ScrollableTable/BodyCell';
@@ -40,6 +42,8 @@ export const ChartDataTable = ({
     thSortConfig,
     onTHClick,
 }: TableProps) => {
+    const { t } = useTranslation();
+
     const { tableWrapperRef, getTableData, paddingTop, paddingBottom } =
         useVirtualTable({ columnNames, rows, config: columnsConfig });
 
@@ -62,73 +66,85 @@ export const ChartDataTable = ({
             className="sentry-block ph-no-capture"
         >
             <TableStyled>
-                <thead>
-                    <tr>
-                        {headerGroups.map((headerGroup) =>
-                            headerGroup.headers.map((header) => {
-                                const sortConfig = thSortConfig?.[header.id];
-                                const onClick =
-                                    sortConfig && onTHClick
-                                        ? () => onTHClick(header.id)
-                                        : undefined;
+                <Tooltip.Group>
+                    <thead>
+                        <tr>
+                            {headerGroups.map((headerGroup) =>
+                                headerGroup.headers.map((header) => {
+                                    const sortConfig =
+                                        thSortConfig?.[header.id];
+                                    const onClick =
+                                        sortConfig && onTHClick
+                                            ? () => onTHClick(header.id)
+                                            : undefined;
 
-                                return (
-                                    <th
-                                        key={header.id}
-                                        onClick={onClick}
-                                        style={
-                                            onClick
-                                                ? {
-                                                      cursor: 'pointer',
-                                                      backgroundColor:
-                                                          TABLE_HEADER_BG,
-                                                  }
-                                                : {
-                                                      backgroundColor:
-                                                          TABLE_HEADER_BG,
-                                                  }
-                                        }
-                                    >
-                                        <Group spacing="two" fz={13}>
-                                            {columnsConfig?.[header.id]
-                                                ?.aggregation && (
-                                                <Badge
-                                                    size="sm"
-                                                    color="indigo"
-                                                    radius="xs"
-                                                >
-                                                    {
-                                                        columnsConfig?.[
-                                                            header.id
-                                                        ]?.aggregation
-                                                    }
-                                                </Badge>
-                                            )}
-                                            {/* TODO: do we need to check if it's a
-                                      placeholder? */}
-                                            {flexRender(
-                                                header.column.columnDef.header,
-                                                header.getContext(),
-                                            )}
-
-                                            {onClick &&
-                                                sortConfig?.direction && (
-                                                    <MantineIcon
-                                                        icon={
-                                                            sortConfig.direction ===
-                                                            SortByDirection.ASC
-                                                                ? IconArrowUp
-                                                                : IconArrowDown
-                                                        }
-                                                    ></MantineIcon>
+                                    return (
+                                        <th
+                                            key={header.id}
+                                            onClick={onClick}
+                                            style={
+                                                onClick
+                                                    ? {
+                                                          cursor: 'pointer',
+                                                          backgroundColor:
+                                                              TABLE_HEADER_BG,
+                                                      }
+                                                    : {
+                                                          backgroundColor:
+                                                              TABLE_HEADER_BG,
+                                                      }
+                                            }
+                                        >
+                                            <Tooltip
+                                                label={t(
+                                                    'components_dataviz_visualizations_chart_data_table.tooltip',
                                                 )}
-                                        </Group>
-                                    </th>
-                                );
-                            }),
-                        )}
-                    </tr>
-                </thead>
+                                                disabled={!!onClick}
+                                                position="top"
+                                                withinPortal
+                                            >
+                                                <Group spacing="two" fz={13}>
+                                                    {columnsConfig?.[header.id]
+                                                        ?.aggregation && (
+                                                        <Badge
+                                                            size="sm"
+                                                            color="indigo"
+                                                            radius="xs"
+                                                        >
+                                                            {
+                                                                columnsConfig?.[
+                                                                    header.id
+                                                                ]?.aggregation
+                                                            }
+                                                        </Badge>
+                                                    )}
+
+                                                    {flexRender(
+                                                        header.column.columnDef
+                                                            .header,
+                                                        header.getContext(),
+                                                    )}
+
+                                                    {onClick &&
+                                                        sortConfig?.direction && (
+                                                            <MantineIcon
+                                                                icon={
+                                                                    sortConfig.direction ===
+                                                                    SortByDirection.ASC
+                                                                        ? IconArrowUp
+                                                                        : IconArrowDown
+                                                                }
+                                                            ></MantineIcon>
+                                                        )}
+                                                </Group>
+                                            </Tooltip>
+                                        </th>
+                                    );
+                                }),
+                            )}
+                        </tr>
+                    </thead>
+                </Tooltip.Group>
                 <tbody>
                     {paddingTop > 0 && (
                         <VirtualizedArea

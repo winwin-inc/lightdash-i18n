@@ -2,7 +2,9 @@ import { Box, LoadingOverlay, Text } from '@mantine/core';
 import { useTimeout } from '@mantine/hooks';
 import { IconGripHorizontal } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useAppSelector } from '../store/hooks';
 import { TableFields } from './TableFields';
@@ -17,7 +19,9 @@ export const TablesPanel: React.FC<TablesPanelProps> = ({
     isLoading,
     error,
 }) => {
-    const initialPanelSizes = [80, 20];
+    const { t } = useTranslation();
+
+    const initialPanelSizes = [50, 50];
     const activeTable = useAppSelector((state) => state.sqlRunner.activeTable);
 
     // state for controlling the "still loading" message
@@ -50,7 +54,7 @@ export const TablesPanel: React.FC<TablesPanelProps> = ({
 
             {isLoading && showLoadingMessage && (
                 <Text color="gray.9" align="center">
-                    Hang on, still loading...
+                    {t('features_sql_runner_tables_panel.hang_on')}
                 </Text>
             )}
 

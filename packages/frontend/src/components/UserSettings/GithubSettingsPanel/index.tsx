@@ -36,18 +36,21 @@ const getGithubRepositories = async () =>
         body: undefined,
     });
 
-export const useGitHubRepositories = () => {
+const useGitHubRepositories = () => {
     const { showToastApiError } = useToaster();
+    const { t } = useTranslation();
 
     return useQuery<GitRepo[], ApiError>({
         queryKey: ['github_branches'],
         queryFn: () => getGithubRepositories(),
         retry: false,
         onError: ({ error }) => {
-            if (error.statusCode === 404) return; // Ignore missing installation errors
+            if (error.statusCode === 404 || error.statusCode === 401) return; // Ignore missing installation errors or unauthorized in demo
 
             showToastApiError({
-                title: 'Failed to get GitHub integration',
+                title: t(
+                    'components_user_settings_github_settings_panel.toast_error_get.title',
+                ),
                 apiError: error,
             });
         },
@@ -114,9 +117,12 @@ const GithubSettingsPanel: FC = () => {
         ) {
             const toastKey = 'github_request_sent';
             showToastWarning({
-                title: 'GitHub app installation pending',
-                subtitle:
-                    'The GitHub app is waiting to be authorized by a Github admin.',
+                title: t(
+                    'components_user_settings_github_settings_panel.install_pending.title',
+                ),
+                subtitle: t(
+                    'components_user_settings_github_settings_panel.install_pending.subtitle',
+                ),
                 key: toastKey,
             });
         }
@@ -125,6 +131,7 @@ const GithubSettingsPanel: FC = () => {
         isValidGithubInstallation,
         isInitialLoading,
         showToastWarning,
+        t,
     ]);
 
     if (isInitialLoading) {

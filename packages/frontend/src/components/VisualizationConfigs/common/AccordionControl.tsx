@@ -2,6 +2,7 @@ import {
     Accordion,
     ActionIcon,
     Box,
+    Flex,
     Group,
     Text,
     Tooltip,
@@ -10,7 +11,6 @@ import {
 import { useHover } from '@mantine/hooks';
 import { IconTrash } from '@tabler/icons-react';
 import { type FC } from 'react';
-import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../common/MantineIcon';
 
@@ -29,16 +29,15 @@ export const AccordionControl: FC<Props> = ({
     extraControlElements,
     ...props
 }) => {
-    const { t } = useTranslation();
     const { ref, hovered } = useHover<HTMLDivElement>();
 
     return (
-        <Group
-            noWrap
+        <Flex
             ref={ref}
-            spacing="xs"
             px="xs"
             pos="relative"
+            align="center"
+            gap="xs"
             sx={(theme) => ({
                 borderRadius: theme.radius.sm,
                 '&:hover': {
@@ -51,30 +50,38 @@ export const AccordionControl: FC<Props> = ({
                     {extraControlElements}
                 </Box>
             )}
-            <Tooltip
-                variant="xs"
-                label={`${t(
-                    'components_visualization_configs_common.remove',
-                )} ${label}`}
-                position="left"
-                withinPortal
+            <Text
+                fw={500}
+                size="xs"
+                truncate
+                sx={{ flex: 1 }}
+                onClick={onControlClick}
             >
-                <ActionIcon
-                    onClick={onRemove}
-                    pos="absolute"
-                    right={40}
-                    sx={{
-                        visibility: hovered ? 'visible' : 'hidden',
-                    }}
+                {label}
+            </Text>
+            <Group noWrap ml="sm" spacing="lg">
+                <Tooltip
+                    variant="xs"
+                    label={`Remove ${label}`}
+                    position="right"
+                    withinPortal
                 >
-                    <MantineIcon icon={IconTrash} />
-                </ActionIcon>
-            </Tooltip>
-            <Accordion.Control onClick={onControlClick} {...props}>
-                <Text fw={500} size="xs">
-                    {label}
-                </Text>
-            </Accordion.Control>
-        </Group>
+                    <ActionIcon
+                        onClick={onRemove}
+                        sx={{
+                            visibility: hovered ? 'visible' : 'hidden',
+                        }}
+                    >
+                        <MantineIcon icon={IconTrash} />
+                    </ActionIcon>
+                </Tooltip>
+                <Accordion.Control
+                    w="sm"
+                    sx={{ flex: 0 }}
+                    onClick={onControlClick}
+                    {...props}
+                />
+            </Group>
+        </Flex>
     );
 };

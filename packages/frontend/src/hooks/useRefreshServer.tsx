@@ -8,7 +8,9 @@ import {
     type JobStep,
 } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import { lightdashApi } from '../api';
 import { useActiveJob } from '../providers/ActiveJobProvider';
 import useToaster from './toaster/useToaster';
@@ -102,6 +104,9 @@ export const useJob = (
         onSuccess: async (job) => {
             if (job.jobStatus === JobStatusType.DONE) {
                 await queryClient.invalidateQueries(['tables']);
+                await queryClient.resetQueries(['metrics-catalog'], {
+                    exact: false,
+                });
 
                 if (job.jobType === JobType.COMPILE_PROJECT) {
                     await queryClient.invalidateQueries([
@@ -121,6 +126,8 @@ export const useRefreshServer = () => {
     const queryClient = useQueryClient();
     const { setActiveJobId } = useActiveJob();
     const { showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<ApiRefreshResults, ApiError>({
         mutationKey: ['refresh', projectUuid],
         mutationFn: () => refresh(projectUuid),
@@ -129,7 +136,7 @@ export const useRefreshServer = () => {
         onSuccess: (data) => setActiveJobId(data.jobUuid),
         onError: ({ error }) =>
             showToastApiError({
-                title: 'Error syncing dbt project',
+                title: t('hooks_refresh_server.error'),
                 apiError: error,
             }),
     });
