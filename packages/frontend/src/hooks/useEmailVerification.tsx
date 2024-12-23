@@ -61,6 +61,8 @@ export const useOneTimePassword = () => {
 export const useVerifyEmail = () => {
     const queryClient = useQueryClient();
     const { showToastSuccess } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<EmailStatusExpiring, ApiError, string>(
         (code) => verifyOTPQuery(code),
         {

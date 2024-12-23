@@ -26,13 +26,9 @@ export const useTimeAgo = (timeStamp: Date, interval: number = 10000) => {
 
     const [timeAgo, setTimeAgo] = useState<string>(fromNow(timeStamp));
 
-    useInterval(
-        () => {
-            setTimeAgo(fromNow(timeStamp));
-        },
-        interval,
-        fromNow,
-    );
+    useInterval(() => {
+        setTimeAgo(fromNow(timeStamp));
+    }, interval);
     useEffect(() => {
         setTimeAgo(fromNow(timeStamp));
     }, [timeStamp, fromNow]);

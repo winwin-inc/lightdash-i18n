@@ -32,6 +32,7 @@ import React, {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import { useUpdateMultipleDashboard } from '../../../hooks/dashboard/useDashboards';
 import { useInfiniteContent } from '../../../hooks/useContent';
 import { useUpdateMultipleMutation } from '../../../hooks/useSavedQuery';
