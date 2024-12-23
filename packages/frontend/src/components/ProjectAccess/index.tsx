@@ -1,10 +1,12 @@
 import { subject } from '@casl/ability';
+import { FeatureFlags } from '@lightdash/common';
 import { Anchor, Button, Group, Stack, Tabs, Text } from '@mantine/core';
 import { IconPlus, IconUser, IconUsersGroup } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ProjectGroupAccess } from '../../features/projectGroupAccess';
+import { useFeatureFlag } from '../../hooks/useFeatureFlagEnabled';
 import { useApp } from '../../providers/AppProvider';
 import { Can } from '../common/Authorization';
 import MantineIcon from '../common/MantineIcon';
@@ -15,16 +17,19 @@ interface ProjectUserAccessProps {
 }
 
 const ProjectUserAccess: FC<ProjectUserAccessProps> = ({ projectUuid }) => {
-    const { user, health } = useApp();
     const { t } = useTranslation();
+    const { user } = useApp();
+    const { data: UserGroupsFeatureFlag } = useFeatureFlag(
+        FeatureFlags.UserGroupsEnabled,
+    );
 
     const [showProjectAccessAdd, setShowProjectAccessAdd] = useState(false);
     const [showProjectGroupAccessAdd, setShowProjectGroupAccessAdd] =
         useState(false);
 
-    if (!user.data || !health.data) return null;
+    if (!user.data || !UserGroupsFeatureFlag) return null;
 
-    const isGroupManagementEnabled = health.data.hasGroups;
+    const isGroupManagementEnabled = UserGroupsFeatureFlag?.enabled;
 
     return (
         <Stack>

@@ -30,7 +30,7 @@ const MinimalDashboard: FC = () => {
     const { t } = useTranslation();
     const { dashboardUuid } = useParams<{ dashboardUuid: string }>();
     const schedulerUuid = useSearchParams('schedulerUuid');
-    const sendNowchedulerFilters = useSearchParams('sendNowchedulerFilters');
+    const sendNowSchedulerFilters = useSearchParams('sendNowSchedulerFilters');
     const schedulerTabs = useSearchParams('selectedTabs');
     const dateZoom = useDateZoomGranularitySearch();
 
@@ -45,18 +45,18 @@ const MinimalDashboard: FC = () => {
         isError: isSchedulerError,
         error: schedulerError,
     } = useScheduler(schedulerUuid!, {
-        enabled: !!schedulerUuid && !sendNowchedulerFilters,
+        enabled: !!schedulerUuid && !sendNowSchedulerFilters,
     });
 
     const schedulerFilters = useMemo(() => {
         if (schedulerUuid && scheduler && isDashboardScheduler(scheduler)) {
             return scheduler.filters;
         }
-        if (sendNowchedulerFilters) {
-            return JSON.parse(sendNowchedulerFilters);
+        if (sendNowSchedulerFilters) {
+            return JSON.parse(sendNowSchedulerFilters);
         }
         return undefined;
-    }, [scheduler, schedulerUuid, sendNowchedulerFilters]);
+    }, [scheduler, schedulerUuid, sendNowSchedulerFilters]);
 
     const selectedTabs = useMemo(() => {
         if (schedulerTabs) {

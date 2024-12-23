@@ -51,7 +51,7 @@ export const CommentForm: FC<Props> = ({
     const userNames: SuggestionsItem[] | undefined = useMemo(() => {
         if (!listUsers || !space?.access) return undefined;
         return listUsers.reduce<SuggestionsItem[]>((acc, user) => {
-            if (!user.isActive) return acc;
+            if (user.isPending) return acc;
 
             return [
                 ...acc,

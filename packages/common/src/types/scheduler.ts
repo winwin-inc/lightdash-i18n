@@ -1,7 +1,9 @@
+import { type CreateProject } from '../index';
 import assertUnreachable from '../utils/assertUnreachable';
 import { type Explore, type ExploreError } from './explore';
 import { type DashboardFilterRule } from './filter';
 import { type MetricQuery } from './metricQuery';
+import { type PivotConfig } from './pivot';
 import { type ValidationTarget } from './validation';
 
 export type SchedulerCsvOptions = {
@@ -37,6 +39,12 @@ export enum SchedulerFormat {
     GSHEETS = 'gsheets',
 }
 
+export enum JobPriority {
+    HIGH = 0, // UI-waiting jobs (queries, download csv, compile)
+    MEDIUM = 1, // Related jobs (validate/catalogindex)
+    LOW = 2, // Background jobs (scheduled deliveries, sheets sync)
+}
+
 export type SchedulerLog = {
     task:
         | 'handleScheduledDelivery'
@@ -45,13 +53,14 @@ export type SchedulerLog = {
         | 'uploadGsheets'
         | 'downloadCsv'
         | 'uploadGsheetFromQuery'
+        | 'createProjectWithCompile'
         | 'compileProject'
         | 'testAndCompileProject'
         | 'validateProject'
         | 'sqlRunner'
         | 'sqlRunnerPivotQuery'
         | 'semanticLayer'
-        | 'setCatalogChartUsages';
+        | 'indexCatalog';
     schedulerUuid?: string;
     jobId: string;
     jobGroup?: string;
@@ -122,6 +131,7 @@ export type SchedulerBase = {
     thresholds?: ThresholdOptions[]; // it can ben an array of AND conditions
     enabled: boolean;
     notificationFrequency?: NotificationFrequency;
+    includeLinks: boolean;
 };
 
 export type ChartScheduler = SchedulerBase & {
@@ -216,6 +226,7 @@ export type UpdateSchedulerAndTargets = Pick<
     | 'options'
     | 'thresholds'
     | 'notificationFrequency'
+    | 'includeLinks'
 > &
     Pick<DashboardScheduler, 'filters' | 'customViewportWidth'> & {
         targets: Array<
@@ -392,6 +403,7 @@ export type DownloadCsvPayload = {
     hiddenFields: string[] | undefined;
     chartName: string | undefined;
     fromSavedChart: boolean;
+    pivotConfig?: PivotConfig;
 };
 
 export type ApiCsvUrlResponse = {
@@ -401,6 +413,15 @@ export type ApiCsvUrlResponse = {
         status: string;
         truncated: boolean;
     };
+};
+
+export type SchedulerCreateProjectWithCompilePayload = {
+    createdByUserUuid: string;
+    organizationUuid: string;
+    requestMethod: string;
+    isPreview: boolean;
+    data: CreateProject;
+    jobUuid: string;
 };
 
 export type CompileProjectPayload = {

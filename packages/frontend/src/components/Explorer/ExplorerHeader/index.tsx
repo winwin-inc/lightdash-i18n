@@ -2,11 +2,12 @@ import { FeatureFlags } from '@lightdash/common';
 import { Badge, Box, Group, Tooltip } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useFeatureFlagEnabled } from 'posthog-js/react';
-import { memo, useEffect, type FC } from 'react';
+import { memo, useEffect, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 
 import useDashboardStorage from '../../../hooks/dashboard/useDashboardStorage';
+import { getExplorerUrlFromCreateSavedChartVersion } from '../../../hooks/useExplorerRoute';
 import useCreateInAnySpaceAccess from '../../../hooks/user/useCreateInAnySpaceAccess';
 import { useExplorerContext } from '../../../providers/ExplorerProvider';
 import MantineIcon from '../../common/MantineIcon';
@@ -22,6 +23,9 @@ const ExplorerHeader: FC = memo(() => {
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const savedChart = useExplorerContext(
         (context) => context.state.savedChart,
+    );
+    const unsavedChartVersion = useExplorerContext(
+        (context) => context.state.unsavedChartVersion,
     );
     const isValidQuery = useExplorerContext(
         (context) => context.state.isValidQuery,
@@ -49,6 +53,20 @@ const ExplorerHeader: FC = memo(() => {
         projectUuid,
         'SavedChart',
     );
+
+    const urlToShare = useMemo(() => {
+        if (unsavedChartVersion) {
+            const urlArgs = getExplorerUrlFromCreateSavedChartVersion(
+                projectUuid,
+                unsavedChartVersion,
+                true,
+            );
+            return {
+                pathname: urlArgs.pathname,
+                search: `?${urlArgs.search}`,
+            };
+        }
+    }, [unsavedChartVersion, projectUuid]);
 
     useEffect(() => {
         const checkReload = (event: BeforeUnloadEvent) => {
@@ -119,7 +137,10 @@ const ExplorerHeader: FC = memo(() => {
                 {!savedChart && userCanCreateCharts && (
                     <SaveChartButton isExplorer />
                 )}
-                <ShareShortLinkButton disabled={!isValidQuery} />
+                <ShareShortLinkButton
+                    disabled={!isValidQuery}
+                    url={urlToShare}
+                />
             </Group>
         </Group>
     );

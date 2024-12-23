@@ -115,6 +115,7 @@ const Dashboard: FC = () => {
     const setHaveTilesChanged = useDashboardContext(
         (c) => c.setHaveTilesChanged,
     );
+
     const haveTabsChanged = useDashboardContext((c) => c.haveTabsChanged);
     const setHaveTabsChanged = useDashboardContext((c) => c.setHaveTabsChanged);
     const dashboardTabs = useDashboardContext((c) => c.dashboardTabs);
@@ -122,9 +123,20 @@ const Dashboard: FC = () => {
     const setDashboardFilters = useDashboardContext(
         (c) => c.setDashboardFilters,
     );
+    const resetDashboardFilters = useDashboardContext(
+        (c) => c.resetDashboardFilters,
+    );
     const setDashboardTemporaryFilters = useDashboardContext(
         (c) => c.setDashboardTemporaryFilters,
     );
+    const isDateZoomDisabled = useDashboardContext((c) => c.isDateZoomDisabled);
+
+    const hasDateZoomDisabledChanged = useMemo(() => {
+        return (
+            (dashboard?.config?.isDateZoomDisabled || false) !==
+            isDateZoomDisabled
+        );
+    }, [dashboard, isDateZoomDisabled]);
     const oldestCacheTime = useDashboardContext((c) => c.oldestCacheTime);
 
     const { isFullscreen, toggleFullscreen } = useApp();
@@ -554,6 +566,17 @@ const Dashboard: FC = () => {
         haveTabsChanged,
     ]);
 
+    const handleEnterEditMode = useCallback(() => {
+        resetDashboardFilters();
+        // Defer the redirect
+        void Promise.resolve().then(() => {
+            history.replace({
+                pathname: `/projects/${projectUuid}/dashboards/${dashboardUuid}/edit`,
+                search: '',
+            });
+        });
+    }, [history, projectUuid, dashboardUuid, resetDashboardFilters]);
+
     if (dashboardError) {
         return <ErrorState error={dashboardError.error} />;
     }
@@ -626,7 +649,8 @@ const Dashboard: FC = () => {
                             haveTilesChanged ||
                             haveFiltersChanged ||
                             hasTemporaryFilters ||
-                            haveTabsChanged
+                            haveTabsChanged ||
+                            hasDateZoomDisabledChanged
                         }
                         hasNewSemanticLayerChart={hasNewSemanticLayerChart}
                         onAddTiles={handleAddTiles}
@@ -663,6 +687,9 @@ const Dashboard: FC = () => {
                                 },
                                 name: dashboard.name,
                                 tabs: dashboardTabs,
+                                config: {
+                                    isDateZoomDisabled,
+                                },
                             });
                         }}
                         onCancel={handleCancel}
@@ -672,19 +699,35 @@ const Dashboard: FC = () => {
                         onExport={exportDashboardModalHandlers.open}
                         setAddingTab={setAddingTab}
                         onTogglePin={handleDashboardPinning}
+                        onEditClicked={handleEnterEditMode}
                     />
                 }
                 withFullHeight={true}
             >
                 <Group position="apart" align="flex-start" noWrap px={'lg'}>
-                    {dashboardChartTiles && dashboardChartTiles.length > 0 && (
-                        <DashboardFilter
-                            isEditMode={isEditMode}
-                            activeTabUuid={activeTab?.uuid}
-                        />
-                    )}
+                    {/* This Group will take up remaining space (and not push DateZoom) */}
+                    <Group
+                        position="apart"
+                        align="flex-start"
+                        noWrap
+                        grow
+                        sx={{
+                            overflow: 'auto',
+                        }}
+                    >
+                        {dashboardChartTiles &&
+                            dashboardChartTiles.length > 0 && (
+                                <DashboardFilter
+                                    isEditMode={isEditMode}
+                                    activeTabUuid={activeTab?.uuid}
+                                />
+                            )}
+                    </Group>
+                    {/* DateZoom section will adjust width dynamically */}
                     {hasDashboardTiles && !hasNewSemanticLayerChart && (
-                        <DateZoom isEditMode={isEditMode} />
+                        <Box style={{ marginLeft: 'auto' }}>
+                            <DateZoom isEditMode={isEditMode} />
+                        </Box>
                     )}
                 </Group>
                 <Flex style={{ flexGrow: 1, flexDirection: 'column' }}>

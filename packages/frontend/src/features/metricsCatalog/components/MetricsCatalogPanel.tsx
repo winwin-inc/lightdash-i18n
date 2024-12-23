@@ -1,42 +1,378 @@
-import { Group, Stack, Title } from '@mantine/core';
+import { subject } from '@casl/ability';
+import {
+    ActionIcon,
+    Badge,
+    Box,
+    Button,
+    Group,
+    Popover,
+    Stack,
+    Text,
+    Tooltip,
+    useMantineTheme,
+    type ButtonProps,
+} from '@mantine/core';
+import { useClickOutside, useDisclosure } from '@mantine/hooks';
+import { IconRefresh, IconSparkles, IconX } from '@tabler/icons-react';
+import { useCallback, useEffect, useRef, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
-import { useMount } from 'react-use';
-
+import { useHistory, useParams } from 'react-router-dom';
+import { useIntercom } from 'react-use-intercom';
+import MantineIcon from '../../../components/common/MantineIcon';
 import RefreshDbtButton from '../../../components/RefreshDbtButton';
+import { useProject } from '../../../hooks/useProject';
+import useSearchParams from '../../../hooks/useSearchParams';
+import { useTimeAgo } from '../../../hooks/useTimeAgo';
+import { useApp } from '../../../providers/AppProvider';
+import { LearnMoreContent } from '../../../svgs/metricsCatalog';
 import { useAppDispatch, useAppSelector } from '../../sqlRunner/store/hooks';
-import { setActiveMetric, setProjectUuid } from '../store/metricsCatalogSlice';
-import { MetricChartsUsageModal } from './MetricChartsUsageModal';
+import {
+    setAbility,
+    setActiveMetric,
+    setCategoryFilters,
+    setOrganizationUuid,
+    setProjectUuid,
+    toggleMetricPeekModal,
+} from '../store/metricsCatalogSlice';
+import { MetricChartUsageModal } from './MetricChartUsageModal';
 import { MetricsTable } from './MetricsTable';
+
+const LOCAL_STORAGE_KEY = 'metrics-catalog-learn-more-popover-closed';
+
+const LearnMorePopover: FC<{ buttonStyles?: ButtonProps['sx'] }> = ({
+    buttonStyles,
+}) => {
+    const { t } = useTranslation();
+
+    const [opened, { close, open }] = useDisclosure(false);
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const ref = useClickOutside(close, null, [buttonRef.current]);
+
+    useEffect(() => {
+        const hasPrevClosed = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (!hasPrevClosed) {
+            open();
+        }
+    }, [open]);
+
+    const setLocalStorage = useCallback(() => {
+        const hasPrevClosed = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (!hasPrevClosed) {
+            localStorage.setItem(LOCAL_STORAGE_KEY, 'true');
+        }
+    }, []);
+
+    const handleClose = useCallback(() => {
+        setLocalStorage();
+        close();
+    }, [close, setLocalStorage]);
+
+    return (
+        <Popover
+            width={280}
+            offset={{
+                mainAxis: 10,
+                crossAxis: -100,
+            }}
+            position="bottom-start"
+            opened={opened}
+            onClose={setLocalStorage}
+        >
+            <Popover.Target>
+                <Button
+                    ref={buttonRef}
+                    size="xs"
+                    variant="default"
+                    leftIcon={<MantineIcon icon={IconSparkles} />}
+                    sx={buttonStyles}
+                    onClick={opened ? handleClose : open}
+                >
+                    {t('features_metrics.learn_more.title')}
+                </Button>
+            </Popover.Target>
+            <Popover.Dropdown
+                bg="dark.6"
+                c="white"
+                p={16}
+                sx={{
+                    borderRadius: 12,
+                    alignItems: 'flex-start',
+                }}
+            >
+                <Stack spacing="sm" w="100%" ref={ref}>
+                    <Group position="apart">
+                        <Text fw={600} size={14}>
+                            {t('features_metrics.learn_more.content.part_1')}
+                        </Text>
+                        <ActionIcon
+                            variant="transparent"
+                            size="xs"
+                            onClick={handleClose}
+                        >
+                            <MantineIcon icon={IconX} />
+                        </ActionIcon>
+                    </Group>
+                    <LearnMoreContent width="100%" height="100%" />
+                    <Text size={13} c="gray.3">
+                        {t('features_metrics.learn_more.content.part_2')}{' '}
+                        <Text span fw={600} inherit>
+                            {t('features_metrics.learn_more.content.part_3')}
+                        </Text>{' '}
+                        {t('features_metrics.learn_more.content.part_4')}{' '}
+                        <Text span fw={600} inherit>
+                            {t('features_metrics.learn_more.content.part_5')}
+                        </Text>
+                        .
+                    </Text>
+                    <Group spacing="xs">
+                        <Button
+                            variant="outline"
+                            radius="md"
+                            bg="dark.4"
+                            c="gray.0"
+                            hidden={true}
+                            disabled={true}
+                            sx={(theme) => ({
+                                display: 'none', // ! Disabled for now
+                                border: 'none',
+                                flexGrow: 1,
+                                '&:hover': {
+                                    backgroundColor: theme.colors.dark[5],
+                                },
+                            })}
+                        >
+                            {t('features_metrics.learn_more.view_demo')}
+                        </Button>
+                        <Button
+                            component="a"
+                            href="https://docs.lightdash.com/guides/metrics-catalog/"
+                            target="_blank"
+                            radius="md"
+                            sx={{ border: 'none', flexGrow: 1 }}
+                        >
+                            {t('features_metrics.learn_more.learn_more')}
+                        </Button>
+                    </Group>
+                </Stack>
+            </Popover.Dropdown>
+        </Popover>
+    );
+};
 
 export const MetricsCatalogPanel = () => {
     const { t } = useTranslation();
 
-    const projectUuid = useAppSelector((state) => state.sqlRunner.projectUuid);
-    const params = useParams<{ projectUuid: string }>();
-
     const dispatch = useAppDispatch();
+    const theme = useMantineTheme();
+    const { show: showIntercom } = useIntercom();
+    const projectUuid = useAppSelector(
+        (state) => state.metricsCatalog.projectUuid,
+    );
+    const history = useHistory();
+    const categoriesParam = useSearchParams('categories');
+    const categories = useAppSelector(
+        (state) => state.metricsCatalog.categoryFilters,
+    );
+
+    const organizationUuid = useAppSelector(
+        (state) => state.metricsCatalog.organizationUuid,
+    );
+
+    const [lastDbtRefreshAt, setLastDbtRefreshAt] = useState<
+        Date | undefined
+    >();
+    const timeAgo = useTimeAgo(lastDbtRefreshAt || new Date());
+
+    const params = useParams<{ projectUuid: string }>();
+    const { data: project } = useProject(projectUuid);
+    const { user } = useApp();
+
     const isMetricUsageModalOpen = useAppSelector(
         (state) => state.metricsCatalog.modals.chartUsageModal.isOpen,
     );
+
     const onCloseMetricUsageModal = () => {
         dispatch(setActiveMetric(undefined));
     };
 
-    useMount(() => {
-        if (!projectUuid && params.projectUuid) {
+    const { tableName, metricName } = useParams<{
+        tableName: string;
+        metricName: string;
+    }>();
+
+    useEffect(() => {
+        if (!projectUuid || projectUuid !== params.projectUuid) {
             dispatch(setProjectUuid(params.projectUuid));
         }
-    });
+    }, [params.projectUuid, dispatch, projectUuid]);
+
+    useEffect(() => {
+        if (
+            project &&
+            (!organizationUuid || organizationUuid !== project.organizationUuid)
+        ) {
+            dispatch(setOrganizationUuid(project.organizationUuid));
+        }
+    }, [project, dispatch, organizationUuid]);
+
+    useEffect(() => {
+        const urlCategories =
+            categoriesParam?.split(',').map(decodeURIComponent) || [];
+        dispatch(setCategoryFilters(urlCategories));
+    }, [categoriesParam, dispatch]);
+
+    useEffect(() => {
+        const queryParams = new URLSearchParams(window.location.search);
+        if (categories.length > 0) {
+            queryParams.set(
+                'categories',
+                categories.map(encodeURIComponent).join(','),
+            );
+        } else {
+            queryParams.delete('categories');
+        }
+        history.replace({ search: queryParams.toString() });
+    }, [categories, history]);
+
+    useEffect(
+        function handleAbilities() {
+            if (user.data) {
+                const canManageTags = user.data.ability.can(
+                    'manage',
+                    subject('Tags', {
+                        organizationUuid: user.data.organizationUuid,
+                        projectUuid,
+                    }),
+                );
+
+                const canRefreshCatalog =
+                    user.data.ability.can('manage', 'Job') ||
+                    user.data.ability.can('manage', 'CompileProject');
+
+                const canManageExplore = user.data.ability.can(
+                    'manage',
+                    'Explore',
+                );
+
+                const canManageMetricsTree = user.data.ability.can(
+                    'manage',
+                    'MetricsTree',
+                );
+
+                dispatch(
+                    setAbility({
+                        canManageTags,
+                        canRefreshCatalog,
+                        canManageExplore,
+                        canManageMetricsTree,
+                    }),
+                );
+            }
+        },
+        [user.data, dispatch, projectUuid],
+    );
+
+    useEffect(
+        function openMetricPeekModal() {
+            if (tableName && metricName) {
+                dispatch(
+                    toggleMetricPeekModal({
+                        name: metricName,
+                        tableName,
+                    }),
+                );
+            }
+        },
+        [tableName, metricName, dispatch],
+    );
+
+    const handleRefreshDbt = () => {
+        setLastDbtRefreshAt(new Date());
+    };
+
+    const headerButtonStyles: ButtonProps['sx'] = {
+        borderRadius: theme.radius.md,
+        backgroundColor: '#FAFAFA',
+        border: `1px solid ${theme.colors.gray[2]}`,
+        padding: `${theme.spacing.xxs} 10px ${theme.spacing.xxs} ${theme.spacing.xs}`,
+        fontSize: theme.fontSizes.sm,
+        fontWeight: 500,
+        color: theme.colors.gray[7],
+    };
 
     return (
-        <Stack>
+        <Stack w="100%" spacing="xxl">
             <Group position="apart">
-                <Title order={4}>{t('features_metrics.catalog.title')}</Title>
-                <RefreshDbtButton />
+                <Box>
+                    <Group spacing="xs">
+                        <Text color="gray.8" weight={600} size="xl">
+                            {t('features_metrics.catalog.title')}
+                        </Text>
+                        <Tooltip
+                            variant="xs"
+                            label={t('features_metrics.catalog.tooltip.part_1')}
+                            position="right"
+                        >
+                            <Badge
+                                variant="filled"
+                                color="indigo.5"
+                                radius={6}
+                                size="md"
+                                py="xxs"
+                                px="xs"
+                                sx={{
+                                    cursor: 'default',
+                                    boxShadow:
+                                        '0px -2px 0px 0px rgba(4, 4, 4, 0.04) inset',
+                                    '&:hover': {
+                                        cursor: 'pointer',
+                                    },
+                                }}
+                                onClick={() => {
+                                    // @ts-ignore
+                                    if (window.Pylon) {
+                                        // @ts-ignore
+                                        window.Pylon('show');
+                                    } else {
+                                        showIntercom();
+                                    }
+                                }}
+                            >
+                                {t('features_metrics.catalog.tooltip.part_2')}
+                            </Badge>
+                        </Tooltip>
+                    </Group>
+                    <Text color="gray.6" size="sm" weight={400}>
+                        {t('features_metrics.catalog.content.part_1')}
+                    </Text>
+                </Box>
+                <Group spacing="xs">
+                    <RefreshDbtButton
+                        onClick={handleRefreshDbt}
+                        leftIcon={
+                            <MantineIcon
+                                size="sm"
+                                color="gray.7"
+                                icon={IconRefresh}
+                            />
+                        }
+                        buttonStyles={headerButtonStyles}
+                        defaultTextOverride={
+                            lastDbtRefreshAt
+                                ? t('features_metrics.catalog.content.part_2', {
+                                      timeAgo,
+                                  })
+                                : t('features_metrics.catalog.content.part_3')
+                        }
+                        refreshingTextOverride={t(
+                            'features_metrics.catalog.content.part_4',
+                        )}
+                    />
+                    <LearnMorePopover buttonStyles={headerButtonStyles} />
+                </Group>
             </Group>
             <MetricsTable />
-            <MetricChartsUsageModal
+            <MetricChartUsageModal
                 opened={isMetricUsageModalOpen}
                 onClose={onCloseMetricUsageModal}
             />

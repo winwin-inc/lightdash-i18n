@@ -7,9 +7,10 @@ import {
     Popover,
     Text,
     Tooltip,
+    type ButtonProps,
 } from '@mantine/core';
 import { IconRefresh } from '@tabler/icons-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 
@@ -21,7 +22,19 @@ import { useTracking } from '../../providers/TrackingProvider';
 import { EventName } from '../../types/Events';
 import MantineIcon from '../common/MantineIcon';
 
-const RefreshDbtButton = () => {
+const RefreshDbtButton: FC<{
+    onClick?: () => void;
+    buttonStyles?: ButtonProps['sx'];
+    leftIcon?: React.ReactNode;
+    defaultTextOverride?: React.ReactNode;
+    refreshingTextOverride?: React.ReactNode;
+}> = ({
+    onClick,
+    buttonStyles,
+    leftIcon,
+    defaultTextOverride,
+    refreshingTextOverride,
+}) => {
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { data } = useProject(projectUuid);
     const { activeJob } = useActiveJob();
@@ -126,9 +139,10 @@ const RefreshDbtButton = () => {
         );
     }
 
-    const onClick = () => {
+    const handleRefresh = () => {
         setIsLoading(true);
         refreshDbtServer();
+        onClick?.();
         track({
             name: EventName.REFRESH_DBT_CONNECTION_BUTTON_CLICKED,
         });
@@ -158,15 +172,18 @@ const RefreshDbtButton = () => {
             <Button
                 size="xs"
                 variant="default"
-                leftIcon={<MantineIcon icon={IconRefresh} />}
+                leftIcon={leftIcon ?? <MantineIcon icon={IconRefresh} />}
                 loading={isLoading}
-                onClick={onClick}
+                onClick={handleRefresh}
+                sx={buttonStyles}
             >
                 {!isLoading
-                    ? t(
+                    ? defaultTextOverride ??
+                      t(
                           'components_refresh_dbt_button.tooltip_refresh.normal_text',
                       )
-                    : t(
+                    : refreshingTextOverride ??
+                      t(
                           'components_refresh_dbt_button.tooltip_refresh.loading_text',
                       )}
             </Button>

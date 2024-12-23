@@ -1,8 +1,8 @@
 import {
     type ApiCreateUserTokenResults,
     type ApiError,
-    type ApiPersonalAccessTokenResponse,
     type CreatePersonalAccessToken,
+    type PersonalAccessToken,
 } from '@lightdash/common';
 import {
     useMutation,
@@ -37,13 +37,10 @@ const deleteAccessToken = async (tokenUuid: string) =>
     });
 
 export const useAccessToken = (
-    useQueryOptions?: UseQueryOptions<
-        ApiPersonalAccessTokenResponse[],
-        ApiError
-    >,
+    useQueryOptions?: UseQueryOptions<PersonalAccessToken[], ApiError>,
 ) => {
     const setErrorResponse = useQueryError();
-    return useQuery<ApiPersonalAccessTokenResponse[], ApiError>({
+    return useQuery<PersonalAccessToken[], ApiError>({
         queryKey: ['personal_access_tokens'],
         queryFn: () => getAccessToken(),
         retry: false,
@@ -55,6 +52,8 @@ export const useAccessToken = (
 export const useCreateAccessToken = () => {
     const queryClient = useQueryClient();
     const { showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<
         ApiCreateUserTokenResults,
         ApiError,
@@ -67,7 +66,7 @@ export const useCreateAccessToken = () => {
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to create token`,
+                title: t('hooks_access_token.toast_created'),
                 apiError: error,
             });
         },
@@ -77,17 +76,19 @@ export const useCreateAccessToken = () => {
 export const useDeleteAccessToken = () => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<null, ApiError, string>(deleteAccessToken, {
         mutationKey: ['personal_access_tokens'],
         onSuccess: async () => {
             await queryClient.invalidateQueries(['personal_access_tokens']);
             showToastSuccess({
-                title: `Success! Your token was deleted.`,
+                title: t('hooks_access_token.toast_deleted'),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to delete token`,
+                title: t('hooks_access_token.toast_deleted_error'),
                 apiError: error,
             });
         },

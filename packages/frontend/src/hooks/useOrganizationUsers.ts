@@ -12,6 +12,8 @@ import {
     type UseInfiniteQueryOptions,
 } from '@tanstack/react-query';
 import Fuse from 'fuse.js';
+import { useTranslation } from 'react-i18next';
+
 import { lightdashApi } from '../api';
 import { useApp } from '../providers/AppProvider';
 import useToaster from './toaster/useToaster';
@@ -21,6 +23,7 @@ const getOrganizationUsersQuery = async (
     includeGroups?: number,
     paginateArgs?: KnexPaginateArgs,
     searchQuery?: string,
+    projectUuid?: string,
 ) => {
     const urlParams = new URLSearchParams({
         ...(paginateArgs
@@ -31,6 +34,7 @@ const getOrganizationUsersQuery = async (
             : {}),
         ...(includeGroups ? { includeGroups: String(includeGroups) } : {}),
         ...(searchQuery ? { searchQuery } : {}),
+        ...(projectUuid ? { projectUuid } : {}),
     }).toString();
 
     return lightdashApi<ApiOrganizationMemberProfiles['results']>({
@@ -111,9 +115,11 @@ export const useInfiniteOrganizationUsers = (
         searchInput,
         includeGroups,
         pageSize,
+        projectUuid,
     }: {
         searchInput?: string;
         includeGroups?: number;
+        projectUuid?: string;
         pageSize: number;
     },
     infinityQueryOpts: UseInfiniteQueryOptions<
@@ -129,6 +135,7 @@ export const useInfiniteOrganizationUsers = (
                 includeGroups,
                 pageSize,
                 searchInput,
+                projectUuid,
             ],
             queryFn: ({ pageParam }) => {
                 return getOrganizationUsersQuery(
@@ -138,6 +145,7 @@ export const useInfiniteOrganizationUsers = (
                         page: pageParam ?? 1,
                     },
                     searchInput,
+                    projectUuid,
                 );
             },
             onError: (result) => setErrorResponse(result),
@@ -157,17 +165,19 @@ export const useInfiniteOrganizationUsers = (
 export const useDeleteOrganizationUserMutation = () => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<null, ApiError, string>(deleteUserQuery, {
         mutationKey: ['organization_users_delete'],
         onSuccess: async () => {
             await queryClient.invalidateQueries(['organization_users']);
             showToastSuccess({
-                title: `Success! User was deleted.`,
+                title: t('hooks_organization_users.delete_success'),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to delete user`,
+                title: t('hooks_organization_users.delete_error'),
                 apiError: error,
             });
         },
@@ -178,6 +188,8 @@ export const useUpdateUserMutation = (userUuid: string) => {
     const queryClient = useQueryClient();
     const { user } = useApp();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<null, ApiError, OrganizationMemberProfileUpdate>(
         (data) => {
             if (userUuid) {
@@ -193,12 +205,12 @@ export const useUpdateUserMutation = (userUuid: string) => {
                 }
                 await queryClient.refetchQueries(['organization_users']);
                 showToastSuccess({
-                    title: `Success! User was updated.`,
+                    title: t('hooks_organization_users.update_success'),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to update user's permissions`,
+                    title: t('hooks_organization_users.update_error'),
                     apiError: error,
                 });
             },

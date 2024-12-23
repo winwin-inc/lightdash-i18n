@@ -22,13 +22,13 @@ import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../../components/common/MantineIcon';
 import { cartesianChartSelectors } from '../../../../components/DataViz/store/selectors';
-import { useGitHubRepositories } from '../../../../components/UserSettings/GithubSettingsPanel';
 import { EditableText } from '../../../../components/VisualizationConfigs/common/EditableText';
+import { useGitIntegration } from '../../../../hooks/gitIntegration/useGitIntegration';
 import useHealth from '../../../../hooks/health/useHealth';
 import useToaster from '../../../../hooks/toaster/useToaster';
 import { useProject } from '../../../../hooks/useProject';
-import { useCreateShareMutation } from '../../../../hooks/useShare';
 import { CreateVirtualViewModal } from '../../../virtualView';
+import { useCreateSqlRunnerShareUrl } from '../../hooks/useSqlRunnerShareUrl';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
     DEFAULT_NAME,
@@ -55,13 +55,10 @@ export const HeaderCreate: FC = () => {
         (state) => state.sqlRunner.modals.saveChartModal.isOpen,
     );
     const health = useHealth();
-    const sqlRunnerState = useAppSelector((state) => state.sqlRunner);
-    const { mutateAsync: createShareUrl } = useCreateShareMutation();
-
     const isGithubIntegrationEnabled =
         health?.data?.hasGithub &&
         project?.dbtConnection.type === DbtProjectType.GITHUB;
-    const { isError: githubIsNotInstalled } = useGitHubRepositories();
+    const { data: gitIntegration } = useGitIntegration(projectUuid);
 
     const isCreateVirtualViewModalOpen = useAppSelector(
         (state) => state.sqlRunner.modals.createVirtualViewModal.isOpen,
@@ -157,19 +154,15 @@ export const HeaderCreate: FC = () => {
     }, []);
     const clipboard = useClipboard({ timeout: 500 });
     const { showToastSuccess } = useToaster();
+    const createShareUrl = useCreateSqlRunnerShareUrl();
 
     const handleCreateShareUrl = useCallback(async () => {
-        const path = window.location.pathname;
-        const shareUrl = await createShareUrl({
-            path,
-            params: JSON.stringify(sqlRunnerState),
-        });
-        const fullUrl = `${window.location.origin}${window.location.pathname}?share=${shareUrl.nanoid}`;
+        const fullUrl = await createShareUrl();
         clipboard.copy(fullUrl);
         showToastSuccess({
             title: t('features_sql_runner_header_create.tips.shared'),
         });
-    }, [createShareUrl, sqlRunnerState, clipboard, showToastSuccess, t]);
+    }, [createShareUrl, clipboard, showToastSuccess, t]);
 
     return (
         <>
@@ -288,12 +281,12 @@ export const HeaderCreate: FC = () => {
                                             position="top"
                                             withArrow
                                             withinPortal
-                                            disabled={!githubIsNotInstalled}
+                                            disabled={gitIntegration?.enabled}
                                         >
                                             <Group>
                                                 <Menu.Item
                                                     disabled={
-                                                        githubIsNotInstalled
+                                                        !gitIntegration?.enabled
                                                     }
                                                     onClick={() => {
                                                         setCtaAction(

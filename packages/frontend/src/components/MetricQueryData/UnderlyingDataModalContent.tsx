@@ -322,6 +322,7 @@ const UnderlyingDataModalContent: FC<Props> = () => {
             onlyRaw,
             showTableNames: true,
             columnOrder: [],
+            pivotColumns: undefined, // underlying data is always unpivoted
         });
         return csvResponse;
     };

@@ -12,6 +12,7 @@ import {
     generateSlug,
     isExploreError,
     NotExistsError,
+    NotFoundError,
     OrganizationProject,
     ParameterError,
     PreviewContentMapping,
@@ -35,7 +36,6 @@ import {
     WarehouseClient,
     WarehouseCredentials,
     WarehouseTypes,
-    type CatalogFieldMap,
     type CubeSemanticLayerConnection,
     type DbtSemanticLayerConnection,
     type SemanticLayerConnection,
@@ -51,7 +51,6 @@ import uniqWith from 'lodash/uniqWith';
 import { DatabaseError } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 import { LightdashConfig } from '../../config/parseConfig';
-import { CatalogTableName, DbCatalogIn } from '../../database/entities/catalog';
 import {
     DashboardTabsTableName,
     DashboardViewsTableName,
@@ -91,7 +90,6 @@ import { WarehouseCredentialTableName } from '../../database/entities/warehouseC
 import Logger from '../../logging/logger';
 import { wrapSentryTransaction } from '../../utils';
 import { EncryptionUtil } from '../../utils/EncryptionUtil/EncryptionUtil';
-import { convertExploresToCatalog } from '../CatalogModel/utils';
 import Transaction = Knex.Transaction;
 
 export type ProjectModelArguments = {
@@ -244,6 +242,8 @@ export class ProjectModel {
                 'projects.project_uuid',
                 'projects.name',
                 'projects.project_type',
+                `projects.copied_from_project_uuid`,
+                `projects.created_by_user_uuid`,
                 `${WarehouseCredentialTableName}.warehouse_type`,
                 `${WarehouseCredentialTableName}.encrypted_credentials`,
                 this.database.raw(
@@ -277,6 +277,8 @@ export class ProjectModel {
                 name,
                 project_uuid,
                 project_type,
+                created_by_user_uuid,
+                copied_from_project_uuid,
                 warehouse_type,
                 encrypted_credentials,
             }) => {
@@ -288,6 +290,8 @@ export class ProjectModel {
                         name,
                         projectUuid: project_uuid,
                         type: project_type,
+                        createdByUserUuid: created_by_user_uuid,
+                        upstreamProjectUuid: copied_from_project_uuid,
                         warehouseType: warehouse_type as WarehouseTypes,
                         requireUserCredentials:
                             !!warehouseCredentials.requireUserCredentials,
@@ -339,6 +343,7 @@ export class ProjectModel {
     }
 
     async create(
+        userUuid: string,
         organizationUuid: string,
         data: CreateProject,
     ): Promise<string> {
@@ -396,6 +401,7 @@ export class ProjectModel {
                                   copiedProjects[0].scheduler_timezone,
                           }
                         : {}),
+                    created_by_user_uuid: userUuid,
                 })
                 .returning('*');
 
@@ -450,9 +456,38 @@ export class ProjectModel {
     }
 
     async delete(projectUuid: string): Promise<void> {
-        await this.database('projects')
-            .where('project_uuid', projectUuid)
-            .delete();
+        await this.database.transaction(async (trx) => {
+            const [project] = await trx('projects')
+                .select('project_id')
+                .where('project_uuid', projectUuid);
+
+            if (!project) {
+                throw new NotFoundError('Project not found');
+            }
+            const projectId = project.project_id;
+            // First we delete some of the content from the project
+            // to avoid getting deadlock issues
+            await trx('catalog_search')
+                .where('project_uuid', projectUuid)
+                .delete();
+
+            await trx('cached_explores')
+                .where('project_uuid', projectUuid)
+                .delete();
+
+            await trx('cached_explore')
+                .where('project_uuid', projectUuid)
+                .delete();
+
+            // Deleting spaces will also delete dashboards and charts in cascade,
+            // At the same time, charts and dashboards will delete analytic_views, schedulers, pinned content, and more.
+            await trx('spaces').where('project_id', projectId).delete();
+
+            await trx('jobs').where('project_uuid', projectUuid).delete();
+
+            // Finally, delete the project and everything else in cascade
+            await trx('projects').where('project_uuid', projectUuid).delete();
+        });
     }
 
     async getWithSensitiveFields(
@@ -471,6 +506,7 @@ export class ProjectModel {
                   copied_from_project_uuid?: string;
                   semantic_layer_connection: Buffer | null;
                   scheduler_timezone: string;
+                  created_by_user_uuid: string | null;
               }
             | {
                   name: string;
@@ -484,6 +520,7 @@ export class ProjectModel {
                   copied_from_project_uuid?: string;
                   semantic_layer_connection: Buffer | null;
                   scheduler_timezone: string;
+                  created_by_user_uuid: string | null;
               }
         )[];
         return wrapSentryTransaction(
@@ -538,6 +575,9 @@ export class ProjectModel {
                         this.database
                             .ref('scheduler_timezone')
                             .withSchema(ProjectTableName),
+                        this.database
+                            .ref('created_by_user_uuid')
+                            .withSchema(ProjectTableName),
                     ])
                     .select<QueryResult>()
                     .where('projects.project_uuid', projectUuid);
@@ -591,6 +631,7 @@ export class ProjectModel {
                     upstreamProjectUuid: project.copied_from_project_uuid,
                     semanticLayerConnection,
                     schedulerTimezone: project.scheduler_timezone,
+                    createdByUserUuid: project.created_by_user_uuid,
                 };
                 if (!project.warehouse_type) {
                     return result;
@@ -720,6 +761,7 @@ export class ProjectModel {
             upstreamProjectUuid: project.upstreamProjectUuid || undefined,
             semanticLayerConnection: nonSensitiveSemanticLayerCredentials,
             schedulerTimezone: project.schedulerTimezone,
+            createdByUserUuid: project.createdByUserUuid ?? null,
         };
     }
 
@@ -882,44 +924,15 @@ export class ProjectModel {
             'ProjectModel.findExploreByTableName',
             {},
             async (span) => {
-                // check individually cached explore
-                let exploreCache = await this.database(CachedExploreTableName)
-                    .columns({
-                        explore: 'explore',
-                        baseMatch: this.database.raw(
-                            "? = explore->>'baseTable'",
-                            [tableName],
-                        ),
-                    })
-                    .select()
-                    .whereRaw('? = ANY(table_names)', tableName)
+                const exploreCache = await this.database(CachedExploreTableName)
+                    .select('explore')
+                    .where('name', tableName)
                     .andWhere('project_uuid', projectUuid)
-                    .orderBy('baseMatch', 'desc')
                     .first();
-
                 span.setAttribute(
                     'foundIndividualExploreCache',
                     !!exploreCache,
                 );
-                if (!exploreCache) {
-                    // fallback: check all cached explores
-                    // try finding explore via base table name
-                    exploreCache = await this.getExploreQueryBuilder(
-                        projectUuid,
-                    ).andWhereRaw("explore->>'baseTable' = ?", [tableName]);
-
-                    if (!exploreCache) {
-                        // try finding explore via joined table alias
-                        // Note: there is an edge case where we return the wrong explore because join table aliases are not unique
-                        exploreCache = await this.getExploreQueryBuilder(
-                            projectUuid,
-                        ).andWhereRaw(
-                            "(explore->>'tables')::json->? IS NOT NULL",
-                            [tableName],
-                        );
-                    }
-                }
-
                 return exploreCache
                     ? ProjectModel.convertMetricFiltersFieldIdsToFieldRef(
                           exploreCache.explore,
@@ -929,75 +942,60 @@ export class ProjectModel {
         );
     }
 
-    async indexCatalog(
+    // Returns explore based on the join original name rather than the explore with the join.
+    async findJoinAliasExplore(
         projectUuid: string,
-        cachedExplores: (Explore & { cachedExploreUuid: string })[],
-    ): Promise<{
-        catalogInserts: DbCatalogIn[];
-        catalogFieldMap: CatalogFieldMap;
-    }> {
-        if (cachedExplores.length === 0) {
-            return {
-                catalogInserts: [],
-                catalogFieldMap: {},
-            };
-        }
-
-        try {
-            const wrapped = await wrapSentryTransaction(
-                'indexCatalog',
-                { projectUuid, cachedExploresSize: cachedExplores.length },
-                async () => {
-                    const { catalogInserts, catalogFieldMap } =
-                        await wrapSentryTransaction(
-                            'indexCatalog.convertExploresToCatalog',
-                            {
-                                projectUuid,
-                                cachedExploresLength: cachedExplores.length,
-                            },
-                            async () =>
-                                convertExploresToCatalog(
-                                    projectUuid,
-                                    cachedExplores,
-                                ),
+        joinAliasName: string,
+    ): Promise<Explore | ExploreError | undefined> {
+        return wrapSentryTransaction(
+            'ProjectModel.findExploreFromJoinAlias',
+            {},
+            async (span) => {
+                const exploreWithJoinAlias = await this.database(
+                    CachedExploreTableName,
+                )
+                    .columns({
+                        explore: 'explore',
+                        baseMatch: this.database.raw(
+                            "? = explore->>'baseTable'",
+                            [joinAliasName],
+                        ),
+                    })
+                    .select<{
+                        explore: Explore | ExploreError;
+                        baseMatch: boolean;
+                    }>()
+                    .whereRaw('? = ANY(table_names)', joinAliasName)
+                    .andWhere('project_uuid', projectUuid)
+                    .orderBy('baseMatch', 'desc')
+                    .first();
+                if (exploreWithJoinAlias) {
+                    const originalTableName =
+                        exploreWithJoinAlias.explore.tables?.[joinAliasName]
+                            .originalName;
+                    if (originalTableName) {
+                        const exploreCache = await this.database(
+                            CachedExploreTableName,
+                        )
+                            .select('explore')
+                            .where('name', originalTableName)
+                            .andWhere('project_uuid', projectUuid)
+                            .first();
+                        span.setAttribute(
+                            'foundExploreCacheViaJoinAlias',
+                            !!exploreCache,
                         );
+                        return exploreCache
+                            ? ProjectModel.convertMetricFiltersFieldIdsToFieldRef(
+                                  exploreCache.explore,
+                              )
+                            : undefined;
+                    }
+                }
 
-                    const transactionInserts = await wrapSentryTransaction(
-                        'indexCatalog.insert',
-                        { projectUuid, catalogSize: catalogInserts.length },
-                        () =>
-                            this.database.transaction(async (trx) => {
-                                await trx(CatalogTableName)
-                                    .where('project_uuid', projectUuid)
-                                    .delete();
-
-                                const inserts = await this.database
-                                    .batchInsert(
-                                        CatalogTableName,
-                                        catalogInserts,
-                                    )
-                                    .returning('*')
-                                    .transacting(trx);
-
-                                return inserts;
-                            }),
-                    );
-
-                    return {
-                        catalogInserts: transactionInserts,
-                        catalogFieldMap,
-                    };
-                },
-            );
-
-            return wrapped;
-        } catch (e) {
-            Logger.error(`Failed to index catalog ${projectUuid}, ${e}`);
-            return {
-                catalogInserts: [],
-                catalogFieldMap: {},
-            };
-        }
+                return undefined;
+            },
+        );
     }
 
     static getExploresWithCacheUuids(
@@ -1033,8 +1031,6 @@ export class ProjectModel {
         explores: (Explore | ExploreError)[],
     ): Promise<{
         cachedExplores: DbCachedExplores;
-        catalogInserts: DbCatalogIn[];
-        catalogFieldMap: CatalogFieldMap;
     }> {
         return wrapSentryTransaction(
             'ProjectModel.saveExploresToCache',
@@ -1058,9 +1054,7 @@ export class ProjectModel {
                 );
 
                 // cache explores individually
-                const cachedExplore = await this.database(
-                    CachedExploreTableName,
-                )
+                await this.database(CachedExploreTableName)
                     .insert(
                         uniqueExplores.map((explore) => ({
                             project_uuid: projectUuid,
@@ -1072,18 +1066,6 @@ export class ProjectModel {
                     .onConflict(['project_uuid', 'name'])
                     .merge()
                     .returning(['name', 'cached_explore_uuid']);
-
-                const exploresWithCachedExploreUuid =
-                    ProjectModel.getExploresWithCacheUuids(
-                        explores,
-                        cachedExplore,
-                    );
-
-                const { catalogInserts, catalogFieldMap } =
-                    await this.indexCatalog(
-                        projectUuid,
-                        exploresWithCachedExploreUuid,
-                    );
 
                 // cache explores together
                 const [cachedExplores] = await this.database(
@@ -1099,8 +1081,6 @@ export class ProjectModel {
 
                 return {
                     cachedExplores,
-                    catalogInserts,
-                    catalogFieldMap,
                 };
             },
         );
@@ -1450,6 +1430,27 @@ export class ProjectModel {
                     ? await trx('space_user_access')
                           .insert(
                               spaceUserAccesses.map((d) => ({
+                                  ...d,
+                                  space_uuid: getNewSpaceUuid(d.space_uuid),
+                              })),
+                          )
+                          .returning('*')
+                    : [];
+
+            const spaceGroupAccesses = await trx('space_group_access').whereIn(
+                'space_uuid',
+                spaceUuids,
+            );
+
+            Logger.info(
+                `Duplicating ${spaceGroupAccesses.length} space group accesses on ${previewProjectUuid}`,
+            );
+
+            const newSpaceGroupAccesses =
+                spaceGroupAccesses.length > 0
+                    ? await trx('space_group_access')
+                          .insert(
+                              spaceGroupAccesses.map((d) => ({
                                   ...d,
                                   space_uuid: getNewSpaceUuid(d.space_uuid),
                               })),
@@ -2364,5 +2365,16 @@ export class ProjectModel {
             .returning('*');
 
         return updatedProject;
+    }
+
+    async getCachedExploresWithUuid(
+        projectUuid: string,
+        explores: (Explore | ExploreError)[],
+    ) {
+        const cachedExplores = await this.database(CachedExploreTableName)
+            .select('name', 'cached_explore_uuid')
+            .where('project_uuid', projectUuid);
+
+        return ProjectModel.getExploresWithCacheUuids(explores, cachedExplores);
     }
 }

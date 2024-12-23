@@ -4,34 +4,58 @@ import {
     CatalogAnalytics,
     CatalogField,
     CatalogFilter,
+    CatalogItemIcon,
+    CatalogItemsWithIcons,
     CatalogMetadata,
     CatalogTable,
     CatalogType,
     ChartSummary,
+    CompiledDimension,
+    DEFAULT_METRICS_EXPLORER_TIME_INTERVAL,
     Explore,
     ExploreError,
+    FieldType,
     ForbiddenError,
+    getAvailableCompareMetrics,
+    getAvailableSegmentDimensions,
+    getAvailableTimeDimensionsFromTables,
+    getDefaultTimeDimension,
     hasIntersection,
     InlineErrorType,
     isExploreError,
+    MAX_METRICS_TREE_NODE_COUNT,
+    MetricWithAssociatedTimeDimension,
+    NotFoundError,
+    ParameterError,
     SessionUser,
     SummaryExplore,
     TablesConfiguration,
     TableSelectionType,
+    TimeFrames,
     UserAttributeValueMap,
+    type ApiMetricsTreeEdgePayload,
     type ApiSort,
     type CatalogFieldMap,
+    type CatalogItem,
+    type CatalogItemWithTagUuids,
+    type CatalogMetricsTreeEdge,
     type ChartUsageIn,
     type KnexPaginateArgs,
     type KnexPaginatedData,
 } from '@lightdash/common';
+import { uniqBy } from 'lodash';
 import { LightdashAnalytics } from '../../analytics/LightdashAnalytics';
 import { LightdashConfig } from '../../config/parseConfig';
+import type {
+    DbCatalogTagsMigrateIn,
+    DbMetricsTreeEdgeIn,
+} from '../../database/entities/catalog';
 import { CatalogModel } from '../../models/CatalogModel/CatalogModel';
 import { parseFieldsFromCompiledTable } from '../../models/CatalogModel/utils/parser';
 import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
 import { SpaceModel } from '../../models/SpaceModel';
+import type { TagsModel } from '../../models/TagsModel';
 import { UserAttributesModel } from '../../models/UserAttributesModel';
 import { wrapSentryTransaction } from '../../utils';
 import { BaseService } from '../BaseService';
@@ -49,6 +73,7 @@ export type CatalogArguments<T extends CatalogModel = CatalogModel> = {
     catalogModel: T;
     savedChartModel: SavedChartModel;
     spaceModel: SpaceModel;
+    tagsModel: TagsModel;
 };
 
 export class CatalogService<
@@ -68,6 +93,8 @@ export class CatalogService<
 
     spaceModel: SpaceModel;
 
+    tagsModel: TagsModel;
+
     constructor({
         lightdashConfig,
         analytics,
@@ -76,6 +103,7 @@ export class CatalogService<
         catalogModel,
         savedChartModel,
         spaceModel,
+        tagsModel,
     }: CatalogArguments<T>) {
         super();
         this.lightdashConfig = lightdashConfig;
@@ -85,6 +113,7 @@ export class CatalogService<
         this.catalogModel = catalogModel;
         this.savedChartModel = savedChartModel;
         this.spaceModel = spaceModel;
+        this.tagsModel = tagsModel;
     }
 
     private static async getCatalogFields(
@@ -158,6 +187,10 @@ export class CatalogService<
                         type: CatalogType.Table,
                         joinedTables: explore.joinedTables,
                         chartUsage: undefined,
+                        // ! since we're not pulling from the catalog search table these do not exist (keep compatibility with data catalog)
+                        catalogSearchUuid: '',
+                        categories: [],
+                        icon: null,
                     },
                 ];
             }
@@ -180,6 +213,10 @@ export class CatalogService<
                         joinedTables: explore.joinedTables,
                         tags: explore.tags,
                         chartUsage: undefined,
+                        // ! since we're not pulling from the catalog search table these do not exist (keep compatibility with data catalog)
+                        catalogSearchUuid: '',
+                        categories: [],
+                        icon: null,
                     },
                 ];
             }
@@ -190,12 +227,10 @@ export class CatalogService<
     private async searchCatalog(
         projectUuid: string,
         userAttributes: UserAttributeValueMap,
-        query?: string,
-        type?: CatalogType,
-        filter?: CatalogFilter,
+        catalogSearch: ApiCatalogSearch,
         paginateArgs?: KnexPaginateArgs,
         sortArgs?: ApiSort,
-    ): Promise<KnexPaginatedData<(CatalogTable | CatalogField)[]>> {
+    ): Promise<KnexPaginatedData<CatalogItem[]>> {
         const tablesConfiguration =
             await this.projectModel.getTablesConfiguration(projectUuid);
 
@@ -204,7 +239,7 @@ export class CatalogService<
             {
                 projectUuid,
                 userAttributesSize: Object.keys(userAttributes).length,
-                query,
+                searchQuery: catalogSearch.searchQuery,
             },
             async () =>
                 wrapSentryTransaction(
@@ -213,9 +248,7 @@ export class CatalogService<
                     async () =>
                         this.catalogModel.search({
                             projectUuid,
-                            searchQuery: query,
-                            filter,
-                            type,
+                            catalogSearch,
                             paginateArgs,
                             tablesConfiguration,
                             userAttributes,
@@ -225,32 +258,16 @@ export class CatalogService<
         );
     }
 
-    async getCatalog(
+    private async getFilteredExplores(
         user: SessionUser,
+        organizationUuid: string,
         projectUuid: string,
-        { search, type, filter }: ApiCatalogSearch,
-    ): Promise<KnexPaginatedData<(CatalogField | CatalogTable)[]>> {
-        const { organizationUuid } = await this.projectModel.getSummary(
-            projectUuid,
-        );
-        if (
-            user.ability.cannot(
-                'view',
-                subject('Project', { organizationUuid, projectUuid }),
-            )
-        ) {
-            throw new ForbiddenError();
-        }
-
+    ) {
         const explores = await this.projectModel.getExploresFromCache(
             projectUuid,
         );
 
-        if (!explores) {
-            return {
-                data: [],
-            };
-        }
+        if (!explores) return [];
 
         const userAttributes =
             await this.userAttributesModel.getAttributeValuesForOrgMember({
@@ -288,18 +305,239 @@ export class CatalogService<
             [],
         );
 
-        if (search) {
+        return filteredExplores;
+    }
+
+    async indexCatalog(
+        projectUuid: string,
+        explores: (Explore | ExploreError)[],
+    ) {
+        const exploresWithCachedExploreUuid =
+            await this.projectModel.getCachedExploresWithUuid(
+                projectUuid,
+                explores,
+            );
+
+        return this.catalogModel.indexCatalog(
+            projectUuid,
+            exploresWithCachedExploreUuid,
+        );
+    }
+
+    /**
+     * Migrates catalog item tags from the previous catalog to the new catalog
+     * This is a best effort migration, if the catalog item is not found in the new catalog
+     * it will not be migrated
+     *
+     * For the item to be found it needs to:
+     * - have the same name
+     * - have the same explore base table
+     * - have the same field type
+     * - have the same type
+     * - be in the same project
+     * @param projectUuid - project uuid
+     * @param prevCatalogItemsWithTags - catalog items with tags before the catalog being re-indexed
+     * @returns
+     */
+    async migrateCatalogItemTags(
+        projectUuid: string,
+        prevCatalogItemsWithTags: CatalogItemWithTagUuids[],
+    ) {
+        // Get all catalog items so we can match them with the previous catalog items
+        const currentCatalogItems =
+            await this.catalogModel.getCatalogItemsSummary(projectUuid);
+
+        const catalogTagsMigrateIn: DbCatalogTagsMigrateIn[] =
+            currentCatalogItems.flatMap(
+                ({
+                    projectUuid: currentProjectUuid,
+                    name: currentName,
+                    tableName: currentTableName,
+                    fieldType: currentFieldType,
+                    type: currentType,
+                    catalogSearchUuid: currentCatalogSearchUuid,
+                }) => {
+                    // Just a safeguard, this should never happen since the getTaggedCatalogItems query is scoped to the project
+                    if (projectUuid !== currentProjectUuid) {
+                        return [];
+                    }
+
+                    const prevCatalogItem = prevCatalogItemsWithTags.find(
+                        ({
+                            name: prevName,
+                            tableName: prevTableName,
+                            fieldType: prevFieldType,
+                            type: prevType,
+                            projectUuid: prevProjectUuid,
+                        }) =>
+                            prevName === currentName &&
+                            prevTableName === currentTableName &&
+                            prevFieldType === currentFieldType &&
+                            prevType === currentType &&
+                            prevProjectUuid === currentProjectUuid,
+                    );
+
+                    if (prevCatalogItem) {
+                        // Pass the current catalog item uuid with the old tags
+                        return prevCatalogItem.catalogTags.map(
+                            ({
+                                tagUuid: prevCatalogTagUuid,
+                                createdByUserUuid: prevCreatedByUserUuid,
+                                createdAt: prevCreatedAt,
+                            }) => ({
+                                catalog_search_uuid: currentCatalogSearchUuid,
+                                tag_uuid: prevCatalogTagUuid,
+                                created_by_user_uuid: prevCreatedByUserUuid,
+                                created_at: prevCreatedAt,
+                            }),
+                        );
+                    }
+
+                    return [];
+                },
+            );
+
+        return this.catalogModel.migrateCatalogItemTags(catalogTagsMigrateIn);
+    }
+
+    async migrateCatalogItemIcons(
+        projectUuid: string,
+        prevCatalogItemsWithIcons: CatalogItemsWithIcons[],
+    ) {
+        // Get all catalog items so we can match them with the previous catalog items
+        const currentCatalogItems =
+            await this.catalogModel.getCatalogItemsSummary(projectUuid);
+
+        const iconMigrationUpdates = currentCatalogItems.flatMap(
+            ({
+                projectUuid: currentProjectUuid,
+                name: currentName,
+                tableName: currentExploreBaseTable,
+                fieldType: currentFieldType,
+                type: currentType,
+                catalogSearchUuid: currentCatalogSearchUuid,
+            }) => {
+                // Just a safeguard, this should never happen since the getCatalogItems query is scoped to the project
+                if (projectUuid !== currentProjectUuid) {
+                    return [];
+                }
+
+                const prevCatalogItem = prevCatalogItemsWithIcons.find(
+                    ({
+                        name: prevName,
+                        tableName: prevExploreBaseTable,
+                        fieldType: prevFieldType,
+                        type: prevType,
+                        projectUuid: prevProjectUuid,
+                    }) =>
+                        prevName === currentName &&
+                        prevExploreBaseTable === currentExploreBaseTable &&
+                        prevFieldType === currentFieldType &&
+                        prevType === currentType &&
+                        prevProjectUuid === currentProjectUuid,
+                );
+
+                if (prevCatalogItem?.icon) {
+                    return [
+                        {
+                            catalogSearchUuid: currentCatalogSearchUuid,
+                            icon: prevCatalogItem.icon,
+                        },
+                    ];
+                }
+
+                return [];
+            },
+        );
+
+        await this.catalogModel.updateCatalogItemIcon(iconMigrationUpdates);
+    }
+
+    async migrateMetricsTreeEdges(
+        projectUuid: string,
+        prevMetricTreeEdges: CatalogMetricsTreeEdge[],
+    ) {
+        // reusing catalog items with tags although we don't need the tags, but trying to avoid creating another function here
+        const currentCatalogItems =
+            await this.catalogModel.getCatalogItemsSummary(projectUuid);
+
+        const metricEdgesMigrateIn: DbMetricsTreeEdgeIn[] =
+            prevMetricTreeEdges.reduce<DbMetricsTreeEdgeIn[]>((acc, edge) => {
+                const sourceCatalogItem = currentCatalogItems.find(
+                    (catalogItem) =>
+                        catalogItem.name === edge.source.name &&
+                        catalogItem.tableName === edge.source.tableName &&
+                        catalogItem.type === CatalogType.Field &&
+                        catalogItem.fieldType === FieldType.METRIC,
+                );
+
+                const targetCatalogItem = currentCatalogItems.find(
+                    (catalogItem) =>
+                        catalogItem.name === edge.target.name &&
+                        catalogItem.tableName === edge.target.tableName &&
+                        catalogItem.type === CatalogType.Field &&
+                        catalogItem.fieldType === FieldType.METRIC,
+                );
+
+                if (sourceCatalogItem && targetCatalogItem) {
+                    return [
+                        ...acc,
+                        {
+                            source_metric_catalog_search_uuid:
+                                sourceCatalogItem.catalogSearchUuid,
+                            target_metric_catalog_search_uuid:
+                                targetCatalogItem.catalogSearchUuid,
+                            created_by_user_uuid: edge.createdByUserUuid,
+                            created_at: edge.createdAt,
+                        },
+                    ];
+                }
+
+                return acc;
+            }, []);
+
+        return this.catalogModel.migrateMetricsTreeEdges(metricEdgesMigrateIn);
+    }
+
+    async getCatalog(
+        user: SessionUser,
+        projectUuid: string,
+        catalogSearch: ApiCatalogSearch,
+    ): Promise<KnexPaginatedData<(CatalogField | CatalogTable)[]>> {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+        if (
+            user.ability.cannot(
+                'view',
+                subject('Project', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const filteredExplores = await this.getFilteredExplores(
+            user,
+            organizationUuid,
+            projectUuid,
+        );
+
+        const userAttributes =
+            await this.userAttributesModel.getAttributeValuesForOrgMember({
+                organizationUuid,
+                userUuid: user.userUuid,
+            });
+
+        if (catalogSearch.searchQuery) {
             // On search we don't show explore errors, because they are not indexed
             return this.searchCatalog(
                 projectUuid,
                 userAttributes,
-                search,
-                type,
-                filter,
+                catalogSearch,
             );
         }
 
-        if (type === CatalogType.Field) {
+        if (catalogSearch.type === CatalogType.Field) {
             return {
                 data: await CatalogService.getCatalogFields(
                     filteredExplores,
@@ -476,7 +714,7 @@ export class CatalogService<
         user: SessionUser,
         projectUuid: string,
         paginateArgs?: KnexPaginateArgs,
-        { search }: ApiCatalogSearch = {},
+        { searchQuery, catalogTags }: ApiCatalogSearch = {},
         sortArgs?: ApiSort,
     ): Promise<KnexPaginatedData<CatalogField[]>> {
         const { organizationUuid } = await this.projectModel.getSummary(
@@ -501,9 +739,12 @@ export class CatalogService<
         const paginatedCatalog = await this.searchCatalog(
             projectUuid,
             userAttributes,
-            search,
-            CatalogType.Field,
-            CatalogFilter.Metrics,
+            {
+                searchQuery,
+                type: CatalogType.Field,
+                filter: CatalogFilter.Metrics,
+                catalogTags,
+            },
             paginateArgs,
             sortArgs,
         );
@@ -533,10 +774,12 @@ export class CatalogService<
         const chartUsageUpdates = Object.entries(chartUsagesByFieldId).reduce<
             ChartUsageIn[]
         >((acc, [fieldId, chartSummaries]) => {
-            const { fieldName, cachedExploreUuid } = catalogFieldMap[fieldId];
+            const { fieldName, cachedExploreUuid, fieldType } =
+                catalogFieldMap[fieldId];
 
             acc.push({
                 fieldName,
+                fieldType,
                 chartUsage: chartSummaries.length,
                 cachedExploreUuid,
             });
@@ -549,5 +792,498 @@ export class CatalogService<
         return {
             chartUsageUpdates,
         };
+    }
+
+    async tagCatalogItem(
+        user: SessionUser,
+        catalogSearchUuid: string,
+        tagUuid: string,
+    ) {
+        const tag = await this.tagsModel.get(tagUuid);
+
+        if (!tag) {
+            throw new NotFoundError('Tag not found');
+        }
+
+        const catalogSearch = await this.catalogModel.getCatalogItem(
+            catalogSearchUuid,
+        );
+
+        if (!catalogSearch) {
+            throw new NotFoundError('Catalog search not found');
+        }
+
+        if (catalogSearch.project_uuid !== tag.projectUuid) {
+            throw new ForbiddenError(
+                'Catalog search and tag are not in the same project',
+            );
+        }
+
+        const { organizationUuid: tagOrganizationUuid } =
+            await this.projectModel.getSummary(tag.projectUuid);
+
+        if (
+            user.ability.cannot(
+                'manage',
+                subject('Tags', {
+                    projectUuid: tag.projectUuid,
+                    organizationUuid: tagOrganizationUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        await this.catalogModel.tagCatalogItem(
+            user,
+            catalogSearchUuid,
+            tagUuid,
+        );
+    }
+
+    async untagCatalogItem(
+        user: SessionUser,
+        catalogSearchUuid: string,
+        tagUuid: string,
+    ) {
+        const tag = await this.tagsModel.get(tagUuid);
+
+        if (!tag) {
+            throw new NotFoundError('Tag not found');
+        }
+
+        const { organizationUuid: tagOrganizationUuid } =
+            await this.projectModel.getSummary(tag.projectUuid);
+
+        if (
+            user.ability.cannot(
+                'manage',
+                subject('Tags', {
+                    projectUuid: tag.projectUuid,
+                    organizationUuid: tagOrganizationUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        await this.catalogModel.untagCatalogItem(catalogSearchUuid, tagUuid);
+    }
+
+    async updateCatalogItemIcon(
+        user: SessionUser,
+        projectUuid: string,
+        catalogSearchUuid: string,
+        icon: CatalogItemIcon | null,
+    ): Promise<void> {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'manage',
+                // NOTE: being able to manage tags that the user can customise catalog items
+                subject('Tags', {
+                    projectUuid,
+                    organizationUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        await this.catalogModel.updateCatalogItemIcon([
+            {
+                catalogSearchUuid,
+                icon,
+            },
+        ]);
+    }
+
+    async getMetrics({
+        user,
+        projectUuid,
+        metrics,
+        timeIntervalOverride,
+        userAttributes,
+        addDefaultTimeDimension = true,
+    }: {
+        user: SessionUser;
+        projectUuid: string;
+        metrics: {
+            tableName: string;
+            metricName: string;
+        }[];
+        timeIntervalOverride?: TimeFrames;
+        userAttributes?: UserAttributeValueMap;
+        addDefaultTimeDimension?: boolean;
+    }): Promise<MetricWithAssociatedTimeDimension[]> {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'view',
+                subject('Project', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const userAttributesForOrgMember =
+            userAttributes ??
+            (await this.userAttributesModel.getAttributeValuesForOrgMember({
+                organizationUuid,
+                userUuid: user.userUuid,
+            }));
+
+        const explores = await this.projectModel.findExploresFromCache(
+            projectUuid,
+            uniqBy(metrics, 'tableName').map((m) => m.tableName),
+        );
+
+        const filteredExplores = Object.fromEntries(
+            Object.entries(explores).map(([tableName, explore]) => {
+                if (isExploreError(explore)) {
+                    return [tableName, undefined];
+                }
+
+                const filteredExplore = getFilteredExplore(
+                    explore,
+                    userAttributesForOrgMember,
+                );
+                return [tableName, filteredExplore];
+            }),
+        );
+
+        const mappedMetrics = metrics
+            .map((m) => {
+                const explore = filteredExplores[m.tableName];
+
+                const tables = explore?.tables;
+                const metric = tables?.[m.tableName]?.metrics?.[m.metricName];
+
+                if (!metric) {
+                    return undefined;
+                }
+
+                const metricBaseTable = tables?.[metric?.table];
+
+                const defaultTimeDimension = getDefaultTimeDimension(
+                    metric,
+                    metricBaseTable,
+                );
+
+                let availableTimeDimensions:
+                    | ReturnType<typeof getAvailableTimeDimensionsFromTables>
+                    | undefined;
+
+                // If no default time dimension is defined, we can use the available time dimensions so the user can see what time dimensions are available
+                if (!defaultTimeDimension) {
+                    availableTimeDimensions =
+                        getAvailableTimeDimensionsFromTables(tables);
+                }
+
+                let timeDimension:
+                    | MetricWithAssociatedTimeDimension['timeDimension']
+                    | undefined;
+
+                if (defaultTimeDimension) {
+                    timeDimension = {
+                        field: defaultTimeDimension.field,
+                        interval: defaultTimeDimension.interval,
+                        table: metric.table,
+                    };
+                } else if (
+                    addDefaultTimeDimension &&
+                    availableTimeDimensions &&
+                    availableTimeDimensions.length > 0
+                ) {
+                    const firstAvailableTimeDimension =
+                        availableTimeDimensions[0];
+
+                    if (!firstAvailableTimeDimension.isIntervalBase) {
+                        throw new Error(
+                            'The first available time dimension is not an interval base dimension',
+                        );
+                    }
+
+                    timeDimension = {
+                        field: firstAvailableTimeDimension.name,
+                        interval:
+                            timeIntervalOverride ??
+                            DEFAULT_METRICS_EXPLORER_TIME_INTERVAL,
+                        table: firstAvailableTimeDimension.table,
+                    };
+                }
+
+                return {
+                    ...metric,
+                    ...(availableTimeDimensions &&
+                    availableTimeDimensions.length > 0
+                        ? { availableTimeDimensions }
+                        : {}),
+                    timeDimension,
+                };
+            })
+            .filter(
+                (m): m is MetricWithAssociatedTimeDimension => m !== undefined,
+            );
+
+        return mappedMetrics;
+    }
+
+    async getMetric(
+        user: SessionUser,
+        projectUuid: string,
+        tableName: string,
+        metricName: string,
+        timeIntervalOverride?: TimeFrames,
+    ) {
+        const metrics = await this.getMetrics({
+            user,
+            projectUuid,
+            metrics: [{ tableName, metricName }],
+            timeIntervalOverride,
+        });
+
+        if (metrics.length === 0) {
+            throw new NotFoundError('Metric not found');
+        }
+
+        return metrics[0];
+    }
+
+    async getMetricsTree(
+        user: SessionUser,
+        projectUuid: string,
+        metricUuids: string[],
+    ) {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'view',
+                subject('MetricsTree', { projectUuid, organizationUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        if (metricUuids.length > MAX_METRICS_TREE_NODE_COUNT) {
+            throw new ParameterError(
+                `Cannot get more than ${MAX_METRICS_TREE_NODE_COUNT} metrics in the metrics tree`,
+            );
+        }
+
+        return this.catalogModel.getMetricsTree(projectUuid, metricUuids);
+    }
+
+    private async validateMetricsTreeEdge(
+        projectUuid: string,
+        edgePayload: ApiMetricsTreeEdgePayload,
+    ) {
+        const { sourceCatalogSearchUuid, targetCatalogSearchUuid } =
+            edgePayload;
+
+        const sourceCatalogItem = await this.catalogModel.getCatalogItem(
+            sourceCatalogSearchUuid,
+        );
+
+        const targetCatalogItem = await this.catalogModel.getCatalogItem(
+            targetCatalogSearchUuid,
+        );
+
+        if (!sourceCatalogItem) {
+            throw new NotFoundError('Source metric not found');
+        }
+
+        if (sourceCatalogItem.field_type !== FieldType.METRIC) {
+            throw new ParameterError('Source metric is not a valid metric');
+        }
+
+        if (sourceCatalogItem.project_uuid !== projectUuid) {
+            throw new ForbiddenError(
+                'Source metric is not in the same project',
+            );
+        }
+
+        if (!targetCatalogItem) {
+            throw new NotFoundError('Target metric not found');
+        }
+
+        if (targetCatalogItem.field_type !== FieldType.METRIC) {
+            throw new ParameterError('Target metric is not a valid metric');
+        }
+
+        if (targetCatalogItem.project_uuid !== projectUuid) {
+            throw new ForbiddenError(
+                'Target metric is not in the same project',
+            );
+        }
+    }
+
+    async createMetricsTreeEdge(
+        user: SessionUser,
+        projectUuid: string,
+        edgePayload: ApiMetricsTreeEdgePayload,
+    ) {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'manage',
+                subject('MetricsTree', { projectUuid, organizationUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const { sourceCatalogSearchUuid, targetCatalogSearchUuid } =
+            edgePayload;
+
+        await this.validateMetricsTreeEdge(projectUuid, edgePayload);
+
+        return this.catalogModel.createMetricsTreeEdge({
+            source_metric_catalog_search_uuid: sourceCatalogSearchUuid,
+            target_metric_catalog_search_uuid: targetCatalogSearchUuid,
+            created_by_user_uuid: user.userUuid,
+        });
+    }
+
+    async getAllCatalogMetricsWithTimeDimensions(
+        user: SessionUser,
+        projectUuid: string,
+    ): Promise<MetricWithAssociatedTimeDimension[]> {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+        if (
+            user.ability.cannot(
+                'view',
+                subject('Project', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const userAttributes =
+            await this.userAttributesModel.getAttributeValuesForOrgMember({
+                organizationUuid,
+                userUuid: user.userUuid,
+            });
+
+        const allCatalogMetrics = await this.catalogModel.search({
+            projectUuid,
+            userAttributes,
+            catalogSearch: {
+                type: CatalogType.Field,
+                filter: CatalogFilter.Metrics,
+            },
+            tablesConfiguration: await this.projectModel.getTablesConfiguration(
+                projectUuid,
+            ),
+        });
+
+        const filteredMetrics = allCatalogMetrics.data.filter(
+            (c): c is CatalogField => c.type === CatalogType.Field,
+        );
+
+        const allMetrics = await this.getMetrics({
+            user,
+            projectUuid,
+            metrics: filteredMetrics.map((m) => ({
+                tableName: m.tableName,
+                metricName: m.name,
+            })),
+            userAttributes,
+            addDefaultTimeDimension: false,
+        });
+
+        return getAvailableCompareMetrics(allMetrics);
+    }
+
+    async getSegmentDimensions(
+        user: SessionUser,
+        projectUuid: string,
+        tableName: string,
+    ): Promise<CompiledDimension[]> {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'view',
+                subject('Project', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const explore = await this.projectModel.getExploreFromCache(
+            projectUuid,
+            tableName,
+        );
+
+        const userAttributes =
+            await this.userAttributesModel.getAttributeValuesForOrgMember({
+                organizationUuid,
+                userUuid: user.userUuid,
+            });
+
+        const catalogDimensions = await this.catalogModel.search({
+            projectUuid,
+            userAttributes,
+            exploreName: tableName,
+            catalogSearch: {
+                type: CatalogType.Field,
+                filter: CatalogFilter.Dimensions,
+            },
+            tablesConfiguration: await this.projectModel.getTablesConfiguration(
+                projectUuid,
+            ),
+        });
+
+        const allDimensions = catalogDimensions.data
+            .map((d) => explore?.tables?.[tableName]?.dimensions?.[d.name])
+            .filter((d): d is CompiledDimension => d !== undefined);
+
+        return getAvailableSegmentDimensions(allDimensions);
+    }
+
+    async deleteMetricsTreeEdge(
+        user: SessionUser,
+        projectUuid: string,
+        edgePayload: ApiMetricsTreeEdgePayload,
+    ) {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'manage',
+                subject('MetricsTree', { projectUuid, organizationUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const { sourceCatalogSearchUuid, targetCatalogSearchUuid } =
+            edgePayload;
+
+        await this.validateMetricsTreeEdge(projectUuid, edgePayload);
+
+        return this.catalogModel.deleteMetricsTreeEdge({
+            source_metric_catalog_search_uuid: sourceCatalogSearchUuid,
+            target_metric_catalog_search_uuid: targetCatalogSearchUuid,
+        });
     }
 }

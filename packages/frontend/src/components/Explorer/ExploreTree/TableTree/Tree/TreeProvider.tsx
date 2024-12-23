@@ -37,7 +37,7 @@ const isBaseDimensionWithIntervalDefined = (item: Item): boolean => {
     }
 };
 
-const MAX_GROUP_DEPTH = 2;
+const MAX_GROUP_DEPTH = 3;
 
 const addNodeToGroup = (
     node: NodeMap,
@@ -133,7 +133,7 @@ const getNodeMapFromItemsMap = (
                     // Limit group nesting levels
                     const groupsWithMaxDepth = groups.slice(0, MAX_GROUP_DEPTH);
                     if (
-                        groups.length > 2 &&
+                        groups.length > MAX_GROUP_DEPTH &&
                         isDimension(item) &&
                         item.timeInterval
                     ) {

@@ -16,7 +16,9 @@ import {
     type UseMutationOptions,
     type UseQueryOptions,
 } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useParams } from 'react-router-dom';
+
 import { lightdashApi } from '../api';
 import { convertDateFilters } from '../utils/dateFilter';
 import useToaster from './toaster/useToaster';
@@ -164,6 +166,8 @@ export const useChartVersionRollbackMutation = (
     >,
 ) => {
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<null, ApiError, string>(
         (versionUuid: string) => rollbackChartQuery(chartUuid, versionUuid),
         {
@@ -171,13 +175,13 @@ export const useChartVersionRollbackMutation = (
             ...useMutationOptions,
             onSuccess: async (...args) => {
                 showToastSuccess({
-                    title: `Success! Chart was reverted.`,
+                    title: t('hooks_saved_query.revert_success'),
                 });
                 useMutationOptions?.onSuccess?.(...args);
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to revert chart`,
+                    title: t('hooks_saved_query.revert_failed'),
                     apiError: error,
                 });
             },
@@ -188,6 +192,8 @@ export const useChartVersionRollbackMutation = (
 export const useSavedQueryDeleteMutation = () => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<null, ApiError, string>(
         async (data) => {
             queryClient.removeQueries(['savedChartResults', data]);
@@ -205,12 +211,12 @@ export const useSavedQueryDeleteMutation = () => {
                 await queryClient.invalidateQueries(['content']);
 
                 showToastSuccess({
-                    title: `Success! Chart was deleted.`,
+                    title: t('hooks_saved_query.delete_success'),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to delete chart`,
+                    title: t('hooks_saved_query.delete_error'),
                     apiError: error,
                 });
             },
@@ -232,6 +238,7 @@ const updateMultipleSavedQuery = async (
 export const useUpdateMultipleMutation = (projectUuid: string) => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
 
     return useMutation<SavedChart[], ApiError, UpdateMultipleSavedChart[]>(
         (data) => {
@@ -252,12 +259,12 @@ export const useUpdateMultipleMutation = (projectUuid: string) => {
                     );
                 });
                 showToastSuccess({
-                    title: `Success! Charts were updated.`,
+                    title: t('hooks_saved_query.updated_success'),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to save chart`,
+                    title: t('hooks_saved_query.updated_error'),
                     apiError: error,
                 });
             },
@@ -272,6 +279,7 @@ export const useUpdateMutation = (
     const history = useHistory();
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
 
     return useMutation<
         SavedChart,
@@ -300,10 +308,10 @@ export const useUpdateMutation = (
                 await queryClient.invalidateQueries(['spaces']);
                 queryClient.setQueryData(['saved_query', data.uuid], data);
                 showToastSuccess({
-                    title: `Success! Chart was saved.`,
+                    title: t('hooks_saved_query.save_success'),
                     action: dashboardUuid
                         ? {
-                              children: 'Open dashboard',
+                              children: t('hooks_saved_query.open_dashboard'),
                               icon: IconArrowRight,
                               onClick: () =>
                                   history.push(
@@ -315,7 +323,7 @@ export const useUpdateMutation = (
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to save chart`,
+                    title: t('hooks_saved_query.save_error'),
                     apiError: error,
                 });
             },
@@ -334,6 +342,7 @@ export const useMoveChartMutation = (
     const queryClient = useQueryClient();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
 
     return useMutation<
         SavedChart,
@@ -352,9 +361,11 @@ export const useMoveChartMutation = (
 
             queryClient.setQueryData(['saved_query', data.uuid], data);
             showToastSuccess({
-                title: `Chart has been moved to ${data.spaceName}`,
+                title: t('hooks_saved_query.move_success', {
+                    spaceName: data.spaceName,
+                }),
                 action: {
-                    children: 'Go to space',
+                    children: t('hooks_saved_query.to_space'),
                     icon: IconArrowRight,
                     onClick: () =>
                         history.push(
@@ -366,7 +377,7 @@ export const useMoveChartMutation = (
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to move chart`,
+                title: t('hooks_saved_query.move_error'),
                 apiError: error,
             });
         },
@@ -378,6 +389,8 @@ export const useCreateMutation = () => {
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<SavedChart, ApiError, CreateSavedChart>(
         (data) => createSavedQuery(projectUuid, data),
         {
@@ -385,7 +398,7 @@ export const useCreateMutation = () => {
             onSuccess: (data) => {
                 queryClient.setQueryData(['saved_query', data.uuid], data);
                 showToastSuccess({
-                    title: `Success! Chart was saved.`,
+                    title: t('hooks_saved_query.save_success'),
                 });
                 history.push({
                     pathname: `/projects/${projectUuid}/saved/${data.uuid}/view`,
@@ -393,7 +406,7 @@ export const useCreateMutation = () => {
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to save chart`,
+                    title: t('hooks_saved_query.save_error'),
                     apiError: error,
                 });
             },
@@ -414,6 +427,8 @@ export const useDuplicateChartMutation = (
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<
         SavedChart,
         ApiError,
@@ -446,10 +461,10 @@ export const useDuplicateChartMutation = (
                 showToastSuccess({
                     title:
                         options?.successMessage ||
-                        `Chart successfully duplicated!`,
+                        t('hooks_saved_query.duplicated_success'),
                     action: options?.showRedirectButton
                         ? {
-                              children: 'Open chart',
+                              children: t('hooks_saved_query.open_chart'),
                               icon: IconArrowRight,
                               onClick: () =>
                                   history.push(
@@ -461,7 +476,7 @@ export const useDuplicateChartMutation = (
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to duplicate chart`,
+                    title: t('hooks_saved_query.duplicated_error'),
                     apiError: error,
                 });
             },
@@ -475,6 +490,8 @@ export const useAddVersionMutation = () => {
     const dashboardUuid = useSearchParams('fromDashboard');
 
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<
         SavedChart,
         ApiError,
@@ -492,9 +509,9 @@ export const useAddVersionMutation = () => {
 
             if (dashboardUuid)
                 showToastSuccess({
-                    title: `Success! Chart was updated.`,
+                    title: t('hooks_saved_query.update_success'),
                     action: {
-                        children: 'Open dashboard',
+                        children: t('hooks_saved_query.open_dashboard'),
                         icon: IconArrowRight,
                         onClick: () =>
                             history.push(
@@ -504,7 +521,7 @@ export const useAddVersionMutation = () => {
                 });
             else {
                 showToastSuccess({
-                    title: `Success! Chart was updated.`,
+                    title: t('hooks_saved_query.update_success'),
                 });
                 history.push({
                     pathname: `/projects/${data.projectUuid}/saved/${data.uuid}/view`,
@@ -513,7 +530,7 @@ export const useAddVersionMutation = () => {
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to update chart`,
+                title: t('hooks_saved_query.update_error'),
                 apiError: error,
             });
         },

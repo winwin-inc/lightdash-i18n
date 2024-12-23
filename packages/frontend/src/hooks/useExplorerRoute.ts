@@ -2,14 +2,10 @@ import {
     ChartType,
     CustomDimensionType,
     DateGranularity,
-    DimensionType,
-    getDateDimension,
-    getItemId,
     isCartesianChartConfig,
     type CreateSavedChartVersion,
     type CustomBinDimension,
     type CustomDimension,
-    type Explore,
     type MetricQuery,
 } from '@lightdash/common';
 import { useEffect, useMemo } from 'react';
@@ -44,63 +40,14 @@ export const DEFAULT_EMPTY_EXPLORE_CONFIG: CreateSavedChartVersion = {
     },
 };
 
-export const createMetricPreviewUnsavedChartVersion = (
-    metric: Record<'name' | 'tableName', string>,
-    explore: Explore,
-): CreateSavedChartVersion => {
-    // Find the best date dimension to use
-    const dateDimensions = Object.entries(
-        explore.tables[metric.tableName].dimensions,
-    ).filter(([_, dim]) =>
-        [DimensionType.DATE, DimensionType.TIMESTAMP].includes(dim.type),
-    );
-
-    // Try to find a dimension with a date granularity, if not, leave empty
-    let dateWithGranularity = dateDimensions.find(([dimId]) => {
-        const { baseDimensionId, newTimeFrame } = getDateDimension(dimId);
-        return !!baseDimensionId && !!newTimeFrame;
-    });
-
-    if (!dateWithGranularity) {
-        // Look through all other tables for date dimensions when no date dimension is found in the current table - there could be a joined table with a date dimension
-        dateWithGranularity = Object.entries(explore.tables)
-            .filter(([tableName]) => tableName !== metric.tableName)
-            .flatMap(([_, table]) =>
-                Object.entries(table.dimensions).filter(([__, dim]) =>
-                    [DimensionType.DATE, DimensionType.TIMESTAMP].includes(
-                        dim.type,
-                    ),
-                ),
-            )
-            .find(([dimId]) => {
-                const { baseDimensionId, newTimeFrame } =
-                    getDateDimension(dimId);
-                return !!baseDimensionId && !!newTimeFrame;
-            });
-    }
-
-    return {
-        ...DEFAULT_EMPTY_EXPLORE_CONFIG,
-        tableName: metric.tableName,
-        metricQuery: {
-            ...DEFAULT_EMPTY_EXPLORE_CONFIG.metricQuery,
-            exploreName: metric.tableName,
-            dimensions: dateWithGranularity
-                ? [getItemId(dateWithGranularity[1])]
-                : [],
-            metrics: [
-                getItemId({
-                    name: metric.name,
-                    table: metric.tableName,
-                }),
-            ],
-        },
-    };
-};
-
 export const getExplorerUrlFromCreateSavedChartVersion = (
     projectUuid: string,
     createSavedChart: CreateSavedChartVersion,
+    // Pass true to preserve long url. This is sometimes desireable when we want
+    // all of the information in the URL, but don't use it for navigation.
+    // For example, the explore from here button uses the entire URL to create
+    // shareable, shortened links.
+    preserveLongUrl?: boolean,
 ): { pathname: string; search: string } => {
     const newParams = new URLSearchParams();
 
@@ -108,6 +55,7 @@ export const getExplorerUrlFromCreateSavedChartVersion = (
     const stringifiedChartSize = stringifiedChart.length;
     if (
         stringifiedChartSize > 3000 &&
+        !preserveLongUrl &&
         isCartesianChartConfig(createSavedChart.chartConfig.config)
     ) {
         console.warn(

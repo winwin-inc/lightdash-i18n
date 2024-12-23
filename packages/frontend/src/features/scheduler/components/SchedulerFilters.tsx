@@ -290,10 +290,7 @@ const updateFilters = (
             ...(schedulerFilters ?? []),
             {
                 ...schedulerFilter,
-                disabled: !(
-                    filterToCompareAgainst.disabled &&
-                    filterToCompareAgainst.disabled === true
-                ),
+                disabled: !isFilterEnabled(schedulerFilter),
             },
         ];
     }

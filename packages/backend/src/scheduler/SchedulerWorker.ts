@@ -1,11 +1,10 @@
 import {
+    indexCatalogJob,
     SchedulerJobStatus,
     semanticLayerQueryJob,
-    setCatalogChartUsagesJob,
     sqlRunnerJob,
     sqlRunnerPivotQueryJob,
 } from '@lightdash/common';
-import { getSchedule, stringToArray } from 'cron-converter';
 import {
     JobHelpers,
     Logger as GraphileLogger,
@@ -16,7 +15,9 @@ import {
     TaskList,
 } from 'graphile-worker';
 import moment from 'moment';
+import ExecutionContext from 'node-execution-context';
 import Logger from '../logging/logger';
+import { ExecutionContextInfo } from '../logging/winston';
 import { wrapSentryTransaction } from '../utils';
 import { SchedulerClient } from './SchedulerClient';
 import { tryJobOrTimeout } from './SchedulerJobTimeout';
@@ -70,12 +71,24 @@ const traceTask = (taskName: string, task: Task): Task => {
                     span.setAttribute('worker.job.key', job.key);
                 }
 
-                let hasError = false;
                 try {
-                    await task(payload, helpers);
+                    const executionContext: ExecutionContextInfo = {
+                        worker: {
+                            id: job.locked_by,
+                        },
+                        job: {
+                            id: job.id,
+                            queue_name: job.queue_name,
+                            task_identifier: job.task_identifier,
+                            priority: job.priority,
+                            attempts: job.attempts,
+                        },
+                    };
+                    await ExecutionContext.run(
+                        () => task(payload, helpers),
+                        executionContext,
+                    );
                 } catch (e) {
-                    hasError = true;
-
                     span.setStatus({
                         code: 2, // Error
                     });
@@ -98,9 +111,15 @@ const traceTasks = (tasks: TaskList) => {
     return tracedTasks;
 };
 
-const workerLogger = new GraphileLogger((scope) => (_, message, meta) => {
-    Logger.debug(message, { meta, scope });
-});
+const workerLogger = new GraphileLogger(
+    (scope) => (logLevel, message, meta) => {
+        if (logLevel === 'error') {
+            return Logger.error(message, { meta, scope });
+        }
+
+        return Logger.debug(message, { meta, scope });
+    },
+);
 
 export class SchedulerWorker extends SchedulerTask {
     runner: Runner | undefined;
@@ -125,7 +144,7 @@ export class SchedulerWorker extends SchedulerTask {
                     pattern: '0 0 * * *',
                     options: {
                         backfillPeriod: 12 * 3600 * 1000, // 12 hours in ms
-                        maxAttempts: 1,
+                        maxAttempts: 3,
                     },
                 },
             ]),
@@ -143,8 +162,14 @@ export class SchedulerWorker extends SchedulerTask {
     protected getTaskList(): TaskList {
         return {
             generateDailyJobs: async () => {
+                const currentDateStartOfDay = moment()
+                    .utc()
+                    .startOf('day')
+                    .toDate();
+
                 const schedulers =
                     await this.schedulerService.getAllSchedulers();
+
                 const promises = schedulers.map(async (scheduler) => {
                     const defaultTimezone =
                         await this.schedulerService.getSchedulerDefaultTimezone(
@@ -154,6 +179,7 @@ export class SchedulerWorker extends SchedulerTask {
                     await this.schedulerClient.generateDailyJobsForScheduler(
                         scheduler,
                         defaultTimezone,
+                        currentDateStartOfDay,
                     );
                 });
 
@@ -353,6 +379,24 @@ export class SchedulerWorker extends SchedulerTask {
                     },
                 );
             },
+            createProjectWithCompile: async (
+                payload: any,
+                helpers: JobHelpers,
+            ) => {
+                await SchedulerClient.processJob(
+                    'createProjectWithCompile',
+                    helpers.job.id,
+                    helpers.job.run_at,
+                    payload,
+                    async () => {
+                        await this.createProjectWithCompile(
+                            helpers.job.id,
+                            helpers.job.run_at,
+                            payload,
+                        );
+                    },
+                );
+            },
             compileProject: async (payload: any, helpers: JobHelpers) => {
                 await SchedulerClient.processJob(
                     'compileProject',
@@ -500,18 +544,15 @@ export class SchedulerWorker extends SchedulerTask {
                     },
                 );
             },
-            [setCatalogChartUsagesJob]: async (
-                payload: any,
-                helpers: JobHelpers,
-            ) => {
+            [indexCatalogJob]: async (payload: any, helpers: JobHelpers) => {
                 await tryJobOrTimeout(
                     SchedulerClient.processJob(
-                        setCatalogChartUsagesJob,
+                        indexCatalogJob,
                         helpers.job.id,
                         helpers.job.run_at,
                         payload,
                         async () => {
-                            await this.setCatalogChartUsages(
+                            await this.indexCatalog(
                                 helpers.job.id,
                                 helpers.job.run_at,
                                 payload,
@@ -522,7 +563,7 @@ export class SchedulerWorker extends SchedulerTask {
                     this.lightdashConfig.scheduler.jobTimeout,
                     async (job, e) => {
                         await this.schedulerService.logSchedulerJob({
-                            task: setCatalogChartUsagesJob,
+                            task: indexCatalogJob,
                             jobId: job.id,
                             scheduledTime: job.run_at,
                             status: SchedulerJobStatus.ERROR,

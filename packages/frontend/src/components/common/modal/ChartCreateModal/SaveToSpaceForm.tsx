@@ -67,7 +67,9 @@ const SaveToSpaceForm = <T extends FormType>({
                     }}
                     leftIcon={<MantineIcon icon={IconArrowLeft} />}
                 >
-                    {t('components_common_modal_chart_create.save_space.save')}
+                    {t(
+                        'components_common_modal_chart_create.save_space.form.save',
+                    )}
                 </Button>
             </Stack>
         );
@@ -109,7 +111,7 @@ const SaveToSpaceForm = <T extends FormType>({
                     onClick={() => setShouldCreateNewSpace(true)}
                 >
                     {t(
-                        'components_common_modal_chart_create.save_space.create',
+                        'components_common_modal_chart_create.save_space.form.create',
                     )}
                 </Button>
             </Can>

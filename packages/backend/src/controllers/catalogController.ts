@@ -4,16 +4,27 @@ import {
     ApiCatalogResults,
     ApiCatalogSearch,
     ApiErrorPayload,
+    ApiGetMetricPeek,
     ApiMetricsCatalog,
+    ApiSegmentDimensionsResponse,
     getItemId,
+    type ApiGetMetricsTree,
+    type ApiMetricsTreeEdgePayload,
+    type ApiMetricsWithAssociatedTimeDimensionResponse,
     type ApiSort,
+    type ApiSuccessEmpty,
+    type CatalogItemIcon,
     type KnexPaginateArgs,
 } from '@lightdash/common';
 import {
+    Body,
+    Delete,
     Get,
     Middlewares,
     OperationId,
+    Patch,
     Path,
+    Post,
     Query,
     Request,
     Response,
@@ -44,13 +55,13 @@ export class CatalogController extends BaseController {
     async getCatalog(
         @Path() projectUuid: string,
         @Request() req: express.Request,
-        @Query() search?: ApiCatalogSearch['search'],
+        @Query() search?: ApiCatalogSearch['searchQuery'],
         @Query() type?: ApiCatalogSearch['type'],
         @Query() filter?: ApiCatalogSearch['filter'],
     ): Promise<{ status: 'ok'; results: ApiCatalogResults }> {
         this.setStatus(200);
         const query: ApiCatalogSearch = {
-            search,
+            searchQuery: search,
             type,
             filter,
         };
@@ -166,11 +177,12 @@ export class CatalogController extends BaseController {
     async getMetricsCatalog(
         @Path() projectUuid: string,
         @Request() req: express.Request,
-        @Query() search?: ApiCatalogSearch['search'],
+        @Query() search?: ApiCatalogSearch['searchQuery'],
         @Query() page?: number,
         @Query() pageSize?: number,
         @Query() sort?: ApiSort['sort'],
         @Query() order?: ApiSort['order'],
+        @Query() categories?: ApiCatalogSearch['catalogTags'],
     ): Promise<ApiMetricsCatalog> {
         this.setStatus(200);
 
@@ -196,7 +208,8 @@ export class CatalogController extends BaseController {
                 projectUuid,
                 paginateArgs,
                 {
-                    search,
+                    searchQuery: search,
+                    catalogTags: categories,
                 },
                 sortArgs,
             );
@@ -206,4 +219,226 @@ export class CatalogController extends BaseController {
             results,
         };
     }
+
+    /**
+     * Get metric by table and metric name
+     * @param projectUuid
+     * @param tableName
+     * @param metricName
+     * @returns the complete metric object
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Get('/metrics/{tableName}/{metricName}')
+    @OperationId('getMetric')
+    async getMetric(
+        @Path() projectUuid: string,
+        @Path() tableName: string,
+        @Path() metricName: string,
+        @Request() req: express.Request,
+    ): Promise<ApiGetMetricPeek> {
+        this.setStatus(200);
+
+        const results = await this.services
+            .getCatalogService()
+            .getMetric(req.user!, projectUuid, tableName, metricName);
+
+        return {
+            status: 'ok',
+            results,
+        };
+    }
+
+    /**
+     * Get metrics with time dimensions
+     * @param projectUuid
+     * @returns the all project metrics with their associated time dimensions
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Get('/metrics-with-time-dimensions')
+    @OperationId('getMetricsWithTimeDimensions')
+    async getMetricsWithTimeDimensions(
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+    ): Promise<ApiMetricsWithAssociatedTimeDimensionResponse> {
+        this.setStatus(200);
+
+        const results = await this.services
+            .getCatalogService()
+            .getAllCatalogMetricsWithTimeDimensions(req.user!, projectUuid);
+
+        return {
+            status: 'ok',
+            results,
+        };
+    }
+
+    /**
+     * Get dimensions that can be used to segment metrics
+     * @param projectUuid
+     * @param metric
+     * @returns the all metric dimensions that can be used to segment metrics
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Get('/{tableName}/segment-dimensions')
+    @OperationId('getSegmentDimensions')
+    async getSegmentDimensions(
+        @Path() projectUuid: string,
+        @Path() tableName: string,
+        @Request() req: express.Request,
+    ): Promise<ApiSegmentDimensionsResponse> {
+        this.setStatus(200);
+
+        const results = await this.services
+            .getCatalogService()
+            .getSegmentDimensions(req.user!, projectUuid, tableName);
+
+        return {
+            status: 'ok',
+            results,
+        };
+    }
+
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Post('{catalogSearchUuid}/categories')
+    @OperationId('addCategoryToCatalogItem')
+    async addCategoryToCatalogItem(
+        @Path() catalogSearchUuid: string,
+        @Body()
+        body: {
+            tagUuid: string;
+        },
+        @Request() req: express.Request,
+    ): Promise<ApiSuccessEmpty> {
+        await this.services
+            .getCatalogService()
+            .tagCatalogItem(req.user!, catalogSearchUuid, body.tagUuid);
+
+        this.setStatus(200);
+
+        return {
+            status: 'ok',
+            results: undefined,
+        };
+    }
+
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Delete('{catalogSearchUuid}/categories/{tagUuid}')
+    @OperationId('removeCategoryFromCatalogItem')
+    async removeCategoryFromCatalogItem(
+        @Path() catalogSearchUuid: string,
+        @Path() tagUuid: string,
+        @Request() req: express.Request,
+    ) {
+        await this.services
+            .getCatalogService()
+            .untagCatalogItem(req.user!, catalogSearchUuid, tagUuid);
+
+        this.setStatus(200);
+
+        return {
+            status: 'ok',
+            results: undefined,
+        };
+    }
+
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Patch('{catalogSearchUuid}/icon')
+    @OperationId('updateCatalogItemIcon')
+    async updateCatalogItemIcon(
+        @Path() projectUuid: string,
+        @Path() catalogSearchUuid: string,
+        @Body() body: { icon: CatalogItemIcon | null },
+        @Request() req: express.Request,
+    ): Promise<ApiSuccessEmpty> {
+        await this.services
+            .getCatalogService()
+            .updateCatalogItemIcon(
+                req.user!,
+                projectUuid,
+                catalogSearchUuid,
+                body.icon,
+            );
+
+        this.setStatus(200);
+        return {
+            status: 'ok',
+            results: undefined,
+        };
+    }
+
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Get('/metrics/tree')
+    @OperationId('getMetricsTree')
+    async getMetricsTree(
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+        @Query() metricUuids: string[],
+    ): Promise<ApiGetMetricsTree> {
+        this.setStatus(200);
+
+        const results = await this.services
+            .getCatalogService()
+            .getMetricsTree(req.user!, projectUuid, metricUuids);
+
+        return {
+            status: 'ok',
+            results,
+        };
+    }
+
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Post('/metrics/tree/edges')
+    @OperationId('createMetricsTreeEdge')
+    async createMetricsTreeEdge(
+        @Path() projectUuid: string,
+        @Body() body: ApiMetricsTreeEdgePayload,
+        @Request() req: express.Request,
+    ): Promise<ApiSuccessEmpty> {
+        await this.services
+            .getCatalogService()
+            .createMetricsTreeEdge(req.user!, projectUuid, body);
+
+        this.setStatus(200);
+        return {
+            status: 'ok',
+            results: undefined,
+        };
+    }
+
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Delete(
+        '/metrics/tree/edges/{sourceCatalogSearchUuid}/{targetCatalogSearchUuid}',
+    )
+    @OperationId('deleteMetricsTreeEdge')
+    async deleteMetricsTreeEdge(
+        @Path() projectUuid: string,
+        @Path() sourceCatalogSearchUuid: string,
+        @Path() targetCatalogSearchUuid: string,
+        @Request() req: express.Request,
+    ): Promise<ApiSuccessEmpty> {
+        await this.services
+            .getCatalogService()
+            .deleteMetricsTreeEdge(req.user!, projectUuid, {
+                sourceCatalogSearchUuid,
+                targetCatalogSearchUuid,
+            });
+
+        this.setStatus(200);
+        return {
+            status: 'ok',
+            results: undefined,
+        };
+    }
+
+    // TODO: handle metrics tree node position
 }

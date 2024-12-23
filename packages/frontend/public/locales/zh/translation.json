@@ -35,8 +35,83 @@
         "open": "打开预览项目",
         "failed": "创建预览项目失败"
     },
+    "hooks_access_token": {
+        "toast_created": "创建令牌失败",
+        "toast_deleted": "成功！您的令牌已删除。",
+        "toast_deleted_error": "删除令牌失败"
+    },
+    "hooks_big_number_config": {
+        "compare": "与上一行相比：{{comparisonValue}}",
+        "no_change": "与上一行相比没有变化",
+        "not_number": "上一行的值不是数字",
+        "no_previous_row": "没有上一行可供比较"
+    },
+    "hooks_email_verification": {
+        "not_send": "我们无法向您的邮箱发送验证邮件。",
+        "success": "成功！您的邮箱已验证。"
+    },
+    "hooks_organization_users": {
+        "delete_success": "成功！用户已被删除。",
+        "delete_error": "删除用户失败。",
+        "update_success": "成功！用户已更新。",
+        "update_error": "更新用户权限失败。"
+    },
+    "hooks_refresh_server": {
+        "error": "同步 dbt 项目时出错",
+        "job_status": {
+            "done": "成功同步 dbt 项目！",
+            "started": "同步待处理",
+            "error": "同步 dbt 项目时出错",
+            "running": "正在同步 dbt 项目",
+            "unknown": "未知的作业状态"
+        },
+        "job_steps_status": {
+            "done": "已完成",
+            "pending": "待处理",
+            "skipped": "已跳过",
+            "error": "出错",
+            "running": "正在运行",
+            "unknown": "未知的作业步骤状态"
+        }
+    },
+    "hooks_spaces": {
+        "delete_success": "成功！空间已删除。",
+        "delete_error": "删除空间失败",
+        "updated_success": "成功！空间已更新。",
+        "updated_error": "更新空间失败",
+        "create_success": "成功！空间已创建。",
+        "create_error": "创建空间失败",
+        "updated_access_success": "成功！空间访问权限已更新！",
+        "updated_access_error": "更新空间访问权限失败",
+        "updated_group_success": "成功！空间组访问权限已更新！",
+        "updated_group_error": "更新空间组访问权限失败"
+    },
+    "hooks_dashboards": {
+        "success": "成功！看板已更新。",
+        "error": "更新看板失败"
+    },
+    "hooks_saved_query": {
+        "to_space": "前往空间",
+        "open_chart": "打开图表",
+        "open_dashboard": "打开看板",
+        "revert_success": "成功！图表已恢复。",
+        "revert_failed": "恢复图表失败",
+        "delete_success": "成功！图表已删除。",
+        "delete_error": "删除图表失败",
+        "updated_success": "成功！图表已更新。",
+        "updated_error": "保存图表失败",
+        "save_success": "成功！图表已保存。",
+        "save_error": "保存图表失败",
+        "move_success": "图表已移动到 {{spaceName}}",
+        "move_error": "移动图表失败",
+        "duplicated_success": "图表成功复制！",
+        "duplicated_error": "复制图表失败",
+        "update_success": "成功！图表已更新。",
+        "update_error": "更新图表失败"
+    },
 
     "providers_active_job": {
+        "view_log": "查看日志",
         "toast_refresh_error": "刷新服务器失败",
         "active_job_used": "必须在 ActiveJobProvider 内部使用 useActiveJob"
     },
@@ -88,11 +163,12 @@
     },
     "features_table_calculation_modal": {
         "tips": {
-            "invalid": "具有该标签的表计算/维度已存在",
-            "error": "保存错误",
+            "invalid": "具有此标签的表计算/维度已存在",
+            "error": "保存时出错",
             "edit": "编辑表计算",
             "add": "添加表计算",
-            "empty": "SQL 不能为空"
+            "empty": "SQL 不能为空",
+            "name": "名称不能为空"
         },
         "form": {
             "name": {
@@ -380,6 +456,10 @@
         "cancel": "取消",
         "open": "打开拉取请求"
     },
+    "features_sql_runner_tables_panel": {
+        "hang_on": "请稍等，正在加载..."
+    },
+
     "features_sql_chart_modal": {
         "form": {
             "chart_name": {
@@ -428,7 +508,9 @@
     },
     "features_sql_runner_bar_chart_configuration": {
         "data": "数据",
-        "styling": "样式"
+        "styling": "样式",
+        "series": "系列",
+        "display": "显示"
     },
     "features_sql_runner_bar_chart_field_configuartaion": {
         "column_not_in_sql": "列 \"{{reference}}\" 不存在。请选择其他列",
@@ -555,6 +637,7 @@
     },
 
     "features_date_zoom": {
+        "add_date_zoom": "添加日期缩放",
         "date_zoom": "日期缩放",
         "guanularity": "粒度",
         "default": "默认",
@@ -747,7 +830,9 @@
                 "add_slack_disabled": "如果要投放到私有 Slack 频道, 请在输入框中准确输入该频道在 Slack 中的名称。同时确保您已邀请 Lightdash Slackbot 加入该频道。"
             },
             "tabs_panel_customization": {
-                "title": "自定义交付消息体"
+                "title": "自定义交付消息正文",
+                "switch": "包含指向 Lightdash 的链接",
+                "tooltip": "包含您 Lightdash 项目中共享内容的链接。\n 如果您与没有访问权限的用户共享，建议关闭此选项。"
             }
         }
     },
@@ -874,6 +959,9 @@
     "features_semantic_time_dimension_granularity_picker": {
         "time_granularity": "时间粒度"
     },
+    "features_semantic_viewer_content_charts": {
+        "results": "结果"
+    },
 
     "features_sync": {
         "select_google_sheet": "通过 Google 驱动程序选择 Google 表格",
@@ -934,20 +1022,201 @@
                 "part_3": "未找到使用此指标的图表"
             }
         },
+        "learn_more": {
+            "title": "了解更多",
+            "content": {
+                "part_1": "✨ Lightdash Spotlight 来了！",
+                "part_2": "在",
+                "part_3": "目录",
+                "part_4": "中探索和整理您的关键指标，并点击可视化它们的时间变化",
+                "part_5": "在探索器中"
+            },
+            "view_demo": "查看演示",
+            "learn_more": "了解更多"
+        },
         "catalog": {
-            "title": "指标目录"
+            "title": "指标目录",
+            "tooltip": {
+                "part_1": "此功能处于测试阶段。我们正在积极测试和改进，欢迎您的反馈！",
+                "part_2": "测试版"
+            },
+            "content": {
+                "part_1": "浏览该项目中的所有指标和 KPI",
+                "part_2": "最后更新时间 {{timeAgo}}",
+                "part_3": "刷新目录",
+                "part_4": "正在刷新目录"
+            }
         },
         "table": {
             "metric_name": "指标名称",
             "description": "描述",
             "table": "表格",
-            "popularity": "受欢迎程度",
+            "popularity": "人气",
             "explore": "探索",
-            "search": "通过指标名称或描述搜索",
+            "search": "按指标名称或描述搜索",
+            "tooltip_control": {
+                "part_1": "指标树中没有可显示的指标",
+                "part_2": "您最多只能选择 30 个指标用于指标树",
+                "part_3": "所选指标之间没有连接"
+            },
             "bootom_toolbar": {
-                "part_1": "加载更多...",
-                "part_2": "向下滚动以查看更多指标（已加载 {{length}} 个）",
-                "part_3": "所有指标已加载"
+                "part_1": "正在加载更多...",
+                "part_2": "向下滚动以查看更多指标",
+                "part_3": "所有指标已加载",
+                "part_4": "{{length}} 个已加载"
+            },
+            "not_available": {
+                "part_1": "指标树不可用",
+                "part_2": "所选指标之间没有连接",
+                "part_3": "请缩小搜索范围以显示最多 30 个指标",
+                "invalid_metric": "无效的指标目录视图"
+            }
+        }
+    },
+    "features_metrics_catalog": {
+        "title": "点击在指标探索器中查看",
+        "explore": "探索"
+    },
+    "features_metrics_catalog_form": {
+        "edit_category": "编辑类别",
+        "category_name": "类别名称",
+        "delete_tag": "永久删除此标签",
+        "save": "保存"
+    },
+    "features_metrics_catalog_components": {
+        "usage_button": {
+            "used_by": "被 {{chartUsage}} 个图表使用。",
+            "click_to_view": "点击查看完整列表。"
+        },
+        "usage_modal": {
+            "title": "指标使用情况",
+            "content": {
+                "part_1": "该指标在以下图表中使用：",
+                "part_2": "加载中...",
+                "part_3": "未找到使用该指标的图表"
+            }
+        },
+        "peek_modal": {
+            "comparison": "比较",
+            "clear": "清除",
+            "keyword_shortcuts": "键盘快捷键",
+            "navigate_between_metrics": "以在指标之间导航"
+        },
+        "category_form": {
+            "search": "搜索",
+            "select_category": "选择一个类别或创建新类别",
+            "create": "创建"
+        },
+        "column_name": {
+            "remove": "删除"
+        },
+        "columns": {
+            "metric": {
+                "label": "指标"
+            },
+            "description": {
+                "label": "描述",
+                "content": "在指标的 .yml 文件中定义"
+            },
+            "category": {
+                "label": "类别",
+                "content": "类别帮助您组织指标和关键绩效指标（KPI）。点击单元格以添加或编辑类别（前提是您拥有所需的权限）。",
+                "add": "点击添加"
+            },
+            "popularity": {
+                "label": "受欢迎程度",
+                "content": "显示有多少图表使用此指标"
+            }
+        },
+        "top_toolbar_categories_filter": {
+            "filter_metrics": "按类别筛选指标",
+            "all_categories": "所有类别",
+            "filter_by_categories": "按类别筛选",
+            "filter_content": "尚未添加任何类别。点击类别单元格为您的指标分配类别。",
+            "clear_all": "清除所有类别"
+        },
+        "top_toolbar": {
+            "search": "按名称或描述搜索",
+            "metrics": "{{length}}个指标"
+        },
+        "empty_state": {
+            "unavailable": "所选范围内没有数据",
+            "content": "我们希望能为您展示更多，但该范围内的数据不可用。请尝试选择不同的范围以继续探索！"
+        },
+        "metric_tree": {
+            "clean_up": "清理"
+        },
+        "metric_explore_tooltip": {
+            "change": "更改："
+        },
+        "metric_peek_comparison": {
+            "compare_previous": {
+                "label": "与去年同期比较",
+                "tooltip": "显示去年同一时期的数据"
+            },
+            "compare_another": {
+                "label": "与另一个指标比较",
+                "tooltip": "将 \"{{baseMetricLabel}}\" 与另一个指标进行比较"
+            },
+            "select": "选择一个指标",
+            "content": {
+                "part_1": "只有在 .yml 文件中定义了时间维度的指标才能进行比较。",
+                "part_2": "了解更多"
+            }
+        },
+        "metric_peek_date_picker": {
+            "change_granularity": "更改粒度",
+            "cancel": "取消",
+            "apply": "应用"
+        },
+        "metric_peek_segmentation_picker": {
+            "segment": "细分",
+            "clear": "清除",
+            "tooltip": {
+                "label": "没有可用于细分该指标的字段",
+                "placeholder": "按此细分",
+                "content": "仅显示前 {{MAX_SEGMENT_DIMENSION_UNIQUE_VALUES}} 个系列，以保持图表的清晰和可读性。"
+            }
+        },
+        "metric_visualization": {
+            "different": {
+                "part_1": "X 轴设置为",
+                "part_2": "和",
+                "part_3": "，如 .yml 文件中所定义。"
+            },
+            "date": "日期",
+            "available": "在您的 .yml 文件中定义默认的 X 轴，以跳过此步骤并简化用户体验。"
+        },
+        "time_dimension_interval_picker": {
+            "daily": "每日",
+            "weekly": "每周",
+            "monthly": "每月",
+            "yearly": "每年"
+        },
+        "metric_peek_date": {
+            "today": {
+                "label": "今天",
+                "control": "今天"
+            },
+            "past_7_days": {
+                "label": "过去 7 天",
+                "control": "7D"
+            },
+            "past_30_days": {
+                "label": "过去 30 天",
+                "control": "30D"
+            },
+            "past_3_months": {
+                "label": "过去 3 个月",
+                "control": "3M"
+            },
+            "past_12_months": {
+                "label": "过去 12 个月",
+                "control": "12M"
+            },
+            "past_5_years": {
+                "label": "过去 5 年",
+                "control": "5Y"
             }
         }
     },
@@ -1148,6 +1417,10 @@
             "part_4": "开始",
             "part_5": "输入..."
         },
+        "autocomple_results": {
+            "refresh": "点击此处刷新缓存过滤值",
+            "loaded": "结果加载于"
+        },
         "no_data": {
             "loading": "加载中...",
             "no_results": "未找到任何结果"
@@ -1346,14 +1619,36 @@
         },
         "delete_tab_modal": {
             "title": "移除标签页",
+            "toast": {
+                "move": {
+                    "part_1": "标签 \"{{tabName}}\" 已移除，{{numTiles}} 个图块已成功转移。",
+                    "part_2": "标签 \"{{tabName}}\" 已移除，{{numTiles}} 个图块已成功转移。"
+                },
+                "remove": {
+                    "part_1": "标签 \"{{tab.name}}\" 已移除，{{numTiles}} 个图块已删除。",
+                    "part_2": "标签 \"{{tab.name}}\" 已移除，{{numTiles}} 个图块已删除。"
+                }
+            },
+            "tabs": {
+                "title": "在移除此标签之前，您希望对该标签中的图块做什么？",
+                "delete": "删除此标签中的所有图块",
+                "transfer": "将所有图块转移到另一个标签",
+                "pick_tab": "选择一个标签"
+            },
             "content": {
-                "part_1": "您确定要移除标签页",
-                "part_2": "和",
-                "part_3": "从此看板上的图块吗?",
-                "part_4": "保存对看板的更改后,这个操作也将永久删除从中创建的以下图表:"
+                "part_1": "您确定要移除标签",
+                "part_2": "及其",
+                "part_3": "图块",
+                "part_4": "图块",
+                "part_5": "保存时，此操作还将永久删除以下内容",
+                "part_6": "从中创建的图表:",
+                "part_7": "从中创建的图表:",
+                "part_8": "创建的图表:"
             },
             "cancel": "取消",
-            "remove": "移除"
+            "remove": "移除",
+            "transfer": "转移",
+            "delete": "删除图块"
         },
         "edit_tab_modal": {
             "title": "编辑您的标签页",
@@ -1560,6 +1855,9 @@
     "components_dashboard_tiles_download_csv": {
         "export_csv": "导出 CSV"
     },
+    "components_dashboard_tiles_export_image": {
+        "export_image": "导出图片"
+    },
     "components_dashboard_tiles_chart_tile": {
         "edit": "编辑语义查看器图表",
         "no_data": "没有可用数据"
@@ -1583,6 +1881,8 @@
         "title": "标题",
         "select_chart": "选择图表",
         "search": "搜索中...",
+        "no_charts_found": "未找到图表",
+        "load_more": "加载更多",
         "cancel": "取消",
         "update": "更新"
     },
@@ -2038,6 +2338,9 @@
             },
             "charts": {
                 "title": "全部图表"
+            },
+            "metrics": {
+                "title": "指标目录"
             }
         },
         "divider_label": "空间"
@@ -2097,6 +2400,29 @@
     },
     "components_navbar_main_navbar_content": {
         "home": "首页"
+    },
+    "components_navbar_create_preview_project_modal": {
+        "create": {
+            "part_1": "创建预览项目",
+            "part_2": "从"
+        },
+        "will_create": {
+            "part_1": "这将创建一个预览项目",
+            "part_2": "从",
+            "part_3": "了解更多关于预览项目的信息"
+        },
+        "project": {
+            "label": "项目",
+            "placeholder": "选择项目"
+        },
+        "preview_name": {
+            "label": "预览名称",
+            "placeholder": "输入预览名称",
+            "tooltip": "生成唯一名称"
+        },
+        "cancel": "取消",
+        "creating_preview": "正在创建预览",
+        "create_preview": "创建预览"
     },
 
     "components_about_footer": {
@@ -2165,6 +2491,7 @@
             "save": "保存"
         },
         "default": {
+            "save_to": "保存到",
             "form_space": {
                 "name": {
                     "label": "空间",
@@ -2623,10 +2950,15 @@
         }
     },
     "components_user_settings_access_tokens_panel_tokens_table": {
-        "no_expiration_date": "无到期日",
+        "no_expiration_date": "无到期日期",
+        "last_rotated_at": "最后更新时间",
+        "copied": "已复制",
+        "copy": "复制",
         "table_columns": {
             "name": "名称",
-            "expiration_date": "到期日期"
+            "expiration_date": "到期日期",
+            "last_used_at": "最后使用于",
+            "uuid": "UUID"
         },
         "modal": {
             "delete_token": "删除令牌",
@@ -2742,9 +3074,16 @@
         "preview": "预览",
         "settings": "设置",
         "project_management_settings": "项目管理设置",
-        "create_new": "创建新项目",
+        "create_new": "新建项目",
+        "delete": "删除选中的 {{length}} 项",
         "table": {
+            "select_all": "全选",
             "name": "名称"
+        },
+        "tabs": {
+            "all": "全部",
+            "projects": "项目",
+            "preview": "预览项目"
         }
     },
     "components_user_settings_groups_panel": {
@@ -2835,8 +3174,13 @@
         }
     },
     "components_user_settings_groups_panel_users_view": {
+        "inactive": "不活跃",
         "pending": "待处理",
         "link_expired": "链接已过期",
+        "groups": {
+            "part_1": "{{ length }} 个组",
+            "part_2": "{{ length }} 个组"
+        },
         "send_new_invite": "发送新邀请",
         "get_new_link": "获取新链接",
         "user_groups": "用户群组:",
@@ -2978,25 +3322,32 @@
     },
     "components_user_settings_github_settings_panel": {
         "toast_success": {
-            "title": "GitHub集成已删除",
-            "subtitle": "您已成功删除了 GitHub 集成。"
+            "title": "GitHub 集成已删除",
+            "subtitle": "您已成功删除 GitHub 集成。"
         },
         "toast_error": {
             "title": "删除 GitHub 集成失败"
         },
+        "toast_error_get": {
+            "title": "获取 GitHub 集成失败"
+        },
         "title": "GitHub",
         "content": {
-            "part_1": "安装 GitHub 应用程序允许 Lightdash 访问您的 GitHub 存储库并创建拉取请求。",
-            "part_2": "您的 GitHub 集成没有访问任何存储库的权限。",
-            "part_3": "您的 GitHub 集成有权访问以下存储库:"
+            "part_1": "安装 GitHub 应用允许 Lightdash 访问您的 GitHub 仓库并创建拉取请求。",
+            "part_2": "您的 GitHub 集成没有访问任何仓库。",
+            "part_3": "您的 GitHub 集成可以访问以下仓库："
         },
         "reinstall": "重新安装",
         "delete": "删除",
         "install": "安装",
         "waiting_for": {
-            "label": "您 GitHub 组织中的管理员需要批准此应用程序的安装。他们应该已收到来自 GitHub 的 \"请求安装 lightdash\" 的电子邮件。",
+            "label": "您 GitHub 组织中的管理员需要批准此应用安装。他们应该已收到来自 GitHub 的 \"请求安装 lightdash\" 的电子邮件。",
             "pending": "待批准",
             "install": "安装"
+        },
+        "install_pending": {
+            "title": "GitHub 应用安装待处理",
+            "subtitle": "GitHub 应用正在等待 GitHub 管理员的授权。"
         }
     },
     "components_user_settings_my_warehouse_connections_panel": {
@@ -3052,6 +3403,31 @@
     },
     "components_user_settings_social_logins_panel": {
         "toast_error": "身份验证失败"
+    },
+    "components_user_settings_delete_project_panel": {
+        "stats": {
+            "active": "激活",
+            "preview": "预览",
+            "project": "项目"
+        },
+        "project": {
+            "part_1": "项目",
+            "part_2": "项目"
+        },
+        "preview": {
+            "part_1": "预览项目",
+            "part_2": "预览项目"
+        },
+        "modal": {
+            "title": "批量删除项目",
+            "content": {
+                "part_1": "您即将删除：",
+                "part_2": "输入",
+                "part_3": "以确认。此操作不可逆。"
+            },
+            "cancel": "取消",
+            "delete": "删除"
+        }
     },
 
     "components_version_auto_updater": {
@@ -3205,7 +3581,8 @@
         "config_tabs": {
             "layout": "布局",
             "series": "系列",
-            "display": "显示"
+            "display": "显示",
+            "label_max_length": "标签最大长度"
         },
         "display_config": {
             "show_legend": "显示图例",
@@ -3240,8 +3617,8 @@
     "components_visualization_configs_table": {
         "column_configuration": {
             "tooltip_columns": {
-                "part_1": "无法隐藏透视维度",
-                "part_2": "进行透视时无法隐藏维度",
+                "part_1": "透视时无法隐藏维度",
+                "part_2": "透视时无法隐藏维度",
                 "part_3": "隐藏列",
                 "part_4": "显示列"
             },
@@ -3380,6 +3757,15 @@
         "duplicate_custom_metric": "重复自定义指标",
         "copy_custom_dimension": "自定义维度复制成功",
         "duplicate_custom_dimension": "重复自定义维度"
+    },
+    "components_explorer_table_tree_single_node": {
+        "no_availailable": "暂无描述。",
+        "missing": "此字段来自 '{table}' 表，不再可用",
+        "tooltip_filter": {
+            "filtered": "该字段已被过滤",
+            "click": "点击此处添加过滤器"
+        },
+        "hidden": "该字段在 dbt 项目中已被隐藏。建议从查询中删除它"
     },
     "components_explorer_sider_bar": {
         "error": "无法加载探索数据",
@@ -3634,7 +4020,10 @@
             "pin": "固定到主页",
             "version_history": "版本历史",
             "tooltip_can_prompote": {
-                "label": "您必须先在设置中启用上游项目 > 数据操作",
+                "label": {
+                    "part_1": "您必须在设置 > 数据操作中先启用一个上游项目",
+                    "part_2": "您没有权限在上游项目中推广此图表"
+                },
                 "content": "推广图表"
             },
             "delete": "删除",
@@ -3664,9 +4053,12 @@
         "dashboard": "看板",
         "chart": "图表",
         "add_modal": {
-            "added": "已添加到此空间",
+            "added": "已在此空间中添加",
             "title": "将 {{resourceType}} 添加到空间",
-            "content": "选择您想要移动的 {{resourceType}}",
+            "content": "选择您想要移动到的 {{resourceType}}",
+            "search": "搜索 {{resourceType}}",
+            "nothing_found": "未找到 {{resourceType}}",
+            "load_more": "加载更多",
             "cancel": "取消",
             "move": "移动 {{resourceType}}"
         },
@@ -3764,6 +4156,33 @@
             "shared_with_me": "与我分享",
             "admin_content_view": "公开内容视图"
         },
+        "infinite_resource_table": {
+            "columns": {
+                "name": {
+                    "label": "名称",
+                    "content": {
+                        "part_1": "此内容有误。了解更多验证错误",
+                        "part_2": "在这里",
+                        "part_3": "此处有错误",
+                        "part_4": "图表",
+                        "part_5": "仪表板"
+                    },
+                    "views": "浏览次数"
+                },
+                "space": {
+                    "label": "空间"
+                },
+                "updated": {
+                    "label": "最后编辑时间"
+                }
+            },
+            "toolbar": {
+                "search": "按名称搜索",
+                "load_more": "正在加载更多...",
+                "scroll": "向下滚动以获取更多结果",
+                "all_results": "所有结果已加载"
+            }
+        },
         "resource_view_labels": {
             "chart": "图表",
             "dashboard": "看板",
@@ -3845,6 +4264,11 @@
             "custom_visualization": "自定义可视化",
             "not_supported": "不支持 {{chartKind}} 图表类型"
         }
+    },
+    "components_common_resource_view_content_type": {
+        "all": "全部",
+        "dashboards": "看板",
+        "charts": "图表"
     },
 
     "component_saved_dashboards_files_add": {
@@ -4204,10 +4628,14 @@
         "tabs": {
             "shared_with_me": "与我共享",
             "admin_content_view": "管理员内容视图",
-            "view_all_spaces": "查看您所在组织中所有公开和私有的空间",
+            "view_all_spaces": "查看您组织中的所有公共和私有空间",
             "spaces": "空间",
-            "no_spaces": "尚未添加任何空间",
-            "create_space": "创建空间"
+            "no_spaces": "尚未添加空间",
+            "create_space": "创建空间",
+            "update_space": "更新空间",
+            "update": "更新",
+            "delete_space": "删除空间",
+            "delete": "删除"
         },
         "create_new_space": "创建新空间",
         "create": "创建"
@@ -5045,6 +5473,28 @@
         "back_to_home_page": "返回主页"
     },
 
+    "components_dataviz_config": {
+        "x_axis": "X轴标签",
+        "y_axis": {
+            "part_1": "Y轴",
+            "part_2": "左侧Y轴",
+            "part_3": "右侧Y轴"
+        },
+        "label": "标签",
+        "format": "格式"
+    },
+    "components_dataviz_config_cartesian_chart": {
+        "title": "未找到系列。添加一个指标以创建系列。",
+        "stacking": "堆叠",
+        "none": "无",
+        "stacked": "堆叠",
+        "label": "标签",
+        "chart_type": "图表类型",
+        "y_axis": "Y轴",
+        "left": "左侧",
+        "right": "右侧",
+        "values_labels": "数值标签"
+    },
     "components_dataviz_visualizations_chart_view": {
         "vizchartview_error": "VizChartView 不应用于表格可视化",
         "error_tip": {
@@ -5057,8 +5507,12 @@
         "error": "某些指定的列在数据中不存在",
         "error_loading_tip": "生成图表时出错"
     },
+    "components_dataviz_visualizations_chart_data_table": {
+        "tooltip": "您无法按组列进行排序"
+    },
     "components_dataviz_cartesian_chart": {
         "vertical_bar": "垂直柱状图",
+        "bar": "柱状图",
         "line": "折线图"
     },
     "components_dataviz_aggregation_config": {
@@ -5350,6 +5804,7 @@
         }
     },
     "pages_saved_dashboards": {
+        "dashboards": "看板",
         "loading_dashboards": "正在加载看板",
         "bread_crumbs": {
             "home": "首页",

@@ -295,6 +295,7 @@ const FilterConfiguration: FC<Props> = ({
                             <FieldSelect
                                 data-testid="FilterConfiguration/FieldSelect"
                                 size="xs"
+                                focusOnRender={true}
                                 label={
                                     <Text>
                                         {t(

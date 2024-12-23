@@ -5,11 +5,10 @@ import {
     IconLayoutDashboard,
     IconPlayerPlay,
 } from '@tabler/icons-react';
-import { SetStateAction, type FC } from 'react';
+import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
-
-import { useChartSummaries } from '../../../hooks/useChartSummaries';
+import { useProjectSavedChartStatus } from '../../../hooks/useOnboardingStatus';
 import useCreateInAnySpaceAccess from '../../../hooks/user/useCreateInAnySpaceAccess';
 import { useApp } from '../../../providers/AppProvider';
 import { TrackSection } from '../../../providers/TrackingProvider';
@@ -40,10 +39,7 @@ const EmptyStateNoTiles: FC<SavedChartsAvailableProps> = ({
     const { t } = useTranslation();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { user } = useApp();
-    const savedChartsRequest = useChartSummaries(projectUuid);
-
-    const savedCharts = savedChartsRequest.data || [];
-    const hasSavedCharts = savedCharts.length > 0;
+    const { data: hasSavedCharts } = useProjectSavedChartStatus(projectUuid);
 
     const userCanCreateDashboard = useCreateInAnySpaceAccess(
         projectUuid,

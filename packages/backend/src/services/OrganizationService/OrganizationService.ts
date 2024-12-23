@@ -1,6 +1,7 @@
 import { subject } from '@casl/ability';
 import {
     AllowedEmailDomains,
+    convertProjectRoleToOrganizationRole,
     CreateGroup,
     CreateOrganization,
     ForbiddenError,
@@ -15,6 +16,7 @@ import {
     Organization,
     OrganizationMemberProfile,
     OrganizationMemberProfileUpdate,
+    OrganizationMemberProfileWithGroups,
     OrganizationMemberRole,
     OrganizationProject,
     ParameterError,
@@ -160,9 +162,9 @@ export class OrganizationService extends BaseService {
         }
 
         const { data: orgUsers } =
-            await this.organizationMemberProfileModel.getOrganizationMembers(
+            await this.organizationMemberProfileModel.getOrganizationMembers({
                 organizationUuid,
-            );
+            });
 
         const userUuids = orgUsers.map((orgUser) => orgUser.userUuid);
 
@@ -174,12 +176,14 @@ export class OrganizationService extends BaseService {
         orgUsers.forEach((orgUser) => {
             this.analytics.track({
                 event: 'user.deleted',
-                userId: orgUser.userUuid,
+                userId: user.userUuid, // track the user who deleted the org members
                 properties: {
+                    context: 'delete_org_member',
                     firstName: orgUser.firstName,
                     lastName: orgUser.lastName,
                     email: orgUser.email,
                     organizationId: organizationUuid,
+                    deletedUserId: orgUser.userUuid,
                 },
             });
         });
@@ -203,6 +207,7 @@ export class OrganizationService extends BaseService {
         includeGroups?: number,
         paginateArgs?: KnexPaginateArgs,
         searchQuery?: string,
+        projectUuid?: string,
     ): Promise<KnexPaginatedData<OrganizationMemberProfile[]>> {
         const { organizationUuid } = user;
 
@@ -218,26 +223,56 @@ export class OrganizationService extends BaseService {
             throw new NotExistsError('Organization not found');
         }
 
-        const { pagination, data: members } = includeGroups
+        const { pagination, data: organizationMembers } = includeGroups
             ? await this.organizationMemberProfileModel.getOrganizationMembersAndGroups(
                   organizationUuid,
                   includeGroups,
                   paginateArgs,
                   searchQuery,
               )
-            : await this.organizationMemberProfileModel.getOrganizationMembers(
+            : await this.organizationMemberProfileModel.getOrganizationMembers({
                   organizationUuid,
                   paginateArgs,
                   searchQuery,
-              );
+              });
+
+        let members = organizationMembers.filter((member) =>
+            user.ability.can(
+                'view',
+                subject('OrganizationMemberProfile', member),
+            ),
+        );
+
+        // If projectUuid is set, then we can check what's the user role in that project
+        // At this point we only care about groups, because a user can be a member in the org,
+        // and still have a group that allows them access to the project
+        // In this case, we'll return the group's role instead of the member's role
+        // So we can properly list them on `space access` form.
+        if (projectUuid && includeGroups) {
+            // If includeGroups > 0, then members is an array of OrganizationMemberProfileWithGroups
+            // even though the type is not inferred correctly from `getOrganizationMembersAndGroups`
+            const projectGroupAccesses =
+                await this.projectModel.getProjectGroupAccesses(projectUuid);
+            members = members.map((member) => {
+                const memberWithGroup =
+                    member as OrganizationMemberProfileWithGroups;
+                const groups = memberWithGroup.groups.map(
+                    (group) => group.uuid,
+                );
+                const groupAccess = projectGroupAccesses.find((access) =>
+                    groups.includes(access.groupUuid),
+                );
+                return {
+                    ...member,
+                    role: groupAccess?.role
+                        ? convertProjectRoleToOrganizationRole(groupAccess.role)
+                        : member.role,
+                };
+            });
+        }
 
         return {
-            data: members.filter((member) =>
-                user.ability.can(
-                    'view',
-                    subject('OrganizationMemberProfile', member),
-                ),
-            ),
+            data: members,
             pagination,
         };
     }
@@ -496,8 +531,11 @@ export class OrganizationService extends BaseService {
         }
 
         const groupWithMembers = await this.groupsModel.createGroup({
-            organizationUuid: actor.organizationUuid,
-            ...createGroup,
+            createdByUserUuid: actor.userUuid,
+            createGroup: {
+                organizationUuid: actor.organizationUuid,
+                ...createGroup,
+            },
         });
 
         this.analytics.track({
@@ -509,6 +547,7 @@ export class OrganizationService extends BaseService {
                 name: groupWithMembers.name,
                 countUsersInGroup: groupWithMembers.memberUuids.length,
                 viaSso: false,
+                context: 'create_group',
             },
         });
         return groupWithMembers;

@@ -8,40 +8,53 @@ import {
     type JobStep,
 } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
+
 import { lightdashApi } from '../api';
 import { useActiveJob } from '../providers/ActiveJobProvider';
 import useToaster from './toaster/useToaster';
 
-export const jobStepStatusLabel = (status: JobStepStatusType) => {
-    switch (status) {
-        case JobStepStatusType.DONE:
-            return 'Completed';
-        case JobStepStatusType.PENDING:
-            return 'Pending';
-        case JobStepStatusType.SKIPPED:
-            return 'Skipped';
-        case JobStepStatusType.ERROR:
-            return 'Error';
-        case JobStepStatusType.RUNNING:
-            return 'Running';
-        default:
-            throw new Error('Unknown job step status');
-    }
+export const useJobStepStatusLabel = () => {
+    const { t } = useTranslation();
+
+    return (status: JobStepStatusType) => {
+        switch (status) {
+            case JobStepStatusType.DONE:
+                return t('hooks_refresh_server.job_steps_status.done');
+            case JobStepStatusType.PENDING:
+                return t('hooks_refresh_server.job_steps_status.pending');
+            case JobStepStatusType.SKIPPED:
+                return t('hooks_refresh_server.job_steps_status.skipped');
+            case JobStepStatusType.ERROR:
+                return t('hooks_refresh_server.job_steps_status.error');
+            case JobStepStatusType.RUNNING:
+                return t('hooks_refresh_server.job_steps_status.running');
+            default:
+                throw new Error(
+                    t('hooks_refresh_server.job_steps_status.unknown'),
+                );
+        }
+    };
 };
-export const jobStatusLabel = (status: JobStatusType) => {
-    switch (status) {
-        case JobStatusType.DONE:
-            return 'Successfully synced dbt project!';
-        case JobStatusType.STARTED:
-            return 'Pending sync';
-        case JobStatusType.ERROR:
-            return 'Error while syncing dbt project';
-        case JobStatusType.RUNNING:
-            return 'Syncing dbt project';
-        default:
-            throw new Error('Unknown job status');
-    }
+
+export const useJobStatusLabel = () => {
+    const { t } = useTranslation();
+
+    return (status: JobStatusType) => {
+        switch (status) {
+            case JobStatusType.DONE:
+                return t('hooks_refresh_server.job_status.done');
+            case JobStatusType.STARTED:
+                return t('hooks_refresh_server.job_status.started');
+            case JobStatusType.ERROR:
+                return t('hooks_refresh_server.job_status.error');
+            case JobStatusType.RUNNING:
+                return t('hooks_refresh_server.job_status.running');
+            default:
+                throw new Error(t('hooks_refresh_server.job_status.unknown'));
+        }
+    };
 };
 
 export const runningStepsInfo = (steps: JobStep[]) => {
@@ -102,6 +115,9 @@ export const useJob = (
         onSuccess: async (job) => {
             if (job.jobStatus === JobStatusType.DONE) {
                 await queryClient.invalidateQueries(['tables']);
+                await queryClient.resetQueries(['metrics-catalog'], {
+                    exact: false,
+                });
 
                 if (job.jobType === JobType.COMPILE_PROJECT) {
                     await queryClient.invalidateQueries([
@@ -121,6 +137,8 @@ export const useRefreshServer = () => {
     const queryClient = useQueryClient();
     const { setActiveJobId } = useActiveJob();
     const { showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<ApiRefreshResults, ApiError>({
         mutationKey: ['refresh', projectUuid],
         mutationFn: () => refresh(projectUuid),
@@ -129,7 +147,7 @@ export const useRefreshServer = () => {
         onSuccess: (data) => setActiveJobId(data.jobUuid),
         onError: ({ error }) =>
             showToastApiError({
-                title: 'Error syncing dbt project',
+                title: t('hooks_refresh_server.error'),
                 apiError: error,
             }),
     });

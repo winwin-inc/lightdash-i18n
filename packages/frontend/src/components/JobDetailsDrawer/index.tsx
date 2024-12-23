@@ -25,9 +25,9 @@ import duration from 'dayjs/plugin/duration';
 import utc from 'dayjs/plugin/utc';
 import { type FC } from 'react';
 import {
-    jobStatusLabel,
-    jobStepStatusLabel,
     runningStepsInfo,
+    useJobStatusLabel,
+    useJobStepStatusLabel,
 } from '../../hooks/useRefreshServer';
 import { useActiveJob } from '../../providers/ActiveJobProvider';
 import MantineIcon from '../common/MantineIcon';
@@ -134,6 +134,8 @@ const StepIcon: FC<StepIconProps> = ({ step }) => {
 
 const JobDetailsDrawer: FC = () => {
     const theme = useMantineTheme();
+    const jobStatusLabel = useJobStatusLabel();
+    const jobStepStatusLabel = useJobStepStatusLabel();
     const { isJobsDrawerOpen, setIsJobsDrawerOpen, activeJob } = useActiveJob();
 
     if (!activeJob) {

@@ -21,10 +21,10 @@ import { useTranslation } from 'react-i18next';
 
 import useToaster from '../hooks/toaster/useToaster';
 import {
-    jobStatusLabel,
     runningStepsInfo,
     TOAST_KEY_FOR_REFRESH_JOB,
     useJob,
+    useJobStatusLabel,
 } from '../hooks/useRefreshServer';
 
 interface ContextType {
@@ -42,6 +42,8 @@ export const ActiveJobProvider: FC<React.PropsWithChildren<{}>> = ({
     children,
 }) => {
     const { t } = useTranslation();
+    const jobStatusLabel = useJobStatusLabel();
+
     const [isJobsDrawerOpen, setIsJobsDrawerOpen] = useState(false);
     const [activeJobId, setActiveJobId] = useState();
     const queryClient = useQueryClient();
@@ -79,7 +81,7 @@ export const ActiveJobProvider: FC<React.PropsWithChildren<{}>> = ({
                         autoClose: false,
                         withCloseButton: false,
                         action: {
-                            children: 'View log',
+                            children: t('providers_active_job.view_log'),
                             icon: IconArrowRight,
                             onClick: () => setIsJobsDrawerOpen(true),
                         },
@@ -90,7 +92,14 @@ export const ActiveJobProvider: FC<React.PropsWithChildren<{}>> = ({
                     setIsJobsDrawerOpen(true);
             }
         },
-        [showToastInfo, showToastSuccess, queryClient, isJobsDrawerOpen],
+        [
+            showToastInfo,
+            showToastSuccess,
+            queryClient,
+            isJobsDrawerOpen,
+            jobStatusLabel,
+            t,
+        ],
     );
 
     const toastJobError = ({ error }: ApiError) => {

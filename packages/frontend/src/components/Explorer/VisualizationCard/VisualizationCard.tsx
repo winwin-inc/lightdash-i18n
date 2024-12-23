@@ -1,6 +1,8 @@
 import {
+    ChartType,
     ECHARTS_DEFAULT_COLORS,
     getHiddenTableFields,
+    getPivotConfig,
     NotFoundError,
 } from '@lightdash/common';
 import { useDisclosure } from '@mantine/hooks';
@@ -74,7 +76,9 @@ const VisualizationCard: FC<{
     const tableCalculationsMetadata = useExplorerContext(
         (context) => context.state.metadata?.tableCalculations,
     );
-
+    const pivotConfig = useExplorerContext(
+        (context) => context.state.unsavedChartVersion.pivotConfig,
+    );
     const isOpen = useMemo(
         () => expandedSections.includes(ExplorerSection.VISUALIZATION),
         [expandedSections],
@@ -135,6 +139,10 @@ const VisualizationCard: FC<{
                 hiddenFields: getHiddenTableFields(
                     unsavedChartVersion.chartConfig,
                 ),
+                pivotColumns:
+                    unsavedChartVersion.chartConfig.type === ChartType.TABLE
+                        ? pivotConfig?.columns
+                        : undefined,
             });
             return csvResponse;
         }
@@ -156,6 +164,7 @@ const VisualizationCard: FC<{
                 hiddenFields: getHiddenTableFields(
                     unsavedChartVersion.chartConfig,
                 ),
+                pivotConfig: getPivotConfig(unsavedChartVersion),
             });
             return gsheetResponse;
         }

@@ -37,6 +37,7 @@ import {
     Select,
     Space,
     Stack,
+    Switch,
     Tabs,
     Text,
     TextInput,
@@ -47,6 +48,7 @@ import {
     IconChevronDown,
     IconChevronUp,
     IconHelpCircle,
+    IconInfoCircle,
     IconMail,
     IconPercentage,
     IconSettings,
@@ -111,6 +113,7 @@ const DEFAULT_VALUES = {
     customViewportWidth: undefined,
     selectedTabs: undefined,
     thresholds: [],
+    includeLinks: true,
 };
 
 const DEFAULT_VALUES_ALERT = {
@@ -195,6 +198,7 @@ const getFormValuesFromScheduler = (schedulerData: SchedulerAndTargets) => {
         }),
         thresholds: schedulerData.thresholds,
         notificationFrequency: schedulerData.notificationFrequency,
+        includeLinks: schedulerData.includeLinks !== false,
     };
 };
 
@@ -386,7 +390,6 @@ const SchedulerForm: FC<Props> = ({
                 ...emailTargets,
                 ...slackTargets,
             ];
-
             return {
                 name: values.name,
                 message: values.message,
@@ -406,6 +409,7 @@ const SchedulerForm: FC<Props> = ({
                     'notificationFrequency' in values
                         ? (values.notificationFrequency as NotificationFrequency)
                         : undefined,
+                includeLinks: values.includeLinks !== false,
             };
         },
     });
@@ -1242,6 +1246,34 @@ const SchedulerForm: FC<Props> = ({
 
                 <Tabs.Panel value="customization">
                     <Stack p="md">
+                        <Group>
+                            <Switch
+                                label={t(
+                                    'features_scheduler_form.form.tabs_panel_customization.switch',
+                                )}
+                                checked={form.values.includeLinks}
+                                onChange={() =>
+                                    form.setFieldValue(
+                                        'includeLinks',
+                                        !form.values?.includeLinks,
+                                    )
+                                }
+                            ></Switch>
+                            <Tooltip
+                                label={t(
+                                    'features_scheduler_form.form.tabs_panel_customization.tooltip',
+                                )}
+                                multiline
+                                withinPortal
+                                position="right"
+                                maw={400}
+                            >
+                                <MantineIcon
+                                    icon={IconInfoCircle}
+                                    color="gray.6"
+                                />
+                            </Tooltip>
+                        </Group>
                         <Text fw={600}>
                             {t(
                                 'features_scheduler_form.form.tabs_panel_customization.title',

@@ -1,5 +1,7 @@
 import { type ApiError, type EmailStatusExpiring } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+
 import { lightdashApi } from '../api';
 import useToaster from './toaster/useToaster';
 
@@ -27,7 +29,7 @@ const verifyOTPQuery = async (code: string) => {
     });
 };
 
-export const useEmailStatus = (enabled = true) =>
+export const useEmailStatus = (enabled: boolean) =>
     useQuery<EmailStatusExpiring, ApiError>({
         queryKey: ['email_status'],
         queryFn: () => getEmailStatusQuery(),
@@ -37,6 +39,8 @@ export const useEmailStatus = (enabled = true) =>
 export const useOneTimePassword = () => {
     const queryClient = useQueryClient();
     const { showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<EmailStatusExpiring, ApiError>(
         () => sendOneTimePasscodeQuery(),
         {
@@ -46,7 +50,7 @@ export const useOneTimePassword = () => {
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `We couldn't send a verification e-mail to your inbox.`,
+                    title: t('hooks_email_verification.not_send'),
                     apiError: error,
                 });
             },
@@ -66,7 +70,7 @@ export const useVerifyEmail = () => {
 
                 if (data.isVerified)
                     showToastSuccess({
-                        title: 'Success! Your e-mail has been verified.',
+                        title: t('hooks_email_verification.success'),
                     });
             },
         },

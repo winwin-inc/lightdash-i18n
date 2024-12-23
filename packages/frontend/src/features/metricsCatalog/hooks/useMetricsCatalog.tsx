@@ -1,30 +1,37 @@
 import {
     type ApiError,
+    type ApiGetMetricPeek,
     type ApiMetricsCatalog,
     type ApiSort,
     type KnexPaginateArgs,
 } from '@lightdash/common';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { lightdashApi } from '../../../api';
 
 type UseMetricsCatalogOptions = {
     projectUuid?: string;
     search?: string;
-    // TODO: update with the expected sort options that the backend can handle; also, update to a different type when multiple sorting is enabled
+    categories?: string[];
     sortBy?: ApiSort['sort'] | 'name' | 'chartUsage';
     sortDirection?: ApiSort['order'];
 };
 
+export const MIN_METRICS_CATALOG_SEARCH_LENGTH = 2;
+
 const getMetricsCatalog = async ({
     projectUuid,
     search,
+    categories,
     paginateArgs,
     sortBy,
     sortDirection,
 }: {
     projectUuid: string;
     paginateArgs?: KnexPaginateArgs;
-} & Pick<UseMetricsCatalogOptions, 'search' | 'sortBy' | 'sortDirection'>) => {
+} & Pick<
+    UseMetricsCatalogOptions,
+    'search' | 'categories' | 'sortBy' | 'sortDirection'
+>) => {
     const urlParams = new URLSearchParams({
         ...(paginateArgs
             ? {
@@ -35,11 +42,17 @@ const getMetricsCatalog = async ({
         ...(search ? { search } : {}),
         ...(sortBy ? { sort: sortBy } : {}),
         ...(sortDirection ? { order: sortDirection } : {}),
-    }).toString();
+    });
+
+    if (categories && categories.length > 0) {
+        categories.forEach((category) =>
+            urlParams.append('categories', category),
+        );
+    }
 
     return lightdashApi<ApiMetricsCatalog['results']>({
         url: `/projects/${projectUuid}/dataCatalog/metrics${
-            urlParams ? `?${urlParams}` : ''
+            urlParams.toString() ? `?${urlParams.toString()}` : ''
         }`,
         method: 'GET',
         body: undefined,
@@ -51,6 +64,7 @@ export const useMetricsCatalog = ({
     search,
     sortBy,
     sortDirection,
+    categories,
     pageSize,
 }: UseMetricsCatalogOptions & Pick<KnexPaginateArgs, 'pageSize'>) => {
     return useInfiniteQuery<ApiMetricsCatalog['results'], ApiError>({
@@ -61,6 +75,7 @@ export const useMetricsCatalog = ({
             search,
             sortBy,
             sortDirection,
+            categories,
         ],
         queryFn: ({ pageParam }) =>
             getMetricsCatalog({
@@ -68,6 +83,7 @@ export const useMetricsCatalog = ({
                 search,
                 sortBy,
                 sortDirection,
+                categories,
                 paginateArgs: {
                     page: pageParam ?? 1,
                     pageSize,
@@ -81,7 +97,51 @@ export const useMetricsCatalog = ({
                     : undefined;
             }
         },
-        enabled: !!projectUuid && (!!search ? search.length > 2 : true),
+        enabled:
+            !!projectUuid &&
+            (!!search
+                ? search.length > MIN_METRICS_CATALOG_SEARCH_LENGTH
+                : true),
         keepPreviousData: true,
+    });
+};
+
+type UseMetricOptions = {
+    projectUuid: string | undefined;
+    tableName: string | undefined;
+    metricName: string | undefined;
+};
+
+const getMetric = async ({
+    projectUuid,
+    tableName,
+    metricName,
+}: {
+    projectUuid: string;
+    tableName: string;
+    metricName: string;
+}) => {
+    return lightdashApi<ApiGetMetricPeek['results']>({
+        url: `/projects/${projectUuid}/dataCatalog/metrics/${tableName}/${metricName}`,
+        method: 'GET',
+        body: undefined,
+    });
+};
+
+export const useMetric = ({
+    projectUuid,
+    tableName,
+    metricName,
+    enabled = true,
+}: UseMetricOptions & { enabled?: boolean }) => {
+    return useQuery<ApiGetMetricPeek['results'], ApiError>({
+        queryKey: ['metric', projectUuid, tableName, metricName],
+        queryFn: () =>
+            getMetric({
+                projectUuid: projectUuid!,
+                tableName: tableName!,
+                metricName: metricName!,
+            }),
+        enabled: enabled && !!projectUuid && !!tableName && !!metricName,
     });
 };

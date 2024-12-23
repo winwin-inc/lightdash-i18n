@@ -336,7 +336,7 @@ export const ReferenceLine: FC<ReferenceLineProps> = ({
     return (
         <Accordion.Item value={accordionValue}>
             <AccordionControl
-                label={controlLabel}
+                label={label || controlLabel}
                 onControlClick={onControlClick}
                 onRemove={() => removeReferenceLine(lineId)}
                 extraControlElements={

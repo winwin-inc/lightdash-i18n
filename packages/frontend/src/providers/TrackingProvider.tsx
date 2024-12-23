@@ -1,4 +1,4 @@
-import { LightdashMode } from '@lightdash/common';
+import { LightdashMode, type TimeFrames } from '@lightdash/common';
 import {
     createContext,
     memo,
@@ -59,11 +59,26 @@ type GenericEvent = {
         | EventName.ADD_CUSTOM_DIMENSION_CLICKED
         | EventName.DATE_ZOOM_CLICKED
         | EventName.COMMENTS_CLICKED
+        | EventName.EMBED_DOWNLOAD_CSV_CLICKED
+        | EventName.EMBED_DOWNLOAD_IMAGE_CLICKED
+        | EventName.DOWNLOAD_IMAGE_CLICKED
         | EventName.NOTIFICATIONS_COMMENTS_ITEM_CLICKED
         | EventName.DASHBOARD_AUTO_REFRESH_UPDATED
+        | EventName.METRICS_CATALOG_CLICKED
         | EventName.METRICS_CATALOG_CHART_USAGE_CLICKED
         | EventName.METRICS_CATALOG_EXPLORE_CLICKED
-        | EventName.METRICS_CATALOG_CHART_USAGE_CHART_CLICKED;
+        | EventName.METRICS_CATALOG_METRIC_NAME_CLICKED
+        | EventName.METRICS_CATALOG_CHART_USAGE_CHART_CLICKED
+        | EventName.METRICS_CATALOG_CATEGORY_CLICKED
+        | EventName.METRICS_CATALOG_CATEGORY_FILTER_APPLIED
+        | EventName.METRICS_CATALOG_ICON_APPLIED
+        | EventName.METRICS_CATALOG_EXPLORE_COMPARE_LAST_PERIOD
+        | EventName.METRICS_CATALOG_EXPLORE_COMPARE_ANOTHER_METRIC
+        | EventName.METRICS_CATALOG_EXPLORE_DATE_FILTER_APPLIED
+        | EventName.METRICS_CATALOG_EXPLORE_GRANULARITY_APPLIED
+        | EventName.METRICS_CATALOG_EXPLORE_SEGMENT_BY_APPLIED
+        | EventName.METRICS_CATALOG_EXPLORE_TIME_DIMENSION_OVERRIDE_APPLIED
+        | EventName.METRICS_CATALOG_SEARCH_APPLIED;
     properties?: {};
 };
 
@@ -175,9 +190,19 @@ export type DashboardAutoRefreshUpdateEvent = {
     };
 };
 
+type MetricsCatalogClickedEvent = {
+    name: EventName.METRICS_CATALOG_CLICKED;
+    properties: {
+        organizationId: string;
+        projectId: string;
+    };
+};
+
 type MetricsCatalogChartUsageClickedEvent = {
     name: EventName.METRICS_CATALOG_CHART_USAGE_CLICKED;
     properties: {
+        organizationId: string;
+        projectId: string;
         metricName: string;
         chartCount: number;
         tableName: string;
@@ -187,6 +212,18 @@ type MetricsCatalogChartUsageClickedEvent = {
 type MetricsCatalogExploreClickedEvent = {
     name: EventName.METRICS_CATALOG_EXPLORE_CLICKED;
     properties: {
+        organizationId: string;
+        projectId: string;
+        metricName: string;
+        tableName: string;
+    };
+};
+
+type MetricsCatalogMetricNameClickedEvent = {
+    name: EventName.METRICS_CATALOG_METRIC_NAME_CLICKED;
+    properties: {
+        organizationId: string;
+        projectId: string;
         metricName: string;
         tableName: string;
     };
@@ -195,9 +232,107 @@ type MetricsCatalogExploreClickedEvent = {
 type MetricsCatalogChartUsageChartClickedEvent = {
     name: EventName.METRICS_CATALOG_CHART_USAGE_CHART_CLICKED;
     properties: {
+        organizationId: string;
+        projectId: string;
         metricName: string;
         tableName: string;
         chartId: string;
+    };
+};
+
+type MetricsCatalogCategoryClickedEvent = {
+    name: EventName.METRICS_CATALOG_CATEGORY_CLICKED;
+    properties: {
+        organizationId: string;
+        projectId: string;
+        tagName: string;
+        isNewTag: boolean;
+    };
+};
+
+type MetricsCatalogCategoryFilterAppliedEvent = {
+    name: EventName.METRICS_CATALOG_CATEGORY_FILTER_APPLIED;
+    properties: {
+        organizationId: string;
+        projectId: string;
+    };
+};
+
+type MetricsCatalogIconAppliedEvent = {
+    name: EventName.METRICS_CATALOG_ICON_APPLIED;
+    properties: {
+        organizationId: string;
+        projectId: string;
+    };
+};
+
+type MetricsCatalogExploreCompareLastPeriodEvent = {
+    name: EventName.METRICS_CATALOG_EXPLORE_COMPARE_LAST_PERIOD;
+    properties: {
+        organizationId: string;
+        projectId: string;
+        metricName: string;
+        tableName: string;
+    };
+};
+
+type MetricsCatalogExploreCompareAnotherMetricEvent = {
+    name: EventName.METRICS_CATALOG_EXPLORE_COMPARE_ANOTHER_METRIC;
+    properties: {
+        organizationId: string;
+        projectId: string;
+        metricName: string;
+        tableName: string;
+        compareMetricName: string;
+        compareTableName: string;
+    };
+};
+
+type MetricsCatalogExploreDateFilterAppliedEvent = {
+    name: EventName.METRICS_CATALOG_EXPLORE_DATE_FILTER_APPLIED;
+    properties: {
+        organizationId: string;
+        projectId: string;
+    };
+};
+
+type MetricsCatalogExploreGranularityAppliedEvent = {
+    name: EventName.METRICS_CATALOG_EXPLORE_GRANULARITY_APPLIED;
+    properties: {
+        organizationId: string;
+        projectId: string;
+        metricName: string;
+        tableName: string;
+        granularity: TimeFrames;
+    };
+};
+
+type MetricsCatalogExploreSegmentByAppliedEvent = {
+    name: EventName.METRICS_CATALOG_EXPLORE_SEGMENT_BY_APPLIED;
+    properties: {
+        organizationId: string;
+        projectId: string;
+        metricName: string;
+        tableName: string;
+        segmentDimension: string;
+    };
+};
+
+type MetricsCatalogExploreTimeDimensionOverrideAppliedEvent = {
+    name: EventName.METRICS_CATALOG_EXPLORE_TIME_DIMENSION_OVERRIDE_APPLIED;
+    properties: {
+        organizationId: string;
+        projectId: string;
+        metricName: string;
+        tableName: string;
+    };
+};
+
+type MetricsCatalogSearchAppliedEvent = {
+    name: EventName.METRICS_CATALOG_SEARCH_APPLIED;
+    properties: {
+        organizationId: string;
+        projectId: string;
     };
 };
 
@@ -214,9 +349,21 @@ export type EventData =
     | ViewUnderlyingDataClickedEvent
     | DrillByClickedEvent
     | DashboardAutoRefreshUpdateEvent
+    | MetricsCatalogClickedEvent
     | MetricsCatalogChartUsageClickedEvent
     | MetricsCatalogExploreClickedEvent
-    | MetricsCatalogChartUsageChartClickedEvent;
+    | MetricsCatalogChartUsageChartClickedEvent
+    | MetricsCatalogCategoryClickedEvent
+    | MetricsCatalogCategoryFilterAppliedEvent
+    | MetricsCatalogIconAppliedEvent
+    | MetricsCatalogMetricNameClickedEvent
+    | MetricsCatalogExploreCompareLastPeriodEvent
+    | MetricsCatalogExploreCompareAnotherMetricEvent
+    | MetricsCatalogExploreDateFilterAppliedEvent
+    | MetricsCatalogExploreGranularityAppliedEvent
+    | MetricsCatalogExploreSegmentByAppliedEvent
+    | MetricsCatalogExploreTimeDimensionOverrideAppliedEvent
+    | MetricsCatalogSearchAppliedEvent;
 
 type IdentifyData = {
     id: string;

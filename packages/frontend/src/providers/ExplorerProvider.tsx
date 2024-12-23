@@ -1319,6 +1319,7 @@ export const ExplorerProvider: FC<
         isEditMode?: boolean;
         initialState?: ExplorerReduceState;
         savedChart?: SavedChart;
+        defaultLimit?: number;
         queryResults: ReturnType<
             typeof useQueryResults | typeof useChartVersionResultsMutation
         >;
@@ -1327,13 +1328,29 @@ export const ExplorerProvider: FC<
     isEditMode = false,
     initialState,
     savedChart,
+    defaultLimit,
     children,
     queryResults,
 }) => {
     const { t } = useTranslation();
+
+    const defaultStateWithConfig = useMemo(
+        () => ({
+            ...defaultState,
+            unsavedChartVersion: {
+                ...defaultState.unsavedChartVersion,
+                metricQuery: {
+                    ...defaultState.unsavedChartVersion.metricQuery,
+                    ...(defaultLimit !== undefined && { limit: defaultLimit }),
+                },
+            },
+        }),
+        [defaultLimit],
+    );
+
     const [reducerState, dispatch] = useReducer(
         reducer,
-        initialState || defaultState,
+        initialState || defaultStateWithConfig,
     );
     const { unsavedChartVersion } = reducerState;
 
@@ -1361,9 +1378,9 @@ export const ExplorerProvider: FC<
 
         dispatch({
             type: ActionType.RESET,
-            payload: initialState || defaultState,
+            payload: initialState || defaultStateWithConfig,
         });
-    }, [initialState]);
+    }, [defaultStateWithConfig, initialState]);
 
     const setTableName = useCallback((tableName: string) => {
         dispatch({
@@ -1775,19 +1792,19 @@ export const ExplorerProvider: FC<
 
         dispatch({
             type: ActionType.RESET,
-            payload: defaultState,
+            payload: defaultStateWithConfig,
         });
         resetQueryResults();
-    }, [resetQueryResults]);
+    }, [resetQueryResults, defaultStateWithConfig]);
 
     const history = useHistory();
     const clearQuery = useCallback(async () => {
         dispatch({
             type: ActionType.RESET,
             payload: {
-                ...defaultState,
+                ...defaultStateWithConfig,
                 unsavedChartVersion: {
-                    ...defaultState.unsavedChartVersion,
+                    ...defaultStateWithConfig.unsavedChartVersion,
                     tableName: unsavedChartVersion.tableName,
                 },
             },
@@ -1797,7 +1814,12 @@ export const ExplorerProvider: FC<
         history.replace({
             search: '',
         });
-    }, [history, resetQueryResults, unsavedChartVersion.tableName]);
+    }, [
+        defaultStateWithConfig,
+        history,
+        resetQueryResults,
+        unsavedChartVersion.tableName,
+    ]);
 
     const defaultSort = useDefaultSortField(unsavedChartVersion);
 
