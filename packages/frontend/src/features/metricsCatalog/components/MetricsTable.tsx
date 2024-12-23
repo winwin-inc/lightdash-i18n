@@ -281,7 +281,7 @@ export const MetricsTable = () => {
     }, [flatData]);
 
     const table = useMantineReactTable({
-        columns: metricsCatalogColumns,
+        columns: metricsCatalogColumns as any,
         data: flatData,
         enableColumnResizing: true,
         enableRowNumbers: false,
