@@ -1,16 +1,12 @@
 import { Draggable } from '@hello-pangea/dnd';
 import type { DashboardTab } from '@lightdash/common';
-import { ActionIcon, Box, Menu, Tabs, Title } from '@mantine/core';
+import { ActionIcon, Box, Menu, Tabs, Title, Tooltip } from '@mantine/core';
 import { mergeRefs, useHover } from '@mantine/hooks';
-import {
-    IconDots,
-    IconGripVertical,
-    IconPencil,
-    IconTrash,
-} from '@tabler/icons-react';
-import type { FC } from 'react';
+import { IconGripVertical, IconPencil, IconTrash } from '@tabler/icons-react';
+import { type Dispatch, type FC, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useIsTruncated } from '../../hooks/useIsTruncated';
 import MantineIcon from '../common/MantineIcon';
 
 type DraggableTabProps = {
@@ -20,8 +16,8 @@ type DraggableTabProps = {
     sortedTabs: DashboardTab[];
     currentTabHasTiles: boolean;
     isActive: boolean;
-    setEditingTab: (value: React.SetStateAction<boolean>) => void;
-    setDeletingTab: (value: React.SetStateAction<boolean>) => void;
+    setEditingTab: Dispatch<SetStateAction<boolean>>;
+    setDeletingTab: Dispatch<SetStateAction<boolean>>;
     handleDeleteTab: (tabUuid: string) => void;
 };
 
@@ -38,6 +34,7 @@ const DraggableTab: FC<DraggableTabProps> = ({
 }) => {
     const { t } = useTranslation();
     const { hovered: isHovered, ref: hoverRef } = useHover();
+    const { ref, isTruncated } = useIsTruncated();
 
     return (
         <Draggable key={tab.uuid} draggableId={tab.uuid} index={idx}>
@@ -50,8 +47,7 @@ const DraggableTab: FC<DraggableTabProps> = ({
                     <Tabs.Tab
                         key={idx}
                         value={tab.uuid}
-                        mr="xs"
-                        bg={isActive ? 'white' : 'var(--mantine-color-gray-0)'}
+                        bg={isActive ? 'white' : 'gray.0'}
                         icon={
                             isEditMode ? (
                                 <Box {...provided.dragHandleProps} w={'sm'}>
@@ -71,12 +67,11 @@ const DraggableTab: FC<DraggableTabProps> = ({
                                     withArrow
                                     withinPortal
                                     shadow="md"
-                                    width={200}
                                 >
                                     <Menu.Target>
                                         <ActionIcon variant="subtle" size="xs">
                                             <MantineIcon
-                                                icon={IconDots}
+                                                icon={IconPencil}
                                                 display={
                                                     isHovered ? 'block' : 'none'
                                                 }
@@ -95,7 +90,9 @@ const DraggableTab: FC<DraggableTabProps> = ({
                                         {sortedTabs.length === 1 ||
                                         !currentTabHasTiles ? (
                                             <Menu.Item
-                                                onClick={(e) => {
+                                                onClick={(
+                                                    e: React.MouseEvent<HTMLButtonElement>,
+                                                ) => {
                                                     handleDeleteTab(tab.uuid);
                                                     e.stopPropagation();
                                                 }}
@@ -128,9 +125,25 @@ const DraggableTab: FC<DraggableTabProps> = ({
                             ) : null
                         }
                     >
-                        <Title order={6} fw={500} color="gray.7">
-                            {tab.name}
-                        </Title>
+                        <Tooltip
+                            disabled={!isTruncated}
+                            label={tab.name}
+                            withinPortal
+                            variant="xs"
+                        >
+                            <Title
+                                ref={ref}
+                                order={6}
+                                fw={500}
+                                color="gray.7"
+                                truncate
+                                maw={`calc(${
+                                    100 / (sortedTabs?.length || 1)
+                                }vw)`}
+                            >
+                                {tab.name}
+                            </Title>
+                        </Tooltip>
                     </Tabs.Tab>
                 </div>
             )}

@@ -17,8 +17,8 @@ import { useEffect, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../components/common/MantineIcon';
-import { useDashboardContext } from '../../../providers/DashboardProvider';
-import { useTracking } from '../../../providers/TrackingProvider';
+import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
+import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
 
 type Props = {

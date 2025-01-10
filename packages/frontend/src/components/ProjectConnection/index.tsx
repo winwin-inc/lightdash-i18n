@@ -5,7 +5,7 @@ import {
     ProjectType,
     type CreateWarehouseCredentials,
     type DbtProjectConfig,
-    type SupportedDbtVersions,
+    type DbtVersionOption,
     type WarehouseTypes,
 } from '@lightdash/common';
 import {
@@ -25,7 +25,7 @@ import { useEffect, useMemo, useState, type FC } from 'react';
 import { useForm, useFormContext, type FieldErrors } from 'react-hook-form';
 import { type SubmitErrorHandler } from 'react-hook-form/dist/types/form';
 import { useTranslation } from 'react-i18next';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 
 import useToaster from '../../hooks/toaster/useToaster';
 import {
@@ -33,17 +33,17 @@ import {
     useProject,
     useUpdateMutation,
 } from '../../hooks/useProject';
-import { useActiveJob } from '../../providers/ActiveJobProvider';
-import { useApp } from '../../providers/AppProvider';
-import { useTracking } from '../../providers/TrackingProvider';
+import useActiveJob from '../../providers/ActiveJob/useActiveJob';
+import useApp from '../../providers/App/useApp';
+import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
-import { useAbilityContext } from '../common/Authorization';
+import { useAbilityContext } from '../common/Authorization/useAbilityContext';
 import MantineIcon from '../common/MantineIcon';
 import { SettingsGridCard } from '../common/Settings/SettingsCard';
 import DocumentationHelpButton from '../DocumentationHelpButton';
 import DbtSettingsForm from './DbtSettingsForm';
 import DbtLogo from './ProjectConnectFlow/Assets/dbt.svg';
-import { getWarehouseIcon } from './ProjectConnectFlow/SelectWarehouse';
+import { getWarehouseIcon } from './ProjectConnectFlow/utils';
 import { FormContainer } from './ProjectConnection.styles';
 import { ProjectFormProvider } from './ProjectFormProvider';
 import ProjectStatusCallout from './ProjectStatusCallout';
@@ -55,7 +55,7 @@ type ProjectConnectionForm = {
     dbt: DbtProjectConfig;
 
     warehouse?: CreateWarehouseCredentials;
-    dbtVersion: SupportedDbtVersions;
+    dbtVersion: DbtVersionOption;
 };
 
 interface Props {
@@ -331,7 +331,7 @@ export const CreateProjectConnection: FC<CreateProjectConnectionProps> = ({
     selectedWarehouse,
 }) => {
     const { t } = useTranslation();
-    const history = useHistory();
+    const navigate = useNavigate();
     const { user, health } = useApp();
     const [createProjectJobId, setCreateProjectJobId] = useState<string>();
     const { activeJobIsRunning, activeJobId, activeJob } = useActiveJob();
@@ -382,11 +382,11 @@ export const CreateProjectConnection: FC<CreateProjectConnectionProps> = ({
             createProjectJobId === activeJob?.jobUuid &&
             activeJob?.jobResults?.projectUuid
         ) {
-            history.push({
+            void navigate({
                 pathname: `/createProjectSettings/${activeJob?.jobResults?.projectUuid}`,
             });
         }
-    }, [activeJob, createProjectJobId, history]);
+    }, [activeJob, createProjectJobId, navigate]);
 
     const isSavingProject = useMemo<boolean>(
         () =>

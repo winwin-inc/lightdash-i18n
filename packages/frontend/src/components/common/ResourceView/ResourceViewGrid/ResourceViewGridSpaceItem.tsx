@@ -205,7 +205,7 @@ const ResourceViewGridSpaceItem: FC<ResourceViewGridSpaceItemProps> = ({
                         display: hovered || opened ? 'block' : 'none',
                     }}
                     component="div"
-                    onClick={(e) => {
+                    onClick={(e: React.MouseEvent<HTMLDivElement>) => {
                         e.stopPropagation();
                         e.preventDefault();
                     }}

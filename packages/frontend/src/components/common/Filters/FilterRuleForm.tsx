@@ -15,8 +15,9 @@ import { useTranslation } from 'react-i18next';
 
 import FieldSelect from '../FieldSelect';
 import MantineIcon from '../MantineIcon';
-import { FilterInputComponent, useFilterOperatorOptions } from './FilterInputs';
-import { useFiltersContext } from './FiltersProvider';
+import FilterInputComponent from './FilterInputs';
+import useFiltersContext from './useFiltersContext';
+import { useFilterOperatorOptions } from './FilterInputs/utils';
 
 type Props = {
     fields: FilterableField[];

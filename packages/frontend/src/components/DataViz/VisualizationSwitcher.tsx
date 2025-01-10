@@ -12,7 +12,7 @@ import { memo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../common/MantineIcon';
-import { getChartIcon } from '../common/ResourceIcon';
+import { getChartIcon } from '../common/ResourceIcon/utils';
 
 type VisualizationActionIconProps = {
     chartKind: ChartKind;

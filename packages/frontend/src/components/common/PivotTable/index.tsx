@@ -34,19 +34,24 @@ import React, { useCallback, useEffect, useMemo, useRef, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getDecimalPrecision } from '../../../hooks/tableVisualization/getDataAndColumns';
 import { getColorFromRange, isHexCodeColor } from '../../../utils/colorUtils';
-import { useConditionalRuleLabel } from '../Filters/FilterInputs';
+import { useConditionalRuleLabel } from '../Filters/FilterInputs/utils';
 import Table from '../LightTable';
-import { CELL_HEIGHT } from '../LightTable/styles';
+import { CELL_HEIGHT } from '../LightTable/constants';
 import MantineIcon from '../MantineIcon';
+import { ROW_NUMBER_COLUMN_ID } from '../Table/constants';
 import { getGroupedRowModelLightdash } from '../Table/getGroupedRowModelLightdash';
-import { countSubRows } from '../Table/ScrollableTable/TableBody';
-import {
-    columnHelper,
-    ROW_NUMBER_COLUMN_ID,
-    type TableColumn,
-} from '../Table/types';
+import { columnHelper, type TableColumn } from '../Table/types';
+import { countSubRows } from '../Table/utils';
 import TotalCellMenu from './TotalCellMenu';
 import ValueCellMenu from './ValueCellMenu';
+
+type MenuCallbackProps = {
+    isOpen: boolean;
+    onClose: () => void;
+    onCopy: () => void;
+};
+
+type RenderCallback = () => React.ReactNode;
 
 const rowColumn: TableColumn = {
     id: ROW_NUMBER_COLUMN_ID,
@@ -619,8 +624,12 @@ const PivotTable: FC<PivotTableProps> = ({
                                         withInteractions={allowInteractions}
                                         withValue={value?.formatted}
                                         withMenu={(
-                                            { isOpen, onClose, onCopy },
-                                            render,
+                                            {
+                                                isOpen,
+                                                onClose,
+                                                onCopy,
+                                            }: MenuCallbackProps,
+                                            render: RenderCallback,
                                         ) => (
                                             <ValueCellMenu
                                                 opened={isOpen}
@@ -664,7 +673,9 @@ const PivotTable: FC<PivotTableProps> = ({
                                                             marginRight: 0,
                                                         },
                                                     })}
-                                                    onClick={(e) => {
+                                                    onClick={(
+                                                        e: React.MouseEvent<HTMLButtonElement>,
+                                                    ) => {
                                                         e.stopPropagation();
                                                         e.preventDefault();
                                                         toggleExpander();
@@ -774,8 +785,12 @@ const PivotTable: FC<PivotTableProps> = ({
                                         withInteractions
                                         withValue={value.formatted}
                                         withMenu={(
-                                            { isOpen, onClose, onCopy },
-                                            render,
+                                            {
+                                                isOpen,
+                                                onClose,
+                                                onCopy,
+                                            }: MenuCallbackProps,
+                                            render: RenderCallback,
                                         ) => (
                                             <TotalCellMenu
                                                 opened={isOpen}

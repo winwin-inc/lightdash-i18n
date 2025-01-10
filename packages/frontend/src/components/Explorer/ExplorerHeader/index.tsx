@@ -4,12 +4,12 @@ import { IconAlertCircle } from '@tabler/icons-react';
 import { useFeatureFlagEnabled } from 'posthog-js/react';
 import { memo, useEffect, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 
 import useDashboardStorage from '../../../hooks/dashboard/useDashboardStorage';
 import { getExplorerUrlFromCreateSavedChartVersion } from '../../../hooks/useExplorerRoute';
 import useCreateInAnySpaceAccess from '../../../hooks/user/useCreateInAnySpaceAccess';
-import { useExplorerContext } from '../../../providers/ExplorerProvider';
+import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import MantineIcon from '../../common/MantineIcon';
 import ShareShortLinkButton from '../../common/ShareShortLinkButton';
 import TimeZonePicker from '../../common/TimeZonePicker';

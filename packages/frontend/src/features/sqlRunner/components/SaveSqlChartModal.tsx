@@ -24,9 +24,8 @@ import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
 import MantineIcon from '../../../components/common/MantineIcon';
-import SaveToSpaceForm, {
-    saveToSpaceSchema,
-} from '../../../components/common/modal/ChartCreateModal/SaveToSpaceForm';
+import SaveToSpaceForm from '../../../components/common/modal/ChartCreateModal/SaveToSpaceForm';
+import { saveToSpaceSchema } from '../../../components/common/modal/ChartCreateModal/types';
 import { selectCompleteConfigByKind } from '../../../components/DataViz/store/selectors';
 import {
     useCreateMutation as useSpaceCreateMutation,
@@ -34,7 +33,7 @@ import {
 } from '../../../hooks/useSpaces';
 import { useCreateSqlChartMutation } from '../hooks/useSavedSqlCharts';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { updateName } from '../store/sqlRunnerSlice';
+import { EditorTabs, updateName } from '../store/sqlRunnerSlice';
 import { SqlQueryBeforeSaveAlert } from './SqlQueryBeforeSaveAlert';
 
 const saveChartFormSchema = z
@@ -62,18 +61,25 @@ const SaveChartForm: FC<
 
     const name = useAppSelector((state) => state.sqlRunner.name);
     const description = useAppSelector((state) => state.sqlRunner.description);
-    const selectedChartType = useAppSelector(
-        (state) => state.sqlRunner.selectedChartType,
-    );
+
     const sql = useAppSelector((state) => state.sqlRunner.sql);
     const limit = useAppSelector((state) => state.sqlRunner.limit);
 
-    const defaultChartConfig = useAppSelector((state) =>
-        selectCompleteConfigByKind(state, ChartKind.TABLE),
+    const selectedChartType = useAppSelector(
+        (state) => state.sqlRunner.selectedChartType,
+    );
+
+    const activeEditorTab = useAppSelector(
+        (state) => state.sqlRunner.activeEditorTab,
     );
 
     const currentVizConfig = useAppSelector((state) =>
-        selectCompleteConfigByKind(state, selectedChartType),
+        selectCompleteConfigByKind(
+            state,
+            activeEditorTab === EditorTabs.SQL
+                ? ChartKind.TABLE
+                : selectedChartType,
+        ),
     );
 
     // TODO: this sometimes runs `/api/v1/projects//spaces` request
@@ -133,16 +139,14 @@ const SaveChartForm: FC<
         const spaceUuid =
             newSpace?.uuid || form.values.spaceUuid || spaces[0].uuid;
 
-        const currentConfig = currentVizConfig ?? defaultChartConfig;
-
-        if (currentConfig && sql) {
+        if (currentVizConfig && sql) {
             try {
                 await createSavedSqlChart({
                     name: form.values.name,
                     description: form.values.description || '',
                     sql,
                     limit,
-                    config: currentConfig,
+                    config: currentVizConfig,
                     spaceUuid: spaceUuid,
                 });
 
@@ -160,7 +164,6 @@ const SaveChartForm: FC<
         form.values.description,
         createSpace,
         currentVizConfig,
-        defaultChartConfig,
         sql,
         createSavedSqlChart,
         limit,
@@ -187,6 +190,7 @@ const SaveChartForm: FC<
                             'features_sql_chart_modal.form.description.label',
                         )}
                         {...form.getInputProps('description')}
+                        value={form.values.description ?? ''}
                     />
                 </Stack>
                 <SaveToSpaceForm

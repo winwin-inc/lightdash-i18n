@@ -1,28 +1,28 @@
 import { subject } from '@casl/ability';
-import type {
-    Dimension,
-    ItemsMap,
-    MetricExploreDataPoint,
-    MetricExplorerQuery,
-    MetricsExplorerQueryResults,
-    MetricTotalResults,
-} from '@lightdash/common';
 import {
     assertUnreachable,
-    DateGranularity,
+    Dimension,
+    FilterRule,
     ForbiddenError,
     getDateCalcUtils,
     getDateRangeFromString,
-    getDefaultDateRangeForMetricTotal,
     getFieldIdForDateDimension,
     getGrainForDateRange,
     getItemId,
     getMetricExplorerDataPoints,
     getMetricExplorerDataPointsWithCompare,
     getMetricExplorerDateRangeFilters,
+    getMetricsExplorerSegmentFilters,
     isDimension,
+    ItemsMap,
+    MAX_SEGMENT_DIMENSION_UNIQUE_VALUES,
+    MetricExploreDataPoint,
     MetricExplorerComparison,
+    MetricExplorerQuery,
+    MetricsExplorerQueryResults,
     MetricTotalComparisonType,
+    MetricTotalResults,
+    parseMetricValue,
     TimeFrames,
     type MetricExplorerDateRange,
     type MetricQuery,
@@ -83,6 +83,7 @@ export class MetricsExplorerService<
         metricQuery: MetricQuery,
         timeDimensionConfig: TimeDimensionConfig,
         dateRange: MetricExplorerDateRange,
+        filter: FilterRule | undefined,
     ): Promise<{
         rows: ResultRow[];
         fields: ItemsMap;
@@ -102,10 +103,13 @@ export class MetricsExplorerService<
             filters: {
                 dimensions: {
                     id: uuidv4(),
-                    and: getMetricExplorerDateRangeFilters(
-                        timeDimensionConfig,
-                        forwardBackDateRange,
-                    ),
+                    and: [
+                        ...getMetricExplorerDateRangeFilters(
+                            timeDimensionConfig,
+                            forwardBackDateRange,
+                        ),
+                        ...(filter ? [filter] : []),
+                    ],
                 },
             },
         };
@@ -137,6 +141,7 @@ export class MetricsExplorerService<
         query: MetricExplorerQuery,
         dateRange: MetricExplorerDateRange,
         timeDimensionOverride: TimeDimensionConfig | undefined,
+        filter: FilterRule | undefined,
     ): Promise<{
         rows: ResultRow[];
         fields: ItemsMap;
@@ -186,14 +191,17 @@ export class MetricsExplorerService<
             filters: {
                 dimensions: {
                     id: uuidv4(),
-                    and: getMetricExplorerDateRangeFilters(
-                        {
-                            table: timeDimension.table,
-                            field: timeDimension.field,
-                            interval: metricDimensionGrain,
-                        },
-                        dateRange,
-                    ),
+                    and: [
+                        ...getMetricExplorerDateRangeFilters(
+                            {
+                                table: timeDimension.table,
+                                field: timeDimension.field,
+                                interval: metricDimensionGrain,
+                            },
+                            dateRange,
+                        ),
+                        ...(filter ? [filter] : []),
+                    ],
                 },
             },
             sorts: [{ fieldId: dimensionFieldId, descending: false }],
@@ -231,6 +239,7 @@ export class MetricsExplorerService<
         endDate: string,
         query: MetricExplorerQuery,
         timeDimensionOverride: TimeDimensionConfig | undefined,
+        filter: FilterRule | undefined,
     ): Promise<MetricsExplorerQueryResults> {
         return measureTime(
             () =>
@@ -243,6 +252,7 @@ export class MetricsExplorerService<
                     endDate,
                     query,
                     timeDimensionOverride,
+                    filter,
                 ),
             'runMetricExplorerQuery',
             this.logger,
@@ -255,6 +265,36 @@ export class MetricsExplorerService<
         );
     }
 
+    private async _getTopNSegments(
+        user: SessionUser,
+        projectUuid: string,
+        exploreName: string,
+        segmentDimension: string | null,
+        metricQuery: MetricQuery,
+    ) {
+        if (!segmentDimension || !metricQuery.metrics.length) {
+            return [];
+        }
+
+        const getSegmentsMetricQuery: MetricQuery = {
+            ...metricQuery,
+            exploreName,
+            dimensions: [segmentDimension],
+            sorts: [{ fieldId: metricQuery.metrics[0], descending: true }],
+            limit: MAX_SEGMENT_DIMENSION_UNIQUE_VALUES,
+            tableCalculations: [],
+        };
+
+        const { rows } = await this.projectService.runMetricExplorerQuery(
+            user,
+            projectUuid,
+            exploreName,
+            getSegmentsMetricQuery,
+        );
+
+        return rows.map((row) => row[segmentDimension]);
+    }
+
     private async _runMetricExplorerQuery(
         user: SessionUser,
         projectUuid: string,
@@ -264,6 +304,7 @@ export class MetricsExplorerService<
         endDate: string,
         query: MetricExplorerQuery,
         timeDimensionOverride: TimeDimensionConfig | undefined,
+        filter: FilterRule | undefined,
     ): Promise<MetricsExplorerQueryResults> {
         const { organizationUuid } = await this.projectModel.getSummary(
             projectUuid,
@@ -312,7 +353,16 @@ export class MetricsExplorerService<
                 ? query.segmentDimension
                 : null;
 
-        const metricQuery: MetricQuery = {
+        const dateFilters = getMetricExplorerDateRangeFilters(
+            {
+                table: timeDimensionConfig.table,
+                field: timeDimensionConfig.field,
+                interval: dimensionGrain,
+            },
+            dateRange,
+        );
+
+        const baseQuery: MetricQuery = {
             exploreName,
             dimensions: [
                 timeDimension,
@@ -322,20 +372,41 @@ export class MetricsExplorerService<
             filters: {
                 dimensions: {
                     id: uuidv4(),
-                    and: getMetricExplorerDateRangeFilters(
-                        {
-                            table: timeDimensionConfig.table,
-                            field: timeDimensionConfig.field,
-                            interval: dimensionGrain,
-                        },
-                        dateRange,
-                    ),
+                    and: dateFilters,
                 },
             },
             sorts: [{ fieldId: timeDimension, descending: false }],
             tableCalculations: [],
             limit: this.maxQueryLimit,
         };
+
+        const segments = await this._getTopNSegments(
+            user,
+            projectUuid,
+            exploreName,
+            segmentDimensionId,
+            baseQuery,
+        );
+
+        const metricQuery: MetricQuery = {
+            ...baseQuery,
+            filters: {
+                ...baseQuery.filters,
+                dimensions: {
+                    id: uuidv4(),
+                    and: [
+                        ...dateFilters, // need to add date filters because cannot destructure ".and" without type assertion
+                        ...getMetricsExplorerSegmentFilters(
+                            segmentDimensionId,
+                            segments,
+                        ),
+                        ...(filter ? [filter] : []),
+                    ],
+                },
+            },
+        };
+
+        console.log(JSON.stringify(metricQuery, null, 2));
 
         const { rows: currentResults, fields } =
             await this.projectService.runMetricExplorerQuery(
@@ -374,6 +445,7 @@ export class MetricsExplorerService<
                         interval: dimensionGrain,
                     },
                     dateRange,
+                    filter,
                 );
                 comparisonResults = prevRows;
                 allFields = { ...allFields, ...prevFields };
@@ -393,6 +465,7 @@ export class MetricsExplorerService<
                     query,
                     dateRange,
                     timeDimensionOverride,
+                    filter,
                 );
                 comparisonResults = diffRows;
                 allFields = { ...allFields, ...diffFields };
@@ -490,6 +563,8 @@ export class MetricsExplorerService<
         exploreName: string,
         metricName: string,
         timeFrame: TimeFrames,
+        startDate: string,
+        endDate: string,
         comparisonType: MetricTotalComparisonType = MetricTotalComparisonType.NONE,
     ): Promise<MetricTotalResults> {
         return measureTime(
@@ -500,6 +575,8 @@ export class MetricsExplorerService<
                     exploreName,
                     metricName,
                     timeFrame,
+                    startDate,
+                    endDate,
                     comparisonType,
                 ),
             'getMetricTotal',
@@ -517,6 +594,8 @@ export class MetricsExplorerService<
         exploreName: string,
         metricName: string,
         timeFrame: TimeFrames,
+        startDate: string,
+        endDate: string,
         comparisonType: MetricTotalComparisonType = MetricTotalComparisonType.NONE,
     ): Promise<MetricTotalResults> {
         const metric = await this.catalogService.getMetric(
@@ -533,7 +612,7 @@ export class MetricsExplorerService<
             );
         }
 
-        const dateRange = getDefaultDateRangeForMetricTotal(timeFrame);
+        const dateRange = getDateRangeFromString([startDate, endDate]);
 
         const metricQuery: MetricQuery = {
             exploreName,
@@ -561,10 +640,11 @@ export class MetricsExplorerService<
                 metricQuery,
             );
 
-        let compareRows: ResultRow[] | undefined;
+        let compareRows: Record<string, any>[] | undefined;
+        let compareDateRange: MetricExplorerDateRange | undefined;
 
         if (comparisonType === MetricTotalComparisonType.PREVIOUS_PERIOD) {
-            const compareDateRange: MetricExplorerDateRange = [
+            compareDateRange = [
                 getDateCalcUtils(timeFrame).back(dateRange[0]),
                 getDateCalcUtils(timeFrame).back(dateRange[1]),
             ];
@@ -593,8 +673,11 @@ export class MetricsExplorerService<
         }
 
         return {
-            value: currentRows[0]?.[getItemId(metric)]?.value,
-            comparisonValue: compareRows?.[0]?.[getItemId(metric)]?.value,
+            value: parseMetricValue(currentRows[0]?.[getItemId(metric)]),
+            comparisonValue: parseMetricValue(
+                compareRows?.[0]?.[getItemId(metric)],
+            ),
+            metric,
         };
     }
 }

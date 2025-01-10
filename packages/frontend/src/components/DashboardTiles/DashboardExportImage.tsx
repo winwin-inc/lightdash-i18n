@@ -3,15 +3,18 @@ import { IconPhoto } from '@tabler/icons-react';
 import { type FC, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useTracking } from '../../providers/TrackingProvider';
+import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
 
 import type EChartsReact from 'echarts-for-react';
-import { base64SvgToBase64Image, downloadImage } from '../ChartDownload';
+import {
+    base64SvgToBase64Image,
+    downloadImage,
+} from '../common/ChartDownload/chartDownloadUtils';
 import MantineIcon from '../common/MantineIcon';
 
 const downloadChartImage = (
-    echartRef: RefObject<EChartsReact> | undefined,
+    echartRef: RefObject<EChartsReact | null> | undefined,
     chartName?: string,
 ) => {
     const chartInstance = echartRef?.current?.getEchartsInstance();
@@ -37,7 +40,7 @@ const downloadChartImage = (
 };
 
 export const DashboardExportImage: FC<{
-    echartRef: RefObject<EChartsReact> | undefined;
+    echartRef: RefObject<EChartsReact | null> | undefined;
     chartName: string;
     isMinimal: boolean;
 }> = ({ echartRef, chartName, isMinimal }) => {

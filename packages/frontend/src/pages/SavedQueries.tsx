@@ -3,18 +3,19 @@ import { Button, Group, Stack } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
+
 import Page from '../components/common/Page/Page';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import InfiniteResourceTable from '../components/common/ResourceView/InfiniteResourceTable';
 import useCreateInAnySpaceAccess from '../hooks/user/useCreateInAnySpaceAccess';
-import { useApp } from '../providers/AppProvider';
+import useApp from '../providers/App/useApp';
 
 const SavedQueries: FC = () => {
     const { t } = useTranslation();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { health } = useApp();
-    const history = useHistory();
+    const navigate = useNavigate();
     const isDemo = health.data?.mode === LightdashMode.DEMO;
 
     const userCanCreateCharts = useCreateInAnySpaceAccess(
@@ -23,7 +24,7 @@ const SavedQueries: FC = () => {
     );
 
     const handleCreateChart = () => {
-        history.push(`/projects/${projectUuid}/tables`);
+        void navigate(`/projects/${projectUuid}/tables`);
     };
 
     return (
@@ -62,12 +63,14 @@ const SavedQueries: FC = () => {
                     ) : undefined}
                 </Group>
 
-                <InfiniteResourceTable
-                    filters={{
-                        projectUuid,
-                        contentTypes: [ContentType.CHART],
-                    }}
-                />
+                {projectUuid ? (
+                    <InfiniteResourceTable
+                        filters={{
+                            projectUuid,
+                            contentTypes: [ContentType.CHART],
+                        }}
+                    />
+                ) : null}
             </Stack>
         </Page>
     );

@@ -1,9 +1,11 @@
 import {
+    DimensionType,
     getDefaultDateRangeFromInterval,
     getItemId,
     isDimension,
     MetricExplorerComparison,
     type CatalogField,
+    type FilterRule,
     type MetricExplorerDateRange,
     type MetricExplorerQuery,
     type TimeDimensionConfig,
@@ -16,7 +18,6 @@ import {
     Divider,
     Group,
     Kbd,
-    LoadingOverlay,
     Modal,
     Stack,
     Text,
@@ -32,16 +33,17 @@ import {
 } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router';
 
 import MantineIcon from '../../../components/common/MantineIcon';
-import { useTracking } from '../../../providers/TrackingProvider';
+import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
 import { useAppSelector } from '../../sqlRunner/store/hooks';
 import { useCatalogMetricsWithTimeDimensions } from '../hooks/useCatalogMetricsWithTimeDimensions';
 import { useCatalogSegmentDimensions } from '../hooks/useCatalogSegmentDimensions';
 import { useMetric } from '../hooks/useMetricsCatalog';
 import { useRunMetricExplorerQuery } from '../hooks/useRunMetricExplorerQuery';
+import { MetricExploreFilter } from './visualization/MetricExploreFilter';
 import { MetricPeekComparison } from './visualization/MetricPeekComparison';
 import { MetricPeekSegmentationPicker } from './visualization/MetricPeekSegmentationPicker';
 import MetricsVisualization from './visualization/MetricsVisualization';
@@ -67,8 +69,8 @@ export const MetricPeekModal: FC<Props> = ({ opened, onClose, metrics }) => {
         metricName: string;
     }>();
 
-    const history = useHistory();
-
+    const navigate = useNavigate();
+    const location = useLocation();
     const [query, setQuery] = useState<MetricExplorerQuery>({
         comparison: MetricExplorerComparison.NONE,
         segmentDimension: null,
@@ -108,14 +110,14 @@ export const MetricPeekModal: FC<Props> = ({ opened, onClose, metrics }) => {
 
     const navigateToMetric = useCallback(
         (metric: CatalogField) => {
-            history.push({
+            void navigate({
                 pathname: `/projects/${projectUuid}/metrics/peek/${metric.tableName}/${metric.name}`,
-                search: history.location.search,
+                search: location.search,
             });
 
             resetQueryState();
         },
-        [history, projectUuid, resetQueryState],
+        [navigate, projectUuid, resetQueryState, location.search],
     );
 
     const handleGoToNextMetric = useCallback(() => {
@@ -147,6 +149,9 @@ export const MetricPeekModal: FC<Props> = ({ opened, onClose, metrics }) => {
     const segmentDimensionsQuery = useCatalogSegmentDimensions({
         projectUuid,
         tableName,
+        options: {
+            enabled: !!projectUuid && !!tableName,
+        },
     });
 
     const queryHasEmptyMetric = useMemo(() => {
@@ -156,6 +161,8 @@ export const MetricPeekModal: FC<Props> = ({ opened, onClose, metrics }) => {
             query.metric.table === ''
         );
     }, [query]);
+
+    const [filter, setFilter] = useState<FilterRule | undefined>(undefined);
 
     const isQueryEnabled =
         (!!projectUuid &&
@@ -183,6 +190,7 @@ export const MetricPeekModal: FC<Props> = ({ opened, onClose, metrics }) => {
                   }
                 : query,
             timeDimensionOverride,
+            filter,
         },
         {
             enabled: isQueryEnabled,
@@ -299,15 +307,15 @@ export const MetricPeekModal: FC<Props> = ({ opened, onClose, metrics }) => {
     );
 
     const handleClose = useCallback(() => {
-        history.push({
+        void navigate({
             pathname: `/projects/${projectUuid}/metrics`,
-            search: history.location.search,
+            search: location.search,
         });
 
         resetQueryState();
 
         onClose();
-    }, [history, onClose, projectUuid, resetQueryState]);
+    }, [navigate, onClose, projectUuid, resetQueryState, location.search]);
 
     useEffect(() => {
         if (timeDimensionOverride) {
@@ -383,6 +391,24 @@ export const MetricPeekModal: FC<Props> = ({ opened, onClose, metrics }) => {
         ['ArrowDown', () => handleGoToNextMetric()],
     ]);
 
+    const handleFilterApply = useCallback(
+        (filterRule: FilterRule | undefined) => {
+            setFilter(filterRule);
+        },
+        [],
+    );
+
+    const availableFilters = useMemo(
+        () =>
+            // TODO: Get filters from the query instead of segmentByData, this should include numeric dimensions as well
+            segmentDimensionsQuery.data?.filter(
+                (dimension) =>
+                    dimension.type === DimensionType.STRING ||
+                    dimension.type === DimensionType.BOOLEAN,
+            ) ?? [],
+        [segmentDimensionsQuery.data],
+    );
+
     return (
         <Modal.Root
             opened={opened}
@@ -392,17 +418,6 @@ export const MetricPeekModal: FC<Props> = ({ opened, onClose, metrics }) => {
         >
             <Modal.Overlay />
             <Modal.Content sx={{ overflow: 'hidden' }} radius={12} w="100%">
-                <LoadingOverlay
-                    visible={
-                        metricQuery.isLoading || metricResultsQuery.isLoading
-                    }
-                    overlayBlur={2}
-                    loaderProps={{
-                        size: 'md',
-                        color: 'dark',
-                        variant: 'dots',
-                    }}
-                />
                 <Modal.Header
                     h={52}
                     sx={(theme) => ({
@@ -412,30 +427,78 @@ export const MetricPeekModal: FC<Props> = ({ opened, onClose, metrics }) => {
                 >
                     <Group spacing="xs">
                         <Group spacing="xxs">
-                            <ActionIcon
-                                variant="outline"
-                                size="sm"
-                                radius="sm"
-                                sx={(theme) => ({
-                                    border: `1px solid ${theme.colors.gray[2]}`,
-                                })}
-                                onClick={handleGoToPreviousMetric}
-                                disabled={!previousMetricInList}
+                            <Tooltip
+                                label={
+                                    <Text>
+                                        {t(
+                                            'features_metrics_catalog_components.press_modal.part_1',
+                                        )}{' '}
+                                        <Kbd
+                                            sx={{
+                                                background: '#575656',
+                                                color: 'white',
+                                                borderRadius: '5px',
+                                                border: '1px solid #2b2b2a',
+                                            }}
+                                        >
+                                            ↑
+                                        </Kbd>{' '}
+                                        {t(
+                                            'features_metrics_catalog_components.press_modal.part_2',
+                                        )}
+                                    </Text>
+                                }
+                                position="bottom"
                             >
-                                <MantineIcon icon={IconChevronUp} />
-                            </ActionIcon>
-                            <ActionIcon
-                                variant="outline"
-                                size="sm"
-                                radius="sm"
-                                sx={(theme) => ({
-                                    border: `1px solid ${theme.colors.gray[2]}`,
-                                })}
-                                onClick={handleGoToNextMetric}
-                                disabled={!nextMetricInList}
+                                <ActionIcon
+                                    variant="outline"
+                                    size="sm"
+                                    radius="sm"
+                                    sx={(theme) => ({
+                                        border: `1px solid ${theme.colors.gray[2]}`,
+                                    })}
+                                    onClick={handleGoToPreviousMetric}
+                                    disabled={!previousMetricInList}
+                                >
+                                    <MantineIcon icon={IconChevronUp} />
+                                </ActionIcon>
+                            </Tooltip>
+                            <Tooltip
+                                label={
+                                    <Text>
+                                        {t(
+                                            'features_metrics_catalog_components.press_modal.part_1',
+                                        )}{' '}
+                                        <Kbd
+                                            sx={{
+                                                background: '#575656',
+                                                color: 'white',
+                                                borderRadius: '5px',
+                                                border: '1px solid #2b2b2a',
+                                            }}
+                                        >
+                                            ↓
+                                        </Kbd>{' '}
+                                        {t(
+                                            'features_metrics_catalog_components.press_modal.part_3',
+                                        )}
+                                    </Text>
+                                }
+                                position="bottom"
                             >
-                                <MantineIcon icon={IconChevronDown} />
-                            </ActionIcon>
+                                <ActionIcon
+                                    variant="outline"
+                                    size="sm"
+                                    radius="sm"
+                                    sx={(theme) => ({
+                                        border: `1px solid ${theme.colors.gray[2]}`,
+                                    })}
+                                    onClick={handleGoToNextMetric}
+                                    disabled={!nextMetricInList}
+                                >
+                                    <MantineIcon icon={IconChevronDown} />
+                                </ActionIcon>
+                            </Tooltip>
                         </Group>
                         <Text fw={600} fz="md" color="gray.8">
                             {metricQuery.data?.label}
@@ -469,6 +532,11 @@ export const MetricPeekModal: FC<Props> = ({ opened, onClose, metrics }) => {
                             px="lg"
                             py="md"
                         >
+                            <MetricExploreFilter
+                                // TODO: Get filters from the query instead of segmentByData
+                                dimensions={availableFilters}
+                                onFilterApply={handleFilterApply}
+                            />
                             <MetricPeekSegmentationPicker
                                 query={query}
                                 onSegmentDimensionChange={
@@ -542,27 +610,6 @@ export const MetricPeekModal: FC<Props> = ({ opened, onClose, metrics }) => {
                                     }
                                 />
                             </Stack>
-                        </Stack>
-                        <Stack
-                            p="lg"
-                            spacing="xs"
-                            align="center"
-                            mt="auto"
-                            sx={(theme) => ({
-                                borderTop: `1px solid ${theme.colors.gray[2]}`,
-                            })}
-                        >
-                            <Text size="xs" fw={500} color="gray.7">
-                                {t(
-                                    'features_metrics_catalog_components.peek_modal.keyboard_shortcuts',
-                                )}
-                            </Text>
-                            <Text size="xs" color="gray.6">
-                                <Kbd>↑</Kbd> <Kbd>↓</Kbd>{' '}
-                                {t(
-                                    'features_metrics_catalog_components.peek_modal.navigate_between_metrics',
-                                )}
-                            </Text>
                         </Stack>
                     </Stack>
 

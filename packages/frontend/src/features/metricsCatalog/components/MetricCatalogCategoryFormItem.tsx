@@ -95,7 +95,7 @@ const EditPopover: FC<EditPopoverProps> = ({
                         },
                     }}
                     size="sm"
-                    onClick={(e) => {
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                         e.stopPropagation();
                         e.preventDefault();
                         open();
@@ -212,12 +212,7 @@ export const MetricCatalogCategoryFormItem: FC<Props> = ({
                 },
             })}
         >
-            <UnstyledButton
-                onClick={onClick}
-                w="100%"
-                h="100%"
-                pos="absolute"
-            />
+            <UnstyledButton onClick={onClick} h="100%" w="90%" pos="absolute" />
             <CatalogCategory category={category} onClick={onClick} />
             <EditPopover
                 hovered={hovered}

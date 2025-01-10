@@ -5,7 +5,7 @@ import { useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../components/common/MantineIcon';
-import { getChartIcon } from '../../../components/common/ResourceIcon';
+import { getChartIcon } from '../../../components/common/ResourceIcon/utils';
 import RouterNavLink from '../../../components/common/RouterNavLink';
 
 type Props = {

@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useOrganizationUsers } from '../../../hooks/useOrganizationUsers';
 import { useProjectAccess } from '../../../hooks/useProjectAccess';
-import { useApp } from '../../../providers/AppProvider';
+import useApp from '../../../providers/App/useApp';
 import {
     getOrgUserInitials,
     getOrgUserNameOrEmail,

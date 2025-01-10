@@ -12,14 +12,14 @@ import {
 import { IconDots, IconLayoutGridAdd, IconTrash } from '@tabler/icons-react';
 import { useCallback, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 
 import MantineIcon from '../../../../components/common/MantineIcon';
 import { UpdatedInfo } from '../../../../components/common/PageHeader/UpdatedInfo';
 import { ResourceInfoPopup } from '../../../../components/common/ResourceInfoPopup/ResourceInfoPopup';
 import { TitleBreadCrumbs } from '../../../../components/Explorer/SavedChartsHeader/TitleBreadcrumbs';
 import AddTilesToDashboardModal from '../../../../components/SavedDashboards/AddTilesToDashboardModal';
-import { useApp } from '../../../../providers/AppProvider';
+import useApp from '../../../../providers/App/useApp';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { toggleModal } from '../../store/sqlRunnerSlice';
 import { DeleteSqlChartModal } from '../DeleteSqlChartModal';
@@ -27,7 +27,7 @@ import { DeleteSqlChartModal } from '../DeleteSqlChartModal';
 export const HeaderView: FC = () => {
     const { t } = useTranslation();
 
-    const history = useHistory();
+    const navigate = useNavigate();
     const dispatch = useAppDispatch();
     const { user } = useApp();
     const projectUuid = useAppSelector((state) => state.sqlRunner.projectUuid);
@@ -76,7 +76,15 @@ export const HeaderView: FC = () => {
 
     return (
         <>
-            <Paper shadow="none" radius={0} px="md" py="xs" withBorder>
+            <Paper
+                shadow="none"
+                radius={0}
+                px="md"
+                py="xs"
+                sx={(theme) => ({
+                    borderBottom: `1px solid ${theme.colors.gray[3]}`,
+                })}
+            >
                 <Group position="apart">
                     <Stack spacing="none">
                         <Group spacing="two">
@@ -110,13 +118,13 @@ export const HeaderView: FC = () => {
                         </Group>
                     </Stack>
 
-                    <Group spacing="md">
+                    <Group spacing="xs">
                         {canManageSqlRunner && canManageChart && (
                             <Button
                                 size="xs"
                                 variant="default"
                                 onClick={() =>
-                                    history.push(
+                                    navigate(
                                         `/projects/${projectUuid}/sql-runner/${savedSqlChart.slug}/edit`,
                                     )
                                 }
@@ -136,7 +144,7 @@ export const HeaderView: FC = () => {
                                 width={200}
                             >
                                 <Menu.Target>
-                                    <ActionIcon variant="default">
+                                    <ActionIcon variant="subtle">
                                         <MantineIcon icon={IconDots} />
                                     </ActionIcon>
                                 </Menu.Target>
@@ -194,7 +202,7 @@ export const HeaderView: FC = () => {
                 name={savedSqlChart.name}
                 opened={isDeleteModalOpen}
                 onClose={onCloseDeleteModal}
-                onSuccess={() => history.push(`/projects/${projectUuid}/home`)}
+                onSuccess={() => navigate(`/projects/${projectUuid}/home`)}
             />
             {isAddToDashboardModalOpen && (
                 <AddTilesToDashboardModal

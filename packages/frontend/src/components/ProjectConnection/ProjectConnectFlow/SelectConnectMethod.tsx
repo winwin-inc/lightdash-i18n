@@ -8,14 +8,14 @@ import {
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ConnectMethod } from '../../../pages/CreateProject';
-import { useTracking } from '../../../providers/TrackingProvider';
+import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
 import MantineIcon from '../../common/MantineIcon';
 import { ProjectCreationCard } from '../../common/Settings/SettingsCard';
 import OnboardingButton from './common/OnboardingButton';
 import { OnboardingConnectTitle } from './common/OnboardingTitle';
 import OnboardingWrapper from './common/OnboardingWrapper';
+import { ConnectMethod } from './types';
 
 interface SelectConnectMethodProps {
     isCreatingFirstProject: boolean;

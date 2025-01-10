@@ -14,7 +14,7 @@ import {
 import { IconCsv, IconEyeCog, IconFileExport } from '@tabler/icons-react';
 import { useCallback, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 
 import { PreviewAndCustomizeScreenshot } from '../../../features/preview';
 import { useCustomWidthOptions } from '../../../features/scheduler/constants';
@@ -22,7 +22,7 @@ import {
     useExportCsvDashboard,
     useExportDashboard,
 } from '../../../hooks/dashboard/useDashboard';
-import { useDashboardContext } from '../../../providers/DashboardProvider';
+import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../MantineIcon';
 
 type Props = {

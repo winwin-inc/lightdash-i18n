@@ -8,7 +8,7 @@ import { IconGripVertical, IconX } from '@tabler/icons-react';
 import { forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { type ExplorerContext } from '../../providers/ExplorerProvider';
+import { type ExplorerContextType } from '../../providers/Explorer/types';
 import {
     getSortDirectionOrder,
     getSortLabel,
@@ -27,7 +27,7 @@ interface SortItemProps {
     draggableProps: DraggableProvidedDraggableProps;
     dragHandleProps?: DraggableProvidedDragHandleProps | null;
     onAddSortField: (
-        options: Parameters<ExplorerContext['actions']['addSortField']>[1],
+        options: Parameters<ExplorerContextType['actions']['addSortField']>[1],
     ) => void;
     onRemoveSortField: () => void;
 }

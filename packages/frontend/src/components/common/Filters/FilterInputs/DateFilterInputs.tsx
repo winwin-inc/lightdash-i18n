@@ -15,8 +15,7 @@ import { Flex, NumberInput, Text } from '@mantine/core';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { type FilterInputsProps } from '.';
-
-import { useFiltersContext } from '../FiltersProvider';
+import useFiltersContext from '../useFiltersContext';
 import { getFirstDayOfWeek } from '../utils/filterDateUtils';
 import { getPlaceholderByFilterTypeAndOperator } from '../utils/getPlaceholderByFilterTypeAndOperator';
 import DefaultFilterInputs from './DefaultFilterInputs';

@@ -12,18 +12,19 @@ import { ActionIcon, Group, Menu, Skeleton, Stack, Text } from '@mantine/core';
 import { IconDots, IconPencil, IconTrash } from '@tabler/icons-react';
 import { memo, useMemo, useState, useTransition, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
+
 import {
     DeleteVirtualViewModal,
     EditVirtualViewModal,
 } from '../../../features/virtualView';
 import { useExplore } from '../../../hooks/useExplore';
-import { useApp } from '../../../providers/AppProvider';
-import { useExplorerContext } from '../../../providers/ExplorerProvider';
+import useApp from '../../../providers/App/useApp';
+import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import MantineIcon from '../../common/MantineIcon';
 import PageBreadcrumbs from '../../common/PageBreadcrumbs';
 import ExploreTree from '../ExploreTree';
-import { ItemDetailProvider } from '../ExploreTree/TableTree/ItemDetailContext';
+import { ItemDetailProvider } from '../ExploreTree/TableTree/ItemDetailProvider';
 
 const LoadingSkeleton = () => (
     <Stack>
@@ -147,7 +148,7 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
     }
 
     return (
-        <>
+        <Stack h="100%" sx={{ flexGrow: 1 }}>
             <Group position="apart">
                 <PageBreadcrumbs
                     size="md"
@@ -228,7 +229,7 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
                     explore={explore}
                 />
             )}
-            {isDeleteVirtualViewOpen && (
+            {isDeleteVirtualViewOpen && projectUuid && (
                 <DeleteVirtualViewModal
                     opened={isDeleteVirtualViewOpen}
                     onClose={() => setIsDeleteVirtualViewOpen(false)}
@@ -236,7 +237,7 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
                     projectUuid={projectUuid}
                 />
             )}
-        </>
+        </Stack>
     );
 });
 

@@ -1,10 +1,10 @@
 import { getFieldQuoteChar } from '@lightdash/common';
 import { ActionIcon, Group, Paper, Stack, Tooltip } from '@mantine/core';
 import { IconLayoutSidebarLeftExpand } from '@tabler/icons-react';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Provider } from 'react-redux';
-import { useHistory, useLocation, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { useMount, useUnmount } from 'react-use';
 import ErrorState from '../components/common/ErrorState';
 import MantineIcon from '../components/common/MantineIcon';
@@ -30,6 +30,7 @@ import {
     setProjectUuid,
     setQuoteChar,
     setSavedChartData,
+    setSidebarOpen,
     setSql,
     setState,
     setWarehouseConnectionType,
@@ -56,10 +57,12 @@ const SqlRunnerNew = ({
     const share = useSearchParams('share');
     const shareState = useSqlRunnerShareUrl(share || undefined);
 
-    const location = useLocation<{ sql?: string }>();
-    const history = useHistory();
+    const location = useLocation();
+    const navigate = useNavigate();
 
-    const [isLeftSidebarOpen, setLeftSidebarOpen] = useState(true);
+    const isLeftSidebarOpen = useAppSelector(
+        (state) => state.sqlRunner.isLeftSidebarOpen,
+    );
     const { data: project } = useProject(projectUuid);
     const { showToastError } = useToaster();
 
@@ -120,9 +123,9 @@ const SqlRunnerNew = ({
         if (location.state?.sql) {
             dispatch(setSql(location.state.sql));
             // clear the location state - this prevents state from being preserved on page refresh
-            history.replace({ ...location, state: undefined });
+            void navigate({ ...location }, { replace: true, state: undefined });
         }
-    }, [dispatch, location, history]);
+    }, [dispatch, location, navigate]);
 
     const { data, error: chartError } = useSavedSqlChart({
         projectUuid,
@@ -149,6 +152,10 @@ const SqlRunnerNew = ({
         }
     }, [dispatch, project?.warehouseConnection?.type]);
 
+    const handleSetSidebarOpen = (isOpen: boolean) => {
+        dispatch(setSidebarOpen(isOpen));
+    };
+
     if (chartError) {
         return <ErrorState error={chartError.error} />;
     }
@@ -166,7 +173,7 @@ const SqlRunnerNew = ({
                 )
             }
             isSidebarOpen={isLeftSidebarOpen}
-            sidebar={<Sidebar setSidebarOpen={setLeftSidebarOpen} />}
+            sidebar={<Sidebar setSidebarOpen={handleSetSidebarOpen} />}
             noSidebarPadding
         >
             <Group
@@ -193,7 +200,7 @@ const SqlRunnerNew = ({
                             >
                                 <ActionIcon
                                     size="sm"
-                                    onClick={() => setLeftSidebarOpen(true)}
+                                    onClick={() => handleSetSidebarOpen(true)}
                                 >
                                     <MantineIcon
                                         icon={IconLayoutSidebarLeftExpand}

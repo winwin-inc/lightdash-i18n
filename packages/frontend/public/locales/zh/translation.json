@@ -1096,6 +1096,11 @@
                 "part_3": "未找到使用该指标的图表"
             }
         },
+        "press_modal": {
+            "part_1": "按",
+            "part_2": "以移动到上一个指标。",
+            "part_3": "以移动到下一个指标。"
+        },
         "peek_modal": {
             "comparison": "比较",
             "clear": "清除",
@@ -4688,6 +4693,7 @@
     "components_project_connection_dbt_settings": {
         "type": "类型",
         "dbt_version": "dbt 版本",
+        "latest": "最新 ({{version}})",
         "target_name": "目标名称",
         "target_tip": {
             "part_1": "目标",
@@ -4827,15 +4833,31 @@
             "alert": {
                 "title": "要求",
                 "content": {
-                    "part_1": "构建您的项目的 dbt 作业还必须生成文档,并且您的 API 密钥必须有访问发现 API 的权限。",
-                    "part_2": "您的作业完成后,需要在 Lightdash 中单击\"刷新 dbt\"按钮来同步您的项目。"
+                    "part_1": "构建您的项目的 dbt 作业必须",
+                    "part_2": "生成文档",
+                    "part_3": "您的作业完成后,需要在 Lightdash 中单击\"刷新 dbt\"按钮来同步您的项目。"
                 }
             },
             "api_key": {
-                "label": "API 密钥"
+                "label": "服务令牌",
+                "content": {
+                    "part_1": "服务令牌必须具有 \"Metadata Only\" 权限。",
+                    "part_2": "必填字段"
+                }
             },
             "environment": {
-                "label": "环境 ID"
+                "label": "环境 ID",
+                "content": {
+                    "part_1": "dbt 生产环境的唯一标识符,您可以从 dbt Cloud URL 中检索此信息,当您在 Deploy 下导航到 Environments 时。",
+                    "part_2": "必填字段"
+                }
+            },
+            "discovery_api_endpoint": {
+                "label": "Discovery API 端点",
+                "content": {
+                    "part_1": "使用适合您的",
+                    "part_2": "区域和计划"
+                }
             }
         },
         "dbt_local": {

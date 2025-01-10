@@ -18,7 +18,7 @@ import {
 } from '@tabler/icons-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import { useAsync } from 'react-use';
 
 import MantineIcon from '../components/common/MantineIcon';
@@ -83,7 +83,8 @@ const SemanticViewerViewPage = () => {
         if (
             !fieldsQuery.isSuccess ||
             !chartQuery.isSuccess ||
-            !chartResultsQuery.isSuccess
+            !chartResultsQuery.isSuccess ||
+            !projectUuid
         ) {
             return;
         }
@@ -155,12 +156,12 @@ const SemanticViewerViewPage = () => {
             withFullHeight
             withPaddedContent
             header={
-                chartQuery.isSuccess && (
+                chartQuery.isSuccess && projectUuid ? (
                     <HeaderView
                         projectUuid={projectUuid}
                         savedSemanticViewerChart={chartQuery.data}
                     />
-                )
+                ) : null
             }
         >
             {hasError ? (

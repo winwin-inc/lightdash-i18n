@@ -25,7 +25,7 @@ import {
 import { useForm, zodResolver } from '@mantine/form';
 import { IconX } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { Redirect, useLocation } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router';
 import { z } from 'zod';
 
 import MantineIcon from '../../../components/common/MantineIcon';
@@ -33,8 +33,8 @@ import { ThirdPartySignInButton } from '../../../components/common/ThirdPartySig
 import PageSpinner from '../../../components/PageSpinner';
 import useToaster from '../../../hooks/toaster/useToaster';
 import { useFlashMessages } from '../../../hooks/useFlashMessages';
-import { useApp } from '../../../providers/AppProvider';
-import { useTracking } from '../../../providers/TrackingProvider';
+import useApp from '../../../providers/App/useApp';
+import useTracking from '../../../providers/Tracking/useTracking';
 import LightdashLogo from '../../../svgs/lightdash-black.svg';
 import {
     useFetchLoginOptions,
@@ -45,7 +45,7 @@ import {
 const Login: FC<{}> = () => {
     const { health } = useApp();
     const { identify } = useTracking();
-    const location = useLocation<{ from?: Location } | undefined>();
+    const location = useLocation();
     const { t } = useTranslation();
 
     const { showToastError, showToastApiError } = useToaster();
@@ -156,16 +156,16 @@ const Login: FC<{}> = () => {
     }
     if (health.status === 'success' && health.data?.requiresOrgRegistration) {
         return (
-            <Redirect
+            <Navigate
                 to={{
                     pathname: '/register',
-                    state: { from: location.state?.from },
                 }}
+                state={{ from: location.state?.from }}
             />
         );
     }
     if (health.status === 'success' && health.data?.isAuthenticated) {
-        return <Redirect to={redirectUrl} />;
+        return <Navigate to={redirectUrl} />;
     }
 
     return (

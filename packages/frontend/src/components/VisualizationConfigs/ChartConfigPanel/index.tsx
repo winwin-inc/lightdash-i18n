@@ -5,10 +5,10 @@ import { useTranslation } from 'react-i18next';
 import {
     COLLAPSABLE_CARD_BUTTON_PROPS,
     COLLAPSABLE_CARD_POPOVER_PROPS,
-} from '../../common/CollapsableCard';
+} from '../../common/CollapsableCard/constants';
 import MantineIcon from '../../common/MantineIcon';
-import { isCartesianVisualizationConfig } from '../../LightdashVisualization/VisualizationConfigCartesian';
-import { useVisualizationContext } from '../../LightdashVisualization/VisualizationProvider';
+import { isCartesianVisualizationConfig } from '../../LightdashVisualization/types';
+import { useVisualizationContext } from '../../LightdashVisualization/useVisualizationContext';
 import { ConfigTabs } from './ConfigTabs';
 
 const ChartConfigPanel: React.FC = () => {

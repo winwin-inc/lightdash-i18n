@@ -1,17 +1,10 @@
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { isCartesianVisualizationConfig } from '../../../LightdashVisualization/VisualizationConfigCartesian';
-import { useVisualizationContext } from '../../../LightdashVisualization/VisualizationProvider';
+import { isCartesianVisualizationConfig } from '../../../LightdashVisualization/types';
+import { useVisualizationContext } from '../../../LightdashVisualization/useVisualizationContext';
 import { UnitInputsGrid } from '../common/UnitInputsGrid';
-
-export const defaultGrid = {
-    containLabel: true,
-    left: '25px', // small padding
-    right: '25px', // small padding
-    top: '70px', // pixels from top (makes room for legend)
-    bottom: '30px', // pixels from bottom (makes room for x-axis)
-} as const;
+import { defaultGrid } from './constants';
 
 export const Grid: FC = () => {
     const { t } = useTranslation();

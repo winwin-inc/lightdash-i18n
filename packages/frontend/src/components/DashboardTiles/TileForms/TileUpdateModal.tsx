@@ -20,10 +20,9 @@ import { produce } from 'immer';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../common/MantineIcon';
-import LoomTileForm, { getLoomId } from './LoomTileForm';
-import MarkdownTileForm, {
-    markdownTileContentTransform,
-} from './MarkdownTileForm';
+import LoomTileForm from './LoomTileForm';
+import MarkdownTileForm from './MarkdownTileForm';
+import { getLoomId, markdownTileContentTransform } from './utils';
 
 type Tile = Dashboard['tiles'][number];
 type TileProperties = Tile['properties'];

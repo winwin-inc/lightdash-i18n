@@ -7,7 +7,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
     define: {
-        '__APP_VERSION__': JSON.stringify(process.env.npm_package_version),
+        __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
     },
     plugins: [
         tsconfigPaths(),
@@ -36,10 +36,11 @@ export default defineConfig({
                     react: [
                         'react',
                         'react-dom',
-                        'react-router-dom',
+                        'react-router',
                         'react-hook-form',
                         'react-use',
-                        'react-draggable',
+                        // TODO: removed because of PNPM
+                        // 'react-draggable',
                         '@hello-pangea/dnd',
                         '@tanstack/react-query',
                         '@tanstack/react-table',
@@ -49,13 +50,14 @@ export default defineConfig({
                     vega: ['vega', 'vega-lite'],
                     ace: ['ace-builds', 'react-ace/lib'],
                     modules: [
-                        'pegjs',
+                        // TODO: removed because of PNPM
+                        // 'ajv',
+                        // 'ajv-formats',
+                        // 'liquidjs',
+                        // 'pegjs',
                         'jspdf',
-                        'ajv',
-                        'ajv-formats',
                         'lodash',
                         'colorjs.io',
-                        'liquidjs',
                         'zod',
                     ],
                     thirdparty: [

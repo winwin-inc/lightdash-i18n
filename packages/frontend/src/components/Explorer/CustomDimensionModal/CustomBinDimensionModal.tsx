@@ -28,7 +28,7 @@ import { useEffect, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import useToaster from '../../../hooks/toaster/useToaster';
-import { useExplorerContext } from '../../../providers/ExplorerProvider';
+import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import MantineIcon from '../../common/MantineIcon';
 
 // TODO: preview custom dimension results

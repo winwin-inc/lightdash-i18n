@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../common/MantineIcon';
 import TableTree from './TableTree';
-import { getSearchResults } from './TableTree/Tree/TreeProvider';
+import { getSearchResults } from './TableTree/Tree/utils';
 
 type ExploreTreeProps = {
     explore: Explore;

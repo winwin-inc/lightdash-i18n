@@ -29,7 +29,7 @@ import { useOrganizationUsers } from '../../../hooks/useOrganizationUsers';
 import { allSearchItemTypes } from '../types/searchItem';
 import { useDateFilterLabel } from '../utils/getDateFilterLabel';
 import { useSearchItemLabel } from '../utils/getSearchItemLabel';
-import { getOmnibarItemColor } from './OmnibarItemIcon';
+import { getOmnibarItemColor } from './utils';
 
 const getOmnibarItemIcon = (itemType: SearchItemType) => {
     switch (itemType) {

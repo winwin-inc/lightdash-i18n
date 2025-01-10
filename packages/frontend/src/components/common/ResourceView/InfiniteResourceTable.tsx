@@ -34,7 +34,7 @@ import {
     type MRT_SortingState,
     type MRT_Virtualizer,
 } from 'mantine-react-table';
-import React, {
+import {
     useCallback,
     useDeferredValue,
     useEffect,
@@ -44,7 +44,8 @@ import React, {
     type UIEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useHistory } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
+
 import {
     useInfiniteContent,
     type ContentArgs,
@@ -55,10 +56,7 @@ import MantineIcon from '../MantineIcon';
 import { ResourceIcon, ResourceIndicator } from '../ResourceIcon';
 import { ResourceInfoPopup } from '../ResourceInfoPopup/ResourceInfoPopup';
 import ContentTypeFilter from './ContentTypeFilter';
-import ResourceActionHandlers, {
-    ResourceViewItemAction,
-    type ResourceViewItemActionState,
-} from './ResourceActionHandlers';
+import ResourceActionHandlers from './ResourceActionHandlers';
 import ResourceActionMenu from './ResourceActionMenu';
 import ResourceLastEdited from './ResourceLastEdited';
 import {
@@ -66,6 +64,10 @@ import {
     getResourceViewsSinceWhenDescription,
     useResourceTypeName,
 } from './resourceUtils';
+import {
+    ResourceViewItemAction,
+    type ResourceViewItemActionState,
+} from './types';
 
 type ResourceView2Props = {
     filters: Pick<ContentArgs, 'spaceUuids' | 'contentTypes'> & {
@@ -85,7 +87,7 @@ const InfiniteResourceTable = ({
     const getResourceTypeName = useResourceTypeName();
 
     const theme = useMantineTheme();
-    const history = useHistory();
+    const navigate = useNavigate();
     const { data: spaces = [] } = useSpaceSummaries(
         filters.projectUuid,
         true,
@@ -130,7 +132,9 @@ const InfiniteResourceTable = ({
                             },
                         }}
                         to={getResourceUrl(filters.projectUuid, item)}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e: React.MouseEvent<HTMLAnchorElement>) =>
+                            e.stopPropagation()
+                        }
                     >
                         <Group noWrap>
                             {canBelongToSpace &&
@@ -274,7 +278,9 @@ const InfiniteResourceTable = ({
                         color="gray.7"
                         component={Link}
                         to={`/projects/${space.projectUuid}/spaces/${space.uuid}`}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e: React.MouseEvent<HTMLAnchorElement>) =>
+                            e.stopPropagation()
+                        }
                         fz={12}
                         fw={500}
                     >
@@ -527,7 +533,9 @@ const InfiniteResourceTable = ({
                     return;
                 }
 
-                history.push(getResourceUrl(filters.projectUuid, row.original));
+                void navigate(
+                    getResourceUrl(filters.projectUuid, row.original),
+                );
             },
         }),
         mantineTableBodyCellProps: () => {
@@ -675,7 +683,7 @@ const InfiniteResourceTable = ({
         renderRowActions: ({ row }) => (
             <Box
                 component="div"
-                onClick={(e) => {
+                onClick={(e: React.MouseEvent<HTMLDivElement>) => {
                     e.stopPropagation();
                     e.preventDefault();
                 }}

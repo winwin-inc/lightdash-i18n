@@ -5,7 +5,6 @@ import {
     ResourceViewItemType,
     type ResourceViewChartItem,
     type ResourceViewDashboardItem,
-    type ResourceViewItem,
     type Space,
 } from '@lightdash/common';
 import {
@@ -15,7 +14,8 @@ import {
 } from '@tabler/icons-react';
 import { useCallback, useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
+
 import { DeleteSqlChartModal } from '../../../features/sqlRunner/components/DeleteSqlChartModal';
 import { useUpdateSqlChartMutation } from '../../../features/sqlRunner/hooks/useSavedSqlCharts';
 import { useMoveDashboardMutation } from '../../../hooks/dashboard/useDashboard';
@@ -30,50 +30,12 @@ import ChartUpdateModal from '../modal/ChartUpdateModal';
 import DashboardDeleteModal from '../modal/DashboardDeleteModal';
 import DashboardDuplicateModal from '../modal/DashboardDuplicateModal';
 import DashboardUpdateModal from '../modal/DashboardUpdateModal';
-import SpaceActionModal, { ActionType } from '../SpaceActionModal';
-
-export enum ResourceViewItemAction {
-    CLOSE,
-    UPDATE,
-    DELETE,
-    DUPLICATE,
-    ADD_TO_DASHBOARD,
-    CREATE_SPACE,
-    MOVE_TO_SPACE,
-    PIN_TO_HOMEPAGE,
-}
-
-export type ResourceViewItemActionState =
-    | { type: ResourceViewItemAction.CLOSE }
-    | {
-          type: ResourceViewItemAction.UPDATE;
-          item: ResourceViewItem;
-      }
-    | {
-          type: ResourceViewItemAction.DELETE;
-          item: ResourceViewItem;
-      }
-    | {
-          type: ResourceViewItemAction.DUPLICATE;
-          item: ResourceViewChartItem | ResourceViewDashboardItem;
-      }
-    | {
-          type: ResourceViewItemAction.ADD_TO_DASHBOARD;
-          item: ResourceViewChartItem;
-      }
-    | {
-          type: ResourceViewItemAction.CREATE_SPACE;
-          item: ResourceViewChartItem | ResourceViewDashboardItem;
-      }
-    | {
-          type: ResourceViewItemAction.PIN_TO_HOMEPAGE;
-          item: ResourceViewItem;
-      }
-    | {
-          type: ResourceViewItemAction.MOVE_TO_SPACE;
-          item: ResourceViewChartItem | ResourceViewDashboardItem;
-          data: { spaceUuid: string };
-      };
+import SpaceActionModal from '../SpaceActionModal';
+import { ActionType } from '../SpaceActionModal/types';
+import {
+    ResourceViewItemAction,
+    type ResourceViewItemActionState,
+} from './types';
 
 interface ResourceActionHandlersProps {
     action: ResourceViewItemActionState;
@@ -186,6 +148,10 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
             handleReset();
         }
     }, [action, handlePinToHomepage, handleReset]);
+
+    if (!projectUuid) {
+        return null;
+    }
 
     switch (action.type) {
         case ResourceViewItemAction.UPDATE:

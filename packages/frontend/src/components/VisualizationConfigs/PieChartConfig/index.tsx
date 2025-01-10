@@ -6,9 +6,9 @@ import { useTranslation } from 'react-i18next';
 import {
     COLLAPSABLE_CARD_BUTTON_PROPS,
     COLLAPSABLE_CARD_POPOVER_PROPS,
-} from '../../common/CollapsableCard';
+} from '../../common/CollapsableCard/constants';
 import MantineIcon from '../../common/MantineIcon';
-import { useVisualizationContext } from '../../LightdashVisualization/VisualizationProvider';
+import { useVisualizationContext } from '../../LightdashVisualization/useVisualizationContext';
 import { ConfigTabs } from './PieChartConfigTabs';
 
 const PieChartConfig: React.FC = () => {

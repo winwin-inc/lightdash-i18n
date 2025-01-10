@@ -5,22 +5,17 @@ import {
 import { Loader, Select } from '@mantine/core';
 import { type UseFormReturnType } from '@mantine/form';
 import { useTranslation } from 'react-i18next';
-import { z } from 'zod';
 
-export const saveToDashboardSchema = z.object({
-    dashboardUuid: z.string().nullable(),
-});
+import { type SaveToDashboardFormType } from './types';
 
-type FormType = z.infer<typeof saveToDashboardSchema>;
-
-type Props<T extends FormType> = {
+type Props<T extends SaveToDashboardFormType> = {
     form: UseFormReturnType<T>;
     spaces: SpaceSummary[] | undefined;
     dashboards: DashboardBasicDetails[] | undefined;
     isLoading: boolean;
 };
 
-const SaveToDashboardForm = <T extends FormType>({
+const SaveToDashboardForm = <T extends SaveToDashboardFormType>({
     form,
     spaces = [],
     dashboards = [],

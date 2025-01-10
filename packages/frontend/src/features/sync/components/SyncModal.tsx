@@ -2,16 +2,14 @@ import { Flex, Modal, Title, type ModalProps } from '@mantine/core';
 import { IconTrash } from '@tabler/icons-react';
 import { useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory, useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 
 import { GSheetsIcon } from '../../../components/common/GSheetsIcon';
 import MantineIcon from '../../../components/common/MantineIcon';
 import { getSchedulerUuidFromUrlParams } from '../../../features/scheduler/utils';
-import {
-    SyncModalAction,
-    SyncModalProvider,
-    useSyncModal,
-} from '../providers/SyncModalProvider';
+import { SyncModalProvider } from '../providers/SyncModalProvider';
+import { SyncModalAction } from '../providers/types';
+import { useSyncModal } from '../providers/useSyncModal';
 import { SyncModalDelete } from './SyncModalDelete';
 import { SyncModalForm } from './SyncModalForm';
 import { SyncModalView } from './SyncModalView';
@@ -21,7 +19,7 @@ type Props = { chartUuid: string } & Pick<ModalProps, 'opened' | 'onClose'>;
 const SyncModalBaseAndManager: FC<Props> = ({ chartUuid, opened, onClose }) => {
     const { t } = useTranslation();
     const { search, pathname } = useLocation();
-    const history = useHistory();
+    const navigate = useNavigate();
     const { action, setAction, setCurrentSchedulerUuid } = useSyncModal();
 
     useEffect(() => {
@@ -30,9 +28,9 @@ const SyncModalBaseAndManager: FC<Props> = ({ chartUuid, opened, onClose }) => {
         if (schedulerUuidFromParams) {
             setAction(SyncModalAction.EDIT);
             setCurrentSchedulerUuid(schedulerUuidFromParams);
-            history.replace({ pathname });
+            void navigate({ pathname }, { replace: true });
         }
-    }, [history, pathname, search, setAction, setCurrentSchedulerUuid]);
+    }, [navigate, pathname, search, setAction, setCurrentSchedulerUuid]);
 
     let modalTitle = t('features_sync.modal.title.sync_with_google_sheets');
     let headerIcon: typeof GSheetsIcon | typeof IconTrash = GSheetsIcon;

@@ -32,8 +32,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 import useToaster from '../../../hooks/toaster/useToaster';
 import { useExplore } from '../../../hooks/useExplore';
-import { useExplorerContext } from '../../../providers/ExplorerProvider';
-import { FiltersProvider } from '../../common/Filters/FiltersProvider';
+import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
+import FiltersProvider from '../../common/Filters/FiltersProvider';
 import { FormatForm } from '../FormatForm';
 import { FilterForm, type MetricFilterRuleWithFieldId } from './FilterForm';
 import { useDataForFiltersProvider } from './hooks/useDataForFiltersProvider';

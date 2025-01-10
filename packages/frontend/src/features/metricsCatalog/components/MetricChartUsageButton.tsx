@@ -3,7 +3,7 @@ import { Button, Text, Tooltip } from '@mantine/core';
 import { type MRT_Row } from 'mantine-react-table';
 import { useTranslation } from 'react-i18next';
 
-import { useTracking } from '../../../providers/TrackingProvider';
+import useTracking from '../../../providers/Tracking/useTracking';
 import { BarChart } from '../../../svgs/metricsCatalog';
 import { EventName } from '../../../types/Events';
 import { useAppDispatch, useAppSelector } from '../../sqlRunner/store/hooks';

@@ -6,16 +6,17 @@ import { IconArrowBarToDown, IconCopy, IconStack } from '@tabler/icons-react';
 import mapValues from 'lodash/mapValues';
 import { useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
+
 import useToaster from '../../hooks/toaster/useToaster';
-import { useApp } from '../../providers/AppProvider';
-import { useTracking } from '../../providers/TrackingProvider';
+import useApp from '../../providers/App/useApp';
+import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
 import { Can } from '../common/Authorization';
 import MantineIcon from '../common/MantineIcon';
-import { isBigNumberVisualizationConfig } from '../LightdashVisualization/VisualizationBigNumberConfig';
-import { useVisualizationContext } from '../LightdashVisualization/VisualizationProvider';
-import { useMetricQueryDataContext } from '../MetricQueryData/MetricQueryDataProvider';
+import { isBigNumberVisualizationConfig } from '../LightdashVisualization/types';
+import { useVisualizationContext } from '../LightdashVisualization/useVisualizationContext';
+import { useMetricQueryDataContext } from '../MetricQueryData/useMetricQueryDataContext';
 
 const BigNumberContextMenu: FC<React.PropsWithChildren<{}>> = ({
     children,

@@ -29,16 +29,19 @@ const updatePinnedItemsOrder = async (
 };
 
 export const usePinnedItems = (
-    projectUuid: string,
+    projectUuid: string | undefined,
     pinnedlistUuid: string | undefined,
 ) =>
     useQuery<PinnedItems, ApiError>({
         queryKey: ['pinned_items', projectUuid, pinnedlistUuid],
-        queryFn: () => getPinnedItems(projectUuid, pinnedlistUuid || ''),
-        enabled: !!pinnedlistUuid,
+        queryFn: () => getPinnedItems(projectUuid!, pinnedlistUuid || ''),
+        enabled: !!pinnedlistUuid && !!projectUuid,
     });
 
-export const useReorder = (projectUuid: string, pinnedlistUuid: string) => {
+export const useReorder = (
+    projectUuid: string | undefined,
+    pinnedlistUuid: string,
+) => {
     const queryClient = useQueryClient();
     const { showToastApiError } = useToaster();
     const { t } = useTranslation();
@@ -49,6 +52,9 @@ export const useReorder = (projectUuid: string, pinnedlistUuid: string) => {
                 ['pinned_items', projectUuid, pinnedlistUuid],
                 pinnedItems,
             );
+            if (!projectUuid) {
+                return Promise.reject();
+            }
             return updatePinnedItemsOrder(
                 projectUuid,
                 pinnedlistUuid,

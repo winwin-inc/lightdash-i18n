@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { CreateProjectConnection } from '../..';
 import MantineIcon from '../../../common/MantineIcon';
 import { OnboardingTitle } from '../common/OnboardingTitle';
-import { getWarehouseLabel } from '../SelectWarehouse';
+import { getWarehouseLabel } from '../utils';
 
 interface ConnectManuallyStep2Props {
     isCreatingFirstProject: boolean;

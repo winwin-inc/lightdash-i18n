@@ -12,8 +12,7 @@ import type { EChartsInstance } from 'echarts-for-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Provider } from 'react-redux';
-import { useParams } from 'react-router-dom';
-
+import { useParams } from 'react-router';
 import { ConditionalVisibility } from '../components/common/ConditionalVisibility';
 import ErrorState from '../components/common/ErrorState';
 import MantineIcon from '../components/common/MantineIcon';
@@ -95,9 +94,13 @@ const ViewSqlChart = () => {
                     <Group position="apart">
                         <Group position="apart">
                             <SegmentedControl
-                                color="dark"
+                                styles={(theme) => ({
+                                    root: {
+                                        backgroundColor: theme.colors.gray[2],
+                                    },
+                                })}
                                 size="sm"
-                                radius="sm"
+                                radius="md"
                                 disabled={isChartResultsLoading}
                                 data={[
                                     {

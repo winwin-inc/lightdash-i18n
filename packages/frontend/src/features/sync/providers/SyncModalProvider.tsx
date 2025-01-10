@@ -1,29 +1,6 @@
-import {
-    createContext,
-    useContext,
-    useState,
-    type Dispatch,
-    type FC,
-    type SetStateAction,
-} from 'react';
-import { useTranslation } from 'react-i18next';
-
-export enum SyncModalAction {
-    CREATE = 'create',
-    EDIT = 'edit',
-    VIEW = 'view',
-    DELETE = 'delete',
-}
-
-const SyncModalContext = createContext<
-    | {
-          action: SyncModalAction;
-          setAction: Dispatch<SetStateAction<SyncModalAction>>;
-          currentSchedulerUuid?: string;
-          setCurrentSchedulerUuid: Dispatch<SetStateAction<string | undefined>>;
-      }
-    | undefined
->(undefined);
+import { useState, type FC } from 'react';
+import SyncModalContext from './context';
+import { SyncModalAction } from './types';
 
 export const SyncModalProvider: FC<React.PropsWithChildren<{}>> = ({
     children,
@@ -43,15 +20,4 @@ export const SyncModalProvider: FC<React.PropsWithChildren<{}>> = ({
             {children}
         </SyncModalContext.Provider>
     );
-};
-
-export const useSyncModal = () => {
-    const { t } = useTranslation();
-    const context = useContext(SyncModalContext);
-
-    if (!context) {
-        throw new Error(t('features_sync.modal_provide.error'));
-    }
-
-    return context;
 };

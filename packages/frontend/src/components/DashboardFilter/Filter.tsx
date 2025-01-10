@@ -18,11 +18,11 @@ import { IconFilter, IconGripVertical } from '@tabler/icons-react';
 import { useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useDashboardContext } from '../../providers/DashboardProvider';
+import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import {
-    getFilterRuleTables,
     useConditionalRuleLabel,
-} from '../common/Filters/FilterInputs';
+    getFilterRuleTables,
+} from '../common/Filters/FilterInputs/utils';
 import MantineIcon from '../common/MantineIcon';
 import FilterConfiguration from './FilterConfiguration';
 import { hasFilterValueSet } from './FilterConfiguration/utils';
@@ -38,6 +38,7 @@ const useDashboardFilterStyles = createStyles((theme) => ({
     inactiveFilter: {
         borderStyle: 'dashed',
         borderWidth: '1px',
+        borderColor: theme.fn.rgba(theme.colors.gray[5], 0.7),
         backgroundColor: theme.fn.rgba(theme.white, 0.7),
     },
 }));
@@ -149,7 +150,9 @@ const Filter: FC<Props> = ({
                 })
                 .join(', ');
             return appliedTabList
-                ? `This filter only applies to tabs: ${appliedTabList}`
+                ? `This filter only applies to tab${
+                      appliesToTabs.length === 1 ? '' : 's'
+                  }: ${appliedTabList}`
                 : 'This filter is not currently applied to any tabs';
         }
     }, [activeTabUuid, appliesToTabs, dashboardTabs]);
@@ -272,6 +275,7 @@ const Filter: FC<Props> = ({
                             fz="xs"
                             label={inactiveFilterInfo}
                             disabled={!inactiveFilterInfo}
+                            withinPortal
                         >
                             <Button
                                 pos="relative"

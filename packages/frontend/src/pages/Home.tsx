@@ -1,6 +1,6 @@
 import { Stack } from '@mantine/core';
 import { type FC } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import { useUnmount } from 'react-use';
 import ErrorState from '../components/common/ErrorState';
 import Page from '../components/common/Page/Page';
@@ -18,8 +18,8 @@ import {
     useMostPopularAndRecentlyUpdated,
     useProject,
 } from '../hooks/useProject';
-import { useApp } from '../providers/AppProvider';
-import { PinnedItemsProvider } from '../providers/PinnedItemsProvider';
+import useApp from '../providers/App/useApp';
+import { PinnedItemsProvider } from '../providers/PinnedItems/PinnedItemsProvider';
 
 const Home: FC = () => {
     const params = useParams<{ projectUuid: string }>();
@@ -30,7 +30,6 @@ const Home: FC = () => {
         selectedProjectUuid,
         project.data?.pinnedListUuid,
     );
-
     const {
         data: mostPopularAndRecentlyUpdated,
         isInitialLoading: isMostPopularAndRecentlyUpdatedLoading,

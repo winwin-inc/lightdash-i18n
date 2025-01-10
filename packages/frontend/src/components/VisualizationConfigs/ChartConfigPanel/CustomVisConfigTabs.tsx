@@ -4,8 +4,8 @@ import merge from 'lodash/merge';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { isCustomVisualizationConfig } from '../../LightdashVisualization/VisualizationCustomConfig';
-import { useVisualizationContext } from '../../LightdashVisualization/VisualizationProvider';
+import { isCustomVisualizationConfig } from '../../LightdashVisualization/types';
+import { useVisualizationContext } from '../../LightdashVisualization/useVisualizationContext';
 
 type Schema = {
     readonly uri: string;

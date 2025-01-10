@@ -3,7 +3,7 @@ import { IconCheck } from '@tabler/icons-react';
 import confetti from 'canvas-confetti';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 import MantineIcon from '../../common/MantineIcon';
 import { ProjectCreationCard } from '../../common/Settings/SettingsCard';

@@ -16,8 +16,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { useProject } from '../../../../hooks/useProject';
 import { type ReferenceLineField } from '../../../common/ReferenceLine';
-import { isCartesianVisualizationConfig } from '../../../LightdashVisualization/VisualizationConfigCartesian';
-import { useVisualizationContext } from '../../../LightdashVisualization/VisualizationProvider';
+import { isCartesianVisualizationConfig } from '../../../LightdashVisualization/types';
+import { useVisualizationContext } from '../../../LightdashVisualization/useVisualizationContext';
 import { AddButton } from '../../common/AddButton';
 import { Config } from '../../common/Config';
 import { useControlledAccordion } from '../../common/hooks/useControlledAccordion';

@@ -14,7 +14,8 @@ import { useTranslation } from 'react-i18next';
 import { useCreateInviteLinkMutation } from '../../hooks/useInviteLink';
 import { useOrganizationUsers } from '../../hooks/useOrganizationUsers';
 import { useCreateProjectAccessMutation } from '../../hooks/useProjectAccess';
-import { TrackPage, useTracking } from '../../providers/TrackingProvider';
+import { TrackPage } from '../../providers/Tracking/TrackingProvider';
+import useTracking from '../../providers/Tracking/useTracking';
 import {
     CategoryName,
     EventName,

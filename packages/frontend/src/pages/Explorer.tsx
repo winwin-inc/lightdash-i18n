@@ -2,7 +2,7 @@ import { subject } from '@casl/ability';
 import { useHotkeys } from '@mantine/hooks';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 
 import Page from '../components/common/Page/Page';
 import Explorer from '../components/Explorer';
@@ -15,11 +15,9 @@ import {
     useExplorerUrlState,
 } from '../hooks/useExplorerRoute';
 import { useQueryResults } from '../hooks/useQueryResults';
-import { useApp } from '../providers/AppProvider';
-import {
-    ExplorerProvider,
-    useExplorerContext,
-} from '../providers/ExplorerProvider';
+import useApp from '../providers/App/useApp';
+import ExplorerProvider from '../providers/Explorer/ExplorerProvider';
+import useExplorerContext from '../providers/Explorer/useExplorerContext';
 
 const ExplorerWithUrlParams = memo(() => {
     const { t } = useTranslation();

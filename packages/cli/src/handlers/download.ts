@@ -20,15 +20,24 @@ import GlobalState from '../globalState';
 import * as styles from '../styles';
 import { checkLightdashVersion, lightdashApi } from './dbt/apiClient';
 
-const DOWNLOAD_FOLDER = 'lightdash';
 export type DownloadHandlerOptions = {
     verbose: boolean;
     charts: string[]; // These can be slugs, uuids or urls
     dashboards: string[]; // These can be slugs, uuids or urls
     force: boolean;
+    path?: string; // New optional path parameter
 };
 
-/* 
+const getDownloadFolder = (customPath?: string): string => {
+    if (customPath) {
+        return path.isAbsolute(customPath)
+            ? customPath
+            : path.join(process.cwd(), customPath);
+    }
+    return path.join(process.cwd(), 'lightdash');
+};
+
+/*
     This function is used to parse the content filters.
     It can be slugs, uuids or urls
     We remove the URL part (if any) and return a list of `slugs or uuids` that can be used in the API call
@@ -51,13 +60,14 @@ const parseContentFilters = (items: string[]): string => {
 const dumpIntoFiles = async (
     folder: 'charts' | 'dashboards',
     items: (ChartAsCode | DashboardAsCode)[],
+    customPath?: string,
 ) => {
-    const outputDir = path.join(process.cwd(), DOWNLOAD_FOLDER, folder);
+    const outputDir = path.join(getDownloadFolder(customPath), folder);
 
     GlobalState.debug(`Writing ${items.length} ${folder} into ${outputDir}`);
     // Make directory
     const created = await fs.mkdir(outputDir, { recursive: true });
-    if (created) console.info(`Created new folder: ${outputDir} `);
+    if (created) console.info(`\nCreated new folder: ${outputDir} `);
 
     for (const item of items) {
         const itemPath = path.join(outputDir, `${item.slug}.yml`);
@@ -70,8 +80,9 @@ const dumpIntoFiles = async (
 
 const readCodeFiles = async <T extends ChartAsCode | DashboardAsCode>(
     folder: 'charts' | 'dashboards',
+    customPath?: string,
 ): Promise<(T & { needsUpdating: boolean })[]> => {
-    const inputDir = path.join(process.cwd(), DOWNLOAD_FOLDER, folder);
+    const inputDir = path.join(getDownloadFolder(customPath), folder);
 
     console.info(`Reading ${folder} from ${inputDir}`);
     const items: (T & { needsUpdating: boolean })[] = [];
@@ -124,6 +135,71 @@ const readCodeFiles = async <T extends ChartAsCode | DashboardAsCode>(
     return items;
 };
 
+export const downloadContent = async (
+    ids: string[], // slug, uuid or url
+    type: 'charts' | 'dashboards',
+    projectId: string,
+    customPath?: string,
+): Promise<[number, string[]]> => {
+    const spinner = GlobalState.getActiveSpinner();
+    const contentFilters = parseContentFilters(ids);
+    let contentAsCode:
+        | ApiChartAsCodeListResponse['results']
+        | ApiDashboardAsCodeListResponse['results'];
+    let offset = 0;
+    let chartSlugs: string[] = [];
+    do {
+        GlobalState.debug(
+            `Downloading ${type} with offset "${offset}" and filters "${contentFilters}"`,
+        );
+
+        const queryParams = contentFilters
+            ? `${contentFilters}&offset=${offset}`
+            : `?offset=${offset}`;
+        contentAsCode = await lightdashApi({
+            method: 'GET',
+            url: `/api/v1/projects/${projectId}/${type}/code${queryParams}`,
+            body: undefined,
+        });
+        spinner?.start(
+            `Downloaded ${contentAsCode.offset} of ${contentAsCode.total} ${type}`,
+        );
+        contentAsCode.missingIds.forEach((missingId) => {
+            console.warn(styles.warning(`\nNo chart with id "${missingId}"`));
+        });
+
+        if ('dashboards' in contentAsCode) {
+            await dumpIntoFiles(
+                'dashboards',
+                contentAsCode.dashboards,
+                customPath,
+            );
+            // Extract chart slugs from dashboards
+            chartSlugs = contentAsCode.dashboards.reduce<string[]>(
+                (acc, dashboard) => {
+                    const slugs = dashboard.tiles.map((chart) =>
+                        'chartSlug' in chart.properties
+                            ? (chart.properties.chartSlug as string)
+                            : undefined,
+                    );
+                    return [
+                        ...acc,
+                        ...slugs.filter(
+                            (slug): slug is string => slug !== undefined,
+                        ),
+                    ];
+                },
+                chartSlugs,
+            );
+        } else {
+            await dumpIntoFiles('charts', contentAsCode.charts, customPath);
+        }
+        offset = contentAsCode.offset;
+    } while (contentAsCode.offset < contentAsCode.total);
+
+    return [contentAsCode.total, [...new Set(chartSlugs)]];
+};
+
 export const downloadHandler = async (
     options: DownloadHandlerOptions,
 ): Promise<void> => {
@@ -170,41 +246,14 @@ export const downloadHandler = async (
             );
         } else {
             const spinner = GlobalState.startSpinner(`Downloading charts`);
-            const chartFilters = parseContentFilters(options.charts);
-            let chartsAsCode: ApiChartAsCodeListResponse['results'];
-            let offset = 0;
-            do {
-                GlobalState.debug(
-                    `Downloading charts with offset "${offset}" and filters "${chartFilters}"`,
-                );
-
-                const queryParams = chartFilters
-                    ? `${chartFilters}&offset=${offset}`
-                    : `?offset=${offset}`;
-                chartsAsCode = await lightdashApi<
-                    ApiChartAsCodeListResponse['results']
-                >({
-                    method: 'GET',
-                    url: `/api/v1/projects/${projectId}/charts/code${queryParams}`,
-                    body: undefined,
-                });
-                spinner.start(
-                    `Downloaded ${chartsAsCode.offset} of ${chartsAsCode.total} charts`,
-                );
-                chartsAsCode.missingIds.forEach((missingId) => {
-                    console.warn(
-                        styles.warning(`\nNo chart with id "${missingId}"`),
-                    );
-                });
-
-                await dumpIntoFiles('charts', chartsAsCode.charts);
-                offset = chartsAsCode.offset;
-            } while (chartsAsCode.offset < chartsAsCode.total);
-
-            chartTotal = chartsAsCode.total;
-            spinner.succeed(`Downloaded ${chartsAsCode.total} charts`);
+            [chartTotal] = await downloadContent(
+                options.charts,
+                'charts',
+                projectId,
+                options.path,
+            );
+            spinner.succeed(`Downloaded ${chartTotal} charts`);
         }
-
         // Download dashboards
         if (hasFilters && options.dashboards.length === 0) {
             console.info(
@@ -212,42 +261,35 @@ export const downloadHandler = async (
             );
         } else {
             const spinner = GlobalState.startSpinner(`Downloading dashboards`);
+            let chartSlugs: string[] = [];
 
-            const dashboardFilters = parseContentFilters(options.dashboards);
-            let offset = 0;
+            [dashboardTotal, chartSlugs] = await downloadContent(
+                options.dashboards,
+                'dashboards',
+                projectId,
+                options.path,
+            );
 
-            let dashboardsAsCode: ApiDashboardAsCodeListResponse['results'];
-            do {
-                GlobalState.debug(
-                    `Downloading dashboards with offset "${offset}" and filters "${dashboardFilters}"`,
+            spinner.succeed(`Downloaded ${dashboardTotal} dashboards`);
+
+            // If any filter is provided, we download all charts for these dashboard
+            // We don't need to do this if we download everything (no filters)
+            if (hasFilters) {
+                spinner.start(
+                    `Downloading ${chartSlugs.length} charts linked to dashboards`,
                 );
 
-                const queryParams = dashboardFilters
-                    ? `${dashboardFilters}&offset=${offset}`
-                    : `?offset=${offset}`;
-                dashboardsAsCode = await lightdashApi<
-                    ApiDashboardAsCodeListResponse['results']
-                >({
-                    method: 'GET',
-                    url: `/api/v1/projects/${projectId}/dashboards/code${queryParams}`,
-                    body: undefined,
-                });
-
-                dashboardsAsCode.missingIds.forEach((missingId) => {
-                    console.warn(
-                        styles.warning(`\nNo dashboard with id "${missingId}"`),
-                    );
-                });
-                spinner?.start(
-                    `Downloaded ${dashboardsAsCode.offset} of ${dashboardsAsCode.total} dashboards`,
+                const [totalCharts] = await downloadContent(
+                    chartSlugs,
+                    'charts',
+                    projectId,
+                    options.path,
                 );
 
-                await dumpIntoFiles('dashboards', dashboardsAsCode.dashboards);
-                offset = dashboardsAsCode.offset;
-            } while (dashboardsAsCode.offset < dashboardsAsCode.total);
-
-            dashboardTotal = dashboardsAsCode.total;
-            spinner.succeed(`Downloaded ${dashboardsAsCode.total} dashboards`);
+                spinner.succeed(
+                    `Downloaded ${totalCharts} charts linked to dashboards`,
+                );
+            }
         }
 
         const end = Date.now();
@@ -275,8 +317,6 @@ export const downloadHandler = async (
             },
         });
     }
-
-    // TODO delete files if chart don't exist ?*/
 };
 
 const getPromoteAction = (action: PromotionAction) => {
@@ -294,6 +334,7 @@ const getPromoteAction = (action: PromotionAction) => {
     }
     return 'skipped';
 };
+
 const storeUploadChanges = (
     changes: Record<string, number>,
     promoteChanges: PromotionChanges,
@@ -329,6 +370,7 @@ const storeUploadChanges = (
 
     return updatedChanges;
 };
+
 const logUploadChanges = (changes: Record<string, number>) => {
     Object.entries(changes).forEach(([key, value]) => {
         console.info(`Total ${key}: ${value} `);
@@ -345,10 +387,11 @@ const upsertResources = async <T extends ChartAsCode | DashboardAsCode>(
     changes: Record<string, number>,
     force: boolean,
     slugs: string[],
+    customPath?: string,
 ): Promise<{ changes: Record<string, number>; total: number }> => {
     const config = await getConfig();
 
-    const items = await readCodeFiles<T>(type);
+    const items = await readCodeFiles<T>(type, customPath);
 
     console.info(`Found ${items.length} ${type} files`);
 
@@ -475,6 +518,7 @@ export const uploadHandler = async (
                     changes,
                     options.force,
                     options.charts,
+                    options.path,
                 );
             changes = chartChanges;
             chartTotal = total;
@@ -492,6 +536,7 @@ export const uploadHandler = async (
                     changes,
                     options.force,
                     options.dashboards,
+                    options.path,
                 );
             changes = dashboardChanges;
             dashboardTotal = total;

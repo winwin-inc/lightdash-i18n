@@ -97,7 +97,7 @@ const FieldSelect = <T extends Item = Item>({
     baseTable,
     focusOnRender = false,
     ...rest
-}: FieldSelectProps<T>): JSX.Element => {
+}: FieldSelectProps<T>) => {
     const { t } = useTranslation();
 
     const inputRef = useRef<HTMLInputElement | null>(null); // Input ref for focus handling

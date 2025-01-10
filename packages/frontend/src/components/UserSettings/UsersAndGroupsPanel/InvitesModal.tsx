@@ -11,8 +11,9 @@ import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
 import { useCreateInviteLinkMutation } from '../../../hooks/useInviteLink';
-import { useApp } from '../../../providers/AppProvider';
-import { TrackPage, useTracking } from '../../../providers/TrackingProvider';
+import useApp from '../../../providers/App/useApp';
+import { TrackPage } from '../../../providers/Tracking/TrackingProvider';
+import useTracking from '../../../providers/Tracking/useTracking';
 import {
     CategoryName,
     EventName,

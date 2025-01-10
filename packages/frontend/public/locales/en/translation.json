@@ -1094,6 +1094,11 @@
                 "part_3": "No charts found using this metric"
             }
         },
+        "press_modal": {
+            "part_1": "Press",
+            "part_2": "to move to the previous metric.",
+            "part_3": "to move to the next metric."
+        },
         "peek_modal": {
             "comparison": "Comparison",
             "clear": "Clear",
@@ -4678,6 +4683,7 @@
     "components_project_connection_dbt_settings": {
         "type": "Type",
         "dbt_version": "dbt version",
+        "latest": "latest ({{version}})",
         "target_name": "Target name",
         "target_tip": {
             "part_1": "target",
@@ -4817,15 +4823,31 @@
             "alert": {
                 "title": "Requirements",
                 "content": {
-                    "part_1": "The dbt job that builds your project must also generate docs and your API key must have the access to the Discovery API.",
-                    "part_2": "After your job finish you need to click the \"refresh dbt\" button in Lightdash to sync your project."
+                    "part_1": "The dbt job that builds your project must",
+                    "part_2": "generate docs",
+                    "part_3": "After your job finish you need to click the \"refresh dbt\" button in Lightdash to sync your project."
                 }
             },
             "api_key": {
-                "label": "API key"
+                "label": "Service token",
+                "content": {
+                    "part_1": "The service token must have the \"Metadata Only\" permission.",
+                    "part_2": "Required field"
+                }
             },
             "environment": {
-                "label": "Environment ID"
+                "label": "Environment ID",
+                "content": {
+                    "part_1": "The unique identifier for the dbt production environment, you can retrieve this from the dbt Cloud URL when you navigate to Environments under Deploy.",
+                    "part_2": "Required field"
+                }
+            },
+            "discovery_api_endpoint": {
+                "label": "Discovery API endpoint",
+                "content": {
+                    "part_1": "Use the endpoint that's appropriate for your",
+                    "part_2": "region and plan"
+                }
             }
         },
         "dbt_local": {

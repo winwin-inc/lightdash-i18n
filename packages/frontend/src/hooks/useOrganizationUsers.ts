@@ -15,7 +15,7 @@ import Fuse from 'fuse.js';
 import { useTranslation } from 'react-i18next';
 
 import { lightdashApi } from '../api';
-import { useApp } from '../providers/AppProvider';
+import useApp from '../providers/App/useApp';
 import useToaster from './toaster/useToaster';
 import useQueryError from './useQueryError';
 

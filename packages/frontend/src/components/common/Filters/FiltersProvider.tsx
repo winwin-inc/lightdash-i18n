@@ -1,36 +1,14 @@
 import {
     isField,
-    type AndFilterGroup,
     type DashboardFilters,
     type FilterableItem,
     type FilterRule,
-    type ItemsMap,
     type WeekDay,
 } from '@lightdash/common';
 import { type PopoverProps } from '@mantine/core';
-import { uuid4 } from '@sentry/utils';
-import { createContext, useCallback, useContext, type ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
-
-type DefaultFieldsMap = Record<
-    string,
-    ItemsMap[string] & { suggestions?: string[] }
->;
-
-type FiltersContext<T extends DefaultFieldsMap = DefaultFieldsMap> = {
-    projectUuid?: string;
-    itemsMap: T;
-    baseTable?: string;
-    startOfWeek?: WeekDay;
-    getField: (filterRule: FilterRule) => T[keyof T] | undefined;
-    getAutocompleteFilterGroup: (
-        filterId: string,
-        item: FilterableItem,
-    ) => AndFilterGroup | undefined;
-    popoverProps?: Omit<PopoverProps, 'children'>;
-};
-
-const Context = createContext<FiltersContext | undefined>(undefined);
+import { useCallback, type ReactNode } from 'react';
+import { v4 as uuid4 } from 'uuid';
+import Context, { type DefaultFieldsMap } from './context';
 
 type Props<T extends DefaultFieldsMap> = {
     projectUuid?: string;
@@ -42,7 +20,7 @@ type Props<T extends DefaultFieldsMap> = {
     children?: ReactNode;
 };
 
-export const FiltersProvider = <T extends DefaultFieldsMap = DefaultFieldsMap>({
+const FiltersProvider = <T extends DefaultFieldsMap = DefaultFieldsMap>({
     projectUuid,
     itemsMap = {} as T,
     baseTable,
@@ -94,17 +72,4 @@ export const FiltersProvider = <T extends DefaultFieldsMap = DefaultFieldsMap>({
     );
 };
 
-export function useFiltersContext<
-    T extends DefaultFieldsMap = DefaultFieldsMap,
->(): FiltersContext<T> {
-    const { t } = useTranslation();
-    const context = useContext(
-        Context as React.Context<FiltersContext<T> | undefined>,
-    );
-
-    if (context === undefined) {
-        throw new Error(t('components_common_filters.provider.error'));
-    }
-
-    return context;
-}
+export default FiltersProvider;

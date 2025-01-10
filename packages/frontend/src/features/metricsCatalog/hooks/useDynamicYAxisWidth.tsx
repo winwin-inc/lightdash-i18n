@@ -1,25 +1,27 @@
 import { useCallback, useState } from 'react';
 import type { LineChart } from 'recharts';
 
-const PADDING = 20;
-const TICK_VALUE_SELECTOR = '.recharts-cartesian-axis-tick-value';
-
 type ChartRef =
     | ({
           container?: HTMLElement;
       } & Partial<typeof LineChart>)
     | null;
 
+const DEFAULT_Y_AXIS_WIDTH = 20;
+
 /**
  * This hook is used to dynamically set the width of the y-axis based on the width of the tick values.
  * This is used to ensure that the y-axis labels (and tick) are not cut off.
  */
 export const useDynamicYAxisWidth = () => {
+    const PADDING = 20;
+    const TICK_VALUE_SELECTOR = '.recharts-cartesian-axis-tick-value';
+
     const [leftYAxisWidth, setLeftYAxisWidth] = useState<number | undefined>(
-        undefined,
+        DEFAULT_Y_AXIS_WIDTH,
     );
     const [rightYAxisWidth, setRightYAxisWidth] = useState<number | undefined>(
-        undefined,
+        DEFAULT_Y_AXIS_WIDTH,
     );
 
     const setChartRef = useCallback(
@@ -46,7 +48,7 @@ export const useDynamicYAxisWidth = () => {
                     const leftHighestWidth = leftTickArray.reduce(
                         (maxWidth, el) => {
                             const width = el.getBoundingClientRect().width;
-                            return Math.max(maxWidth, width);
+                            return Math.round(Math.max(maxWidth, width));
                         },
                         0,
                     );
@@ -55,15 +57,13 @@ export const useDynamicYAxisWidth = () => {
                     if (newWidth !== leftYAxisWidth) {
                         setLeftYAxisWidth(newWidth);
                     }
-                } else {
-                    setLeftYAxisWidth(undefined);
                 }
 
                 if (rightTickArray.length > 0) {
                     const rightHighestWidth = rightTickArray.reduce(
                         (maxWidth, el) => {
                             const width = el.getBoundingClientRect().width;
-                            return Math.max(maxWidth, width);
+                            return Math.round(Math.max(maxWidth, width));
                         },
                         0,
                     );
@@ -72,8 +72,6 @@ export const useDynamicYAxisWidth = () => {
                     if (newWidth !== rightYAxisWidth) {
                         setRightYAxisWidth(newWidth);
                     }
-                } else {
-                    setRightYAxisWidth(undefined);
                 }
             });
         },

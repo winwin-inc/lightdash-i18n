@@ -1,63 +1,21 @@
 import {
-    type ConditionalFormattingConfig,
-    type ResultRow,
-} from '@lightdash/common';
-import {
     getCoreRowModel,
     getExpandedRowModel,
     getPaginationRowModel,
     useReactTable,
     type ColumnOrderState,
     type GroupingState,
-    type Table,
 } from '@tanstack/react-table';
-import React, {
-    createContext,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
-    type FC,
-} from 'react';
-import { useTranslation } from 'react-i18next';
+import React, { useEffect, useMemo, useState, type FC } from 'react';
 
-import { getGroupedRowModelLightdash } from './getGroupedRowModelLightdash';
 import {
     DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
     ROW_NUMBER_COLUMN_ID,
-    type CellContextMenuProps,
-    type HeaderProps,
-    type TableColumn,
-    type TableHeader,
-} from './types';
-
-type Props = {
-    data: ResultRow[];
-    columns: Array<TableColumn | TableHeader>;
-    headerContextMenu?: FC<React.PropsWithChildren<HeaderProps>>;
-    cellContextMenu?: FC<React.PropsWithChildren<CellContextMenuProps>>;
-    pagination?: {
-        show?: boolean;
-        defaultScroll?: boolean;
-        showResultsTotal?: boolean;
-    };
-    showSubtotals?: boolean;
-    hideRowNumbers?: boolean;
-    showColumnCalculation?: boolean;
-    conditionalFormattings?: ConditionalFormattingConfig[];
-    footer?: {
-        show?: boolean;
-    };
-    columnOrder?: string[];
-    onColumnOrderChange?: (value: string[]) => void;
-};
-
-export type TableContext = Props & {
-    table: Table<ResultRow>;
-};
-
-const Context = createContext<TableContext | undefined>(undefined);
+} from './constants';
+import Context from './context';
+import { getGroupedRowModelLightdash } from './getGroupedRowModelLightdash';
+import { type ProviderProps, type TableColumn } from './types';
 
 const rowColumn: TableColumn = {
     id: ROW_NUMBER_COLUMN_ID,
@@ -70,7 +28,7 @@ const rowColumn: TableColumn = {
     enableGrouping: false,
 };
 
-const calculateColumnVisibility = (columns: Props['columns']) =>
+const calculateColumnVisibility = (columns: ProviderProps['columns']) =>
     columns.reduce(
         (acc, c) => ({
             ...acc,
@@ -82,7 +40,7 @@ const calculateColumnVisibility = (columns: Props['columns']) =>
         {},
     );
 
-export const TableProvider: FC<React.PropsWithChildren<Props>> = ({
+export const TableProvider: FC<React.PropsWithChildren<ProviderProps>> = ({
     hideRowNumbers,
     showColumnCalculation,
     showSubtotals,
@@ -201,14 +159,3 @@ export const TableProvider: FC<React.PropsWithChildren<Props>> = ({
         </Context.Provider>
     );
 };
-
-export function useTableContext(): TableContext {
-    const { t } = useTranslation();
-    const context = useContext(Context);
-
-    if (context === undefined) {
-        throw new Error(t('components_common_table.provider.error'));
-    }
-
-    return context;
-}

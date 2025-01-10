@@ -16,7 +16,7 @@ import MantineIcon from './common/MantineIcon';
 
 type Props = ModalRootProps & {
     heading: string;
-    jsonObject: object;
+    jsonObject: Record<string, unknown>;
 };
 
 export const JsonViewerModal = ({

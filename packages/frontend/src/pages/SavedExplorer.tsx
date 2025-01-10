@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 
 import { ResourceViewItemType } from '@lightdash/common';
 import { useCallback, useEffect, useMemo } from 'react';
@@ -15,11 +15,9 @@ import { useChartPinningMutation } from '../hooks/pinning/useChartPinningMutatio
 import { usePinnedItems } from '../hooks/pinning/usePinnedItems';
 import { useQueryResults } from '../hooks/useQueryResults';
 import { useSavedQuery } from '../hooks/useSavedQuery';
-import { useApp } from '../providers/AppProvider';
-import {
-    ExplorerProvider,
-    ExplorerSection,
-} from '../providers/ExplorerProvider';
+import useApp from '../providers/App/useApp';
+import ExplorerProvider from '../providers/Explorer/ExplorerProvider';
+import { ExplorerSection } from '../providers/Explorer/types';
 
 const SavedExplorer = () => {
     const { t } = useTranslation();
@@ -51,6 +49,7 @@ const SavedExplorer = () => {
     );
 
     const handleChartPinning = useCallback(() => {
+        if (!savedQueryUuid) return;
         togglePinChart({ uuid: savedQueryUuid });
     }, [savedQueryUuid, togglePinChart]);
 
@@ -106,6 +105,9 @@ const SavedExplorer = () => {
                               pivotConfig: data.pivotConfig,
                           },
                           modals: {
+                              format: {
+                                  isOpen: false,
+                              },
                               additionalMetric: {
                                   isOpen: false,
                               },

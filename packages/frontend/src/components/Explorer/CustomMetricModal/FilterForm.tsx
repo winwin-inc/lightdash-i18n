@@ -16,9 +16,9 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useExplorerContext } from '../../../providers/ExplorerProvider';
+import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import FilterRuleForm from '../../common/Filters/FilterRuleForm';
-import { useFiltersContext } from '../../common/Filters/FiltersProvider';
+import useFiltersContext from '../../common/Filters/useFiltersContext';
 import { addFieldRefToFilterRule } from './utils';
 
 export interface MetricFilterRuleWithFieldId

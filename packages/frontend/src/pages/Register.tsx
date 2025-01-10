@@ -16,7 +16,7 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 
 import { lightdashApi } from '../api';
 import Page from '../components/common/Page/Page';
@@ -25,8 +25,8 @@ import PageSpinner from '../components/PageSpinner';
 import CreateUserForm from '../components/RegisterForms/CreateUserForm';
 import useToaster from '../hooks/toaster/useToaster';
 import { useFlashMessages } from '../hooks/useFlashMessages';
-import { useApp } from '../providers/AppProvider';
-import { useTracking } from '../providers/TrackingProvider';
+import useApp from '../providers/App/useApp';
+import useTracking from '../providers/Tracking/useTracking';
 import LightdashLogo from '../svgs/lightdash-black.svg';
 
 const registerQuery = async (data: CreateUserArgs) =>
@@ -38,7 +38,8 @@ const registerQuery = async (data: CreateUserArgs) =>
 
 const Register: FC = () => {
     const { t } = useTranslation();
-    const location = useLocation<{ from?: Location } | undefined>();
+
+    const location = useLocation();
     const { health } = useApp();
     const { showToastError, showToastApiError } = useToaster();
     const flashMessages = useFlashMessages();

@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../components/common/MantineIcon';
 import useSearchParams from '../../../hooks/useSearchParams';
-import { useExplorerContext } from '../../../providers/ExplorerProvider';
+import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 
 type Props = Pick<ModalProps, 'opened' | 'onClose'> & {
     activeTableName: string;

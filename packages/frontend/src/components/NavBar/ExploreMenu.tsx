@@ -12,24 +12,26 @@ import {
 } from '@tabler/icons-react';
 import { memo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useHistory } from 'react-router-dom';
-
+import { Link, useLocation, useNavigate } from 'react-router';
 import { useSemanticLayerInfo } from '../../features/semanticViewer/api/hooks';
 import { useFeatureFlagEnabled } from '../../hooks/useFeatureFlagEnabled';
-import { useApp } from '../../providers/AppProvider';
+import useApp from '../../providers/App/useApp';
 import { Can } from '../common/Authorization';
 import LargeMenuItem from '../common/LargeMenuItem';
 import MantineIcon from '../common/MantineIcon';
 import DashboardCreateModal from '../common/modal/DashboardCreateModal';
-import SpaceActionModal, { ActionType } from '../common/SpaceActionModal';
+import SpaceActionModal from '../common/SpaceActionModal';
+import { ActionType } from '../common/SpaceActionModal/types';
 
 type Props = {
     projectUuid: string;
 };
 
 const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
-    const history = useHistory();
     const { t } = useTranslation();
+
+    const navigate = useNavigate();
+    const location = useLocation();
 
     const isSemanticLayerEnabled = useFeatureFlagEnabled(
         FeatureFlags.SemanticLayerEnabled,
@@ -140,9 +142,11 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                                     'components_navbar_explore_menu.menus.sql_runner.description',
                                 )}
                                 to={`/projects/${projectUuid}/sql-runner`}
-                                onClick={(event) => {
+                                onClick={(
+                                    event: React.MouseEvent<HTMLAnchorElement>,
+                                ) => {
                                     if (
-                                        history.location.pathname.startsWith(
+                                        location.pathname.startsWith(
                                             `/projects/${projectUuid}/sql-runner`,
                                         )
                                     ) {
@@ -211,7 +215,7 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                     onClose={() => setIsCreateSpaceOpen(false)}
                     onSubmitForm={(space) => {
                         if (space)
-                            history.push(
+                            void navigate(
                                 `/projects/${projectUuid}/spaces/${space.uuid}`,
                             );
                     }}
@@ -223,7 +227,7 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                 opened={isCreateDashboardOpen}
                 onClose={() => setIsCreateDashboardOpen(false)}
                 onConfirm={(dashboard) => {
-                    history.push(
+                    void navigate(
                         `/projects/${projectUuid}/dashboards/${dashboard.uuid}/edit`,
                     );
 

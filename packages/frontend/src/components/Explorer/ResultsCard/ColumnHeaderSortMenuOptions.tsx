@@ -9,8 +9,7 @@ import { Menu, Text } from '@mantine/core';
 import { IconCheck } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { useExplorerContext } from '../../../providers/ExplorerProvider';
+import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import {
     getSortDirectionOrder,
     getSortLabel,
@@ -43,6 +42,7 @@ const ColumnHeaderSortMenuOptions: FC<Props> = ({ item, sort }) => {
 
     return (
         <>
+            <Menu.Label>Sorting</Menu.Label>
             {item &&
                 getSortDirectionOrder(item).map((sortDirection) => (
                     <Menu.Item

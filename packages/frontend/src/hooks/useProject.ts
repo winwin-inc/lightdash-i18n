@@ -10,7 +10,7 @@ import {
 } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { lightdashApi } from '../api';
-import { useActiveJob } from '../providers/ActiveJobProvider';
+import useActiveJob from '../providers/ActiveJob/useActiveJob';
 import useToaster from './toaster/useToaster';
 import useQueryError from './useQueryError';
 
@@ -67,7 +67,7 @@ export const useProject = (id: string | undefined) => {
     return useQuery<Project, ApiError>({
         queryKey: ['project', id],
         queryFn: () => getProject(id || ''),
-        enabled: id !== undefined,
+        enabled: !!id,
         retry: false,
         onError: (result) => setErrorResponse(result),
     });
@@ -128,10 +128,13 @@ const getMostPopularAndRecentlyUpdated = async (projectUuid: string) =>
         body: undefined,
     });
 
-export const useMostPopularAndRecentlyUpdated = (projectUuid: string) =>
+export const useMostPopularAndRecentlyUpdated = (
+    projectUuid: string | undefined,
+) =>
     useQuery<MostPopularAndRecentlyUpdated, ApiError>({
         queryKey: ['most-popular-and-recently-updated', projectUuid],
-        queryFn: () => getMostPopularAndRecentlyUpdated(projectUuid || ''),
+        queryFn: () => getMostPopularAndRecentlyUpdated(projectUuid!),
+        enabled: !!projectUuid,
     });
 
 export const useProjectSemanticLayerUpdateMutation = (uuid: string) => {

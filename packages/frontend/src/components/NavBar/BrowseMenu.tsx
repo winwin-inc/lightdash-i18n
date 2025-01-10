@@ -8,10 +8,11 @@ import {
 } from '@tabler/icons-react';
 import { useCallback, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
+
 import { useProject } from '../../hooks/useProject';
 import { useSpaceSummaries } from '../../hooks/useSpaces';
-import { useTracking } from '../../providers/TrackingProvider';
+import useTracking from '../../providers/Tracking/useTracking';
 import { Hash } from '../../svgs/metricsCatalog';
 import { EventName } from '../../types/Events';
 import MantineIcon from '../common/MantineIcon';

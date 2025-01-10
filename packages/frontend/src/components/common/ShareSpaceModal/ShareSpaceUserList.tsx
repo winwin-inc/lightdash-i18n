@@ -41,7 +41,7 @@ import {
 } from '../../../hooks/useSpaces';
 import MantineIcon from '../MantineIcon';
 import PaginateControl from '../PaginateControl';
-import { DEFAULT_PAGE_SIZE } from '../Table/types';
+import { DEFAULT_PAGE_SIZE } from '../Table/constants';
 import {
     UserAccessAction,
     useUserAccessOptions,
@@ -381,14 +381,14 @@ const GroupsAccessList: FC<GroupAccessListProps> = ({
                     accessType.value === UserAccessAction.DELETE
                         ? {
                               ...accessType,
-                              title: { isPrivate }
+                              title: isPrivate
                                   ? t(
                                         'components_common_share_space_modal.access_delete.remove_access',
                                     )
                                   : t(
                                         'components_common_share_space_modal.access_delete.reset_access',
                                     ),
-                              selectDescription: { isPrivate }
+                              selectDescription: isPrivate
                                   ? t(
                                         'components_common_share_space_modal.access_delete.remove_group_access',
                                     )

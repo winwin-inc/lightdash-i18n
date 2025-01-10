@@ -11,7 +11,7 @@ import {
 import { IconChevronLeft } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useAppDispatch, useAppSelector } from '../../sqlRunner/store/hooks';
@@ -38,7 +38,7 @@ const Sidebar: FC<SidebarProps> = ({ shouldShowSave }) => {
     const { semanticLayerView, saveModalOpen } = useAppSelector(
         (state) => state.semanticViewer,
     );
-    const history = useHistory();
+    const navigate = useNavigate();
     const dispatch = useAppDispatch();
 
     const handleExitView = () => {
@@ -50,7 +50,9 @@ const Sidebar: FC<SidebarProps> = ({ shouldShowSave }) => {
     );
 
     const handleCreate = (slug: string) => {
-        history.replace(`/projects/${projectUuid}/semantic-viewer/${slug}`);
+        void navigate(`/projects/${projectUuid}/semantic-viewer/${slug}`, {
+            replace: true,
+        });
     };
 
     return (

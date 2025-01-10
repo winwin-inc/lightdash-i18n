@@ -6,12 +6,12 @@ import {
 } from '@lightdash/common';
 import { Flex } from '@mantine/core';
 import { useCallback, useState, type FC } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import { useProject } from '../../hooks/useProject';
-import { useDashboardContext } from '../../providers/DashboardProvider';
-import { useTracking } from '../../providers/TrackingProvider';
+import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
+import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
-import { FiltersProvider } from '../common/Filters/FiltersProvider';
+import FiltersProvider from '../common/Filters/FiltersProvider';
 import ActiveFilters from './ActiveFilters';
 import Filter from './Filter';
 

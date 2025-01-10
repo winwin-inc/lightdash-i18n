@@ -18,10 +18,10 @@ import {
     UnstyledButton,
 } from '@mantine/core';
 import { DatePicker, MonthPicker, YearPicker } from '@mantine/dates';
-import { useCallback, type FC } from 'react';
+import { useCallback, useEffect, useRef, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useTracking } from '../../../../providers/TrackingProvider';
+import useTracking from '../../../../providers/Tracking/useTracking';
 import { EventName } from '../../../../types/Events';
 import { useAppSelector } from '../../../sqlRunner/store/hooks';
 import { useDateRangePicker } from '../../hooks/useDateRangePicker';
@@ -38,6 +38,7 @@ type Props = {
     ) => void;
     timeInterval: TimeFrames;
     onTimeIntervalChange: (timeInterval: TimeFrames) => void;
+    isFetching: boolean;
 };
 
 export const MetricPeekDatePicker: FC<Props> = ({
@@ -48,6 +49,7 @@ export const MetricPeekDatePicker: FC<Props> = ({
     timeInterval,
     onTimeIntervalChange,
     setTimeDimensionOverride,
+    isFetching,
 }) => {
     const { t } = useTranslation();
     const { track } = useTracking();
@@ -68,7 +70,11 @@ export const MetricPeekDatePicker: FC<Props> = ({
         handlePresetSelect,
         reset,
         calendarConfig,
-    } = useDateRangePicker({ value: dateRange, onChange, timeInterval });
+    } = useDateRangePicker({
+        value: dateRange,
+        onChange,
+        timeInterval,
+    });
 
     const handleTrackDateFilterApplied = useCallback(() => {
         track({
@@ -80,15 +86,30 @@ export const MetricPeekDatePicker: FC<Props> = ({
         });
     }, [organizationUuid, projectUuid, track]);
 
-    const matchingPresetLabel = getMatchingPresetLabel(dateRange, timeInterval);
+    const lastStableMatchingPresetLabel = useRef(
+        getMatchingPresetLabel(dateRange, timeInterval),
+    );
+
+    useEffect(() => {
+        if (!isFetching) {
+            lastStableMatchingPresetLabel.current = getMatchingPresetLabel(
+                dateRange,
+                timeInterval,
+            );
+        }
+    }, [dateRange, timeInterval, isFetching]);
+
+    const effectiveMatchingPresetLabel = isFetching
+        ? lastStableMatchingPresetLabel.current
+        : getMatchingPresetLabel(dateRange, timeInterval);
 
     const customWithPresets = [
         {
-            label: matchingPresetLabel ? (
+            label: effectiveMatchingPresetLabel ? (
                 'Custom'
             ) : (
                 <UnstyledButton
-                    onClick={(e) => {
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                         e.stopPropagation();
                         handleOpen(true);
                     }}
@@ -123,17 +144,20 @@ export const MetricPeekDatePicker: FC<Props> = ({
             <Popover.Target>
                 <Group position="apart" w="fill-available" noWrap>
                     <SegmentedControl
+                        disabled={!effectiveMatchingPresetLabel}
                         size="xs"
                         h={32}
                         data={customWithPresets}
                         value={
                             isOpen ||
                             !timeDimensionBaseField ||
-                            !matchingPresetLabel
+                            !effectiveMatchingPresetLabel
                                 ? 'custom'
-                                : matchingPresetLabel
+                                : effectiveMatchingPresetLabel
                         }
                         onChange={(value) => {
+                            if (isFetching) return;
+
                             if (value === 'custom') {
                                 handleOpen(true);
                             } else {

@@ -36,7 +36,7 @@ import {
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router';
 import { useToggle } from 'react-use';
 
 import { PromotionConfirmDialog } from '../../../features/promotion/components/PromotionConfirmDialog';
@@ -47,8 +47,8 @@ import {
 import { DashboardSchedulersModal } from '../../../features/scheduler';
 import { getSchedulerUuidFromUrlParams } from '../../../features/scheduler/utils';
 import { useProject } from '../../../hooks/useProject';
-import { useApp } from '../../../providers/AppProvider';
-import { useTracking } from '../../../providers/TrackingProvider';
+import useApp from '../../../providers/App/useApp';
+import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
 import AddTileButton from '../../DashboardTiles/AddTileButton';
 import { Can } from '../Authorization';
@@ -62,7 +62,8 @@ import {
 import SpaceAndDashboardInfo from '../PageHeader/SpaceAndDashboardInfo';
 import { UpdatedInfo } from '../PageHeader/UpdatedInfo';
 import ViewInfo from '../PageHeader/ViewInfo';
-import SpaceActionModal, { ActionType } from '../SpaceActionModal';
+import SpaceActionModal from '../SpaceActionModal';
+import { ActionType } from '../SpaceActionModal/types';
 import { DashboardRefreshButton } from './DashboardRefreshButton';
 import ShareLinkButton from './ShareLinkButton';
 
@@ -274,7 +275,7 @@ const DashboardHeader = ({
                         </ActionIcon>
                     )}
 
-                    {isUpdating && (
+                    {isUpdating && dashboardUuid && (
                         <DashboardUpdateModal
                             uuid={dashboardUuid}
                             opened={isUpdating}
@@ -435,7 +436,9 @@ const DashboardHeader = ({
                                                     icon={IconFolders}
                                                 />
                                             }
-                                            onClick={(e) => {
+                                            onClick={(
+                                                e: React.MouseEvent<HTMLButtonElement>,
+                                            ) => {
                                                 e.preventDefault();
                                                 e.stopPropagation();
                                             }}
@@ -503,7 +506,7 @@ const DashboardHeader = ({
                                                                             : ''
                                                                     }
                                                                     onClick={(
-                                                                        e,
+                                                                        e: React.MouseEvent<HTMLButtonElement>,
                                                                     ) => {
                                                                         e.preventDefault();
                                                                         e.stopPropagation();
@@ -545,7 +548,9 @@ const DashboardHeader = ({
                                                                     }
                                                                 />
                                                             }
-                                                            onClick={(e) => {
+                                                            onClick={(
+                                                                e: React.MouseEvent<HTMLButtonElement>,
+                                                            ) => {
                                                                 e.preventDefault();
                                                                 e.stopPropagation();
                                                                 setIsCreatingNewSpace(
@@ -607,7 +612,7 @@ const DashboardHeader = ({
                                         </Menu.Item>
                                     )}
 
-                                {userCanPromoteDashboard && (
+                                {userCanPromoteDashboard && dashboardUuid && (
                                     <Tooltip
                                         label={t(
                                             'components_common_dashboard_header.tooltip_upstream.upstream_project',
@@ -685,7 +690,7 @@ const DashboardHeader = ({
                         </Menu>
                     )}
 
-                    {isCreatingNewSpace && (
+                    {isCreatingNewSpace && projectUuid && (
                         <SpaceActionModal
                             projectUuid={projectUuid}
                             actionType={ActionType.CREATE}
@@ -710,19 +715,20 @@ const DashboardHeader = ({
                             }
                         />
                     )}
-                    {(promoteDashboardDiff || promoteDashboardDiffLoading) && (
-                        <PromotionConfirmDialog
-                            type="dashboard"
-                            resourceName={dashboard.name}
-                            promotionChanges={promoteDashboardDiff}
-                            onClose={() => {
-                                resetPromoteDashboardDiff();
-                            }}
-                            onConfirm={() => {
-                                promoteDashboard(dashboardUuid);
-                            }}
-                        ></PromotionConfirmDialog>
-                    )}
+                    {(promoteDashboardDiff || promoteDashboardDiffLoading) &&
+                        dashboardUuid && (
+                            <PromotionConfirmDialog
+                                type="dashboard"
+                                resourceName={dashboard.name}
+                                promotionChanges={promoteDashboardDiff}
+                                onClose={() => {
+                                    resetPromoteDashboardDiff();
+                                }}
+                                onConfirm={() => {
+                                    promoteDashboard(dashboardUuid);
+                                }}
+                            ></PromotionConfirmDialog>
+                        )}
                 </PageActionsContainer>
             )}
         </PageHeader>

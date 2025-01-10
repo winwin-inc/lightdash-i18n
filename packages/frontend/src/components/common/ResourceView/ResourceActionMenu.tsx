@@ -22,7 +22,8 @@ import {
 } from '@tabler/icons-react';
 import { Fragment, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router';
+
 import { PromotionConfirmDialog } from '../../../features/promotion/components/PromotionConfirmDialog';
 import {
     usePromoteChartDiffMutation,
@@ -34,13 +35,13 @@ import {
 } from '../../../features/promotion/hooks/usePromoteDashboard';
 import { useProject } from '../../../hooks/useProject';
 import { useSpaceSummaries } from '../../../hooks/useSpaces';
-import { useApp } from '../../../providers/AppProvider';
+import useApp from '../../../providers/App/useApp';
 import { Can } from '../Authorization';
 import MantineIcon from '../MantineIcon';
 import {
     ResourceViewItemAction,
     type ResourceViewItemActionState,
-} from './ResourceActionHandlers';
+} from './types';
 
 export interface ResourceViewActionMenuCommonProps {
     onAction: (newAction: ResourceViewItemActionState) => void;

@@ -14,8 +14,8 @@ import {
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { isPieVisualizationConfig } from '../../LightdashVisualization/VisualizationConfigPie';
-import { useVisualizationContext } from '../../LightdashVisualization/VisualizationProvider';
+import { isPieVisualizationConfig } from '../../LightdashVisualization/types';
+import { useVisualizationContext } from '../../LightdashVisualization/useVisualizationContext';
 import { Config } from '../common/Config';
 
 export const Display: React.FC = () => {

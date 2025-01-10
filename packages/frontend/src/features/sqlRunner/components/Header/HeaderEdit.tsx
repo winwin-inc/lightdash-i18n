@@ -4,17 +4,23 @@ import {
     Button,
     Group,
     HoverCard,
+    Menu,
     Paper,
     Stack,
     Title,
     Tooltip,
 } from '@mantine/core';
-import { IconArrowBack, IconPencil, IconTrash } from '@tabler/icons-react';
+import {
+    IconArrowBack,
+    IconDots,
+    IconPencil,
+    IconTrash,
+} from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { isEqual } from 'lodash';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 
 import MantineIcon from '../../../../components/common/MantineIcon';
 import { UpdatedInfo } from '../../../../components/common/PageHeader/UpdatedInfo';
@@ -41,7 +47,7 @@ export const HeaderEdit: FC = () => {
     const { t } = useTranslation();
 
     const queryClient = useQueryClient();
-    const history = useHistory();
+    const navigate = useNavigate();
     const dispatch = useAppDispatch();
     const projectUuid = useAppSelector((state) => state.sqlRunner.projectUuid);
     const savedSqlChart = useAppSelector(
@@ -144,10 +150,10 @@ export const HeaderEdit: FC = () => {
                 savedSqlChart?.slug,
             ],
         });
-        history.push(
+        void navigate(
             `/projects/${projectUuid}/sql-runner/${savedSqlChart?.slug}`,
         );
-    }, [queryClient, history, savedSqlChart, projectUuid]);
+    }, [queryClient, navigate, savedSqlChart, projectUuid]);
 
     if (!savedSqlChart) {
         return null;
@@ -155,7 +161,15 @@ export const HeaderEdit: FC = () => {
 
     return (
         <>
-            <Paper shadow="none" radius={0} px="md" py="xs" withBorder>
+            <Paper
+                shadow="none"
+                radius={0}
+                px="md"
+                py="xs"
+                sx={(theme) => ({
+                    borderBottom: `1px solid ${theme.colors.gray[3]}`,
+                })}
+            >
                 <Group position="apart">
                     <Stack spacing="none">
                         <Group spacing="two">
@@ -195,7 +209,7 @@ export const HeaderEdit: FC = () => {
                         </Group>
                     </Stack>
 
-                    <Group spacing="md">
+                    <Group spacing="xs">
                         <HoverCard disabled={!hasUnrunChanges} withArrow>
                             <HoverCard.Target>
                                 <Button
@@ -229,20 +243,34 @@ export const HeaderEdit: FC = () => {
                                 <MantineIcon icon={IconArrowBack} />
                             </ActionIcon>
                         </Tooltip>
-                        <Tooltip
-                            variant="xs"
-                            label={t('features_sql_runner_header_edit.delete')}
+                        <Menu
                             position="bottom"
+                            withArrow
+                            withinPortal
+                            shadow="md"
+                            width={200}
                         >
-                            <ActionIcon
-                                size="xs"
-                                onClick={() =>
-                                    dispatch(toggleModal('deleteChartModal'))
-                                }
-                            >
-                                <MantineIcon icon={IconTrash} />
-                            </ActionIcon>
-                        </Tooltip>
+                            <Menu.Target>
+                                <ActionIcon variant="subtle">
+                                    <MantineIcon icon={IconDots} />
+                                </ActionIcon>
+                            </Menu.Target>
+                            <Menu.Dropdown>
+                                <Menu.Label>Manage</Menu.Label>
+                                <Menu.Item
+                                    disabled={!config || !sql}
+                                    icon={<MantineIcon icon={IconTrash} />}
+                                    color="red"
+                                    onClick={() =>
+                                        dispatch(
+                                            toggleModal('deleteChartModal'),
+                                        )
+                                    }
+                                >
+                                    Delete
+                                </Menu.Item>
+                            </Menu.Dropdown>
+                        </Menu>
                     </Group>
                 </Group>
             </Paper>
@@ -268,7 +296,7 @@ export const HeaderEdit: FC = () => {
                 opened={isDeleteModalOpen}
                 onClose={onCloseDeleteModal}
                 onSuccess={() =>
-                    history.push(
+                    navigate(
                         `/projects/${savedSqlChart.project.projectUuid}/home`,
                     )
                 }

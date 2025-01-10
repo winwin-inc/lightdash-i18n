@@ -15,9 +15,8 @@ import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
 import MantineIcon from '../../../components/common/MantineIcon';
-import SaveToSpaceForm, {
-    saveToSpaceSchema,
-} from '../../../components/common/modal/ChartCreateModal/SaveToSpaceForm';
+import SaveToSpaceForm from '../../../components/common/modal/ChartCreateModal/SaveToSpaceForm';
+import { saveToSpaceSchema } from '../../../components/common/modal/ChartCreateModal/types';
 
 import {
     useCreateMutation as useSpaceCreateMutation,

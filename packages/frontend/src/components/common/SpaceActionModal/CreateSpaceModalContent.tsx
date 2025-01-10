@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 
 import { type CreateSpaceModalBody } from '.';
 import { useProjectAccess } from '../../../hooks/useProjectAccess';
-import { useApp } from '../../../providers/AppProvider';
+import useApp from '../../../providers/App/useApp';
 import {
     SpaceAccessType,
     SpacePrivateAccessType,
@@ -20,11 +20,7 @@ import {
 } from '../ShareSpaceModal/ShareSpaceSelect';
 import { CreateSpaceAddUser } from './CreateSpaceAddUser';
 import { CreateSpaceSelectAccessType } from './CreateSpaceSelectAccessType';
-
-export enum CreateModalStep {
-    SET_NAME = 'first',
-    SET_ACCESS = 'second',
-}
+import { CreateModalStep } from './types';
 
 const UserListItem: FC<{
     isYou?: boolean;

@@ -2,8 +2,10 @@ import {
     assertUnreachable,
     DbtProjectType,
     DbtProjectTypeLabels,
+    DbtVersionOptionLatest,
     DefaultSupportedDbtVersion,
     FeatureFlags,
+    getLatestSupportDbtVersion,
     SupportedDbtVersions,
     WarehouseTypes,
 } from '@lightdash/common';
@@ -13,7 +15,7 @@ import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { useFeatureFlagEnabled } from '../../hooks/useFeatureFlagEnabled';
-import { useApp } from '../../providers/AppProvider';
+import useApp from '../../providers/App/useApp';
 import FormSection from '../ReactHookForm/FormSection';
 import { MultiKeyValuePairsInput } from '../ReactHookForm/MultiKeyValuePairsInput';
 import AzureDevOpsForm from './DbtForms/AzureDevOpsForm';
@@ -24,7 +26,7 @@ import DbtNoneForm from './DbtForms/DbtNoneForm';
 import GithubForm from './DbtForms/GithubForm';
 import GitlabForm from './DbtForms/GitlabForm';
 import FormCollapseButton from './FormCollapseButton';
-import { type SelectedWarehouse } from './ProjectConnectFlow/SelectWarehouse';
+import { type SelectedWarehouse } from './ProjectConnectFlow/types';
 import { BigQuerySchemaInput } from './WarehouseForms/BigQueryForm';
 import { DatabricksSchemaInput } from './WarehouseForms/DatabricksForm';
 import { PostgresSchemaInput } from './WarehouseForms/PostgresForm';
@@ -187,12 +189,24 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                             label={t(
                                 'components_project_connection_dbt_settings.dbt_version',
                             )}
-                            data={Object.values(SupportedDbtVersions).map(
-                                (version) => ({
-                                    value: version,
-                                    label: version,
-                                }),
-                            )}
+                            data={[
+                                {
+                                    value: DbtVersionOptionLatest.LATEST,
+                                    label: t(
+                                        'components_project_connection_dbt_settings.latest',
+                                        {
+                                            version:
+                                                getLatestSupportDbtVersion(),
+                                        },
+                                    ),
+                                },
+                                ...Object.values(SupportedDbtVersions)
+                                    .reverse()
+                                    .map((version) => ({
+                                        value: version,
+                                        label: version,
+                                    })),
+                            ]}
                             value={field.value}
                             onChange={field.onChange}
                             disabled={disabled}

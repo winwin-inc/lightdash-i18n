@@ -3,7 +3,7 @@ import { IconChevronLeft, IconExclamationCircle } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useTracking } from '../../../providers/TrackingProvider';
+import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
 import { EmptyState } from '../../common/EmptyState';
 import MantineIcon from '../../common/MantineIcon';

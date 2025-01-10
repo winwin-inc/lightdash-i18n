@@ -12,13 +12,13 @@ import {
 import { IconRefresh } from '@tabler/icons-react';
 import { useEffect, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 
 import { useProject } from '../../hooks/useProject';
 import { useRefreshServer } from '../../hooks/useRefreshServer';
-import { useActiveJob } from '../../providers/ActiveJobProvider';
-import { useApp } from '../../providers/AppProvider';
-import { useTracking } from '../../providers/TrackingProvider';
+import useActiveJob from '../../providers/ActiveJob/useActiveJob';
+import useApp from '../../providers/App/useApp';
+import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
 import MantineIcon from '../common/MantineIcon';
 

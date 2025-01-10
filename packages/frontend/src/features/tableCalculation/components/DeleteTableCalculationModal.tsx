@@ -11,8 +11,8 @@ import {
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useExplorerContext } from '../../../providers/ExplorerProvider';
-import { useTracking } from '../../../providers/TrackingProvider';
+import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
+import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
 
 type Props = Pick<ModalProps, 'onClose'> & {

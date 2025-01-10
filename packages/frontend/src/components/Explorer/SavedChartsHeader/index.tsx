@@ -45,7 +45,7 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { Fragment, useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory, useLocation, useParams } from 'react-router-dom';
+import { useBlocker, useLocation, useNavigate, useParams } from 'react-router';
 
 import { lightdashApi } from '../../../api';
 import { PromotionConfirmDialog } from '../../../features/promotion/components/PromotionConfirmDialog';
@@ -72,9 +72,9 @@ import {
 } from '../../../hooks/useSavedQuery';
 import useSearchParams from '../../../hooks/useSearchParams';
 import { useSpaceSummaries } from '../../../hooks/useSpaces';
-import { useApp } from '../../../providers/AppProvider';
-import { useExplorerContext } from '../../../providers/ExplorerProvider';
-import { TrackSection } from '../../../providers/TrackingProvider';
+import useApp from '../../../providers/App/useApp';
+import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
+import { TrackSection } from '../../../providers/Tracking/TrackingProvider';
 import { SectionName } from '../../../types/Events';
 import MantineIcon from '../../common/MantineIcon';
 import ChartCreateModal from '../../common/modal/ChartCreateModal';
@@ -124,8 +124,8 @@ const createPullRequestForChartFields = async (
     });
 
 const useCreatePullRequestForChartFieldsMutation = (
-    projectUuid: string,
-    chartUuid?: string,
+    projectUuid: string | undefined,
+    chartUuid: string | undefined,
 ) => {
     /* useMutation<GitIntegrationConfiguration, ApiError>(
         ['git-integration', 'pull-request'],
@@ -136,7 +136,10 @@ const useCreatePullRequestForChartFieldsMutation = (
     const { t } = useTranslation();
 
     return useMutation<PullRequestCreated, ApiError>(
-        () => createPullRequestForChartFields(projectUuid, chartUuid!),
+        () =>
+            projectUuid && chartUuid
+                ? createPullRequestForChartFields(projectUuid, chartUuid)
+                : Promise.reject(),
         {
             mutationKey: ['git-integration', 'pull-request'],
             retry: false,
@@ -197,7 +200,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
         reset: resetPromoteChartDiff,
         isLoading: promoteChartDiffLoading,
     } = usePromoteChartDiffMutation();
-    const history = useHistory();
+    const navigate = useNavigate();
     const isEditMode = useExplorerContext(
         (context) => context.state.isEditMode,
     );
@@ -224,13 +227,8 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
     }, [resultsData]);
 
     const { clearIsEditingDashboardChart } = useDashboardStorage();
-
-    const [blockedNavigationLocation, setBlockedNavigationLocation] =
-        useState<string>();
     const [isRenamingChart, setIsRenamingChart] = useState(false);
     const [isMovingChart, setIsMovingChart] = useState(false);
-
-    const [isSaveWarningModalOpen, saveWarningModalHandlers] = useDisclosure();
     const [isQueryModalOpen, queryModalHandlers] = useDisclosure();
     const [isDeleteModalOpen, deleteModalHandlers] = useDisclosure();
     const [isScheduledDeliveriesModalOpen, scheduledDeliveriesModalHandlers] =
@@ -302,39 +300,23 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
         return () => window.removeEventListener('beforeunload', checkReload);
     }, [hasUnsavedChanges, isEditMode, t]);
 
-    useEffect(() => {
-        history.block((prompt) => {
-            if (
-                hasUnsavedChanges &&
-                isEditMode &&
-                !isQueryModalOpen &&
-                !prompt.pathname.includes(
-                    `/projects/${projectUuid}/saved/${savedChart?.uuid}`,
-                ) &&
-                !prompt.pathname.includes(
-                    `/projects/${projectUuid}/dashboards/${dashboardUuid}`,
-                )
-            ) {
-                setBlockedNavigationLocation(prompt.pathname);
-                saveWarningModalHandlers.open();
-                return false; //blocks history
-            }
-            return undefined; // allow history
-        });
-
-        return () => {
-            history.block(() => {});
-        };
-    }, [
-        history,
-        dashboardUuid,
-        projectUuid,
-        savedChart,
-        hasUnsavedChanges,
-        saveWarningModalHandlers,
-        isEditMode,
-        isQueryModalOpen,
-    ]);
+    // Block navigating away if there are unsaved changes
+    const blocker = useBlocker(({ nextLocation }) => {
+        if (
+            hasUnsavedChanges &&
+            isEditMode &&
+            !isQueryModalOpen &&
+            !nextLocation.pathname.includes(
+                `/projects/${projectUuid}/saved/${savedChart?.uuid}`,
+            ) &&
+            !nextLocation.pathname.includes(
+                `/projects/${projectUuid}/dashboards/${dashboardUuid}`,
+            )
+        ) {
+            return true; //blocks navigation
+        }
+        return false; // allow navigation
+    });
 
     const spacesByType = useMemo(() => {
         const spacesUserCanCreateIn = spaces.filter((space) => {
@@ -395,15 +377,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
     );
 
     const handleGoBackClick = () => {
-        if (hasUnsavedChanges && isEditMode) {
-            history.block((prompt) => {
-                setBlockedNavigationLocation(prompt.pathname);
-                saveWarningModalHandlers.open();
-                return false; //blocks history
-            });
-        }
-
-        history.push({
+        void navigate({
             pathname: `/projects/${savedChart?.projectUuid}/dashboards/${dashboardUuid}`,
         });
     };
@@ -412,7 +386,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
         reset();
 
         if (!isFromDashboard)
-            history.push({
+            void navigate({
                 pathname: `/projects/${savedChart?.projectUuid}/saved/${savedChart?.uuid}/view`,
             });
     };
@@ -423,40 +397,50 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
 
     return (
         <TrackSection name={SectionName.EXPLORER_TOP_BUTTONS}>
-            <Modal
-                opened={isSaveWarningModalOpen}
-                withCloseButton={false}
-                closeOnClickOutside={false}
-                onClose={saveWarningModalHandlers.close}
-            >
-                <Alert
-                    icon={<MantineIcon size="xl" icon={IconAlertTriangle} />}
-                    color="red"
+            {blocker.state === 'blocked' && (
+                <Modal
+                    opened
+                    withCloseButton={false}
+                    closeOnClickOutside={false}
+                    onClose={() => {
+                        blocker.reset();
+                    }}
                 >
-                    {t('components_explorer_save_charts_header.modal.content')}
-                </Alert>
-                <Group position="right" mt="sm">
-                    <Button
-                        color="dark"
-                        variant="outline"
-                        onClick={saveWarningModalHandlers.close}
-                    >
-                        {t('components_explorer_save_charts_header.modal.stay')}
-                    </Button>
-                    <Button
+                    <Alert
+                        icon={
+                            <MantineIcon size="xl" icon={IconAlertTriangle} />
+                        }
                         color="red"
-                        onClick={() => {
-                            history.block(() => {});
-                            if (blockedNavigationLocation)
-                                history.push(blockedNavigationLocation);
-                        }}
                     >
                         {t(
-                            'components_explorer_save_charts_header.modal.leave_page',
+                            'components_explorer_save_charts_header.modal.content',
                         )}
-                    </Button>
-                </Group>
-            </Modal>
+                    </Alert>
+                    <Group position="right" mt="sm">
+                        <Button
+                            color="dark"
+                            variant="outline"
+                            onClick={() => {
+                                blocker.reset();
+                            }}
+                        >
+                            {t(
+                                'components_explorer_save_charts_header.modal.stay',
+                            )}
+                        </Button>
+                        <Button
+                            color="red"
+                            onClick={() => {
+                                blocker.proceed();
+                            }}
+                        >
+                            {t(
+                                'components_explorer_save_charts_header.modal.leave_page',
+                            )}
+                        </Button>
+                    </Group>
+                </Modal>
+            )}
 
             <PageHeader
                 cardProps={{
@@ -464,7 +448,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                 }}
             >
                 <PageTitleAndDetailsContainer>
-                    {savedChart && (
+                    {savedChart && projectUuid && (
                         <>
                             <Group spacing={4}>
                                 <TitleBreadCrumbs
@@ -544,7 +528,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                                 />
                                             }
                                             onClick={() =>
-                                                history.push({
+                                                navigate({
                                                     pathname: `/projects/${savedChart?.projectUuid}/saved/${savedChart?.uuid}/edit`,
                                                 })
                                             }
@@ -708,7 +692,9 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                                     icon={IconFolders}
                                                 />
                                             }
-                                            onClick={(e) => {
+                                            onClick={(
+                                                e: React.MouseEvent<HTMLDivElement>,
+                                            ) => {
                                                 e.preventDefault();
                                                 e.stopPropagation();
                                                 setIsMovingChart(true);
@@ -808,7 +794,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                                                                     : ''
                                                                             }
                                                                             onClick={(
-                                                                                e,
+                                                                                e: React.MouseEvent<HTMLDivElement>,
                                                                             ) => {
                                                                                 e.preventDefault();
                                                                                 e.stopPropagation();
@@ -846,7 +832,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                             <MantineIcon icon={IconHistory} />
                                         }
                                         onClick={() =>
-                                            history.push({
+                                            navigate({
                                                 pathname: `/projects/${savedChart?.projectUuid}/saved/${savedChart?.uuid}/history`,
                                             })
                                         }
@@ -1002,7 +988,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                     defaultSpaceUuid={spaceUuid ?? undefined}
                 />
             )}
-            {savedChart && isAddToDashboardModalOpen && (
+            {savedChart && isAddToDashboardModalOpen && projectUuid && (
                 <AddTilesToDashboardModal
                     isOpen={isAddToDashboardModalOpen}
                     projectUuid={projectUuid}
@@ -1017,22 +1003,12 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                     opened={isDeleteModalOpen}
                     onClose={deleteModalHandlers.close}
                     onConfirm={() => {
-                        history.listen((location, action) => {
-                            if (action === 'POP') {
-                                if (location.pathname.includes('/tables/')) {
-                                    history.push(
-                                        `/projects/${projectUuid}/tables`,
-                                    );
-                                }
-                            }
-                        });
-
                         if (dashboardUuid) {
-                            history.push(
+                            void navigate(
                                 `/projects/${projectUuid}/dashboards/${dashboardUuid}`,
                             );
                         } else {
-                            history.push(`/`);
+                            void navigate(`/`);
                         }
                         clearIsEditingDashboardChart();
                         deleteModalHandlers.close();
@@ -1075,7 +1051,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                     onClose={() => setIsMovingChart(false)}
                     onConfirm={() => {
                         clearIsEditingDashboardChart();
-                        history.push(
+                        void navigate(
                             `/projects/${projectUuid}/saved/${savedChart.uuid}/edit`,
                         );
                     }}

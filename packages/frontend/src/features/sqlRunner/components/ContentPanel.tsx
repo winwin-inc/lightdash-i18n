@@ -54,6 +54,7 @@ import { Table } from '../../../components/DataViz/visualizations/Table';
 import RunSqlQueryButton from '../../../components/SqlRunner/RunSqlQueryButton';
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import useToaster from '../../../hooks/toaster/useToaster';
+import { DEFAULT_SQL_LIMIT } from '../constants';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
     EditorTabs,
@@ -76,8 +77,6 @@ import { ChartDownload } from './Download/ChartDownload';
 import { ResultsDownloadFromUrl } from './Download/ResultsDownloadFromUrl';
 import { SqlEditor } from './SqlEditor';
 import { SqlQueryHistory } from './SqlQueryHistory';
-
-export const DEFAULT_SQL_LIMIT = 500;
 
 export const ContentPanel: FC = () => {
     const { t } = useTranslation();
@@ -356,22 +355,12 @@ export const ContentPanel: FC = () => {
                                                 >
                                                     <Group spacing={4} noWrap>
                                                         <MantineIcon
-                                                            color={
-                                                                hasUnrunChanges
-                                                                    ? 'yellow.7'
-                                                                    : 'gray.6'
-                                                            }
+                                                            color="gray.6"
                                                             icon={
                                                                 IconCodeCircle
                                                             }
                                                         />
-                                                        <Text
-                                                            color={
-                                                                hasUnrunChanges
-                                                                    ? 'yellow.7'
-                                                                    : 'gray.6'
-                                                            }
-                                                        >
+                                                        <Text>
                                                             {t(
                                                                 'features_sql_runner_content_panel.sql',
                                                             )}
@@ -595,7 +584,7 @@ export const ContentPanel: FC = () => {
                                                                             }
                                                                             style={{
                                                                                 height: inputSectionHeight,
-                                                                                flex: 1,
+                                                                                flex: inputSectionWidth,
                                                                             }}
                                                                             onChartReady={(
                                                                                 instance,
