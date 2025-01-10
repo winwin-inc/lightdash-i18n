@@ -11,6 +11,7 @@ import { Button, Modal, Stack, Title } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useCallback, useEffect } from 'react';
 import { type ValueOf } from 'type-fest';
+import { useTranslation } from 'react-i18next';
 import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import { FormatForm } from '../FormatForm';
 
@@ -25,6 +26,7 @@ const DEFAULT_FORMAT: CustomFormat = {
 };
 
 export const FormatModal = () => {
+    const { t } = useTranslation();
     const { isOpen, metric } = useExplorerContext(
         (context) => context.state.modals.format,
     );
@@ -108,7 +110,7 @@ export const FormatModal = () => {
                         setFormatFieldValue={setFormatFieldValue}
                     />
                     <Button display="block" ml="auto" type="submit">
-                        Save changes
+                        {t('components_explorer_format_modal.save_changes')}
                     </Button>
                 </Stack>
             </form>

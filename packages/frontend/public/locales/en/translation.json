@@ -2262,7 +2262,10 @@
             "part_2": "You are",
             "part_3": "this chart from within",
             "part_4": "a dashboard"
-        }
+        },
+        "creating": "creating",
+        "editing": "editing",
+        "viewing": "viewing"
     },
     "components_navbar_preview_banner": {
         "content": "This is a preview environment. Any changes you make here will not affect production."
@@ -3916,6 +3919,9 @@
             "placeholder": "E.g. km/h"
         }
     },
+    "components_explorer_format_modal": {
+        "save_changes": "Save changes"
+    },
     "components_explorer_results_card": {
         "title": "Results"
     },
@@ -4016,6 +4022,7 @@
         "edit_chart": "Edit chart",
         "cancel": "Cancel",
         "move_to_space": "Move to space",
+        "change": " changes",
         "menus": {
             "save_chart_as": "Save chart as",
             "duplicate": "Duplicate",

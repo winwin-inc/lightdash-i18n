@@ -555,8 +555,12 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                         >
                                             {t(
                                                 'components_explorer_save_charts_header.cancel',
-                                            )}{' '}
-                                            {isFromDashboard ? 'changes' : ''}
+                                            )}
+                                            {isFromDashboard
+                                                ? t(
+                                                      'components_explorer_save_charts_header.change',
+                                                  )
+                                                : ''}
                                         </Button>
 
                                         {isFromDashboard && (

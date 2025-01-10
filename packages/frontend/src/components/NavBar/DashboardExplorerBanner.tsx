@@ -37,6 +37,16 @@ export const DashboardExplorerBanner: FC<Props> = ({ projectUuid }) => {
         }
     }, [savedQueryUuid, mode]);
 
+    const actionName = useMemo(() => {
+        switch (action) {
+            case 'viewing':
+                return t('components_navbar_explorer_banner.viewing');
+            case 'creating':
+            case 'editing':
+                return t('components_navbar_explorer_banner.editing');
+        }
+    }, [action, t]);
+
     const cancelButtonText = useMemo(() => {
         switch (action) {
             case 'viewing':
@@ -106,7 +116,7 @@ export const DashboardExplorerBanner: FC<Props> = ({ projectUuid }) => {
                     ? t('components_navbar_explorer_banner.contet.part_1')
                     : `${t(
                           'components_navbar_explorer_banner.contet.part_2',
-                      )} ${action} ${t(
+                      )} ${actionName} ${t(
                           'components_navbar_explorer_banner.contet.part_3',
                       )} ${
                           dashboardName

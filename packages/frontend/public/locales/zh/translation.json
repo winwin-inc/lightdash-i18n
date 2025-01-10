@@ -2264,7 +2264,10 @@
             "part_2": "您正在",
             "part_3": "此图表,并位于",
             "part_4": "看板内"
-        }
+        },
+        "creating": "创建",
+        "editing": "编辑",
+        "viewing": "查看"
     },
     "components_navbar_preview_banner": {
         "content": "这是预览环境。您在此处所做的任何更改都不会影响生产环境。"
@@ -3759,9 +3762,9 @@
         "add_custom_dimensions": "添加自定义维度",
         "view_options": "查看选项",
         "copy_custom_metric": "自定义指标复制成功",
-        "duplicate_custom_metric": "重复自定义指标",
+        "duplicate_custom_metric": "复制自定义指标",
         "copy_custom_dimension": "自定义维度复制成功",
-        "duplicate_custom_dimension": "重复自定义维度"
+        "duplicate_custom_dimension": "复制自定义维度"
     },
     "components_explorer_table_tree_single_node": {
         "no_availailable": "暂无描述。",
@@ -3917,6 +3920,9 @@
             "placeholder": "例如 km/h"
         }
     },
+    "components_explorer_format_modal": {
+        "save_changes": "保存更改"
+    },
     "components_explorer_results_card": {
         "title": "结果"
     },
@@ -4015,6 +4021,7 @@
         },
         "edit_chart": "编辑图表",
         "cancel": "取消",
+        "change": "更改",
         "move_to_space": "移动到空间",
         "menus": {
             "save_chart_as": "将图表另存为",
