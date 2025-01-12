@@ -532,8 +532,10 @@ const Dashboard: FC = () => {
         <>
             {blocker.state === 'blocked' && (
                 <Modal
-                    opened={isSaveWarningModalOpen}
-                    onClose={saveWarningModalHandlers.close}
+                    opened
+                    onClose={() => {
+                        blocker.reset();
+                    }}
                     title={null}
                     withCloseButton={false}
                     closeOnClickOutside={false}
@@ -551,17 +553,17 @@ const Dashboard: FC = () => {
                         </Group>
 
                         <Group position="right">
-                            <Button onClick={saveWarningModalHandlers.close}>
+                            <Button
+                                onClick={() => {
+                                    blocker.reset();
+                                }}
+                            >
                                 {t('pages_dashboard.modal.stay')}
                             </Button>
                             <Button
                                 color="red"
                                 onClick={() => {
-                                    // eslint-disable-next-line no-restricted-globals
-                                    history.block(() => {});
-                                    if (blockedNavigationLocation)
-                                        // eslint-disable-next-line no-restricted-globals
-                                        history.push(blockedNavigationLocation);
+                                    blocker.proceed();
                                 }}
                             >
                                 {t('pages_dashboard.modal.leave')}

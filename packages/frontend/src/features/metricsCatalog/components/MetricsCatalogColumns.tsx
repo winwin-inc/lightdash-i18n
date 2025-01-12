@@ -50,7 +50,7 @@ const HeaderCell = ({
     );
 };
 
-export const useMetricsCatalogColumns: MRT_ColumnDef<CatalogField>[] = () => {
+export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
     const { t } = useTranslation();
 
     return [
@@ -305,5 +305,5 @@ export const useMetricsCatalogColumns: MRT_ColumnDef<CatalogField>[] = () => {
             ),
             Cell: ({ row }) => <MetricChartUsageButton row={row} />,
         },
-    ];
+    ] as MRT_ColumnDef<CatalogField>[];
 };
