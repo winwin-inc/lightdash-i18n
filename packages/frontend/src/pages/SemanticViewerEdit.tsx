@@ -2,7 +2,7 @@ import { subject } from '@casl/ability';
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Provider } from 'react-redux';
-import { useHistory, useParams, useRouteMatch } from 'react-router-dom';
+import { useMatch, useNavigate, useParams } from 'react-router';
 import { useUnmount } from 'react-use';
 
 import Page from '../components/common/Page/Page';
@@ -27,7 +27,7 @@ import {
     useAppDispatch,
     useAppSelector,
 } from '../features/sqlRunner/store/hooks';
-import { useApp } from '../providers/AppProvider';
+import useApp from '../providers/App/useApp';
 
 const SemanticViewerEditorPageWithStore = () => {
     const { t } = useTranslation();
@@ -38,11 +38,10 @@ const SemanticViewerEditorPageWithStore = () => {
         savedSemanticViewerChartSlug?: string;
     }>();
 
-    const rootRouteMatch = useRouteMatch({
+    const rootRouteMatch = useMatch({
         path: `/projects/${projectUuid}/semantic-viewer`,
-        exact: true,
     });
-    const history = useHistory();
+    const navigate = useNavigate();
 
     const dispatch = useAppDispatch();
     const semanticViewerState = useAppSelector(selectSemanticViewerState);
@@ -53,12 +52,18 @@ const SemanticViewerEditorPageWithStore = () => {
         infoQuery.isSuccess && infoQuery.data !== undefined;
 
     const chartQuery = useSavedSemanticViewerChart(
-        { projectUuid, findBy: { slug: savedSemanticViewerChartSlug } },
+        {
+            projectUuid,
+            findBy: { slug: savedSemanticViewerChartSlug },
+        },
         { enabled: isSemanticLayerConnected && !!savedSemanticViewerChartSlug },
     );
 
     const chartResultsQuery = useSavedSemanticViewerChartResults(
-        { projectUuid, findBy: { slug: savedSemanticViewerChartSlug } },
+        {
+            projectUuid,
+            findBy: { slug: savedSemanticViewerChartSlug },
+        },
         { enabled: isSemanticLayerConnected && !!savedSemanticViewerChartSlug },
     );
 
@@ -76,7 +81,8 @@ const SemanticViewerEditorPageWithStore = () => {
         if (
             !fieldsQuery.isSuccess ||
             !chartQuery.isSuccess ||
-            !chartResultsQuery.isSuccess
+            !chartResultsQuery.isSuccess ||
+            !projectUuid
         ) {
             return;
         }
@@ -121,11 +127,15 @@ const SemanticViewerEditorPageWithStore = () => {
 
     useEffect(() => {
         if (infoQuery.isSuccess && !infoQuery.data) {
-            history.replace(`/projects/${projectUuid}`);
+            void navigate(`/projects/${projectUuid}`, { replace: true });
         }
-    }, [infoQuery.isSuccess, infoQuery.data, history, projectUuid]);
+    }, [infoQuery.isSuccess, infoQuery.data, navigate, projectUuid]);
 
     useEffect(() => {
+        if (!projectUuid) {
+            return;
+        }
+
         if (semanticViewerState === SemanticViewerStateStatus.INITIALIZED) {
             return;
         }
@@ -172,14 +182,16 @@ const SemanticViewerEditorPageWithStore = () => {
                 }),
             );
             if (!!rootRouteMatch) {
-                history.replace(rootRouteMatch.path + '/new');
+                void navigate(rootRouteMatch.pathname + '/new', {
+                    replace: true,
+                });
             }
         }
     }, [
         projectUuid,
         savedSemanticViewerChartSlug,
         rootRouteMatch,
-        history,
+        navigate,
         dispatch,
         semanticViewerState,
         infoQuery.isSuccess,

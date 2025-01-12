@@ -1,8 +1,9 @@
 import { type DashboardMarkdownTile } from '@lightdash/common';
 import MDEditor from '@uiw/react-md-editor';
 import React, { useMemo, useState, type FC } from 'react';
+import rehypeExternalLinks from 'rehype-external-links';
 import { DashboardTileComments } from '../../features/comments';
-import { useDashboardContext } from '../../providers/DashboardProvider';
+import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import { MarkdownWrapper } from './DashboardMarkdownTile.styles';
 import TileBase from './TileBase/index';
 
@@ -50,7 +51,12 @@ const MarkdownTile: FC<Props> = (props) => {
             {...props}
         >
             <MarkdownWrapper className="non-draggable">
-                <MDEditor.Markdown source={content} linkTarget="_blank" />
+                <MDEditor.Markdown
+                    source={content}
+                    rehypePlugins={[
+                        [rehypeExternalLinks, { target: '_blank' }],
+                    ]}
+                />
             </MarkdownWrapper>
         </TileBase>
     );

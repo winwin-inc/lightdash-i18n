@@ -9,12 +9,14 @@ import {
     ActionIcon,
     Anchor,
     Badge,
+    Box,
     Button,
     Card,
     Flex,
     Group,
     HoverCard,
     List,
+    LoadingOverlay,
     Modal,
     Pagination,
     Paper,
@@ -45,13 +47,12 @@ import {
     usePaginatedOrganizationUsers,
     useUpdateUserMutation,
 } from '../../../hooks/useOrganizationUsers';
-import { useApp } from '../../../providers/AppProvider';
-import { useTracking } from '../../../providers/TrackingProvider';
+import useApp from '../../../providers/App/useApp';
+import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
-import LoadingState from '../../common/LoadingState';
 import MantineIcon from '../../common/MantineIcon';
 import { SettingsCard } from '../../common/Settings/SettingsCard';
-import { DEFAULT_PAGE_SIZE } from '../../common/Table/types';
+import { DEFAULT_PAGE_SIZE } from '../../common/Table/constants';
 import InvitesModal from './InvitesModal';
 import InviteSuccess from './InviteSuccess';
 
@@ -482,17 +483,6 @@ const UsersView: FC = () => {
 
     const isGroupManagementEnabled = UserGroupsFeatureFlag?.enabled;
 
-    if (isLoadingUsers) {
-        return (
-            <LoadingState
-                title={t(
-                    'components_user_settings_groups_panel_users_view.loading_users',
-                )}
-                size="md"
-            />
-        );
-    }
-
     return (
         <Stack spacing="xs">
             <SettingsCard shadow="none" p={0}>
@@ -558,8 +548,10 @@ const UsersView: FC = () => {
                             )}
                         </tr>
                     </thead>
-                    <tbody>
-                        {organizationUsers && organizationUsers.length ? (
+                    <tbody style={{ position: 'relative' }}>
+                        {!isLoadingUsers &&
+                        organizationUsers &&
+                        organizationUsers.length ? (
                             organizationUsers.map((orgUser) => (
                                 <UserListItem
                                     key={orgUser.email}
@@ -574,6 +566,17 @@ const UsersView: FC = () => {
                                     }
                                 />
                             ))
+                        ) : isLoadingUsers ? (
+                            <tr>
+                                <td colSpan={3}>
+                                    <Box py="lg">
+                                        <LoadingOverlay
+                                            visible={true}
+                                            transitionDuration={200}
+                                        />
+                                    </Box>
+                                </td>
+                            </tr>
                         ) : (
                             <tr>
                                 <td colSpan={3}>

@@ -61,7 +61,7 @@ const SchedulersListItem: FC<SchedulersListItemProps> = ({
                         <Text color="gray" size={12}>
                             {getHumanReadableCronExpression(
                                 scheduler.cron,
-                                scheduler.timezone ?? project.schedulerTimezone,
+                                scheduler.timezone || project.schedulerTimezone,
                             )}
                         </Text>
 

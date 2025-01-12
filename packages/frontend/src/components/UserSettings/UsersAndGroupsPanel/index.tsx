@@ -3,7 +3,7 @@ import { IconInfoCircle } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useApp } from '../../../providers/AppProvider';
+import useApp from '../../../providers/App/useApp';
 import MantineIcon from '../../common/MantineIcon';
 import ForbiddenPanel from '../../ForbiddenPanel';
 

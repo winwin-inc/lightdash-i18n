@@ -28,14 +28,15 @@ import { useToggle } from 'react-use';
 
 import { getItemBgColor } from '../../../../../hooks/useColumns';
 import { useFilters } from '../../../../../hooks/useFilters';
-import { useTracking } from '../../../../../providers/TrackingProvider';
+import useTracking from '../../../../../providers/Tracking/useTracking';
 import { EventName } from '../../../../../types/Events';
 import FieldIcon from '../../../../common/Filters/FieldIcon';
 import MantineIcon from '../../../../common/MantineIcon';
-import { useItemDetail } from '../ItemDetailContext';
 import { ItemDetailMarkdown, ItemDetailPreview } from '../ItemDetailPreview';
-import { useTableTreeContext, type Node } from './TreeProvider';
+import { useItemDetail } from '../useItemDetails';
 import TreeSingleNodeActions from './TreeSingleNodeActions';
+import { type Node } from './types';
+import { useTableTreeContext } from './useTableTree';
 
 type Props = {
     node: Node;
@@ -236,7 +237,9 @@ const TreeSingleNode: FC<Props> = ({ node }) => {
                             }
                         >
                             <ActionIcon
-                                onClick={(e) => {
+                                onClick={(
+                                    e: React.MouseEvent<HTMLButtonElement>,
+                                ) => {
                                     track({
                                         name: EventName.ADD_FILTER_CLICKED,
                                     });

@@ -61,8 +61,9 @@ import React, {
     type RefObject,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import { v4 as uuid4 } from 'uuid';
+
 import { downloadCsvFromSavedChart } from '../../api/csv';
 import { DashboardTileComments } from '../../features/comments';
 import { DateZoomInfoOnTile } from '../../features/dateZoom';
@@ -75,12 +76,12 @@ import useToaster from '../../hooks/toaster/useToaster';
 import { getExplorerUrlFromCreateSavedChartVersion } from '../../hooks/useExplorerRoute';
 import { useDuplicateChartMutation } from '../../hooks/useSavedQuery';
 import { useCreateShareMutation } from '../../hooks/useShare';
-import { useApp } from '../../providers/AppProvider';
-import { useDashboardContext } from '../../providers/DashboardProvider';
-import { useTracking } from '../../providers/TrackingProvider';
+import useApp from '../../providers/App/useApp';
+import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
+import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
 import { Can } from '../common/Authorization';
-import { useConditionalRuleLabel } from '../common/Filters/FilterInputs';
+import { useConditionalRuleLabel } from '../common/Filters/FilterInputs/utils';
 import MantineIcon from '../common/MantineIcon';
 import MoveChartThatBelongsToDashboardModal from '../common/modal/MoveChartThatBelongsToDashboardModal';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
@@ -90,11 +91,10 @@ import LightdashVisualization from '../LightdashVisualization';
 import VisualizationProvider from '../LightdashVisualization/VisualizationProvider';
 import DrillDownMenuItem from '../MetricQueryData/DrillDownMenuItem';
 import { DrillDownModal } from '../MetricQueryData/DrillDownModal';
-import MetricQueryDataProvider, {
-    getDataFromChartClick,
-    useMetricQueryDataContext,
-} from '../MetricQueryData/MetricQueryDataProvider';
+import MetricQueryDataProvider from '../MetricQueryData/MetricQueryDataProvider';
 import UnderlyingDataModal from '../MetricQueryData/UnderlyingDataModal';
+import { useMetricQueryDataContext } from '../MetricQueryData/useMetricQueryDataContext';
+import { getDataFromChartClick } from '../MetricQueryData/utils';
 import { type EchartSeriesClickEvent } from '../SimpleChart';
 import { DashboardExportImage } from './DashboardExportImage';
 import { DashboardMinimalDownloadCsv } from './DashboardMinimalDownloadCsv';
@@ -182,7 +182,7 @@ const ValidDashboardChartTile: FC<{
         e: EchartSeriesClickEvent,
         series: EChartSeries[],
     ) => void;
-    setEchartsRef?: (ref: RefObject<EChartsReact> | undefined) => void;
+    setEchartsRef?: (ref: RefObject<EChartsReact | null> | undefined) => void;
 }> = ({
     tileUuid,
     isTitleHidden = false,
@@ -246,7 +246,7 @@ const ValidDashboardChartTileMinimal: FC<{
     isTitleHidden?: boolean;
     title: string;
     chartAndResults: ApiChartAndResults;
-    setEchartsRef?: (ref: RefObject<EChartsReact> | undefined) => void;
+    setEchartsRef?: (ref: RefObject<EChartsReact | null> | undefined) => void;
 }> = ({
     tileUuid,
     chartAndResults: { chart, metricQuery, rows, cacheMetadata, fields },
@@ -333,7 +333,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
         (c) => c.addDimensionDashboardFilter,
     );
     const [echartRef, setEchartRef] = useState<
-        RefObject<EChartsReact> | undefined
+        RefObject<EChartsReact | null> | undefined
     >();
     const setDashboardTiles = useDashboardContext((c) => c.setDashboardTiles);
 
@@ -461,14 +461,16 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                 (f) => getItemId(f) === filter.target.fieldId,
             );
 
-            track({
-                name: EventName.CROSS_FILTER_DASHBOARD_APPLIED,
-                properties: {
-                    fieldType: field?.type,
-                    projectId: projectUuid,
-                    dashboardId: dashboardUuid,
-                },
-            });
+            if (projectUuid && dashboardUuid) {
+                track({
+                    name: EventName.CROSS_FILTER_DASHBOARD_APPLIED,
+                    properties: {
+                        fieldType: field?.type,
+                        projectId: projectUuid,
+                        dashboardId: dashboardUuid,
+                    },
+                });
+            }
 
             addDimensionDashboardFilter(filter, !isEditMode);
         },
@@ -1072,7 +1074,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                     <ValidDashboardChartTile
                         tileUuid={tileUuid}
                         chartAndResults={chartAndResults}
-                        project={projectUuid}
+                        project={chartAndResults.chart.projectUuid}
                         isTitleHidden={hideTitle}
                         onSeriesContextMenu={onSeriesContextMenu}
                         setEchartsRef={setEchartRef}
@@ -1110,7 +1112,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
 
             {isCSVExportModalOpen ? (
                 <ExportResultAsCSVModal
-                    projectUuid={projectUuid}
+                    projectUuid={chart.projectUuid}
                     chartUuid={chart.uuid}
                     tileUuid={tileUuid}
                     dashboardFilters={appliedDashboardFilters}
@@ -1136,7 +1138,7 @@ const DashboardChartTileMinimal: FC<DashboardChartTileMainProps> = (props) => {
     const { chart } = chartAndResults;
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const [echartRef, setEchartRef] = useState<
-        RefObject<EChartsReact> | undefined
+        RefObject<EChartsReact | null> | undefined
     >();
 
     return (

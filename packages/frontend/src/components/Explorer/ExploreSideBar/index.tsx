@@ -1,3 +1,4 @@
+import { ExploreType, type SummaryExplore } from '@lightdash/common';
 import {
     ActionIcon,
     Divider,
@@ -15,18 +16,17 @@ import {
 import Fuse from 'fuse.js';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 
-import { ExploreType, type SummaryExplore } from '@lightdash/common';
 import { useExplores } from '../../../hooks/useExplores';
-import { useExplorerContext } from '../../../providers/ExplorerProvider';
-import { TrackSection } from '../../../providers/TrackingProvider';
+import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
+import { TrackSection } from '../../../providers/Tracking/TrackingProvider';
 import { SectionName } from '../../../types/Events';
 import MantineIcon from '../../common/MantineIcon';
 import PageBreadcrumbs from '../../common/PageBreadcrumbs';
 import SuboptimalState from '../../common/SuboptimalState/SuboptimalState';
 import ExplorePanel from '../ExplorePanel';
-import { ItemDetailProvider } from '../ExploreTree/TableTree/ItemDetailContext';
+import { ItemDetailProvider } from '../ExploreTree/TableTree/ItemDetailProvider';
 import ExploreGroup from './ExploreGroup';
 import ExploreNavLink from './ExploreNavLink';
 
@@ -45,7 +45,7 @@ const LoadingSkeleton = () => (
 );
 
 const BasePanel = () => {
-    const history = useHistory();
+    const navigate = useNavigate();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const [search, setSearch] = useState<string>('');
     const exploresResult = useExplores(projectUuid, true);
@@ -166,7 +166,7 @@ const BasePanel = () => {
                                                 explore={explore}
                                                 query={search}
                                                 onClick={() => {
-                                                    history.push(
+                                                    void navigate(
                                                         `/projects/${projectUuid}/tables/${explore.name}`,
                                                     );
                                                 }}
@@ -182,7 +182,7 @@ const BasePanel = () => {
                                     explore={explore}
                                     query={search}
                                     onClick={() => {
-                                        history.push(
+                                        void navigate(
                                             `/projects/${projectUuid}/tables/${explore.name}`,
                                         );
                                     }}
@@ -207,7 +207,7 @@ const BasePanel = () => {
                                     explore={explore}
                                     query={search}
                                     onClick={() => {
-                                        history.push(
+                                        void navigate(
                                             `/projects/${projectUuid}/tables/${explore.name}`,
                                         );
                                     }}
@@ -236,22 +236,16 @@ const ExploreSideBar = memo(() => {
     const clearExplore = useExplorerContext(
         (context) => context.actions.clearExplore,
     );
-    const history = useHistory();
+    const navigate = useNavigate();
 
     const handleBack = useCallback(() => {
         clearExplore();
-        history.push(`/projects/${projectUuid}/tables`);
-    }, [clearExplore, history, projectUuid]);
+        void navigate(`/projects/${projectUuid}/tables`);
+    }, [clearExplore, navigate, projectUuid]);
 
     return (
         <TrackSection name={SectionName.SIDEBAR}>
-            <Stack h="100%" sx={{ flexGrow: 1 }}>
-                {!tableName ? (
-                    <BasePanel />
-                ) : (
-                    <ExplorePanel onBack={handleBack} />
-                )}
-            </Stack>
+            {!tableName ? <BasePanel /> : <ExplorePanel onBack={handleBack} />}
         </TrackSection>
     );
 });

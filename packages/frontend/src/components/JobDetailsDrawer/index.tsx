@@ -29,7 +29,7 @@ import {
     useJobStatusLabel,
     useJobStepStatusLabel,
 } from '../../hooks/useRefreshServer';
-import { useActiveJob } from '../../providers/ActiveJobProvider';
+import useActiveJob from '../../providers/ActiveJob/useActiveJob';
 import MantineIcon from '../common/MantineIcon';
 
 dayjs.extend(duration);

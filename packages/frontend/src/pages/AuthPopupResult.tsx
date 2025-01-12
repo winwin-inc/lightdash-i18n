@@ -1,9 +1,8 @@
 import { Image, Stack } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { type FC } from 'react';
-import { Helmet } from 'react-helmet';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import { useMount } from 'react-use';
 
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
@@ -25,9 +24,8 @@ const AuthPopupResult: FC = () => {
 
     return (
         <>
-            <Helmet>
-                <title>{t('pages_auth_popup_result.title')}</title>
-            </Helmet>
+            <title>{t('pages_auth_popup_result.title')}</title>
+
             <Stack>
                 <Image
                     src={LightdashLogo}

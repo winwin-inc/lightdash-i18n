@@ -4,8 +4,8 @@ import { useDisclosure } from '@mantine/hooks';
 import { useCallback, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useApp } from '../../../providers/AppProvider';
-import { useDashboardContext } from '../../../providers/DashboardProvider';
+import useApp from '../../../providers/App/useApp';
+import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import { useCreateComment, useRemoveComment } from '../hooks/useComments';
 import { CommentDetail } from './CommentDetail';
 import { CommentForm } from './CommentForm';
@@ -15,7 +15,7 @@ type Props = {
     dashboardUuid: string;
     dashboardTileUuid: string;
     comment: Comment;
-    targetRef: React.RefObject<HTMLDivElement> | null;
+    targetRef: React.RefObject<HTMLDivElement | null> | null;
 };
 
 export const DashboardCommentAndReplies: FC<Props> = ({

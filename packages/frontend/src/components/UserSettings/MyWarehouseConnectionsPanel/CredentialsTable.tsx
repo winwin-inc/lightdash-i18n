@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useTableStyles } from '../../../hooks/styles/useTableStyles';
 import MantineIcon from '../../common/MantineIcon';
-import { getWarehouseLabel } from '../../ProjectConnection/ProjectConnectFlow/SelectWarehouse';
+import { getWarehouseLabel } from '../../ProjectConnection/ProjectConnectFlow/utils';
 
 type CredentialsTableProps = {
     credentials: UserWarehouseCredentials[];

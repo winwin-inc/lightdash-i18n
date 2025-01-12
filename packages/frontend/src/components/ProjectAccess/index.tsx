@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ProjectGroupAccess } from '../../features/projectGroupAccess';
 import { useFeatureFlag } from '../../hooks/useFeatureFlagEnabled';
-import { useApp } from '../../providers/AppProvider';
+import useApp from '../../providers/App/useApp';
 import { Can } from '../common/Authorization';
 import MantineIcon from '../common/MantineIcon';
 import ProjectAccess from './ProjectAccess';

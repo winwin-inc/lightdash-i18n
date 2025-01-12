@@ -32,7 +32,8 @@ import { useChartSchedulers } from '../../../features/scheduler/hooks/useChartSc
 import { useActiveProjectUuid } from '../../../hooks/useActiveProject';
 import { useProject } from '../../../hooks/useProject';
 import { useSchedulersEnabledUpdateMutation } from '../../scheduler/hooks/useSchedulersUpdateMutation';
-import { SyncModalAction, useSyncModal } from '../providers/SyncModalProvider';
+import { SyncModalAction } from '../providers/types';
+import { useSyncModal } from '../providers/useSyncModal';
 
 const ToggleSyncEnabled: FC<{ scheduler: Scheduler }> = ({ scheduler }) => {
     const { mutate: mutateSchedulerEnabled } =
@@ -106,7 +107,7 @@ export const SyncModalView: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                                             <Text span size="xs" color="gray.6">
                                                 {getHumanReadableCronExpression(
                                                     sync.cron,
-                                                    sync.timezone ??
+                                                    sync.timezone ||
                                                         project.schedulerTimezone,
                                                 )}
                                             </Text>

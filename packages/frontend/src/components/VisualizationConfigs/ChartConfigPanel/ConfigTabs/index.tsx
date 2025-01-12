@@ -1,8 +1,7 @@
 import { MantineProvider, Tabs } from '@mantine/core';
 import { memo, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { useVisualizationContext } from '../../../LightdashVisualization/VisualizationProvider';
+import { useVisualizationContext } from '../../../LightdashVisualization/useVisualizationContext';
 import { themeOverride } from '../../mantineTheme';
 import { Axes } from '../Axes';
 import { Grid } from '../Grid';

@@ -17,7 +17,6 @@ import {
     Title,
 } from '@mantine/core';
 import { useDebouncedValue, useHotkeys } from '@mantine/hooks';
-
 import {
     IconReportSearch,
     IconSearch,
@@ -26,13 +25,13 @@ import {
 } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, useTransition, type FC } from 'react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
-import { useHistory } from 'react-router-dom';
 
+import { useNavigate } from 'react-router';
 import LinkButton from '../../../components/common/LinkButton';
 import MantineIcon from '../../../components/common/MantineIcon';
 import SuboptimalState from '../../../components/common/SuboptimalState/SuboptimalState';
 import RefreshDbtButton from '../../../components/RefreshDbtButton';
-import { useCatalogContext } from '../context/CatalogProvider';
+import { useCatalogContext } from '../context/useCatalogContext';
 import { useCatalog } from '../hooks/useCatalog';
 import { useCatalogAnalytics } from '../hooks/useCatalogAnalytics';
 import { useCatalogMetadata } from '../hooks/useCatalogMetadata';
@@ -294,7 +293,7 @@ export const CatalogPanel: FC = () => {
         ],
     );
 
-    const history = useHistory();
+    const navigate = useNavigate();
     // Keyboard navigation
     useHotkeys(
         [
@@ -363,7 +362,7 @@ export const CatalogPanel: FC = () => {
                             selectedItem &&
                             selectedItem.type === CatalogType.Table
                         )
-                            history.push(
+                            void navigate(
                                 `/projects/${projectUuid}/tables/${selectedItem.name}`,
                             );
                         else console.warn('Explore not available for fields');

@@ -28,14 +28,11 @@ import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
 import { TotalMetricsDot } from '../../../svgs/metricsCatalog';
-import { useAppSelector } from '../../sqlRunner/store/hooks';
+import { useAppDispatch, useAppSelector } from '../../sqlRunner/store/hooks';
 import { useProjectTags } from '../hooks/useProjectTags';
+import { setMetricCatalogView } from '../store/metricsCatalogSlice';
+import { MetricCatalogView } from '../types';
 import { CatalogCategory } from './CatalogCategory';
-
-export enum MetricCatalogView {
-    LIST = 'list',
-    TREE = 'tree',
-}
 
 type CategoriesFilterProps = {
     selectedCategories: CatalogField['categories'][number]['tagUuid'][];
@@ -227,8 +224,6 @@ type MetricsTableTopToolbarProps = GroupProps & {
     segmentedControlTooltipLabel?: string;
     showCategoriesFilter?: boolean;
     isValidMetricsTree: boolean;
-    onMetricCatalogViewChange?: (view: MetricCatalogView) => void;
-    metricCatalogView: MetricCatalogView;
 };
 
 export const MetricsTableTopToolbar: FC<MetricsTableTopToolbarProps> = memo(
@@ -241,11 +236,14 @@ export const MetricsTableTopToolbar: FC<MetricsTableTopToolbarProps> = memo(
         showCategoriesFilter,
         isValidMetricsTree,
         segmentedControlTooltipLabel,
-        onMetricCatalogViewChange,
-        metricCatalogView,
         ...props
     }) => {
         const { t } = useTranslation();
+
+        const dispatch = useAppDispatch();
+        const metricCatalogView = useAppSelector(
+            (store) => store.metricsCatalog.view,
+        );
         const clearSearch = useCallback(() => setSearch(''), [setSearch]);
 
         const isMetricTreesFeatureFlagEnabled = useFeatureFlagEnabled(
@@ -370,10 +368,10 @@ export const MetricsTableTopToolbar: FC<MetricsTableTopToolbarProps> = memo(
                                     size="xs"
                                     value={metricCatalogView}
                                     styles={(theme) => ({
-                                        // TODO: Take care of padding
                                         root: {
                                             borderRadius: theme.radius.md,
                                             gap: theme.spacing.two,
+                                            padding: theme.spacing.xxs,
                                         },
                                         indicator: {
                                             borderRadius: theme.radius.md,
@@ -385,31 +383,45 @@ export const MetricsTableTopToolbar: FC<MetricsTableTopToolbarProps> = memo(
                                     data={[
                                         {
                                             label: (
-                                                <Center>
-                                                    <MantineIcon
-                                                        icon={IconList}
-                                                        size="md"
-                                                    />
-                                                </Center>
+                                                <Tooltip
+                                                    withinPortal
+                                                    variant="xs"
+                                                    label="List view"
+                                                >
+                                                    <Center>
+                                                        <MantineIcon
+                                                            icon={IconList}
+                                                            size="md"
+                                                        />
+                                                    </Center>
+                                                </Tooltip>
                                             ),
                                             value: MetricCatalogView.LIST,
                                         },
                                         {
                                             label: (
-                                                <Center>
-                                                    <MantineIcon
-                                                        icon={IconSitemap}
-                                                        size="md"
-                                                    />
-                                                </Center>
+                                                <Tooltip
+                                                    withinPortal
+                                                    variant="xs"
+                                                    label="Tree view"
+                                                >
+                                                    <Center>
+                                                        <MantineIcon
+                                                            icon={IconSitemap}
+                                                            size="md"
+                                                        />
+                                                    </Center>
+                                                </Tooltip>
                                             ),
                                             value: MetricCatalogView.TREE,
                                             disabled: !isValidMetricsTree,
                                         },
                                     ]}
                                     onChange={(value) => {
-                                        onMetricCatalogViewChange?.(
-                                            value as MetricCatalogView,
+                                        dispatch(
+                                            setMetricCatalogView(
+                                                value as MetricCatalogView,
+                                            ),
                                         );
                                     }}
                                 />

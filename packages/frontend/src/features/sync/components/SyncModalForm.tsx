@@ -30,7 +30,8 @@ import { useSchedulersUpdateMutation } from '../../../features/scheduler/hooks/u
 import { useActiveProjectUuid } from '../../../hooks/useActiveProject';
 import { useProject } from '../../../hooks/useProject';
 import { isInvalidCronExpression } from '../../../utils/fieldValidators';
-import { SyncModalAction, useSyncModal } from '../providers/SyncModalProvider';
+import { SyncModalAction } from '../providers/types';
+import { useSyncModal } from '../providers/useSyncModal';
 import { SelectGoogleSheetButton } from './SelectGoogleSheetButton';
 
 export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
@@ -97,21 +98,20 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
             targets: [],
         };
 
-        if (isEditing) {
-            updateChartSync({
-                ...data,
-                ...defaultNewSchedulerValues,
-            });
-            return;
-        }
+        const payload = {
+            ...data,
+            ...defaultNewSchedulerValues,
+            timezone: data.timezone || undefined,
+        };
 
-        createChartSync({
-            resourceUuid: chartUuid,
-            data: {
-                ...data,
-                ...defaultNewSchedulerValues,
-            },
-        });
+        if (isEditing) {
+            updateChartSync(payload);
+        } else {
+            createChartSync({
+                resourceUuid: chartUuid,
+                data: payload,
+            });
+        }
     };
 
     useEffect(() => {
@@ -197,7 +197,7 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                             onChange={(value) => {
                                 methods.setValue(
                                     'timezone',
-                                    value ?? undefined,
+                                    value || undefined,
                                 );
                             }}
                             value={timezoneValue}

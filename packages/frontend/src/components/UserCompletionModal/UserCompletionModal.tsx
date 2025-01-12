@@ -21,7 +21,7 @@ import { useEffect, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useUserCompleteMutation } from '../../hooks/user/useUserCompleteMutation';
-import { useApp } from '../../providers/AppProvider';
+import useApp from '../../providers/App/useApp';
 
 const UserCompletionModal: FC = () => {
     const { health, user } = useApp();

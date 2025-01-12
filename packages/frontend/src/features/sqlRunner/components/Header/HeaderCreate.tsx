@@ -17,9 +17,9 @@ import {
     IconLink,
     IconTableAlias,
 } from '@tabler/icons-react';
-import { useCallback, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useCallback, useMemo, useState, type FC } from 'react';
 import MantineIcon from '../../../../components/common/MantineIcon';
 import { cartesianChartSelectors } from '../../../../components/DataViz/store/selectors';
 import { EditableText } from '../../../../components/VisualizationConfigs/common/EditableText';
@@ -31,7 +31,6 @@ import { CreateVirtualViewModal } from '../../../virtualView';
 import { useCreateSqlRunnerShareUrl } from '../../hooks/useSqlRunnerShareUrl';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
-    DEFAULT_NAME,
     EditorTabs,
     setActiveEditorTab,
     toggleModal,
@@ -42,6 +41,9 @@ import { SaveSqlChartModal } from '../SaveSqlChartModal';
 import { WriteBackToDbtModal } from '../WriteBackToDbtModal';
 
 type CtaAction = 'save' | 'createVirtualView' | 'writeBackToDbt';
+
+const DEFAULT_SQL_NAME = 'Untitled SQL query';
+const DEFAULT_NAME_VIRTUAL_VIEW = 'Untitled virtual view';
 
 export const HeaderCreate: FC = () => {
     const { t } = useTranslation();
@@ -152,6 +154,14 @@ export const HeaderCreate: FC = () => {
                 return <MantineIcon icon={IconBrandGithub} />;
         }
     }, []);
+
+    const untitledName = useMemo(() => {
+        if (ctaAction === 'createVirtualView') {
+            return DEFAULT_NAME_VIRTUAL_VIEW;
+        }
+        return DEFAULT_SQL_NAME;
+    }, [ctaAction]);
+
     const clipboard = useClipboard({ timeout: 500 });
     const { showToastSuccess } = useToaster();
     const createShareUrl = useCreateSqlRunnerShareUrl();
@@ -166,13 +176,21 @@ export const HeaderCreate: FC = () => {
 
     return (
         <>
-            <Paper shadow="none" radius={0} px="md" py="xs" withBorder>
+            <Paper
+                shadow="none"
+                radius={0}
+                px="md"
+                py="xs"
+                sx={(theme) => ({
+                    borderBottom: `1px solid ${theme.colors.gray[3]}`,
+                })}
+            >
                 <Group position="apart">
                     <Group spacing="two">
                         <EditableText
                             size="md"
                             w={400}
-                            placeholder={DEFAULT_NAME}
+                            placeholder={untitledName}
                             value={name}
                             onChange={(e) =>
                                 dispatch(updateName(e.currentTarget.value))
@@ -180,7 +198,7 @@ export const HeaderCreate: FC = () => {
                         />
                     </Group>
 
-                    <Group>
+                    <Group spacing="xs">
                         <Button.Group>
                             <Button
                                 variant="default"

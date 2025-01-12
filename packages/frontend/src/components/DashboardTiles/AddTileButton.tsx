@@ -21,11 +21,11 @@ import {
 } from '@tabler/icons-react';
 import { useCallback, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
 import { useFeatureFlagEnabled } from '../../hooks/useFeatureFlagEnabled';
-import { useDashboardContext } from '../../providers/DashboardProvider';
+import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../common/MantineIcon';
 import AddChartTilesModal from './TileForms/AddChartTilesModal';
 import { TileAddModal } from './TileForms/TileAddModal';
@@ -60,7 +60,7 @@ const AddTileButton: FC<Props> = ({
     const dashboard = useDashboardContext((c) => c.dashboard);
 
     const { storeDashboard } = useDashboardStorage();
-    const history = useHistory();
+    const navigate = useNavigate();
 
     const onAddTile = useCallback(
         (tile: Dashboard['tiles'][number]) => {
@@ -116,7 +116,9 @@ const AddTileButton: FC<Props> = ({
                                     activeTabUuid,
                                     dashboardTabs,
                                 );
-                                history.push(`/projects/${projectUuid}/tables`);
+                                void navigate(
+                                    `/projects/${projectUuid}/tables`,
+                                );
                             }}
                             icon={<MantineIcon icon={IconPlus} />}
                         >

@@ -4,7 +4,9 @@ import {
     type CatalogItem,
 } from '@lightdash/common';
 import {
+    Anchor,
     Box,
+    Center,
     Divider,
     Group,
     Paper,
@@ -38,7 +40,7 @@ import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../components/common/MantineIcon';
 import SuboptimalState from '../../../components/common/SuboptimalState/SuboptimalState';
-import { useTracking } from '../../../providers/TrackingProvider';
+import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
 import { useAppDispatch, useAppSelector } from '../../sqlRunner/store/hooks';
 import {
@@ -50,17 +52,15 @@ import {
     setCategoryFilters,
     toggleMetricPeekModal,
 } from '../store/metricsCatalogSlice';
+import { MetricCatalogView } from '../types';
 import { MetricPeekModal } from './MetricPeekModal';
-import { useMetriCatalogColumns } from './MetricsCatalogColumns';
-import {
-    MetricCatalogView,
-    MetricsTableTopToolbar,
-} from './MetricsTableTopToolbar';
+import { useMetricsCatalogColumns } from './MetricsCatalogColumns';
+import { MetricsTableTopToolbar } from './MetricsTableTopToolbar';
 import MetricTree from './MetricTree';
 
 export const MetricsTable = () => {
     const { t } = useTranslation();
-    const metricsCatalogColumns = useMetriCatalogColumns();
+    const metricsCatalogColumns = useMetricsCatalogColumns();
 
     const { track } = useTracking();
     const dispatch = useAppDispatch();
@@ -81,14 +81,16 @@ export const MetricsTable = () => {
     const isMetricPeekModalOpen = useAppSelector(
         (state) => state.metricsCatalog.modals.metricPeekModal.isOpen,
     );
+    const metricCatalogView = useAppSelector(
+        (state) => state.metricsCatalog.view,
+    );
+    const prevView = useRef(metricCatalogView);
 
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const rowVirtualizerInstanceRef =
         useRef<MRT_Virtualizer<HTMLDivElement, HTMLTableRowElement>>(null);
     const [search, setSearch] = useState<string | undefined>(undefined);
     const deferredSearch = useDeferredValue(search);
-    const [metricCatalogView, setMetricCatalogView] =
-        useState<MetricCatalogView>(MetricCatalogView.LIST);
 
     // Enable sorting by highest popularity(how many charts use the metric) by default
     const initialSorting = [
@@ -183,10 +185,6 @@ export const MetricsTable = () => {
         fetchMoreOnBottomReached(tableContainerRef.current);
     }, [fetchMoreOnBottomReached]);
 
-    const handleViewChange = (view: MetricCatalogView) => {
-        setMetricCatalogView(view);
-    };
-
     const handleSetCategoryFilters = (selectedCategories: string[]) => {
         dispatch(setCategoryFilters(selectedCategories));
 
@@ -279,6 +277,17 @@ export const MetricsTable = () => {
     const dataHasCategories = useMemo(() => {
         return flatData.some((item) => item.categories?.length);
     }, [flatData]);
+
+    const noMeticsAvailable = useMemo(() => {
+        return (
+            flatData.length === 0 &&
+            !isLoading &&
+            !isFetching &&
+            !hasNextPage &&
+            !search &&
+            categoryFilters.length === 0
+        );
+    }, [flatData, isLoading, isFetching, search, categoryFilters, hasNextPage]);
 
     const table = useMantineReactTable({
         columns: metricsCatalogColumns as any,
@@ -466,8 +475,6 @@ export const MetricsTable = () => {
                     position="apart"
                     p={`${theme.spacing.lg} ${theme.spacing.xl}`}
                     showCategoriesFilter={canManageTags || dataHasCategories}
-                    onMetricCatalogViewChange={handleViewChange}
-                    metricCatalogView={metricCatalogView}
                     isValidMetricsTree={isValidMetricsTree}
                     segmentedControlTooltipLabel={segmentedControlTooltipLabel}
                 />
@@ -513,6 +520,30 @@ export const MetricsTable = () => {
                 )}
             </Box>
         ),
+        renderEmptyRowsFallback: () => {
+            return noMeticsAvailable ? (
+                <SuboptimalState
+                    title="No metrics defined in this project"
+                    action={
+                        <Text>
+                            To learn how to define metrics, check out our{' '}
+                            <Anchor
+                                target="_blank"
+                                href="https://docs.lightdash.com/references/metrics/"
+                            >
+                                documentation
+                            </Anchor>
+                        </Text>
+                    }
+                />
+            ) : (
+                <Center>
+                    <Text fs="italic" color="gray">
+                        No results found
+                    </Text>
+                </Center>
+            );
+        },
         icons: {
             IconArrowsSort: () => (
                 <MantineIcon icon={IconArrowsSort} size="md" color="gray.5" />
@@ -560,6 +591,21 @@ export const MetricsTable = () => {
         });
     }, [canManageTags, dataHasCategories, table]);
 
+    useEffect(
+        function handleRefetchOnViewChange() {
+            if (
+                data &&
+                metricCatalogView === MetricCatalogView.LIST &&
+                prevView.current === MetricCatalogView.TREE
+            ) {
+                table.setRowSelection({}); // Force a re-render of the table
+            }
+
+            prevView.current = metricCatalogView;
+        },
+        [metricCatalogView, data, table],
+    );
+
     switch (metricCatalogView) {
         case MetricCatalogView.LIST:
             return (
@@ -589,8 +635,6 @@ export const MetricsTable = () => {
                             showCategoriesFilter={
                                 canManageTags || dataHasCategories
                             }
-                            onMetricCatalogViewChange={handleViewChange}
-                            metricCatalogView={metricCatalogView}
                             isValidMetricsTree={isValidMetricsTree}
                             segmentedControlTooltipLabel={
                                 segmentedControlTooltipLabel

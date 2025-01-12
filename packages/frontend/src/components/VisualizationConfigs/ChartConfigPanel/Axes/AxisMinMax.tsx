@@ -2,8 +2,7 @@ import { Group, Switch, TextInput } from '@mantine/core';
 import { useCallback, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
-
-import { useTracking } from '../../../../providers/TrackingProvider';
+import useTracking from '../../../../providers/Tracking/useTracking';
 import { EventName } from '../../../../types/Events';
 import { Config } from '../../common/Config';
 

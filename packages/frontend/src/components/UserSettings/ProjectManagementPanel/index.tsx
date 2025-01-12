@@ -20,7 +20,7 @@ import {
 import { IconSettings, IconTrash } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, Redirect, useHistory } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router';
 
 import { useTableStyles } from '../../../hooks/styles/useTableStyles';
 import { useTableTabStyles } from '../../../hooks/styles/useTableTabStyles';
@@ -29,7 +29,7 @@ import {
     useUpdateActiveProjectMutation,
 } from '../../../hooks/useActiveProject';
 import { useProjects } from '../../../hooks/useProjects';
-import { useApp } from '../../../providers/AppProvider';
+import useApp from '../../../providers/App/useApp';
 import { Can } from '../../common/Authorization';
 import MantineIcon from '../../common/MantineIcon';
 import { SettingsCard } from '../../common/Settings/SettingsCard';
@@ -54,7 +54,7 @@ const ProjectListItem: FC<ProjectListItemProps> = ({
     onDelete,
 }) => {
     const { user } = useApp();
-    const history = useHistory();
+    const navigate = useNavigate();
 
     const { mutateAsync: updateActiveProjectMutation } =
         useUpdateActiveProjectMutation();
@@ -67,8 +67,11 @@ const ProjectListItem: FC<ProjectListItemProps> = ({
         // a lot of cache invalidation happens after the mutation above
         // so we need to wait for the next event loop to navigate to the new project
         setTimeout(() => {
-            history.replace(
+            void navigate(
                 `/generalSettings/projectManagement/${project.projectUuid}/settings`,
+                {
+                    replace: true,
+                },
             );
         }, 0);
     };
@@ -280,7 +283,7 @@ const ProjectManagementPanel: FC = () => {
     if (isLoadingProjects || isLoadingLastProject) return null;
 
     if (projects.length === 0) {
-        return <Redirect to="/createProject" />;
+        return <Navigate to="/createProject" />;
     }
 
     const lastProject = projects.find(

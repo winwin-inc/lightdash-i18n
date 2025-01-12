@@ -23,11 +23,11 @@ import {
 } from '@mantine/core';
 import { useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FilterActions } from '.';
 
 import FieldSelect from '../../common/FieldSelect';
 import MantineIcon from '../../common/MantineIcon';
-import { getChartIcon } from '../../common/ResourceIcon';
+import { getChartIcon } from '../../common/ResourceIcon/utils';
+import { FilterActions } from './constants';
 
 type Props = {
     tiles: DashboardTile[];

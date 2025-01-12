@@ -8,7 +8,7 @@ import { Badge, Box, Button, Group, Menu, Text, Tooltip } from '@mantine/core';
 import { IconArrowRight, IconPlus } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory, useRouteMatch } from 'react-router-dom';
+import { matchRoutes, useLocation, useMatch, useNavigate } from 'react-router';
 
 import useToaster from '../../hooks/toaster/useToaster';
 import {
@@ -17,7 +17,7 @@ import {
 } from '../../hooks/useActiveProject';
 import { useIsTruncated } from '../../hooks/useIsTruncated';
 import { useProjects } from '../../hooks/useProjects';
-import { useApp } from '../../providers/AppProvider';
+import useApp from '../../providers/App/useApp';
 import MantineIcon from '../common/MantineIcon';
 import { CreatePreviewModal } from './CreatePreviewProjectModal';
 
@@ -109,7 +109,7 @@ const ProjectSwitcher = () => {
     const { t } = useTranslation();
 
     const { showToastSuccess } = useToaster();
-    const history = useHistory();
+    const navigate = useNavigate();
 
     const { user } = useApp();
 
@@ -118,17 +118,19 @@ const ProjectSwitcher = () => {
     const { isLoading: isLoadingActiveProjectUuid, activeProjectUuid } =
         useActiveProjectUuid();
     const { mutate: setLastProjectMutation } = useUpdateActiveProjectMutation();
+    const location = useLocation();
+    const isHomePage = !!useMatch(`/projects/${activeProjectUuid}/home`);
 
-    const isHomePage = !!useRouteMatch({
-        path: '/projects/:projectUuid/home',
-        exact: true,
-    });
-
-    const swappableRouteMatch = useRouteMatch(
-        activeProjectUuid
-            ? { path: swappableProjectRoutes(activeProjectUuid), exact: true }
-            : [],
-    );
+    const routeMatches =
+        matchRoutes(
+            activeProjectUuid
+                ? swappableProjectRoutes(activeProjectUuid).map((path) => ({
+                      path,
+                  }))
+                : [],
+            location,
+        ) || [];
+    const swappableRouteMatch = routeMatches ? routeMatches[0]?.route : null;
 
     const shouldSwapProjectRoute = !!swappableRouteMatch && activeProjectUuid;
 
@@ -153,7 +155,7 @@ const ProjectSwitcher = () => {
                               ),
                               icon: IconArrowRight,
                               onClick: () => {
-                                  history.push(
+                                  void navigate(
                                       `/projects/${project.projectUuid}/home`,
                                   );
                               },
@@ -162,19 +164,19 @@ const ProjectSwitcher = () => {
             });
 
             if (shouldSwapProjectRoute) {
-                history.push(
+                void navigate(
                     swappableRouteMatch.path.replace(
                         activeProjectUuid,
                         project.projectUuid,
                     ),
                 );
             } else {
-                history.push(`/projects/${project.projectUuid}/home`);
+                void navigate(`/projects/${project.projectUuid}/home`);
             }
         },
         [
             activeProjectUuid,
-            history,
+            navigate,
             isHomePage,
             projects,
             setLastProjectMutation,
@@ -340,7 +342,9 @@ const ProjectSwitcher = () => {
                             {inactiveProjects.length > 0 && <Menu.Divider />}
 
                             <Menu.Item
-                                onClick={(e) => {
+                                onClick={(
+                                    e: React.MouseEvent<HTMLButtonElement>,
+                                ) => {
                                     setIsCreatePreview(!isCreatePreviewOpen);
                                     e.stopPropagation();
                                 }}

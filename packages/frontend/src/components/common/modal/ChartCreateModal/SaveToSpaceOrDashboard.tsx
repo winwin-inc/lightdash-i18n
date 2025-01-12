@@ -20,10 +20,9 @@ import {
     TextInput,
 } from '@mantine/core';
 import { useForm, zodResolver } from '@mantine/form';
-import { uuid4 } from '@sentry/utils';
 import { useCallback, useEffect, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { v4 as uuid4 } from 'uuid';
 import { z } from 'zod';
 import {
     appendNewTilesToBottom,
@@ -36,11 +35,10 @@ import {
     useCreateMutation as useSpaceCreateMutation,
     useSpaceSummaries,
 } from '../../../../hooks/useSpaces';
-import { useApp } from '../../../../providers/AppProvider';
-import SaveToDashboardForm, {
-    saveToDashboardSchema,
-} from './SaveToDashboardForm';
-import SaveToSpaceForm, { saveToSpaceSchema } from './SaveToSpaceForm';
+import useApp from '../../../../providers/App/useApp';
+import SaveToDashboardForm from './SaveToDashboardForm';
+import SaveToSpaceForm from './SaveToSpaceForm';
+import { saveToDashboardSchema, saveToSpaceSchema } from './types';
 
 enum SaveDestination {
     Dashboard = 'dashboard',
@@ -60,7 +58,7 @@ const saveToSpaceOrDashboardSchema = z
 type FormValues = z.infer<typeof saveToSpaceOrDashboardSchema>;
 
 type Props = {
-    projectUuid: string;
+    projectUuid?: string;
     savedData: CreateSavedChartVersion;
     defaultSpaceUuid: string | undefined;
     dashboardInfoFromSavedData: {
@@ -72,6 +70,7 @@ type Props = {
 };
 
 export const SaveToSpaceOrDashboard: FC<Props> = ({
+    projectUuid,
     savedData,
     defaultSpaceUuid,
     dashboardInfoFromSavedData,
@@ -79,7 +78,6 @@ export const SaveToSpaceOrDashboard: FC<Props> = ({
     onClose,
 }) => {
     const { user } = useApp();
-    const { projectUuid } = useParams<{ projectUuid: string }>();
     const { t } = useTranslation();
 
     const { mutateAsync: createChart, isLoading: isSavingChart } =

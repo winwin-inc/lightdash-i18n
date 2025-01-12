@@ -28,7 +28,7 @@ import { useEffect, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import useToaster from '../../../hooks/toaster/useToaster';
-import { useExplorerContext } from '../../../providers/ExplorerProvider';
+import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import MantineIcon from '../../common/MantineIcon';
 
 // TODO: preview custom dimension results
@@ -263,18 +263,18 @@ export const CustomBinDimensionModal: FC<{
                 <Stack>
                     <TextInput
                         label={t(
-                            'components_explorer_custom_dimension_modal.from.label.label',
+                            'components_explorer_custom_dimension_modal.form.label.label',
                         )}
                         required
                         placeholder={t(
-                            'components_explorer_custom_dimension_modal.from.label.placeholder',
+                            'components_explorer_custom_dimension_modal.form.label.placeholder',
                         )}
                         {...form.getInputProps('customDimensionLabel')}
                     />
 
                     <Radio.Group
                         label={t(
-                            'components_explorer_custom_dimension_modal.from.bin_type.label',
+                            'components_explorer_custom_dimension_modal.form.bin_type.label',
                         )}
                         withAsterisk
                         required
@@ -284,19 +284,19 @@ export const CustomBinDimensionModal: FC<{
                             <Radio
                                 value={BinType.FIXED_NUMBER}
                                 label={t(
-                                    'components_explorer_custom_dimension_modal.from.bin_type.radio_groups_radio_01',
+                                    'components_explorer_custom_dimension_modal.form.bin_type.radio_groups.radio_01',
                                 )}
                             />
                             <Radio
                                 value={BinType.FIXED_WIDTH}
                                 label={t(
-                                    'components_explorer_custom_dimension_modal.from.bin_type.radio_groups_radio_02',
+                                    'components_explorer_custom_dimension_modal.form.bin_type.radio_groups.radio_02',
                                 )}
                             />
                             <Radio
                                 value={BinType.CUSTOM_RANGE}
                                 label={t(
-                                    'components_explorer_custom_dimension_modal.from.bin_type.radio_groups_radio_03',
+                                    'components_explorer_custom_dimension_modal.form.bin_type.radio_groups.radio_03',
                                 )}
                             />
                         </Group>
@@ -306,7 +306,7 @@ export const CustomBinDimensionModal: FC<{
                         <NumberInput
                             w={100}
                             label={t(
-                                'components_explorer_custom_dimension_modal.from.bin_number.label',
+                                'components_explorer_custom_dimension_modal.form.bin_number.label',
                             )}
                             required
                             min={MIN_OF_FIXED_NUMBER_BINS}
@@ -321,7 +321,7 @@ export const CustomBinDimensionModal: FC<{
                         <NumberInput
                             w={100}
                             label={t(
-                                'components_explorer_custom_dimension_modal.from.bin_width.label',
+                                'components_explorer_custom_dimension_modal.form.bin_width.label',
                             )}
                             required
                             min={MIN_OF_FIXED_NUMBER_BINS}

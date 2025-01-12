@@ -11,9 +11,9 @@ import {
 import { memo, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { COLLAPSABLE_CARD_BUTTON_PROPS } from '../../common/CollapsableCard';
+import { COLLAPSABLE_CARD_BUTTON_PROPS } from '../../common/CollapsableCard/constants';
 import MantineIcon from '../../common/MantineIcon';
-import { BANNER_HEIGHT, NAVBAR_HEIGHT } from '../../NavBar';
+import { BANNER_HEIGHT, NAVBAR_HEIGHT } from '../../common/Page/constants';
 import { ConfigTabs as BigNumberConfigTabs } from '../../VisualizationConfigs/BigNumberConfig/BigNumberConfigTabs';
 import { ConfigTabs as ChartConfigTabs } from '../../VisualizationConfigs/ChartConfigPanel/ConfigTabs';
 import CustomVisConfigTabs from '../../VisualizationConfigs/ChartConfigPanel/CustomVisConfigTabs';

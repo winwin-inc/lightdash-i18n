@@ -12,7 +12,7 @@
     <a href="http://www.lightdash.com"><b>Website</b></a> •
     <a href="https://www.loom.com/share/c0805a236a994de397ac5142fdfe4b7f"><b>Watch demo</b></a> •
     <a href="http://docs.lightdash.com/"><b>Docs</b></a> •
-    <a href="https://join.slack.com/t/lightdash-community/shared_invite/zt-2ehqnrvqt-LbCq7cUSFHAzEj_wMuxg4A"><b>Join Slack Community</b></a>
+    <a href="https://join.slack.com/t/lightdash-community/shared_invite/zt-2uwa5s9jl-xTNyjJ7otC8wH3jB8qgCpA"><b>Join Slack Community</b></a>
 </p>
 <div align="center">
 <img src="https://img.shields.io/github/license/lightdash/lightdash" />
@@ -107,7 +107,7 @@ Step 3 - 👩‍💻 [Create your first metric](https://docs.lightdash.com/get-s
 
 ## Community Support
 
-📣 If you want something a bit more, then [head on over to our Slack Community](https://join.slack.com/t/lightdash-community/shared_invite/zt-2ehqnrvqt-LbCq7cUSFHAzEj_wMuxg4A) where you’ll be able to chat directly with all of us at Lightdash and all the other amazing members of our community. We’re happy to talk about anything from feature requests, implementation details or dbt quirks to memes and SQL jokes!
+📣 If you want something a bit more, then [head on over to our Slack Community](https://join.slack.com/t/lightdash-community/shared_invite/zt-2uwa5s9jl-xTNyjJ7otC8wH3jB8qgCpA) where you’ll be able to chat directly with all of us at Lightdash and all the other amazing members of our community. We’re happy to talk about anything from feature requests, implementation details or dbt quirks to memes and SQL jokes!
 
 You can also keep up to date with Lightdash by following us here:
 
@@ -387,6 +387,10 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Guru6163"><img src="https://avatars.githubusercontent.com/u/42559222?v=4?s=100" width="100px;" alt="Guruprasath Sankaran"/><br /><sub><b>Guruprasath Sankaran</b></sub></a><br /><a href="https://github.com/lightdash/lightdash/commits?author=Guru6163" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/VenkataRohan"><img src="https://avatars.githubusercontent.com/u/83659881?v=4?s=100" width="100px;" alt="VenkataRohan"/><br /><sub><b>VenkataRohan</b></sub></a><br /><a href="https://github.com/lightdash/lightdash/commits?author=VenkataRohan" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/inverts"><img src="https://avatars.githubusercontent.com/u/4111862?v=4?s=100" width="100px;" alt="Dave"/><br /><sub><b>Dave</b></sub></a><br /><a href="https://github.com/lightdash/lightdash/commits?author=inverts" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/BhuvaneshPatil"><img src="https://avatars.githubusercontent.com/u/27822551?v=4?s=100" width="100px;" alt="Bhuvanesh"/><br /><sub><b>Bhuvanesh</b></sub></a><br /><a href="https://github.com/lightdash/lightdash/commits?author=BhuvaneshPatil" title="Code">💻</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://parthiblol.netlify.app"><img src="https://avatars.githubusercontent.com/u/94271200?v=4?s=100" width="100px;" alt="Parthib Datta"/><br /><sub><b>Parthib Datta</b></sub></a><br /><a href="https://github.com/lightdash/lightdash/commits?author=ptdatta" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>

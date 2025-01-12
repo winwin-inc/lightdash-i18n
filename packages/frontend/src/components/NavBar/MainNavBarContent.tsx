@@ -1,7 +1,7 @@
 import { ActionIcon, Box, Button, Group } from '@mantine/core';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 import Omnibar from '../../features/omnibar';
 import Logo from '../../svgs/logo-icon.svg?react';

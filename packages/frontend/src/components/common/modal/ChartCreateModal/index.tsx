@@ -3,7 +3,7 @@ import { Group, Modal, Text } from '@mantine/core';
 import { IconChartBar } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 
 import useDashboardStorage from '../../../../hooks/dashboard/useDashboardStorage';
 import MantineIcon from '../../MantineIcon';

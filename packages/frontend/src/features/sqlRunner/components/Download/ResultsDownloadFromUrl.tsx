@@ -11,8 +11,8 @@ import { useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../../components/common/MantineIcon';
+import { DEFAULT_SQL_LIMIT } from '../../constants';
 import { useDownloadResults } from '../../hooks/useDownloadResults';
-import { DEFAULT_SQL_LIMIT } from '../ContentPanel';
 
 type Props = {
     fileUrl: string | undefined;

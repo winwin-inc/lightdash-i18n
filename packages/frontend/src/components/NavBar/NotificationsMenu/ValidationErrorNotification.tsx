@@ -3,7 +3,7 @@ import { Text } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 import { useTimeAgo } from '../../../hooks/useTimeAgo';
 import LargeMenuItem from '../../common/LargeMenuItem';

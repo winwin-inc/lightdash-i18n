@@ -6,12 +6,12 @@ import { v4 as uuidv4 } from 'uuid';
 import type { MetricWithAssociatedTimeDimension } from '../types/catalog';
 import { ConditionalOperator } from '../types/conditionalRule';
 import { type CompiledTable } from '../types/explore';
-import type { Dimension } from '../types/field';
 import {
     DimensionType,
     MetricType,
     type CompiledDimension,
     type CompiledMetric,
+    type Dimension,
 } from '../types/field';
 import {
     type DateFilterSettings,
@@ -172,6 +172,22 @@ export const getGrainForDateRange = (
     return TimeFrames.YEAR;
 };
 
+export const getMetricsExplorerSegmentFilters = (
+    segmentDimension: string | null,
+    segments: string[],
+): FilterRule[] => {
+    if (!segmentDimension || segments.length === 0) return [];
+
+    return [
+        {
+            id: uuidv4(),
+            target: { fieldId: segmentDimension },
+            operator: ConditionalOperator.EQUALS,
+            values: segments,
+        },
+    ];
+};
+
 export const getMetricExplorerDateRangeFilters = (
     timeDimensionConfig: TimeDimensionConfig,
     dateRange: MetricExplorerDateRange,
@@ -196,9 +212,8 @@ export const getMetricExplorerDateRangeFilters = (
     ];
 };
 
-// TODO: Should we just use the formatted value instead?
 // Parse the metric value to a number, returning null if it's not a number
-const parseMetricValue = (value: unknown): number | null => {
+export const parseMetricValue = (value: unknown): number | null => {
     if (value === null || value === undefined) return null;
     const parsed = Number(value);
     return Number.isNaN(parsed) ? null : parsed;
@@ -216,7 +231,7 @@ export const MAX_SEGMENT_DIMENSION_UNIQUE_VALUES = 10;
 export const getMetricExplorerDataPoints = (
     dimension: Dimension,
     metric: MetricWithAssociatedTimeDimension,
-    metricRows: ResultRow[],
+    metricRows: Record<string, any>[],
     segmentDimensionId: string | null,
 ): {
     dataPoints: Array<MetricExploreDataPoint>;
@@ -229,43 +244,39 @@ export const getMetricExplorerDataPoints = (
     let isSegmentDimensionFiltered = false;
     if (segmentDimensionId) {
         const countUniqueValues = new Set(
-            metricRows.map((row) => row[segmentDimensionId]?.value.raw),
+            metricRows.map((row) => row[segmentDimensionId]),
         ).size;
 
         if (countUniqueValues > MAX_SEGMENT_DIMENSION_UNIQUE_VALUES) {
             isSegmentDimensionFiltered = true;
             const first10Values = Array.from(
-                new Set(
-                    metricRows.map((row) => row[segmentDimensionId]?.value.raw),
-                ),
+                new Set(metricRows.map((row) => row[segmentDimensionId])),
             ).slice(0, MAX_SEGMENT_DIMENSION_UNIQUE_VALUES);
             filteredMetricRows = metricRows.filter((row) =>
-                first10Values.includes(row[segmentDimensionId]?.value.raw),
+                first10Values.includes(row[segmentDimensionId]),
             );
         }
     }
 
     const groupByMetricRows = groupBy(filteredMetricRows, (row) =>
-        new Date(String(row[dimensionId].value.raw)).toISOString(),
+        new Date(String(row[dimensionId])).toISOString(),
     );
 
     const dataPoints = Object.entries(groupByMetricRows).flatMap(
         ([date, rows]) =>
             rows.map((row) => {
                 const segmentValue = segmentDimensionId
-                    ? parseDimensionValue(row[segmentDimensionId]?.value.raw)
+                    ? parseDimensionValue(row[segmentDimensionId])
                     : null;
 
                 return {
                     date: new Date(date),
                     segment: segmentValue,
                     metric: {
-                        value: parseMetricValue(row[metricId]?.value.raw),
-                        formatted: row[metricId]?.value.formatted,
+                        value: parseMetricValue(row[metricId]),
                         label: segmentValue ?? metric.label ?? metric.name,
                     },
                     compareMetric: {
-                        formatted: null,
                         value: null,
                         label: null,
                     },
@@ -305,8 +316,8 @@ export const getMetricExplorerDataPointsWithCompare = (
     dimension: Dimension,
     compareDimension: Dimension,
     metric: MetricWithAssociatedTimeDimension,
-    metricRows: ResultRow[],
-    compareMetricRows: ResultRow[],
+    metricRows: Record<string, any>[],
+    compareMetricRows: Record<string, any>[],
     query: MetricExplorerQuery,
     timeFrame: TimeFrames,
 ): {
@@ -322,10 +333,10 @@ export const getMetricExplorerDataPointsWithCompare = (
     const compareDimensionId = getItemId(compareDimension);
 
     const groupByMetricRows = groupBy(metricRows, (row) =>
-        new Date(String(row[dimensionId].value.raw)).toISOString(),
+        new Date(String(row[dimensionId])).toISOString(),
     );
     const groupByCompareMetricRows = groupBy(compareMetricRows, (row) =>
-        new Date(String(row[compareDimensionId].value.raw)).toISOString(),
+        new Date(String(row[compareDimensionId])).toISOString(),
     );
 
     const offsetGroupByCompareMetricRows = mapKeys(
@@ -371,20 +382,12 @@ export const getMetricExplorerDataPointsWithCompare = (
         date: new Date(date),
         segment: null,
         metric: {
-            formatted:
-                groupByMetricRows[date]?.[0]?.[metricId]?.value.formatted,
-            value: parseMetricValue(
-                groupByMetricRows[date]?.[0]?.[metricId]?.value.raw,
-            ),
+            value: parseMetricValue(groupByMetricRows[date]?.[0]?.[metricId]),
             label: metric.label ?? metric.name,
         },
         compareMetric: {
-            formatted:
-                offsetGroupByCompareMetricRows[date]?.[0]?.[compareMetricId]
-                    ?.value.formatted,
             value: parseMetricValue(
-                offsetGroupByCompareMetricRows[date]?.[0]?.[compareMetricId]
-                    ?.value.raw,
+                offsetGroupByCompareMetricRows[date]?.[0]?.[compareMetricId],
             ),
             label: comparisonMetricLabel,
         },
@@ -430,23 +433,23 @@ export const getDefaultDateRangeFromInterval = (
     }
 };
 
-export const getDefaultDateRangeForMetricTotal = (
+export const getDefaultMetricTreeNodeDateRange = (
     timeFrame: TimeFrames,
 ): MetricExplorerDateRange => {
     const now = dayjs();
 
     switch (timeFrame) {
         case TimeFrames.DAY:
-            return [now.startOf('day').toDate(), now.endOf('day').toDate()];
-        case TimeFrames.WEEK:
             return [
-                now.startOf('isoWeek').toDate(),
-                now.endOf('isoWeek').toDate(),
+                now.startOf('day').subtract(1, 'day').toDate(),
+                now.endOf('day').subtract(1, 'day').toDate(),
             ];
+        case TimeFrames.WEEK:
+            return [now.startOf('isoWeek').toDate(), now.toDate()];
         case TimeFrames.MONTH:
-            return [now.startOf('month').toDate(), now.endOf('month').toDate()];
+            return [now.startOf('month').toDate(), now.toDate()];
         case TimeFrames.YEAR:
-            return [now.startOf('year').toDate(), now.endOf('year').toDate()];
+            return [now.startOf('year').toDate(), now.toDate()];
         default:
             return assertUnimplementedTimeframe(timeFrame);
     }

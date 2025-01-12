@@ -7,11 +7,12 @@ import {
 } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
+
 import { useProjectSavedChartStatus } from '../../../hooks/useOnboardingStatus';
 import useCreateInAnySpaceAccess from '../../../hooks/user/useCreateInAnySpaceAccess';
-import { useApp } from '../../../providers/AppProvider';
-import { TrackSection } from '../../../providers/TrackingProvider';
+import useApp from '../../../providers/App/useApp';
+import { TrackSection } from '../../../providers/Tracking/TrackingProvider';
 import { SectionName } from '../../../types/Events';
 import { Can } from '../../common/Authorization';
 import MantineIcon from '../../common/MantineIcon';

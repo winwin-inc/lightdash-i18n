@@ -11,7 +11,7 @@ import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../components/common/MantineIcon';
-import { TrackPage } from '../../../providers/TrackingProvider';
+import { TrackPage } from '../../../providers/Tracking/TrackingProvider';
 import { CategoryName, PageName, PageType } from '../../../types/Events';
 
 interface EditProjectGroupAccessModalProps {

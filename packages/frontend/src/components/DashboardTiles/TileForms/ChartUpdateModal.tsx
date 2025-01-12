@@ -27,7 +27,8 @@ import { IconEye, IconEyeOff } from '@tabler/icons-react';
 import { uniqBy } from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
+
 import { useChartSummariesV2 } from '../../../hooks/useChartSummariesV2';
 import MantineIcon from '../../common/MantineIcon';
 

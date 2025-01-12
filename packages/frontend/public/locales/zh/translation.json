@@ -1096,6 +1096,11 @@
                 "part_3": "未找到使用该指标的图表"
             }
         },
+        "press_modal": {
+            "part_1": "按",
+            "part_2": "以移动到上一个指标。",
+            "part_3": "以移动到下一个指标。"
+        },
         "peek_modal": {
             "comparison": "比较",
             "clear": "清除",
@@ -2259,7 +2264,10 @@
             "part_2": "您正在",
             "part_3": "此图表,并位于",
             "part_4": "看板内"
-        }
+        },
+        "creating": "创建",
+        "editing": "编辑",
+        "viewing": "查看"
     },
     "components_navbar_preview_banner": {
         "content": "这是预览环境。您在此处所做的任何更改都不会影响生产环境。"
@@ -3754,9 +3762,9 @@
         "add_custom_dimensions": "添加自定义维度",
         "view_options": "查看选项",
         "copy_custom_metric": "自定义指标复制成功",
-        "duplicate_custom_metric": "重复自定义指标",
+        "duplicate_custom_metric": "复制自定义指标",
         "copy_custom_dimension": "自定义维度复制成功",
-        "duplicate_custom_dimension": "重复自定义维度"
+        "duplicate_custom_dimension": "复制自定义维度"
     },
     "components_explorer_table_tree_single_node": {
         "no_availailable": "暂无描述。",
@@ -3912,6 +3920,9 @@
             "placeholder": "例如 km/h"
         }
     },
+    "components_explorer_format_modal": {
+        "save_changes": "保存更改"
+    },
     "components_explorer_results_card": {
         "title": "结果"
     },
@@ -4010,6 +4021,7 @@
         },
         "edit_chart": "编辑图表",
         "cancel": "取消",
+        "change": "更改",
         "move_to_space": "移动到空间",
         "menus": {
             "save_chart_as": "将图表另存为",
@@ -4688,6 +4700,7 @@
     "components_project_connection_dbt_settings": {
         "type": "类型",
         "dbt_version": "dbt 版本",
+        "latest": "最新 ({{version}})",
         "target_name": "目标名称",
         "target_tip": {
             "part_1": "目标",
@@ -4827,15 +4840,31 @@
             "alert": {
                 "title": "要求",
                 "content": {
-                    "part_1": "构建您的项目的 dbt 作业还必须生成文档,并且您的 API 密钥必须有访问发现 API 的权限。",
-                    "part_2": "您的作业完成后,需要在 Lightdash 中单击\"刷新 dbt\"按钮来同步您的项目。"
+                    "part_1": "构建您的项目的 dbt 作业必须",
+                    "part_2": "生成文档",
+                    "part_3": "您的作业完成后,需要在 Lightdash 中单击\"刷新 dbt\"按钮来同步您的项目。"
                 }
             },
             "api_key": {
-                "label": "API 密钥"
+                "label": "服务令牌",
+                "content": {
+                    "part_1": "服务令牌必须具有 \"Metadata Only\" 权限。",
+                    "part_2": "必填字段"
+                }
             },
             "environment": {
-                "label": "环境 ID"
+                "label": "环境 ID",
+                "content": {
+                    "part_1": "dbt 生产环境的唯一标识符,您可以从 dbt Cloud URL 中检索此信息,当您在 Deploy 下导航到 Environments 时。",
+                    "part_2": "必填字段"
+                }
+            },
+            "discovery_api_endpoint": {
+                "label": "Discovery API 端点",
+                "content": {
+                    "part_1": "使用适合您的",
+                    "part_2": "区域和计划"
+                }
             }
         },
         "dbt_local": {

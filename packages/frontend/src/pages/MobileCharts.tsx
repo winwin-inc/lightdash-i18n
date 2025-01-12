@@ -8,15 +8,15 @@ import { IconChartBar, IconSearch, IconX } from '@tabler/icons-react';
 import Fuse from 'fuse.js';
 import { useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 
 import LoadingState from '../components/common/LoadingState';
 import MantineIcon from '../components/common/MantineIcon';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import ResourceView from '../components/common/ResourceView';
-import { SortDirection } from '../components/common/ResourceView/ResourceViewList';
+import { ResourceSortDirection } from '../components/common/ResourceView/types';
 import { useCharts } from '../hooks/useCharts';
-import { useApp } from '../providers/AppProvider';
+import useApp from '../providers/App/useApp';
 
 const MobileCharts: FC = () => {
     const { t } = useTranslation();
@@ -83,7 +83,7 @@ const MobileCharts: FC = () => {
             <ResourceView
                 items={visibleItems}
                 listProps={{
-                    defaultSort: { updatedAt: SortDirection.DESC },
+                    defaultSort: { updatedAt: ResourceSortDirection.DESC },
                     defaultColumnVisibility: {
                         space: false,
                         updatedAt: false,

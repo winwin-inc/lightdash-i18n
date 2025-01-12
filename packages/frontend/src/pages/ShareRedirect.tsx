@@ -2,7 +2,7 @@ import { Box } from '@mantine/core';
 import { IconLinkOff } from '@tabler/icons-react';
 import { useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
 import { useGetShare } from '../hooks/useShare';
@@ -11,13 +11,13 @@ const ShareRedirect: FC = () => {
     const { t } = useTranslation();
     const { shareNanoid } = useParams<{ shareNanoid: string }>();
     const { data, error } = useGetShare(shareNanoid);
-    const history = useHistory();
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (data && data.url) {
-            history.push(data.url);
+            void navigate(data.url);
         }
-    }, [data, history]);
+    }, [data, navigate]);
 
     if (error) {
         return (

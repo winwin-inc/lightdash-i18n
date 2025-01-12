@@ -452,14 +452,14 @@ export const convertModelMetric = ({
         percentile: metric.percentile,
         dimensionReference,
         requiredAttributes,
-        ...(metric.urls ? { urls: metric.urls } : {}),
+        ...(metric.urls ? { urls: metric.urls } : null),
         ...(metric.tags
             ? {
                   tags: Array.isArray(metric.tags)
                       ? metric.tags
                       : [metric.tags],
               }
-            : {}),
+            : null),
         ...(metric.default_time_dimension
             ? {
                   defaultTimeDimension: {
@@ -467,7 +467,7 @@ export const convertModelMetric = ({
                       interval: metric.default_time_dimension.interval,
                   },
               }
-            : {}),
+            : null),
     };
 };
 type ConvertColumnMetricArgs = Omit<ConvertModelMetricArgs, 'metric'> & {
@@ -513,7 +513,7 @@ export const convertColumnMetric = ({
                       interval: metric.default_time_dimension.interval,
                   },
               }
-            : {}),
+            : null),
     });
 
 export enum DbtManifestVersion {
@@ -524,6 +524,31 @@ export enum DbtManifestVersion {
     V11 = 'v11',
     V12 = 'v12',
 }
+
+export const getDbtManifestVersion = (
+    manifest: DbtManifest,
+): DbtManifestVersion => {
+    const version =
+        manifest.metadata.dbt_schema_version.match(/\/(v\d+).json/)?.[1];
+    if (!version) {
+        throw new Error(
+            `Could not determine dbt manifest version from ${manifest.metadata.dbt_schema_version}`,
+        );
+    }
+    if (
+        Object.values(DbtManifestVersion).includes(
+            version as DbtManifestVersion,
+        )
+    ) {
+        return version as DbtManifestVersion;
+    }
+    throw new Error(`Unsupported dbt manifest version: ${version}`);
+};
+
+export const getLatestSupportedDbtManifestVersion = (): DbtManifestVersion => {
+    const versions = Object.values(DbtManifestVersion);
+    return versions[versions.length - 1];
+};
 
 export enum DbtExposureType {
     DASHBOARD = 'dashboard',

@@ -98,7 +98,7 @@ const ResourceViewGridChartItem: FC<ResourceViewGridChartItemProps> = ({
                         opacity: hovered || opened ? 1 : 0,
                     }}
                     component="div"
-                    onClick={(e) => {
+                    onClick={(e: React.MouseEvent<HTMLDivElement>) => {
                         e.stopPropagation();
                         e.preventDefault();
                     }}

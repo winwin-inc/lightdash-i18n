@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { type useSqlQueryMutation } from '../../hooks/useSqlQuery';
 import useSqlRunnerColumns from '../../hooks/useSqlRunnerColumns';
-import { TrackSection } from '../../providers/TrackingProvider';
+import { TrackSection } from '../../providers/Tracking/TrackingProvider';
 import { SectionName } from '../../types/Events';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
 import Table from '../common/Table';

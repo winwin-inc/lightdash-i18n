@@ -3,9 +3,9 @@ import { Button, Tooltip } from '@mantine/core';
 import { type MRT_Row } from 'mantine-react-table';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 
-import { useTracking } from '../../../providers/TrackingProvider';
+import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
 import { useAppDispatch, useAppSelector } from '../../sqlRunner/store/hooks';
 import { toggleMetricPeekModal } from '../store/metricsCatalogSlice';
@@ -18,7 +18,8 @@ export const ExploreMetricButton = ({ row }: Props) => {
     const { t } = useTranslation();
 
     const dispatch = useAppDispatch();
-    const history = useHistory();
+    const navigate = useNavigate();
+    const location = useLocation();
 
     const projectUuid = useAppSelector(
         (state) => state.metricsCatalog.projectUuid,
@@ -40,9 +41,9 @@ export const ExploreMetricButton = ({ row }: Props) => {
             },
         });
 
-        history.push({
+        void navigate({
             pathname: `/projects/${projectUuid}/metrics/peek/${row.original.tableName}/${row.original.name}`,
-            search: history.location.search,
+            search: location.search,
         });
 
         dispatch(
@@ -53,7 +54,8 @@ export const ExploreMetricButton = ({ row }: Props) => {
         );
     }, [
         dispatch,
-        history,
+        location,
+        navigate,
         organizationUuid,
         projectUuid,
         row.original.name,

@@ -1,8 +1,9 @@
 import { Center, Text } from '@mantine/core';
 import { IconTool } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { BANNER_HEIGHT } from '.';
+
 import MantineIcon from '../common/MantineIcon';
+import { BANNER_HEIGHT } from '../common/Page/constants';
 
 export const PreviewBanner = () => {
     const { t } = useTranslation();

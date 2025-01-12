@@ -19,12 +19,8 @@ import {
     type PopoverProps,
 } from '@mantine/core';
 import { useEffect, useMemo, useState, type FC } from 'react';
-import { useTranslation } from 'react-i18next';
-
-import {
-    FilterInputComponent,
-    useFilterOperatorOptions,
-} from '../../common/Filters/FilterInputs';
+import FilterInputComponent from '../../common/Filters/FilterInputs';
+import { useFilterOperatorOptions } from '../../common/Filters/FilterInputs/utils';
 import { getPlaceholderByFilterTypeAndOperator } from '../../common/Filters/utils/getPlaceholderByFilterTypeAndOperator';
 
 interface FilterSettingsProps {

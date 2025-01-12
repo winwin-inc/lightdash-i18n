@@ -1,6 +1,4 @@
-import assertUnreachable from '../utils/assertUnreachable';
 import { type WeekDay } from '../utils/timeFrames';
-import { DbtManifestVersion } from './dbt';
 import { type ProjectGroupAccess } from './projectGroupAccess';
 
 export enum ProjectType {
@@ -101,6 +99,7 @@ export type CreatePostgresCredentials = SshTunnelConfiguration & {
     role?: string;
     sslmode?: string;
     startOfWeek?: WeekDay | null;
+    timeoutSeconds?: number;
 };
 export type PostgresCredentials = Omit<
     CreatePostgresCredentials,
@@ -136,6 +135,7 @@ export type CreateRedshiftCredentials = SshTunnelConfiguration & {
     sslmode?: string;
     ra3Node?: boolean;
     startOfWeek?: WeekDay | null;
+    timeoutSeconds?: number;
 };
 export type RedshiftCredentials = Omit<
     CreateRedshiftCredentials,
@@ -199,32 +199,22 @@ export enum SupportedDbtVersions {
     V1_6 = 'v1.6',
     V1_7 = 'v1.7',
     V1_8 = 'v1.8',
+    V1_9 = 'v1.9',
 }
 
-export const GetDbtManifestVersion = (
-    dbtVersion: SupportedDbtVersions,
-): DbtManifestVersion => {
-    switch (dbtVersion) {
-        case SupportedDbtVersions.V1_4:
-            return DbtManifestVersion.V8;
-        case SupportedDbtVersions.V1_5:
-            return DbtManifestVersion.V9;
-        case SupportedDbtVersions.V1_6:
-            return DbtManifestVersion.V10;
-        case SupportedDbtVersions.V1_7:
-            return DbtManifestVersion.V11;
-        case SupportedDbtVersions.V1_8:
-            return DbtManifestVersion.V12;
-        default:
-            assertUnreachable(
-                dbtVersion,
-                'Missing dbt version manifest mapping',
-            );
-    }
-    return DbtManifestVersion.V8;
+// Make it an enum to avoid TSOA errors
+export enum DbtVersionOptionLatest {
+    LATEST = 'latest',
+}
+
+export type DbtVersionOption = SupportedDbtVersions | DbtVersionOptionLatest;
+
+export const getLatestSupportDbtVersion = (): SupportedDbtVersions => {
+    const versions = Object.values(SupportedDbtVersions);
+    return versions[versions.length - 1];
 };
 
-export const DefaultSupportedDbtVersion = SupportedDbtVersions.V1_4;
+export const DefaultSupportedDbtVersion = DbtVersionOptionLatest.LATEST;
 
 export interface DbtProjectCompilerBase extends DbtProjectConfigBase {
     target?: string;
@@ -247,6 +237,7 @@ export interface DbtCloudIDEProjectConfig extends DbtProjectConfigBase {
     type: DbtProjectType.DBT_CLOUD_IDE;
     api_key: string;
     environment_id: string;
+    discovery_api_endpoint?: string;
 }
 
 export interface DbtGithubProjectConfig extends DbtProjectCompilerBase {
@@ -326,7 +317,7 @@ export type Project = {
     warehouseConnection?: WarehouseCredentials;
     pinnedListUuid?: string;
     upstreamProjectUuid?: string;
-    dbtVersion: SupportedDbtVersions;
+    dbtVersion: DbtVersionOption;
     semanticLayerConnection?: SemanticLayerConnection;
     schedulerTimezone: string;
     createdByUserUuid: string | null;

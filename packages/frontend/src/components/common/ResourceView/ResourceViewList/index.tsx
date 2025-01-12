@@ -12,9 +12,8 @@ import {
 } from '@tabler/icons-react';
 import React, { useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useHistory, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router';
 
-import { type ResourceViewCommonProps } from '..';
 import { useTableStyles } from '../../../../hooks/styles/useTableStyles';
 import { useSpaceSummaries } from '../../../../hooks/useSpaces';
 import { useValidationUserAbility } from '../../../../hooks/validation/useValidation';
@@ -25,27 +24,26 @@ import {
     getResourceViewsSinceWhenDescription,
     useResourceTypeName,
 } from '../resourceUtils';
-import { type ResourceViewItemActionState } from './../ResourceActionHandlers';
+import {
+    ResourceSortDirection,
+    type ResourceViewCommonProps,
+    type ResourceViewItemActionState,
+} from '../types';
 import ResourceActionMenu from './../ResourceActionMenu';
 import ResourceLastEdited from './../ResourceLastEdited';
-
-export enum SortDirection {
-    ASC = 'asc',
-    DESC = 'desc',
-}
 
 type ColumnName = 'name' | 'space' | 'updatedAt' | 'actions';
 
 type ColumnVisibilityMap = Map<ColumnName, boolean>;
 
-type SortingState = null | SortDirection;
+type SortingState = null | ResourceSortDirection;
 
 type SortingStateMap = Map<ColumnName, SortingState>;
 
 export interface ResourceViewListCommonProps {
     enableSorting?: boolean;
     enableMultiSort?: boolean;
-    defaultSort?: Partial<Record<ColumnName, SortDirection>>;
+    defaultSort?: Partial<Record<ColumnName, ResourceSortDirection>>;
     defaultColumnVisibility?: Partial<Record<ColumnName, boolean>>;
 }
 
@@ -54,7 +52,7 @@ type ResourceViewListProps = ResourceViewListCommonProps &
         onAction: (newAction: ResourceViewItemActionState) => void;
     };
 
-const sortOrder = [SortDirection.DESC, SortDirection.ASC, null];
+const sortOrder = [ResourceSortDirection.DESC, ResourceSortDirection.ASC, null];
 
 interface Column {
     id: ColumnName;
@@ -83,7 +81,7 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
     const { classes } = useTableStyles();
     const getResourceTypeName = useResourceTypeName();
 
-    const history = useHistory();
+    const navigate = useNavigate();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { data: spaces = [] } = useSpaceSummaries(projectUuid);
     const canUserManageValidation = useValidationUserAbility(projectUuid);
@@ -102,7 +100,7 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
 
     const handleSort = (
         columnId: ColumnName,
-        direction: null | SortDirection,
+        direction: null | ResourceSortDirection,
     ) => {
         setColumnSorts(
             enableMultiSort
@@ -119,6 +117,10 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
                 id: 'name',
                 label: t('components_common_resource_view_list.columns.name'),
                 cell: (item: ResourceViewItem) => {
+                    if (!projectUuid) {
+                        return null;
+                    }
+
                     const canBelongToSpace =
                         isResourceViewItemChart(item) ||
                         isResourceViewItemDashboard(item);
@@ -134,7 +136,9 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
                                 },
                             }}
                             to={getResourceUrl(projectUuid, item)}
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={(e: React.MouseEvent<HTMLAnchorElement>) =>
+                                e.stopPropagation()
+                            }
                         >
                             <Group noWrap>
                                 {canBelongToSpace &&
@@ -218,7 +222,8 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
                                                     item,
                                                 )) &&
                                             canBelongToSpace &&
-                                            hoveredItem === item.data.uuid && (
+                                            hoveredItem === item.data.uuid &&
+                                            projectUuid && (
                                                 <Box>
                                                     <ResourceInfoPopup
                                                         resourceUuid={
@@ -295,7 +300,9 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
                             color="gray.7"
                             component={Link}
                             to={`/projects/${projectUuid}/spaces/${space.uuid}`}
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={(e: React.MouseEvent<HTMLAnchorElement>) =>
+                                e.stopPropagation()
+                            }
                             fz={12}
                             fw={500}
                         >
@@ -361,7 +368,7 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
                 cell: (item: ResourceViewItem) => (
                     <Box
                         component="div"
-                        onClick={(e) => {
+                        onClick={(e: React.MouseEvent<HTMLDivElement>) => {
                             e.stopPropagation();
                             e.preventDefault();
                         }}
@@ -422,9 +429,9 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
                     const sortResult = column.sortingFn(a, b) ?? 0;
 
                     switch (sortDirection) {
-                        case SortDirection.ASC:
+                        case ResourceSortDirection.ASC:
                             return acc + sortResult;
-                        case SortDirection.DESC:
+                        case ResourceSortDirection.DESC:
                             return acc - sortResult;
                         default:
                             return acc;
@@ -491,7 +498,8 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
                     <tr
                         key={item.data.uuid}
                         onClick={() =>
-                            history.push(getResourceUrl(projectUuid, item))
+                            projectUuid &&
+                            navigate(getResourceUrl(projectUuid, item))
                         }
                         onMouseEnter={() => setHoveredItem(item.data.uuid)}
                         onMouseLeave={() => setHoveredItem(undefined)}

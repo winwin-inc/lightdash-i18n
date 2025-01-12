@@ -3,19 +3,18 @@ import { Button, Text, Tooltip } from '@mantine/core';
 import { IconInfoCircle } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory, useParams } from 'react-router-dom';
-
+import { useNavigate, useParams } from 'react-router';
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
 import MantineIcon from '../common/MantineIcon';
 
 type Props = {
-    projectUuid: string;
+    projectUuid: string | undefined;
 };
 
 export const DashboardExplorerBanner: FC<Props> = ({ projectUuid }) => {
     const { t } = useTranslation();
 
-    const history = useHistory();
+    const navigate = useNavigate();
     const { savedQueryUuid, mode } = useParams<{
         savedQueryUuid: string;
         mode?: 'edit' | 'view';
@@ -37,6 +36,16 @@ export const DashboardExplorerBanner: FC<Props> = ({ projectUuid }) => {
                 return 'viewing';
         }
     }, [savedQueryUuid, mode]);
+
+    const actionName = useMemo(() => {
+        switch (action) {
+            case 'viewing':
+                return t('components_navbar_explorer_banner.viewing');
+            case 'creating':
+            case 'editing':
+                return t('components_navbar_explorer_banner.editing');
+        }
+    }, [action, t]);
 
     const cancelButtonText = useMemo(() => {
         switch (action) {
@@ -78,12 +87,15 @@ export const DashboardExplorerBanner: FC<Props> = ({ projectUuid }) => {
     }, [action, t]);
 
     const handleOnCancel = useCallback(() => {
+        if (!projectUuid) {
+            return;
+        }
         // Cancel the action and navigate back to the dashboard, restoring the existing state (in case there were some unsaved changes)
         // Similar to the behaviour from `SaveToDashboard`
         // so do not clear the storage here
         setIsCancelling(true);
 
-        history.push(
+        void navigate(
             `/projects/${projectUuid}/dashboards/${dashboardUuid}/${
                 savedQueryUuid ? 'view' : 'edit'
             }`,
@@ -93,7 +105,7 @@ export const DashboardExplorerBanner: FC<Props> = ({ projectUuid }) => {
             // Clear the banner after navigating back to dashboard, but only after a delay so that the user can see the banner change
             setIsCancelling(false);
         }, 1000);
-    }, [dashboardUuid, history, projectUuid, savedQueryUuid]);
+    }, [dashboardUuid, navigate, projectUuid, savedQueryUuid]);
 
     return (
         <>
@@ -104,7 +116,7 @@ export const DashboardExplorerBanner: FC<Props> = ({ projectUuid }) => {
                     ? t('components_navbar_explorer_banner.contet.part_1')
                     : `${t(
                           'components_navbar_explorer_banner.contet.part_2',
-                      )} ${action} ${t(
+                      )} ${actionName} ${t(
                           'components_navbar_explorer_banner.contet.part_3',
                       )} ${
                           dashboardName

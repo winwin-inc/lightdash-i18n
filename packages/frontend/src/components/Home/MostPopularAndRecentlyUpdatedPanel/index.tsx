@@ -9,9 +9,10 @@ import { Button } from '@mantine/core';
 import { IconChartBar, IconPlus } from '@tabler/icons-react';
 import { useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router';
+
 import useCreateInAnySpaceAccess from '../../../hooks/user/useCreateInAnySpaceAccess';
-import { useApp } from '../../../providers/AppProvider';
+import useApp from '../../../providers/App/useApp';
 import MantineIcon from '../../common/MantineIcon';
 import MantineLinkButton from '../../common/MantineLinkButton';
 import ResourceView from '../../common/ResourceView';
@@ -26,7 +27,7 @@ export const MostPopularAndRecentlyUpdatedPanel: FC<Props> = ({
     projectUuid,
 }) => {
     const MAX_NUMBER_OF_ITEMS_IN_PANEL = 10;
-    const history = useHistory();
+    const navigate = useNavigate();
     const { health } = useApp();
     const { t } = useTranslation();
 
@@ -55,7 +56,7 @@ export const MostPopularAndRecentlyUpdatedPanel: FC<Props> = ({
     }, [data?.mostPopular, data?.recentlyUpdated]);
 
     const handleCreateChart = () => {
-        history.push(`/projects/${projectUuid}/tables`);
+        void navigate(`/projects/${projectUuid}/tables`);
     };
 
     const isDemo = health.data?.mode === LightdashMode.DEMO;

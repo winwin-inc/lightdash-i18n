@@ -3,7 +3,7 @@ import { Group, Stack, Text, Title } from '@mantine/core';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useApp } from '../../../providers/AppProvider';
+import useApp from '../../../providers/App/useApp';
 import { Can } from '../../common/Authorization';
 import MantineLinkButton from '../../common/MantineLinkButton';
 

@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useDashboardRefresh } from '../../../hooks/dashboard/useDashboardRefresh';
 import useToaster from '../../../hooks/toaster/useToaster';
-import { useDashboardContext } from '../../../providers/DashboardProvider';
+import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../MantineIcon';
 
 const REFRESH_INTERVAL_OPTIONS = [

@@ -4,7 +4,7 @@ import { useCallback, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import useUnderlyingDataColumns from '../../hooks/useUnderlyingDataColumns';
-import { TrackSection } from '../../providers/TrackingProvider';
+import { TrackSection } from '../../providers/Tracking/TrackingProvider';
 import { SectionName } from '../../types/Events';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
 import Table from '../common/Table';

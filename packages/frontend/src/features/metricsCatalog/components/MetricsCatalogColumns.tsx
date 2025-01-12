@@ -4,7 +4,6 @@ import { useHover } from '@mantine/hooks';
 import { IconPlus } from '@tabler/icons-react';
 import { type MRT_ColumnDef } from 'mantine-react-table';
 import { useMemo, type FC, type SVGProps } from 'react';
-import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../../components/common/MantineIcon';
 import {
     Description,
@@ -20,7 +19,9 @@ import { MetricChartUsageButton } from './MetricChartUsageButton';
 import { MetricsCatalogCategoryForm } from './MetricsCatalogCategoryForm';
 import { MetricsCatalogColumnDescription } from './MetricsCatalogColumnDescription';
 import { MetricsCatalogColumnName } from './MetricsCatalogColumnName';
+import { useTranslation } from 'react-i18next';
 
+// eslint-disable-next-line react-refresh/only-export-components
 const HeaderCell = ({
     children,
     Icon,
@@ -49,7 +50,7 @@ const HeaderCell = ({
     );
 };
 
-export const useMetriCatalogColumns = () => {
+export const useMetricsCatalogColumns: MRT_ColumnDef<CatalogField>[] = () => {
     const { t } = useTranslation();
 
     return [

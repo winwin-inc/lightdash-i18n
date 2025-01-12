@@ -11,10 +11,13 @@ import { flexRender, type Row } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import React, { type FC } from 'react';
 import { getColorFromRange, readableColor } from '../../../../utils/colorUtils';
-import { useConditionalRuleLabel } from '../../Filters/FilterInputs';
+import { useConditionalRuleLabel } from '../../Filters/FilterInputs/utils';
 import MantineIcon from '../../MantineIcon';
 import { ROW_HEIGHT_PX, Tr } from '../Table.styles';
-import { useTableContext, type TableContext } from '../TableProvider';
+import { type TableContext } from '../types';
+import { useTableContext } from '../useTableContext';
+import { countSubRows } from '../utils';
+import { SMALL_TEXT_LENGTH } from './../constants';
 import BodyCell from './BodyCell';
 
 export const VirtualizedArea: FC<{ cellCount: number; padding: number }> = ({
@@ -43,19 +46,6 @@ interface TableRowProps {
     conditionalFormattings: TableContext['conditionalFormattings'];
     minimal?: boolean;
 }
-
-// arbitrary number that is usually smaller than the 300px max width of the cell
-const SMALL_TEXT_LENGTH = 35;
-
-export const countSubRows = (rowNode: Row<ResultRow>): number => {
-    if (rowNode.subRows?.length) {
-        return rowNode.subRows.reduce((acc: number, nextRowNode) => {
-            return acc + countSubRows(nextRowNode);
-        }, 0);
-    } else {
-        return 1;
-    }
-};
 
 const TableRow: FC<TableRowProps> = ({
     row,
@@ -141,7 +131,9 @@ const TableRow: FC<TableRowProps> = ({
                                             marginRight: 0,
                                         },
                                     })}
-                                    onClick={(e) => {
+                                    onClick={(
+                                        e: React.MouseEvent<HTMLButtonElement>,
+                                    ) => {
                                         e.stopPropagation();
                                         e.preventDefault();
                                         toggleExpander();
@@ -187,7 +179,7 @@ const TableRow: FC<TableRowProps> = ({
 };
 
 const VirtualizedTableBody: FC<{
-    tableContainerRef: React.RefObject<HTMLDivElement>;
+    tableContainerRef: React.RefObject<HTMLDivElement | null>;
 }> = ({ tableContainerRef }) => {
     const { table, cellContextMenu, conditionalFormattings } =
         useTableContext();
@@ -259,7 +251,7 @@ const NormalTableBody: FC = () => {
 
 interface TableBodyProps {
     minimal?: boolean;
-    tableContainerRef: React.RefObject<HTMLDivElement>;
+    tableContainerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 const TableBody: FC<TableBodyProps> = ({ minimal, tableContainerRef }) => {

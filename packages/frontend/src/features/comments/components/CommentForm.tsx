@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useOrganizationUsers } from '../../../hooks/useOrganizationUsers';
 import { useSpace } from '../../../hooks/useSpaces';
-import { useDashboardContext } from '../../../providers/DashboardProvider';
+import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import { type SuggestionsItem } from '../types';
 import { getNameInitials } from '../utils';
 import { CommentWithMentions } from './CommentWithMentions';

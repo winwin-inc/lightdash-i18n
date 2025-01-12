@@ -1,8 +1,9 @@
 import { Button, type ButtonProps } from '@mantine/core';
 import { IconTelescope } from '@tabler/icons-react';
 import React, { type FC } from 'react';
-import { useHistory } from 'react-router-dom';
-import { useTracking, type EventData } from '../../providers/TrackingProvider';
+import { useNavigate } from 'react-router';
+import { type EventData } from '../../providers/Tracking/types';
+import useTracking from '../../providers/Tracking/useTracking';
 import MantineIcon from './MantineIcon';
 
 export interface LinkButtonProps extends ButtonProps {
@@ -21,7 +22,7 @@ const LinkButton: FC<LinkButtonProps> = ({
     onClick,
     ...rest
 }) => {
-    const history = useHistory();
+    const navigate = useNavigate();
     const { track } = useTracking();
 
     return (
@@ -33,7 +34,7 @@ const LinkButton: FC<LinkButtonProps> = ({
             href={href}
             leftIcon={<MantineIcon icon={IconTelescope} />}
             target={target}
-            onClick={(e) => {
+            onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
                 if (
                     !forceRefresh &&
                     !e.ctrlKey &&
@@ -41,7 +42,7 @@ const LinkButton: FC<LinkButtonProps> = ({
                     target !== '_blank'
                 ) {
                     e.preventDefault();
-                    history.push(href);
+                    void navigate(href);
                 }
 
                 onClick?.(e);

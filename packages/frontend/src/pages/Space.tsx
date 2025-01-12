@@ -16,7 +16,7 @@ import {
 } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory, useLocation, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router';
 
 import { Can } from '../components/common/Authorization';
 import ErrorState from '../components/common/ErrorState';
@@ -27,27 +27,28 @@ import Page from '../components/common/Page/Page';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import InfiniteResourceTable from '../components/common/ResourceView/InfiniteResourceTable';
 import ShareSpaceModal from '../components/common/ShareSpaceModal';
-import SpaceActionModal, {
-    ActionType,
-} from '../components/common/SpaceActionModal';
+import SpaceActionModal from '../components/common/SpaceActionModal';
+import { ActionType } from '../components/common/SpaceActionModal/types';
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
-import AddResourceToSpaceModal, {
-    AddToSpaceResources,
-} from '../components/Explorer/SpaceBrowser/AddResourceToSpaceModal';
+import AddResourceToSpaceModal from '../components/Explorer/SpaceBrowser/AddResourceToSpaceModal';
 import CreateResourceToSpace from '../components/Explorer/SpaceBrowser/CreateResourceToSpace';
 import { SpaceBrowserMenu } from '../components/Explorer/SpaceBrowser/SpaceBrowserMenu';
+import { AddToSpaceResources } from '../components/Explorer/SpaceBrowser/types';
 import ForbiddenPanel from '../components/ForbiddenPanel';
 import { useSpacePinningMutation } from '../hooks/pinning/useSpaceMutation';
 import { useContent } from '../hooks/useContent';
 import { useSpace } from '../hooks/useSpaces';
-import { useApp } from '../providers/AppProvider';
+import useApp from '../providers/App/useApp';
 
 const Space: FC = () => {
     const { t } = useTranslation();
     const { projectUuid, spaceUuid } = useParams<{
         projectUuid: string;
         spaceUuid: string;
-    }>();
+    }>() as {
+        projectUuid: string;
+        spaceUuid: string;
+    };
     const {
         data: space,
         isInitialLoading,
@@ -84,7 +85,7 @@ const Space: FC = () => {
     const { user, health } = useApp();
 
     const isDemo = health.data?.mode === LightdashMode.DEMO;
-    const history = useHistory();
+    const navigate = useNavigate();
     const location = useLocation();
 
     const [updateSpace, setUpdateSpace] = useState<boolean>(false);
@@ -287,10 +288,12 @@ const Space: FC = () => {
                                 </Menu>
                             )}
                         <Can I="manage" this={subject('Space', space)}>
-                            <ShareSpaceModal
-                                space={space!}
-                                projectUuid={projectUuid}
-                            />
+                            {!!space && (
+                                <ShareSpaceModal
+                                    space={space}
+                                    projectUuid={projectUuid}
+                                />
+                            )}
                             <SpaceBrowserMenu
                                 onRename={() => setUpdateSpace(true)}
                                 onDelete={() => setDeleteSpace(true)}
@@ -334,7 +337,7 @@ const Space: FC = () => {
                                             )
                                         ) {
                                             //Redirect to home if we are on the space we are deleting
-                                            history.push(
+                                            void navigate(
                                                 `/projects/${projectUuid}/home`,
                                             );
                                         }
@@ -376,7 +379,7 @@ const Space: FC = () => {
                     opened={isCreateDashboardOpen}
                     onClose={() => setIsCreateDashboardOpen(false)}
                     onConfirm={(dashboard) => {
-                        history.push(
+                        void navigate(
                             `/projects/${projectUuid}/dashboards/${dashboard.uuid}/edit`,
                         );
 

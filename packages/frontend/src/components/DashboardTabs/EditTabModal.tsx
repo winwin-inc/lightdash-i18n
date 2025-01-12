@@ -58,6 +58,7 @@ export const TabEditModal: FC<AddProps> = ({
                         placeholder={t(
                             'components_dashboard_tabs.edit_tab_modal.form.tab_name.placeholder',
                         )}
+                        data-autofocus
                         required
                         {...form.getInputProps('newTabName')}
                     ></TextInput>
