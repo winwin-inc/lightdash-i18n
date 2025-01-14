@@ -33,11 +33,11 @@ export const FilterDashboardTo: FC<Props> = ({ filters, onAddFilter }) => {
                     onClick={() => onAddFilter(filter, true)}
                 >
                     {isZh
-                        ? filter.target.tableLabel
+                        ? (filter.target as any).tableLabel
                         : friendlyName(filter.target.tableName)}
                     -{' '}
                     {isZh
-                        ? filter.target.fieldLabel
+                        ? (filter.target as any).fieldLabel
                         : friendlyName(filter.target.fieldName)}{' '}
                     is{' '}
                     {filter.operator === FilterOperator.NULL && (
