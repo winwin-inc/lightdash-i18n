@@ -16,7 +16,8 @@ type Props = {
 };
 
 export const FilterDashboardTo: FC<Props> = ({ filters, onAddFilter }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const isZh = i18n.language && i18n.language.includes('zh');
 
     return (
         <>
@@ -31,8 +32,14 @@ export const FilterDashboardTo: FC<Props> = ({ filters, onAddFilter }) => {
                     icon={<MantineIcon icon={IconFilter} />}
                     onClick={() => onAddFilter(filter, true)}
                 >
-                    {friendlyName(filter.target.tableName)} -{' '}
-                    {friendlyName(filter.target.fieldName)} is{' '}
+                    {isZh
+                        ? filter.target.tableLabel
+                        : friendlyName(filter.target.tableName)}
+                    -{' '}
+                    {isZh
+                        ? filter.target.fieldLabel
+                        : friendlyName(filter.target.fieldName)}{' '}
+                    is{' '}
                     {filter.operator === FilterOperator.NULL && (
                         <Text span fw={500}>
                             {t(
