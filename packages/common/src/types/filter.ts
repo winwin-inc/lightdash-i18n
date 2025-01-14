@@ -77,7 +77,7 @@ export interface MetricFilterRule
 export type DashboardFieldTarget = {
     fieldId: string;
     tableName: string;
-    tableLabel: string;
+    tableLabel?: string;
 };
 
 export type DashboardTileTarget = DashboardFieldTarget | false;
@@ -95,7 +95,7 @@ export type DashboardFilterRule<
 export type FilterDashboardToRule = DashboardFilterRule & {
     target: {
         fieldName: string;
-        fieldLabel: string;
+        fieldLabel?: string;
     };
 };
 
