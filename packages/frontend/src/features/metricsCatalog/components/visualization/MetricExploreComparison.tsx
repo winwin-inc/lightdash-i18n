@@ -35,7 +35,7 @@ type Props = {
     >;
 };
 
-export const MetricPeekComparison: FC<Props> = ({
+export const MetricExploreComparison: FC<Props> = ({
     baseMetricLabel,
     query,
     onQueryChange,
@@ -205,6 +205,7 @@ export const MetricPeekComparison: FC<Props> = ({
                                                             metric,
                                                         ),
                                                         label: metric.label,
+                                                        group: metric.tableLabel,
                                                     }),
                                                 ) ?? []
                                             }

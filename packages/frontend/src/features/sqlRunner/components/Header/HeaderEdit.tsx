@@ -227,22 +227,32 @@ export const HeaderEdit: FC = () => {
                             </HoverCard.Dropdown>
                         </HoverCard>
 
-                        <Tooltip
-                            variant="xs"
-                            label={t(
-                                'features_sql_runner_header_edit.back_to_view_page',
-                            )}
-                            position="bottom"
-                        >
-                            <ActionIcon
-                                data-testid="back-to-view-page-button"
+                        {hasChanges ? (
+                            <Button
+                                size="xs"
                                 variant="default"
-                                size="md"
                                 onClick={handleGoBackToViewPage}
                             >
-                                <MantineIcon icon={IconArrowBack} />
-                            </ActionIcon>
-                        </Tooltip>
+                                {t('features_sql_runner_header_edit.cancel')}
+                            </Button>
+                        ) : (
+                            <Tooltip
+                                variant="xs"
+                                label={t(
+                                    'features_sql_runner_header_edit.back_to_view_page',
+                                )}
+                                position="bottom"
+                            >
+                                <ActionIcon
+                                    data-testid="back-to-view-page-button"
+                                    variant="default"
+                                    size="md"
+                                    onClick={handleGoBackToViewPage}
+                                >
+                                    <MantineIcon icon={IconArrowBack} />
+                                </ActionIcon>
+                            </Tooltip>
+                        )}
                         <Menu
                             position="bottom"
                             withArrow
@@ -256,7 +266,11 @@ export const HeaderEdit: FC = () => {
                                 </ActionIcon>
                             </Menu.Target>
                             <Menu.Dropdown>
-                                <Menu.Label>Manage</Menu.Label>
+                                <Menu.Label>
+                                    {t(
+                                        'features_sql_runner_header_edit.manage',
+                                    )}
+                                </Menu.Label>
                                 <Menu.Item
                                     disabled={!config || !sql}
                                     icon={<MantineIcon icon={IconTrash} />}
@@ -267,7 +281,9 @@ export const HeaderEdit: FC = () => {
                                         )
                                     }
                                 >
-                                    Delete
+                                    {t(
+                                        'features_sql_runner_header_edit.delete',
+                                    )}
                                 </Menu.Item>
                             </Menu.Dropdown>
                         </Menu>

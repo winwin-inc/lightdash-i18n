@@ -6,15 +6,10 @@ import {
     IconFolders,
     IconLayoutDashboard,
 } from '@tabler/icons-react';
-import { useCallback, type FC } from 'react';
+import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
-
-import { useProject } from '../../hooks/useProject';
 import { useSpaceSummaries } from '../../hooks/useSpaces';
-import useTracking from '../../providers/Tracking/useTracking';
-import { Hash } from '../../svgs/metricsCatalog';
-import { EventName } from '../../types/Events';
 import MantineIcon from '../common/MantineIcon';
 
 interface Props {
@@ -27,21 +22,6 @@ const BrowseMenu: FC<Props> = ({ projectUuid }) => {
         true,
     );
     const { t } = useTranslation();
-
-    const { data: project } = useProject(projectUuid);
-    const { track } = useTracking();
-
-    const handleMetricsCatalogClick = useCallback(() => {
-        if (project) {
-            track({
-                name: EventName.METRICS_CATALOG_CLICKED,
-                properties: {
-                    organizationId: project.organizationUuid,
-                    projectId: projectUuid,
-                },
-            });
-        }
-    }, [project, projectUuid, track]);
 
     return (
         <Menu
@@ -86,15 +66,6 @@ const BrowseMenu: FC<Props> = ({ projectUuid }) => {
                     icon={<MantineIcon icon={IconChartAreaLine} />}
                 >
                     {t('components_navbar_browse_menu.menus.charts.title')}
-                </Menu.Item>
-
-                <Menu.Item
-                    component={Link}
-                    to={`/projects/${projectUuid}/metrics`}
-                    icon={<Hash />}
-                    onClick={handleMetricsCatalogClick}
-                >
-                    {t('components_navbar_browse_menu.menus.metrics.title')}
                 </Menu.Item>
 
                 {isInitialLoading || (spaces && spaces.length > 0) ? (

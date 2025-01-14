@@ -1,9 +1,10 @@
 import { type CatalogField } from '@lightdash/common';
-import { Box, Flex, Group, Text, Tooltip } from '@mantine/core';
+import { Box, Flex, Group, Text } from '@mantine/core';
 import { useHover } from '@mantine/hooks';
 import { IconPlus } from '@tabler/icons-react';
 import { type MRT_ColumnDef } from 'mantine-react-table';
-import { useMemo, type FC, type SVGProps } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import MantineIcon from '../../../components/common/MantineIcon';
 import {
     Description,
@@ -15,40 +16,11 @@ import { useAppDispatch, useAppSelector } from '../../sqlRunner/store/hooks';
 import { setCategoryPopoverIsClosing } from '../store/metricsCatalogSlice';
 import { CatalogCategory } from './CatalogCategory';
 import { ExploreMetricButton } from './ExploreMetricButton';
+import { MetricCatalogColumnHeaderCell } from './MetricCatalogColumnHeaderCell';
 import { MetricChartUsageButton } from './MetricChartUsageButton';
 import { MetricsCatalogCategoryForm } from './MetricsCatalogCategoryForm';
 import { MetricsCatalogColumnDescription } from './MetricsCatalogColumnDescription';
 import { MetricsCatalogColumnName } from './MetricsCatalogColumnName';
-import { useTranslation } from 'react-i18next';
-
-// eslint-disable-next-line react-refresh/only-export-components
-const HeaderCell = ({
-    children,
-    Icon,
-    tooltipLabel,
-}: {
-    children: React.ReactNode;
-    tooltipLabel?: string;
-    Icon: FC<SVGProps<SVGSVGElement>>;
-}) => {
-    return (
-        <Tooltip variant="xs" label={tooltipLabel} disabled={!tooltipLabel}>
-            <Group spacing={6} mr={6} h="100%" noWrap>
-                <Icon />
-                <Text
-                    fz="xs"
-                    fw={600}
-                    color="dark.3"
-                    sx={{
-                        userSelect: 'none',
-                    }}
-                >
-                    {children}
-                </Text>
-            </Group>
-        </Tooltip>
-    );
-};
 
 export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
     const { t } = useTranslation();
@@ -63,7 +35,9 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
             enableEditing: false,
             size: 400,
             Header: ({ column }) => (
-                <HeaderCell Icon={Hash}>{column.columnDef.header}</HeaderCell>
+                <MetricCatalogColumnHeaderCell Icon={Hash}>
+                    {column.columnDef.header}
+                </MetricCatalogColumnHeaderCell>
             ),
             Cell: ({ row, table }) => {
                 const canManageExplore = useAppSelector(
@@ -100,14 +74,14 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                 'features_metrics_catalog_components.columns.description.label',
             ),
             Header: ({ column }) => (
-                <HeaderCell
+                <MetricCatalogColumnHeaderCell
                     Icon={Description}
                     tooltipLabel={t(
                         'features_metrics_catalog_components.columns.description.content',
                     )}
                 >
                     {column.columnDef.header}
-                </HeaderCell>
+                </MetricCatalogColumnHeaderCell>
             ),
             Cell: ({ row, table }) => {
                 return (
@@ -136,14 +110,14 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                 };
             },
             Header: ({ column }) => (
-                <HeaderCell
+                <MetricCatalogColumnHeaderCell
                     Icon={Tag}
                     tooltipLabel={t(
                         'features_metrics_catalog_components.columns.category.content',
                     )}
                 >
                     {column.columnDef.header}
-                </HeaderCell>
+                </MetricCatalogColumnHeaderCell>
             ),
             Edit: ({ table, row, cell }) => {
                 const dispatch = useAppDispatch();
@@ -294,14 +268,14 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                 };
             },
             Header: ({ column }) => (
-                <HeaderCell
+                <MetricCatalogColumnHeaderCell
                     Icon={Popularity}
                     tooltipLabel={t(
                         'features_metrics_catalog_components.columns.popularity.content',
                     )}
                 >
                     {column.columnDef.header}
-                </HeaderCell>
+                </MetricCatalogColumnHeaderCell>
             ),
             Cell: ({ row }) => <MetricChartUsageButton row={row} />,
         },

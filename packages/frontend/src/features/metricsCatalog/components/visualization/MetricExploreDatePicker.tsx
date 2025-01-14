@@ -25,7 +25,7 @@ import useTracking from '../../../../providers/Tracking/useTracking';
 import { EventName } from '../../../../types/Events';
 import { useAppSelector } from '../../../sqlRunner/store/hooks';
 import { useDateRangePicker } from '../../hooks/useDateRangePicker';
-import { getMatchingPresetLabel } from '../../utils/metricPeekDate';
+import { getMatchingPresetLabel } from '../../utils/metricExploreDate';
 import { TimeDimensionIntervalPicker } from './TimeDimensionIntervalPicker';
 
 type Props = {
@@ -41,7 +41,7 @@ type Props = {
     isFetching: boolean;
 };
 
-export const MetricPeekDatePicker: FC<Props> = ({
+export const MetricExploreDatePicker: FC<Props> = ({
     dateRange,
     onChange,
     showTimeDimensionIntervalPicker,
