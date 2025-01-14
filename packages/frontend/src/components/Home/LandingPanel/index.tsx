@@ -4,6 +4,7 @@ import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import useApp from '../../../providers/App/useApp';
+import { EventName } from '../../../types/Events';
 import { Can } from '../../common/Authorization';
 import MantineLinkButton from '../../common/MantineLinkButton';
 
@@ -37,7 +38,16 @@ const LandingPanel: FC<Props> = ({ userName, projectUuid }) => {
                     projectUuid: projectUuid,
                 })}
             >
-                <MantineLinkButton href={`/projects/${projectUuid}/tables`}>
+                <MantineLinkButton
+                    href={`/projects/${projectUuid}/tables`}
+                    trackingEvent={{
+                        name: EventName.LANDING_RUN_QUERY_CLICKED,
+                        properties: {
+                            organizationId: user.data?.organizationUuid || '',
+                            projectId: projectUuid,
+                        },
+                    }}
+                >
                     {t('components_landing_panel.query')}
                 </MantineLinkButton>
             </Can>

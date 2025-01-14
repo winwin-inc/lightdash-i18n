@@ -54,13 +54,17 @@ import { useDynamicYAxisWidth } from '../../hooks/useDynamicYAxisWidth';
 import {
     is5YearDateRange,
     isInCurrentTimeFrame,
-} from '../../utils/metricPeekDate';
+} from '../../utils/metricExploreDate';
 import { MetricsVisualizationEmptyState } from '../MetricsVisualizationEmptyState';
+import { MetricExploreDatePicker } from './MetricExploreDatePicker';
 import { MetricExploreLegend } from './MetricExploreLegend';
 import { MetricExploreTooltip } from './MetricExploreTooltip';
-import { MetricPeekDatePicker } from './MetricPeekDatePicker';
 import { TimeDimensionPicker } from './TimeDimensionPicker';
-import { DATE_FORMATS, type MetricVisualizationFormatConfig } from './types';
+import {
+    COMPARISON_OPACITY,
+    DATE_FORMATS,
+    type MetricVisualizationFormatConfig,
+} from './types';
 import { useChartZoom } from './useChartZoom';
 
 const tickFormatter = (date: Date) => {
@@ -401,7 +405,7 @@ const MetricsVisualization: FC<Props> = ({
 
             let opacity = 1;
             if (hoveringLegend && hoveredIsActive) {
-                opacity = name === hoveringLegend ? 1 : 0.3;
+                opacity = name === hoveringLegend ? 1 : COMPARISON_OPACITY;
             }
 
             return {
@@ -421,7 +425,7 @@ const MetricsVisualization: FC<Props> = ({
                 opacity:
                     activeLegends.length === 0 || activeLegends.includes(name)
                         ? 1
-                        : 0.3,
+                        : COMPARISON_OPACITY,
             };
         },
         [activeLegends],
@@ -566,12 +570,6 @@ const MetricsVisualization: FC<Props> = ({
         }
     }, [query.comparison, segmentedData, splitSegments]);
 
-    const compareMetricIncompletePeriodOpacity = useMemo(() => {
-        return query.comparison === MetricExplorerComparison.DIFFERENT_METRIC
-            ? 0.4
-            : 1;
-    }, [query.comparison]);
-
     const chartCursor = useMemo<React.CSSProperties['cursor']>(() => {
         return zoomState.refAreaLeft || zoomState.refAreaRight
             ? 'grabbing'
@@ -582,7 +580,7 @@ const MetricsVisualization: FC<Props> = ({
         <Stack spacing="sm" w="100%" h="100%">
             <Group spacing="sm" noWrap>
                 {dateRange && results?.metric.timeDimension && (
-                    <MetricPeekDatePicker
+                    <MetricExploreDatePicker
                         dateRange={dateRange}
                         onChange={onDateRangeChange}
                         showTimeDimensionIntervalPicker={
@@ -668,6 +666,7 @@ const MetricsVisualization: FC<Props> = ({
                                     content={
                                         <MetricExploreLegend
                                             legendConfig={legendConfig}
+                                            comparison={query}
                                             getLegendProps={getLegendProps}
                                             onMouseEnter={setHoveringLegend}
                                             onMouseLeave={() => {
@@ -778,7 +777,8 @@ const MetricsVisualization: FC<Props> = ({
                                         dot={false}
                                         legendType="none" // Don't render legend for the incomplete period line
                                         isAnimationActive={false}
-                                        opacity={0.4}
+                                        opacity={COMPARISON_OPACITY}
+                                        strokeDasharray="3 4"
                                     />,
                                 ];
                             })}
@@ -815,11 +815,21 @@ const MetricsVisualization: FC<Props> = ({
                                         data={
                                             compareMetricSplitSegment.completedPeriodData
                                         }
-                                        stroke={colors.indigo[9]}
-                                        strokeDasharray={'3 4'}
+                                        stroke={
+                                            query.comparison ===
+                                            MetricExplorerComparison.DIFFERENT_METRIC
+                                                ? colors.teal[5]
+                                                : colors.indigo[4]
+                                        }
                                         dot={false}
                                         legendType="plainline"
                                         isAnimationActive={false}
+                                        opacity={
+                                            query.comparison ===
+                                            MetricExplorerComparison.DIFFERENT_METRIC
+                                                ? 1
+                                                : COMPARISON_OPACITY
+                                        }
                                     />
                                     <Line
                                         {...getLineProps('compareMetric')}
@@ -833,14 +843,17 @@ const MetricsVisualization: FC<Props> = ({
                                         data={
                                             compareMetricSplitSegment.incompletePeriodData
                                         }
-                                        stroke={colors.indigo[9]}
+                                        stroke={
+                                            query.comparison ===
+                                            MetricExplorerComparison.DIFFERENT_METRIC
+                                                ? colors.teal[9]
+                                                : colors.indigo[9]
+                                        }
                                         dot={false}
                                         legendType="none" // Don't render legend for the incomplete period line
                                         isAnimationActive={false}
-                                        opacity={
-                                            compareMetricIncompletePeriodOpacity
-                                        }
-                                        strokeDasharray={'3 4'}
+                                        opacity={COMPARISON_OPACITY}
+                                        strokeDasharray="3 4"
                                     />
                                 </>
                             )}
@@ -851,7 +864,7 @@ const MetricsVisualization: FC<Props> = ({
                                         yAxisId={'metric'}
                                         x1={zoomState.refAreaLeft}
                                         x2={zoomState.refAreaRight}
-                                        strokeOpacity={0.3}
+                                        strokeOpacity={COMPARISON_OPACITY}
                                         fill={colors.gray[3]}
                                     />
                                 )}

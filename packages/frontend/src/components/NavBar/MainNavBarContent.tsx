@@ -8,6 +8,7 @@ import Logo from '../../svgs/logo-icon.svg?react';
 import BrowseMenu from './BrowseMenu';
 import ExploreMenu from './ExploreMenu';
 import HelpMenu from './HelpMenu';
+import { MetricsLink } from './MetricsLink';
 import { NotificationsMenu } from './NotificationsMenu';
 import ProjectSwitcher from './ProjectSwitcher';
 import SettingsMenu from './SettingsMenu';
@@ -47,6 +48,7 @@ export const MainNavBarContent: FC<Props> = ({
                         <Button.Group>
                             <ExploreMenu projectUuid={activeProjectUuid} />
                             <BrowseMenu projectUuid={activeProjectUuid} />
+                            <MetricsLink projectUuid={activeProjectUuid} />
                         </Button.Group>
                         <Omnibar projectUuid={activeProjectUuid} />
                     </>

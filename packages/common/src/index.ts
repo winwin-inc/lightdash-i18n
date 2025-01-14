@@ -890,6 +890,7 @@ export type CreateProject = Omit<
     | 'createdByUserUuid'
 > & {
     warehouseConnection: CreateWarehouseCredentials;
+    copyWarehouseConnectionFromUpstreamProject?: boolean;
 };
 
 export type UpdateProject = Omit<

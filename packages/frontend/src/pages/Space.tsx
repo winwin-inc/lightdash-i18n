@@ -1,6 +1,6 @@
 import { subject } from '@casl/ability';
 import {
-    contentToResourceViewItems,
+    contentToResourceViewItem,
     ContentType,
     LightdashMode,
     ResourceViewItemType,
@@ -63,7 +63,7 @@ const Space: FC = () => {
         },
         {
             select: (d): ResourceViewItem[] =>
-                contentToResourceViewItems(d.data),
+                d.data.map(contentToResourceViewItem),
         },
     );
 

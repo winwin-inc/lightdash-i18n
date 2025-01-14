@@ -1,15 +1,22 @@
 import { friendlyName } from '@lightdash/common';
-import { Paper, Text } from '@mantine/core';
+import { Group, Paper, Text, Tooltip } from '@mantine/core';
+import { IconInfoCircle } from '@tabler/icons-react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
-export type MetricTreeUnconnectedNodeData = Node<{
+import MantineIcon from '../../../../components/common/MantineIcon';
+
+export type MetricTreeCollapsedNodeData = Node<{
     label: string;
+    tableName?: string;
 }>;
 
-const MetricTreeUnconnectedNode: React.FC<
-    NodeProps<MetricTreeUnconnectedNodeData>
+const MetricTreeCollapsedNode: React.FC<
+    NodeProps<MetricTreeCollapsedNodeData>
 > = ({ data, isConnectable }) => {
+    const { t } = useTranslation();
+
     //TODO: fetch real data for these
     const title = useMemo(() => friendlyName(data.label), [data.label]);
 
@@ -46,9 +53,32 @@ const MetricTreeUnconnectedNode: React.FC<
                 hidden={!isConnectable}
             />
 
-            <Text size="xs" c="dark.3" fw={500} truncate ta="center">
-                {title}
-            </Text>
+            <Group>
+                <Text size="xs" c="dark.3" fw={500} truncate ta="center">
+                    {title}
+                </Text>
+                <Tooltip
+                    label={
+                        <>
+                            <Text size="xs" fw="bold">
+                                {t(
+                                    'features_metrics_catalog_metric_tree.table',
+                                )}
+                                :{' '}
+                                <Text span fw="normal">
+                                    {data.tableName}
+                                </Text>
+                            </Text>
+                        </>
+                    }
+                >
+                    <MantineIcon
+                        icon={IconInfoCircle}
+                        size={12}
+                        color="dark.3"
+                    />
+                </Tooltip>
+            </Group>
 
             <Handle
                 type="source"
@@ -59,4 +89,4 @@ const MetricTreeUnconnectedNode: React.FC<
     );
 };
 
-export default MetricTreeUnconnectedNode;
+export default MetricTreeCollapsedNode;

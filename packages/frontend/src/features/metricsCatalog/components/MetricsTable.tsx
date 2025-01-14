@@ -34,6 +34,7 @@ import {
     useMemo,
     useRef,
     useState,
+    type FC,
     type UIEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -50,17 +51,24 @@ import {
 import { useMetricsTree } from '../hooks/useMetricsTree';
 import {
     setCategoryFilters,
-    toggleMetricPeekModal,
+    setSearch,
+    setTableSorting,
+    toggleMetricExploreModal,
 } from '../store/metricsCatalogSlice';
 import { MetricCatalogView } from '../types';
-import { MetricPeekModal } from './MetricPeekModal';
+import { MetricExploreModal } from './MetricExploreModal';
 import { useMetricsCatalogColumns } from './MetricsCatalogColumns';
 import { MetricsTableTopToolbar } from './MetricsTableTopToolbar';
 import MetricTree from './MetricTree';
 
-export const MetricsTable = () => {
-    const { t } = useTranslation();
+type MetricsTableProps = {
+    metricCatalogView: MetricCatalogView;
+};
+
+export const MetricsTable: FC<MetricsTableProps> = ({ metricCatalogView }) => {
     const metricsCatalogColumns = useMetricsCatalogColumns();
+
+    const { t } = useTranslation();
 
     const { track } = useTracking();
     const dispatch = useAppDispatch();
@@ -78,32 +86,25 @@ export const MetricsTable = () => {
     const { canManageTags, canManageMetricsTree } = useAppSelector(
         (state) => state.metricsCatalog.abilities,
     );
-    const isMetricPeekModalOpen = useAppSelector(
-        (state) => state.metricsCatalog.modals.metricPeekModal.isOpen,
+    const isMetricExploreModalOpen = useAppSelector(
+        (state) => state.metricsCatalog.modals.metricExploreModal.isOpen,
     );
-    const metricCatalogView = useAppSelector(
-        (state) => state.metricsCatalog.view,
+    const search = useAppSelector((state) => state.metricsCatalog.search);
+    const stateTableSorting = useAppSelector(
+        (state) => state.metricsCatalog.tableSorting,
     );
+    const deferredSearch = useDeferredValue(search);
     const prevView = useRef(metricCatalogView);
-
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const rowVirtualizerInstanceRef =
         useRef<MRT_Virtualizer<HTMLDivElement, HTMLTableRowElement>>(null);
-    const [search, setSearch] = useState<string | undefined>(undefined);
-    const deferredSearch = useDeferredValue(search);
 
-    // Enable sorting by highest popularity(how many charts use the metric) by default
-    const initialSorting = [
-        {
-            id: 'chartUsage',
-            desc: true,
-        },
-    ];
+    // We need internal state to handle non serializable state for the updater function
+    const [internalSorting, setInternalSorting] =
+        useState<MRT_SortingState>(stateTableSorting);
 
-    const [sorting, setSorting] = useState<MRT_SortingState>(initialSorting);
-
-    const onCloseMetricPeekModal = () => {
-        dispatch(toggleMetricPeekModal(undefined));
+    const onCloseMetricExploreModal = () => {
+        dispatch(toggleMetricExploreModal(undefined));
     };
 
     const {
@@ -119,11 +120,15 @@ export const MetricsTable = () => {
         search: deferredSearch,
         categories: categoryFilters,
         // TODO: Handle multiple sorting - this needs to be enabled and handled later in the backend
-        ...(sorting.length > 0 && {
-            sortBy: sorting[0].id as keyof CatalogItem,
-            sortDirection: sorting[0].desc ? 'desc' : 'asc',
+        ...(stateTableSorting.length > 0 && {
+            sortBy: stateTableSorting[0].id as keyof CatalogItem,
+            sortDirection: stateTableSorting[0].desc ? 'desc' : 'asc',
         }),
     });
+
+    useEffect(() => {
+        dispatch(setTableSorting(internalSorting));
+    }, [dispatch, internalSorting]);
 
     useEffect(() => {
         if (
@@ -259,21 +264,6 @@ export const MetricsTable = () => {
         () => isValidMetricsNodeCount && isValidMetricsEdgeCount,
         [isValidMetricsNodeCount, isValidMetricsEdgeCount],
     );
-
-    const segmentedControlTooltipLabel = useMemo(() => {
-        if (totalResults === 0) {
-            return t('features_metrics.table.tooltip_control.part_1');
-        }
-
-        if (!isValidMetricsNodeCount) {
-            return t('features_metrics.table.tooltip_control.part_2');
-        }
-
-        if (!isValidMetricsEdgeCount) {
-            return t('features_metrics.table.tooltip_control.part_3');
-        }
-    }, [isValidMetricsEdgeCount, isValidMetricsNodeCount, totalResults, t]);
-
     const dataHasCategories = useMemo(() => {
         return flatData.some((item) => item.categories?.length);
     }, [flatData]);
@@ -305,13 +295,13 @@ export const MetricsTable = () => {
         enableHiding: false,
         enableGlobalFilterModes: false,
         onGlobalFilterChange: (s: string) => {
-            setSearch(s);
+            dispatch(setSearch(s));
         },
         manualFiltering: true,
         enableFilterMatchHighlighting: true,
         enableSorting: true,
         manualSorting: true,
-        onSortingChange: setSorting,
+        onSortingChange: setInternalSorting,
         enableTopToolbar: true,
         positionGlobalFilter: 'left',
         mantinePaperProps,
@@ -319,7 +309,7 @@ export const MetricsTable = () => {
             ref: tableContainerRef,
             sx: {
                 maxHeight: 'calc(100dvh - 350px)',
-                minHeight: '600px',
+                minHeight: 600,
                 display: 'flex',
                 flexDirection: 'column',
             },
@@ -468,7 +458,7 @@ export const MetricsTable = () => {
             <Box>
                 <MetricsTableTopToolbar
                     search={search}
-                    setSearch={setSearch}
+                    setSearch={(s) => dispatch(setSearch(s))}
                     totalResults={totalResults}
                     selectedCategories={categoryFilters}
                     setSelectedCategories={handleSetCategoryFilters}
@@ -476,7 +466,9 @@ export const MetricsTable = () => {
                     p={`${theme.spacing.lg} ${theme.spacing.xl}`}
                     showCategoriesFilter={canManageTags || dataHasCategories}
                     isValidMetricsTree={isValidMetricsTree}
-                    segmentedControlTooltipLabel={segmentedControlTooltipLabel}
+                    isValidMetricsNodeCount={isValidMetricsNodeCount}
+                    isValidMetricsEdgeCount={isValidMetricsEdgeCount}
+                    metricCatalogView={metricCatalogView}
                 />
                 <Divider color="gray.2" />
             </Box>
@@ -523,15 +515,21 @@ export const MetricsTable = () => {
         renderEmptyRowsFallback: () => {
             return noMeticsAvailable ? (
                 <SuboptimalState
-                    title="No metrics defined in this project"
+                    title={t(
+                        'features_metrics.table.no_metics_available.no_metrics',
+                    )}
                     action={
                         <Text>
-                            To learn how to define metrics, check out our{' '}
+                            {t(
+                                'features_metrics.table.no_metics_available.content.part_1',
+                            )}{' '}
                             <Anchor
                                 target="_blank"
                                 href="https://docs.lightdash.com/references/metrics/"
                             >
-                                documentation
+                                {t(
+                                    'features_metrics.table.no_metics_available.content.part_2',
+                                )}
                             </Anchor>
                         </Text>
                     }
@@ -539,7 +537,9 @@ export const MetricsTable = () => {
             ) : (
                 <Center>
                     <Text fs="italic" color="gray">
-                        No results found
+                        {t(
+                            'features_metrics.table.no_metics_available.content.part_3',
+                        )}
                     </Text>
                 </Center>
             );
@@ -556,7 +556,7 @@ export const MetricsTable = () => {
             ),
         },
         state: {
-            sorting,
+            sorting: stateTableSorting,
             showProgressBars: false,
             showLoadingOverlay, // show loading overlay when fetching (like search, category filtering), but hide when editing rows.
             showSkeletons: isLoading, // loading for the first time with no data
@@ -611,10 +611,10 @@ export const MetricsTable = () => {
             return (
                 <>
                     <MantineReactTable table={table} />
-                    {isMetricPeekModalOpen && (
-                        <MetricPeekModal
-                            opened={isMetricPeekModalOpen}
-                            onClose={onCloseMetricPeekModal}
+                    {isMetricExploreModalOpen && (
+                        <MetricExploreModal
+                            opened={isMetricExploreModalOpen}
+                            onClose={onCloseMetricExploreModal}
                             metrics={flatData}
                         />
                     )}
@@ -626,7 +626,7 @@ export const MetricsTable = () => {
                     <Box>
                         <MetricsTableTopToolbar
                             search={search}
-                            setSearch={setSearch}
+                            setSearch={(s) => dispatch(setSearch(s))}
                             totalResults={totalResults}
                             selectedCategories={categoryFilters}
                             setSelectedCategories={handleSetCategoryFilters}
@@ -636,13 +636,13 @@ export const MetricsTable = () => {
                                 canManageTags || dataHasCategories
                             }
                             isValidMetricsTree={isValidMetricsTree}
-                            segmentedControlTooltipLabel={
-                                segmentedControlTooltipLabel
-                            }
+                            isValidMetricsNodeCount={isValidMetricsNodeCount}
+                            isValidMetricsEdgeCount={isValidMetricsEdgeCount}
+                            metricCatalogView={metricCatalogView}
                         />
                         <Divider color="gray.2" />
                     </Box>
-                    <Box w="100%" h="calc(100dvh - 350px)">
+                    <Box w="100%" h="calc(100dvh - 350px)" mih={600}>
                         <ReactFlowProvider>
                             {isValidMetricsTree ? (
                                 <MetricTree

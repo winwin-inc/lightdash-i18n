@@ -601,7 +601,9 @@
     "features_sql_runner_header_edit": {
         "title": "Save",
         "back_to_view_page": "Back to view page",
-        "delete": "Delete"
+        "delete": "Delete",
+        "cancel": "Cancel",
+        "manage": "Manage"
     },
     "features_sql_runner_header_view": {
         "eidt_chart": "Edit chart",
@@ -1068,6 +1070,14 @@
                 "part_2": "There are no connections between the selected metrics'",
                 "part_3": "Please narrow your search to display up to 30 metrics'",
                 "invalid_metric": "Invalid metric catalog view"
+            },
+            "no_metics_available": {
+                "no_metrics": "No metrics defined in this project",
+                "content": {
+                    "part_1": "To learn how to define metrics, check out our",
+                    "part_2": "documentation",
+                    "part_3": "No results found"
+                }
             }
         }
     },
@@ -1222,6 +1232,40 @@
                 "control": "5Y"
             }
         }
+    },
+    "features_metrics_catalog_metric_tree": {
+        "table": "Table"
+    },
+    "features_metrics_catalog_visualzation": {
+        "showing_first": " Showing first {{MAX_AUTOCOMPLETE_RESULTS}} results.",
+        "continue": "Continue",
+        "start": "Start",
+        "typing": "typing",
+        "refresh_cache": "Click here to refresh cache filter values",
+        "results_loaded": "Results loaded at",
+        "add": "Add",
+        "loading": "Loading...",
+        "no_results_found": "No results found"
+    },
+    "features_metrics_metrics_table_top_toolbar": {
+        "filter_metrics": "Filter metrics by category",
+        "all_categories": "All categories",
+        "filter_by_categories": "Filter by categories",
+        "no_categories": " No categories added yet. Click on the category cells to assign categories to your metrics."
+    },
+    "features_metrics_segmented_contro_hover_card": {
+        "no_metrics": "There are no metrics to display in canvas mode.",
+        "canvas_mode": {
+            "part_1": "Canvas mode is only available for lists with fewer than",
+            "part_2": "30 metrics",
+            "part_3": "Use",
+            "part_4": "Categories",
+            "part_5": "to filter your list down to access it."
+        },
+        "no_connections": "There are no connections between the selected metrics.",
+        "canvas_mode_title": "Canvas mode",
+        "alpha": "Alpha",
+        "define": "Define & view Metric relationships & hierarchies."
     },
 
     "components_common_paginate": {
@@ -4314,6 +4358,9 @@
         },
         "cancel": "Cancel",
         "add": "Add to dashboard"
+    },
+    "component_navbar_metrics_link": {
+        "metrics": "Metrics"
     },
 
     "pages_sql_runner": {

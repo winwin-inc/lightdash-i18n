@@ -602,7 +602,9 @@
     "features_sql_runner_header_edit": {
         "title": "保存",
         "back_to_view_page": "返回查看页面",
-        "delete": "删除"
+        "delete": "删除",
+        "cancel": "取消",
+        "manage": "管理"
     },
     "features_sql_runner_header_view": {
         "edit_chart": "编辑图表",
@@ -1070,6 +1072,14 @@
                 "part_2": "所选指标之间没有连接",
                 "part_3": "请缩小搜索范围以显示最多 30 个指标",
                 "invalid_metric": "无效的指标目录视图"
+            },
+            "no_metics_available": {
+                "no_metrics": "此项目中未定义任何指标",
+                "content": {
+                    "part_1": "要了解如何定义指标，请查看我们的",
+                    "part_2": "文档",
+                    "part_3": "未找到结果"
+                }
             }
         }
     },
@@ -1224,6 +1234,40 @@
                 "control": "5Y"
             }
         }
+    },
+    "features_metrics_catalog_metric_tree": {
+        "table": "表格"
+    },
+    "features_metrics_catalog_visualzation": {
+        "showing_first": "显示前 {{MAX_AUTOCOMPLETE_RESULTS}} 个结果。",
+        "continue": "继续",
+        "start": "开始",
+        "typing": "输入",
+        "refresh_cache": "点击这里刷新缓存过滤值",
+        "results_loaded": "结果加载于",
+        "add": "添加",
+        "loading": "加载中...",
+        "no_results_found": "未找到结果"
+    },
+    "features_metrics_metrics_table_top_toolbar": {
+        "filter_metrics": "按类别筛选指标",
+        "all_categories": "所有类别",
+        "filter_by_categories": "按类别筛选",
+        "no_categories": "尚未添加类别。点击类别单元格为您的指标分配类别。"
+    },
+    "features_metrics_segmented_contro_hover_card": {
+        "canvas_mode_title": "画布模式",
+        "canvas_mode": {
+            "part_1": "画布模式仅适用于少于",
+            "part_2": "30 个指标的列表",
+            "part_3": "使用",
+            "part_4": "类别",
+            "part_5": "来过滤您的列表以访问它。"
+        },
+        "no_metrics": "画布模式下没有可显示的指标。",
+        "no_connections": "所选指标之间没有连接。",
+        "alpha": "阿尔法",
+        "define": "定义并查看指标关系和层级。"
     },
 
     "components_common_paginate": {
@@ -4313,6 +4357,9 @@
         },
         "cancel": "取消",
         "add": "添加到看板"
+    },
+    "component_navbar_metrics_link": {
+        "metrics": "指标"
     },
 
     "pages_sql_runner": {
