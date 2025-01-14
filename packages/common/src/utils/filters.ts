@@ -295,10 +295,6 @@ export const createFilterRuleFromField = (
             id: uuidv4(),
             target: {
                 fieldId: getItemId(field),
-                tableName: field.table,
-                tableLabel: field.tableLabel,
-                fieldName: field.name,
-                fieldLabel: field.label,
             },
             operator:
                 value === null ? FilterOperator.NULL : FilterOperator.EQUALS,
