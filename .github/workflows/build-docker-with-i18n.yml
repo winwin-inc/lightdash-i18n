@@ -1,71 +1,119 @@
-# 分支管理
+name: Build & Deploy to Docker Hub - i18n
 
-## 一、分支说明
+on:
+    push:
+        tags:
+            - '*'
+            - '!*-alpha*'
+            - '!*-beta*'
 
-- `main`: 主分支，包含当前项目的所有功能
-- `dev`: 开发分支，用于日常开发
-- `feat/xxx`: 功能分支
-  - 基于 dev 分支创建
-  - 用于开发具体功能模块
-  - 开发完成后合并回 dev 分支
-- `upstream/lightdash`: 上游项目同步分支
-  - 其中 lightdash 为上游项目名称
-  - 该分支直接从 [上游项目地址](https://github.com/lightdash/lightdash) 同步
-  - 定期将更新合并到 main 分支
+    workflow_dispatch:
 
-## 二、开发流程
+env:
+    REGISTRY_IMAGE: yzqzy/lightdash-i18n
 
-### 1. 开发分支
+jobs:
+    # This job builds Docker images for various architectures in parallel
+    # See https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
+    docker-build:
+        runs-on: ubuntu-latest
+        if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
+        strategy:
+            fail-fast: false
+            matrix:
+                platform:
+                    - linux/amd64
+        steps:
+            # Write the PLATFORM_PAIR varible to env and replace `/` with `-`
+            - name: Prepare
+              run: |
+                  platform=${{ matrix.platform }}
+                  echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
 
-基于 dev 分支开发，开发完成后合并到 main 分支：
+            - name: Set up Docker tags
+              id: meta
+              uses: docker/metadata-action@v5
+              with:
+                  images: ${{ env.REGISTRY_IMAGE }}
+                  tags: |
+                      type=semver,pattern={{version}}
 
-```bash
-git checkout dev
-```
+            # We need this to perform cross-platform Docker builds
+            - name: Set up QEMU
+              uses: docker/setup-qemu-action@v3
 
-### 2. 功能分支
+            # Improved Docker builds
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
 
-基于 dev 分支创建新功能分支，开发完成后合并回 dev 分支：
+            # Credentials for pushing final image to Docker Hub
+            - name: Login to Docker Hub
+              uses: docker/login-action@v3
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-```bash
-git checkout -b feat/xxx
-```
+            - name: Build and push by digest
+              id: build
+              uses: docker/build-push-action@v5
+              with:
+                  file: dockerfile
+                  push: ${{ github.event_name != 'pull_request' }}
+                  labels: ${{ steps.meta.outputs.labels }}
+                  platforms: ${{ matrix.platform }}
+                  outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+                  cache-from: type=registry,ref=${{ env.REGISTRY_IMAGE }}
+                  cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,mode=min,ref={0}', env.REGISTRY_IMAGE) || '' }}
 
-## 三、上游项目管理
+            - name: Export digest
+              run: |
+                  mkdir -p /tmp/digests
+                  digest="${{ steps.build.outputs.digest }}"
+                  touch "/tmp/digests/${digest#sha256:}"
 
-### 1. 配置上游项目
+            - name: Upload digest
+              uses: actions/upload-artifact@v4
+              with:
+                  name: digests-${{ env.PLATFORM_PAIR }}
+                  path: /tmp/digests/*
+                  if-no-files-found: error
+                  retention-days: 1
 
-```bash
-git remote add upstream https://github.com/lightdash/lightdash.git
-git fetch upstream
-```
+    # This step "merges" multiple images for various architectures into a single image
+    docker-merge:
+        runs-on: ubuntu-latest
+        # Should be kept in sync with the jobs.docker-build.steps.build.with.push condition
+        if: ${{ github.event_name != 'pull_request' }}
+        needs:
+            - docker-build
+        steps:
+            - name: Download digests
+              uses: actions/download-artifact@v4
+              with:
+                  pattern: digests-*
+                  path: /tmp/digests
+                  merge-multiple: true
 
-### 2. 同步流程
+            - name: Set up Docker tags
+              id: meta
+              uses: docker/metadata-action@v5
+              with:
+                  images: ${{ env.REGISTRY_IMAGE }}
+                  tags: |
+                      type=semver,pattern={{version}}
 
-1. 切换到上游项目分支：
+            - name: Login to Docker Hub
+              uses: docker/login-action@v3
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-   ```bash
-   git checkout upstream/lightdash
-   ```
+            - name: Create manifest list and push
+              working-directory: /tmp/digests
+              run: |
+                  docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+                    $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
 
-2. 同步上游项目更新, 并强制覆盖本地分支：
-
-   ```bash
-   git fetch upstream
-   git reset --hard upstream/main
-   ```
-
-2. 合并到开发分支：
-
-   ```bash
-   git checkout dev
-   git merge upstream/lightdash
-   # 在 dev 分支进行充分测试
-   ```
-
-3. 确认无误后合并到主分支：
-
-   ```bash
-   git checkout main
-   git merge dev
-   ```
+            - name: Inspect image
+              run: |
+                  docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
