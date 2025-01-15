@@ -3,6 +3,7 @@ import { Box, Flex, Group, Text } from '@mantine/core';
 import { useHover } from '@mantine/hooks';
 import { IconPlus } from '@tabler/icons-react';
 import { type MRT_ColumnDef } from 'mantine-react-table';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../components/common/MantineIcon';
@@ -142,7 +143,7 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                         }}
                     >
                         <Group mx="md" spacing="xxs">
-                            {categories.map((category) => (
+                            {categories.map((category: any) => (
                                 <CatalogCategory
                                     key={category.tagUuid}
                                     category={category}
@@ -240,7 +241,7 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                                     rowGap: 'unset',
                                 }}
                             >
-                                {categories.map((category) => (
+                                {categories.map((category: any) => (
                                     <CatalogCategory
                                         key={category.tagUuid}
                                         category={category}
