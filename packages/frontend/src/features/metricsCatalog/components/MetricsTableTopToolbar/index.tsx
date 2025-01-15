@@ -1,4 +1,4 @@
-import { FeatureFlags, type CatalogField } from '@lightdash/common';
+import { type CatalogField } from '@lightdash/common';
 import {
     ActionIcon,
     Badge,
@@ -17,7 +17,6 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router';
 
 import MantineIcon from '../../../../components/common/MantineIcon';
-import { useFeatureFlagEnabled } from '../../../../hooks/useFeatureFlagEnabled';
 import { TotalMetricsDot } from '../../../../svgs/metricsCatalog';
 import { MetricCatalogView } from '../../types';
 import CategoriesFilter from './CategoriesFilter';
@@ -57,10 +56,6 @@ export const MetricsTableTopToolbar: FC<MetricsTableTopToolbarProps> = memo(
         const location = useLocation();
         const navigate = useNavigate();
         const clearSearch = useCallback(() => setSearch(''), [setSearch]);
-
-        const isMetricTreesFeatureFlagEnabled = useFeatureFlagEnabled(
-            FeatureFlags.MetricTrees,
-        );
 
         return (
             <Group {...props}>
@@ -159,108 +154,99 @@ export const MetricsTableTopToolbar: FC<MetricsTableTopToolbarProps> = memo(
                             </Text>
                         </Group>
                     </Badge>
-                    {isMetricTreesFeatureFlagEnabled && (
-                        <>
-                            <Divider
-                                orientation="vertical"
-                                w={1}
-                                h={20}
-                                sx={{
-                                    alignSelf: 'center',
-                                    borderColor: '#DEE2E6',
-                                }}
-                            />
-                            <SegmentedControlHoverCard
-                                totalMetricsCount={totalResults}
-                                isValidMetricsNodeCount={
-                                    isValidMetricsNodeCount
-                                }
-                                isValidMetricsEdgeCount={
-                                    isValidMetricsEdgeCount
-                                }
-                                withinPortal
-                                position="bottom-end"
-                                withArrow
-                            >
-                                <SegmentedControl
-                                    size="xs"
-                                    value={metricCatalogView}
-                                    styles={(theme) => ({
-                                        root: {
-                                            borderRadius: theme.radius.md,
-                                            gap: theme.spacing.two,
-                                            padding: theme.spacing.xxs,
-                                        },
-                                        indicator: {
-                                            borderRadius: theme.radius.md,
-                                            border: `1px solid ${theme.colors.gray[2]}`,
-                                            backgroundColor: 'white',
-                                            boxShadow: theme.shadows.subtle,
-                                        },
-                                    })}
-                                    data={[
-                                        {
-                                            label: (
-                                                <Tooltip
-                                                    withinPortal
-                                                    variant="xs"
-                                                    label="List view"
-                                                >
-                                                    <Center>
-                                                        <MantineIcon
-                                                            icon={IconList}
-                                                            size="md"
-                                                        />
-                                                    </Center>
-                                                </Tooltip>
-                                            ),
-                                            value: MetricCatalogView.LIST,
-                                        },
-                                        {
-                                            label: (
-                                                <Tooltip
-                                                    withinPortal
-                                                    variant="xs"
-                                                    label="Tree view"
-                                                >
-                                                    <Center>
-                                                        <MantineIcon
-                                                            icon={IconSitemap}
-                                                            size="md"
-                                                        />
-                                                    </Center>
-                                                </Tooltip>
-                                            ),
-                                            value: MetricCatalogView.TREE,
-                                            disabled: !isValidMetricsTree,
-                                        },
-                                    ]}
-                                    onChange={(value) => {
-                                        const view = value as MetricCatalogView;
+                    <Divider
+                        orientation="vertical"
+                        w={1}
+                        h={20}
+                        sx={{
+                            alignSelf: 'center',
+                            borderColor: '#DEE2E6',
+                        }}
+                    />
+                    <SegmentedControlHoverCard
+                        totalMetricsCount={totalResults}
+                        isValidMetricsNodeCount={isValidMetricsNodeCount}
+                        isValidMetricsEdgeCount={isValidMetricsEdgeCount}
+                        withinPortal
+                        position="bottom-end"
+                        withArrow
+                    >
+                        <SegmentedControl
+                            size="xs"
+                            value={metricCatalogView}
+                            styles={(theme) => ({
+                                root: {
+                                    borderRadius: theme.radius.md,
+                                    gap: theme.spacing.two,
+                                    padding: theme.spacing.xxs,
+                                },
+                                indicator: {
+                                    borderRadius: theme.radius.md,
+                                    border: `1px solid ${theme.colors.gray[2]}`,
+                                    backgroundColor: 'white',
+                                    boxShadow: theme.shadows.subtle,
+                                },
+                            })}
+                            data={[
+                                {
+                                    label: (
+                                        <Tooltip
+                                            withinPortal
+                                            variant="xs"
+                                            label="List view"
+                                        >
+                                            <Center>
+                                                <MantineIcon
+                                                    icon={IconList}
+                                                    size="md"
+                                                />
+                                            </Center>
+                                        </Tooltip>
+                                    ),
+                                    value: MetricCatalogView.LIST,
+                                },
+                                {
+                                    label: (
+                                        <Tooltip
+                                            withinPortal
+                                            variant="xs"
+                                            label="Canvas"
+                                        >
+                                            <Center>
+                                                <MantineIcon
+                                                    icon={IconSitemap}
+                                                    size="md"
+                                                />
+                                            </Center>
+                                        </Tooltip>
+                                    ),
+                                    value: MetricCatalogView.TREE,
+                                    disabled: !isValidMetricsTree,
+                                },
+                            ]}
+                            onChange={(value) => {
+                                const view = value as MetricCatalogView;
 
-                                        switch (view) {
-                                            case MetricCatalogView.LIST:
-                                                void navigate({
-                                                    pathname:
-                                                        location.pathname.replace(
-                                                            /\/tree/,
-                                                            '',
-                                                        ),
-                                                    search: location.search,
-                                                });
-                                                break;
-                                            case MetricCatalogView.TREE:
-                                                void navigate({
-                                                    pathname: `${location.pathname}/tree`,
-                                                    search: location.search,
-                                                });
-                                                break;
-                                        }
-                                    }}
-                                />
-                            </SegmentedControlHoverCard>
-                        </>
-                    )}
+                                switch (view) {
+                                    case MetricCatalogView.LIST:
+                                        void navigate({
+                                            pathname: location.pathname.replace(
+                                                /\/tree/,
+                                                '',
+                                            ),
+                                            search: location.search,
+                                        });
+                                        break;
+                                    case MetricCatalogView.TREE:
+                                        void navigate({
+                                            pathname: `${location.pathname}/tree`,
+                                            search: location.search,
+                                        });
+                                        break;
+                                }
+                            }}
+                        />
+                    </SegmentedControlHoverCard>
                 </Group>
             </Group>
         );
