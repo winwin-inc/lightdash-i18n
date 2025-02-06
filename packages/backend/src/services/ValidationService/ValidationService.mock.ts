@@ -1,6 +1,7 @@
 import { Ability } from '@casl/ability';
 import {
     AbilityAction,
+    AnyType,
     DimensionType,
     Explore,
     ExploreError,
@@ -38,7 +39,7 @@ export const user: SessionUser = {
     isSetupComplete: true,
     userId: 0,
     role: OrganizationMemberRole.ADMIN,
-    ability: new Ability<[AbilityAction, any]>([
+    ability: new Ability<[AbilityAction, AnyType]>([
         {
             subject: 'Validation',
             action: ['manage'],
@@ -94,6 +95,7 @@ export const chartForValidation: Awaited<
     customBinDimensions: [],
     customSqlDimensions: [],
     sorts: ['table_dimension'],
+    dashboardUuid: undefined,
 };
 
 export const chartForValidationWithJoinedField: Awaited<

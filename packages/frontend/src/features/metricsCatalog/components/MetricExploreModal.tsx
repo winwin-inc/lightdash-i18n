@@ -56,10 +56,12 @@ export const MetricExploreModal: FC<Props> = ({ opened, onClose, metrics }) => {
     const { t } = useTranslation();
     const { track } = useTracking();
 
+    const userUuid = useAppSelector(
+        (state) => state.metricsCatalog.user?.userUuid,
+    );
     const organizationUuid = useAppSelector(
         (state) => state.metricsCatalog.organizationUuid,
     );
-
     const projectUuid = useAppSelector(
         (state) => state.metricsCatalog.projectUuid,
     );
@@ -259,6 +261,7 @@ export const MetricExploreModal: FC<Props> = ({ opened, onClose, metrics }) => {
             track({
                 name: EventName.METRICS_CATALOG_EXPLORE_GRANULARITY_APPLIED,
                 properties: {
+                    userId: userUuid,
                     organizationId: organizationUuid,
                     projectId: projectUuid,
                     metricName,
@@ -281,6 +284,7 @@ export const MetricExploreModal: FC<Props> = ({ opened, onClose, metrics }) => {
             tableName,
             timeDimensionBaseField,
             track,
+            userUuid,
         ],
     );
 
@@ -294,6 +298,7 @@ export const MetricExploreModal: FC<Props> = ({ opened, onClose, metrics }) => {
             track({
                 name: EventName.METRICS_CATALOG_EXPLORE_SEGMENT_BY_APPLIED,
                 properties: {
+                    userId: userUuid,
                     organizationId: organizationUuid,
                     projectId: projectUuid,
                     metricName,
@@ -302,7 +307,7 @@ export const MetricExploreModal: FC<Props> = ({ opened, onClose, metrics }) => {
                 },
             });
         },
-        [metricName, organizationUuid, projectUuid, tableName, track],
+        [metricName, organizationUuid, projectUuid, tableName, track, userUuid],
     );
 
     const handleClose = useCallback(() => {
@@ -321,6 +326,7 @@ export const MetricExploreModal: FC<Props> = ({ opened, onClose, metrics }) => {
             track({
                 name: EventName.METRICS_CATALOG_EXPLORE_TIME_DIMENSION_OVERRIDE_APPLIED,
                 properties: {
+                    userId: userUuid,
                     organizationId: organizationUuid,
                     projectId: projectUuid,
                     metricName,
@@ -335,6 +341,7 @@ export const MetricExploreModal: FC<Props> = ({ opened, onClose, metrics }) => {
         metricName,
         tableName,
         track,
+        userUuid,
     ]);
 
     useEffect(() => {
@@ -342,6 +349,7 @@ export const MetricExploreModal: FC<Props> = ({ opened, onClose, metrics }) => {
             track({
                 name: EventName.METRICS_CATALOG_EXPLORE_COMPARE_LAST_PERIOD,
                 properties: {
+                    userId: userUuid,
                     organizationId: organizationUuid,
                     projectId: projectUuid,
                     metricName,
@@ -357,6 +365,7 @@ export const MetricExploreModal: FC<Props> = ({ opened, onClose, metrics }) => {
             track({
                 name: EventName.METRICS_CATALOG_EXPLORE_COMPARE_ANOTHER_METRIC,
                 properties: {
+                    userId: userUuid,
                     organizationId: organizationUuid,
                     projectId: projectUuid,
                     metricName,
@@ -374,6 +383,7 @@ export const MetricExploreModal: FC<Props> = ({ opened, onClose, metrics }) => {
         tableName,
         track,
         queryHasEmptyMetric,
+        userUuid,
     ]);
 
     const segmentByData = useMemo(() => {

@@ -6,7 +6,6 @@ import { Navigate, useParams, useRoutes, type RouteObject } from 'react-router';
 import ErrorState from '../components/common/ErrorState';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
-import CustomSqlPanel from '../components/CustomSqlPanel/CustomSqlPanel';
 import { DataOps } from '../components/DataOps';
 import ProjectUserAccess from '../components/ProjectAccess';
 import { UpdateProjectConnection } from '../components/ProjectConnection';
@@ -15,6 +14,7 @@ import SettingsScheduler from '../components/SettingsScheduler';
 import SettingsSemanticLayer from '../components/SettingsSemanticLayer';
 import SettingsUsageAnalytics from '../components/SettingsUsageAnalytics';
 import { SettingsValidator } from '../components/SettingsValidator';
+import SettingsEmbed from '../ee/features/embed/SettingsEmbed';
 import { useProject } from '../hooks/useProject';
 
 const ProjectSettings: FC = () => {
@@ -61,16 +61,16 @@ const ProjectSettings: FC = () => {
                 element: <SettingsValidator projectUuid={projectUuid} />,
             },
             {
-                path: `/customSql`,
-                element: <CustomSqlPanel projectUuid={projectUuid} />,
-            },
-            {
                 path: `/dataOps`,
                 element: <DataOps projectUuid={projectUuid} />,
             },
             {
                 path: '*',
                 element: <Navigate to={`/generalSettings`} />,
+            },
+            {
+                path: '/embed', // commercial route
+                element: <SettingsEmbed projectUuid={projectUuid} />,
             },
         ];
     }, [projectUuid]);

@@ -34,6 +34,7 @@ import { SemanticLayerService } from './SemanticLayerService/SemanticLayerServic
 import { ShareService } from './ShareService/ShareService';
 import { SlackIntegrationService } from './SlackIntegrationService/SlackIntegrationService';
 import { SpaceService } from './SpaceService/SpaceService';
+import { SpotlightService } from './SpotlightService/SpotlightService';
 import { SshKeyPairService } from './SshKeyPairService';
 import { UnfurlService } from './UnfurlService/UnfurlService';
 import { UserAttributesService } from './UserAttributesService/UserAttributesService';
@@ -81,9 +82,11 @@ interface ServiceManifest {
     savedSemanticViewerChartService: SavedSemanticViewerChartService;
     coderService: CoderService;
     featureFlagService: FeatureFlagService;
+    spotlightService: SpotlightService;
     /** An implementation signature for these services are not available at this stage */
     embedService: unknown;
     aiService: unknown;
+    scimService: unknown;
 }
 
 /**
@@ -776,6 +779,22 @@ export class ServiceRepository
 
     public getAiService<AiServiceImplT>(): AiServiceImplT {
         return this.getService('aiService');
+    }
+
+    public getScimService<ScimServiceImplT>(): ScimServiceImplT {
+        return this.getService('scimService');
+    }
+
+    public getSpotlightService(): SpotlightService {
+        return this.getService(
+            'spotlightService',
+            () =>
+                new SpotlightService({
+                    lightdashConfig: this.context.lightdashConfig,
+                    spotlightTableConfigModel:
+                        this.models.getSpotlightTableConfigModel(),
+                }),
+        );
     }
 
     /**

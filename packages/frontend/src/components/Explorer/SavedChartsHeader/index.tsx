@@ -226,7 +226,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
         return resultsData?.fields;
     }, [resultsData]);
 
-    const { clearIsEditingDashboardChart } = useDashboardStorage();
+    const { clearDashboardStorage } = useDashboardStorage();
     const [isRenamingChart, setIsRenamingChart] = useState(false);
     const [isMovingChart, setIsMovingChart] = useState(false);
     const [isQueryModalOpen, queryModalHandlers] = useDisclosure();
@@ -1014,7 +1014,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                         } else {
                             void navigate(`/`);
                         }
-                        clearIsEditingDashboardChart();
+                        clearDashboardStorage();
                         deleteModalHandlers.close();
                     }}
                 />
@@ -1054,7 +1054,7 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                     opened={isMovingChart}
                     onClose={() => setIsMovingChart(false)}
                     onConfirm={() => {
-                        clearIsEditingDashboardChart();
+                        clearDashboardStorage();
                         void navigate(
                             `/projects/${projectUuid}/saved/${savedChart.uuid}/edit`,
                         );

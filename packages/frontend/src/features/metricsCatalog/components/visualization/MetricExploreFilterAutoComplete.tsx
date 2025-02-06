@@ -81,6 +81,7 @@ export const MetricExploreFilterAutoComplete: FC<Props> = ({
         projectUuid,
         dimension,
         undefined,
+        undefined,
         true,
         forceRefresh,
         {

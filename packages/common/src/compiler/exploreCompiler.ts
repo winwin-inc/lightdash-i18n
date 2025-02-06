@@ -1,4 +1,4 @@
-import { type SupportedDbtAdapter } from '../types/dbt';
+import { type DbtRawModelNode, type SupportedDbtAdapter } from '../types/dbt';
 import { CompileError } from '../types/errors';
 import {
     type CompiledExploreJoin,
@@ -20,15 +20,19 @@ import {
     type Dimension,
     type Metric,
 } from '../types/field';
-import { type WarehouseClient } from '../types/warehouse';
-
+import { type LightdashProjectConfig } from '../types/lightdashProjectConfig';
 import {
     dateGranularityToTimeFrameMap,
     type DateGranularity,
 } from '../types/timeFrames';
+import { type WarehouseClient } from '../types/warehouse';
 import { timeFrameConfigs } from '../utils/timeFrames';
 import { getFieldQuoteChar } from '../utils/warehouse';
 import { renderFilterRuleSql } from './filtersCompiler';
+import {
+    getCategoriesFromResource,
+    getSpotlightConfigurationForResource,
+} from './lightdashProjectConfig';
 
 // exclude lightdash prefix from variable pattern
 export const lightdashVariablePattern =
@@ -78,6 +82,8 @@ export type UncompiledExplore = {
     ymlPath?: string;
     sqlPath?: string;
     joinAliases?: Record<string, Record<string, string>>;
+    spotlightConfig?: LightdashProjectConfig['spotlight'];
+    meta: DbtRawModelNode['meta'];
 };
 
 const getReferencedTable = (
@@ -110,6 +116,8 @@ export class ExploreCompiler {
         warehouse,
         ymlPath,
         sqlPath,
+        spotlightConfig,
+        meta,
     }: UncompiledExplore): Explore {
         // Check that base table and joined tables exist
         if (!tables[baseTable]) {
@@ -245,6 +253,16 @@ export class ExploreCompiler {
             this.compileJoin(j, includedTables),
         );
 
+        const spotlightVisibility =
+            meta.spotlight?.visibility ?? spotlightConfig?.default_visibility;
+
+        const spotlightCategories = getCategoriesFromResource(
+            'explore',
+            name,
+            spotlightConfig,
+            meta.spotlight?.categories,
+        );
+
         return {
             name,
             label,
@@ -257,6 +275,10 @@ export class ExploreCompiler {
             warehouse,
             ymlPath,
             sqlPath,
+            ...getSpotlightConfigurationForResource(
+                spotlightVisibility,
+                spotlightCategories,
+            ),
         };
     }
 

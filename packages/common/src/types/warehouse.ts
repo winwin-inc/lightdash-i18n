@@ -1,7 +1,19 @@
 import { type WeekDay } from '../utils/timeFrames';
+import { type QueryExecutionContext } from './analytics';
+import { type AnyType } from './any';
 import { type SupportedDbtAdapter } from './dbt';
 import { type DimensionType, type Metric } from './field';
 import { type CreateWarehouseCredentials } from './projects';
+
+export type RunQueryTags = {
+    project_uuid?: string;
+    user_uuid?: string;
+    organization_uuid?: string;
+    chart_uuid?: string;
+    dashboard_uuid?: string;
+    explore_name?: string;
+    query_context: QueryExecutionContext;
+};
 
 export type WarehouseTableSchema = {
     [column: string]: DimensionType;
@@ -32,7 +44,7 @@ export type WarehouseTables = {
 
 export type WarehouseResults = {
     fields: Record<string, { type: DimensionType }>;
-    rows: Record<string, any>[];
+    rows: Record<string, AnyType>[];
 };
 
 export interface WarehouseClient {
@@ -49,7 +61,7 @@ export interface WarehouseClient {
         query: string,
         streamCallback: (data: WarehouseResults) => void,
         options: {
-            values?: any[];
+            values?: AnyType[];
             tags: Record<string, string>;
             timezone?: string;
         },
@@ -67,7 +79,7 @@ export interface WarehouseClient {
         sql: string,
         tags: Record<string, string>,
         timezone?: string,
-        values?: any[],
+        values?: AnyType[],
     ): Promise<WarehouseResults>;
 
     test(): Promise<void>;
@@ -97,7 +109,7 @@ export interface WarehouseClient {
     ): Promise<WarehouseCatalog>;
 
     parseWarehouseCatalog(
-        rows: Record<string, any>[],
+        rows: Record<string, AnyType>[],
         mapFieldType: (type: string) => DimensionType,
     ): WarehouseCatalog;
 

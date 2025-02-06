@@ -5,6 +5,7 @@ import {
     ChartType,
     DownloadFileType,
     ForbiddenError,
+    getErrorMessage,
     isDashboardChartTileType,
     isDashboardSqlChartTile,
     LightdashPage,
@@ -225,24 +226,26 @@ export class UnfurlService extends BaseService {
             chartType,
             resourceUuid,
             chartTileUuids: rest.chartTileUuids,
-            // TODO: Add this back once FIXME is solved in saveScreenshot
-            // sqlChartTileUuids: rest.sqlChartTileUuids,
+            sqlChartTileUuids: rest.sqlChartTileUuids,
         };
     }
 
-    static async createImagePdf(
-        imageId: string,
-        buffer: Buffer,
-    ): Promise<string> {
+    private async createImagePdf(id: string, buffer: Buffer): Promise<string> {
         // Converts an image to PDF format,
         // The PDF has the size of the image, not DIN A4
         const pdfDoc = await PDFDocument.create();
         const pngImage = await pdfDoc.embedPng(buffer);
         const page = pdfDoc.addPage([pngImage.width, pngImage.height]);
         page.drawImage(pngImage);
-        const path = `/tmp/${imageId}.pdf`;
         const pdfBytes = await pdfDoc.save();
-        await fsPromise.writeFile(path, pdfBytes);
+
+        let path: string;
+        if (this.s3Client.isEnabled()) {
+            path = await this.s3Client.uploadPdf(Buffer.from(pdfBytes), id);
+        } else {
+            path = `/tmp/${id}.pdf`;
+            await fsPromise.writeFile(path, pdfBytes);
+        }
         return path;
     }
 
@@ -290,8 +293,9 @@ export class UnfurlService extends BaseService {
         let imageUrl;
         let pdfPath;
         if (buffer !== undefined) {
-            if (withPdf)
-                pdfPath = await UnfurlService.createImagePdf(imageId, buffer);
+            if (withPdf) {
+                pdfPath = await this.createImagePdf(imageId, buffer);
+            }
 
             if (this.s3Client.isEnabled()) {
                 imageUrl = await this.s3Client.uploadImage(buffer, imageId);
@@ -427,6 +431,30 @@ export class UnfurlService extends BaseService {
 
                     browser = await playwright.chromium.connectOverCDP(
                         browserWSEndpoint,
+                        {
+                            timeout: 1000 * 60 * 30, // 30 minutes
+                            logger: {
+                                isEnabled() {
+                                    return true;
+                                },
+                                log: (name, severity, message, args): void => {
+                                    const logMessage = `[${name}] ${message} ${JSON.stringify(
+                                        args,
+                                    )}`;
+                                    switch (severity) {
+                                        case 'warning':
+                                            this.logger.warn(logMessage);
+                                            break;
+                                        case 'error':
+                                            this.logger.error(logMessage);
+                                            break;
+                                        default:
+                                            this.logger.debug(logMessage);
+                                            break;
+                                    }
+                                },
+                            },
+                        },
                     );
 
                     page = await browser.newPage({
@@ -507,7 +535,9 @@ export class UnfurlService extends BaseService {
                                 },
                                 (error) => {
                                     this.logger.error(
-                                        `Headless browser response buffer error: ${error.message}`,
+                                        `Headless browser response buffer error: ${getErrorMessage(
+                                            error,
+                                        )}`,
                                     );
                                     chartRequestErrors += 1;
                                 },
@@ -522,6 +552,7 @@ export class UnfurlService extends BaseService {
 
                         if (lightdashPage === LightdashPage.DASHBOARD) {
                             // Wait for the all charts to load if we are in a dashboard
+
                             const exploreChartResultsPromises =
                                 chartTileUuids?.map((id) => {
                                     const responsePattern = new RegExp(
@@ -530,33 +561,77 @@ export class UnfurlService extends BaseService {
 
                                     return page?.waitForResponse(
                                         responsePattern,
-                                        {
-                                            timeout: 60000,
-                                        },
+                                        { timeout: 60000 },
                                     ); // NOTE: No await here
                                 });
-                            // We wait for the sql charts to load and for the query to finish
-                            /*
-                             * FIXME: wait for /sqlRunner/saved/${id} and /\/sqlRunner\/runPivotQuery/, so that we can successfully capture the SQL charts visualizations
-                             *
-                             * We need to wait for /sqlRunner/saved/${id} so that we can successfully capture the SQL charts visualizations
-                             * We need to wait for /\/sqlRunner\/runPivotQuery/, so that we can successfully capture the SQL charts visualizations
-                             * Figure out how to wait for the Streamed query results from the warehouse when scheduling a dashboard of image type - this works already when exporting a dashboard, but not when scheduling it
-                             */
-                            const sqlChartResultsPromises =
-                                sqlChartTileUuids?.map(
-                                    (id) =>
-                                        page?.waitForResponse(
-                                            /\/sqlRunner\/results/,
-                                            {
-                                                timeout: 60000,
-                                            },
-                                        ), // NOTE: No await here
+
+                            // Create separate arrays for each type of SQL response
+                            let sqlInitialLoadPromises:
+                                | (Promise<playwright.Response> | undefined)[]
+                                | undefined;
+                            let sqlResultsJobPromises:
+                                | (Promise<playwright.Response> | undefined)[]
+                                | undefined;
+                            let sqlResultsPromises:
+                                | (Promise<playwright.Response> | undefined)[]
+                                | undefined;
+                            let sqlPivotPromises:
+                                | (Promise<playwright.Response> | undefined)[]
+                                | undefined;
+
+                            const filteredSqlChartTileUuids =
+                                sqlChartTileUuids?.filter(
+                                    (id): id is string => !!id,
                                 );
+
+                            const hasSqlCharts =
+                                filteredSqlChartTileUuids &&
+                                filteredSqlChartTileUuids.length > 0;
+                            if (hasSqlCharts && page) {
+                                sqlInitialLoadPromises =
+                                    filteredSqlChartTileUuids.map((id) => {
+                                        const responsePattern = new RegExp(
+                                            `/sqlRunner/saved/${id}`,
+                                        );
+                                        return page?.waitForResponse(
+                                            responsePattern,
+                                            { timeout: 60000 },
+                                        );
+                                    });
+
+                                sqlResultsJobPromises =
+                                    filteredSqlChartTileUuids.map(
+                                        (id) =>
+                                            page?.waitForResponse(
+                                                new RegExp(
+                                                    `/sqlRunner/saved/${id}/results-job`,
+                                                ),
+                                                { timeout: 60000 },
+                                            ), // NOTE: No await here
+                                    );
+
+                                // These are shared responses for all SQL charts
+                                sqlResultsPromises = [
+                                    page?.waitForResponse(
+                                        /\/sqlRunner\/results/,
+                                        { timeout: 60000 },
+                                    ), // NOTE: No await here
+                                ];
+
+                                sqlPivotPromises = [
+                                    page?.waitForResponse(
+                                        /\/sqlRunner\/runPivotQuery/,
+                                        { timeout: 60000 },
+                                    ), // NOTE: No await here
+                                ];
+                            }
 
                             chartResultsPromises = [
                                 ...(exploreChartResultsPromises || []),
-                                ...(sqlChartResultsPromises || []),
+                                ...(sqlInitialLoadPromises || []),
+                                ...(sqlResultsJobPromises || []),
+                                ...(sqlResultsPromises || []),
+                                ...(sqlPivotPromises || []),
                             ];
                         } else if (lightdashPage === LightdashPage.CHART) {
                             // Wait for the visualization to load if we are in an saved explore page
@@ -678,20 +753,23 @@ export class UnfurlService extends BaseService {
                     });
                     return imageBuffer;
                 } catch (e) {
+                    const errorMessage = getErrorMessage(e);
                     const isRetryableError =
                         e instanceof playwright.errors.TimeoutError ||
                         // Following error messages were taken from the Playwright source code
-                        e.message.includes('Protocol error') ||
-                        e.message.includes('Target crashed') ||
-                        e.message.includes(
+                        errorMessage.includes('Protocol error') ||
+                        errorMessage.includes('Target crashed') ||
+                        errorMessage.includes(
                             'Target page, context or browser has been closed',
                         );
 
                     if (isRetryableError && retries) {
                         this.logger.info(
-                            `Retrying: unable to fetch screenshots for scheduler with url ${url}, of type: ${lightdashPage}. Message: ${e.message}`,
+                            `Retrying: unable to fetch screenshots for scheduler with url ${url}, of type: ${lightdashPage}. Message: ${getErrorMessage(
+                                e,
+                            )}`,
                         );
-                        span.addEvent(e);
+                        span.addEvent(getErrorMessage(e));
                         span.setAttributes({
                             'page.type': lightdashPage,
                             url,
@@ -727,7 +805,7 @@ export class UnfurlService extends BaseService {
 
                     Sentry.captureException(e);
                     hasError = true;
-                    span.addEvent(e);
+                    span.addEvent(getErrorMessage(e));
                     span.setAttributes({
                         'page.type': lightdashPage,
                         url,
@@ -742,7 +820,9 @@ export class UnfurlService extends BaseService {
                     });
 
                     this.logger.error(
-                        `Unable to fetch screenshots for scheduler with url ${url}, of type: ${lightdashPage}. Message: ${e.message}`,
+                        `Unable to fetch screenshots for scheduler with url ${url}, of type: ${lightdashPage}. Message: ${getErrorMessage(
+                            e,
+                        )}`,
                     );
                     throw e;
                 } finally {

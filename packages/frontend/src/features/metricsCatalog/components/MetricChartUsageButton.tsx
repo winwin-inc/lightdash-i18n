@@ -23,6 +23,9 @@ export const MetricChartUsageButton = ({
     const projectUuid = useAppSelector(
         (state) => state.metricsCatalog.projectUuid,
     );
+    const userUuid = useAppSelector(
+        (state) => state.metricsCatalog.user?.userUuid,
+    );
     const dispatch = useAppDispatch();
     const { track } = useTracking();
 
@@ -31,6 +34,7 @@ export const MetricChartUsageButton = ({
             track({
                 name: EventName.METRICS_CATALOG_CHART_USAGE_CLICKED,
                 properties: {
+                    userId: userUuid,
                     metricName: row.original.name,
                     chartCount: row.original.chartUsage ?? 0,
                     tableName: row.original.tableName,

@@ -58,13 +58,16 @@ export const ResultsDownloadFromUrl: FC<Props> = ({
                         size="xs"
                         type="number"
                         label={t('features_sql_runner_download.limit')}
+                        step={100}
+                        min={1}
+                        autoFocus
+                        required
                         defaultValue={DEFAULT_SQL_LIMIT}
                         onChange={(value: number) => setCustomLimit(value)}
                     />
                     <Button
                         size="xs"
                         ml="auto"
-                        leftIcon={<MantineIcon icon={IconDownload} />}
                         onClick={handleDownload}
                         loading={isLoading}
                     >

@@ -1,4 +1,9 @@
-import { HealthState, LightdashMode, SessionUser } from '@lightdash/common';
+import {
+    AnyType,
+    HealthState,
+    LightdashMode,
+    SessionUser,
+} from '@lightdash/common';
 
 export const BaseResponse: HealthState = {
     healthy: true,
@@ -82,4 +87,4 @@ export const BaseResponse: HealthState = {
 export const userMock = {
     userUuid: 'uuid',
     organizationUuid: 'orguuid',
-} as any as SessionUser;
+} as AnyType as SessionUser;

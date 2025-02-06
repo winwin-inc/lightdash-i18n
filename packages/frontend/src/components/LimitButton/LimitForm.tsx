@@ -54,7 +54,8 @@ const LimitForm = forwardRef<HTMLFormElement, LimitFormProps>(
                         step={100}
                         min={1}
                         required
-                        label={t('components_limit_button.total_rows')}
+                        size="xs"
+                        label={t('components_limit_button.row_limit')}
                         {...form.getInputProps('limit')}
                     />
 

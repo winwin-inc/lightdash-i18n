@@ -1,13 +1,16 @@
 import { subject } from '@casl/ability';
 import {
     convertOrganizationRoleToProjectRole,
+    convertProjectRoleToOrganizationRole,
     getHighestProjectRole,
     isGroupWithMembers,
+    type InheritedRoles,
     type OrganizationMemberRole,
     type ProjectMemberRole,
 } from '@lightdash/common';
 import { ActionIcon, Paper, Table, TextInput } from '@mantine/core';
 import { IconX } from '@tabler/icons-react';
+import Fuse from 'fuse.js';
 import { useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -46,7 +49,7 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
     const {
         data: organizationUsers,
         isInitialLoading: isOrganizationUsersLoading,
-    } = useOrganizationUsers({ searchInput: search });
+    } = useOrganizationUsers();
 
     const { data: groups } = useOrganizationGroups({ includeMembers: 5 });
 
@@ -129,6 +132,67 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
             projectUuid,
         }),
     );
+    const inheritedRoles = useMemo(() => {
+        if (!organizationUsers) return {};
+        return organizationUsers.reduce<Record<string, InheritedRoles>>(
+            (acc, orgUser) => {
+                return {
+                    ...acc,
+                    [orgUser.userUuid]: [
+                        {
+                            type: 'organization',
+                            role: convertOrganizationRoleToProjectRole(
+                                orgRoles[orgUser.userUuid],
+                            ),
+                        },
+                        {
+                            type: 'group',
+                            role: groupRoles[orgUser.userUuid],
+                        },
+                        {
+                            type: 'project',
+                            role: projectRoles[orgUser.userUuid],
+                        },
+                    ],
+                };
+            },
+            {},
+        );
+    }, [organizationUsers, orgRoles, groupRoles, projectRoles]);
+
+    const usersWithProjectRole = useMemo(() => {
+        if (!organizationUsers) return [];
+
+        return organizationUsers.map((orgUser) => {
+            const highestRole = getHighestProjectRole(
+                inheritedRoles[orgUser.userUuid],
+            );
+            const hasProjectRole = !!projectRoles[orgUser.userUuid];
+            const inheritedRole = highestRole?.role
+                ? convertProjectRoleToOrganizationRole(highestRole.role)
+                : orgUser.role;
+            return {
+                ...orgUser,
+                finalRole: hasProjectRole
+                    ? convertProjectRoleToOrganizationRole(
+                          projectRoles[orgUser.userUuid],
+                      )
+                    : inheritedRole,
+            };
+        });
+    }, [organizationUsers, projectRoles, inheritedRoles]);
+    const filteredUsers = useMemo(() => {
+        if (search && usersWithProjectRole) {
+            return new Fuse(usersWithProjectRole, {
+                keys: ['firstName', 'lastName', 'email', 'finalRole'],
+                ignoreLocation: true,
+                threshold: 0.3,
+            })
+                .search(search)
+                .map((result) => result.item);
+        }
+        return usersWithProjectRole;
+    }, [usersWithProjectRole, search]);
 
     if (isProjectAccessLoading || isOrganizationUsersLoading) {
         return <LoadingState title={t('components_project_access.loading')} />;
@@ -165,28 +229,15 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
                         </tr>
                     </thead>
                     <tbody>
-                        {organizationUsers?.map((orgUser) => (
+                        {filteredUsers?.map((orgUser) => (
                             <ProjectAccessRow
                                 key={orgUser.userUuid}
                                 projectUuid={projectUuid}
                                 canManageProjectAccess={canManageProjectAccess}
                                 user={orgUser}
-                                inheritedRoles={[
-                                    {
-                                        type: 'organization',
-                                        role: convertOrganizationRoleToProjectRole(
-                                            orgRoles[orgUser.userUuid],
-                                        ),
-                                    },
-                                    {
-                                        type: 'group',
-                                        role: groupRoles[orgUser.userUuid],
-                                    },
-                                    {
-                                        type: 'project',
-                                        role: projectRoles[orgUser.userUuid],
-                                    },
-                                ]}
+                                inheritedRoles={
+                                    inheritedRoles[orgUser.userUuid]
+                                }
                             />
                         ))}
                     </tbody>

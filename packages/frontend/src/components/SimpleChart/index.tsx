@@ -209,6 +209,10 @@ const SimpleChart: FC<SimpleChartProps> = memo((props) => {
                                     }
                                 },
                             },
+                            // Re-enable emphasis on mouse over
+                            emphasis: {
+                                disabled: false,
+                            },
                         },
                         false,
                         true, // lazy update
@@ -233,6 +237,10 @@ const SimpleChart: FC<SimpleChartProps> = memo((props) => {
             eCharts.setOption(
                 {
                     tooltip: eChartsOptions?.tooltip,
+                    // Disable emphasis on mouse out - this is helpful when moving outside the chart too quickly when immediately before  the mouse was over a highlighted series. This resets the emphasis state.
+                    emphasis: {
+                        disabled: true,
+                    },
                 },
                 false,
                 true, // lazy update

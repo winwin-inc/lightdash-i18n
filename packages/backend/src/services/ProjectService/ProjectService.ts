@@ -4,6 +4,7 @@ import {
     AlreadyExistsError,
     AlreadyProcessingError,
     AndFilterGroup,
+    AnyType,
     ApiChartAndResults,
     ApiQueryResults,
     ApiSqlQueryResults,
@@ -50,6 +51,7 @@ import {
     getDashboardFilterRulesForTables,
     getDateDimension,
     getDimensions,
+    getErrorMessage,
     getFieldQuoteChar,
     getFields,
     getIntrinsicUserAttributes,
@@ -78,6 +80,7 @@ import {
     NotFoundError,
     ParameterError,
     PivotChartData,
+    PivotValuesColumn,
     Project,
     ProjectCatalog,
     ProjectGroupAccess,
@@ -114,6 +117,7 @@ import {
     WarehouseTableSchema,
     WarehouseTypes,
     type ApiCreateProjectResults,
+    type RunQueryTags,
     type SemanticLayerConnectionUpdate,
     type Tag,
 } from '@lightdash/common';
@@ -174,15 +178,6 @@ import {
     exploreHasFilteredAttribute,
     getFilteredExplore,
 } from '../UserAttributesService/UserAttributeUtils';
-
-type RunQueryTags = {
-    project_uuid?: string;
-    user_uuid?: string;
-    organization_uuid?: string;
-    chart_uuid?: string;
-    dashboard_uuid?: string;
-    explore_name?: string;
-};
 
 type ProjectServiceArguments = {
     lightdashConfig: LightdashConfig;
@@ -459,7 +454,7 @@ export class ProjectService extends BaseService {
         };
     }
 
-    private async _getWarehouseClient(
+    async _getWarehouseClient(
         projectUuid: string,
         credentials: CreateWarehouseCredentials,
         snowflakeVirtualWarehouse?: string,
@@ -520,6 +515,7 @@ export class ProjectService extends BaseService {
         const prevCatalogItemsWithTags =
             await this.catalogModel.getCatalogItemsWithTags(projectUuid, {
                 onlyTagged: true, // We only need the tagged catalog items
+                includeYamlTags: false, // we don't need the yaml tags as they are being recreated by the indexCatalog job
             });
 
         const prevCatalogItemsWithIcons =
@@ -528,11 +524,15 @@ export class ProjectService extends BaseService {
         const prevMetricTreeEdges =
             await this.catalogModel.getAllMetricsTreeEdges(projectUuid);
 
-        await this.projectModel.saveExploresToCache(projectUuid, explores);
+        const { cachedExploreUuids } =
+            await this.projectModel.saveExploresToCache(projectUuid, explores);
+
+        this.logger.info(
+            `Saved ${cachedExploreUuids.length} explores to cache for project ${projectUuid}`,
+        );
 
         await this.schedulerClient.indexCatalog({
             projectUuid,
-            explores,
             userUuid,
             prevCatalogItemsWithTags,
             prevCatalogItemsWithIcons,
@@ -703,8 +703,7 @@ export class ProjectService extends BaseService {
             const { adapter, sshTunnel } = await this.jobModel.tryJobStep(
                 jobUuid,
                 JobStepType.TESTING_ADAPTOR,
-                async () =>
-                    ProjectService.testProjectAdapter(createProject, user),
+                async () => this.testProjectAdapter(createProject, user),
             );
 
             const explores = await this.jobModel.tryJobStep(
@@ -712,7 +711,9 @@ export class ProjectService extends BaseService {
                 JobStepType.COMPILING,
                 async () => {
                     try {
-                        return await adapter.compileAllExplores();
+                        // There's no project yet, so we don't track
+                        const trackingParams = undefined;
+                        return await adapter.compileAllExplores(trackingParams);
                     } finally {
                         await adapter.destroy();
                         await sshTunnel.disconnect();
@@ -723,27 +724,49 @@ export class ProjectService extends BaseService {
             const projectUuid = await this.jobModel.tryJobStep(
                 jobUuid,
                 JobStepType.CREATING_PROJECT,
-                async () =>
-                    this.projectModel.create(
+                async () => {
+                    const newProjectUuid = await this.projectModel.create(
                         user.userUuid,
                         user.organizationUuid,
                         createProject,
-                    ),
-            );
+                    );
+                    // Give admin user permissions to user who created this project even if he is an admin
+                    if (user.email) {
+                        await this.projectModel.createProjectAccess(
+                            newProjectUuid,
+                            user.email,
+                            ProjectMemberRole.ADMIN,
+                        );
+                    }
 
-            // Give admin user permissions to user who created this project even if he is an admin
-            if (user.email) {
-                await this.projectModel.createProjectAccess(
-                    projectUuid,
-                    user.email,
-                    ProjectMemberRole.ADMIN,
-                );
-            }
+                    const trackingParams = {
+                        projectUuid: newProjectUuid,
+                        organizationUuid: user.organizationUuid,
+                        userUuid: user.userUuid,
+                    };
 
-            await this.saveExploresToCacheAndIndexCatalog(
-                user.userUuid,
-                projectUuid,
-                explores,
+                    const lightdashProjectConfig =
+                        await adapter.getLightdashProjectConfig(trackingParams);
+
+                    await this.replaceYamlTags(
+                        user,
+                        newProjectUuid,
+                        // Create util to generate categories from lightdashProjectConfig - this is used as well in deploy.ts
+                        Object.entries(
+                            lightdashProjectConfig.spotlight?.categories || {},
+                        ).map(([key, category]) => ({
+                            yamlReference: key,
+                            name: category.label,
+                            color: category.color ?? 'gray',
+                        })),
+                    );
+                    await this.saveExploresToCacheAndIndexCatalog(
+                        user.userUuid,
+                        newProjectUuid,
+                        explores,
+                    );
+                    return newProjectUuid;
+                },
             );
 
             await this.jobModel.update(jobUuid, {
@@ -939,29 +962,53 @@ export class ProjectService extends BaseService {
                 job.jobUuid,
                 JobStepType.TESTING_ADAPTOR,
                 async () =>
-                    ProjectService.testProjectAdapter(
+                    this.testProjectAdapter(
                         updatedProject as UpdateProject,
                         user,
                     ),
             );
             if (updatedProject.dbtConnection.type !== DbtProjectType.NONE) {
-                const explores = await this.jobModel.tryJobStep(
+                await this.jobModel.tryJobStep(
                     job.jobUuid,
                     JobStepType.COMPILING,
                     async () => {
                         try {
-                            return await adapter.compileAllExplores();
+                            const trackingParams = {
+                                projectUuid,
+                                organizationUuid: user.organizationUuid,
+                                userUuid: user.userUuid,
+                            };
+                            const explores = await adapter.compileAllExplores(
+                                trackingParams,
+                            );
+                            const lightdashProjectConfig =
+                                await adapter.getLightdashProjectConfig(
+                                    trackingParams,
+                                );
+
+                            await this.replaceYamlTags(
+                                user,
+                                projectUuid,
+                                // TODO: Create util to generate categories from lightdashProjectConfig - this is used as well in deploy.ts
+                                Object.entries(
+                                    lightdashProjectConfig.spotlight
+                                        ?.categories || {},
+                                ).map(([key, category]) => ({
+                                    yamlReference: key,
+                                    name: category.label,
+                                    color: category.color ?? 'gray',
+                                })),
+                            );
+                            await this.saveExploresToCacheAndIndexCatalog(
+                                user.userUuid,
+                                projectUuid,
+                                explores,
+                            );
                         } finally {
                             await adapter.destroy();
                             await sshTunnel.disconnect();
                         }
                     },
-                );
-
-                await this.saveExploresToCacheAndIndexCatalog(
-                    user.userUuid,
-                    projectUuid,
-                    explores,
                 );
             }
 
@@ -995,7 +1042,7 @@ export class ProjectService extends BaseService {
         }
     }
 
-    private static async testProjectAdapter(
+    private async testProjectAdapter(
         data: UpdateProject,
         _user: Pick<SessionUser, 'userUuid' | 'organizationUuid'>,
     ): Promise<{
@@ -1012,6 +1059,8 @@ export class ProjectService extends BaseService {
                 onWarehouseCatalogChange: () => {},
             },
             data.dbtVersion || DefaultSupportedDbtVersion,
+            undefined,
+            this.analytics,
         );
         try {
             await adapter.test();
@@ -1088,6 +1137,8 @@ export class ProjectService extends BaseService {
                 },
             },
             project.dbtVersion || DefaultSupportedDbtVersion,
+            undefined,
+            this.analytics,
         );
         return { adapter, sshTunnel };
     }
@@ -1313,6 +1364,7 @@ export class ProjectService extends BaseService {
             project_uuid: projectUuid,
             user_uuid: user.userUuid,
             explore_name: exploreName,
+            query_context: context,
         };
 
         return this.runQueryAndFormatRows({
@@ -1394,6 +1446,7 @@ export class ProjectService extends BaseService {
             user_uuid: user.userUuid,
             chart_uuid: chartUuid,
             explore_name: savedChart.tableName,
+            query_context: context,
         };
 
         const { cacheMetadata, rows, fields } =
@@ -1521,6 +1574,7 @@ export class ProjectService extends BaseService {
             chart_uuid: chartUuid,
             dashboard_uuid: dashboardUuid,
             explore_name: explore.name,
+            query_context: context,
         };
 
         const exploreDimensions = getDimensions(explore);
@@ -1612,6 +1666,7 @@ export class ProjectService extends BaseService {
             project_uuid: projectUuid,
             user_uuid: user.userUuid,
             explore_name: exploreName,
+            query_context: context,
         };
 
         const explore = await this.getExplore(
@@ -1771,7 +1826,10 @@ export class ProjectService extends BaseService {
         user: SessionUser,
         chartUuid: string,
         context: QueryExecutionContext,
-    ): Promise<{ rows: Record<string, any>[]; cacheMetadata: CacheMetadata }> {
+    ): Promise<{
+        rows: Record<string, AnyType>[];
+        cacheMetadata: CacheMetadata;
+    }> {
         return wrapSentryTransaction(
             'getResultsForChartWithWarehouseQuery',
             {
@@ -1787,6 +1845,7 @@ export class ProjectService extends BaseService {
                     user_uuid: user.userUuid,
                     chart_uuid: chartUuid,
                     explore_name: exploreId,
+                    query_context: context,
                 };
 
                 return this.runMetricQuery({
@@ -1803,7 +1862,7 @@ export class ProjectService extends BaseService {
         );
     }
 
-    private async getResultsFromCacheOrWarehouse({
+    async getResultsFromCacheOrWarehouse({
         projectUuid,
         context,
         warehouseClient,
@@ -1815,12 +1874,12 @@ export class ProjectService extends BaseService {
         projectUuid: string;
         context: QueryExecutionContext;
         warehouseClient: WarehouseClient;
-        query: any;
+        query: AnyType;
         metricQuery: MetricQuery;
-        queryTags: RunQueryTags;
+        queryTags: Omit<RunQueryTags, 'query_context'>; // We already have context in the context parameter
         invalidateCache?: boolean;
     }): Promise<{
-        rows: Record<string, any>[];
+        rows: Record<string, AnyType>[];
         cacheMetadata: CacheMetadata;
     }> {
         return wrapSentryTransaction(
@@ -1899,17 +1958,30 @@ export class ProjectService extends BaseService {
                         metricQuery: JSON.stringify(metricQuery),
                         type: warehouseClient.credentials.type,
                     },
-                    async () =>
-                        measureTime(
-                            () =>
-                                warehouseClient.runQuery(
-                                    query,
-                                    queryTags,
-                                    // metricQuery.timezone,
-                                ),
-                            'runWarehouseQuery',
-                            this.logger,
-                        ),
+                    async () => {
+                        try {
+                            return await measureTime(
+                                () =>
+                                    warehouseClient.runQuery(
+                                        query,
+                                        queryTags,
+                                        // metricQuery.timezone,
+                                    ),
+                                'runWarehouseQuery',
+                                this.logger,
+                            );
+                        } catch (e) {
+                            this.logger.warn(
+                                `Error running "${
+                                    warehouseClient.credentials.type
+                                }" warehouse query:
+                                "${query}"
+                                with query tags: 
+                                ${JSON.stringify(queryTags)}`,
+                            );
+                            throw e;
+                        }
+                    },
                 );
 
                 if (this.lightdashConfig.resultsCache?.resultsEnabled) {
@@ -1952,13 +2024,13 @@ export class ProjectService extends BaseService {
         exploreName: string;
         csvLimit: number | null | undefined;
         context: QueryExecutionContext;
-        queryTags: RunQueryTags;
+        queryTags: Omit<RunQueryTags, 'query_context'>; // We already have context in the context parameter
         invalidateCache?: boolean;
         explore?: Explore;
         granularity?: DateGranularity;
         chartUuid: string | undefined; // for analytics
     }): Promise<{
-        rows: Record<string, any>[];
+        rows: Record<string, AnyType>[];
         cacheMetadata: CacheMetadata;
         fields: ItemsMap;
     }> {
@@ -2191,7 +2263,7 @@ export class ProjectService extends BaseService {
                 } catch (e) {
                     span.setStatus({
                         code: 2, // ERROR
-                        message: e.message,
+                        message: getErrorMessage(e),
                     });
                     throw e;
                 } finally {
@@ -2237,6 +2309,7 @@ export class ProjectService extends BaseService {
         const queryTags: RunQueryTags = {
             organization_uuid: organizationUuid,
             user_uuid: user.userUuid,
+            query_context: QueryExecutionContext.SQL_RUNNER,
         };
 
         // enforce limit for current SQL queries as it may crash server. We are working on a new SQL runner that supports streaming
@@ -2287,6 +2360,7 @@ export class ProjectService extends BaseService {
         const queryTags: RunQueryTags = {
             organization_uuid: organizationUuid,
             user_uuid: userUuid,
+            query_context: context,
         };
 
         const columns: VizColumn[] = [];
@@ -2463,67 +2537,94 @@ export class ProjectService extends BaseService {
         const queryTags: RunQueryTags = {
             organization_uuid: organizationUuid,
             user_uuid: userUuid,
+            query_context: context,
         };
 
         const columns: VizColumn[] = [];
         let currentRowIndex = 0;
         let currentTransformedRow: ResultRow | undefined;
-        const valuesColumnReferences = new Set<string>(); // NOTE: This is used to pivot the data later with the same group by columns
+        const valuesColumnData = new Map<string, PivotValuesColumn>();
 
         const fileUrl = await this.downloadFileModel.streamFunction(
             this.s3Client,
         )(
             `${this.lightdashConfig.siteUrl}/api/v1/projects/${projectUuid}/sqlRunner/results`,
             async (writer) => {
-                await warehouseClient.streamQuery(
-                    pivotedSql,
-                    async ({ rows, fields }) => {
-                        if (!groupByColumns || groupByColumns.length === 0) {
-                            rows.forEach(writer);
-                            return;
-                        }
-                        if (!columns.length) {
-                            // Get column types from first row of results
-                            columns.push(
-                                ...Object.keys(fields).map((fieldName) => ({
-                                    reference: fieldName,
-                                    type: fields[fieldName].type,
-                                })),
-                            );
-                        }
-
-                        rows.forEach((row) => {
-                            // Write rows to file in order of row_index. This is so that we can pivot the data later
-                            if (currentRowIndex !== row.row_index) {
-                                if (currentTransformedRow) {
-                                    writer(currentTransformedRow);
-                                }
-                                currentTransformedRow = {
-                                    [indexColumn.reference]:
-                                        row[indexColumn.reference],
-                                };
-                                currentRowIndex = row.row_index;
+                try {
+                    await warehouseClient.streamQuery(
+                        pivotedSql,
+                        async ({ rows, fields }) => {
+                            if (
+                                !groupByColumns ||
+                                groupByColumns.length === 0
+                            ) {
+                                rows.forEach(writer);
+                                return;
                             }
-                            // Suffix the value column with the group by columns to avoid collisions. E.g. if we have a row with the value 1 and the group by columns are ['a', 'b'], then the value column will be 'value_1_a_b'
-                            const valueSuffix = groupByColumns
-                                ?.map((col) => row[col.reference])
-                                .join('_');
-                            valuesColumns.forEach((col) => {
-                                const valueColumnReference = `${col.reference}_${valueSuffix}`;
-                                valuesColumnReferences.add(
-                                    valueColumnReference,
+
+                            // columns appears unused
+                            if (!columns.length) {
+                                // Get column types from first row of results
+                                columns.push(
+                                    ...Object.keys(fields).map((fieldName) => ({
+                                        reference: fieldName,
+                                        type: fields[fieldName].type,
+                                    })),
                                 );
-                                currentTransformedRow =
-                                    currentTransformedRow ?? {};
-                                currentTransformedRow[valueColumnReference] =
-                                    row[`${col.reference}_${col.aggregation}`];
+                            }
+
+                            rows.forEach((row) => {
+                                // Write rows to file in order of row_index. This is so that we can pivot the data later
+                                if (currentRowIndex !== row.row_index) {
+                                    if (currentTransformedRow) {
+                                        writer(currentTransformedRow);
+                                    }
+                                    currentTransformedRow = {
+                                        [indexColumn.reference]:
+                                            row[indexColumn.reference],
+                                    };
+                                    currentRowIndex = row.row_index;
+                                }
+                                // Suffix the value column with the group by columns to avoid collisions.
+                                // E.g. if we have a row with the value 1 and the group by columns are ['a', 'b'],
+                                // then the value column will be 'value_1_a_b'
+                                const valueSuffix = groupByColumns
+                                    ?.map((col) => row[col.reference])
+                                    .join('_');
+                                valuesColumns.forEach((col) => {
+                                    const valueColumnReference = `${col.reference}_${col.aggregation}_${valueSuffix}`;
+                                    valuesColumnData.set(valueColumnReference, {
+                                        referenceField: col.reference, // The original y field name
+                                        pivotColumnName: valueColumnReference, // The pivoted y field name and agg eg amount_avg_false
+                                        aggregation: col.aggregation,
+                                        pivotValues: groupByColumns?.map(
+                                            (c) => ({
+                                                referenceField: c.reference,
+                                                value: row[c.reference],
+                                            }),
+                                        ),
+                                    });
+                                    currentTransformedRow =
+                                        currentTransformedRow ?? {};
+                                    currentTransformedRow[
+                                        valueColumnReference
+                                    ] =
+                                        row[
+                                            `${col.reference}_${col.aggregation}`
+                                        ];
+                                });
                             });
-                        });
-                    },
-                    {
-                        tags: queryTags,
-                    },
-                );
+                        },
+                        {
+                            tags: queryTags,
+                        },
+                    );
+                } catch (error) {
+                    this.logger.error(
+                        `Error running pivot query: ${error}\nSQL: ${pivotedSql}`,
+                    );
+                    throw error;
+                }
                 // Write the last row
                 if (currentTransformedRow) {
                     writer(currentTransformedRow);
@@ -2534,14 +2635,19 @@ export class ProjectService extends BaseService {
 
         await sshTunnel.disconnect();
 
+        const processedColumns =
+            groupByColumns && groupByColumns.length > 0
+                ? Array.from(valuesColumnData.values())
+                : valuesColumns.map((col) => ({
+                      referenceField: col.reference,
+                      pivotColumnName: `${col.reference}_${col.aggregation}`,
+                      aggregation: col.aggregation,
+                      pivotValues: [],
+                  }));
+
         return {
             fileUrl,
-            valuesColumns:
-                groupByColumns && groupByColumns.length > 0
-                    ? Array.from(valuesColumnReferences)
-                    : valuesColumns.map(
-                          (col) => `${col.reference}_${col.aggregation}`,
-                      ),
+            valuesColumns: processedColumns,
             indexColumn,
         };
     }
@@ -2747,6 +2853,7 @@ export class ProjectService extends BaseService {
             user_uuid: user.userUuid,
             project_uuid: projectUuid,
             explore_name: explore.name,
+            query_context: QueryExecutionContext.FILTER_AUTOCOMPLETE,
         };
         const { rows } = await warehouseClient.runQuery(query, queryTags);
         await sshTunnel.disconnect();
@@ -2791,7 +2898,10 @@ export class ProjectService extends BaseService {
         user: Pick<SessionUser, 'userUuid'>,
         projectUuid: string,
         requestMethod: RequestMethod,
-    ): Promise<(Explore | ExploreError)[]> {
+    ): Promise<{
+        explores: (Explore | ExploreError)[];
+        adapter: ProjectAdapter;
+    }> {
         // Checks that project exists
         const project = await this.projectModel.get(projectUuid);
 
@@ -2803,7 +2913,12 @@ export class ProjectService extends BaseService {
         );
         const packages = await adapter.getDbtPackages();
         try {
-            const explores = await adapter.compileAllExplores();
+            const trackingParams = {
+                projectUuid,
+                organizationUuid: project.organizationUuid,
+                userUuid: user.userUuid,
+            };
+            const explores = await adapter.compileAllExplores(trackingParams);
             this.analytics.track({
                 event: 'project.compiled',
                 userId: user.userUuid,
@@ -2936,7 +3051,8 @@ export class ProjectService extends BaseService {
                     ),
                 },
             });
-            return explores;
+
+            return { explores, adapter };
         } catch (e) {
             if (!(e instanceof LightdashError)) {
                 Sentry.captureException(e);
@@ -2946,7 +3062,12 @@ export class ProjectService extends BaseService {
                     e instanceof Error ? e.stack : e
                 }`,
             );
-            const errorResponse = errorHandler(e);
+            const errorResponse =
+                e instanceof Error
+                    ? errorHandler(e)
+                    : new UnexpectedServerError(
+                          `Unknown error during refreshAllTables: ${typeof e}`,
+                      );
             this.analytics.track({
                 event: 'project.error',
                 userId: user.userUuid,
@@ -3086,17 +3207,45 @@ export class ProjectService extends BaseService {
                 await this.jobModel.update(job.jobUuid, {
                     jobStatus: JobStatusType.RUNNING,
                 });
-                const explores = await this.jobModel.tryJobStep(
+                await this.jobModel.tryJobStep(
                     job.jobUuid,
                     JobStepType.COMPILING,
-                    async () =>
-                        this.refreshAllTables(user, projectUuid, requestMethod),
-                );
+                    async () => {
+                        const { explores, adapter } =
+                            await this.refreshAllTables(
+                                user,
+                                projectUuid,
+                                requestMethod,
+                            );
+                        const trackingParams = {
+                            projectUuid,
+                            organizationUuid,
+                            userUuid: user.userUuid,
+                        };
+                        const lightdashProjectConfig =
+                            await adapter.getLightdashProjectConfig(
+                                trackingParams,
+                            );
 
-                await this.saveExploresToCacheAndIndexCatalog(
-                    user.userUuid,
-                    projectUuid,
-                    explores,
+                        await this.replaceYamlTags(
+                            user,
+                            projectUuid,
+                            // TODO: Create util to generate categories from lightdashProjectConfig - this is used as well in deploy.ts
+                            Object.entries(
+                                lightdashProjectConfig.spotlight?.categories ||
+                                    {},
+                            ).map(([key, category]) => ({
+                                yamlReference: key,
+                                name: category.label,
+                                color: category.color ?? 'gray',
+                            })),
+                        );
+                        await this.saveExploresToCacheAndIndexCatalog(
+                            user.userUuid,
+                            projectUuid,
+                            explores,
+                        );
+                    },
                 );
 
                 await this.jobModel.update(job.jobUuid, {
@@ -3138,9 +3287,11 @@ export class ProjectService extends BaseService {
             throw new ForbiddenError();
         }
 
-        const explores = await this.projectModel.getExploresFromCache(
+        const cachedExplores = await this.projectModel.findExploresFromCache(
             projectUuid,
         );
+        const explores = Object.values(cachedExplores);
+
         if (!explores) {
             return [];
         }
@@ -3231,6 +3382,7 @@ export class ProjectService extends BaseService {
         projectUuid: string,
         exploreName: string,
         organizationUuid?: string,
+        includeUnfilteredTables: boolean = true,
     ): Promise<Explore> {
         return Sentry.startSpan(
             {
@@ -3256,7 +3408,10 @@ export class ProjectService extends BaseService {
                         `Explore "${exploreName}" has an error.`,
                     );
                 }
-                return explore;
+                if (includeUnfilteredTables) {
+                    return explore;
+                }
+                return { ...explore, unfilteredTables: undefined };
             },
         );
     }
@@ -3349,9 +3504,10 @@ export class ProjectService extends BaseService {
         ) {
             throw new ForbiddenError();
         }
-        const explores = await this.projectModel.getExploresFromCache(
+        const cachedExplores = await this.projectModel.findExploresFromCache(
             projectUuid,
         );
+        const explores = Object.values(cachedExplores);
 
         return (explores || []).reduce<ProjectCatalog>((acc, explore) => {
             if (!isExploreError(explore)) {
@@ -3507,6 +3663,7 @@ export class ProjectService extends BaseService {
     async getWarehouseFields(
         user: SessionUser,
         projectUuid: string,
+        queryContext: QueryExecutionContext,
         tableName?: string,
         schemaName?: string,
     ): Promise<WarehouseTableSchema> {
@@ -3535,6 +3692,7 @@ export class ProjectService extends BaseService {
             organization_uuid: user.organizationUuid,
             project_uuid: projectUuid,
             user_uuid: user.userUuid,
+            query_context: queryContext,
         };
         let database = ProjectService.getWarehouseDatabase(credentials);
         if (!database) {
@@ -3817,7 +3975,7 @@ export class ProjectService extends BaseService {
                 },
             );
             return charts.data.length > 0;
-        } catch (e: any) {
+        } catch (e: AnyType) {
             return false;
         }
     }
@@ -4463,6 +4621,7 @@ export class ProjectService extends BaseService {
             project_uuid: projectUuid,
             user_uuid: user.userUuid,
             explore_name: exploreName,
+            query_context: QueryExecutionContext.CALCULATE_TOTAL,
         };
 
         const { rows } = await warehouseClient.runQuery(query, queryTags);
@@ -4497,6 +4656,7 @@ export class ProjectService extends BaseService {
             project_uuid: projectUuid,
             user_uuid: user.userUuid,
             explore_name: explore.name,
+            query_context: QueryExecutionContext.CALCULATE_TOTAL,
         };
 
         const { rows, cacheMetadata } =
@@ -4651,9 +4811,11 @@ export class ProjectService extends BaseService {
         if (user.ability.cannot('manage', subject('Project', projectSummary))) {
             throw new ForbiddenError();
         }
-        const allExplores = await this.projectModel.getExploresFromCache(
+        const cachedExplores = await this.projectModel.findExploresFromCache(
             projectUuid,
         );
+        const allExplores = Object.values(cachedExplores);
+
         const validExplores = allExplores?.filter(
             (explore) => explore.type !== ExploreType.VIRTUAL,
         );
@@ -4821,8 +4983,7 @@ export class ProjectService extends BaseService {
         );
 
         const charts = await Promise.all(chartPromises);
-
-        return charts.reduce<any[]>((acc, chart) => {
+        return charts.reduce<AnyType[]>((acc, chart) => {
             const customMetrics = chart.metricQuery.additionalMetrics;
 
             if (customMetrics === undefined || customMetrics.length === 0)
@@ -5060,7 +5221,7 @@ export class ProjectService extends BaseService {
 
         if (
             user.ability.cannot(
-                'create',
+                'manage',
                 subject('Tags', {
                     projectUuid,
                     organizationUuid,
@@ -5075,6 +5236,7 @@ export class ProjectService extends BaseService {
             name,
             color,
             created_by_user_uuid: user.userUuid,
+            yaml_reference: null,
         });
 
         this.analytics.track({
@@ -5084,6 +5246,7 @@ export class ProjectService extends BaseService {
                 name,
                 projectId: projectUuid,
                 organizationId: organizationUuid,
+                context: 'ui',
             },
         });
 
@@ -5103,7 +5266,7 @@ export class ProjectService extends BaseService {
 
         if (
             user.ability.cannot(
-                'delete',
+                'manage',
                 subject('Tags', {
                     projectUuid: tag.projectUuid,
                     organizationUuid,
@@ -5133,7 +5296,7 @@ export class ProjectService extends BaseService {
 
         if (
             user.ability.cannot(
-                'update',
+                'manage',
                 subject('Tags', {
                     projectUuid: tag.projectUuid,
                     organizationUuid,
@@ -5161,5 +5324,53 @@ export class ProjectService extends BaseService {
         }
 
         return this.tagsModel.list(projectUuid);
+    }
+
+    async replaceYamlTags(
+        user: SessionUser,
+        projectUuid: string,
+        yamlTags: (Pick<Tag, 'name' | 'color'> & {
+            yamlReference: NonNullable<Tag['yamlReference']>;
+        })[],
+    ) {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'manage',
+                subject('Tags', {
+                    projectUuid,
+                    organizationUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const yamlTagsIn = yamlTags.map((tag) => ({
+            project_uuid: projectUuid,
+            name: tag.name,
+            color: tag.color,
+            created_by_user_uuid: user.userUuid, // we always pass the userUuid although when updating a tag it's going to be ignored
+            yaml_reference: tag.yamlReference,
+        }));
+
+        const { yamlTagsToCreateOrUpdate } =
+            await this.tagsModel.replaceYamlTags(projectUuid, yamlTagsIn);
+
+        yamlTagsToCreateOrUpdate.forEach((name) => {
+            this.analytics.track({
+                event: 'category.created',
+                userId: user.userUuid,
+                properties: {
+                    name,
+                    projectId: projectUuid,
+                    organizationId: organizationUuid,
+                    context: 'yaml',
+                },
+            });
+        });
     }
 }

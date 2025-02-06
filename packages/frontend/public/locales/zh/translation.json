@@ -425,7 +425,7 @@
     "features_sql_runner_download": {
         "format": "格式",
         "download": "下载",
-        "limit": "限制",
+        "limit": "行限制",
         "download_results": "下载结果为 .csv"
     },
     "features_sql_runner_alert": {
@@ -1088,8 +1088,8 @@
         "explore": "探索"
     },
     "features_metrics_catalog_form": {
-        "edit_category": "编辑类别",
-        "category_name": "类别名称",
+        "edit_category": "编辑类目",
+        "category_name": "类目名称",
         "delete_tag": "永久删除此标签",
         "save": "保存"
     },
@@ -1119,7 +1119,7 @@
         },
         "category_form": {
             "search": "搜索",
-            "select_category": "选择一个类别或创建新类别",
+            "select_category": "选择一个类目或创建新类目",
             "create": "创建"
         },
         "column_name": {
@@ -1129,13 +1129,16 @@
             "metric": {
                 "label": "指标"
             },
+            "table": {
+                "label": "表格"
+            },
             "description": {
                 "label": "描述",
                 "content": "在指标的 .yml 文件中定义"
             },
             "category": {
-                "label": "类别",
-                "content": "类别帮助您组织指标和关键绩效指标（KPI）。点击单元格以添加或编辑类别（前提是您拥有所需的权限）。",
+                "label": "类目",
+                "content": "类目帮助您组织指标和关键绩效指标（KPI）。点击单元格以添加或编辑类目（前提是您拥有所需的权限）。",
                 "add": "点击添加"
             },
             "popularity": {
@@ -1144,11 +1147,11 @@
             }
         },
         "top_toolbar_categories_filter": {
-            "filter_metrics": "按类别筛选指标",
-            "all_categories": "所有类别",
-            "filter_by_categories": "按类别筛选",
-            "filter_content": "尚未添加任何类别。点击类别单元格为您的指标分配类别。",
-            "clear_all": "清除所有类别"
+            "filter_metrics": "按类目筛选指标",
+            "all_categories": "所有类目",
+            "filter_by_categories": "按类目筛选",
+            "filter_content": "尚未添加任何类目。点击类目单元格为您的指标分配类目。",
+            "clear_all": "清除所有类目"
         },
         "top_toolbar": {
             "search": "按名称或描述搜索",
@@ -1249,11 +1252,17 @@
         "loading": "加载中...",
         "no_results_found": "未找到结果"
     },
+    "features_metrics_catalog_canvas": {
+        "free_group_node": {
+            "content": "从该区域拖动图表到工作区以整理您的画布。使用节点连接指标并创建指标树。"
+        }
+    },
+
     "features_metrics_metrics_table_top_toolbar": {
-        "filter_metrics": "按类别筛选指标",
-        "all_categories": "所有类别",
-        "filter_by_categories": "按类别筛选",
-        "no_categories": "尚未添加类别。点击类别单元格为您的指标分配类别。"
+        "filter_metrics": "按类目筛选指标",
+        "all_categories": "所有类目",
+        "filter_by_categories": "按类目筛选",
+        "no_categories": "尚未添加类目。点击类目单元格为您的指标分配类目。"
     },
     "features_metrics_segmented_contro_hover_card": {
         "canvas_mode_title": "画布模式",
@@ -1261,7 +1270,7 @@
             "part_1": "画布模式仅适用于少于",
             "part_2": "30 个指标的列表",
             "part_3": "使用",
-            "part_4": "类别",
+            "part_4": "类目",
             "part_5": "来过滤您的列表以访问它。"
         },
         "no_metrics": "画布模式下没有可显示的指标。",
@@ -1405,7 +1414,9 @@
             "title": "发生意外错误",
             "description": "请联系支持人员"
         },
-        "description": "您可以使用以下错误 ID 联系支持人员",
+        "description": "请联系支持人员并提供以下信息:",
+        "error_id": "错误 ID:",
+        "trace_id": "跟踪 ID:",
         "errors": {
             "need_access": "您需要获得访问权限",
             "authorization_error": "授权错误",
@@ -2160,7 +2171,7 @@
             "label": "输入用户电子邮件地址",
             "placeholder": "example@gmail.com",
             "nothingFound": "没有找到",
-            "create_label": "邀请 \"{{query}}\" 作为该组织的新成员"
+            "create_label": "此用户不是您的组织成员。您需要是组织管理员才能将新用户添加到您的组织。"
         },
         "select_role": {
             "placeholder": "选择角色"
@@ -3965,6 +3976,7 @@
         }
     },
     "components_explorer_format_modal": {
+        "reset": "重置",
         "save_changes": "保存更改"
     },
     "components_explorer_results_card": {
@@ -4359,7 +4371,7 @@
         "add": "添加到看板"
     },
     "component_navbar_metrics_link": {
-        "metrics": "指标"
+        "metrics": "全部指标"
     },
 
     "pages_sql_runner": {
@@ -5524,6 +5536,7 @@
             "minium_value": "最小值",
             "maximum_value": "最大值"
         },
+        "row_limit": "行数限制:",
         "total_rows": "总行数:",
         "apply": "应用"
     },
@@ -5607,6 +5620,11 @@
             "no_sort": "不排序"
         },
         "sort_by": "排序依据"
+    },
+    "components_dataviz_config_single_series_configuration": {
+        "label": "标签",
+        "left": "左侧",
+        "right": "右侧"
     },
 
     "components_virtual_view": {
@@ -5953,5 +5971,196 @@
         "dashboards": "看板",
         "charts": "图表",
         "logout": "注销"
+    },
+
+    "ai_copilot_channel_project_mappings": {
+        "select_project": "选择项目",
+        "select_channel": "选择频道",
+        "configure_available_tags": "配置可用标签",
+        "radio_group": {
+            "all": "所有维度，和指标",
+            "tags": "只有具有以下标签的维度或指标",
+            "placeholder": "输入标签并按 'Enter' 键"
+        },
+        "ai_bot_channel_mappings": {
+            "title": "AI 机器人频道映射",
+            "content": "将哪个项目与哪个 Slack 频道关联。当用户在频道中提问时，Lightdash 将在关联的项目中查找答案。"
+        },
+        "tooltip_refresh": {
+            "label": "刷新 Slack 频道列表",
+            "content": "要查看私有频道，请确保机器人已邀请到这些频道。已归档的频道不包括在内。"
+        },
+        "add_new_mapping": "添加新映射"
+    },
+    "ai_dashboard_summary": {
+        "error_tips": {
+            "generate_summary": "生成看板摘要失败"
+        },
+        "dashboard_summary": "看板摘要",
+        "generated_dashboard_summary": "已生成看板摘要",
+        "view_dashboard_summary": "查看看板摘要",
+        "generate_a_summary_of_your_dashboard": "生成看板摘要"
+    },
+    "ai_dashboard_summary_preview": {
+        "dashboard_has_changed": "您的看板自上次生成摘要后已发生变化。",
+        "generated": "已生成",
+        "regenerate_summary": "重新生成摘要"
+    },
+    "ai_dashboard_summary_presets": {
+        "placeholder": "输入摘要受众"
+    },
+    "ai_dashboard_summary_presets_form": {
+        "placeholder": {
+            "part_1": "给额外的上下文以帮助我们生成您的看板摘要。",
+            "part_2": "以下是一些示例:",
+            "part_3": "  - 此摘要用于包含关于我们用户参与度的图表的看板。",
+            "part_4": "  - 此摘要旨在与销售团队分享，请专注于销售指标。",
+            "part_5": "  - 此摘要将呈现给非技术人员，请保持简洁。",
+            "part_6": "  - 我们有一个目标是增加我们的销售额20%，请在摘要中包含一个关于该目标的特定部分。"
+        },
+        "tone": "语气",
+        "audiences": "摘要受众（可选）",
+        "context": "额外上下文（可选）",
+        "generate": "生成看板摘要",
+        "cancel": "取消"
+    },
+    "ai_embed_dashboards_form": {
+        "dashboards": "看板",
+        "select_a_dashboard": "选择一个看板...",
+        "save_changes": "保存更改"
+    },
+    "ai_embed_filters_interactivity": {
+        "some_filters": "一些过滤器",
+        "all_filters": "所有过滤器",
+        "no_filters": "没有过滤器",
+        "unknown_filter_interactivity_value": "未知 FilterInteractivityValue {{value}}"
+    },
+    "ai_embed_url_form": {
+        "error_tips": {
+            "could_not_create_embed_url": "我们无法创建您的嵌入 URL。",
+            "dashboard_is_required": "看板是必需的"
+        },
+        "preview": "预览",
+        "preview_description": "预览您的嵌入 URL 并将其复制到您的剪贴板。",
+        "dashboard": "看板",
+        "select_a_dashboard": "选择一个看板...",
+        "expires_in": "过期时间",
+        "user_identifier": "用户标识符",
+        "user_email": "用户邮箱",
+        "user_email_placeholder": "输入一个邮箱作为用户属性",
+        "user_attributes": "用户属性",
+        "user_attributes_placeholder": {
+            "part_1": "例如：user_country",
+            "part_2": "例如：US"
+        },
+        "add_attribute": "添加属性",
+        "interactivity": "交互性",
+        "can_export_csv": "可以导出 CSV",
+        "can_export_images": "可以导出图像",
+        "can_export_page_pdf": "可以导出页面到 PDF",
+        "can_date_zoom": "可以日期缩放",
+        "generate_and_copy_url": "生成并复制 URL",
+        "code_snippet": "代码片段",
+        "copy_to_clipboard_description": "将此代码片段复制到您的应用程序中以生成嵌入 URL。"
+    },
+    "ai_embed_settings_embed": {
+        "create_tips": {
+            "success": "成功! 您的嵌入密钥已创建。",
+            "error": "我们无法创建您的嵌入密钥。"
+        },
+        "update_tips": {
+            "success": "成功! 您的嵌入配置已更新。",
+            "error": "我们无法更新您的嵌入配置。"
+        },
+        "loading_embed_config": "加载嵌入配置",
+        "not_available": "嵌入配置不可用",
+        "no_embed_secret": "没有嵌入密钥",
+        "no_embed_secret_description": "您还没有生成任何密钥！",
+        "generate_embed_secret": "生成嵌入密钥",
+        "embed_secret": "嵌入密钥",
+        "embed_secret_description": "密钥用于生成嵌入令牌以嵌入看板。",
+        "secret": "密钥",
+        "generate_new_secret": "生成新密钥",
+        "allowed_dashboards": "允许的看板",
+        "allowed_dashboards_description": "只有这些看板会被允许嵌入。",
+        "preview_and_code_snippet": "预览 & 代码片段"
+    },
+    "ai_scim_access_tokens_panel": {
+        "expires_in": {
+            "no_expiration": "无过期",
+            "7_days": "7天",
+            "30_days": "30天",
+            "60_days": "60天",
+            "90_days": "90天",
+            "6_months": "6个月",
+            "1_year": "1年"
+        },
+        "token_has_been_generated": "您的令牌已生成",
+        "new_token": "新令牌",
+        "whats_this_token_for": "这是什么令牌？",
+        "description": "描述",
+        "expiration": "过期",
+        "generate_token": "生成令牌",
+        "token": "令牌",
+        "copy": "复制",
+        "copied": "已复制",
+        "token_will_expire": "此令牌将在",
+        "make_sure_to_copy_your_access_token_now": "请确保现在复制您的访问令牌。您将无法再次看到它！"
+    },
+    "ai_scim_access_tokens_panel_main": {
+        "copied_to_clipboard": "已复制到剪贴板！",
+        "scim_access_tokens": "SCIM 访问令牌",
+        "generate_new_token": "生成新令牌",
+        "scim_url": "SCIM URL",
+        "connect_your_identity_provider_to_lightdash_via_scim": "通过 SCIM 将您的身份提供商连接到 Lightdash。",
+        "learn_more": "了解更多",
+        "has_available_tokens": "您还没有生成任何令牌。"
+    },
+    "ai_scim_access_tokens_panel_tokens_table": {
+        "no_expiration_date": "无过期日期",
+        "last_rotated_at": "上次旋转时间",
+        "copy": "复制",
+        "copied": "已复制",
+        "tables": {
+            "name": "名称",
+            "expiration_date": "过期日期",
+            "last_used_at": "上次使用时间",
+            "uuid": "UUID",
+            "actions": ""
+        },
+        "modal": {
+            "delete_token": "删除令牌",
+            "content": {
+                "part_1": "确定要删除此令牌吗？这将永久删除",
+                "part_2": "令牌。"
+            },
+            "cancel": "取消",
+            "delete": "删除"
+        }
+    },
+    "ai_scim_hooks": {
+        "create_scim_access_token": {
+            "error": "创建令牌失败"
+        },
+        "delete_scim_access_token": {
+            "success": "成功! 您的令牌已删除。",
+            "error": "删除令牌失败"
+        }
+    },
+    "ai_conversations": {
+        "no_response_yet": "还没有响应",
+        "suboptimal_state": {
+            "description": "选择一个对话以查看其消息"
+        }
+    },
+    "ai_embed_dashboard": {
+        "missing_project_uuid": "缺少项目UUID",
+        "error_loading_dashboard": "加载看板失败",
+        "jwt_expired": "此嵌入链接已过期",
+        "loading": "加载中...",
+        "empty_dashboard": "空看板",
+        "empty_dashboard_description": "此看板没有图表",
+        "dashboard_tile_type_not_recognised": "看板图表类型未识别",
+        "embed_link_not_valid": "此嵌入链接无效"
     }
-}
+}       

@@ -424,7 +424,7 @@
     "features_sql_runner_download": {
         "format": "Format",
         "download": "Download",
-        "limit": "Limit",
+        "limit": "Row limit",
         "download_results": "Download results as .csv"
     },
     "features_sql_runner_alert": {
@@ -1127,6 +1127,9 @@
             "metric": {
                 "label": "Metric"
             },
+            "table": {
+                "label": "Table"
+            },
             "description": {
                 "label": "Description",
                 "content": "Defined in the metric's .yml file"
@@ -1247,6 +1250,12 @@
         "loading": "Loading...",
         "no_results_found": "No results found"
     },
+    "features_metrics_catalog_canvas": {
+        "free_group_node": {
+            "content": "Drag tiles from this area into the workspace to curate your canvas. Use the nodes to connect metrics and create metric trees."
+        }
+    },
+
     "features_metrics_metrics_table_top_toolbar": {
         "filter_metrics": "Filter metrics by category",
         "all_categories": "All categories",
@@ -1402,7 +1411,9 @@
             "title": "Unexpected error",
             "description": "Please contact support"
         },
-        "description": "You can contact support with the following error ID",
+        "description": "Contact support with the following information:",
+        "error_id": "Error ID:",
+        "trace_id": "Trace ID:",
         "errors": {
             "need_access": "You need access",
             "authorization_error": "Authorization error",
@@ -2158,7 +2169,7 @@
             "label": "Enter user email address",
             "placeholder": "example@gmail.com",
             "nothingFound": "Nothing found",
-            "create_label": "Invite \"{{query}}\" as new member of this organization"
+            "create_label": "This user is not a member of your organization. You need to be an organization admin to add new users to your organization."
         },
         "select_role": {
             "placeholder": "Select role"
@@ -3964,6 +3975,7 @@
         }
     },
     "components_explorer_format_modal": {
+        "reset": "Reset",
         "save_changes": "Save changes"
     },
     "components_explorer_results_card": {
@@ -5513,6 +5525,7 @@
             "minium_value": "Minimum value",
             "maximum_value": "Maximum value"
         },
+        "row_limit": "Row limit:",
         "total_rows": "Total rows:",
         "apply": "Apply"
     },
@@ -5596,6 +5609,11 @@
             "no_sort": "Descending"
         },
         "sort_by": "Sort by"
+    },
+    "components_dataviz_config_single_series_configuration": {
+        "label": "Label",
+        "left": "Left",
+        "right": "Right"
     },
 
     "components_virtual_view": {
@@ -5951,5 +5969,198 @@
         "dashboards": "Dashboards",
         "charts": "Charts",
         "logout": "Logout"
+    },
+
+    "ai_copilot_channel_project_mappings": {
+        "select_project": "Select project",
+        "select_channel": "Select channel",
+        "configure_available_tags": "Configure available tags",
+        "radio_group": {
+            "all": "All dimensions, and metrics",
+            "tags": "Only dimensions and metrics with any of the following tags",
+            "placeholder": "Type in tags and press 'Enter'"
+        },
+        "ai_bot_channel_mappings": {
+            "title": "AI Bot channel mappings",
+            "content": "Map which project is associated with which Slack channel. When a user asks a question in a channel, Lightdash will look for the answer in the associated project."
+        },
+        "tooltip_refresh": {
+            "label": "Refresh Slack channel list",
+            "content": "To see private channels, ensure the bot has been invited to them. Archived channels are not included."
+        },
+        "add_new_mapping": "Add new mapping"
+    },
+    "ai_dashboard_summary": {
+        "error_tips": {
+            "generate_summary": "Failed to generate dashboard summary"
+        },
+        "dashboard_summary": "Dashboard Summary",
+        "generated_dashboard_summary": "Generated Dashboard Summary",
+        "view_dashboard_summary": "View dashboard summary",
+        "generate_a_summary_of_your_dashboard": "Generate a summary of your dashboard"
+    },
+    "ai_dashboard_summary_preview": {
+        "dashboard_has_changed": "Your dashboard has changed since this summary was generated.",
+        "generated": "generated",
+        "regenerate_summary": "Regenerate summary"
+    },
+    "ai_dashboard_summary_presets": {
+        "placeholder": "Type the summary audience"
+    },
+    "ai_dashboard_summary_presets_form": {
+        "placeholder": {
+            "part_1": "Give extra context to help us generate your dashboard summary.",
+            "part_2": "Here are some examples:",
+            "part_3": "  - The dashboard this summary is for includes charts about our user engagement.",
+            "part_4": "  - This summary is meant to be shared with the sales team, keep it focused on sales metrics.",
+            "part_5": "  - This summary is going to be presented to non-technical people, please keep it simple.",
+            "part_6": "  - We have a goal to increase our sales by 20%, include a specific section about that in the summary."
+        },
+        "tone": "Tone of voice",
+        "audiences": "Summary Audiences (optional)",
+        "context": "Additional Context (optional)",
+        "generate": "Generate Dashboard Summary",
+        "cancel": "Cancel"
+    },
+    "ai_embed_dashboards_form": {
+        "dashboards": "Dashboards",
+        "select_a_dashboard": "Select a dashboard...",
+        "save_changes": "Save changes"
+    },
+    "ai_embed_filters_interactivity": {
+        "some_filters": "Some filters",
+        "all_filters": "All filters",
+        "no_filters": "No filters",
+        "unknown_filter_interactivity_value": "Unknown FilterInteractivityValue {{value}}"
+    },
+    "ai_embed_url_form": {
+        "error_tips": {
+            "could_not_create_embed_url": "We couldn't create your embed url.",
+            "dashboard_is_required": "Dashboard is required"
+        },
+        "preview": "Preview",
+        "preview_description": "Preview your embed URL and copy it to your clipboard.",
+        "dashboard": "Dashboard",
+        "select_a_dashboard": "Select a dashboard...",
+        "expires_in": "Expires in",
+        "user_identifier": "User identifier",
+        "user_email": "User email",
+        "user_email_placeholder": "Type an email to add as intrinsic user attribute",
+        "user_attributes": "User attributes",
+        "user_attributes_placeholder": {
+            "part_1": "E.g. user_country",
+            "part_2": "E.g. US"
+        },
+        "add_attribute": "Add attribute",
+        "interactivity": "Interactivity",
+        "can_export_csv": "Can export CSV",
+        "can_export_images": "Can export Images",
+        "can_export_page_pdf": "Can export page to PDF",
+        "can_date_zoom": "Can date zoom",
+        "generate_and_copy_url": "Generate & copy URL",
+        "code_snippet": "Code snippet",
+        "copy_to_clipboard_description": "Copy and paste this code snippet into your application to generate embed urls."
+    },
+    "ai_embed_settings_embed": {
+        "create_tips": {
+            "success": "Success! Your embed secret was created.",
+            "error": "We couldn't create your embed secret."
+        },
+        "update_tips": {
+            "success": "Success! Your embed configuration was updated.",
+            "error": "We couldn't update your embed configuration."
+        },
+        "loading_embed_config": "Loading embed config",
+        "not_available": "Embed configuration not available",
+        "no_embed_secret": "No embed secret",
+        "no_embed_secret_description": "You haven't generated any secret yet!",
+        "generate_embed_secret": "Generate embed secret",
+        "embed_secret": "Embed secret",
+        "embed_secret_description": "The secret is used to generate embed tokens for embedding dashboards.",
+        "secret": "Secret",
+        "generate_new_secret": "Generate new secret",
+        "allowed_dashboards": "Allowed dashboards",
+        "allowed_dashboards_description": "Only these dashboards will be allowed to be embedded.",
+        "preview_and_code_snippet": "Preview & code snippet"
+    },
+    "ai_scim_access_tokens_panel": {
+        "expires_in": {
+            "no_expiration": "No expiration",
+            "7_days": "7 days",
+            "30_days": "30 days",
+            "60_days": "60 days",
+            "90_days": "90 days",
+            "6_months": "6 months",
+            "1_year": "1 year"
+        },
+        "token_has_been_generated": "Your token has been generated",
+        "new_token": "New token",
+        "whats_this_token_for": "What’s this token for?",
+        "description": "Description",
+        "expiration": "Expiration",
+        "generate_token": "Generate token",
+        "token": "Token",
+        "copy": "Copy",
+        "copied": "Copied",
+        "token_will_expire": "This token will expire on",
+        "make_sure_to_copy_your_access_token_now": "Make sure to copy your access token now. You won’t be able to see it again!"
+    },
+    "ai_scim_access_tokens_panel_main": {
+        "copied_to_clipboard": "Copied to clipboard!",
+        "scim_access_tokens": "SCIM access tokens",
+        "generate_new_token": "Generate new token",
+        "scim_url": "SCIM URL",
+        "connect_your_identity_provider_to_lightdash_via_scim": "Connect your identity provider to Lightdash via SCIM.",
+        "learn_more": "Learn more",
+        "has_available_tokens": "You haven't generated any tokens yet."
+    },
+    "ai_scim_access_tokens_panel_tokens_table": {
+        "no_expiration_date": "No expiration date",
+        "last_rotated_at": "Last rotated at",
+        "copy": "Copy",
+        "copied": "Copied",
+        "tables": {
+            "name": "Name",
+            "expiration_date": "Expiration date",
+            "last_used_at": "Last used at",
+            "uuid": "UUID",
+            "actions": ""
+        },
+        "modal": {
+            "delete_token": "Delete token",
+            "content":  {
+                "part_1": "Are you sure? This will permanently delete the",
+                "part_2": "token."
+            },
+            "cancel": "Cancel",
+            "delete": "Delete"
+        }
+    },
+    "ai_scim_hooks": {
+        "create_scim_access_token": {
+            "error": "Failed to create token"
+        },
+        "delete_scim_access_token": {
+            "success": "Success! Your token was deleted.",
+            "error": "Failed to delete token"
+        }
+    },
+    "ai_conversations": {
+        "no_response_yet": "No response yet",
+        "suboptimal_state": {
+            "description": "Select a conversation to view it's messages"
+        }
+    },
+    "ai_embed_dashboard": {
+        "missing_project_uuid": "Missing project UUID",
+        "error_loading_dashboard": "Error loading dashboard",
+        "jwt_expired": "This embed link has expired",
+        "loading": "Loading...",
+        "empty_dashboard": "Empty dashboard",
+        "empty_dashboard_description": "This dashboard has no tiles",
+        "dashboard_tile_type_not_recognised": "Dashboard tile type is not recognised",
+        "embed_link_not_valid": "This embed link is not valid"
     }
 }
+
+

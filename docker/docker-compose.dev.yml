@@ -34,6 +34,11 @@ services:
             - SCHEDULER_ENABLED=${SCHEDULER_ENABLED}
             - GROUPS_ENABLED=${GROUPS_ENABLED}
             - POSTHOG_PROJECT_API_KEY=${POSTHOG_PROJECT_API_KEY}
+            - OPENAI_API_KEY=${OPENAI_API_KEY}
+            - OPENAI_MODEL_NAME=${OPENAI_MODEL_NAME}
+            - OPENAI_EMBEDDING_MODEL_NAME=${OPENAI_EMBEDDING_MODEL_NAME}
+            - AI_COPILOT_ENABLED=${AI_COPILOT_ENABLED}
+            - AI_COPILOT_EMBEDDING_SEARCH_ENABLED=${AI_COPILOT_EMBEDDING_SEARCH_ENABLED}
             - POSTHOG_FE_API_HOST=${POSTHOG_FE_API_HOST}
             - POSTHOG_BE_API_HOST=${POSTHOG_BE_API_HOST}
             - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET}
@@ -56,6 +61,10 @@ services:
             - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
             - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
             - GOOGLE_DRIVE_API_KEY=${GOOGLE_DRIVE_API_KEY}
+            - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2}
+            - LANGCHAIN_ENDPOINT=${LANGCHAIN_ENDPOINT}
+            - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
+            - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT}
         volumes:
             - '../:/usr/app'
             - '../examples/full-jaffle-shop-demo/dbt:/usr/app/dbt'
@@ -67,7 +76,7 @@ services:
         command: ''
         entrypoint: ['/bin/sh', '-c', 'sleep infinity']
     db-dev:
-        image: postgres:15.4
+        image: pgvector/pgvector:pg16
         restart: always
         environment:
             POSTGRES_PASSWORD: password
@@ -75,7 +84,7 @@ services:
             - '5432:5432'
 
     headless-browser:
-        image: browserless/chrome
+        image: ghcr.io/browserless/chromium:v2.24.3
         restart: always
         ports:
             - '3001:3000'

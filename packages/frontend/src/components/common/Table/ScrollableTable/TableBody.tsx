@@ -44,6 +44,7 @@ interface TableRowProps {
 
     cellContextMenu?: TableContext['cellContextMenu'];
     conditionalFormattings: TableContext['conditionalFormattings'];
+    minMaxMap: TableContext['minMaxMap'];
     minimal?: boolean;
 }
 
@@ -52,6 +53,7 @@ const TableRow: FC<TableRowProps> = ({
     index,
     cellContextMenu,
     conditionalFormattings,
+    minMaxMap,
     minimal = false,
 }) => {
     const getConditionalRuleLabel = useConditionalRuleLabel();
@@ -64,19 +66,21 @@ const TableRow: FC<TableRowProps> = ({
                 const cellValue = cell.getValue() as ResultRow[0] | undefined;
 
                 const conditionalFormattingConfig =
-                    getConditionalFormattingConfig(
+                    getConditionalFormattingConfig({
                         field,
-                        cellValue?.value?.raw,
+                        value: cellValue?.value?.raw,
+                        minMaxMap,
                         conditionalFormattings,
-                    );
+                    });
 
                 const conditionalFormattingColor =
-                    getConditionalFormattingColor(
+                    getConditionalFormattingColor({
                         field,
-                        cellValue?.value?.raw,
-                        conditionalFormattingConfig,
+                        value: cellValue?.value?.raw,
+                        minMaxMap,
+                        config: conditionalFormattingConfig,
                         getColorFromRange,
-                    );
+                    });
 
                 const tooltipContent = getConditionalFormattingDescription(
                     field,
@@ -181,7 +185,7 @@ const TableRow: FC<TableRowProps> = ({
 const VirtualizedTableBody: FC<{
     tableContainerRef: React.RefObject<HTMLDivElement | null>;
 }> = ({ tableContainerRef }) => {
-    const { table, cellContextMenu, conditionalFormattings } =
+    const { table, cellContextMenu, conditionalFormattings, minMaxMap } =
         useTableContext();
     const { rows } = table.getRowModel();
 
@@ -215,6 +219,7 @@ const VirtualizedTableBody: FC<{
                         row={rows[index]}
                         cellContextMenu={cellContextMenu}
                         conditionalFormattings={conditionalFormattings}
+                        minMaxMap={minMaxMap}
                     />
                 );
             })}
@@ -229,7 +234,7 @@ const VirtualizedTableBody: FC<{
 };
 
 const NormalTableBody: FC = () => {
-    const { table, cellContextMenu, conditionalFormattings } =
+    const { table, cellContextMenu, conditionalFormattings, minMaxMap } =
         useTableContext();
     const { rows } = table.getRowModel();
 
@@ -243,6 +248,7 @@ const NormalTableBody: FC = () => {
                     row={row}
                     cellContextMenu={cellContextMenu}
                     conditionalFormattings={conditionalFormattings}
+                    minMaxMap={minMaxMap}
                 />
             ))}
         </tbody>

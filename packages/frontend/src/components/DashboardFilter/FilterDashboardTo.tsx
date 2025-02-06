@@ -8,17 +8,22 @@ import { IconFilter } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../common/MantineIcon';
 
 type Props = {
     filters: FilterDashboardToRule[];
-    onAddFilter: (filter: FilterDashboardToRule, isTemporary: boolean) => void;
+    onAddFilter?: (filter: FilterDashboardToRule, isTemporary: boolean) => void;
 };
 
 export const FilterDashboardTo: FC<Props> = ({ filters, onAddFilter }) => {
     const { t, i18n } = useTranslation();
     const isZh = i18n.language && i18n.language.includes('zh');
 
+    const addDimensionDashboardFilter = useDashboardContext(
+        (c) => c.addDimensionDashboardFilter,
+    );
+    const addFilterCallback = onAddFilter ?? addDimensionDashboardFilter;
     return (
         <>
             <Menu.Divider />
@@ -30,7 +35,7 @@ export const FilterDashboardTo: FC<Props> = ({ filters, onAddFilter }) => {
                 <Menu.Item
                     key={filter.id}
                     icon={<MantineIcon icon={IconFilter} />}
-                    onClick={() => onAddFilter(filter, true)}
+                    onClick={() => addFilterCallback(filter, true)}
                 >
                     {isZh
                         ? (filter.target as any).tableLabel

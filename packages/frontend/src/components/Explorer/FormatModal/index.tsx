@@ -2,13 +2,13 @@ import {
     CustomFormatType,
     getCustomFormat,
     getItemId,
-    getItemLabel,
     hasFormatting,
     NumberSeparator,
     type CustomFormat,
 } from '@lightdash/common';
-import { Button, Modal, Stack, Title } from '@mantine/core';
+import { Button, Group, Modal, Stack, Title } from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { isEqual } from 'lodash';
 import { useCallback, useEffect } from 'react';
 import { type ValueOf } from 'type-fest';
 import { useTranslation } from 'react-i18next';
@@ -98,9 +98,7 @@ export const FormatModal = () => {
             onClick={(e) => e.stopPropagation()}
             opened={isOpen}
             onClose={handleClose}
-            title={
-                <Title order={4}>Format metric "{getItemLabel(metric)}"</Title>
-            }
+            title={<Title order={4}>Format metric</Title>}
         >
             <form onSubmit={handleOnSubmit}>
                 <Stack>
@@ -109,9 +107,29 @@ export const FormatModal = () => {
                         format={form.values.format}
                         setFormatFieldValue={setFormatFieldValue}
                     />
-                    <Button display="block" ml="auto" type="submit">
-                        {t('components_explorer_format_modal.save_changes')}
-                    </Button>
+
+                    <Group position="right" spacing="xs">
+                        {!isEqual(form.values.format, DEFAULT_FORMAT) && (
+                            <Button
+                                variant="default"
+                                onClick={() =>
+                                    form.setValues({
+                                        format: DEFAULT_FORMAT,
+                                    })
+                                }
+                            >
+                                {t(
+                                    'components_explorer_format_modal.reset',
+                                )}
+                            </Button>
+                        )}
+
+                        <Button display="block" type="submit">
+                            {t(
+                                'components_explorer_format_modal.save_changes',
+                            )}
+                        </Button>
+                    </Group>
                 </Stack>
             </form>
         </Modal>

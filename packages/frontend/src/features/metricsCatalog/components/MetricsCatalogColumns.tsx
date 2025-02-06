@@ -1,5 +1,5 @@
-import { type CatalogField } from '@lightdash/common';
-import { Box, Flex, Group, Text } from '@mantine/core';
+import { SpotlightTableColumns, type CatalogField } from '@lightdash/common';
+import { Box, Button, Flex, Group, Text } from '@mantine/core';
 import { useHover } from '@mantine/hooks';
 import { IconPlus } from '@tabler/icons-react';
 import { type MRT_ColumnDef } from 'mantine-react-table';
@@ -8,9 +8,15 @@ import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../components/common/MantineIcon';
 import {
+    createMetricPreviewUnsavedChartVersion,
+    getExplorerUrlFromCreateSavedChartVersion,
+} from '../../../hooks/useExplorerRoute';
+import {
     Description,
     Hash,
     Popularity,
+    Table,
+    TableFilled,
     Tag,
 } from '../../../svgs/metricsCatalog';
 import { useAppDispatch, useAppSelector } from '../../sqlRunner/store/hooks';
@@ -28,13 +34,11 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
 
     return [
         {
-            accessorKey: 'name',
-            header: t(
-                'features_metrics_catalog_components.columns.metric.label',
-            ),
+            accessorKey: SpotlightTableColumns.METRIC,
+            header: t('features_metrics_catalog_components.columns.metric.label'),
             enableSorting: true,
             enableEditing: false,
-            size: 400,
+            size: 350,
             Header: ({ column }) => (
                 <MetricCatalogColumnHeaderCell Icon={Hash}>
                     {column.columnDef.header}
@@ -44,7 +48,7 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                 const canManageExplore = useAppSelector(
                     (state) => state.metricsCatalog.abilities.canManageExplore,
                 );
-
+    
                 return (
                     <Flex
                         justify="space-between"
@@ -67,38 +71,90 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
             },
         },
         {
-            accessorKey: 'description',
+            accessorKey: SpotlightTableColumns.TABLE,
+            header: t('features_metrics_catalog_components.columns.table.label'),
             enableSorting: false,
             enableEditing: false,
-            size: 500,
-            header: t(
-                'features_metrics_catalog_components.columns.description.label',
+            size: 150,
+            Header: ({ column }) => (
+                <MetricCatalogColumnHeaderCell Icon={Table} tooltipLabel="Table">
+                    {column.columnDef.header}
+                </MetricCatalogColumnHeaderCell>
             ),
+            Cell: ({ row, renderedCellValue }) => {
+                const projectUuid = useAppSelector(
+                    (state) => state.metricsCatalog.projectUuid,
+                );
+    
+                const savedChartVersion = createMetricPreviewUnsavedChartVersion({
+                    name: row.original.name,
+                    table: row.original.tableName,
+                });
+    
+                const exploreUrl = getExplorerUrlFromCreateSavedChartVersion(
+                    projectUuid,
+                    savedChartVersion,
+                );
+    
+                const url = new URL(exploreUrl.pathname, window.location.origin);
+                url.search = exploreUrl.search;
+    
+                return (
+                    <Button
+                        component="a"
+                        href={url.toString()}
+                        target="_blank"
+                        size="xs"
+                        compact
+                        color="gray.6"
+                        variant="subtle"
+                        leftIcon={<TableFilled />}
+                        fz="sm"
+                        c="dark.4"
+                        fw={500}
+                        sx={{
+                            '&[data-disabled]': {
+                                backgroundColor: 'transparent',
+                                fontWeight: 400,
+                            },
+                        }}
+                        styles={(theme) => ({
+                            leftIcon: {
+                                marginRight: theme.spacing.xxs,
+                            },
+                        })}
+                    >
+                        {renderedCellValue}
+                    </Button>
+                );
+            },
+        },
+        {
+            accessorKey: SpotlightTableColumns.DESCRIPTION,
+            enableSorting: false,
+            enableEditing: false,
+            size: 400,
+            minSize: 200,
+            header: t('features_metrics_catalog_components.columns.description.label'),
             Header: ({ column }) => (
                 <MetricCatalogColumnHeaderCell
                     Icon={Description}
-                    tooltipLabel={t(
-                        'features_metrics_catalog_components.columns.description.content',
-                    )}
+                    tooltipLabel={t('features_metrics_catalog_components.columns.description.content')}
                 >
                     {column.columnDef.header}
                 </MetricCatalogColumnHeaderCell>
             ),
             Cell: ({ row, table }) => {
-                return (
-                    <MetricsCatalogColumnDescription row={row} table={table} />
-                );
+                return <MetricsCatalogColumnDescription row={row} table={table} />;
             },
         },
         {
-            accessorKey: 'categories',
-            header: t(
-                'features_metrics_catalog_components.columns.category.label',
-            ),
+            accessorKey: SpotlightTableColumns.CATEGORIES,
+            header: t('features_metrics_catalog_components.columns.category.label'),
             enableSorting: false,
             enableEditing: true,
-            size: 300,
-            minSize: 180,
+            size: 270,
+            minSize: 150,
             mantineTableBodyCellProps: () => {
                 return {
                     pos: 'relative',
@@ -113,9 +169,7 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
             Header: ({ column }) => (
                 <MetricCatalogColumnHeaderCell
                     Icon={Tag}
-                    tooltipLabel={t(
-                        'features_metrics_catalog_components.columns.category.content',
-                    )}
+                    tooltipLabel={t('features_metrics_catalog_components.columns.category.content')}
                 >
                     {column.columnDef.header}
                 </MetricCatalogColumnHeaderCell>
@@ -125,12 +179,12 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                 const canManageTags = useAppSelector(
                     (state) => state.metricsCatalog.abilities.canManageTags,
                 );
-
+    
                 const categories = useMemo(
                     () => row.original.categories ?? [],
                     [row],
                 );
-
+    
                 return (
                     <Group
                         pos="absolute"
@@ -143,7 +197,7 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                         }}
                     >
                         <Group mx="md" spacing="xxs">
-                            {categories.map((category: any) => (
+                            {categories.map((category) => (
                                 <CatalogCategory
                                     key={category.tagUuid}
                                     category={category}
@@ -152,9 +206,7 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                         </Group>
                         {canManageTags && (
                             <MetricsCatalogCategoryForm
-                                catalogSearchUuid={
-                                    row.original.catalogSearchUuid
-                                }
+                                catalogSearchUuid={row.original.catalogSearchUuid}
                                 metricCategories={categories}
                                 opened={
                                     table.getState().editingCell?.id === cell.id
@@ -162,7 +214,7 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                                 onClose={() => {
                                     dispatch(setCategoryPopoverIsClosing(true));
                                     table.setEditingCell(null);
-
+    
                                     // Resetting the state to avoid race conditions with the category cell click
                                     setTimeout(() => {
                                         dispatch(
@@ -181,18 +233,17 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                     (state) => state.metricsCatalog.popovers.category.isClosing,
                 );
                 const isDescriptionPopoverClosing = useAppSelector(
-                    (state) =>
-                        state.metricsCatalog.popovers.description.isClosing,
+                    (state) => state.metricsCatalog.popovers.description.isClosing,
                 );
                 const canManageTags = useAppSelector(
                     (state) => state.metricsCatalog.abilities.canManageTags,
                 );
-
+    
                 const categories = useMemo(
                     () => row.original.categories ?? [],
                     [row],
                 );
-
+    
                 return (
                     <Flex
                         ref={ref}
@@ -211,7 +262,7 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                             ) {
                                 return;
                             }
-
+    
                             table.setEditingCell(cell);
                         }}
                         sx={{
@@ -226,9 +277,7 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                                     size={12}
                                 />
                                 <Text span fz="sm" color="dark.1">
-                                    {t(
-                                        'features_metrics_catalog_components.columns.category.add',
-                                    )}
+                                    {t('features_metrics_catalog_components.columns.category.add')}
                                 </Text>
                             </Group>
                         ) : (
@@ -241,7 +290,7 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                                     rowGap: 'unset',
                                 }}
                             >
-                                {categories.map((category: any) => (
+                                {categories.map((category) => (
                                     <CatalogCategory
                                         key={category.tagUuid}
                                         category={category}
@@ -254,13 +303,12 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
             },
         },
         {
-            accessorKey: 'chartUsage',
-            header: t(
-                'features_metrics_catalog_components.columns.popularity.label',
-            ),
+            accessorKey: SpotlightTableColumns.CHART_USAGE,
+            header: t('features_metrics_catalog_components.columns.popularity.label'),
             enableSorting: true,
             enableEditing: false,
             size: 150,
+            minSize: 100,
             mantineTableBodyCellProps: () => {
                 return {
                     sx: {
@@ -271,9 +319,7 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
             Header: ({ column }) => (
                 <MetricCatalogColumnHeaderCell
                     Icon={Popularity}
-                    tooltipLabel={t(
-                        'features_metrics_catalog_components.columns.popularity.content',
-                    )}
+                    tooltipLabel={t('features_metrics_catalog_components.columns.popularity.content')}
                 >
                     {column.columnDef.header}
                 </MetricCatalogColumnHeaderCell>

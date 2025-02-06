@@ -1,4 +1,5 @@
 import {
+    getErrorMessage,
     isLightdashMode,
     isOrganizationMemberRole,
     LightdashMode,
@@ -68,9 +69,11 @@ export const getObjectFromEnvironmentVariable = (
     }
     try {
         return JSON.parse(raw);
-    } catch (e) {
+    } catch (e: unknown) {
         throw new ParseError(
-            `Cannot parse environment variable "${name}". Value must be valid JSON but ${name}=${raw}. Error: ${e.message}`,
+            `Cannot parse environment variable "${name}". Value must be valid JSON but ${name}=${raw}. Error: ${getErrorMessage(
+                e,
+            )}`,
         );
     }
 };
@@ -218,6 +221,9 @@ export type LightdashConfig = {
     rudder: RudderConfig;
     posthog: PosthogConfig | undefined;
     mode: LightdashMode;
+    license: {
+        licenseKey: string | null;
+    };
     sentry: SentryConfig;
     auth: AuthConfig;
     intercom: IntercomConfig;
@@ -290,6 +296,18 @@ export type LightdashConfig = {
         enabled: boolean;
     };
     logging: LoggingConfig;
+    ai: {
+        copilot: {
+            enabled: boolean;
+            embeddingSearchEnabled?: boolean;
+        };
+    };
+    embedding: {
+        enabled: boolean;
+    };
+    scim: {
+        enabled: boolean;
+    };
     github: {
         appName: string;
         redirectDomain: string;
@@ -485,6 +503,9 @@ export const parseConfig = (): LightdashConfig => {
 
     return {
         mode,
+        license: {
+            licenseKey: process.env.LIGHTDASH_LICENSE_KEY || null,
+        },
         security: {
             contentSecurityPolicy: {
                 reportOnly: process.env.LIGHTDASH_CSP_REPORT_ONLY !== 'false', // defaults to true
@@ -786,7 +807,7 @@ export const parseConfig = (): LightdashConfig => {
         },
         scheduler: {
             enabled: process.env.SCHEDULER_ENABLED !== 'false',
-            concurrency: parseInt(process.env.SCHEDULER_CONCURRENCY || '1', 10),
+            concurrency: parseInt(process.env.SCHEDULER_CONCURRENCY || '3', 10),
             jobTimeout: process.env.SCHEDULER_JOB_TIMEOUT
                 ? parseInt(process.env.SCHEDULER_JOB_TIMEOUT, 10)
                 : DEFAULT_JOB_TIMEOUT,
@@ -835,6 +856,19 @@ export const parseConfig = (): LightdashConfig => {
                     ? undefined
                     : parseLoggingLevel(process.env.LIGHTDASH_LOG_FILE_LEVEL),
             filePath: process.env.LIGHTDASH_LOG_FILE_PATH || './logs/all.log',
+        },
+        ai: {
+            copilot: {
+                enabled: process.env.AI_COPILOT_ENABLED === 'true',
+                embeddingSearchEnabled:
+                    process.env.AI_COPILOT_EMBEDDING_SEARCH_ENABLED === 'true',
+            },
+        },
+        embedding: {
+            enabled: process.env.EMBEDDING_ENABLED === 'true',
+        },
+        scim: {
+            enabled: process.env.SCIM_ENABLED === 'true',
         },
         github: {
             appName: process.env.GITHUB_APP_NAME || 'lightdash-app-dev',

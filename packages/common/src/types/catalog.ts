@@ -1,10 +1,5 @@
 import assertUnreachable from '../utils/assertUnreachable';
-import {
-    type CompiledExploreJoin,
-    type Explore,
-    type ExploreError,
-    type InlineError,
-} from './explore';
+import { type CompiledExploreJoin, type InlineError } from './explore';
 import {
     DimensionType,
     MetricType,
@@ -53,6 +48,8 @@ type CustomIcon = {
 
 export type CatalogItemIcon = EmojiIcon | CustomIcon;
 
+export const UNCATEGORIZED_TAG_UUID = '__uncategorized__';
+
 export const isEmojiIcon = (icon: CatalogItemIcon | null): icon is EmojiIcon =>
     Boolean(icon && 'unicode' in icon);
 
@@ -71,7 +68,7 @@ export type CatalogField = Pick<
         tableName: string;
         tableGroupLabel?: string;
         tags?: string[]; // Tags from table, for filtering
-        categories: Pick<Tag, 'name' | 'color' | 'tagUuid'>[]; // Tags manually added by the user in the catalog
+        categories: Pick<Tag, 'name' | 'color' | 'tagUuid' | 'yamlReference'>[]; // Tags manually added by the user in the catalog
         chartUsage: number | undefined;
         icon: CatalogItemIcon | null;
     };
@@ -85,7 +82,7 @@ export type CatalogTable = Pick<
     type: CatalogType.Table;
     groupLabel?: string;
     tags?: string[];
-    categories: Pick<Tag, 'name' | 'color' | 'tagUuid'>[]; // Tags manually added by the user in the catalog
+    categories: Pick<Tag, 'name' | 'color' | 'tagUuid' | 'yamlReference'>[]; // Tags manually added by the user in the catalog
     joinedTables?: CompiledExploreJoin[]; // Matched type in explore
     chartUsage: number | undefined;
     icon: CatalogItemIcon | null;
@@ -227,6 +224,7 @@ export type CatalogItemWithTagUuids = CatalogItemSummary & {
         tagUuid: string;
         createdByUserUuid: string | null;
         createdAt: Date;
+        taggedViaYaml: boolean;
     }[];
 };
 
@@ -235,7 +233,6 @@ export type CatalogItemsWithIcons = CatalogItemSummary &
 
 export type SchedulerIndexCatalogJobPayload = {
     projectUuid: string;
-    explores: (Explore | ExploreError)[];
     userUuid: string;
     prevCatalogItemsWithTags: CatalogItemWithTagUuids[];
     prevCatalogItemsWithIcons: CatalogItemsWithIcons[];

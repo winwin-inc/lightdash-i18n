@@ -137,16 +137,6 @@ const usePageStyles = createStyles<string, StyleProps>((theme, params) => {
                   }
                 : {}),
 
-            ...(params.withFixedContent
-                ? {
-                      marginLeft: 'auto',
-                      marginRight: 'auto',
-
-                      width: PAGE_CONTENT_WIDTH,
-                      flexShrink: 0,
-                  }
-                : {}),
-
             ...(params.withFitContent
                 ? {
                       width: 'fit-content',
@@ -187,6 +177,14 @@ const usePageStyles = createStyles<string, StyleProps>((theme, params) => {
                       borderLeft: `1px solid ${theme.colors.gray[3]}`,
                   }
                 : {}),
+        },
+
+        fixedContainer: {
+            marginLeft: 'auto',
+            marginRight: 'auto',
+
+            width: PAGE_CONTENT_WIDTH,
+            flexShrink: 0,
         },
     };
 });
@@ -295,13 +293,19 @@ const Page: FC<React.PropsWithChildren<Props>> = ({
                     </Sidebar>
                 ) : null}
 
-                <Box component="main" className={classes.content} ref={mainRef}>
+                <main className={classes.content} ref={mainRef}>
                     <TrackSection name={SectionName.PAGE_CONTENT}>
                         <ErrorBoundary wrapper={{ mt: '4xl' }}>
-                            {children}
+                            {withFixedContent ? (
+                                <div className={classes.fixedContainer}>
+                                    {children}
+                                </div>
+                            ) : (
+                                children
+                            )}
                         </ErrorBoundary>
                     </TrackSection>
-                </Box>
+                </main>
 
                 {rightSidebar ? (
                     <Sidebar

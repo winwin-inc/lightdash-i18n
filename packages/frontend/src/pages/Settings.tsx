@@ -1,7 +1,8 @@
 import { subject } from '@casl/ability';
-import { FeatureFlags } from '@lightdash/common';
+import { CommercialFeatureFlags, FeatureFlags } from '@lightdash/common';
 import { Box, ScrollArea, Stack, Text, Title } from '@mantine/core';
 import {
+    IconBrowser,
     IconBuildingSkyscraper,
     IconCalendarStats,
     IconChecklist,
@@ -14,7 +15,6 @@ import {
     IconPalette,
     IconPlug,
     IconReportAnalytics,
-    IconSql,
     IconTableOptions,
     IconUserCircle,
     IconUserPlus,
@@ -47,6 +47,7 @@ import SlackSettingsPanel from '../components/UserSettings/SlackSettingsPanel';
 import SocialLoginsPanel from '../components/UserSettings/SocialLoginsPanel';
 import UserAttributesPanel from '../components/UserSettings/UserAttributesPanel';
 import UsersAndGroupsPanel from '../components/UserSettings/UsersAndGroupsPanel';
+import ScimAccessTokensPanel from '../ee/features/scim/components/ScimAccessTokensPanel';
 import { useOrganization } from '../hooks/organization/useOrganization';
 import { useActiveProjectUuid } from '../hooks/useActiveProject';
 import {
@@ -62,16 +63,20 @@ import ProjectSettings from './ProjectSettings';
 
 const Settings: FC = () => {
     const { t } = useTranslation();
+
+    const { data: embeddingEnabled } = useFeatureFlag(
+        CommercialFeatureFlags.Embedding,
+    );
     const isPassthroughLoginFeatureEnabled = useFeatureFlagEnabled(
         FeatureFlags.PassthroughLogin,
     );
 
-    const isCustomSQLEnabled = useFeatureFlagEnabled(
-        FeatureFlags.CustomSQLEnabled,
-    );
-
     const isSemanticLayerEnabled = useFeatureFlagEnabled(
         FeatureFlags.SemanticLayerEnabled,
+    );
+
+    const { data: isScimTokenManagementEnabled } = useFeatureFlag(
+        CommercialFeatureFlags.Scim,
     );
 
     const {
@@ -315,8 +320,20 @@ const Settings: FC = () => {
             });
         }
 
+        // Commercial route
+        if (
+            user?.ability.can('manage', 'Organization') &&
+            isScimTokenManagementEnabled?.enabled
+        ) {
+            allowedRoutes.push({
+                path: '/scimAccessTokens',
+                element: <ScimAccessTokensPanel />,
+            });
+        }
+
         return allowedRoutes;
     }, [
+        isScimTokenManagementEnabled?.enabled,
         isPassthroughLoginFeatureEnabled,
         allowPasswordAuthentication,
         hasSocialLogin,
@@ -543,6 +560,18 @@ const Settings: FC = () => {
                                             }
                                         />
                                     )}
+
+                                {user.ability.can('manage', 'Organization') &&
+                                    isScimTokenManagementEnabled?.enabled && (
+                                        <RouterNavLink
+                                            label="SCIM Access Tokens"
+                                            exact
+                                            to="/generalSettings/scimAccessTokens"
+                                            icon={
+                                                <MantineIcon icon={IconKey} />
+                                            }
+                                        />
+                                    )}
                             </Box>
 
                             {organization &&
@@ -665,6 +694,26 @@ const Settings: FC = () => {
 
                                     {user.ability?.can(
                                         'manage',
+                                        subject('CompileProject', {
+                                            organizationUuid:
+                                                project.organizationUuid,
+                                            projectUuid: project.projectUuid,
+                                        }),
+                                    ) && embeddingEnabled?.enabled ? (
+                                        <RouterNavLink
+                                            label="Embed configuration"
+                                            exact
+                                            to={`/generalSettings/projectManagement/${project.projectUuid}/embed`}
+                                            icon={
+                                                <MantineIcon
+                                                    icon={IconBrowser}
+                                                />
+                                            }
+                                        />
+                                    ) : null}
+
+                                    {user.ability?.can(
+                                        'manage',
                                         subject('Validation', {
                                             organizationUuid:
                                                 project.organizationUuid,
@@ -706,19 +755,6 @@ const Settings: FC = () => {
                                             }
                                         />
                                     ) : null}
-
-                                    {isCustomSQLEnabled && (
-                                        <RouterNavLink
-                                            label={t(
-                                                'pages_settings.scroll_area_box_update.navs.custom_sql',
-                                            )}
-                                            exact
-                                            to={`/generalSettings/projectManagement/${project.projectUuid}/customSql`}
-                                            icon={
-                                                <MantineIcon icon={IconSql} />
-                                            }
-                                        />
-                                    )}
                                 </Box>
                             ) : null}
                         </Stack>

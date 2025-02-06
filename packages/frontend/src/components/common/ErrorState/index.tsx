@@ -1,5 +1,6 @@
 import { type ApiErrorDetail } from '@lightdash/common';
 import { Text } from '@mantine/core';
+import { Prism } from '@mantine/prism';
 import { IconAlertCircle, IconLock } from '@tabler/icons-react';
 import React, { useMemo, type ComponentProps, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -30,11 +31,17 @@ const ErrorState: FC<{
             const description = (
                 <>
                     <Text maw={400}>{error.message}</Text>
-                    {error.id && (
-                        <Text maw={400} weight="bold">
-                            {t('components_common_error_state.description')}{' '}
-                            {error.id}
-                        </Text>
+                    {(error.sentryEventId || error.sentryTraceId) && (
+                        <>
+                            <Text maw={400} weight="bold">
+                                {t('components_common_error_state.description')}
+                            </Text>
+                            <Prism ta="left" language="yaml" pr="lg">
+                                {`\n${t('components_common_error_state.error_id')}: ${
+                                    error.sentryEventId || 'n/a'
+                                }\n${t('components_common_error_state.trace_id')}: ${error.sentryTraceId || 'n/a'}`}
+                            </Prism>
+                        </>
                     )}
                 </>
             );

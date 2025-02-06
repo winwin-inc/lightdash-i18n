@@ -1,4 +1,9 @@
-import { assertUnreachable, SemanticLayerType } from '@lightdash/common';
+import {
+    assertUnreachable,
+    getErrorMessage,
+    isApiError,
+    SemanticLayerType,
+} from '@lightdash/common';
 import {
     Anchor,
     Avatar,
@@ -105,11 +110,14 @@ const SettingsSemanticLayer: FC<Props> = ({ projectUuid }) => {
                 ),
             });
         } catch (e) {
+            const errorMessage = isApiError(e)
+                ? e.error.message
+                : getErrorMessage(e);
             showToastError({
                 title: t(
                     'components_settings_semantic_layer.tips_submit.failed',
                 ),
-                ...(e.error.message ? { subtitle: e.error.message } : {}),
+                subtitle: errorMessage,
             });
         }
 

@@ -1,4 +1,8 @@
-{
+{    "compilerOptions": {
+     "noUncheckedIndexedAccess": false, // Disabled until we fix all tests in all packages
+     "useUnknownInCatchVariables": true,
+     "noImplicitAny": true
+ },
     "references": [
         {
             "path": "./packages/frontend"

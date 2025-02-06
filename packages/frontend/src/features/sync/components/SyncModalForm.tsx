@@ -1,6 +1,7 @@
 import {
     formatMinutesOffset,
     getTzMinutesOffset,
+    isSchedulerGsheetsOptions,
     SchedulerFormat,
     type CreateSchedulerAndTargetsWithoutIds,
     type UpdateSchedulerAndTargetsWithoutId,
@@ -12,10 +13,12 @@ import {
     Input,
     Space,
     Stack,
+    Switch,
     TextInput,
+    Tooltip,
 } from '@mantine/core';
-import { IconCirclesRelation } from '@tabler/icons-react';
-import { useEffect, useMemo, type FC } from 'react';
+import { IconCirclesRelation, IconInfoCircle } from '@tabler/icons-react';
+import { useEffect, useMemo, useState, type FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
@@ -62,11 +65,12 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
     const { activeProjectUuid } = useActiveProjectUuid();
     const { data: project } = useProject(activeProjectUuid);
 
+    const [saveInNewTab, setSaveInNewTab] = useState(false);
     const isLoading = isCreateChartSyncLoading || isUpdateChartSyncLoading;
     const isSuccess = isCreateChartSyncSuccess || isUpdateChartSyncSuccess;
 
     const methods = useForm<CreateSchedulerAndTargetsWithoutIds>({
-        mode: 'onSubmit',
+        mode: 'onChange',
         defaultValues: {
             cron: '0 9 * * *',
             name: '',
@@ -75,6 +79,7 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                 gdriveName: '',
                 gdriveOrganizationName: '',
                 url: '',
+                tabName: '',
             },
             timezone: undefined,
         },
@@ -84,14 +89,29 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
         if (schedulerData && isEditing) {
             methods.reset(schedulerData);
             methods.setValue('timezone', schedulerData.timezone);
+
+            if (
+                isSchedulerGsheetsOptions(schedulerData.options) &&
+                schedulerData.options.tabName
+            ) {
+                setSaveInNewTab(true);
+            }
         }
     }, [isEditing, methods, schedulerData]);
 
-    const handleSubmit = (
+    const handleSubmit = async (
         data:
             | CreateSchedulerAndTargetsWithoutIds
             | UpdateSchedulerAndTargetsWithoutId,
     ) => {
+        if (!methods.formState.isValid) {
+            console.error(
+                'Unable to send form with errors',
+                methods.formState.errors,
+            );
+            return;
+        }
+
         const defaultNewSchedulerValues = {
             format: SchedulerFormat.GSHEETS,
             enabled: true,
@@ -102,6 +122,13 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
             ...data,
             ...defaultNewSchedulerValues,
             timezone: data.timezone || undefined,
+            options: {
+                ...data.options,
+                tabName:
+                    saveInNewTab && isSchedulerGsheetsOptions(data.options)
+                        ? data.options.tabName
+                        : undefined,
+            },
         };
 
         if (isEditing) {
@@ -145,7 +172,6 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
     if (isEditing && isSchedulerError) {
         return <ErrorState error={schedulerError.error} />;
     }
-
     return (
         <FormProvider {...methods}>
             <form onSubmit={methods.handleSubmit(handleSubmit)}>
@@ -206,6 +232,44 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
 
                     <SelectGoogleSheetButton />
 
+                    <Group>
+                        <Switch
+                            label="Save in a new tab"
+                            checked={saveInNewTab}
+                            onChange={() => setSaveInNewTab(!saveInNewTab)}
+                        ></Switch>
+                        <Tooltip
+                            label={`Type a tab name to save the sync in, instead of overriding the first existing tab in the Google sheet.
+                                    This will create a new tab if it doesn't exist. We will still create a tab called metadata with the Sync information.`}
+                            multiline
+                            withinPortal
+                            position="right"
+                            maw={400}
+                        >
+                            <MantineIcon icon={IconInfoCircle} color="gray.6" />
+                        </Tooltip>
+                    </Group>
+                    {saveInNewTab && (
+                        <TextInput
+                            required
+                            label="Tab name"
+                            placeholder="Sheet1"
+                            error={
+                                methods.formState.errors.options &&
+                                `tabName` in methods.formState.errors.options &&
+                                methods.formState.errors.options?.tabName
+                                    ?.message
+                            }
+                            {...methods.register('options.tabName', {
+                                validate: (value) => {
+                                    if (value?.toLowerCase() === 'metadata') {
+                                        return 'Tab name cannot be "metadata"';
+                                    }
+                                    return true;
+                                },
+                            })}
+                        />
+                    )}
                     <Space />
 
                     <Group position="apart">
@@ -219,7 +283,9 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
 
                         <Button
                             type="submit"
-                            disabled={!hasSetGoogleSheet}
+                            disabled={
+                                !hasSetGoogleSheet || !methods.formState.isValid
+                            }
                             loading={isLoading}
                             leftIcon={
                                 !isEditing && (

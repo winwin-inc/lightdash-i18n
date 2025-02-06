@@ -1,4 +1,5 @@
 import {
+    AnyType,
     CustomDimension,
     DimensionType,
     Field,
@@ -6,6 +7,7 @@ import {
     formatDate,
     getItemLabel,
     getItemLabelWithoutTableName,
+    GoogleSheetsTransientError,
     isDimension,
     isField,
     ItemsMap,
@@ -104,16 +106,17 @@ export class GoogleDriveClient {
                     ],
                 },
             })
-            .catch((error: any) => {
+            .catch((error) => {
                 if (
                     error.code === 400 &&
                     error.errors[0]?.message.includes(tabName)
                 ) {
                     Logger.debug(
-                        `Google sheet tab already exist, we will overwrite it: ${error.errors[0]?.message}`,
+                        `Google sheet tab already exists, we will overwrite it: ${error.errors[0]?.message}`,
                     );
-                } else {
-                    throw new UnexpectedGoogleSheetsError(error);
+                } else if (error.code === 500) {
+                    // This is a transient error, we will retry the request later
+                    throw new GoogleSheetsTransientError(error);
                 }
             });
 
@@ -217,7 +220,7 @@ export class GoogleDriveClient {
     }
 
     static formatCell(
-        value: any,
+        value: AnyType,
         item?: Field | TableCalculation | CustomDimension | Metric,
     ) {
         // We don't want to use formatItemValue directly because the format for some types on Gsheets
@@ -326,6 +329,15 @@ export class GoogleDriveClient {
         const auth = await this.getCredentials(refreshToken);
         const sheets = google.sheets({ version: 'v4', auth });
 
+        let sanitizedTabName: string | undefined;
+        if (tabName) {
+            Logger.info(`Creating new tab ${tabName} on Google sheets`);
+            sanitizedTabName = await this.createNewTab(
+                refreshToken,
+                fileId,
+                tabName,
+            );
+        }
         // Clear first sheet before writting
         await GoogleDriveClient.clearTabName(sheets, fileId, tabName);
 
@@ -335,7 +347,7 @@ export class GoogleDriveClient {
 
         await sheets.spreadsheets.values.update({
             spreadsheetId: fileId,
-            range: tabName ? `${tabName}!A1` : 'A1',
+            range: sanitizedTabName ? `${sanitizedTabName}!A1` : 'A1',
             valueInputOption: 'RAW',
             requestBody: {
                 values: results,

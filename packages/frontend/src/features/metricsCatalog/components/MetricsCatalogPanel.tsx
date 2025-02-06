@@ -35,6 +35,7 @@ import {
     setProjectUuid,
     setSearch,
     setTableSorting,
+    setUser,
     toggleMetricExploreModal,
 } from '../store/metricsCatalogSlice';
 import { type MetricCatalogView } from '../types';
@@ -317,13 +318,29 @@ export const MetricsCatalogPanel: FC<MetricsCatalogPanelProps> = ({
 
                 const canManageExplore = user.data.ability.can(
                     'manage',
-                    'Explore',
+                    subject('Explore', {
+                        organizationUuid: user.data.organizationUuid,
+                        projectUuid,
+                    }),
                 );
 
                 const canManageMetricsTree = user.data.ability.can(
                     'manage',
-                    'MetricsTree',
+                    subject('MetricsTree', {
+                        organizationUuid: user.data.organizationUuid,
+                        projectUuid,
+                    }),
                 );
+
+                const canManageSpotlight = user.data.ability.can(
+                    'manage',
+                    subject('SpotlightTableConfig', {
+                        organizationUuid: user.data.organizationUuid,
+                        projectUuid,
+                    }),
+                );
+
+                dispatch(setUser({ userUuid: user.data.userUuid }));
 
                 dispatch(
                     setAbility({
@@ -331,6 +348,7 @@ export const MetricsCatalogPanel: FC<MetricsCatalogPanelProps> = ({
                         canRefreshCatalog,
                         canManageExplore,
                         canManageMetricsTree,
+                        canManageSpotlight,
                     }),
                 );
             }

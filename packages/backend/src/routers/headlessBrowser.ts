@@ -1,4 +1,9 @@
-import { ForbiddenError } from '@lightdash/common';
+import {
+    AnyType,
+    ForbiddenError,
+    getErrorMessage,
+    getObjectValue,
+} from '@lightdash/common';
 import { createHmac } from 'crypto';
 import express from 'express';
 import playwright from 'playwright';
@@ -13,12 +18,13 @@ export const getAuthenticationToken = (value: string) =>
 
 headlessBrowserRouter.post('/login/:userUuid', async (req, res, next) => {
     try {
-        const { userUuid } = req.params;
+        const userUuid = getObjectValue(req.params, 'userUuid');
         const hash = getAuthenticationToken(userUuid);
 
         if (hash !== req.body.token) {
             throw new ForbiddenError();
         }
+
         const sessionUser = await req.services
             .getUserService()
             .getSessionByUserUuid(userUuid);
@@ -86,7 +92,7 @@ if (
             });
         } catch (e) {
             console.error(e);
-            next(e.message);
+            next(getErrorMessage(e));
         } finally {
             if (browser) await browser.close();
         }
@@ -126,7 +132,7 @@ if (
                 'analytics.lightdash.com',
                 'intercom.io',
             ];
-            page.on('request', (request: any) => {
+            page.on('request', (request: AnyType) => {
                 const requestUrl = request.url();
                 if (blockedUrls.includes(requestUrl)) {
                     request.abort();
@@ -145,7 +151,7 @@ if (
             await page.waitForSelector(selector);
             const element = await page.$(selector);
             if (isDashboard) {
-                await page.evaluate((sel: any) => {
+                await page.evaluate((sel: AnyType) => {
                     // @ts-ignore
                     const elements = document.querySelectorAll(sel);
                     elements.forEach((el) => el.parentNode.removeChild(el));
@@ -175,7 +181,7 @@ if (
             res.end(imageBuffer);
         } catch (e) {
             console.error(e);
-            next(e.message);
+            next(getErrorMessage(e));
         } finally {
             if (browser) await browser.close();
         }

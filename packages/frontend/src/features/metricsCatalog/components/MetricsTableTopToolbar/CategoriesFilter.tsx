@@ -1,4 +1,4 @@
-import { type CatalogField } from '@lightdash/common';
+import { UNCATEGORIZED_TAG_UUID, type CatalogField } from '@lightdash/common';
 import {
     ActionIcon,
     Button,
@@ -40,16 +40,25 @@ const CategoriesFilter: FC<CategoriesFilterProps> = ({
 
     const hasSelectedCategories = selectedCategories.length > 0;
 
-    const categoryNames = useMemo(
-        () =>
-            categories
-                ?.filter((category) =>
-                    selectedCategories.includes(category.tagUuid),
-                )
-                .map((category) => category.name)
-                .join(', '),
-        [categories, selectedCategories],
-    );
+    const categoryNames = useMemo(() => {
+        const uncategorized = selectedCategories.includes(
+            UNCATEGORIZED_TAG_UUID,
+        );
+
+        return categories
+            ?.filter((category) =>
+                selectedCategories.includes(category.tagUuid),
+            )
+            .map((category) => category.name)
+            .concat(uncategorized ? ['Uncategorized'] : [])
+            .join(', ');
+    }, [categories, selectedCategories]);
+
+    const buttonLabel = hasSelectedCategories
+        ? categoryNames
+        : t(
+              'features_metrics_metrics_table_top_toolbar.all_categories',
+          );
 
     return (
         <Group spacing="two">
@@ -103,11 +112,7 @@ const CategoriesFilter: FC<CategoriesFilterProps> = ({
                                 },
                             })}
                         >
-                            {hasSelectedCategories
-                                ? categoryNames
-                                : t(
-                                      'features_metrics_metrics_table_top_toolbar.all_categories',
-                                  )}
+                            {buttonLabel}
                         </Button>
                     </Tooltip>
                 </Popover.Target>
@@ -172,6 +177,49 @@ const CategoriesFilter: FC<CategoriesFilterProps> = ({
                                     }}
                                 />
                             ))}
+                            <Checkbox
+                                label="Uncategorized"
+                                checked={selectedCategories.includes(
+                                    UNCATEGORIZED_TAG_UUID,
+                                )}
+                                fw={500}
+                                size="xs"
+                                display={
+                                    categories?.length === 0 ? 'none' : 'block'
+                                }
+                                styles={(theme) => ({
+                                    body: {
+                                        alignItems: 'center',
+                                    },
+                                    input: {
+                                        borderRadius: theme.radius.sm,
+                                        border: `1px solid ${theme.colors.gray[4]}`,
+                                    },
+                                    label: {
+                                        paddingLeft: theme.spacing.xs,
+                                    },
+                                })}
+                                onChange={() => {
+                                    if (
+                                        selectedCategories.includes(
+                                            UNCATEGORIZED_TAG_UUID,
+                                        )
+                                    ) {
+                                        setSelectedCategories(
+                                            selectedCategories.filter(
+                                                (c) =>
+                                                    c !==
+                                                    UNCATEGORIZED_TAG_UUID,
+                                            ),
+                                        );
+                                    } else {
+                                        setSelectedCategories([
+                                            ...selectedCategories,
+                                            UNCATEGORIZED_TAG_UUID,
+                                        ]);
+                                    }
+                                }}
+                            />
                         </Stack>
                     </Stack>
                 </Popover.Dropdown>

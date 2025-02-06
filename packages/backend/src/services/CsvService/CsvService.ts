@@ -1,6 +1,7 @@
 import { subject } from '@casl/ability';
 import {
     addDashboardFiltersToMetricQuery,
+    AnyType,
     ApiSqlQueryResults,
     applyDimensionOverrides,
     ChartType,
@@ -16,6 +17,7 @@ import {
     friendlyName,
     getCustomLabelsFromTableConfig,
     getDashboardFiltersForTileAndTables,
+    getErrorMessage,
     getHiddenTableFields,
     getItemLabel,
     getItemLabelWithoutTableName,
@@ -38,6 +40,7 @@ import {
     SchedulerFilterRule,
     SchedulerFormat,
     SessionUser,
+    type RunQueryTags,
 } from '@lightdash/common';
 import archiver from 'archiver';
 import { stringify } from 'csv-stringify';
@@ -82,15 +85,6 @@ type CsvServiceArguments = {
     projectModel: ProjectModel;
 };
 
-type RunQueryTags = {
-    project_uuid?: string;
-    user_uuid?: string;
-    organization_uuid?: string;
-    chart_uuid?: string;
-    dashboard_uuid?: string;
-    explore_name?: string;
-};
-
 const isRowValueTimestamp = (
     value: unknown,
     field: { type: DimensionType },
@@ -132,7 +126,7 @@ export const convertSqlToCsv = (
             },
             (err, output) => {
                 if (err) {
-                    reject(new Error(err.message));
+                    reject(new Error(getErrorMessage(err)));
                 }
                 resolve(output);
             },
@@ -206,7 +200,7 @@ export class CsvService extends BaseService {
     }
 
     static convertRowToCsv(
-        row: Record<string, any>,
+        row: Record<string, AnyType>,
         itemMap: ItemsMap,
         onlyRaw: boolean,
         sortedFieldIds: string[],
@@ -262,7 +256,7 @@ export class CsvService extends BaseService {
     }
 
     static async writeRowsToFile(
-        rows: Record<string, any>[],
+        rows: Record<string, AnyType>[],
         onlyRaw: boolean,
         metricQuery: MetricQuery,
         itemMap: ItemsMap,
@@ -277,7 +271,7 @@ export class CsvService extends BaseService {
         const selectedFieldIds = [
             ...metricQuery.metrics,
             ...metricQuery.dimensions,
-            ...metricQuery.tableCalculations.map((tc: any) => tc.name),
+            ...metricQuery.tableCalculations.map((tc: AnyType) => tc.name),
         ].filter((id) => !hiddenFields.includes(id));
 
         Logger.debug(
@@ -319,7 +313,7 @@ export class CsvService extends BaseService {
         const rowTransformer = new Transform({
             objectMode: true,
             transform(
-                chunk: any,
+                chunk: AnyType,
                 encoding: BufferEncoding,
                 callback: TransformCallback,
             ) {
@@ -373,7 +367,7 @@ export class CsvService extends BaseService {
         return convertSqlToCsv(results, customLabels);
     }
 
-    couldBeTruncated(rows: Record<string, any>[]) {
+    couldBeTruncated(rows: Record<string, AnyType>[]) {
         if (rows.length === 0) return false;
 
         const numberRows = rows.length;
@@ -455,7 +449,7 @@ This method can be memory intensive
     }: {
         name?: string;
         projectUuid: string;
-        rows: Record<string, any>[];
+        rows: Record<string, AnyType>[];
         itemMap: ItemsMap;
         metricQuery: MetricQuery;
         pivotConfig: PivotConfig;
@@ -496,7 +490,7 @@ This method can be memory intensive
                             },
                             (err, output) => {
                                 if (err) {
-                                    reject(new Error(err.message));
+                                    reject(new Error(getErrorMessage(err)));
                                 }
                                 resolve(output);
                             },
@@ -585,6 +579,7 @@ This method can be memory intensive
             organization_uuid: user.organizationUuid,
             chart_uuid: chartUuid,
             explore_name: exploreId,
+            query_context: QueryExecutionContext.CSV,
         };
 
         const { rows, fields } = await this.projectService.runMetricQuery({
@@ -1163,7 +1158,7 @@ This method can be memory intensive
                 properties: analyticsProperties,
             });
 
-            const queryTags: RunQueryTags = {
+            const queryTags: Omit<RunQueryTags, 'query_context'> = {
                 project_uuid: projectUuid,
                 user_uuid: user.userUuid,
                 organization_uuid: user.organizationUuid,

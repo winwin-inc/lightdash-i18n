@@ -1,3 +1,4 @@
+import { getErrorMessage, isApiError } from '@lightdash/common';
 import { LoadingOverlay, Stack, Title } from '@mantine/core';
 import { useCallback, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -37,9 +38,14 @@ const SettingsScheduler: FC<SettingsSchedulerProps> = ({ projectUuid }) => {
                     title: t('components_settings_scheduler.tips.success'),
                 });
             } catch (e) {
+                const errorMessage = isApiError(e)
+                    ? e.error.message
+                    : getErrorMessage(e);
                 showToastError({
-                    title: t('components_settings_scheduler.tips.failed'),
-                    ...(e.error.message ? { subtitle: e.error.message } : {}),
+                    title: t(
+                        'components_settings_scheduler.tips.failed',
+                    ),
+                    subtitle: errorMessage,
                 });
             }
 

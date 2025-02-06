@@ -145,6 +145,8 @@
                                                     "mi",
                                                     "usd",
                                                     "gbp",
+                                                    "jpy",
+                                                    "dkk",
                                                     "eur",
                                                     "percent",
                                                     "id"
@@ -185,6 +187,35 @@
                                                     "field",
                                                     "interval"
                                                 ]
+                                            },
+                                            "spotlight": {
+                                                "type": "object",
+                                                "description": "Set the visibility and/or categories of a metric in Spotlight",
+                                                "properties": {
+                                                    "visibility": {
+                                                        "type": "string",
+                                                        "enum": ["show", "hide"]
+                                                    },
+                                                    "categories": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        },
+                                                        "description": "An array of categories for the metric in Spotlight"
+                                                    }
+                                                },
+                                                "anyOf": [
+                                                    {
+                                                        "required": [
+                                                            "visibility"
+                                                        ]
+                                                    },
+                                                    {
+                                                        "required": [
+                                                            "categories"
+                                                        ]
+                                                    }
+                                                ]
                                             }
                                         },
                                         "required": ["type", "sql"]
@@ -211,6 +242,27 @@
                                     }
                                 },
                                 "required": ["field", "interval"]
+                            },
+                            "spotlight": {
+                                "type": "object",
+                                "description": "Set the visibility and/or categories of a metric in Spotlight",
+                                "properties": {
+                                    "visibility": {
+                                        "type": "string",
+                                        "enum": ["show", "hide"]
+                                    },
+                                    "categories": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "description": "An optional array of categories for all metrics in this model in Spotlight"
+                                    }
+                                },
+                                "anyOf": [
+                                    { "required": ["visibility"] },
+                                    { "required": ["categories"] }
+                                ]
                             }
                         }
                     },
@@ -311,6 +363,8 @@
                                                                 "km",
                                                                 "mi",
                                                                 "usd",
+                                                                "jpy",
+                                                                "dkk",
                                                                 "gbp",
                                                                 "eur",
                                                                 "percent",
@@ -351,6 +405,38 @@
                                                             "required": [
                                                                 "field",
                                                                 "interval"
+                                                            ]
+                                                        },
+                                                        "spotlight": {
+                                                            "type": "object",
+                                                            "description": "Set the visibility and/or categories of a metric in Spotlight",
+                                                            "properties": {
+                                                                "visibility": {
+                                                                    "type": "string",
+                                                                    "enum": [
+                                                                        "show",
+                                                                        "hide"
+                                                                    ]
+                                                                },
+                                                                "categories": {
+                                                                    "type": "array",
+                                                                    "items": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "description": "An array of categories for the metric in Spotlight"
+                                                                }
+                                                            },
+                                                            "anyOf": [
+                                                                {
+                                                                    "required": [
+                                                                        "visibility"
+                                                                    ]
+                                                                },
+                                                                {
+                                                                    "required": [
+                                                                        "categories"
+                                                                    ]
+                                                                }
                                                             ]
                                                         }
                                                     },
@@ -396,6 +482,8 @@
                                                         "km",
                                                         "mi",
                                                         "usd",
+                                                        "jpy",
+                                                        "dkk",
                                                         "gbp",
                                                         "eur",
                                                         "percent",
@@ -596,6 +684,8 @@
                                     "km",
                                     "mi",
                                     "usd",
+                                    "jpy",
+                                    "dkk",
                                     "gbp",
                                     "eur",
                                     "percent",
@@ -622,6 +712,27 @@
                                     }
                                 },
                                 "required": ["field", "interval"]
+                            },
+                            "spotlight": {
+                                "type": "object",
+                                "description": "Set the visibility and/or categories of a metric in Spotlight",
+                                "properties": {
+                                    "visibility": {
+                                        "type": "string",
+                                        "enum": ["show", "hide"]
+                                    },
+                                    "categories": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "description": "An array of categories for the metric in Spotlight"
+                                    }
+                                },
+                                "anyOf": [
+                                    { "required": ["visibility"] },
+                                    { "required": ["categories"] }
+                                ]
                             }
                         }
                     }

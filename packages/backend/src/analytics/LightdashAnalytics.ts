@@ -1,10 +1,12 @@
 /// <reference path="../@types/rudder-sdk-node.d.ts" />
 import { Type } from '@aws-sdk/client-s3';
 import {
+    AnyType,
     CartesianSeriesType,
     ChartKind,
     ChartType,
     DbtProjectType,
+    getErrorMessage,
     getRequestMethod,
     LightdashInstallType,
     LightdashMode,
@@ -638,7 +640,7 @@ type PermissionsUpdated = BaseTrack & {
         userId: string;
         userIdUpdated: string;
         organizationPermissions: OrganizationMemberRole;
-        projectPermissions: any;
+        projectPermissions: Record<string, string>;
         newUser: boolean;
         generatedInvite: boolean;
     };
@@ -1116,6 +1118,7 @@ export type WriteBackEvent = BaseTrack & {
         organizationId: string;
         projectId: string;
         context: QueryExecutionContext;
+        customMetricsCount?: number;
     };
 };
 
@@ -1126,6 +1129,18 @@ type CreateTagEvent = BaseTrack & {
         name: string;
         projectId: string;
         organizationId: string;
+        context: 'yaml' | 'ui';
+    };
+};
+
+export type CategoriesAppliedEvent = BaseTrack & {
+    event: 'categories.applied';
+    userId: string;
+    properties: {
+        count: number;
+        projectId: string;
+        organizationId: string;
+        context: 'ui' | 'yaml';
     };
 };
 
@@ -1205,7 +1220,8 @@ type TypedEvent =
     | GithubInstallEvent
     | WriteBackEvent
     | SchedulerTimezoneUpdateEvent
-    | CreateTagEvent;
+    | CreateTagEvent
+    | CategoriesAppliedEvent;
 
 type WrapTypedEvent = SemanticLayerView;
 
@@ -1224,7 +1240,7 @@ type LightdashAnalyticsArguments = {
 export class LightdashAnalytics extends Analytics {
     private readonly lightdashConfig: LightdashConfig;
 
-    private readonly lightdashContext: Record<string, any>;
+    private readonly lightdashContext: Record<string, AnyType>;
 
     constructor({
         lightdashConfig,
@@ -1323,7 +1339,7 @@ export class LightdashAnalytics extends Analytics {
     async wrapEvent<T>(
         payload: WrapTypedEvent,
         func: () => Promise<T>,
-        extraProperties?: (r: T) => any,
+        extraProperties?: (r: T) => AnyType,
     ) {
         try {
             this.track({
@@ -1350,7 +1366,7 @@ export class LightdashAnalytics extends Analytics {
                 event: `${payload.event}.error`,
                 properties: {
                     ...payload.properties,
-                    error: e.message,
+                    error: getErrorMessage(e),
                 },
             });
             Logger.error(`Error in scheduler task: ${e}`);

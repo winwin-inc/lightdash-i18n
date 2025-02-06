@@ -9,19 +9,25 @@ import {
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
+import { useHasMetricsInCatalog } from '../../features/metricsCatalog/hooks/useMetricsCatalog';
 import { useSpaceSummaries } from '../../hooks/useSpaces';
 import MantineIcon from '../common/MantineIcon';
+import { MetricsLink } from './MetricsLink';
 
 interface Props {
     projectUuid: string;
 }
 
 const BrowseMenu: FC<Props> = ({ projectUuid }) => {
+    const { t } = useTranslation();
+
     const { data: spaces, isInitialLoading } = useSpaceSummaries(
         projectUuid,
         true,
     );
-    const { t } = useTranslation();
+    const { data: hasMetrics } = useHasMetricsInCatalog({
+        projectUuid,
+    });
 
     return (
         <Menu
@@ -70,6 +76,10 @@ const BrowseMenu: FC<Props> = ({ projectUuid }) => {
                     {t('components_navbar_browse_menu.menus.charts.title')}
                 </Menu.Item>
 
+                {!hasMetrics && (
+                    <MetricsLink projectUuid={projectUuid} asMenu />
+                )}
+
                 {isInitialLoading || (spaces && spaces.length > 0) ? (
                     <>
                         <Menu.Divider />
@@ -86,10 +96,10 @@ const BrowseMenu: FC<Props> = ({ projectUuid }) => {
                 ) : null}
 
                 <ScrollArea
-                    offsetScrollbars
                     variant="primary"
                     className="only-vertical"
-                    type="auto"
+                    scrollbarSize={6}
+                    type="hover"
                 >
                     <Box mah={300}>
                         {spaces

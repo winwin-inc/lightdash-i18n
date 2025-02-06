@@ -1,5 +1,6 @@
 import {
     CustomFormatType,
+    getErrorMessage,
     getItemId,
     NumberSeparator,
     TableCalculationType,
@@ -141,7 +142,7 @@ const TableCalculationModal: FC<Props> = ({
         } catch (e) {
             addToastError({
                 title: t('features_table_calculation_modal.tips.error'),
-                subtitle: e.message,
+                subtitle: getErrorMessage(e),
                 key: 'table-calculation-modal',
             });
         }
@@ -238,7 +239,7 @@ const TableCalculationModal: FC<Props> = ({
                                 }}
                             />
                         </Tabs.Panel>
-                        <Tabs.Panel value="format">
+                        <Tabs.Panel value="format" p="sm">
                             <FormatForm
                                 formatInputProps={getFormatInputProps}
                                 setFormatFieldValue={setFormatFieldValue}

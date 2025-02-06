@@ -8,6 +8,7 @@ import {
     SupportedDbtVersions,
 } from '@lightdash/common';
 import { warehouseClientFromCredentials } from '@lightdash/warehouses';
+import { LightdashAnalytics } from '../analytics/LightdashAnalytics';
 import Logger from '../logging/logger';
 import { CachedWarehouse, ProjectAdapter } from '../types';
 import { DbtAzureDevOpsProjectAdapter } from './dbtAzureDevOpsProjectAdapter';
@@ -24,6 +25,7 @@ export const projectAdapterFromConfig = async (
     cachedWarehouse: CachedWarehouse,
     dbtVersionOption: DbtVersionOption,
     useDbtLs: boolean = true,
+    analytics?: LightdashAnalytics,
 ): Promise<ProjectAdapter> => {
     Logger.debug(
         `Initialize warehouse client of type ${warehouseCredentials.type}`,
@@ -41,6 +43,7 @@ export const projectAdapterFromConfig = async (
     switch (config.type) {
         case DbtProjectType.DBT:
             return new DbtLocalCredentialsProjectAdapter({
+                analytics,
                 warehouseClient,
                 projectDir: config.project_dir || '/usr/app/dbt',
                 warehouseCredentials,
@@ -49,6 +52,7 @@ export const projectAdapterFromConfig = async (
                 cachedWarehouse,
                 dbtVersion,
                 useDbtLs,
+                selector: config.selector,
             });
         case DbtProjectType.NONE:
             return new DbtNoneCredentialsProjectAdapter({
@@ -57,15 +61,19 @@ export const projectAdapterFromConfig = async (
 
         case DbtProjectType.DBT_CLOUD_IDE:
             return new DbtCloudIdeProjectAdapter({
+                analytics,
                 warehouseClient,
                 environmentId: `${config.environment_id}`,
                 discoveryApiEndpoint: config.discovery_api_endpoint,
                 apiKey: config.api_key,
+                tags: config.tags,
                 cachedWarehouse,
                 dbtVersion,
+                // TODO add selector to dbt cloud
             });
         case DbtProjectType.GITHUB:
             return new DbtGithubProjectAdapter({
+                analytics,
                 warehouseClient,
                 githubPersonalAccessToken: config.personal_access_token,
                 githubRepository: config.repository,
@@ -78,9 +86,11 @@ export const projectAdapterFromConfig = async (
                 cachedWarehouse,
                 dbtVersion,
                 useDbtLs,
+                selector: config.selector,
             });
         case DbtProjectType.GITLAB:
             return new DbtGitlabProjectAdapter({
+                analytics,
                 warehouseClient,
                 gitlabPersonalAccessToken: config.personal_access_token,
                 gitlabRepository: config.repository,
@@ -93,9 +103,11 @@ export const projectAdapterFromConfig = async (
                 cachedWarehouse,
                 dbtVersion,
                 useDbtLs,
+                selector: config.selector,
             });
         case DbtProjectType.BITBUCKET:
             return new DbtBitBucketProjectAdapter({
+                analytics,
                 warehouseClient,
                 username: config.username,
                 personalAccessToken: config.personal_access_token,
@@ -109,9 +121,11 @@ export const projectAdapterFromConfig = async (
                 cachedWarehouse,
                 dbtVersion,
                 useDbtLs,
+                selector: config.selector,
             });
         case DbtProjectType.AZURE_DEVOPS:
             return new DbtAzureDevOpsProjectAdapter({
+                analytics,
                 warehouseClient,
                 personalAccessToken: config.personal_access_token,
                 organization: config.organization,
@@ -125,6 +139,7 @@ export const projectAdapterFromConfig = async (
                 cachedWarehouse,
                 dbtVersion,
                 useDbtLs,
+                selector: config.selector,
             });
         default:
             const never: never = config;

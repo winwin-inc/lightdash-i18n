@@ -53,6 +53,9 @@ export const MetricExploreDatePicker: FC<Props> = ({
 }) => {
     const { t } = useTranslation();
     const { track } = useTracking();
+    const userUuid = useAppSelector(
+        (state) => state.metricsCatalog.user?.userUuid,
+    );
     const organizationUuid = useAppSelector(
         (state) => state.metricsCatalog.organizationUuid,
     );
@@ -82,9 +85,10 @@ export const MetricExploreDatePicker: FC<Props> = ({
             properties: {
                 organizationId: organizationUuid,
                 projectId: projectUuid,
+                userId: userUuid,
             },
         });
-    }, [organizationUuid, projectUuid, track]);
+    }, [organizationUuid, projectUuid, track, userUuid]);
 
     const lastStableMatchingPresetLabel = useRef(
         getMatchingPresetLabel(dateRange, timeInterval),
@@ -144,7 +148,7 @@ export const MetricExploreDatePicker: FC<Props> = ({
             <Popover.Target>
                 <Group position="apart" w="fill-available" noWrap>
                     <SegmentedControl
-                        disabled={!effectiveMatchingPresetLabel}
+                        disabled={isFetching}
                         size="xs"
                         h={32}
                         data={customWithPresets}

@@ -12,7 +12,12 @@ import {
     type LineageGraph,
 } from '../types/dbt';
 import { MissingCatalogEntryError, ParseError } from '../types/errors';
-import { type Explore, type ExploreError, type Table } from '../types/explore';
+import {
+    InlineErrorType,
+    type Explore,
+    type ExploreError,
+    type Table,
+} from '../types/explore';
 import {
     defaultSql,
     DimensionType,
@@ -25,6 +30,7 @@ import {
     type Source,
 } from '../types/field';
 import { parseFilters } from '../types/filterGrammar';
+import { type LightdashProjectConfig } from '../types/lightdashProjectConfig';
 import { OrderFieldsByStrategy, type GroupType } from '../types/table';
 import { type TimeFrames } from '../types/timeFrames';
 import { type WarehouseClient } from '../types/warehouse';
@@ -36,6 +42,10 @@ import {
     type WeekDay,
 } from '../utils/timeFrames';
 import { ExploreCompiler } from './exploreCompiler';
+import {
+    getCategoriesFromResource,
+    getSpotlightConfigurationForResource,
+} from './lightdashProjectConfig';
 
 const convertTimezone = (
     timestampSql: string,
@@ -205,6 +215,8 @@ const convertDbtMetricToLightdashMetric = (
     metric: DbtMetric,
     tableName: string,
     tableLabel: string,
+    spotlightConfig: LightdashProjectConfig['spotlight'],
+    modelCategories: string[] | undefined,
 ): Metric => {
     let sql: string;
     let type: MetricType;
@@ -259,6 +271,15 @@ const convertDbtMetricToLightdashMetric = (
         metric.meta?.groups,
         metric.meta?.group_label,
     );
+    const spotlightVisibility = spotlightConfig.default_visibility;
+
+    const spotlightCategories = getCategoriesFromResource(
+        'metric',
+        metric.name,
+        spotlightConfig,
+        Array.from(new Set([...(modelCategories || [])])),
+    );
+
     return {
         fieldType: FieldType.METRIC,
         type,
@@ -286,6 +307,10 @@ const convertDbtMetricToLightdashMetric = (
                       : [metric.meta.tags],
               }
             : {}),
+        ...getSpotlightConfigurationForResource(
+            spotlightVisibility,
+            spotlightCategories,
+        ),
     };
 };
 
@@ -293,10 +318,12 @@ export const convertTable = (
     adapterType: SupportedDbtAdapter,
     model: DbtModelNode,
     dbtMetrics: DbtMetric[],
+    spotlightConfig: LightdashProjectConfig['spotlight'],
     startOfWeek?: WeekDay | null,
 ): Omit<Table, 'lineageGraph'> => {
     const meta = model.config?.meta || model.meta; // Config block takes priority, then meta block
     const tableLabel = meta.label || friendlyName(model.name);
+
     const [dimensions, metrics]: [
         Record<string, Dimension>,
         Record<string, Metric>,
@@ -428,6 +455,13 @@ export const convertTable = (
                             metric,
                             tableLabel,
                             requiredAttributes: dimension.requiredAttributes, // TODO Join dimension required_attributes with metric required_attributes
+                            spotlightConfig: {
+                                ...spotlightConfig,
+                                default_visibility:
+                                    model.meta.spotlight?.visibility ??
+                                    spotlightConfig.default_visibility,
+                            },
+                            modelCategories: model.meta.spotlight?.categories,
                         }),
                     ],
                 ),
@@ -453,6 +487,13 @@ export const convertTable = (
                 name,
                 metric,
                 tableLabel,
+                spotlightConfig: {
+                    ...spotlightConfig,
+                    default_visibility:
+                        model.meta.spotlight?.visibility ??
+                        spotlightConfig.default_visibility,
+                },
+                modelCategories: model.meta.spotlight?.categories,
             }),
         ]),
     );
@@ -460,7 +501,18 @@ export const convertTable = (
     const convertedDbtMetrics = Object.fromEntries(
         dbtMetrics.map((metric) => [
             metric.name,
-            convertDbtMetricToLightdashMetric(metric, model.name, tableLabel),
+            convertDbtMetricToLightdashMetric(
+                metric,
+                model.name,
+                tableLabel,
+                {
+                    ...spotlightConfig,
+                    default_visibility:
+                        model.meta.spotlight?.visibility ??
+                        spotlightConfig.default_visibility,
+                },
+                model.meta.spotlight?.categories,
+            ),
         ]),
     );
 
@@ -581,6 +633,7 @@ export const convertExplores = async (
     adapterType: SupportedDbtAdapter,
     metrics: DbtMetric[],
     warehouseClient: WarehouseClient,
+    lightdashProjectConfig: LightdashProjectConfig,
 ): Promise<(Explore | ExploreError)[]> => {
     const tableLineage = translateDbtModelsToTableLineage(models);
     const [tables, exploreErrors] = models.reduce(
@@ -596,6 +649,7 @@ export const convertExplores = async (
                     adapterType,
                     model,
                     tableMetrics,
+                    lightdashProjectConfig.spotlight,
                     warehouseClient.getStartOfWeek(),
                 );
 
@@ -611,7 +665,7 @@ export const convertExplores = async (
                 };
 
                 return [[...accTables, tableWithLineage], accErrors];
-            } catch (e) {
+            } catch (e: unknown) {
                 const exploreError: ExploreError = {
                     name: model.name,
                     label: meta.label || friendlyName(model.name),
@@ -619,10 +673,14 @@ export const convertExplores = async (
                     groupLabel: meta.group_label,
                     errors: [
                         {
-                            type: e.name,
+                            type:
+                                e instanceof ParseError
+                                    ? InlineErrorType.METADATA_PARSE_ERROR
+                                    : InlineErrorType.NO_DIMENSIONS_FOUND,
                             message:
-                                e.message ||
-                                `Could not convert dbt model: "${model.name}" in to a Lightdash explore`,
+                                e instanceof Error
+                                    ? e.message
+                                    : `Could not convert dbt model: "${model.name}" in to a Lightdash explore`,
                         },
                     ],
                 };
@@ -640,7 +698,6 @@ export const convertExplores = async (
     );
 
     const exploreCompiler = new ExploreCompiler(warehouseClient);
-
     const explores: (Explore | ExploreError)[] = validModels.map((model) => {
         const meta = model.config?.meta || model.meta; // Config block takes priority, then meta block
         try {
@@ -665,13 +722,28 @@ export const convertExplores = async (
                 warehouse: model.config?.snowflake_warehouse,
                 ymlPath: model.patch_path?.split('://')?.[1],
                 sqlPath: model.path,
+                spotlightConfig: lightdashProjectConfig.spotlight,
+                meta,
             });
-        } catch (e) {
+        } catch (e: unknown) {
             return {
                 name: model.name,
                 label: meta.label || friendlyName(model.name),
                 groupLabel: meta.group_label,
-                errors: [{ type: e.name, message: e.message }],
+
+                errors: [
+                    {
+                        // TODO improve parsing of error type
+                        type:
+                            e instanceof ParseError
+                                ? InlineErrorType.METADATA_PARSE_ERROR
+                                : InlineErrorType.NO_DIMENSIONS_FOUND,
+                        message:
+                            e instanceof Error
+                                ? e.message
+                                : `Could not convert dbt model: "${model.name}" is not a valid model`,
+                    },
+                ],
             };
         }
     });

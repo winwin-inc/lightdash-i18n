@@ -1,5 +1,6 @@
 import {
     friendlyName,
+    getErrorMessage,
     MissingConfigError,
     SlackAppCustomSettings,
     SlackChannel,
@@ -29,10 +30,6 @@ type SlackClientArguments = {
 
 const DEFAULT_CACHE_TIME = 1000 * 60 * 10; // 10 minutes
 const MAX_CHANNELS_LIMIT = 100000;
-const cachedChannels: Record<
-    string,
-    { lastCached: Date; channels: SlackChannel[] }
-> = {};
 
 export type PostSlackFile = {
     organizationUuid: string;
@@ -51,6 +48,11 @@ export class SlackClient {
     lightdashConfig: LightdashConfig;
 
     public isEnabled: boolean = false;
+
+    private channelsCache: Map<
+        string,
+        { lastCached: Date; channels: SlackChannel[] }
+    > = new Map();
 
     constructor({
         slackAuthenticationModel,
@@ -82,30 +84,37 @@ export class SlackClient {
     async getChannels(
         organizationUuid: string,
         search?: string,
+        filter: { excludeArchived?: boolean; forceRefresh?: boolean } = {
+            excludeArchived: true,
+        },
     ): Promise<SlackChannel[] | undefined> {
         const getCachedChannels = () => {
-            let finalResults: SlackChannel[];
-            if (!search) {
-                finalResults = cachedChannels[organizationUuid].channels;
-            } else {
-                finalResults = cachedChannels[organizationUuid].channels.filter(
-                    (channel) => channel.name.includes(search),
+            const cached = this.channelsCache.get(organizationUuid);
+            if (!cached) return undefined;
+
+            let finalResults = cached.channels;
+            if (search) {
+                finalResults = finalResults.filter((channel) =>
+                    channel.name.includes(search),
                 );
             }
-
-            if (finalResults.length > MAX_CHANNELS_LIMIT) {
-                return finalResults.slice(0, MAX_CHANNELS_LIMIT);
-            }
-            return finalResults;
+            return finalResults.slice(0, MAX_CHANNELS_LIMIT);
         };
 
-        if (
-            cachedChannels[organizationUuid] &&
-            new Date().getTime() -
-                cachedChannels[organizationUuid].lastCached.getTime() <
+        const isCacheValid = () => {
+            if (filter.forceRefresh) return false;
+            const cached = this.channelsCache.get(organizationUuid);
+            if (!cached) return false;
+
+            const cacheAge = new Date().getTime() - cached.lastCached.getTime();
+            return (
+                cacheAge <
                 (this.lightdashConfig.slack?.channelsCachedTime ||
                     DEFAULT_CACHE_TIME)
-        ) {
+            );
+        };
+
+        if (isCacheValid()) {
             return getCachedChannels();
         }
 
@@ -133,6 +142,7 @@ export class SlackClient {
                     // eslint-disable-next-line no-await-in-loop
                     await webClient.conversations.list({
                         types: 'public_channel,private_channel',
+                        exclude_archived: filter?.excludeArchived,
                         limit: 900,
                         cursor: nextCursor,
                     });
@@ -142,7 +152,9 @@ export class SlackClient {
                     ? [...allChannels, ...conversations.channels]
                     : allChannels;
             } catch (e) {
-                Logger.error(`Unable to fetch slack channels ${e}`);
+                Logger.error(
+                    `Unable to fetch slack channels: ${getErrorMessage(e)}`,
+                );
                 Sentry.captureException(e);
                 break;
             }
@@ -166,7 +178,9 @@ export class SlackClient {
                     ? [...allUsers, ...users.members]
                     : allUsers;
             } catch (e) {
-                Logger.error(`Unable to fetch slack users ${e}`);
+                Logger.error(
+                    `Unable to fetch slack users: ${getErrorMessage(e)}`,
+                );
                 Sentry.captureException(e);
 
                 break;
@@ -191,7 +205,10 @@ export class SlackClient {
             .sort((a, b) => a.name.localeCompare(b.name));
 
         const channels = [...sortedChannels, ...sortedUsers];
-        cachedChannels[organizationUuid] = { lastCached: new Date(), channels };
+        this.channelsCache.set(organizationUuid, {
+            lastCached: new Date(),
+            channels,
+        });
 
         return getCachedChannels();
     }
@@ -211,7 +228,9 @@ export class SlackClient {
             await Promise.all(joinPromises);
         } catch (e) {
             Logger.error(
-                `Unable to join channels ${channels} on organization ${organizationUuid}: ${e}`,
+                `Unable to join channels ${channels} on organization ${organizationUuid}: ${getErrorMessage(
+                    e,
+                )}`,
             );
         }
     }
@@ -240,9 +259,9 @@ export class SlackClient {
                 ...(appProfilePhotoUrl ? { icon_url: appProfilePhotoUrl } : {}),
                 ...slackMessageArgs,
             })
-            .catch((e: any) => {
+            .catch((e) => {
                 Logger.error(
-                    `Unable to post message on Slack: ${JSON.stringify(e)}`,
+                    `Unable to post message on Slack: ${getErrorMessage(e)}`,
                 );
                 throw e;
             });
@@ -276,9 +295,9 @@ export class SlackClient {
                         ? { icon_url: appProfilePhotoUrl }
                         : {}),
                 })
-                .catch((e: any) => {
+                .catch((e) => {
                     Logger.error(
-                        `Unable to post message on Slack. You might need to add the Slack app to the channel you wish you sent notifications to. Error: ${JSON.stringify(
+                        `Unable to post message on Slack. You might need to add the Slack app to the channel you wish you sent notifications to. Error: ${getErrorMessage(
                             e,
                         )}`,
                     );
@@ -466,7 +485,9 @@ export class SlackClient {
             });
             return { url: slackFileUrl, expiring: false };
         } catch (e) {
-            Logger.error(`Failed to upload image to slack: ${e}`);
+            Logger.error(
+                `Failed to upload image to slack: ${getErrorMessage(e)}`,
+            );
             return { url: imageUrl, expiring: true };
         }
     }
