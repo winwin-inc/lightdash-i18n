@@ -23,7 +23,7 @@ import { CreateTokenModal } from './CreateTokenModal';
 import { TokensTable } from './TokensTable';
 
 const ScimAccessTokensPanel: FC = () => {
-    const { t } = useTranslation()
+    const { t } = useTranslation();
 
     const { data } = useScimTokenList();
     const [isCreatingToken, setIsCreatingToken] = useState(false);
@@ -36,8 +36,10 @@ const ScimAccessTokensPanel: FC = () => {
 
     const handleCopyToClipboard = useCallback(() => {
         clipboard.copy(scimURL);
-        showToastSuccess({ title: t('ai_scim_access_tokens_panel_main.copied_to_clipboard') });
-    }, [scimURL, clipboard, showToastSuccess]);
+        showToastSuccess({
+            title: t('ai_scim_access_tokens_panel_main.copied_to_clipboard'),
+        });
+    }, [scimURL, clipboard, showToastSuccess, t]);
 
     return (
         <Stack mb="lg">
@@ -50,9 +52,13 @@ const ScimAccessTokensPanel: FC = () => {
 
             <SettingsGridCard>
                 <Stack spacing="sm">
-                    <Title order={4}>{t('ai_scim_access_tokens_panel_main.scim_url')}</Title>
+                    <Title order={4}>
+                        {t('ai_scim_access_tokens_panel_main.scim_url')}
+                    </Title>
                     <Text color="dimmed">
-                        {t('ai_scim_access_tokens_panel_main.use_the_url_to_connect_your_identity_provider_to_lightdash_via_scim')}
+                        {t(
+                            'ai_scim_access_tokens_panel_main.use_the_url_to_connect_your_identity_provider_to_lightdash_via_scim',
+                        )}
                     </Text>
                     <Anchor
                         href="https://docs.lightdash.com/references/scim-integration/"

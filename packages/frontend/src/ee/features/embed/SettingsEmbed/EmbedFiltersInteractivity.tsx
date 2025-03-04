@@ -52,11 +52,13 @@ const EmbedFiltersInteractivity: React.FC<Props> = ({
             default:
                 return assertUnreachable(
                     value,
-                    t('ai_embed_filters_interactivity.unknown_filter_interactivity_value', { value }),
+                    t(
+                        'ai_embed_filters_interactivity.unknown_filter_interactivity_value',
+                        { value },
+                    ),
                 );
         }
-    }
-
+    };
 
     const savedChartUuidsAndTileUuids = useMemo(
         () =>
@@ -121,7 +123,10 @@ const EmbedFiltersInteractivity: React.FC<Props> = ({
                 default:
                     return assertUnreachable(
                         enabled,
-                        t('ai_embed_filters_interactivity.unknown_filter_interactivity_value', { value: enabled }),
+                        t(
+                            'ai_embed_filters_interactivity.unknown_filter_interactivity_value',
+                            { value: enabled },
+                        ),
                     );
             }
 
@@ -134,6 +139,7 @@ const EmbedFiltersInteractivity: React.FC<Props> = ({
             interactivityOptions.enabled,
             interactivityOptions.allowedFilters,
             onInteractivityOptionsChange,
+            t,
         ],
     );
 
