@@ -711,6 +711,89 @@
                 "enum": ["some", "all", "none"],
                 "type": "string"
             },
+            "CommonEmbedJwtContent": {
+                "properties": {
+                    "canExportPagePdf": {
+                        "type": "boolean"
+                    },
+                    "canDateZoom": {
+                        "type": "boolean"
+                    },
+                    "canExportImages": {
+                        "type": "boolean"
+                    },
+                    "canExportCsv": {
+                        "type": "boolean"
+                    },
+                    "dashboardFiltersInteractivity": {
+                        "properties": {
+                            "allowedFilters": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            },
+                            "enabled": {
+                                "anyOf": [
+                                    {
+                                        "$ref": "#/components/schemas/FilterInteractivityValues"
+                                    },
+                                    {
+                                        "type": "boolean"
+                                    }
+                                ]
+                            }
+                        },
+                        "required": ["enabled"],
+                        "type": "object"
+                    },
+                    "isPreview": {
+                        "type": "boolean"
+                    },
+                    "projectUuid": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": ["dashboard"],
+                        "nullable": false
+                    }
+                },
+                "required": ["type"],
+                "type": "object"
+            },
+            "EmbedJwtContentDashboardUuid": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/CommonEmbedJwtContent"
+                    },
+                    {
+                        "properties": {
+                            "dashboardUuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["dashboardUuid"],
+                        "type": "object"
+                    }
+                ]
+            },
+            "EmbedJwtContentDashboardSlug": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/CommonEmbedJwtContent"
+                    },
+                    {
+                        "properties": {
+                            "dashboardSlug": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["dashboardSlug"],
+                        "type": "object"
+                    }
+                ]
+            },
             "CreateEmbedJwt": {
                 "properties": {
                     "expiresIn": {
@@ -735,55 +818,14 @@
                         "type": "object"
                     },
                     "content": {
-                        "properties": {
-                            "canExportPagePdf": {
-                                "type": "boolean"
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/EmbedJwtContentDashboardUuid"
                             },
-                            "canDateZoom": {
-                                "type": "boolean"
-                            },
-                            "canExportImages": {
-                                "type": "boolean"
-                            },
-                            "canExportCsv": {
-                                "type": "boolean"
-                            },
-                            "dashboardFiltersInteractivity": {
-                                "properties": {
-                                    "allowedFilters": {
-                                        "items": {
-                                            "type": "string"
-                                        },
-                                        "type": "array"
-                                    },
-                                    "enabled": {
-                                        "anyOf": [
-                                            {
-                                                "$ref": "#/components/schemas/FilterInteractivityValues"
-                                            },
-                                            {
-                                                "type": "boolean"
-                                            }
-                                        ]
-                                    }
-                                },
-                                "required": ["enabled"],
-                                "type": "object"
-                            },
-                            "isPreview": {
-                                "type": "boolean"
-                            },
-                            "dashboardUuid": {
-                                "type": "string"
-                            },
-                            "type": {
-                                "type": "string",
-                                "enum": ["dashboard"],
-                                "nullable": false
+                            {
+                                "$ref": "#/components/schemas/EmbedJwtContentDashboardSlug"
                             }
-                        },
-                        "required": ["dashboardUuid", "type"],
-                        "type": "object"
+                        ]
                     }
                 },
                 "required": ["content"],
@@ -1123,7 +1165,8 @@
                     "inTheNext",
                     "inTheCurrent",
                     "notInTheCurrent",
-                    "inBetween"
+                    "inBetween",
+                    "notInBetween"
                 ],
                 "type": "string"
             },
@@ -1756,7 +1799,14 @@
                         "format": "double"
                     },
                     "format": {
-                        "$ref": "#/components/schemas/Format"
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/Format"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
                     },
                     "groupLabel": {
                         "type": "string",
@@ -1991,7 +2041,8 @@
                     "number",
                     "id",
                     "date",
-                    "timestamp"
+                    "timestamp",
+                    "custom"
                 ],
                 "type": "string"
             },
@@ -2031,6 +2082,9 @@
                     },
                     "timeInterval": {
                         "$ref": "#/components/schemas/TimeFrames"
+                    },
+                    "custom": {
+                        "type": "string"
                     }
                 },
                 "required": ["type"],
@@ -2146,7 +2200,14 @@
                         "$ref": "#/components/schemas/CompactOrAlias"
                     },
                     "format": {
-                        "$ref": "#/components/schemas/Format"
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/Format"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
                     },
                     "table": {
                         "type": "string"
@@ -2687,6 +2748,9 @@
             },
             "Series": {
                 "properties": {
+                    "isFilteredOut": {
+                        "type": "boolean"
+                    },
                     "markLine": {
                         "$ref": "#/components/schemas/MarkLine"
                     },
@@ -2793,6 +2857,25 @@
                 },
                 "type": "object"
             },
+            "XAxisSortType": {
+                "enum": ["default", "bar_totals"],
+                "type": "string"
+            },
+            "XAxis": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Axis"
+                    },
+                    {
+                        "properties": {
+                            "sortType": {
+                                "$ref": "#/components/schemas/XAxisSortType"
+                            }
+                        },
+                        "type": "object"
+                    }
+                ]
+            },
             "Partial_CompleteEChartsConfig_": {
                 "properties": {
                     "legend": {
@@ -2809,7 +2892,7 @@
                     },
                     "xAxis": {
                         "items": {
-                            "$ref": "#/components/schemas/Axis"
+                            "$ref": "#/components/schemas/XAxis"
                         },
                         "type": "array"
                     },
@@ -3092,12 +3175,19 @@
                 "type": "object",
                 "description": "Construct a type with a set of properties K of type T"
             },
-            "ConditionalRule_ConditionalOperator.number_": {
+            "ConditionalRule_ConditionalOperator.number-or-string_": {
                 "properties": {
                     "values": {
                         "items": {
-                            "type": "number",
-                            "format": "double"
+                            "anyOf": [
+                                {
+                                    "type": "number",
+                                    "format": "double"
+                                },
+                                {
+                                    "type": "string"
+                                }
+                            ]
                         },
                         "type": "array"
                     },
@@ -3111,23 +3201,75 @@
                 "required": ["operator", "id"],
                 "type": "object"
             },
-            "ConditionalFormattingWithConditionalOperator": {
+            "ConditionalFormattingWithValues_number-or-string_": {
                 "allOf": [
                     {
-                        "$ref": "#/components/schemas/ConditionalRule_ConditionalOperator.number_"
+                        "$ref": "#/components/schemas/ConditionalRule_ConditionalOperator.number-or-string_"
                     },
                     {
                         "properties": {
                             "values": {
                                 "items": {
-                                    "type": "number",
-                                    "format": "double"
+                                    "anyOf": [
+                                        {
+                                            "type": "number",
+                                            "format": "double"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ]
                                 },
                                 "type": "array"
                             }
                         },
                         "required": ["values"],
                         "type": "object"
+                    }
+                ]
+            },
+            "ConditionalFormattingWithCompareTarget_number-or-string_": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/ConditionalRule_ConditionalOperator.number-or-string_"
+                    },
+                    {
+                        "properties": {
+                            "values": {
+                                "items": {
+                                    "anyOf": [
+                                        {
+                                            "type": "number",
+                                            "format": "double"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ]
+                                },
+                                "type": "array"
+                            },
+                            "compareTarget": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/FieldTarget"
+                                    }
+                                ],
+                                "nullable": true
+                            }
+                        },
+                        "required": ["compareTarget"],
+                        "type": "object"
+                    }
+                ]
+            },
+            "ConditionalFormattingWithConditionalOperator": {
+                "anyOf": [
+                    {
+                        "$ref": "#/components/schemas/ConditionalFormattingWithValues_number-or-string_"
+                    },
+                    {
+                        "$ref": "#/components/schemas/ConditionalFormattingWithCompareTarget_number-or-string_"
                     }
                 ]
             },
@@ -3601,7 +3743,14 @@
                         "format": "double"
                     },
                     "format": {
-                        "$ref": "#/components/schemas/Format"
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/Format"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
                     },
                     "groupLabel": {
                         "type": "string",
@@ -3730,7 +3879,14 @@
                         "format": "double"
                     },
                     "format": {
-                        "$ref": "#/components/schemas/Format"
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/Format"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
                     },
                     "groupLabel": {
                         "type": "string",
@@ -3936,6 +4092,9 @@
                         "type": "string"
                     },
                     "ymlPath": {
+                        "type": "string"
+                    },
+                    "databricksCompute": {
                         "type": "string"
                     },
                     "warehouse": {
@@ -4164,7 +4323,14 @@
                         "format": "double"
                     },
                     "format": {
-                        "$ref": "#/components/schemas/Format"
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/Format"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
                     },
                     "groupLabel": {
                         "type": "string",
@@ -4246,7 +4412,14 @@
                         "format": "double"
                     },
                     "format": {
-                        "$ref": "#/components/schemas/Format"
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/Format"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
                     },
                     "groupLabel": {
                         "type": "string",
@@ -5663,6 +5836,37 @@
                             }
                         },
                         "required": ["token"],
+                        "type": "object"
+                    }
+                ]
+            },
+            "Pick_PersonalAccessToken.expiresAt-or-description_": {
+                "properties": {
+                    "expiresAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                },
+                "required": ["expiresAt", "description"],
+                "type": "object",
+                "description": "From T, pick a set of properties whose keys are in the union K"
+            },
+            "CreatePersonalAccessToken": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Pick_PersonalAccessToken.expiresAt-or-description_"
+                    },
+                    {
+                        "properties": {
+                            "autoGenerated": {
+                                "type": "boolean"
+                            }
+                        },
+                        "required": ["autoGenerated"],
                         "type": "object"
                     }
                 ]
@@ -7800,6 +8004,11 @@
                     }
                 ]
             },
+            "ReplaceCustomFieldsTaskType": {
+                "type": "string",
+                "enum": ["replaceCustomFields"],
+                "nullable": false
+            },
             "SchedulerJobStatus": {
                 "enum": ["scheduled", "started", "completed", "error"],
                 "type": "string"
@@ -7837,22 +8046,29 @@
                         "type": "string"
                     },
                     "task": {
-                        "type": "string",
-                        "enum": [
-                            "handleScheduledDelivery",
-                            "sendEmailNotification",
-                            "sendSlackNotification",
-                            "uploadGsheets",
-                            "downloadCsv",
-                            "uploadGsheetFromQuery",
-                            "createProjectWithCompile",
-                            "compileProject",
-                            "testAndCompileProject",
-                            "validateProject",
-                            "sqlRunner",
-                            "sqlRunnerPivotQuery",
-                            "semanticLayer",
-                            "indexCatalog"
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ReplaceCustomFieldsTaskType"
+                            },
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "handleScheduledDelivery",
+                                    "sendEmailNotification",
+                                    "sendSlackNotification",
+                                    "uploadGsheets",
+                                    "downloadCsv",
+                                    "uploadGsheetFromQuery",
+                                    "createProjectWithCompile",
+                                    "compileProject",
+                                    "testAndCompileProject",
+                                    "validateProject",
+                                    "sqlRunner",
+                                    "sqlRunnerPivotQuery",
+                                    "semanticLayer",
+                                    "indexCatalog"
+                                ]
+                            }
                         ]
                     }
                 },
@@ -8820,7 +9036,14 @@
                     "selector": {
                         "type": "string"
                     },
+                    "authorization_method": {
+                        "type": "string",
+                        "enum": ["personal_access_token", "installation_id"]
+                    },
                     "personal_access_token": {
+                        "type": "string"
+                    },
+                    "installation_id": {
                         "type": "string"
                     },
                     "repository": {
@@ -8838,7 +9061,7 @@
                 },
                 "required": [
                     "type",
-                    "personal_access_token",
+                    "authorization_method",
                     "repository",
                     "branch",
                     "project_sub_path"
@@ -9260,6 +9483,15 @@
                         "type": "number",
                         "format": "double"
                     },
+                    "sslcertFileName": {
+                        "type": "string"
+                    },
+                    "sslkeyFileName": {
+                        "type": "string"
+                    },
+                    "sslrootcertFileName": {
+                        "type": "string"
+                    },
                     "searchPath": {
                         "type": "string"
                     }
@@ -9362,6 +9594,21 @@
                     },
                     "httpPath": {
                         "type": "string"
+                    },
+                    "compute": {
+                        "items": {
+                            "properties": {
+                                "httpPath": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["httpPath", "name"],
+                            "type": "object"
+                        },
+                        "type": "array"
                     }
                 },
                 "required": ["type", "database", "serverHostName", "httpPath"],
@@ -10367,7 +10614,7 @@
                 "required": ["results", "status"],
                 "type": "object"
             },
-            "Pick_SavedChart.name-or-description-or-tableName-or-metricQuery-or-chartConfig-or-tableConfig-or-slug-or-updatedAt_": {
+            "Pick_SavedChart.name-or-description-or-tableName-or-metricQuery-or-chartConfig-or-tableConfig-or-pivotConfig-or-slug-or-updatedAt_": {
                 "properties": {
                     "name": {
                         "type": "string"
@@ -10387,6 +10634,18 @@
                     },
                     "metricQuery": {
                         "$ref": "#/components/schemas/MetricQuery"
+                    },
+                    "pivotConfig": {
+                        "properties": {
+                            "columns": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            }
+                        },
+                        "required": ["columns"],
+                        "type": "object"
                     },
                     "chartConfig": {
                         "$ref": "#/components/schemas/ChartConfig"
@@ -10419,7 +10678,7 @@
             "ChartAsCode": {
                 "allOf": [
                     {
-                        "$ref": "#/components/schemas/Pick_SavedChart.name-or-description-or-tableName-or-metricQuery-or-chartConfig-or-tableConfig-or-slug-or-updatedAt_"
+                        "$ref": "#/components/schemas/Pick_SavedChart.name-or-description-or-tableName-or-metricQuery-or-chartConfig-or-tableConfig-or-pivotConfig-or-slug-or-updatedAt_"
                     },
                     {
                         "properties": {
@@ -10443,6 +10702,24 @@
                     }
                 ]
             },
+            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name-string_-Array-or-undefined--yAxis_63__58__name-string_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__": {
+                "properties": {},
+                "type": "object",
+                "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
+            },
+            "PartialObjectDeep__chart_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name-string_-Array-or-undefined--yAxis_63__58__name-string_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__": {
+                "properties": {
+                    "chart": {
+                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name-string_-Array-or-undefined--yAxis_63__58__name-string_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__"
+                    }
+                },
+                "type": "object",
+                "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
+            },
+            "PartialDeep_ChartAsCodeLanguageMap._recurseIntoArrays-true__": {
+                "$ref": "#/components/schemas/PartialObjectDeep__chart_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name-string_-Array-or-undefined--yAxis_63__58__name-string_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__",
+                "description": "Create a type from another type with all keys and nested keys set to optional.\n\nUse-cases:\n- Merging a default settings/config object with another object, the second object would be a deep partial of the default object.\n- Mocking and testing complex entities, where populating an entire object with its keys would be redundant in terms of the mock or test."
+            },
             "ApiChartAsCodeListResponse": {
                 "properties": {
                     "results": {
@@ -10458,6 +10735,12 @@
                             "missingIds": {
                                 "items": {
                                     "type": "string"
+                                },
+                                "type": "array"
+                            },
+                            "languageMap": {
+                                "items": {
+                                    "$ref": "#/components/schemas/PartialDeep_ChartAsCodeLanguageMap._recurseIntoArrays-true__"
                                 },
                                 "type": "array"
                             },
@@ -10637,6 +10920,24 @@
                     }
                 ]
             },
+            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART-or-DashboardTileTypes.SEMANTIC_VIEWER_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__": {
+                "properties": {},
+                "type": "object",
+                "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
+            },
+            "PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART-or-DashboardTileTypes.SEMANTIC_VIEWER_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__": {
+                "properties": {
+                    "dashboard": {
+                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART-or-DashboardTileTypes.SEMANTIC_VIEWER_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__"
+                    }
+                },
+                "type": "object",
+                "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
+            },
+            "PartialDeep_DashboardAsCodeLanguageMap._recurseIntoArrays-true__": {
+                "$ref": "#/components/schemas/PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART-or-DashboardTileTypes.SEMANTIC_VIEWER_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__",
+                "description": "Create a type from another type with all keys and nested keys set to optional.\n\nUse-cases:\n- Merging a default settings/config object with another object, the second object would be a deep partial of the default object.\n- Mocking and testing complex entities, where populating an entire object with its keys would be redundant in terms of the mock or test."
+            },
             "ApiDashboardAsCodeListResponse": {
                 "properties": {
                     "results": {
@@ -10652,6 +10953,12 @@
                             "missingIds": {
                                 "items": {
                                     "type": "string"
+                                },
+                                "type": "array"
+                            },
+                            "languageMap": {
+                                "items": {
+                                    "$ref": "#/components/schemas/PartialDeep_DashboardAsCodeLanguageMap._recurseIntoArrays-true__"
                                 },
                                 "type": "array"
                             },
@@ -10707,6 +11014,18 @@
                     },
                     "tableName": {
                         "type": "string"
+                    },
+                    "pivotConfig": {
+                        "properties": {
+                            "columns": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            }
+                        },
+                        "required": ["columns"],
+                        "type": "object"
                     },
                     "tableConfig": {
                         "properties": {
@@ -11165,6 +11484,10 @@
                         "type": "boolean",
                         "description": "The organization needs a project if it doesn't have at least one project."
                     },
+                    "colorPaletteUuid": {
+                        "type": "string",
+                        "description": "The active color palette uuid for all projects in the organization"
+                    },
                     "chartColors": {
                         "items": {
                             "type": "string"
@@ -11226,6 +11549,10 @@
                         },
                         "type": "array",
                         "description": "The default color palette for all projects in the organization"
+                    },
+                    "colorPaletteUuid": {
+                        "type": "string",
+                        "description": "The active color palette uuid for all projects in the organization"
                     },
                     "defaultProjectUuid": {
                         "type": "string",
@@ -11812,6 +12139,131 @@
                 "required": ["results", "status"],
                 "type": "object"
             },
+            "OrganizationColorPalette": {
+                "properties": {
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "colors": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "organizationUuid": {
+                        "type": "string"
+                    },
+                    "colorPaletteUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "colors",
+                    "name",
+                    "organizationUuid",
+                    "colorPaletteUuid"
+                ],
+                "type": "object"
+            },
+            "ApiCreatedColorPaletteResponse": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/OrganizationColorPalette"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "CreateColorPalette": {
+                "properties": {
+                    "colors": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": ["colors", "name"],
+                "type": "object"
+            },
+            "OrganizationColorPaletteWithIsActive": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/OrganizationColorPalette"
+                    },
+                    {
+                        "properties": {
+                            "isActive": {
+                                "type": "boolean"
+                            }
+                        },
+                        "required": ["isActive"],
+                        "type": "object"
+                    }
+                ]
+            },
+            "ApiColorPalettesResponse": {
+                "properties": {
+                    "results": {
+                        "items": {
+                            "$ref": "#/components/schemas/OrganizationColorPaletteWithIsActive"
+                        },
+                        "type": "array"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiColorPaletteResponse": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/OrganizationColorPalette"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "UpdateColorPalette": {
+                "properties": {
+                    "colors": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "uuid": {
+                        "type": "string"
+                    }
+                },
+                "required": ["uuid"],
+                "type": "object"
+            },
             "NotificationBase": {
                 "properties": {
                     "url": {
@@ -12018,7 +12470,14 @@
                         "format": "double"
                     },
                     "format": {
-                        "$ref": "#/components/schemas/Format"
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/Format"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
                     },
                     "groupLabel": {
                         "type": "string",
@@ -12545,6 +13004,18 @@
                 ],
                 "type": "object"
             },
+            "GitIntegrationConfiguration": {
+                "properties": {
+                    "installationId": {
+                        "type": "string"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    }
+                },
+                "required": ["enabled"],
+                "type": "object"
+            },
             "GitRepo": {
                 "properties": {
                     "ownerLogin": {
@@ -12558,15 +13029,6 @@
                     }
                 },
                 "required": ["ownerLogin", "fullName", "name"],
-                "type": "object"
-            },
-            "GitIntegrationConfiguration": {
-                "properties": {
-                    "enabled": {
-                        "type": "boolean"
-                    }
-                },
-                "required": ["enabled"],
                 "type": "object"
             },
             "Pick_Explore.SummaryExploreFields_": {
@@ -12758,6 +13220,9 @@
                     },
                     "targetDatabase": {
                         "$ref": "#/components/schemas/SupportedDbtAdapter"
+                    },
+                    "databricksCompute": {
+                        "type": "string"
                     },
                     "ymlPath": {
                         "type": "string"
@@ -14613,7 +15078,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "0.1478.5",
+        "version": "0.1522.4",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"
@@ -15271,6 +15736,141 @@
                         "in": "query",
                         "name": "email",
                         "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v1/user/me/personal-access-tokens": {
+            "get": {
+                "operationId": "Get personal access tokens",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "items": {
+                                                "$ref": "#/components/schemas/PersonalAccessToken"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["ok"],
+                                            "nullable": false
+                                        }
+                                    },
+                                    "required": ["results", "status"],
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "List personal access tokens",
+                "tags": ["My Account"],
+                "security": [],
+                "parameters": []
+            },
+            "post": {
+                "operationId": "Create personal access token",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "$ref": "#/components/schemas/PersonalAccessTokenWithToken"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["ok"],
+                                            "nullable": false
+                                        }
+                                    },
+                                    "required": ["results", "status"],
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Create personal access token",
+                "tags": ["My Account"],
+                "security": [],
+                "parameters": [],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreatePersonalAccessToken"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/me/personal-access-tokens/{personalAccessTokenUuid}": {
+            "delete": {
+                "operationId": "Delete personal access token",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccessEmpty"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Delete personal access token",
+                "tags": ["My Account"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "personalAccessTokenUuid",
+                        "required": true,
                         "schema": {
                             "type": "string"
                         }
@@ -17814,6 +18414,7 @@
                 },
                 "description": "Run a raw sql query against the project's warehouse connection",
                 "tags": ["Exploring", "Projects"],
+                "deprecated": true,
                 "security": [],
                 "parameters": [
                     {
@@ -18775,6 +19376,14 @@
                             "format": "double",
                             "type": "number"
                         }
+                    },
+                    {
+                        "in": "query",
+                        "name": "languageMap",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
                     }
                 ]
             }
@@ -18833,6 +19442,14 @@
                         "schema": {
                             "format": "double",
                             "type": "number"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "languageMap",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
                         }
                     }
                 ]
@@ -19463,6 +20080,47 @@
                 }
             }
         },
+        "/api/v1/org/users/email/{email}": {
+            "get": {
+                "operationId": "GetOrganizationMemberByEmail",
+                "responses": {
+                    "200": {
+                        "description": "Ok",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiOrganizationMemberProfile"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Get the member profile for a user in the current user's organization by email",
+                "tags": ["Organizations"],
+                "security": [],
+                "parameters": [
+                    {
+                        "description": "the email of the user",
+                        "in": "path",
+                        "name": "email",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
         "/api/v1/org/user/{userUuid}": {
             "delete": {
                 "operationId": "DeleteOrganizationMember",
@@ -19678,6 +20336,199 @@
                         "in": "query",
                         "name": "searchQuery",
                         "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v1/org/color-palettes": {
+            "post": {
+                "operationId": "CreateColorPalette",
+                "responses": {
+                    "200": {
+                        "description": "Ok",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiCreatedColorPaletteResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["Organizations"],
+                "security": [],
+                "parameters": [],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateColorPalette"
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "operationId": "ListColorPalettes",
+                "responses": {
+                    "200": {
+                        "description": "Ok",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiColorPalettesResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["Organizations"],
+                "security": [],
+                "parameters": []
+            }
+        },
+        "/api/v1/org/color-palettes/{colorPaletteUuid}": {
+            "patch": {
+                "operationId": "UpdateColorPalette",
+                "responses": {
+                    "200": {
+                        "description": "Ok",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiColorPaletteResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["Organizations"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "colorPaletteUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateColorPalette"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "DeleteColorPalette",
+                "responses": {
+                    "200": {
+                        "description": "Ok",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccessEmpty"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["Organizations"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "colorPaletteUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v1/org/color-palettes/{colorPaletteUuid}/active": {
+            "post": {
+                "operationId": "SetActiveColorPalette",
+                "responses": {
+                    "200": {
+                        "description": "Ok",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiColorPaletteResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["Organizations"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "colorPaletteUuid",
+                        "required": true,
                         "schema": {
                             "type": "string"
                         }
@@ -20498,6 +21349,36 @@
                 "parameters": []
             }
         },
+        "/api/v1/github/config": {
+            "get": {
+                "operationId": "configurationGithubAppForOrganization",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "$ref": "#/components/schemas/GitIntegrationConfiguration"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["ok"],
+                                            "nullable": false
+                                        }
+                                    },
+                                    "required": ["results", "status"],
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [],
+                "parameters": []
+            }
+        },
         "/api/v1/github/oauth/callback": {
             "get": {
                 "operationId": "githubOauthCallback",
@@ -20600,114 +21481,6 @@
                 "parameters": []
             }
         },
-        "/api/v1/projects/{projectUuid}/git-integration": {
-            "get": {
-                "operationId": "GetConfiguration",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "results": {
-                                            "$ref": "#/components/schemas/GitIntegrationConfiguration"
-                                        },
-                                        "status": {
-                                            "type": "string",
-                                            "enum": ["ok"],
-                                            "nullable": false
-                                        }
-                                    },
-                                    "required": ["results", "status"],
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "default": {
-                        "description": "Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiErrorPayload"
-                                }
-                            }
-                        }
-                    }
-                },
-                "tags": ["Git Integration"],
-                "security": [],
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "projectUuid",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
-        "/api/v1/projects/{projectUuid}/git-integration/pull-requests/chart/{chartUuid}/fields": {
-            "get": {
-                "operationId": "CreatePullRequestForChartFields",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "results": {
-                                            "$ref": "#/components/schemas/PullRequestCreated"
-                                        },
-                                        "status": {
-                                            "type": "string",
-                                            "enum": ["ok"],
-                                            "nullable": false
-                                        }
-                                    },
-                                    "required": ["results", "status"],
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "default": {
-                        "description": "Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiErrorPayload"
-                                }
-                            }
-                        }
-                    }
-                },
-                "tags": ["Git Integration"],
-                "security": [],
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "projectUuid",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "in": "path",
-                        "name": "chartUuid",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
         "/api/v1/projects/{projectUuid}/git-integration/pull-requests/custom-metrics": {
             "post": {
                 "operationId": "CreatePullRequestForCustomMetrics",
@@ -20774,6 +21547,79 @@
                                     }
                                 },
                                 "required": ["customMetrics"],
+                                "type": "object"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/projects/{projectUuid}/git-integration/pull-requests/custom-dimensions": {
+            "post": {
+                "operationId": "CreatePullRequestForCustomDimensions",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "$ref": "#/components/schemas/PullRequestCreated"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["ok"],
+                                            "nullable": false
+                                        }
+                                    },
+                                    "required": ["results", "status"],
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["Git Integration"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "quoteChar": {
+                                        "type": "string",
+                                        "enum": ["\"", "'"]
+                                    },
+                                    "customDimensions": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/CustomSqlDimension"
+                                        },
+                                        "type": "array"
+                                    }
+                                },
+                                "required": ["customDimensions"],
                                 "type": "object"
                             }
                         }

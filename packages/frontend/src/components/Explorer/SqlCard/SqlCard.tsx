@@ -6,13 +6,13 @@ import { memo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useCompiledSql } from '../../../hooks/useCompiledSql';
+import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import { ExplorerSection } from '../../../providers/Explorer/types';
 import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
-import { Can } from '../../common/Authorization';
+import { RenderedSql } from '../../RenderedSql';
 import CollapsableCard from '../../common/CollapsableCard/CollapsableCard';
 import MantineIcon from '../../common/MantineIcon';
-import { RenderedSql } from '../../RenderedSql';
 import OpenInSqlRunnerButton from './OpenInSqlRunnerButton';
 
 interface SqlCardProps {

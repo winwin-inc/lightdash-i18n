@@ -10,7 +10,6 @@ import {
 import { IconLayoutSidebarLeftCollapse, IconReload } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import MantineIcon from '../../../components/common/MantineIcon';
 import { VisualizationConfigPanel } from '../../../components/DataViz/VisualizationConfigPanel';
 import { useRefreshTables } from '../hooks/useTables';

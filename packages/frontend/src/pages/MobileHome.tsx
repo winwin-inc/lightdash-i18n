@@ -8,7 +8,6 @@ import { IconLayoutDashboard } from '@tabler/icons-react';
 import { useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
-
 import ErrorState from '../components/common/ErrorState';
 import ResourceView from '../components/common/ResourceView';
 import { ResourceSortDirection } from '../components/common/ResourceView/types';

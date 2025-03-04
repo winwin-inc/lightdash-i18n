@@ -1,4 +1,4 @@
-import { type TimeFrames } from '@lightdash/common';
+import { type SearchItemType, type TimeFrames } from '@lightdash/common';
 import { type FormState } from 'react-hook-form';
 import type * as rudderSDK from 'rudder-sdk-js';
 
@@ -116,15 +116,7 @@ export type SetupStepClickedEvent = {
 export type SearchResultClickedEvent = {
     name: EventName.SEARCH_RESULT_CLICKED;
     properties: {
-        type:
-            | 'space'
-            | 'dashboard'
-            | 'saved_chart'
-            | 'table'
-            | 'field'
-            | 'sql_chart'
-            | 'semantic_viewer_chart'
-            | 'page';
+        type: SearchItemType;
         id: string;
     };
 };
@@ -366,6 +358,29 @@ type MetricsCatalogTreesCanvasModeClickedEvent = {
     };
 };
 
+type WriteBackEvent = {
+    name:
+        | EventName.WRITE_BACK_FROM_CUSTOM_METRIC_HEADER_CLICKED
+        | EventName.WRITE_BACK_FROM_CUSTOM_METRIC_CLICKED;
+    properties: {
+        userId: string;
+        organizationId: string;
+        projectId: string;
+        customMetricsCount: number;
+    };
+};
+
+type CustomMetricReplacementEvent = {
+    name: EventName.CUSTOM_FIELDS_REPLACEMENT_APPLIED;
+    properties: {
+        userId: string;
+        organizationId: string;
+        projectId: string;
+        chartId?: string;
+        customMetricIds: string[];
+    };
+};
+
 export type EventData =
     | GenericEvent
     | FormClickedEvent
@@ -396,7 +411,9 @@ export type EventData =
     | LandingRunQueryClickedEvent
     | MetricsCatalogTreesEdgeCreatedEvent
     | MetricsCatalogTreesEdgeRemovedEvent
-    | MetricsCatalogTreesCanvasModeClickedEvent;
+    | MetricsCatalogTreesCanvasModeClickedEvent
+    | WriteBackEvent
+    | CustomMetricReplacementEvent;
 
 export type IdentifyData = {
     id: string;

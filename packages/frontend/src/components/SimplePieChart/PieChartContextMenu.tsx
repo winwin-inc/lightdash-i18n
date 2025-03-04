@@ -1,6 +1,10 @@
 import { subject } from '@casl/ability';
 import {
+    createDashboardFilterRuleFromField,
     hasCustomDimension,
+    isDimension,
+    isFilterableDimension,
+    type FilterDashboardToRule,
     type ResultRow,
     type ResultValue,
 } from '@lightdash/common';
@@ -9,14 +13,14 @@ import { useClipboard } from '@mantine/hooks';
 import { IconArrowBarToDown, IconCopy, IconStack } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router';
-
+import { useLocation, useParams } from 'react-router';
 import useToaster from '../../hooks/toaster/useToaster';
 import { useProject } from '../../hooks/useProject';
 import useApp from '../../providers/App/useApp';
 import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
 import MantineIcon from '../common/MantineIcon';
+import { FilterDashboardTo } from '../DashboardFilter/FilterDashboardTo';
 import { isPieVisualizationConfig } from '../LightdashVisualization/types';
 import { useVisualizationContext } from '../LightdashVisualization/useVisualizationContext';
 import { useMetricQueryDataContext } from '../MetricQueryData/useMetricQueryDataContext';
@@ -42,12 +46,15 @@ const PieChartContextMenu: FC<PieChartContextMenuProps> = ({
     const { user } = useApp();
     const { data: project } = useProject(projectUuid);
     const { visualizationConfig } = useVisualizationContext();
+    const location = useLocation();
+    const isDashboardPage = location.pathname.includes('/dashboards');
 
+    const { t } = useTranslation();
     const { showToastSuccess } = useToaster();
     const clipboard = useClipboard({ timeout: 200 });
     const tracking = useTracking(true);
     const metricQueryData = useMetricQueryDataContext(true);
-    const { t } = useTranslation();
+    const { itemsMap } = useVisualizationContext();
 
     if (!value || !tracking || !metricQueryData || !project) {
         return null;
@@ -134,6 +141,26 @@ const PieChartContextMenu: FC<PieChartContextMenuProps> = ({
         // });
     };
 
+    const filters =
+        isDashboardPage && itemsMap && rows && rows.length > 0
+            ? Object.entries(rows[0]).reduce<FilterDashboardToRule[]>(
+                  (acc, [key, v]) => {
+                      const field = itemsMap[key];
+                      if (isDimension(field) && isFilterableDimension(field)) {
+                          const f = createDashboardFilterRuleFromField({
+                              field,
+                              availableTileFilters: {},
+                              isTemporary: true,
+                              value: v.value.raw,
+                          });
+                          return [...acc, f];
+                      }
+                      return acc;
+                  },
+                  [],
+              )
+            : [];
+
     return (
         <Menu
             opened={opened}
@@ -174,7 +201,9 @@ const PieChartContextMenu: FC<PieChartContextMenuProps> = ({
                         {t('components_simple_pie_chart.menus.view.title')}
                     </Menu.Item>
                 ) : null}
-
+                {isDashboardPage && (
+                    <FilterDashboardTo filters={filters ?? []} />
+                )}
                 {canViewDrillInto ? (
                     <Menu.Item
                         icon={<MantineIcon icon={IconArrowBarToDown} />}

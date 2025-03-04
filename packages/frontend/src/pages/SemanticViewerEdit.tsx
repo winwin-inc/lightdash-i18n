@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { Provider } from 'react-redux';
 import { useMatch, useNavigate, useParams } from 'react-router';
 import { useUnmount } from 'react-use';
-
 import Page from '../components/common/Page/Page';
 import { setChartOptionsAndConfig } from '../components/DataViz/store/actions/commonChartActions';
 import { getChartConfigAndOptions } from '../components/DataViz/transformers/getChartConfigAndOptions';

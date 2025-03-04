@@ -172,7 +172,7 @@ export const TokensTable = () => {
                         <tr>
                             <th>
                                 {t(
-                                    'components_user_settings_access_tokens_panel_tokens_table.table_columns.name',
+                                    'components_user_settings_access_tokens_panel_tokens_table.table_columns.description',
                                 )}
                             </th>
                             <th>

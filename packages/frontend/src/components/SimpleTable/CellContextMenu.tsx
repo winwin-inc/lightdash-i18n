@@ -15,10 +15,10 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
 import useToaster from '../../hooks/toaster/useToaster';
+import { Can } from '../../providers/Ability';
 import useApp from '../../providers/App/useApp';
 import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
-import { Can } from '../common/Authorization';
 import MantineIcon from '../common/MantineIcon';
 import { type CellContextMenuProps } from '../common/Table/types';
 import UrlMenuItems from '../Explorer/ResultsCard/UrlMenuItems';

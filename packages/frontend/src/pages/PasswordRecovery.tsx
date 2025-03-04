@@ -2,7 +2,6 @@ import { Card, Image, Stack } from '@mantine/core';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router';
-
 import Page from '../components/common/Page/Page';
 import PageSpinner from '../components/PageSpinner';
 import useApp from '../providers/App/useApp';

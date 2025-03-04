@@ -10,7 +10,6 @@ import { IconFolderPlus, IconFolders, IconPlus } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
-
 import LoadingState from '../components/common/LoadingState';
 import Page from '../components/common/Page/Page';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';

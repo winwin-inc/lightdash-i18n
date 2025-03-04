@@ -1,7 +1,6 @@
 import { Group, Input } from '@mantine/core';
 import React, { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import { getWeeklyCronExpression, parseCronExpression } from './cronInputUtils';
 import TimePicker from './TimePicker';
 import WeekDaySelect from './WeekDaySelect';

@@ -10,6 +10,7 @@ import {
     startWithSlash,
 } from '../../../utils/fieldValidators';
 import { useProjectFormContext } from '../useProjectFormContext';
+import DbtVersionSelect from '../WarehouseForms/Inputs/DbtVersion';
 
 const BitBucketForm: FC<{ disabled: boolean }> = ({ disabled }) => {
     const { savedProject } = useProjectFormContext();
@@ -138,6 +139,8 @@ const BitBucketForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     'components_project_connection_dbt_form.bit_bucket.repository.placeholder',
                 )}
             />
+            <DbtVersionSelect disabled={disabled} />
+
             <TextInput
                 label={t(
                     'components_project_connection_dbt_form.bit_bucket.branch.label',

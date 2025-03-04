@@ -1,28 +1,50 @@
 import {
+    CartesianSeriesType,
     getAxisName,
     getDateGroupLabel,
     getItemLabelWithoutTableName,
+    getXAxisSort,
     isNumericItem,
+    XAxisSort,
     type ItemsMap,
 } from '@lightdash/common';
 import {
     Checkbox,
     Group,
     NumberInput,
-    SegmentedControl,
+    Select,
     Stack,
     Switch,
+    Text,
     TextInput,
 } from '@mantine/core';
-import { IconSortAscending, IconSortDescending } from '@tabler/icons-react';
-import { type FC } from 'react';
+import {
+    IconChartBar,
+    IconSortAscending,
+    IconSortDescending,
+    type Icon,
+} from '@tabler/icons-react';
+import { forwardRef, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
+import { getAxisTypeFromField } from '../../../../hooks/echarts/useEchartsCartesianConfig';
 import MantineIcon from '../../../common/MantineIcon';
 import { isCartesianVisualizationConfig } from '../../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../../LightdashVisualization/useVisualizationContext';
 import { Config } from '../../common/Config';
 import { AxisMinMax } from './AxisMinMax';
+
+const XAxisSortSelectItem = forwardRef<
+    HTMLDivElement,
+    { icon: Icon; label: string; mirrorIcon: boolean }
+>(({ icon, label, mirrorIcon, ...others }, ref) => (
+    <Group ref={ref} spacing="xs" {...others} noWrap>
+        <MantineIcon
+            style={mirrorIcon ? { transform: 'rotateY(180deg)' } : undefined}
+            icon={icon}
+        />
+        <Text fz="xs">{label}</Text>
+    </Group>
+));
 
 type Props = {
     itemsMap: ItemsMap | undefined;
@@ -50,8 +72,9 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
         setXMaxOffsetValue,
         setShowGridX,
         setShowGridY,
-        setInverseX,
+        setXAxisSort,
         setXAxisLabelRotation,
+        dirtyChartType,
     } = visualizationConfig.chartConfig;
 
     const xAxisField =
@@ -81,6 +104,10 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
         },
         [false, false],
     );
+
+    const canSortByBarTotals =
+        dirtyChartType === CartesianSeriesType.BAR &&
+        getAxisTypeFromField(xAxisField) === 'category';
 
     return (
         <Stack>
@@ -146,38 +173,46 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                     )}
                     <Group spacing="xs">
                         <Group spacing="xs">
-                            <Config.Label>
-                                {t(
-                                    'components_visualization_configs_chart.axes.sort',
+                            <Config.Label>Sort</Config.Label>
+                            <Select
+                                value={getXAxisSort(
+                                    dirtyEchartsConfig?.xAxis?.[0],
                                 )}
-                            </Config.Label>
-                            <SegmentedControl
-                                defaultValue={
-                                    dirtyEchartsConfig?.xAxis?.[0]?.inverse
-                                        ? 'descending'
-                                        : 'ascending'
-                                }
+                                onChange={setXAxisSort}
+                                itemComponent={XAxisSortSelectItem}
                                 data={[
                                     {
-                                        value: 'ascending',
-                                        label: (
-                                            <MantineIcon
-                                                icon={IconSortAscending}
-                                            />
+                                        value: XAxisSort.ASCENDING,
+                                        label: t(
+                                            'components_visualization_configs_chart.axes.sort.ascending',
                                         ),
+                                        icon: IconSortAscending,
                                     },
                                     {
-                                        value: 'descending',
-                                        label: (
-                                            <MantineIcon
-                                                icon={IconSortDescending}
-                                            />
+                                        value: XAxisSort.DESCENDING,
+                                        label: t(
+                                            'components_visualization_configs_chart.axes.sort.descending',
                                         ),
+                                        icon: IconSortDescending,
+                                    },
+                                    {
+                                        value: XAxisSort.BAR_TOTALS_ASCENDING,
+                                        label: t(
+                                            'components_visualization_configs_chart.axes.sort.bars_ascending',
+                                        ),
+                                        icon: IconChartBar,
+                                        disabled: !canSortByBarTotals,
+                                    },
+                                    {
+                                        value: XAxisSort.BAR_TOTALS_DESCENDING,
+                                        label: t(
+                                            'components_visualization_configs_chart.axes.sort.bars_descending',
+                                        ),
+                                        icon: IconChartBar,
+                                        mirrorIcon: true,
+                                        disabled: !canSortByBarTotals,
                                     },
                                 ]}
-                                onChange={(value) => {
-                                    setInverseX(value === 'descending');
-                                }}
                             />
                         </Group>
                         {!dirtyLayout?.flipAxes && (

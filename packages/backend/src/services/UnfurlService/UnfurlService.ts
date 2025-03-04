@@ -671,6 +671,15 @@ export class UnfurlService extends BaseService {
                     }
 
                     if (lightdashPage === LightdashPage.DASHBOARD) {
+                        // Wait for markdown tiles specifically
+                        const markdownTiles = await page
+                            .locator('.markdown-tile')
+                            .all();
+                        await Promise.all(
+                            markdownTiles.map((tile) =>
+                                tile.waitFor({ state: 'attached' }),
+                            ),
+                        );
                         const loadingChartOverlays = await page
                             .locator('.loading_chart_overlay')
                             .all();
@@ -708,12 +717,13 @@ export class UnfurlService extends BaseService {
                         finalSelector = '.react-grid-layout';
                     }
 
-                    const fullPage = await page.$(finalSelector);
+                    const fullPage = await page.locator(finalSelector);
 
                     if (chartType === ChartType.BIG_NUMBER) {
                         await page.setViewportSize(bigNumberViewport);
                     } else {
                         const fullPageSize = await fullPage?.boundingBox();
+
                         await page.setViewportSize({
                             width: gridWidth ?? viewport.width,
                             height: fullPageSize?.height
@@ -924,20 +934,19 @@ export class UnfurlService extends BaseService {
 
     private async getUserCookie(userUuid: string): Promise<string> {
         const token = getAuthenticationToken(userUuid);
-
-        const response = await fetch(
-            new URL(
-                `/api/v1/headless-browser/login/${userUuid}`,
-                this.lightdashConfig.headlessBrowser.internalLightdashHost,
-            ).href,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ token }),
-            },
+        // Use internal URL for the request (could be the same as the site URL)
+        const internalUrl = new URL(
+            `/api/v1/headless-browser/login/${userUuid}`,
+            this.lightdashConfig.headlessBrowser.internalLightdashHost,
         );
+
+        const response = await fetch(internalUrl.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ token }),
+        });
         if (response.status !== 200) {
             throw new Error(
                 `Unable to get cookie for user ${userUuid}: ${await response.text()}`,
@@ -945,9 +954,14 @@ export class UnfurlService extends BaseService {
         }
         const header = response.headers.get('set-cookie');
         if (header === null) {
-            const loginBody = await response.json();
+            const loginBody = (await response.json()) as {
+                status: string;
+                results: SessionUser;
+            };
             throw new AuthorizationError(
-                `Cannot sign in:\n${JSON.stringify(loginBody)}`,
+                `Cannot sign in user before taking screenshot:\n${
+                    'results' in loginBody ? loginBody.results?.userUuid : ''
+                }`,
             );
         }
         return header;

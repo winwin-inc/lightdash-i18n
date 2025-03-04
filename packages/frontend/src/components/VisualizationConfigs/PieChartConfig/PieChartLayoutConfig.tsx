@@ -11,7 +11,6 @@ import {
 } from '@lightdash/common';
 import { Box, Group, SegmentedControl, Stack, Tooltip } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
-
 import FieldSelect from '../../common/FieldSelect';
 import { isPieVisualizationConfig } from '../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../LightdashVisualization/useVisualizationContext';

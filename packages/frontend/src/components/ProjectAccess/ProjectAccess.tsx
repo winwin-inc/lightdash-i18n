@@ -1,15 +1,15 @@
 import { subject } from '@casl/ability';
 import {
+    ProjectMemberRole,
     convertOrganizationRoleToProjectRole,
     convertProjectRoleToOrganizationRole,
     getHighestProjectRole,
     isGroupWithMembers,
     type InheritedRoles,
     type OrganizationMemberRole,
-    type ProjectMemberRole,
 } from '@lightdash/common';
 import { ActionIcon, Paper, Table, TextInput } from '@mantine/core';
-import { IconX } from '@tabler/icons-react';
+import { IconSearch, IconX } from '@tabler/icons-react';
 import Fuse from 'fuse.js';
 import { useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,8 +19,8 @@ import { useTableStyles } from '../../hooks/styles/useTableStyles';
 import { useOrganizationGroups } from '../../hooks/useOrganizationGroups';
 import { useOrganizationUsers } from '../../hooks/useOrganizationUsers';
 import { useProjectAccess } from '../../hooks/useProjectAccess';
+import { useAbilityContext } from '../../providers/Ability/useAbilityContext';
 import useApp from '../../providers/App/useApp';
-import { useAbilityContext } from '../common/Authorization/useAbilityContext';
 import LoadingState from '../common/LoadingState';
 import MantineIcon from '../common/MantineIcon';
 import { SettingsCard } from '../common/Settings/SettingsCard';
@@ -59,8 +59,7 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
     const { data: projectGroupAccess } = useProjectGroupAccessList(projectUuid);
 
     const orgRoles = useMemo(() => {
-        if (!organizationUsers) return {};
-        if (!projectAccess) return {};
+        if (!organizationUsers || !projectAccess) return undefined;
 
         return organizationUsers.reduce<Record<string, OrganizationMemberRole>>(
             (acc, orgUser) => {
@@ -132,8 +131,10 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
             projectUuid,
         }),
     );
+
     const inheritedRoles = useMemo(() => {
-        if (!organizationUsers) return {};
+        // Organization users and org roles are not always available, and we don't want to show the user access page if they are not available
+        if (!organizationUsers || !orgRoles) return undefined;
         return organizationUsers.reduce<Record<string, InheritedRoles>>(
             (acc, orgUser) => {
                 return {
@@ -161,7 +162,7 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
     }, [organizationUsers, orgRoles, groupRoles, projectRoles]);
 
     const usersWithProjectRole = useMemo(() => {
-        if (!organizationUsers) return [];
+        if (!organizationUsers || !inheritedRoles) return [];
 
         return organizationUsers.map((orgUser) => {
             const highestRole = getHighestProjectRole(
@@ -175,12 +176,15 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
                 ...orgUser,
                 finalRole: hasProjectRole
                     ? convertProjectRoleToOrganizationRole(
-                          projectRoles[orgUser.userUuid],
+                          projectRoles[orgUser.userUuid] ||
+                              ProjectMemberRole.VIEWER,
                       )
                     : inheritedRole,
+                inheritedRole: inheritedRoles?.[orgUser.userUuid],
             };
         });
     }, [organizationUsers, projectRoles, inheritedRoles]);
+
     const filteredUsers = useMemo(() => {
         if (search && usersWithProjectRole) {
             return new Fuse(usersWithProjectRole, {
@@ -189,10 +193,13 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
                 threshold: 0.3,
             })
                 .search(search)
-                .map((result) => result.item);
+                .map((result) => ({
+                    ...result.item,
+                    inheritedRole: inheritedRoles?.[result.item.userUuid],
+                }));
         }
         return usersWithProjectRole;
-    }, [usersWithProjectRole, search]);
+    }, [usersWithProjectRole, search, inheritedRoles]);
 
     if (isProjectAccessLoading || isOrganizationUsersLoading) {
         return <LoadingState title={t('components_project_access.loading')} />;
@@ -210,6 +217,12 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
                         onChange={(e) => setSearch(e.target.value)}
                         value={search}
                         w={320}
+                        icon={<MantineIcon icon={IconSearch} />}
+                        sx={(theme) => ({
+                            input: {
+                                boxShadow: theme.shadows.subtle,
+                            },
+                        })}
                         rightSection={
                             search.length > 0 && (
                                 <ActionIcon onClick={() => setSearch('')}>
@@ -235,9 +248,7 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
                                 projectUuid={projectUuid}
                                 canManageProjectAccess={canManageProjectAccess}
                                 user={orgUser}
-                                inheritedRoles={
-                                    inheritedRoles[orgUser.userUuid]
-                                }
+                                inheritedRoles={orgUser.inheritedRole}
                             />
                         ))}
                     </tbody>

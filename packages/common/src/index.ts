@@ -168,6 +168,7 @@ export * from './authorization/types';
 export * from './compiler/exploreCompiler';
 export * from './compiler/filtersCompiler';
 export * from './compiler/translator';
+export { default as DbtSchemaEditor } from './dbt/DbtSchemaEditor/DbtSchemaEditor';
 export * from './dbt/validation';
 export * from './ee/index';
 export * from './pivotTable/pivotQueryResults';
@@ -245,19 +246,24 @@ export * from './types/userAttributes';
 export * from './types/userWarehouseCredentials';
 export * from './types/validation';
 export * from './types/warehouse';
+export * from './types/yamlSchema';
 export * from './utils/accessors';
 export * from './utils/additionalMetrics';
 export * from './utils/api';
 export { default as assertUnreachable } from './utils/assertUnreachable';
 export * from './utils/catalogMetricsTree';
+export * from './utils/charts';
 export * from './utils/conditionalFormatting';
-export * from './utils/convertToDbt';
+export * from './utils/convertCustomDimensionsToYaml';
+export * from './utils/convertCustomMetricsToYaml';
 export * from './utils/dashboard';
+export * from './utils/dbt';
 export * from './utils/email';
 export * from './utils/fields';
 export * from './utils/filters';
 export * from './utils/formatting';
 export * from './utils/github';
+export * from './utils/i18n';
 export * from './utils/item';
 export * from './utils/loadLightdashProjectConfig';
 export * from './utils/metricsExplorer';
@@ -814,8 +820,8 @@ export type HealthState = {
         version?: string;
     };
     rudder: {
-        writeKey: string;
-        dataPlaneUrl: string;
+        writeKey: string | undefined;
+        dataPlaneUrl: string | undefined;
     };
     sentry: Pick<
         SentryConfig,
@@ -1230,3 +1236,7 @@ export const getProjectDirectory = (
             return undefined;
     }
 };
+
+export function isNotNull<T>(arg: T): arg is Exclude<T, null> {
+    return arg !== null;
+}

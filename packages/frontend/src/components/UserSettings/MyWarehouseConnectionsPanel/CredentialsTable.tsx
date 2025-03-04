@@ -5,8 +5,8 @@ import { type Dispatch, type FC, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useTableStyles } from '../../../hooks/styles/useTableStyles';
-import MantineIcon from '../../common/MantineIcon';
 import { getWarehouseLabel } from '../../ProjectConnection/ProjectConnectFlow/utils';
+import MantineIcon from '../../common/MantineIcon';
 
 type CredentialsTableProps = {
     credentials: UserWarehouseCredentials[];

@@ -1,14 +1,16 @@
 import {
-    applyCustomFormat,
     ComparisonDiffTypes,
     ComparisonFormatTypes,
     CustomFormatType,
+    applyCustomFormat,
     formatItemValue,
+    formatValueWithExpression,
     friendlyName,
     getCustomFormatFromLegacy,
     getItemId,
     getItemLabel,
     hasFormatOptions,
+    hasValidFormatExpression,
     isField,
     isMetric,
     isNumericItem,
@@ -255,6 +257,8 @@ const useBigNumberConfig = (
             );
         } else if (item !== undefined && isTableCalculation(item)) {
             return formatItemValue(item, firstRowValueRaw);
+        } else if (item !== undefined && hasValidFormatExpression(item)) {
+            return formatValueWithExpression(item.format, firstRowValueRaw);
         } else if (item !== undefined && hasFormatOptions(item)) {
             // Custom metrics case
 

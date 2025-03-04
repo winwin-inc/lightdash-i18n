@@ -17,8 +17,6 @@ import {
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useParams } from 'react-router';
-
-import { Can } from '../components/common/Authorization';
 import ErrorState from '../components/common/ErrorState';
 import LoadingState from '../components/common/LoadingState';
 import MantineIcon from '../components/common/MantineIcon';
@@ -38,6 +36,7 @@ import ForbiddenPanel from '../components/ForbiddenPanel';
 import { useSpacePinningMutation } from '../hooks/pinning/useSpaceMutation';
 import { useContent } from '../hooks/useContent';
 import { useSpace } from '../hooks/useSpaces';
+import { Can } from '../providers/Ability';
 import useApp from '../providers/App/useApp';
 
 const Space: FC = () => {

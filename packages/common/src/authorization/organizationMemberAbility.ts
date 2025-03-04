@@ -186,9 +186,6 @@ const applyOrganizationMemberStaticAbilities: Record<
         can('manage', 'PinnedItems', {
             organizationUuid: member.organizationUuid,
         });
-        can('update', 'Project', {
-            organizationUuid: member.organizationUuid,
-        });
         can('manage', 'ScheduledDeliveries', {
             organizationUuid: member.organizationUuid,
         });
@@ -244,12 +241,17 @@ const applyOrganizationMemberStaticAbilities: Record<
             organizationUuid: member.organizationUuid,
             type: ProjectType.PREVIEW,
         });
-
+        can('update', 'Project', {
+            organizationUuid: member.organizationUuid,
+        });
         can('delete', 'Project', {
             organizationUuid: member.organizationUuid,
             type: ProjectType.PREVIEW,
         });
         can('manage', 'SpotlightTableConfig', {
+            organizationUuid: member.organizationUuid,
+        });
+        can('manage', 'ContentAsCode', {
             organizationUuid: member.organizationUuid,
         });
     },

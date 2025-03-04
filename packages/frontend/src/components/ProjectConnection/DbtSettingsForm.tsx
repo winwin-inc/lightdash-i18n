@@ -2,11 +2,8 @@ import {
     assertUnreachable,
     DbtProjectType,
     DbtProjectTypeLabels,
-    DbtVersionOptionLatest,
-    DefaultSupportedDbtVersion,
     FeatureFlags,
-    getLatestSupportDbtVersion,
-    SupportedDbtVersions,
+    validateDbtSelector,
     WarehouseTypes,
 } from '@lightdash/common';
 import { Anchor, Select, Stack, TextInput } from '@mantine/core';
@@ -46,7 +43,13 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
     selectedWarehouse,
 }) => {
     const { t } = useTranslation();
-    const { resetField, register, unregister } = useFormContext();
+    const {
+        resetField,
+        register,
+        unregister,
+        formState: { errors },
+    } = useFormContext();
+
     const type: DbtProjectType = useWatch({
         name: 'dbt.type',
         defaultValue: defaultType || DbtProjectType.GITHUB,
@@ -181,38 +184,6 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                         />
                     )}
                 />
-                <Controller
-                    name="dbtVersion"
-                    defaultValue={DefaultSupportedDbtVersion}
-                    render={({ field }) => (
-                        <Select
-                            label={t(
-                                'components_project_connection_dbt_settings.dbt_version',
-                            )}
-                            data={[
-                                {
-                                    value: DbtVersionOptionLatest.LATEST,
-                                    label: t(
-                                        'components_project_connection_dbt_settings.latest',
-                                        {
-                                            version:
-                                                getLatestSupportDbtVersion(),
-                                        },
-                                    ),
-                                },
-                                ...Object.values(SupportedDbtVersions)
-                                    .reverse()
-                                    .map((version) => ({
-                                        value: version,
-                                        label: version,
-                                    })),
-                            ]}
-                            value={field.value}
-                            onChange={field.onChange}
-                            disabled={disabled}
-                        />
-                    )}
-                />
                 {form}
                 {type !== DbtProjectType.NONE && (
                     <>
@@ -248,25 +219,44 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                             <Stack style={{ marginTop: '8px' }}>
                                 {type !== DbtProjectType.DBT_CLOUD_IDE && (
                                     <TextInput
-                                        {...register('dbt.selector')}
-                                        label="dbt selector"
+                                        {...register('dbt.selector', {
+                                            validate: (value) => {
+                                                if (
+                                                    value === '' ||
+                                                    validateDbtSelector(value)
+                                                )
+                                                    return true;
+
+                                                return t(
+                                                    'components_project_connection_dbt_settings.advanced.invalid',
+                                                );
+                                            },
+                                        })}
+                                        label={t(
+                                            'components_project_connection_dbt_settings.advanced.selector',
+                                        )}
                                         description={
                                             <p>
-                                                Add dbt selectors to filter out
-                                                models from your dbt project.
-                                                You can see more details in{' '}
+                                                {t(
+                                                    'components_project_connection_dbt_settings.advanced.content.part_1',
+                                                )}
                                                 <Anchor
                                                     href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project/#dbt-selector"
                                                     target="_blank"
                                                     rel="noreferrer"
                                                 >
-                                                    our docs
+                                                    {t(
+                                                        'components_project_connection_dbt_settings.advanced.content.part_2',
+                                                    )}
                                                 </Anchor>
-                                                .
+                                                {t(
+                                                    'components_project_connection_dbt_settings.advanced.content.part_3',
+                                                )}
                                             </p>
                                         }
                                         disabled={disabled}
                                         placeholder="tag:lightdash"
+                                        error={!!errors.dbt?.selector}
                                     />
                                 )}
 

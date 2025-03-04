@@ -57,7 +57,6 @@ import MDEditor, { commands } from '@uiw/react-md-editor';
 import { debounce, intersection, isEqual } from 'lodash';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import FieldSelect from '../../../components/common/FieldSelect';
 import FilterNumberInput from '../../../components/common/Filters/FilterInputs/FilterNumberInput';
 import MantineIcon from '../../../components/common/MantineIcon';

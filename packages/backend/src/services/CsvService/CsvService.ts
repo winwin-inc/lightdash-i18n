@@ -570,6 +570,7 @@ This method can be memory intensive
             ? addDashboardFiltersToMetricQuery(
                   metricQuery,
                   dashboardFiltersForTile,
+                  explore,
               )
             : metricQuery;
 
@@ -820,6 +821,9 @@ This method can be memory intensive
                 chartUuid: tile.properties.savedSqlUuid!,
             }));
 
+        this.logger.info(
+            `Downloading ${chartTileUuidsWithChartUuids.length} chart CSVs for dashboard ${dashboardUuid}`,
+        );
         const csvForChartPromises = chartTileUuidsWithChartUuids.map(
             ({ tileUuid, chartUuid }) =>
                 this.getCsvForChart(
@@ -832,7 +836,9 @@ This method can be memory intensive
                     dateZoomGranularity,
                 ),
         );
-
+        this.logger.info(
+            `Downloading ${sqlChartTileUuids.length} sql chart CSVs for dashboard ${dashboardUuid}`,
+        );
         const csvForSqlChartPromises = sqlChartTileUuids.map(({ chartUuid }) =>
             this.getCsvForSqlChart({
                 user,
@@ -847,102 +853,6 @@ This method can be memory intensive
             ...csvForSqlChartPromises,
         ]);
         return csvUrls;
-    }
-
-    async downloadSqlCsv({
-        user,
-        projectUuid,
-        sql,
-        customLabels,
-    }: {
-        user: SessionUser;
-        projectUuid: string;
-        sql: string;
-        customLabels: Record<string, string> | undefined;
-    }) {
-        const jobId = nanoid();
-        const analyticsProperties: DownloadCsv['properties'] = {
-            jobId,
-            userId: user.userUuid,
-            organizationId: user.organizationUuid,
-            projectId: projectUuid,
-            tableId: 'sql_runner',
-            values: 'raw',
-            context: 'sql runner',
-            fileType: SchedulerFormat.CSV,
-            storage: this.s3Client.isEnabled() ? 's3' : 'local',
-        };
-        try {
-            const { organizationUuid } = user;
-
-            if (
-                user.ability.cannot(
-                    'manage',
-                    subject('ExportCsv', { organizationUuid, projectUuid }),
-                )
-            ) {
-                throw new ForbiddenError();
-            }
-
-            this.analytics.track({
-                event: 'download_results.started',
-                userId: user.userUuid,
-                properties: {
-                    ...analyticsProperties,
-                },
-            });
-
-            const results: ApiSqlQueryResults =
-                await this.projectService.runSqlQuery(user!, projectUuid, sql);
-
-            const csvContent = await CsvService.convertSqlQueryResultsToCsv(
-                results,
-                customLabels,
-            );
-
-            const fileId = `csv-${jobId}.csv`;
-
-            let fileUrl;
-            if (this.s3Client.isEnabled()) {
-                fileUrl = await this.s3Client.uploadCsv(csvContent, fileId);
-            } else {
-                // storing locally
-                const filePath = `/tmp/${fileId}`;
-                await fsPromise.writeFile(filePath, csvContent, 'utf-8');
-                const downloadFileId = nanoid(); // Creates a new nanoid for the download file because the jobId is already exposed
-                await this.downloadFileModel.createDownloadFile(
-                    downloadFileId,
-                    filePath,
-                    DownloadFileType.CSV,
-                );
-                fileUrl = new URL(
-                    `/api/v1/projects/${projectUuid}/csv/${downloadFileId}`,
-                    this.lightdashConfig.siteUrl,
-                ).href;
-            }
-
-            this.analytics.track({
-                event: 'download_results.completed',
-                userId: user.userUuid,
-                properties: {
-                    ...analyticsProperties,
-                    numRows: results.rows.length,
-                    numColumns: Object.keys(results.fields).length,
-                },
-            });
-
-            return fileUrl;
-        } catch (e) {
-            this.analytics.track({
-                event: 'download_results.error',
-                userId: user.userUuid,
-                properties: {
-                    ...analyticsProperties,
-                    error: `${e}`,
-                },
-            });
-            throw e;
-        }
     }
 
     /**
@@ -994,6 +904,7 @@ This method can be memory intensive
             ? addDashboardFiltersToMetricQuery(
                   metricQuery,
                   dashboardFiltersForTile,
+                  explore,
               )
             : metricQuery;
 
@@ -1291,6 +1202,9 @@ This method can be memory intensive
         ) {
             throw new ForbiddenError();
         }
+
+        this.logger.info(`Exporting CSVs for dashboard ${dashboardUuid}`);
+
         const analyticProperties: DownloadCsv['properties'] = {
             jobId: '', // not a job
             userId: user.userUuid,
@@ -1342,6 +1256,9 @@ This method can be memory intensive
             dateZoomGranularity,
         }).then((urls) => urls.filter((url) => url.path !== '#no-results'));
 
+        this.logger.info(
+            `Writing ${csvFiles.length} CSV files to zip file for dashboard ${dashboardUuid}`,
+        );
         const zipFile = await writeZipFile(csvFiles);
 
         this.analytics.track({
@@ -1352,12 +1269,15 @@ This method can be memory intensive
                 numCharts: csvFiles.length,
             },
         });
-
-        const zipFileName = CsvService.sanitizeFileName(dashboard.name);
-        const timestamp = moment().format('YYYY-MM-DD-HH-mm-ss-SSSS');
+        const zipFileName = `${CsvService.sanitizeFileName(
+            dashboard.name,
+        )}-${moment().format('YYYY-MM-DD-HH-mm-ss-SSSS')}.zip`;
+        this.logger.info(
+            `Uploading zip file to S3 for dashboard ${dashboardUuid}: ${zipFileName}`,
+        );
         return this.s3Client.uploadZip(
             fs.createReadStream(zipFile),
-            `${zipFileName}-${timestamp}.zip`,
+            zipFileName,
         );
     }
 }

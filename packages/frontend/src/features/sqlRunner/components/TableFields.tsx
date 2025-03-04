@@ -16,7 +16,6 @@ import { useDebouncedValue, useHover } from '@mantine/hooks';
 import { IconCopy, IconSearch, IconX } from '@tabler/icons-react';
 import { memo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import MantineIcon from '../../../components/common/MantineIcon';
 import { TableFieldIcon } from '../../../components/DataViz/Icons';
 import { useIsTruncated } from '../../../hooks/useIsTruncated';

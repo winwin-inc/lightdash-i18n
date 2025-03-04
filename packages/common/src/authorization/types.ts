@@ -50,9 +50,10 @@ type Subject =
     | 'PersonalAccessToken'
     | 'MetricsTree'
     | 'SpotlightTableConfig'
+    | 'ContentAsCode'
     | 'all';
 
-type PossibleAbilities = [
+export type PossibleAbilities = [
     AbilityAction,
     Subject | ForcedSubject<Exclude<Subject, 'all'>>,
 ];

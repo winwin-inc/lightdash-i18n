@@ -2,14 +2,16 @@ import {
     getConditionalFormattingColor,
     getConditionalFormattingConfig,
     getConditionalFormattingDescription,
+    getItemId,
     isNumericItem,
+    type ConditionalFormattingRowFields,
     type ResultRow,
 } from '@lightdash/common';
 import { Button, Group } from '@mantine/core';
 import { IconChevronDown, IconChevronRight } from '@tabler/icons-react';
 import { flexRender, type Row } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import React, { type FC } from 'react';
+import React, { useMemo, type FC } from 'react';
 import { getColorFromRange, readableColor } from '../../../../utils/colorUtils';
 import { useConditionalRuleLabel } from '../../Filters/FilterInputs/utils';
 import MantineIcon from '../../MantineIcon';
@@ -58,6 +60,27 @@ const TableRow: FC<TableRowProps> = ({
 }) => {
     const getConditionalRuleLabel = useConditionalRuleLabel();
 
+    const rowFields = useMemo(
+        () =>
+            row
+                .getVisibleCells()
+                .reduce<ConditionalFormattingRowFields>((acc, cell) => {
+                    const meta = cell.column.columnDef.meta;
+                    if (meta?.item) {
+                        const cellValue = cell.getValue() as
+                            | ResultRow[0]
+                            | undefined;
+
+                        acc[getItemId(meta.item)] = {
+                            field: meta.item,
+                            value: cellValue?.value?.raw,
+                        };
+                    }
+                    return acc;
+                }, {}),
+        [row],
+    );
+
     return (
         <Tr $index={index}>
             {row.getVisibleCells().map((cell) => {
@@ -71,6 +94,7 @@ const TableRow: FC<TableRowProps> = ({
                         value: cellValue?.value?.raw,
                         minMaxMap,
                         conditionalFormattings,
+                        rowFields,
                     });
 
                 const conditionalFormattingColor =
@@ -82,9 +106,18 @@ const TableRow: FC<TableRowProps> = ({
                         getColorFromRange,
                     });
 
+                // Frozen/locked rows should have a white background, unless there is a conditional formatting color
+                let backgroundColor: string | undefined;
+                if (conditionalFormattingColor) {
+                    backgroundColor = conditionalFormattingColor;
+                } else if (meta?.frozen) {
+                    backgroundColor = 'white';
+                }
+
                 const tooltipContent = getConditionalFormattingDescription(
                     field,
                     conditionalFormattingConfig,
+                    rowFields,
                     getConditionalRuleLabel,
                 );
 
@@ -103,7 +136,7 @@ const TableRow: FC<TableRowProps> = ({
                         minimal={minimal}
                         key={cell.id}
                         style={meta?.style}
-                        backgroundColor={conditionalFormattingColor}
+                        backgroundColor={backgroundColor}
                         fontColor={fontColor}
                         className={meta?.className}
                         index={index}

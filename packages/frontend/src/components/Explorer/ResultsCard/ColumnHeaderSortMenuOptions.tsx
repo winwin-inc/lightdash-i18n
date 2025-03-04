@@ -11,9 +11,9 @@ import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import {
+    SortDirection,
     getSortDirectionOrder,
     getSortLabel,
-    SortDirection,
 } from '../../../utils/sortUtils';
 import MantineIcon from '../../common/MantineIcon';
 

@@ -2,8 +2,8 @@ import { SegmentedControl, Text } from '@mantine/core';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import PaginateControl from '../../PaginateControl';
-import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../constants';
 import { TableFooter } from '../Table.styles';
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../constants';
 import { useTableContext } from '../useTableContext';
 
 interface ResultCountProps {

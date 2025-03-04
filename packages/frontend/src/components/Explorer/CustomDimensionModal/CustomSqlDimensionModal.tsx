@@ -1,12 +1,16 @@
 import {
+    capitalize,
+    convertFieldRefToFieldId,
     CustomDimensionType,
     DimensionType,
+    getAllReferences,
     getItemId,
     snakeCaseName,
     type CustomSqlDimension,
 } from '@lightdash/common';
 import {
     Button,
+    Group,
     Modal,
     ScrollArea,
     Select,
@@ -17,6 +21,7 @@ import {
     useMantineTheme,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { IconSql } from '@tabler/icons-react';
 import { useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -24,6 +29,7 @@ import { SqlEditor } from '../../../features/tableCalculation/components/SqlForm
 import useToaster from '../../../hooks/toaster/useToaster';
 import { useCustomDimensionsAceEditorCompleter } from '../../../hooks/useExplorerAceEditorCompleter';
 import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
+import MantineIcon from '../../common/MantineIcon';
 
 type FormValues = {
     customDimensionLabel: string;
@@ -38,7 +44,7 @@ export const CustomSqlDimensionModal: FC<{
     item?: CustomSqlDimension;
 }> = ({ isEditing, table, item }) => {
     const theme = useMantineTheme();
-    const { showToastSuccess } = useToaster();
+    const { showToastSuccess, showToastError } = useToaster();
     const { setAceEditor } = useCustomDimensionsAceEditorCompleter();
     const toggleModal = useExplorerContext(
         (context) => context.actions.toggleCustomDimensionModal,
@@ -107,32 +113,67 @@ export const CustomSqlDimensionModal: FC<{
         const sanitizedId = generateCustomSqlDimensionId(
             values.customDimensionLabel,
         );
-        let customDim: CustomSqlDimension = {
-            id: sanitizedId,
-            name: values.customDimensionLabel,
-            table,
-            type: CustomDimensionType.SQL,
-            sql: values.sql,
-            dimensionType: values.dimensionType,
-        };
-        if (isEditing && item) {
-            editCustomDimension({ ...customDim, id: item.id }, item.id);
-            showToastSuccess({
-                title: t(
-                    'components_explorer_custom_sql_dimension_modal.tips.edit_success',
-                ),
+
+        try {
+            if (!values.sql) {
+                throw new Error('SQL is required');
+            }
+            // Validate all references in SQL
+            const fieldIds = getAllReferences(values.sql).map((ref) => {
+                try {
+                    return convertFieldRefToFieldId(ref);
+                } catch (error) {
+                    return null;
+                }
             });
-        } else {
-            addCustomDimension(customDim);
-            showToastSuccess({
+
+            if (fieldIds.some((id) => id === null)) {
+                throw new Error(
+                    'Invalid field references in SQL. References must be of the format "table.field", e.g "orders.id"',
+                );
+            }
+
+            // Only proceed if all conversions succeeded
+            let customDim: CustomSqlDimension = {
+                id: sanitizedId,
+                name: values.customDimensionLabel,
+                table,
+                type: CustomDimensionType.SQL,
+                sql: values.sql,
+                dimensionType: values.dimensionType,
+            };
+
+            if (isEditing && item) {
+                editCustomDimension({ ...customDim, id: item.id }, item.id);
+                showToastSuccess({
+                    title: t(
+                        'components_explorer_custom_sql_dimension_modal.tips.edit_success',
+                    ),
+                });
+            } else {
+                addCustomDimension(customDim);
+                showToastSuccess({
+                    title: t(
+                        'components_explorer_custom_sql_dimension_modal.tips.add_success',
+                    ),
+                });
+            }
+
+            form.reset();
+            toggleModal();
+        } catch (error) {
+            showToastError({
                 title: t(
-                    'components_explorer_custom_sql_dimension_modal.tips.add_success',
+                    'components_explorer_custom_sql_dimension_modal.tips.error',
                 ),
+                subtitle:
+                    error instanceof Error
+                        ? error.message
+                        : t(
+                              'components_explorer_custom_sql_dimension_modal.tips.error_message',
+                          ),
             });
         }
-
-        form.reset();
-        toggleModal();
     });
 
     return (
@@ -146,41 +187,65 @@ export const CustomSqlDimensionModal: FC<{
             }}
             title={
                 <>
-                    <Title order={4}>
-                        {t(
-                            'components_explorer_custom_sql_dimension_modal.modal.title',
-                            {
-                                title: isEditing
-                                    ? t(
-                                          'components_explorer_custom_sql_dimension_modal.modal.edit',
-                                      )
-                                    : t(
-                                          'components_explorer_custom_sql_dimension_modal.modal.create',
-                                      ),
-                            },
-                        )}
-                        {item ? (
-                            <Text span fw={400}>
-                                {' '}
-                                - {item.name}
-                            </Text>
-                        ) : null}
-                    </Title>
+                    <Group spacing="xs">
+                        <MantineIcon icon={IconSql} size="lg" color="gray.7" />
+                        <Title order={4}>
+                            {t(
+                                'components_explorer_custom_sql_dimension_modal.modal.edit',
+                                {
+                                    title: isEditing
+                                        ? t(
+                                              'components_explorer_custom_sql_dimension_modal.modal.edit',
+                                          )
+                                        : t(
+                                              'components_explorer_custom_sql_dimension_modal.modal.create',
+                                          ),
+                                },
+                            )}
+                            {item ? (
+                                <Text span fw={400}>
+                                    {' '}
+                                    - {item.name}
+                                </Text>
+                            ) : null}
+                        </Title>
+                    </Group>
                 </>
             }
+            styles={{
+                header: { borderBottom: `1px solid ${theme.colors.gray[4]}` },
+                body: { padding: 0 },
+            }}
         >
             <form onSubmit={handleOnSubmit}>
-                <Stack>
-                    <TextInput
-                        label={t(
-                            'components_explorer_custom_sql_dimension_modal.form.label.label',
-                        )}
-                        required
-                        placeholder={t(
-                            'components_explorer_custom_sql_dimension_modal.form.label.placeholder',
-                        )}
-                        {...form.getInputProps('customDimensionLabel')}
-                    />
+                <Stack p="md" pb="xs" spacing="xs">
+                    <Group position="apart">
+                        <TextInput
+                            label={t(
+                                'components_explorer_custom_sql_dimension_modal.form.label.label',
+                            )}
+                            required
+                            placeholder={t(
+                                'components_explorer_custom_sql_dimension_modal.form.label.placeholder',
+                            )}
+                            style={{ flex: 1 }}
+                            {...form.getInputProps('customDimensionLabel')}
+                        />
+                        <Select
+                            sx={{
+                                alignSelf: 'flex-start',
+                            }}
+                            withinPortal={true}
+                            label={t(
+                                'components_explorer_custom_sql_dimension_modal.form.label.select',
+                            )}
+                            data={Object.values(DimensionType).map((type) => ({
+                                value: type,
+                                label: capitalize(type),
+                            }))}
+                            {...form.getInputProps('dimensionType')}
+                        />
+                    </Group>
                     <ScrollArea h={'150px'}>
                         <SqlEditor
                             mode="sql"
@@ -204,23 +269,18 @@ export const CustomSqlDimensionModal: FC<{
                             {...form.getInputProps('sql')}
                         />
                     </ScrollArea>
-                    <Select
-                        withinPortal={true}
-                        label={t(
-                            'components_explorer_custom_sql_dimension_modal.form.select.label',
-                        )}
-                        data={Object.values(DimensionType)}
-                        {...form.getInputProps('dimensionType')}
-                    />
-                    <Button ml="auto" type="submit">
-                        {isEditing
-                            ? t(
-                                  'components_explorer_custom_sql_dimension_modal.form.save',
-                              )
-                            : t(
-                                  'components_explorer_custom_sql_dimension_modal.form.create',
-                              )}
-                    </Button>
+
+                    <Group>
+                        <Button ml="auto" type="submit">
+                            {isEditing
+                                ? t(
+                                      'components_explorer_custom_sql_dimension_modal.form.save',
+                                  )
+                                : t(
+                                      'components_explorer_custom_sql_dimension_modal.form.create',
+                                  )}
+                        </Button>
+                    </Group>
                 </Stack>
             </form>
         </Modal>

@@ -1,6 +1,55 @@
 import { FilterOperator } from '@lightdash/common';
 import { useTranslation } from 'react-i18next';
 
+export const useTimeFilterOptions = () => {
+    const { t } = useTranslation();
+    const { getFilterOptions } = useFilterOperatorLabel();
+
+    return [
+        ...getFilterOptions([
+            FilterOperator.NULL,
+            FilterOperator.NOT_NULL,
+            FilterOperator.EQUALS,
+            FilterOperator.NOT_EQUALS,
+            FilterOperator.IN_THE_PAST,
+            FilterOperator.NOT_IN_THE_PAST,
+            FilterOperator.IN_THE_NEXT,
+            FilterOperator.IN_THE_CURRENT,
+            FilterOperator.NOT_IN_THE_CURRENT,
+        ]),
+        {
+            value: FilterOperator.LESS_THAN,
+            label: t(
+                'components_common_filters_inputs.time_filter_options.is_before',
+            ),
+        },
+        {
+            value: FilterOperator.LESS_THAN_OR_EQUAL,
+            label: t(
+                'components_common_filters_inputs.time_filter_options.is_on_or_before',
+            ),
+        },
+        {
+            value: FilterOperator.GREATER_THAN,
+            label: t(
+                'components_common_filters_inputs.time_filter_options.is_after',
+            ),
+        },
+        {
+            value: FilterOperator.GREATER_THAN_OR_EQUAL,
+            label: t(
+                'components_common_filters_inputs.time_filter_options.is_on_or_after',
+            ),
+        },
+        {
+            value: FilterOperator.IN_BETWEEN,
+            label: t(
+                'components_common_filters_inputs.time_filter_options.is_between',
+            ),
+        },
+    ];
+};
+
 export const useFilterOperatorLabel = () => {
     const { t } = useTranslation();
 

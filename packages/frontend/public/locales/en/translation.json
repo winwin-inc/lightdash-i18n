@@ -109,6 +109,39 @@
         "update_success": "Success! Chart was updated.",
         "update_error": "Failed to update chart"
     },
+    "hooks_organization_appearance": {
+        "color_palette": {
+            "name": "Color palette",
+            "create": "Create color palette",
+            "edit": "Edit color palette",
+            "delete": "Delete color palette"
+        },
+        "create": {
+            "success": "Color palette created successfully",
+            "error": "Failed to create color palette"
+        },
+        "update": {
+            "success": "Color palette updated successfully",
+            "error": "Failed to update color palette"
+        },
+        "delete": {
+            "success": "Color palette deleted successfully",
+            "error": "Failed to delete color palette"
+        },
+        "set_active": {
+            "success": "Active color palette updated successfully",
+            "error": "Failed to set active color palette"
+        }
+    },
+    "hooks_index_catalog_job": {
+        "success": "Successfully refreshed catalog",
+        "error": "Failed to refresh catalog"
+    },
+    "hooks_custom_metric_write_back": {
+        "success": "Success! Custom metric was written back.",
+        "error": "Failed to write back custom metric",
+        "open_pull_request": "Open Pull Request"
+    },
 
     "providers_active_job": {
         "view_log": "View log",
@@ -3017,7 +3050,7 @@
         "copied": "Copied",
         "copy": "Copy",
         "table_columns": {
-            "name": "Name",
+            "description": "Description",
             "expiration_date": "Expiration date",
             "last_used_at": "Last used at",
             "uuid": "UUID"
@@ -3319,6 +3352,10 @@
                 "label": "Description",
                 "placeholder": "E.g. The country where the user is querying data from."
             },
+            "default_value": {
+                "label": "Default value",
+                "tooltip": "This will be the default value for the attribute if no other value is assigned to the user or group."
+            },
             "email": {
                 "label": "User email",
                 "placeholder": "E.g. test@lightdash.com"
@@ -3342,6 +3379,8 @@
         "add": "Add"
     },
     "components_user_settings_appearance_settings_panel": {
+        "new_palette": "Add new palette",
+        "customize_color_palettes": "Customize the color palettes used in your charts and visualizations.",
         "color_palettes": {
             "default_colors": "Default colors",
             "lightdash_of_colors": "Lightdash of colors",
@@ -3491,6 +3530,40 @@
             "delete": "Delete"
         }
     },
+    "components_user_settings_appearance_settings_panel_palette_modal": {
+        "validate": {
+            "name": "Name must be at least 3 characters",
+            "unique": "Name must be unique",
+            "invalid_colors": "Invalid colors"
+        },
+        "name": {
+            "label": "Palette name",
+            "placeholder": "Enter a unique name"
+        },
+        "colors": {
+            "show_all_colors": "Show all colors",
+            "show_fewer_colors": "Show fewer colors"
+        },
+        "item": {
+            "edit": "Edit palette",
+            "delete": "Delete palette"
+        },
+        "create": {
+            "title": "Create new palette",
+            "submit_button_text": "Create palette"
+        },
+        "delete": {
+            "title": "Delete {{name}} palette",
+            "content": "Are you sure you want to delete this palette?",
+            "cancel": "Cancel",
+            "delete": "Delete palette"
+        },
+        "edit": {
+            "title": "Edit {{name}} palette",
+            "submit_button_text": "Update palette"
+        },
+        "cancel": "Cancel"
+    },
 
     "components_version_auto_updater": {
         "title": "A new version of Lightdash is ready for you!"
@@ -3550,6 +3623,12 @@
             "sort": "Sort",
             "rotation": "Rotation",
             "show_grid": "Show grid"
+        },
+        "sort": {
+            "ascending": "Ascending",
+            "descending": "Descending",
+            "bars_ascending": "Bars ascending",
+            "bars_descending": "Bars descending"
         },
         "layout": {
             "flip_axis": "Flip axis",
@@ -3801,7 +3880,8 @@
             "title": "Custom dimensions",
             "label": {
                 "part_1": "Add custom dimensions by hovering over the dimension of your choice & selecting the three-dot Action Menu.",
-                "part_2": "Click to view docs."
+                "part_2": "Click to view docs.",
+                "part_3": "Write back custom metrics"
             }
         }
     },
@@ -3832,7 +3912,8 @@
     "components_explorer_sider_bar": {
         "error": "Could not load explores",
         "title": "Tables",
-        "search_tables": "Search tables"
+        "search_tables": "Search tables",
+        "virtual_views": "Virtual Views"
     },
     "components_explorer_custom_dimension_modal": {
         "tips": {
@@ -3879,7 +3960,9 @@
         "tips": {
             "is_exists": "Dimension/Table calculation with this label already exists",
             "edit_success": "Custom dimension edited successfully",
-            "add_success": "Custom dimension added successfully"
+            "add_success": "Custom dimension added successfully",
+            "error": "Error creating custom dimension",
+            "error_message": "Invalid field reference in SQL or dimension name"
         },
         "modal": {
             "title": "{{title}} Custom Dimension",
@@ -3889,7 +3972,8 @@
         "form": {
             "label": {
                 "label": "Label",
-                "placeholder": "Enter custom dimension label"
+                "placeholder": "Enter custom dimension label",
+                "select": "Dimension Type"
             },
             "sql": {
                 "placeholder": "Enter SQL"
@@ -3931,6 +4015,42 @@
             "create": "Create"
         },
         "add_filter": "Add filter"
+    },
+    "components_explorer_custom_metric_write_back_modal": {
+        "pr_disabled_message": "Pull requests can only be opened for GitHub connected projects",
+        "unsupported_metric_definition_error": "Unsupported metric definition",
+        "create_pr": {
+            "write_back_to_dbt": "Write back to dbt",
+            "content": {
+                "part_1": "Your pull request",
+                "part_2": "was successfully created on Github.",
+                "part_3": "Once it is merged, refresh your dbt connection to see your updated metrics."
+            },
+            "close": "Close"
+        },
+        "error": "Unsupported metric definition",
+        "single_custom_metric": {
+            "write_back_to_dbt": "Write back to dbt",
+            "content": {
+                "part_1": "Convert this custom metric into a metric in your dbt project. This will create a new branch and start a pull request.",
+                "part_2": "Create a pull request in your dbt project's GitHub repository for the following metric:"
+            },
+            "cancel": "Cancel",
+            "create_pr": "Create pull request...",
+            "open_pr": "Open pull request"
+        },
+        "multiple_custom_metrics": {
+            "select_metrics": "Select metrics to open a pull request",
+            "write_back_to_dbt": "Write back to dbt",
+            "content": {
+                "part_1": "Create a pull request in your dbt project's GitHub repository for the following metrics:",
+                "part_2": "Available metrics ({{length}} selected)"
+            },
+            "metric_yaml_to_be_created": "Metric YAML to be created:",
+            "cancel": "Cancel",
+            "create_pr": "Create pull request...",
+            "open_pr": "Open pull request"
+        }
     },
     "components_explorer_panel": {
         "tables": "Tables",
@@ -4379,6 +4499,7 @@
         "sql_runner": "SQL Runner",
         "chart": "Chart",
         "sql": "SQL",
+        "open_sidebar": "Open sidebar",
         "results": "Results",
         "tooltip_search_waring": {
             "label": "A limit of {{maxLimit}} rows as been applied to prevent performance issues. Reach to your admin or support if you need to increase this limit.",
@@ -4755,6 +4876,16 @@
             "part_1": "target",
             "part_2": "is the dataset/schema in your data warehouse that Lightdash will look for your dbt models. By default, we set this to be the same value as you have as the default in your profiles.yml file."
         },
+        "advanced": {
+            "title": "Advanced",
+            "selector": "dbt selector",
+            "invalid": "dbt selector is invalid",
+            "content": {
+                "part_1": "Add dbt selectors to filter out models from your dbt project. You can see more details in",
+                "part_2": "our docs",
+                "part_3": "."
+            }
+        },
         "environment_variables": "Environment variables",
         "advanced_configuration_options": "Advanced configuration options"
     },
@@ -4950,6 +5081,25 @@
             }
         },
         "github": {
+            "authorization_method": {
+                "label": "Authorization method",
+                "description": {
+                    "part_1": "Select the method you want to use to connect to GitHub.",
+                    "part_2": "Click to open documentation"
+                },
+                "select": {
+                    "part_1": "You are connected to GitHub.",
+                    "part_2": "Click here to use another account"
+                },
+                "data": {
+                    "oauth": "OAuth (recommended)",
+                    "personal_access_token": "Personal Access Token"
+                },
+                "error": {
+                    "part_1": "You are not connected to GitHub.",
+                    "part_2": "Click here to connect"
+                }
+            },
             "access_token": {
                 "label": "Personal access token",
                 "description": {
@@ -4998,6 +5148,11 @@
             }
         },
         "gitlab": {
+            "dropdown_tooltip": {
+                "part_1": "Click here to open your Github installation page to add more repositories.",
+                "part_2": "Don't see your repository? ",
+                "part_3": "Configure here"
+            },
             "access_token": {
                 "label": "Personal access token",
                 "description": {
@@ -5127,6 +5282,8 @@
         }
     },
     "components_project_connection_warehouse_form": {
+        "dbt_version": "dbt version",
+        "latest": "latest",
         "days_of_week": {
             "monday": "Monday",
             "tuesday": "Tuesday",
@@ -6128,7 +6285,7 @@
         },
         "modal": {
             "delete_token": "Delete token",
-            "content":  {
+            "content": {
                 "part_1": "Are you sure? This will permanently delete the",
                 "part_2": "token."
             },
@@ -6152,6 +6309,8 @@
         }
     },
     "ai_embed_dashboard": {
+        "print": "Print this page",
+        "embed_token": "Embed token is required",
         "missing_project_uuid": "Missing project UUID",
         "error_loading_dashboard": "Error loading dashboard",
         "jwt_expired": "This embed link has expired",
@@ -6162,5 +6321,3 @@
         "embed_link_not_valid": "This embed link is not valid"
     }
 }
-
-

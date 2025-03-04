@@ -1,10 +1,5 @@
 import { subject } from '@casl/ability';
-import {
-    DashboardTileTypes,
-    FeatureFlags,
-    type ApiError,
-    type PullRequestCreated,
-} from '@lightdash/common';
+import { DashboardTileTypes, FeatureFlags } from '@lightdash/common';
 import {
     ActionIcon,
     Alert,
@@ -22,13 +17,11 @@ import { useDisclosure } from '@mantine/hooks';
 import {
     IconAlertTriangle,
     IconArrowBack,
-    IconArrowRight,
     IconBell,
     IconCheck,
     IconChevronRight,
     IconCirclePlus,
     IconCirclesRelation,
-    IconCodePlus,
     IconCopy,
     IconDatabaseExport,
     IconDots,
@@ -42,12 +35,9 @@ import {
     IconSend,
     IconTrash,
 } from '@tabler/icons-react';
-import { useMutation } from '@tanstack/react-query';
 import { Fragment, useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useBlocker, useLocation, useNavigate, useParams } from 'react-router';
-
-import { lightdashApi } from '../../../api';
 import { PromotionConfirmDialog } from '../../../features/promotion/components/PromotionConfirmDialog';
 import {
     usePromoteChartDiffMutation,
@@ -62,8 +52,6 @@ import {
 import { SyncModal as GoogleSheetsSyncModal } from '../../../features/sync/components';
 import { useChartViewStats } from '../../../hooks/chart/useChartViewStats';
 import useDashboardStorage from '../../../hooks/dashboard/useDashboardStorage';
-import { useGitIntegration } from '../../../hooks/gitIntegration/useGitIntegration';
-import useToaster from '../../../hooks/toaster/useToaster';
 import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
 import { useProject } from '../../../hooks/useProject';
 import {
@@ -111,62 +99,6 @@ const useSpaceTypeLabels = () => {
             'components_explorer_save_charts_header.space_type_labels.admin_content_view',
         ),
     };
-};
-
-const createPullRequestForChartFields = async (
-    projectUuid: string,
-    chartUuid: string,
-) =>
-    lightdashApi<any>({
-        url: `/projects/${projectUuid}/git-integration/pull-requests/chart/${chartUuid}/fields`,
-        method: 'GET',
-        body: undefined,
-    });
-
-const useCreatePullRequestForChartFieldsMutation = (
-    projectUuid: string | undefined,
-    chartUuid: string | undefined,
-) => {
-    /* useMutation<GitIntegrationConfiguration, ApiError>(
-        ['git-integration', 'pull-request'],
-        () => createPullRequestForChartFields(projectUuid, chartUuid!),
-
-    );*/
-    const { showToastSuccess, showToastApiError } = useToaster();
-    const { t } = useTranslation();
-
-    return useMutation<PullRequestCreated, ApiError>(
-        () =>
-            projectUuid && chartUuid
-                ? createPullRequestForChartFields(projectUuid, chartUuid)
-                : Promise.reject(),
-        {
-            mutationKey: ['git-integration', 'pull-request'],
-            retry: false,
-            onSuccess: async (pullRequest) => {
-                showToastSuccess({
-                    title: `${t(
-                        'components_explorer_save_charts_header.create_success',
-                    )}'${pullRequest.prTitle}'`,
-                    action: {
-                        children: 'Open Pull Request',
-                        icon: IconArrowRight,
-                        onClick: () => {
-                            window.open(pullRequest.prUrl, '_blank');
-                        },
-                    },
-                });
-            },
-            onError: ({ error }) => {
-                showToastApiError({
-                    title: t(
-                        'components_explorer_save_charts_header.create_error',
-                    ),
-                    apiError: error,
-                });
-            },
-        },
-    );
 };
 
 type SavedChartsHeaderProps = {
@@ -250,11 +182,6 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
         savedChart?.uuid,
     );
     const chartViewStats = useChartViewStats(savedChart?.uuid);
-    const { data: gitIntegration } = useGitIntegration(projectUuid);
-    const createPullRequest = useCreatePullRequestForChartFieldsMutation(
-        projectUuid,
-        savedChart?.uuid,
-    );
     const chartBelongsToDashboard: boolean = !!savedChart?.dashboardUuid;
 
     const hasGoogleDriveEnabled =
@@ -931,20 +858,6 @@ const SavedChartsHeader: FC<SavedChartsHeaderProps> = ({
                                         )}
                                     </Menu.Item>
                                 ) : null}
-                                {gitIntegration?.enabled && (
-                                    <Menu.Item
-                                        icon={
-                                            <MantineIcon icon={IconCodePlus} />
-                                        }
-                                        onClick={() =>
-                                            createPullRequest.mutate()
-                                        }
-                                    >
-                                        {t(
-                                            'components_explorer_save_charts_header.menus.add_custom_metrics',
-                                        )}
-                                    </Menu.Item>
-                                )}
                                 {userCanManageChart && (
                                     <>
                                         <Menu.Divider />

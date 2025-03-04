@@ -10,8 +10,7 @@ import {
 import { Checkbox, Flex, Group, Select, Stack, Text } from '@mantine/core';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { useConditionalRuleLabel } from '../../../../components/common/Filters/FilterInputs/utils';
+import { getConditionalRuleLabel } from '../../../../components/common/Filters/FilterInputs/utils';
 import { type FieldsWithSuggestions } from '../../../../components/Explorer/FiltersCard/useFieldsWithSuggestions';
 import {
     useDashboardQuery,

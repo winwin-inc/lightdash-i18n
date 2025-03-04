@@ -6,8 +6,6 @@ import {
     ChartKind,
     ChartType,
     DbtProjectType,
-    getErrorMessage,
-    getRequestMethod,
     LightdashInstallType,
     LightdashMode,
     LightdashRequestMethodHeader,
@@ -23,6 +21,8 @@ import {
     TableSelectionType,
     ValidateProjectPayload,
     WarehouseTypes,
+    getErrorMessage,
+    getRequestMethod,
     type SemanticLayerType,
 } from '@lightdash/common';
 import Analytics, {
@@ -210,6 +210,7 @@ type MetricQueryExecutionProperties = {
     tableCalculationsPercentFormatCount: number;
     tableCalculationsCurrencyFormatCount: number;
     tableCalculationsNumberFormatCount: number;
+    tableCalculationCustomFormatCount: number;
     filtersCount: number;
     sortsCount: number;
     hasExampleMetric: boolean;
@@ -218,6 +219,7 @@ type MetricQueryExecutionProperties = {
     additionalMetricsPercentFormatCount: number;
     additionalMetricsCurrencyFormatCount: number;
     additionalMetricsNumberFormatCount: number;
+    additionalMetricsCustomFormatCount: number;
     numFixedWidthBinCustomDimensions: number;
     numFixedBinsBinCustomDimensions: number;
     numCustomRangeBinCustomDimensions: number;
@@ -611,6 +613,7 @@ type ProjectSearch = BaseTrack & {
         sqlChartsResultsCount: number;
         tablesResultsCount: number;
         fieldsResultsCount: number;
+        dashboardTabsResultsCount: number;
     };
 };
 type DashboardUpdateMultiple = BaseTrack & {
@@ -1111,7 +1114,7 @@ export type GithubInstallEvent = BaseTrack & {
 };
 
 export type WriteBackEvent = BaseTrack & {
-    event: 'write_back.created';
+    event: 'write_back.created' | 'write_back.previewed';
     userId: string;
     properties: {
         name: string;
@@ -1119,6 +1122,18 @@ export type WriteBackEvent = BaseTrack & {
         projectId: string;
         context: QueryExecutionContext;
         customMetricsCount?: number;
+    };
+};
+
+export type WriteBackErrorEvent = BaseTrack & {
+    event: 'write_back.error';
+    userId: string;
+    properties: {
+        name: string;
+        organizationId: string;
+        projectId: string;
+        context: QueryExecutionContext;
+        error: string;
     };
 };
 
@@ -1141,6 +1156,16 @@ export type CategoriesAppliedEvent = BaseTrack & {
         projectId: string;
         organizationId: string;
         context: 'ui' | 'yaml';
+    };
+};
+
+export type CustomFieldsReplaced = BaseTrack & {
+    event: 'custom_fields.replaced';
+    userId: string;
+    properties: {
+        projectId: string;
+        organizationId: string;
+        chartsCount: number;
     };
 };
 
@@ -1219,9 +1244,11 @@ type TypedEvent =
     | VirtualViewEvent
     | GithubInstallEvent
     | WriteBackEvent
+    | WriteBackErrorEvent
     | SchedulerTimezoneUpdateEvent
     | CreateTagEvent
-    | CategoriesAppliedEvent;
+    | CategoriesAppliedEvent
+    | CustomFieldsReplaced;
 
 type WrapTypedEvent = SemanticLayerView;
 

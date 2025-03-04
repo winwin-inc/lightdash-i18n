@@ -1,6 +1,6 @@
 import {
-    assertUnreachable,
     ChartType,
+    assertUnreachable,
     isDimension,
     type ApiQueryResults,
     type ChartConfig,
@@ -29,14 +29,14 @@ import {
 } from '../../hooks/useChartColorConfig/utils';
 import usePivotDimensions from '../../hooks/usePivotDimensions';
 import { type EchartSeriesClickEvent } from '../SimpleChart';
-import Context from './context';
-import { type useVisualizationContext } from './useVisualizationContext';
 import VisualizationBigNumberConfig from './VisualizationBigNumberConfig';
 import VisualizationCartesianConfig from './VisualizationConfigCartesian';
 import VisualizationConfigFunnel from './VisualizationConfigFunnel';
 import VisualizationPieConfig from './VisualizationConfigPie';
 import VisualizationTableConfig from './VisualizationConfigTable';
 import VisualizationCustomConfig from './VisualizationCustomConfig';
+import Context from './context';
+import { type useVisualizationContext } from './useVisualizationContext';
 
 type Props = {
     minimal?: boolean;
@@ -52,7 +52,6 @@ type Props = {
     onChartTypeChange?: (value: ChartType) => void;
     onChartConfigChange?: (value: ChartConfig) => void;
     onPivotDimensionsChange?: (value: string[] | undefined) => void;
-    isSqlRunner?: boolean;
     pivotTableMaxColumnLimit: number;
     savedChartUuid?: string;
     dashboardFilters?: DashboardFilters;
@@ -68,7 +67,6 @@ const VisualizationProvider: FC<React.PropsWithChildren<Props>> = ({
     resultsData,
     isLoading,
     columnOrder,
-    isSqlRunner,
     pivotTableMaxColumnLimit,
     chartConfig,
     onChartConfigChange,
@@ -257,7 +255,6 @@ const VisualizationProvider: FC<React.PropsWithChildren<Props>> = ({
         resultsData: lastValidResultsData,
         isLoading,
         columnOrder,
-        isSqlRunner: isSqlRunner ?? false,
         itemsMap,
         setStacking,
         setCartesianType,
@@ -276,7 +273,7 @@ const VisualizationProvider: FC<React.PropsWithChildren<Props>> = ({
                     itemsMap={itemsMap}
                     resultsData={lastValidResultsData}
                     validPivotDimensions={validPivotDimensions}
-                    columnOrder={isSqlRunner ? [] : defaultColumnOrder}
+                    columnOrder={defaultColumnOrder}
                     initialChartConfig={chartConfig.config}
                     stacking={stacking}
                     cartesianType={cartesianType}

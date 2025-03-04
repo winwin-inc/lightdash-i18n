@@ -25,6 +25,7 @@ import refresh from 'passport-oauth2-refresh';
 import path from 'path';
 import reDoc from 'redoc-express';
 import { URL } from 'url';
+import cors from 'cors';
 import { LightdashAnalytics } from './analytics/LightdashAnalytics';
 import {
     ClientProviderMap,
@@ -270,6 +271,41 @@ export default class App {
     }
 
     private async initExpress(expressApp: Express) {
+        // Cross-Origin Resource Sharing policy (CORS)
+        // WARNING: this middleware should be mounted before the helmet middleware
+        // (ideally at the top of the middleware stack)
+        if (
+            this.lightdashConfig.security.crossOriginResourceSharingPolicy
+                .enabled &&
+            this.lightdashConfig.security.crossOriginResourceSharingPolicy
+                .allowedDomains.length > 0
+        ) {
+            const allowedOrigins: Array<string | RegExp> = [
+                this.lightdashConfig.siteUrl,
+            ];
+
+            for (const allowedDomain of this.lightdashConfig.security
+                .crossOriginResourceSharingPolicy.allowedDomains) {
+                if (
+                    allowedDomain.startsWith('/') &&
+                    allowedDomain.endsWith('/')
+                ) {
+                    allowedOrigins.push(new RegExp(allowedDomain.slice(1, -1)));
+                } else {
+                    allowedOrigins.push(allowedDomain);
+                }
+            }
+
+            expressApp.use(
+                cors({
+                    methods: 'OPTIONS, GET, HEAD, PUT, PATCH, POST, DELETE',
+                    allowedHeaders: '*',
+                    credentials: false,
+                    origin: allowedOrigins,
+                }),
+            );
+        }
+
         const KnexSessionStore = connectSessionKnex(expressSession);
 
         const store = new KnexSessionStore({
@@ -348,7 +384,11 @@ export default class App {
                         ],
                         'img-src': ["'self'", 'data:', 'https://*'],
                         'frame-src': ["'self'", 'https://*'],
-                        'frame-ancestors': ["'self'", 'https://*'],
+                        'frame-ancestors': [
+                            "'self'",
+                            ...this.lightdashConfig.security
+                                .contentSecurityPolicy.frameAncestors,
+                        ],
                         'worker-src': [
                             "'self'",
                             'blob:',
@@ -419,7 +459,7 @@ export default class App {
                         1000, // in ms
                     secure: this.lightdashConfig.secureCookies,
                     httpOnly: true,
-                    sameSite: 'lax',
+                    sameSite: this.lightdashConfig.cookieSameSite,
                 },
                 resave: false,
                 saveUninitialized: false,

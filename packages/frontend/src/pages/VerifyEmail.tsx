@@ -15,7 +15,6 @@ import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { useIntercom } from 'react-use-intercom';
-
 import Page from '../components/common/Page/Page';
 import PageSpinner from '../components/PageSpinner';
 import { SuccessIconBounce } from '../components/RegisterForms/ProjectConnectFlow.styles';

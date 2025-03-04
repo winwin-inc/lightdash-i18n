@@ -1,10 +1,10 @@
 import {
+    MetricExplorerComparison,
     applyCustomFormat,
     assertUnreachable,
     capitalize,
     friendlyName,
     getCustomFormat,
-    MetricExplorerComparison,
     type MetricExploreDataPointWithDateValue,
     type MetricExplorerDateRange,
     type MetricExplorerQuery,
@@ -42,9 +42,9 @@ import {
     Legend,
     Line,
     LineChart,
+    Tooltip as RechartsTooltip,
     ReferenceArea,
     ResponsiveContainer,
-    Tooltip as RechartsTooltip,
     XAxis,
     YAxis,
 } from 'recharts';

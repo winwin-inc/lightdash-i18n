@@ -20,9 +20,9 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { useCallback, useMemo, useState, type FC } from 'react';
-import MantineIcon from '../../../../components/common/MantineIcon';
 import { cartesianChartSelectors } from '../../../../components/DataViz/store/selectors';
 import { EditableText } from '../../../../components/VisualizationConfigs/common/EditableText';
+import MantineIcon from '../../../../components/common/MantineIcon';
 import { useGitIntegration } from '../../../../hooks/gitIntegration/useGitIntegration';
 import useHealth from '../../../../hooks/health/useHealth';
 import useToaster from '../../../../hooks/toaster/useToaster';
@@ -60,7 +60,7 @@ export const HeaderCreate: FC = () => {
     const isGithubIntegrationEnabled =
         health?.data?.hasGithub &&
         project?.dbtConnection.type === DbtProjectType.GITHUB;
-    const { data: gitIntegration } = useGitIntegration(projectUuid);
+    const { data: gitIntegration } = useGitIntegration();
 
     const isCreateVirtualViewModalOpen = useAppSelector(
         (state) => state.sqlRunner.modals.createVirtualViewModal.isOpen,

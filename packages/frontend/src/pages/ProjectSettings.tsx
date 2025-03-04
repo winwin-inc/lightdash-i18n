@@ -2,7 +2,6 @@ import { Stack } from '@mantine/core';
 import { useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useParams, useRoutes, type RouteObject } from 'react-router';
-
 import ErrorState from '../components/common/ErrorState';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';

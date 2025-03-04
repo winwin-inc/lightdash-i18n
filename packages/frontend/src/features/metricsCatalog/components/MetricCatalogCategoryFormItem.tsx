@@ -85,7 +85,7 @@ const EditPopover: FC<EditPopoverProps> = ({
             closeOnClickOutside
             width={200}
             onClose={handleClose}
-            trapFocus
+            trapFocus={opened}
         >
             <Popover.Target>
                 <ActionIcon
@@ -102,6 +102,7 @@ const EditPopover: FC<EditPopoverProps> = ({
                         open();
                         onOpenChange?.(true);
                     }}
+                    tabIndex={-1}
                 >
                     <MantineIcon icon={IconDots} color="gray.6" size={14} />
                 </ActionIcon>
@@ -200,6 +201,16 @@ export const MetricCatalogCategoryFormItem: FC<Props> = ({
 }) => {
     const { ref: hoverRef, hovered } = useHover<HTMLDivElement>();
 
+    const handleKeyDown = useCallback(
+        (e: React.KeyboardEvent<HTMLDivElement>) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                onClick?.();
+            }
+        },
+        [onClick],
+    );
+
     return (
         <Group
             ref={hoverRef}
@@ -207,15 +218,25 @@ export const MetricCatalogCategoryFormItem: FC<Props> = ({
             py={3}
             pos="relative"
             position="apart"
+            tabIndex={0}
+            role="button"
+            onKeyDown={handleKeyDown}
             sx={(theme) => ({
                 borderRadius: theme.radius.md,
-                '&:hover': {
+                outline: 'none',
+                '&:focus, &:hover': {
                     backgroundColor: '#F8F9FA',
                     transition: `background-color ${theme.other.transitionDuration}ms ${theme.other.transitionTimingFunction}`,
                 },
             })}
         >
-            <UnstyledButton onClick={onClick} h="100%" w="90%" pos="absolute" />
+            <UnstyledButton
+                onClick={onClick}
+                h="100%"
+                w="90%"
+                pos="absolute"
+                tabIndex={-1}
+            />
             <CatalogCategory category={category} onClick={onClick} />
 
             {canEdit && (

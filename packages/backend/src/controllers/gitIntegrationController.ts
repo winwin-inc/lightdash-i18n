@@ -1,7 +1,7 @@
 import {
     AdditionalMetric,
     ApiErrorPayload,
-    GitIntegrationConfiguration,
+    CustomSqlDimension,
     PullRequestCreated,
 } from '@lightdash/common';
 import {
@@ -29,49 +29,11 @@ import { BaseController } from './baseController';
 @Response<ApiErrorPayload>('default', 'Error')
 @Tags('Git Integration')
 export class GitIntegrationController extends BaseController {
-    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
-    @SuccessResponse('200', 'Success')
-    @Get('/')
-    @OperationId('GetConfiguration')
-    async GetConfiguration(
-        @Path() projectUuid: string,
-        @Request() req: express.Request,
-    ): Promise<{ status: 'ok'; results: GitIntegrationConfiguration }> {
-        this.setStatus(200);
-        return {
-            status: 'ok',
-            results: await this.services
-                .getGitIntegrationService()
-                .getConfiguration(req.user!, projectUuid),
-        };
-    }
-
     @Middlewares([
         allowApiKeyAuthentication,
         isAuthenticated,
         unauthorisedInDemo,
     ])
-    @SuccessResponse('200', 'Success')
-    @Get('/pull-requests/chart/{chartUuid}/fields')
-    @OperationId('CreatePullRequestForChartFields')
-    async CreatePullRequestForChartFields(
-        @Path() projectUuid: string,
-        @Path() chartUuid: string,
-        @Request() req: express.Request,
-    ): Promise<{ status: 'ok'; results: PullRequestCreated }> {
-        this.setStatus(200);
-        return {
-            status: 'ok',
-            results: await this.services
-                .getGitIntegrationService()
-                .createPullRequestForChartFields(
-                    req.user!,
-                    projectUuid,
-                    chartUuid,
-                ),
-        };
-    }
-
     @Middlewares([
         allowApiKeyAuthentication,
         isAuthenticated,
@@ -94,11 +56,48 @@ export class GitIntegrationController extends BaseController {
             status: 'ok',
             results: await this.services
                 .getGitIntegrationService()
-                .createPullRequestForCustomMetrics(
+                .createPullRequest(
                     req.user!,
                     projectUuid,
-                    body.customMetrics,
                     body.quoteChar || '"',
+                    {
+                        type: 'customMetrics',
+                        fields: body.customMetrics,
+                    },
+                ),
+        };
+    }
+
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @SuccessResponse('200', 'Success')
+    @Post('/pull-requests/custom-dimensions')
+    @OperationId('CreatePullRequestForCustomDimensions')
+    async CreatePullRequestForCustomDimensions(
+        @Path() projectUuid: string,
+        @Body()
+        body: {
+            customDimensions: CustomSqlDimension[];
+            quoteChar?: `"` | `'`; // to be used in the yml dump options
+        },
+        @Request() req: express.Request,
+    ): Promise<{ status: 'ok'; results: PullRequestCreated }> {
+        this.setStatus(200);
+        return {
+            status: 'ok',
+            results: await this.services
+                .getGitIntegrationService()
+                .createPullRequest(
+                    req.user!,
+                    projectUuid,
+                    body.quoteChar || '"',
+                    {
+                        type: 'customDimensions',
+                        fields: body.customDimensions,
+                    },
                 ),
         };
     }

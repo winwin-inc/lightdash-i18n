@@ -1,8 +1,9 @@
 import { subject } from '@casl/ability';
 import {
     DbtProjectType,
-    friendlyName,
     ProjectType,
+    friendlyName,
+    isCreateProjectJob,
     type CreateWarehouseCredentials,
     type DbtProjectConfig,
     type DbtVersionOption,
@@ -33,14 +34,14 @@ import {
     useProject,
     useUpdateMutation,
 } from '../../hooks/useProject';
+import { useAbilityContext } from '../../providers/Ability/useAbilityContext';
 import useActiveJob from '../../providers/ActiveJob/useActiveJob';
 import useApp from '../../providers/App/useApp';
 import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
-import { useAbilityContext } from '../common/Authorization/useAbilityContext';
+import DocumentationHelpButton from '../DocumentationHelpButton';
 import MantineIcon from '../common/MantineIcon';
 import { SettingsGridCard } from '../common/Settings/SettingsCard';
-import DocumentationHelpButton from '../DocumentationHelpButton';
 import DbtSettingsForm from './DbtSettingsForm';
 import DbtLogo from './ProjectConnectFlow/Assets/dbt.svg';
 import { getWarehouseIcon } from './ProjectConnectFlow/utils';
@@ -380,7 +381,8 @@ export const CreateProjectConnection: FC<CreateProjectConnectionProps> = ({
         if (
             createProjectJobId &&
             createProjectJobId === activeJob?.jobUuid &&
-            activeJob?.jobResults?.projectUuid
+            isCreateProjectJob(activeJob) &&
+            activeJob.jobResults?.projectUuid
         ) {
             void navigate({
                 pathname: `/createProjectSettings/${activeJob?.jobResults?.projectUuid}`,

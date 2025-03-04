@@ -397,6 +397,11 @@ export class SnowflakeWarehouseClient extends WarehouseBaseClient<CreateSnowflak
         try {
             return await this.executeStatement(connection, sqlText);
         } catch (e) {
+            console.error(
+                `\nError running catalog query for table ${database}.${schema}.${table}:`,
+            );
+            console.error(e);
+
             // Ignore error and let UI show invalid table
             return undefined;
         } finally {
@@ -516,6 +521,11 @@ export class SnowflakeWarehouseClient extends WarehouseBaseClient<CreateSnowflak
         database?: string,
         tags?: Record<string, string>,
     ): Promise<WarehouseCatalog> {
+        if (tableName && database && schema) {
+            // When having all three we can use the catalog to get the fields using the correct connection args and table names
+            return this.getCatalog([{ database, schema, table: tableName }]);
+        }
+
         const query = `
             SELECT TABLE_CATALOG as "table_catalog",
                    TABLE_SCHEMA  as "table_schema",

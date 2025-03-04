@@ -12,8 +12,8 @@ import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import useHealth from '../../hooks/health/useHealth';
-import MantineIcon from '../common/MantineIcon';
 import LimitButton from '../LimitButton';
+import MantineIcon from '../common/MantineIcon';
 
 const RunSqlQueryButton: FC<{
     isLoading: boolean;

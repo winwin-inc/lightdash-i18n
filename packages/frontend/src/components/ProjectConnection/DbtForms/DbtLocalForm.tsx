@@ -4,12 +4,15 @@ import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../common/MantineIcon';
+import DbtVersionSelect from '../WarehouseForms/Inputs/DbtVersion';
 
 const DbtLocalForm: FC = () => {
     const { t } = useTranslation();
 
     return (
         <Stack>
+            <DbtVersionSelect disabled={false} />
+
             <Alert
                 color="orange"
                 icon={<MantineIcon icon={IconExclamationCircle} size="lg" />}

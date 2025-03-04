@@ -1,8 +1,13 @@
+import { friendlyName } from '@lightdash/common';
 import {
     Anchor,
+    Badge,
     Box,
+    Code,
+    Divider,
     Group,
     Popover,
+    Stack,
     Text,
     Title,
     useMantineTheme,
@@ -38,6 +43,7 @@ export const ItemDetailMarkdown: FC<{ source: string }> = ({ source }) => {
             disallowedElements={['img']}
             style={{
                 fontSize: theme.fontSizes.sm,
+                color: theme.colors.gray[7],
             }}
         />
     );
@@ -50,10 +56,12 @@ export const ItemDetailMarkdown: FC<{ source: string }> = ({ source }) => {
 export const ItemDetailPreview: FC<{
     description?: string;
     onViewDescription: () => void;
-}> = ({ description, onViewDescription }) => {
+    metricInfo?: {
+        type: string;
+        sql: string;
+    };
+}> = ({ description, onViewDescription, metricInfo }) => {
     const { t } = useTranslation();
-
-    if (!description) return null;
 
     /**
      * This value is pretty arbitrary - it's an amount of characters that will exceed
@@ -64,23 +72,56 @@ export const ItemDetailPreview: FC<{
      * if unnecessarily so.
      */
     const isTruncated =
-        description.length > 180 || description.split('\n').length > 2;
+        (description && description.length > 180) ||
+        (description && description.split('\n').length > 2);
 
     return (
-        <Box>
-            <Box
-                mah={120}
-                style={{
-                    overflow: 'hidden',
+        <Stack spacing="xs">
+            {metricInfo && (
+                <>
+                    <Group spacing="xs">
+                        <Text fz="xs" fw={500} c="dark.7">
+                            Type:
+                        </Text>
+                        <Badge
+                            radius="sm"
+                            color="indigo"
+                            sx={(theme) => ({
+                                boxShadow: theme.shadows.subtle,
+                                border: `1px solid ${theme.colors.indigo[1]}`,
+                            })}
+                        >
+                            {friendlyName(metricInfo.type)}
+                        </Badge>
+                    </Group>
+                    <Divider color="gray.2" />
+                    <Stack spacing="xs">
+                        <Text fz="xs" fw={500} c="dark.7">
+                            SQL
+                        </Text>
+                        <Code>{metricInfo.sql}</Code>
+                    </Stack>
+                </>
+            )}
+            {description && (
+                <Box
+                    mah={120}
+                    sx={{
+                        overflow: 'hidden',
 
-                    // If we're over the truncation limit, use a mask to fade out the bottom of the container.
-                    maskImage: isTruncated
-                        ? 'linear-gradient(180deg, white 0%, white 80%, transparent 100%)'
-                        : undefined,
-                }}
-            >
-                <ItemDetailMarkdown source={description} />
-            </Box>
+                        // If we're over the truncation limit, use a mask to fade out the bottom of the container.
+                        maskImage: isTruncated
+                            ? 'linear-gradient(180deg, white 0%, white 80%, transparent 100%)'
+                            : undefined,
+                    }}
+                >
+                    <Stack spacing="xs">
+                        {metricInfo && <Divider color="gray.2" />}
+
+                        <ItemDetailMarkdown source={description} />
+                    </Stack>
+                </Box>
+            )}
             {isTruncated && (
                 <Box ta={'center'}>
                     <Anchor
@@ -94,7 +135,7 @@ export const ItemDetailPreview: FC<{
                     </Anchor>
                 </Box>
             )}
-        </Box>
+        </Stack>
     );
 };
 

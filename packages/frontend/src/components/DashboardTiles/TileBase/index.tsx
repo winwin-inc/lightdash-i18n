@@ -9,12 +9,12 @@ import {
     Box,
     Card,
     Flex,
-    getDefaultZIndex,
     Group,
     LoadingOverlay,
     Menu,
     Text,
     Tooltip,
+    getDefaultZIndex,
 } from '@mantine/core';
 import { useHover, useToggle } from '@mantine/hooks';
 import {
@@ -155,7 +155,11 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
                 ) : (
                     <Tooltip
                         disabled={!description || !!titleLeftIcon}
-                        label={description}
+                        label={
+                            <Text style={{ whiteSpace: 'pre-line' }}>
+                                {description}
+                            </Text>
+                        }
                         multiline
                         position="top-start"
                         withinPortal
@@ -173,7 +177,9 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
                                     withinPortal
                                     maw={400}
                                 >
-                                    {isEditMode ? (
+                                    {isEditMode ||
+                                    tile.type ===
+                                        DashboardTileTypes.MARKDOWN ? (
                                         <Text
                                             fw={600}
                                             fz="md"
@@ -182,7 +188,8 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
                                             {title}
                                         </Text>
                                     ) : (
-                                        <TileTitleLink
+                                        <Text
+                                            component={TileTitleLink}
                                             ref={titleRef}
                                             href={titleHref}
                                             $hovered={titleHovered}
@@ -191,7 +198,7 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
                                             hidden={hideTitle}
                                         >
                                             {title}
-                                        </TileTitleLink>
+                                        </Text>
                                     )}
                                 </Tooltip>
                             </Group>

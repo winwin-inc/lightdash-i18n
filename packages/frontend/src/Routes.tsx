@@ -19,6 +19,7 @@ import Explorer from './pages/Explorer';
 import Home from './pages/Home';
 import Invite from './pages/Invite';
 import JoinOrganization from './pages/JoinOrganization';
+import LegacySqlRunner from './pages/LegacySqlRunner';
 import Login from './pages/Login';
 import MetricsCatalog from './pages/MetricsCatalog';
 import MinimalDashboard from './pages/MinimalDashboard';
@@ -37,7 +38,6 @@ import ShareRedirect from './pages/ShareRedirect';
 import Space from './pages/Space';
 import Spaces from './pages/Spaces';
 import SqlRunner from './pages/SqlRunner';
-import SqlRunnerNew from './pages/SqlRunnerNew';
 import UserActivity from './pages/UserActivity';
 import VerifyEmailPage from './pages/VerifyEmail';
 import ViewSqlChart from './pages/ViewSqlChart';
@@ -216,15 +216,9 @@ const DASHBOARD_ROUTES: RouteObject[] = [
 
 const SQL_RUNNER_ROUTES: RouteObject[] = [
     {
-        path: '/projects/:projectUuid/sqlRunner', // Legacy route
-        element: (
-            <>
-                <NavBar />
-                <TrackPage name={PageName.SQL_RUNNER}>
-                    <SqlRunner />
-                </TrackPage>
-            </>
-        ),
+        path: '/projects/:projectUuid/sqlRunner',
+        // Support old share links. Redirects to new route.
+        element: <LegacySqlRunner />,
     },
     {
         path: '/projects/:projectUuid/sql-runner',
@@ -237,7 +231,7 @@ const SQL_RUNNER_ROUTES: RouteObject[] = [
         children: [
             {
                 path: '/projects/:projectUuid/sql-runner',
-                element: <SqlRunnerNew />,
+                element: <SqlRunner />,
             },
             {
                 path: '/projects/:projectUuid/sql-runner/:slug',
@@ -245,7 +239,7 @@ const SQL_RUNNER_ROUTES: RouteObject[] = [
             },
             {
                 path: '/projects/:projectUuid/sql-runner:slug/edit',
-                element: <SqlRunnerNew isEditMode />,
+                element: <SqlRunner isEditMode />,
             },
         ],
     },

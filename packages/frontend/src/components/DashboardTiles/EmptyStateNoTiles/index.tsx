@@ -11,10 +11,10 @@ import { useParams } from 'react-router';
 
 import { useProjectSavedChartStatus } from '../../../hooks/useOnboardingStatus';
 import useCreateInAnySpaceAccess from '../../../hooks/user/useCreateInAnySpaceAccess';
+import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import { TrackSection } from '../../../providers/Tracking/TrackingProvider';
 import { SectionName } from '../../../types/Events';
-import { Can } from '../../common/Authorization';
 import MantineIcon from '../../common/MantineIcon';
 import MantineLinkButton from '../../common/MantineLinkButton';
 import SuboptimalState from '../../common/SuboptimalState/SuboptimalState';

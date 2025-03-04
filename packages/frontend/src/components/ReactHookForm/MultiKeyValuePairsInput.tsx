@@ -10,7 +10,6 @@ import { IconHelpCircle, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useState, type ReactNode } from 'react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-
 import MantineIcon from '../common/MantineIcon';
 import DocumentationHelpButton from '../DocumentationHelpButton';
 

@@ -14,7 +14,6 @@ import { IconAlertCircle } from '@tabler/icons-react';
 import { useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-
 import Page from '../components/common/Page/Page';
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
 import PageSpinner from '../components/PageSpinner';

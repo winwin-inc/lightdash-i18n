@@ -11,10 +11,10 @@ import { useTranslation } from 'react-i18next';
 
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import {
+    SortDirection,
     getSortDirectionOrder,
     getSortIcon,
     getSortLabel,
-    SortDirection,
 } from '../../utils/sortUtils';
 import MantineIcon from '../common/MantineIcon';
 import { type HeaderProps, type TableColumn } from '../common/Table/types';

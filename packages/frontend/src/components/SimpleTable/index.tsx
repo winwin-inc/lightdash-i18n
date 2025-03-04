@@ -2,7 +2,6 @@ import { Box, Flex } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import PivotTable from '../common/PivotTable';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
 import Table from '../common/Table';
@@ -31,14 +30,9 @@ const SimpleTable: FC<SimpleTableProps> = ({
     minimal = false,
     ...rest
 }) => {
-    const {
-        isLoading,
-        columnOrder,
-        isSqlRunner,
-        itemsMap,
-        visualizationConfig,
-    } = useVisualizationContext();
     const { t } = useTranslation();
+    const { isLoading, columnOrder, itemsMap, visualizationConfig } =
+        useVisualizationContext();
 
     if (!isTableVisualizationConfig(visualizationConfig)) return null;
 
@@ -96,6 +90,7 @@ const SimpleTable: FC<SimpleTableProps> = ({
                             getField={getField}
                             hideRowNumbers={hideRowNumbers}
                             showSubtotals={showSubtotals}
+                            {...rest}
                         />
                         {showResultsTotal && (
                             <Flex justify="flex-end" pt="xxs" align="center">
@@ -141,7 +136,6 @@ const SimpleTable: FC<SimpleTableProps> = ({
                     return null;
                 }}
                 cellContextMenu={(props) => {
-                    if (isSqlRunner) return <>{props.children}</>;
                     if (minimal) {
                         return <MinimalCellContextMenu {...props} />;
                     }

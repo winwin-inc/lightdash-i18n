@@ -3,7 +3,6 @@ import { Center, Group, SegmentedControl, Text } from '@mantine/core';
 import { IconChartHistogram, IconCodeCircle } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import MantineIcon from '../../../components/common/MantineIcon';
 import SuboptimalState from '../../../components/common/SuboptimalState/SuboptimalState';
 import { setChartOptionsAndConfig } from '../../../components/DataViz/store/actions/commonChartActions';

@@ -12,8 +12,8 @@ import { useTranslation } from 'react-i18next';
 
 import { ExportToGoogleSheet } from '../../features/export';
 import useHealth from '../../hooks/health/useHealth';
-import MantineIcon from '../common/MantineIcon';
 import ExportCSV, { type ExportCSVProps } from '../ExportCSV';
+import MantineIcon from '../common/MantineIcon';
 
 const ExportSelector: FC<
     ExportCSVProps & {

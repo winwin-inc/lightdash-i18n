@@ -15,9 +15,15 @@ import {
     Textarea,
     TextInput,
     Title,
+    Tooltip,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { IconTrash, IconUserPlus, IconUsersPlus } from '@tabler/icons-react';
+import {
+    IconInfoCircle,
+    IconTrash,
+    IconUserPlus,
+    IconUsersPlus,
+} from '@tabler/icons-react';
 import { useEffect, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -205,11 +211,28 @@ const UserAttributeModal: FC<{
                         {...form.getInputProps('description')}
                     />
                     <Stack spacing="xxs">
-                        <Text fw={500}>
-                            {t(
-                                'components_user_settings_attributes_panel_create.default_value',
-                            )}
-                        </Text>
+                        <Group spacing="xs">
+                            <Text fw={500}>
+                                {t(
+                                    'components_user_settings_attributes_panel_create.form.default_value.label',
+                                )}
+                            </Text>
+
+                            <Tooltip
+                                variant="xs"
+                                position="right"
+                                multiline
+                                maw={200}
+                                label={t(
+                                    'components_user_settings_attributes_panel_create.form.default_value.tooltip',
+                                )}
+                            >
+                                <MantineIcon
+                                    color="gray.6"
+                                    icon={IconInfoCircle}
+                                />
+                            </Tooltip>
+                        </Group>
 
                         <Group h={36}>
                             <Switch

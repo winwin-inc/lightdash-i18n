@@ -207,7 +207,7 @@ const FieldSelect = <T extends Item = Item>({
     }, [items, baseTable, hasGrouping]);
 
     const selectedItemId = useMemo(() => {
-        return item ? getItemId(item) : undefined;
+        return item ? getItemId(item) : null;
     }, [item]);
 
     const handleChange = useCallback(

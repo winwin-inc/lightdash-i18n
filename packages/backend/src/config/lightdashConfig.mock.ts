@@ -95,7 +95,7 @@ export const lightdashConfigMock: LightdashConfig = {
     logging: {
         level: 'debug',
         format: 'pretty',
-        outputs: [],
+        outputs: ['console'],
         consoleFormat: undefined,
         consoleLevel: undefined,
         fileFormat: undefined,
@@ -168,6 +168,11 @@ export const lightdashConfigMock: LightdashConfig = {
     security: {
         contentSecurityPolicy: {
             reportOnly: false,
+            allowedDomains: [],
+            frameAncestors: [],
+        },
+        crossOriginResourceSharingPolicy: {
+            enabled: false,
             allowedDomains: [],
         },
     },

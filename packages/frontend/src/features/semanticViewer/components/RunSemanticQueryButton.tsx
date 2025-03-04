@@ -12,7 +12,6 @@ import { useOs } from '@mantine/hooks';
 import { IconAlertCircle, IconPlayerPlay } from '@tabler/icons-react';
 import { useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import MantineIcon from '../../../components/common/MantineIcon';
 import LimitButton from '../../../components/LimitButton';
 import { useAppDispatch, useAppSelector } from '../../sqlRunner/store/hooks';

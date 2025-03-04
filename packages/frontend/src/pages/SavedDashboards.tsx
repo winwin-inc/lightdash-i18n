@@ -6,13 +6,13 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
 import LoadingState from '../components/common/LoadingState';
-import DashboardCreateModal from '../components/common/modal/DashboardCreateModal';
 import Page from '../components/common/Page/Page';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import InfiniteResourceTable from '../components/common/ResourceView/InfiniteResourceTable';
+import DashboardCreateModal from '../components/common/modal/DashboardCreateModal';
 import { useDashboards } from '../hooks/dashboard/useDashboards';
-import useCreateInAnySpaceAccess from '../hooks/user/useCreateInAnySpaceAccess';
 import { useSpaceSummaries } from '../hooks/useSpaces';
+import useCreateInAnySpaceAccess from '../hooks/user/useCreateInAnySpaceAccess';
 import useApp from '../providers/App/useApp';
 
 const SavedDashboards = () => {

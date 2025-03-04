@@ -1,6 +1,5 @@
 import { subject } from '@casl/ability';
 import {
-    addDashboardFiltersToMetricQuery,
     AlreadyExistsError,
     AlreadyProcessingError,
     AndFilterGroup,
@@ -8,17 +7,12 @@ import {
     ApiChartAndResults,
     ApiQueryResults,
     ApiSqlQueryResults,
-    assertUnreachable,
     CacheMetadata,
     CalculateTotalFromQuery,
     ChartSourceType,
     ChartSummary,
     CompiledDimension,
     ContentType,
-    convertCustomMetricToDbt,
-    countCustomDimensionsInMetricQuery,
-    countTotalFilterRules,
-    createDimensionWithGranularity,
     CreateJob,
     CreateProject,
     CreateProjectMember,
@@ -33,40 +27,17 @@ import {
     DbtExposure,
     DbtExposureType,
     DbtProjectType,
-    deepEqual,
     DefaultSupportedDbtVersion,
     DimensionType,
     DownloadFileType,
     Explore,
     ExploreError,
     ExploreType,
-    FieldValueSearchResult,
-    FilterableDimension,
     FilterGroupItem,
     FilterOperator,
-    findFieldByIdInExplore,
+    FilterableDimension,
     ForbiddenError,
-    formatRows,
-    getAggregatedField,
-    getDashboardFilterRulesForTables,
-    getDateDimension,
-    getDimensions,
-    getErrorMessage,
-    getFieldQuoteChar,
-    getFields,
-    getIntrinsicUserAttributes,
-    getItemId,
-    getMetrics,
-    getTimezoneLabel,
-    hasIntersection,
     IntrinsicUserAttributes,
-    isCustomSqlDimension,
-    isDateItem,
-    isDimension,
-    isExploreError,
-    isFilterableDimension,
-    isFilterRule,
-    isUserWithOrg,
     ItemsMap,
     Job,
     JobStatusType,
@@ -88,12 +59,14 @@ import {
     ProjectMemberRole,
     ProjectType,
     QueryExecutionContext,
-    replaceDimensionInExplore,
+    ReplaceCustomFields,
+    ReplaceCustomFieldsPayload,
+    ReplaceableCustomFields,
     RequestMethod,
     ResultRow,
+    SavedChartDAO,
     SavedChartsInfoForDashboardAvailableFilters,
     SessionUser,
-    snakeCaseName,
     SortByDirection,
     SortField,
     SpaceQuery,
@@ -101,8 +74,8 @@ import {
     SqlRunnerPayload,
     SqlRunnerPivotQueryPayload,
     SummaryExplore,
-    TablesConfiguration,
     TableSelectionType,
+    TablesConfiguration,
     UnexpectedServerError,
     UpdateMetadata,
     UpdateProject,
@@ -113,10 +86,46 @@ import {
     VizColumn,
     WarehouseClient,
     WarehouseCredentials,
-    WarehouseTablesCatalog,
     WarehouseTableSchema,
+    WarehouseTablesCatalog,
     WarehouseTypes,
+    addDashboardFiltersToMetricQuery,
+    assertUnreachable,
+    convertCustomMetricToDbt,
+    countCustomDimensionsInMetricQuery,
+    countTotalFilterRules,
+    createDimensionWithGranularity,
+    deepEqual,
+    findFieldByIdInExplore,
+    findReplaceableCustomMetrics,
+    formatRows,
+    getAggregatedField,
+    getDashboardFilterRulesForTables,
+    getDateDimension,
+    getDimensions,
+    getErrorMessage,
+    getFieldQuoteChar,
+    getFields,
+    getIntrinsicUserAttributes,
+    getItemId,
+    getMetrics,
+    getTimezoneLabel,
+    hasIntersection,
+    isAndFilterGroup,
+    isCustomSqlDimension,
+    isDateItem,
+    isDimension,
+    isExploreError,
+    isFilterRule,
+    isFilterableDimension,
+    isNotNull,
+    isOrFilterGroup,
+    isUserWithOrg,
+    maybeReplaceFieldsInChartVersion,
+    replaceDimensionInExplore,
+    snakeCaseName,
     type ApiCreateProjectResults,
+    type CreateDatabricksCredentials,
     type RunQueryTags,
     type SemanticLayerConnectionUpdate,
     type Tag,
@@ -132,8 +141,8 @@ import { URL } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { Worker } from 'worker_threads';
 import { LightdashAnalytics } from '../../analytics/LightdashAnalytics';
-import { S3Client } from '../../clients/Aws/s3';
 import { S3CacheClient } from '../../clients/Aws/S3CacheClient';
+import { S3Client } from '../../clients/Aws/s3';
 import EmailClient from '../../clients/EmailClient/EmailClient';
 import { LightdashConfig } from '../../config/parseConfig';
 import type { DbTagUpdate } from '../../database/entities/tags';
@@ -159,9 +168,9 @@ import { UserWarehouseCredentialsModel } from '../../models/UserWarehouseCredent
 import { WarehouseAvailableTablesModel } from '../../models/WarehouseAvailableTablesModel/WarehouseAvailableTablesModel';
 import { projectAdapterFromConfig } from '../../projectAdapters/projectAdapter';
 import {
+    CompiledQuery,
     applyLimitToSqlQuery,
     buildQuery,
-    CompiledQuery,
 } from '../../queryBuilder';
 import { compileMetricQuery } from '../../queryCompiler';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
@@ -457,7 +466,10 @@ export class ProjectService extends BaseService {
     async _getWarehouseClient(
         projectUuid: string,
         credentials: CreateWarehouseCredentials,
-        snowflakeVirtualWarehouse?: string,
+        overrides?: {
+            snowflakeVirtualWarehouse?: string;
+            databricksCompute?: string;
+        },
     ): Promise<{
         warehouseClient: WarehouseClient;
         sshTunnel: SshTunnel<CreateWarehouseCredentials>;
@@ -466,7 +478,12 @@ export class ProjectService extends BaseService {
         const sshTunnel = new SshTunnel(credentials);
         const warehouseSshCredentials = await sshTunnel.connect();
 
-        const cacheKey = `${projectUuid}${snowflakeVirtualWarehouse || ''}`;
+        const { snowflakeVirtualWarehouse, databricksCompute } =
+            overrides || {};
+
+        const cacheKey = `${projectUuid}${snowflakeVirtualWarehouse || ''}${
+            databricksCompute || ''
+        }`;
         // Check cache for existing client (always false if ssh tunnel was connected)
         const existingClient = this.warehouseClients[cacheKey] as
             | typeof this.warehouseClients[string]
@@ -491,15 +508,50 @@ export class ProjectService extends BaseService {
             return snowflakeVirtualWarehouse || snowflakeCredentials.warehouse;
         };
 
-        const credentialsWithWarehouse =
-            credentials.type === WarehouseTypes.SNOWFLAKE
-                ? {
-                      ...warehouseSshCredentials,
-                      warehouse: getSnowflakeWarehouse(credentials),
-                  }
-                : warehouseSshCredentials;
+        const credsType = warehouseSshCredentials.type;
+        let credentialsWithOverrides: CreateWarehouseCredentials;
+
+        switch (credsType) {
+            case WarehouseTypes.SNOWFLAKE:
+                credentialsWithOverrides = {
+                    ...warehouseSshCredentials,
+                    warehouse: getSnowflakeWarehouse(warehouseSshCredentials),
+                };
+                break;
+            case WarehouseTypes.DATABRICKS:
+                const getDatabricksHttpPath = (
+                    databricksCredentials: CreateDatabricksCredentials,
+                ): string => {
+                    if (databricksCredentials.compute) {
+                        return (
+                            databricksCredentials.compute.find(
+                                (compute) => compute.name === databricksCompute,
+                            )?.httpPath ?? databricksCredentials.httpPath
+                        );
+                    }
+                    return databricksCredentials.httpPath;
+                };
+
+                credentialsWithOverrides = {
+                    ...warehouseSshCredentials,
+                    httpPath: getDatabricksHttpPath(warehouseSshCredentials),
+                };
+                break;
+            case WarehouseTypes.REDSHIFT:
+            case WarehouseTypes.POSTGRES:
+            case WarehouseTypes.BIGQUERY:
+            case WarehouseTypes.TRINO:
+                credentialsWithOverrides = warehouseSshCredentials;
+                break;
+            default:
+                return assertUnreachable(
+                    credsType,
+                    `Unknown warehouse type: ${credsType}`,
+                );
+        }
+
         const client = this.projectModel.getWarehouseClientFromCredentials(
-            credentialsWithWarehouse,
+            credentialsWithOverrides,
         );
         this.warehouseClients[cacheKey] = client;
         return { warehouseClient: client, sshTunnel };
@@ -530,8 +582,7 @@ export class ProjectService extends BaseService {
         this.logger.info(
             `Saved ${cachedExploreUuids.length} explores to cache for project ${projectUuid}`,
         );
-
-        await this.schedulerClient.indexCatalog({
+        return this.schedulerClient.indexCatalog({
             projectUuid,
             userUuid,
             prevCatalogItemsWithTags,
@@ -1264,7 +1315,10 @@ export class ProjectService extends BaseService {
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
             await this.getWarehouseCredentials(projectUuid, user.userUuid),
-            explore.warehouse,
+            {
+                snowflakeVirtualWarehouse: explore.warehouse,
+                databricksCompute: explore.databricksCompute,
+            },
         );
         const userAttributes =
             await this.userAttributesModel.getAttributeValuesForOrgMember({
@@ -1560,6 +1614,7 @@ export class ProjectService extends BaseService {
             ...addDashboardFiltersToMetricQuery(
                 savedChart.metricQuery,
                 appliedDashboardFilters,
+                explore,
             ),
             sorts:
                 dashboardSorts && dashboardSorts.length > 0
@@ -1740,6 +1795,11 @@ export class ProjectService extends BaseService {
                     });
                 span.setAttribute('rows', rows.length);
 
+                this.logger.info(
+                    `Query returned ${rows.length} rows and ${
+                        Object.keys(rows?.[0] || {}).length
+                    } columns with querytags ${JSON.stringify(queryTags)}`,
+                );
                 const { warehouseConnection } =
                     await this.projectModel.getWithSensitiveFields(projectUuid);
                 if (warehouseConnection) {
@@ -1755,6 +1815,7 @@ export class ProjectService extends BaseService {
                     },
                     async (formatRowsSpan) => {
                         const useWorker = rows.length > 500;
+                        this.logger.info(`Formatting ${rows.length} rows`);
                         return measureTime(
                             async () => {
                                 formatRowsSpan.setAttribute(
@@ -1785,6 +1846,11 @@ export class ProjectService extends BaseService {
                     },
                 );
 
+                this.logger.info(
+                    `Formatted rows returned ${formattedRows.length} rows and ${
+                        Object.keys(formattedRows?.[0] || {}).length
+                    } columns`,
+                );
                 return {
                     rows: formattedRows,
                     metricQuery,
@@ -2076,7 +2142,10 @@ export class ProjectService extends BaseService {
                                 projectUuid,
                                 user.userUuid,
                             ),
-                            explore.warehouse,
+                            {
+                                snowflakeVirtualWarehouse: explore.warehouse,
+                                databricksCompute: explore.databricksCompute,
+                            },
                         );
 
                     const userAttributes =
@@ -2171,6 +2240,12 @@ export class ProjectService extends BaseService {
                                         tableCalculation.format?.type ===
                                         CustomFormatType.NUMBER,
                                 ).length,
+                            tableCalculationCustomFormatCount:
+                                metricQuery.tableCalculations.filter(
+                                    (tableCalculation) =>
+                                        tableCalculation.format?.type ===
+                                        CustomFormatType.CUSTOM,
+                                ).length,
                             additionalMetricsCount: (
                                 metricQuery.additionalMetrics || []
                             ).filter((metric) =>
@@ -2218,6 +2293,17 @@ export class ProjectService extends BaseService {
                                     metric.formatOptions &&
                                     metric.formatOptions.type ===
                                         CustomFormatType.NUMBER,
+                            ).length,
+                            additionalMetricsCustomFormatCount: (
+                                metricQuery.additionalMetrics || []
+                            ).filter(
+                                (metric) =>
+                                    metricQuery.metrics.includes(
+                                        getItemId(metric),
+                                    ) &&
+                                    metric.formatOptions &&
+                                    metric.formatOptions.type ===
+                                        CustomFormatType.CUSTOM,
                             ).length,
                             context,
                             ...countCustomDimensionsInMetricQuery(metricQuery),
@@ -2682,29 +2768,22 @@ export class ProjectService extends BaseService {
         }
     }
 
-    async searchFieldUniqueValues(
-        user: SessionUser,
-        projectUuid: string,
-        table: string,
-        initialFieldId: string,
-        search: string,
-        limit: number,
-        filters: AndFilterGroup | undefined,
-        forceRefresh: boolean = false,
-    ) {
-        const { organizationUuid } = await this.projectModel.getSummary(
-            projectUuid,
-        );
-
-        if (
-            user.ability.cannot(
-                'view',
-                subject('Project', { organizationUuid, projectUuid }),
-            )
-        ) {
-            throw new ForbiddenError();
-        }
-
+    // Note: can't be private method as it is used in EE
+    async _getFieldValuesMetricQuery({
+        projectUuid,
+        table,
+        initialFieldId,
+        search,
+        limit,
+        filters,
+    }: {
+        projectUuid: string;
+        table: string;
+        initialFieldId: string;
+        search: string;
+        limit: number;
+        filters: AndFilterGroup | undefined;
+    }) {
         if (limit > this.lightdashConfig.query.maxLimit) {
             throw new ParameterError(
                 `Query limit can not exceed ${this.lightdashConfig.query.maxLimit}`,
@@ -2784,11 +2863,49 @@ export class ProjectService extends BaseService {
             ],
             limit,
         };
+        return { metricQuery, explore, field };
+    }
+
+    async searchFieldUniqueValues(
+        user: SessionUser,
+        projectUuid: string,
+        table: string,
+        initialFieldId: string,
+        search: string,
+        limit: number,
+        filters: AndFilterGroup | undefined,
+        forceRefresh: boolean = false,
+    ) {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'view',
+                subject('Project', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const { metricQuery, explore, field } =
+            await this._getFieldValuesMetricQuery({
+                projectUuid,
+                table,
+                initialFieldId,
+                search,
+                limit,
+                filters,
+            });
 
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
             await this.getWarehouseCredentials(projectUuid, user.userUuid),
-            explore.warehouse,
+            {
+                snowflakeVirtualWarehouse: explore.warehouse,
+                databricksCompute: explore.databricksCompute,
+            },
         );
         const userAttributes =
             await this.userAttributesModel.getAttributeValuesForOrgMember({
@@ -2863,7 +2980,7 @@ export class ProjectService extends BaseService {
             userId: user.userUuid,
             properties: {
                 projectId: projectUuid,
-                fieldId,
+                fieldId: getItemId(field),
                 searchCharCount: search.length,
                 resultsCount: rows.length,
                 searchLimit: limit,
@@ -3207,7 +3324,7 @@ export class ProjectService extends BaseService {
                 await this.jobModel.update(job.jobUuid, {
                     jobStatus: JobStatusType.RUNNING,
                 });
-                await this.jobModel.tryJobStep(
+                const indexCatalogJobUuid = await this.jobModel.tryJobStep(
                     job.jobUuid,
                     JobStepType.COMPILING,
                     async () => {
@@ -3240,7 +3357,7 @@ export class ProjectService extends BaseService {
                                 color: category.color ?? 'gray',
                             })),
                         );
-                        await this.saveExploresToCacheAndIndexCatalog(
+                        return this.saveExploresToCacheAndIndexCatalog(
                             user.userUuid,
                             projectUuid,
                             explores,
@@ -3250,6 +3367,9 @@ export class ProjectService extends BaseService {
 
                 await this.jobModel.update(job.jobUuid, {
                     jobStatus: JobStatusType.DONE,
+                    jobResults: {
+                        indexCatalogJobUuid,
+                    },
                 });
             } catch (e) {
                 await this.jobModel.update(job.jobUuid, {
@@ -3666,6 +3786,7 @@ export class ProjectService extends BaseService {
         queryContext: QueryExecutionContext,
         tableName?: string,
         schemaName?: string,
+        databaseName?: string,
     ): Promise<WarehouseTableSchema> {
         const { organizationUuid } = await this.projectModel.getSummary(
             projectUuid,
@@ -3694,7 +3815,9 @@ export class ProjectService extends BaseService {
             user_uuid: user.userUuid,
             query_context: queryContext,
         };
-        let database = ProjectService.getWarehouseDatabase(credentials);
+
+        let database =
+            databaseName ?? ProjectService.getWarehouseDatabase(credentials);
         if (!database) {
             throw new NotFoundError(
                 'Database not found in warehouse credentials',
@@ -4605,7 +4728,10 @@ export class ProjectService extends BaseService {
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
             await this.getWarehouseCredentials(projectUuid, user.userUuid),
-            explore.warehouse,
+            {
+                snowflakeVirtualWarehouse: explore.warehouse,
+                databricksCompute: explore.databricksCompute,
+            },
         );
 
         const { query } = await this._getCalculateTotalQuery(
@@ -4640,7 +4766,10 @@ export class ProjectService extends BaseService {
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
             await this.getWarehouseCredentials(projectUuid, user.userUuid),
-            explore.warehouse,
+            {
+                snowflakeVirtualWarehouse: explore.warehouse,
+                databricksCompute: explore.databricksCompute,
+            },
         );
 
         const { query, totalQuery } = await this._getCalculateTotalQuery(
@@ -5372,5 +5501,112 @@ export class ProjectService extends BaseService {
                 },
             });
         });
+    }
+
+    async findReplaceableCustomFields({
+        projectUuid,
+    }: ReplaceCustomFieldsPayload): Promise<ReplaceableCustomFields> {
+        const charts = await this.savedChartModel.findChartsWithCustomFields(
+            projectUuid,
+        );
+        const explores = await this.projectModel.findExploresFromCache(
+            projectUuid,
+            charts.map((chart) => chart.tableName),
+        );
+        const replaceableFields = charts.reduce<ReplaceableCustomFields>(
+            (acc, chart) => {
+                const explore = explores[chart.tableName];
+                if (!explore || isExploreError(explore)) {
+                    return acc;
+                }
+                const replaceableCustomMetrics = findReplaceableCustomMetrics({
+                    customMetrics: chart.customMetrics,
+                    metrics: getMetrics(explore),
+                });
+                if (Object.keys(replaceableCustomMetrics).length > 0) {
+                    acc[chart.uuid] = {
+                        uuid: chart.uuid,
+                        label: chart.name,
+                        customMetrics: replaceableCustomMetrics,
+                    };
+                }
+                return acc;
+            },
+            {},
+        );
+
+        this.logger.info(
+            `Found ${
+                Object.keys(replaceableFields).length
+            } charts with replaceable/suggested fields in project ${projectUuid}`,
+        );
+        return replaceableFields;
+    }
+
+    async replaceCustomFields({
+        userUuid,
+        projectUuid,
+        organizationUuid,
+        replaceFields,
+        skipChartsUpdatedAfter,
+    }: {
+        userUuid: string;
+        organizationUuid: string;
+        projectUuid: string;
+        replaceFields: ReplaceCustomFields;
+        skipChartsUpdatedAfter: Date;
+    }): Promise<Array<Pick<SavedChartDAO, 'uuid' | 'name'>>> {
+        const updatedChartPromises = Object.entries(replaceFields).map(
+            async ([chartUuid, fieldsToReplace]) => {
+                const chart = await this.savedChartModel.get(chartUuid);
+                if (chart.updatedAt > skipChartsUpdatedAfter) {
+                    this.logger.info(
+                        `Skipped replace custom fields in chart ${chart.uuid} as it was recently updated.`,
+                    );
+                    return null;
+                }
+                const { hasChanges, chartVersion, skippedFields } =
+                    maybeReplaceFieldsInChartVersion({
+                        fieldsToReplace,
+                        chartVersion: chart,
+                    });
+                if (Object.keys(skippedFields.customMetrics).length > 0) {
+                    const skippedReasons: string[] = Object.entries(
+                        skippedFields.customMetrics,
+                    ).map(([key, { reason }]) => `[${key}] ${reason}`);
+                    this.logger.info(
+                        `Skipped replace custom fields in chart ${
+                            chart.uuid
+                        }:\n ${skippedReasons.join('\n')}`,
+                    );
+                }
+                // create new version if any fields were replaced
+                if (hasChanges) {
+                    await this.savedChartModel.createVersion(
+                        chartUuid,
+                        chartVersion,
+                        undefined,
+                    );
+                    return { uuid: chart.uuid, name: chart.name };
+                }
+                return null;
+            },
+        );
+        const updatedCharts = (await Promise.all(updatedChartPromises)).filter(
+            isNotNull,
+        );
+        this.logger.info(
+            `Replaced fields in ${updatedCharts.length} charts in project ${projectUuid}`,
+        );
+        this.analytics.track({
+            event: 'custom_fields.replaced',
+            userId: userUuid,
+            properties: {
+                projectId: projectUuid,
+                organizationId: organizationUuid,
+                chartsCount: Object.keys(updatedCharts).length,
+            },
+        });
+        return updatedCharts;
     }
 }

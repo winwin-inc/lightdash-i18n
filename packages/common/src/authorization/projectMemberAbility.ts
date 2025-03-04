@@ -156,9 +156,6 @@ export const projectMemberAbilities: Record<
         can('manage', 'PinnedItems', {
             projectUuid: member.projectUuid,
         });
-        can('update', 'Project', {
-            projectUuid: member.projectUuid,
-        });
         can('manage', 'ScheduledDeliveries', {
             projectUuid: member.projectUuid,
         });
@@ -222,7 +219,14 @@ export const projectMemberAbilities: Record<
             upstreamProjectUuid: member.projectUuid,
             type: ProjectType.PREVIEW,
         });
+
+        can('update', 'Project', {
+            projectUuid: member.projectUuid,
+        });
         can('manage', 'SpotlightTableConfig', {
+            projectUuid: member.projectUuid,
+        });
+        can('manage', 'ContentAsCode', {
             projectUuid: member.projectUuid,
         });
     },

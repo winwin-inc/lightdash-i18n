@@ -115,6 +115,15 @@ export type DateFilterRule = FilterRule<
     DateFilterSettings
 >;
 
+export const isDateFilterRule = (
+    filter: FilterRule<
+        ConditionalOperator,
+        FieldTarget | unknown,
+        AnyType,
+        AnyType
+    >,
+): filter is DateFilterRule => 'unitOfTime' in (filter.settings || {});
+
 export type FilterGroupItem = FilterGroup | FilterRule;
 
 export type OrFilterGroup = {
@@ -455,5 +464,17 @@ export const isFilterRuleDefinedForFieldId = (
     // If the filter rule was not found in the filter group, return false
     return filterGroupItems.some(isFilterRulePresent);
 };
+
+/**
+ * Type tracking time-based filter overrides using an external map instead of modifying filter rules
+ * Maps dashboard filter rule IDs to their override configurations
+ */
+export type TimeBasedOverrideMap = Record<
+    string,
+    {
+        baseTimeDimensionName: string;
+        fieldsToChange: string[];
+    }
+>;
 
 export { ConditionalOperator as FilterOperator };

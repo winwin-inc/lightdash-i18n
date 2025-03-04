@@ -24,7 +24,6 @@ import {
 import { useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useRoutes, type RouteObject } from 'react-router';
-
 import ErrorState from '../components/common/ErrorState';
 import MantineIcon from '../components/common/MantineIcon';
 import Page from '../components/common/Page/Page';

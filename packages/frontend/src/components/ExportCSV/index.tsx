@@ -13,7 +13,7 @@ import { pollCsvFileUrl } from '../../api/csv';
 import useHealth from '../../hooks/health/useHealth';
 import useToaster from '../../hooks/toaster/useToaster';
 import useUser from '../../hooks/user/useUser';
-import { Can } from '../common/Authorization';
+import { Can } from '../../providers/Ability';
 import MantineIcon from '../common/MantineIcon';
 
 enum Limit {

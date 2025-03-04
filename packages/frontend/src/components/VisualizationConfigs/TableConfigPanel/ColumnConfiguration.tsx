@@ -9,7 +9,6 @@ import {
 } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import MantineIcon from '../../common/MantineIcon';
 import {
     isTableVisualizationConfig,

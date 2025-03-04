@@ -1,8 +1,4 @@
-import {
-    getErrorMessage,
-    type CatalogField,
-    type Tag,
-} from '@lightdash/common';
+import { type CatalogField, type Tag } from '@lightdash/common';
 import {
     Box,
     Button,
@@ -13,7 +9,6 @@ import {
     UnstyledButton,
     useMantineTheme,
 } from '@mantine/core';
-import { useFocusTrap } from '@mantine/hooks';
 import { differenceBy, filter, includes } from 'lodash';
 import {
     memo,
@@ -26,6 +21,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { TagInput } from '../../../components/common/TagInput/TagInput';
+import useToaster from '../../../hooks/toaster/useToaster';
 import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
 import { useAppSelector } from '../../sqlRunner/store/hooks';
@@ -64,6 +60,8 @@ export const MetricsCatalogCategoryForm: FC<Props> = memo(
         const organizationUuid = useAppSelector(
             (state) => state.metricsCatalog.organizationUuid,
         );
+        const { showToastError } = useToaster();
+
         const [search, setSearch] = useState('');
         const [tagColor, setTagColor] = useState<string>();
 
@@ -71,7 +69,6 @@ export const MetricsCatalogCategoryForm: FC<Props> = memo(
         const createTagMutation = useCreateTag();
         const tagCatalogItemMutation = useAddCategoryToCatalogItem();
         const untagCatalogItemMutation = useRemoveCategoryFromCatalogItem();
-        const inputFocusTrapRef = useFocusTrap();
 
         const categoryNames = useMemo(
             () => metricCategories.map((category) => category.name),
@@ -130,10 +127,10 @@ export const MetricsCatalogCategoryForm: FC<Props> = memo(
                         },
                     });
                 } catch (error) {
-                    // TODO: Add toast on error
-                    console.error(
-                        `Error adding tag: ${getErrorMessage(error)}`,
-                    );
+                    showToastError({
+                        title: 'Error adding category',
+                        subtitle: 'Unable to add category to metric.',
+                    });
                 }
             },
             [
@@ -146,6 +143,7 @@ export const MetricsCatalogCategoryForm: FC<Props> = memo(
                 catalogSearchUuid,
                 tagColor,
                 createTagMutation,
+                showToastError,
             ],
         );
 
@@ -160,12 +158,18 @@ export const MetricsCatalogCategoryForm: FC<Props> = memo(
                         tagUuid,
                     });
                 } catch (error) {
-                    console.error(
-                        `Error removing tag: ${getErrorMessage(error)}`,
-                    );
+                    showToastError({
+                        title: 'Error removing category',
+                        subtitle: 'Unable to remove category from metric.',
+                    });
                 }
             },
-            [projectUuid, untagCatalogItemMutation, catalogSearchUuid],
+            [
+                projectUuid,
+                untagCatalogItemMutation,
+                catalogSearchUuid,
+                showToastError,
+            ],
         );
 
         // Filter existing categories that are already applied to this metric
@@ -254,6 +258,7 @@ export const MetricsCatalogCategoryForm: FC<Props> = memo(
                 position="bottom"
                 width={300}
                 withArrow
+                trapFocus={!hasOpenSubPopover}
                 closeOnClickOutside={!hasOpenSubPopover} // Prevent closing when sub-popover is open
             >
                 <Popover.Target>
@@ -267,7 +272,6 @@ export const MetricsCatalogCategoryForm: FC<Props> = memo(
                             onSearchChange={handleSearchChange}
                             searchValue={search}
                             valueComponent={renderValueComponent}
-                            ref={inputFocusTrapRef}
                             placeholder={t(
                                 'features_metrics_catalog_components.category_form.search',
                             )}

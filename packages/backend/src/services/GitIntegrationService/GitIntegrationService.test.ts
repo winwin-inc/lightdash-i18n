@@ -1,213 +1,106 @@
+import { ParseError } from '@lightdash/common';
+import { analyticsMock } from '../../analytics/LightdashAnalytics.mock';
+import { updateFile } from '../../clients/github/Github';
+import { lightdashConfigMock } from '../../config/lightdashConfig.mock';
+import { GithubAppInstallationsModel } from '../../models/GithubAppInstallations/GithubAppInstallationsModel';
+import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
+import { SavedChartModel } from '../../models/SavedChartModel';
+import { SpaceModel } from '../../models/SpaceModel';
 import { GitIntegrationService } from './GitIntegrationService';
+import {
+    CUSTOM_DIMENSION,
+    CUSTOM_METRIC,
+    EXPECTED_SCHEMA_YML_WITH_CUSTOM_DIMENSION,
+    EXPECTED_SCHEMA_YML_WITH_CUSTOM_METRIC,
+    GITHUB_APP_MODEL,
+    INVALID_SCHEMA_YML,
+    PROJECT_MODEL,
+    SAVED_CHART_MODEL,
+    SCHEMA_JSON,
+    SCHEMA_YML,
+    SPACE_MODEL,
+} from './GitIntegrationService.mock';
 
-describe('GitIntegrationService.generateDiff', () => {
-    it('should return an empty diff for identical files', () => {
-        const original = `
-        version: 2
-        metrics:
-          - name: unique_customer_count
-            label: Unique customer count
-            model: ref('customers')
-            description: Total number of customers
-            type: count_distinct
-            sql: customer_id
-        `;
-        const updated = `
-        version: 2
-        metrics:
-          - name: unique_customer_count
-            label: Unique customer count
-            model: ref('customers')
-            description: Total number of customers
-            type: count_distinct
-            sql: customer_id
-        `;
-        const diff = GitIntegrationService.generateDiff(original, updated);
-        expect(diff.trim()).toBe('');
+jest.mock('../../clients/github/Github.ts', () => ({
+    getFileContent: jest.fn().mockImplementation(() => ({
+        content: SCHEMA_YML,
+        sha: 'sha',
+    })),
+    updateFile: jest.fn().mockImplementation(() => undefined),
+}));
+
+// Mock the GitIntegrationService class and expose protected methods
+class TestGitIntegrationService extends GitIntegrationService {
+    static loadYamlSchema = GitIntegrationService.loadYamlSchema;
+}
+
+describe('GitIntegrationService', () => {
+    const service = new GitIntegrationService({
+        lightdashConfig: lightdashConfigMock,
+        analytics: analyticsMock,
+        savedChartModel: SAVED_CHART_MODEL as unknown as SavedChartModel,
+        projectModel: PROJECT_MODEL as unknown as ProjectModel,
+        spaceModel: SPACE_MODEL as unknown as SpaceModel,
+        githubAppInstallationsModel:
+            GITHUB_APP_MODEL as unknown as GithubAppInstallationsModel,
     });
 
-    it('should detect added lines', () => {
-        const original = `
-        version: 2
-        metrics:
-          - name: unique_customer_count
-            label: Unique customer count
-            model: ref('customers')
-            description: Total number of customers
-            type: count_distinct
-            sql: customer_id
-        `;
-        const updated = `
-        version: 2
-        metrics:
-          - name: unique_customer_count
-            label: Unique customer count
-            model: ref('customers')
-            description: Total number of customers
-            type: count_distinct
-            sql: customer_id
-          - name: new_metric
-            label: New Metric
-            model: ref('new_model')
-            description: A new metric
-            type: sum
-            sql: new_field
-        `;
-        const diff = GitIntegrationService.generateDiff(original, updated);
-        expect(diff).toContain('+          - name: new_metric');
+    afterEach(() => {
+        jest.clearAllMocks();
     });
 
-    it('should detect removed lines', () => {
-        const original = `
-        version: 2
-        metrics:
-          - name: unique_customer_count
-            label: Unique customer count
-            model: ref('customers')
-            description: Total number of customers
-            type: count_distinct
-            sql: customer_id
-          - name: old_metric
-            label: Old Metric
-            model: ref('old_model')
-            description: An old metric
-            type: sum
-            sql: old_field
-        `;
-        const updated = `
-        version: 2
-        metrics:
-          - name: unique_customer_count
-            label: Unique customer count
-            model: ref('customers')
-            description: Total number of customers
-            type: count_distinct
-            sql: customer_id
-        `;
-        const diff = GitIntegrationService.generateDiff(original, updated);
-        expect(diff).toContain('-          - name: old_metric');
+    describe('loadYamlSchema', () => {
+        it('should load the yaml schema', async () => {
+            const result = await TestGitIntegrationService.loadYamlSchema(
+                SCHEMA_YML,
+            );
+            expect(result.toJS()).toEqual(SCHEMA_JSON);
+        });
+
+        it('should throw error with invalid yaml schema', async () => {
+            await expect(
+                TestGitIntegrationService.loadYamlSchema(INVALID_SCHEMA_YML),
+            ).rejects.toThrowError(ParseError);
+        });
     });
 
-    it('should detect changed lines', () => {
-        const original = `
-        version: 2
-        metrics:
-          - name: unique_customer_count
-            label: Unique customer count
-            model: ref('customers')
-            description: Total number of customers
-            type: count_distinct
-            sql: customer_id
-        `;
-        const updated = `
-        version: 2
-        metrics:
-          - name: unique_customer_count
-            label: Unique customer count
-            model: ref('customers')
-            description: Total number of unique customers
-            type: count_distinct
-            sql: customer_id
-        `;
-        const diff = GitIntegrationService.generateDiff(original, updated);
-        expect(diff).toContain(
-            '-            description: Total number of customers',
-        );
-        expect(diff).toContain(
-            '+            description: Total number of unique customers',
-        );
-    });
-
-    it('should get diff for quoting style differences', () => {
-        const original = `
-        metrics:
-          - name: unique_customer_count
-            sql: 'customer_id'
-        `;
-        const updated = `
-        metrics:
-          - name: unique_customer_count
-            sql: "customer_id"
-        `;
-        const diff = GitIntegrationService.generateDiff(original, updated);
-        expect(diff).toContain(`-            sql: 'customer_id'`);
-        expect(diff).toContain('+            sql: "customer_id"');
-    });
-
-    it('should handle reordering of elements', () => {
-        const original = `
-        metrics:
-          - name: metric_one
-          - name: metric_two
-        `;
-        const updated = `
-        metrics:
-          - name: metric_two
-          - name: metric_one
-        `;
-        const diff = GitIntegrationService.generateDiff(original, updated);
-        expect(diff.trim()).not.toBe('');
-    });
-
-    it('should handle nested structure changes', () => {
-        const original = `
-        models:
-          - name: customers
-            columns:
-              - name: customer_id
-                description: Unique ID
-        `;
-        const updated = `
-        models:
-          - name: customers
-            columns:
-              - name: customer_id
-                description: Unique Identifier
-        `;
-        const diff = GitIntegrationService.generateDiff(original, updated);
-        expect(diff).toContain('-                description: Unique ID');
-        expect(diff).toContain(
-            '+                description: Unique Identifier',
-        );
-    });
-
-    it('should handle complex changes', () => {
-        const original = `
-        version: 2
-        metrics:
-          - name: unique_customer_count
-            label: Unique customer count
-            model: ref('customers')
-            description: Total number of customers
-            type: count_distinct
-            sql: customer_id
-        `;
-        const updated = `
-        version: 3
-        metrics:
-          - name: unique_customer_count
-            label: Unique customer count
-            model: ref('customers')
-            description: Total number of unique customers
-            type: count
-            sql: customer_id
-          - name: new_metric
-            label: New Metric
-            model: ref('new_model')
-            description: A new metric
-            type: sum
-            sql: new_field
-        `;
-        const diff = GitIntegrationService.generateDiff(original, updated);
-
-        expect(diff).toContain('-        version: 2');
-        expect(diff).toContain('+        version: 3');
-        expect(diff.trim()).toContain(
-            `-            description: Total number of customers`,
-        );
-        expect(diff.trim()).toContain(
-            `+            description: Total number of unique customers`,
-        );
-        expect(diff).toContain('+          - name: new_metric');
+    describe('updateFile', () => {
+        it('should update the file for custom metrics', async () => {
+            await service.updateFile({
+                owner: 'owner',
+                repo: 'repo',
+                path: 'path',
+                projectUuid: 'projectUuid',
+                type: 'customMetrics',
+                fields: [CUSTOM_METRIC],
+                branch: 'branch',
+                token: 'token',
+                quoteChar: `'`,
+            });
+            expect(updateFile).toHaveBeenCalledTimes(1);
+            expect(updateFile).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    content: EXPECTED_SCHEMA_YML_WITH_CUSTOM_METRIC,
+                }),
+            );
+        });
+        it('should update the file for custom dimensions', async () => {
+            await service.updateFile({
+                owner: 'owner',
+                repo: 'repo',
+                path: 'path',
+                projectUuid: 'projectUuid',
+                type: 'customDimensions',
+                fields: [CUSTOM_DIMENSION],
+                branch: 'branch',
+                token: 'token',
+                quoteChar: `'`,
+            });
+            expect(updateFile).toHaveBeenCalledTimes(1);
+            // @ts-expect-error
+            expect(updateFile.mock.calls[0][0].content).toEqual(
+                EXPECTED_SCHEMA_YML_WITH_CUSTOM_DIMENSION,
+            );
+        });
     });
 });

@@ -1,7 +1,6 @@
 import { Group, Input, NumberInput } from '@mantine/core';
 import React, { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import {
     getMonthlyCronExpression,
     parseCronExpression,

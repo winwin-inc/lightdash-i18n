@@ -27,100 +27,106 @@ import isEmpty from 'lodash/isEmpty';
 import uniq from 'lodash/uniq';
 import { type MomentInput } from 'moment';
 import { useTranslation } from 'react-i18next';
-import { useFilterOperatorLabel } from './constants';
-
-const useTimeFilterOptions = () => {
-    const { t } = useTranslation();
-    const { getFilterOptions } = useFilterOperatorLabel();
-
-    return [
-        ...getFilterOptions([
-            FilterOperator.NULL,
-            FilterOperator.NOT_NULL,
-            FilterOperator.EQUALS,
-            FilterOperator.NOT_EQUALS,
-            FilterOperator.IN_THE_PAST,
-            FilterOperator.NOT_IN_THE_PAST,
-            FilterOperator.IN_THE_NEXT,
-            FilterOperator.IN_THE_CURRENT,
-            FilterOperator.NOT_IN_THE_CURRENT,
-        ]),
-        {
-            value: FilterOperator.LESS_THAN,
-            label: t(
-                'components_common_filters_inputs.time_filter_options.is_before',
-            ),
-        },
-        {
-            value: FilterOperator.LESS_THAN_OR_EQUAL,
-            label: t(
-                'components_common_filters_inputs.time_filter_options.is_on_or_before',
-            ),
-        },
-        {
-            value: FilterOperator.GREATER_THAN,
-            label: t(
-                'components_common_filters_inputs.time_filter_options.is_after',
-            ),
-        },
-        {
-            value: FilterOperator.GREATER_THAN_OR_EQUAL,
-            label: t(
-                'components_common_filters_inputs.time_filter_options.is_on_or_after',
-            ),
-        },
-        {
-            value: FilterOperator.IN_BETWEEN,
-            label: t(
-                'components_common_filters_inputs.time_filter_options.is_between',
-            ),
-        },
-    ];
-};
+import { useFilterOperatorLabel, useTimeFilterOptions } from './constants';
 
 export const useFilterOperatorOptions = () => {
     const { getFilterOptions } = useFilterOperatorLabel();
     const timeFilterOptions = useTimeFilterOptions();
 
-    return (
-        filterType: FilterType,
-    ): Array<{ value: FilterOperator; label: string }> => {
-        switch (filterType) {
-            case FilterType.STRING:
-                return getFilterOptions([
-                    FilterOperator.NULL,
-                    FilterOperator.NOT_NULL,
-                    FilterOperator.EQUALS,
-                    FilterOperator.NOT_EQUALS,
-                    FilterOperator.STARTS_WITH,
-                    FilterOperator.ENDS_WITH,
-                    FilterOperator.INCLUDE,
-                    FilterOperator.NOT_INCLUDE,
-                ]);
-            case FilterType.NUMBER:
-                return getFilterOptions([
-                    FilterOperator.NULL,
-                    FilterOperator.NOT_NULL,
-                    FilterOperator.EQUALS,
-                    FilterOperator.NOT_EQUALS,
-                    FilterOperator.LESS_THAN,
-                    FilterOperator.GREATER_THAN,
-                ]);
-            case FilterType.DATE:
-                return timeFilterOptions;
-            case FilterType.BOOLEAN:
-                return getFilterOptions([
-                    FilterOperator.NULL,
-                    FilterOperator.NOT_NULL,
-                    FilterOperator.EQUALS,
-                ]);
-            default:
-                return assertUnreachable(
-                    filterType,
-                    `Unexpected filter type: ${filterType}`,
-                );
-        }
-    };
+    switch (filterType) {
+        case FilterType.STRING:
+        case FilterType.NUMBER:
+            switch (operator) {
+                case FilterOperator.IN_BETWEEN:
+                case FilterOperator.NOT_IN_BETWEEN:
+                    return `${firstValue || 0}, ${secondValue || 0}`;
+                default:
+                    return values?.join(', ');
+            }
+        case FilterType.BOOLEAN:
+            return values?.map(formatBoolean).join(', ');
+        case FilterType.DATE:
+            switch (operator) {
+                case FilterOperator.IN_THE_PAST:
+                case FilterOperator.NOT_IN_THE_PAST:
+                case FilterOperator.IN_THE_NEXT:
+                    if (!isFilterRule(rule)) throw new Error('Invalid rule');
+
+                    return `${firstValue} ${
+                        rule.settings?.completed ? 'completed ' : ''
+                    }${rule.settings?.unitOfTime}`;
+                case FilterOperator.IN_BETWEEN:
+                    if (
+                        isDimension(field) &&
+                        isMomentInput(firstValue) &&
+                        isMomentInput(secondValue) &&
+                        field.type === DimensionType.DATE
+                    ) {
+                        return `${formatDate(
+                            firstValue as MomentInput,
+                            field.timeInterval,
+                        )} and ${formatDate(
+                            secondValue as MomentInput,
+                            field.timeInterval,
+                        )}`;
+                    }
+                    return `${getLocalTimeDisplay(
+                        firstValue as MomentInput,
+                        false,
+                    )} and ${getLocalTimeDisplay(secondValue as MomentInput)}`;
+                case FilterOperator.IN_THE_CURRENT:
+                case FilterOperator.NOT_IN_THE_CURRENT:
+                    if (!isFilterRule(rule)) throw new Error('Invalid rule');
+
+                    return rule.settings?.unitOfTime.slice(0, -1);
+                case FilterOperator.NULL:
+                case FilterOperator.NOT_NULL:
+                case FilterOperator.EQUALS:
+                case FilterOperator.NOT_EQUALS:
+                case FilterOperator.STARTS_WITH:
+                case FilterOperator.ENDS_WITH:
+                case FilterOperator.INCLUDE:
+                case FilterOperator.NOT_INCLUDE:
+                case FilterOperator.LESS_THAN:
+                case FilterOperator.LESS_THAN_OR_EQUAL:
+                case FilterOperator.GREATER_THAN:
+                case FilterOperator.GREATER_THAN_OR_EQUAL:
+                    return values
+                        ?.map((value) => {
+                            const type = isCustomSqlDimension(field)
+                                ? field.dimensionType
+                                : field.type;
+                            if (
+                                isDimension(field) &&
+                                isMomentInput(value) &&
+                                type === DimensionType.TIMESTAMP
+                            ) {
+                                return getLocalTimeDisplay(value);
+                            } else if (
+                                isDimension(field) &&
+                                isMomentInput(value) &&
+                                type === DimensionType.DATE
+                            ) {
+                                return formatDate(value, field.timeInterval);
+                            } else {
+                                return value;
+                            }
+                        })
+                        .join(', ');
+                case FilterOperator.NOT_IN_BETWEEN:
+                    throw new Error('Not implemented');
+                default:
+                    return assertUnreachable(
+                        operator,
+                        `Unexpected operator: ${operator}`,
+                    );
+            }
+        default:
+            return assertUnreachable(
+                filterType,
+                `Unexpected filter type: ${filterType}`,
+            );
+    }
 };
 
 const useValueAsString = () => {
@@ -274,4 +280,10 @@ export const getFilterRuleTables = (
     } else {
         return [field.tableLabel];
     }
+};
+
+export const formatDisplayValue = (value: string): string => {
+    return value
+        .replace(/^\s+|\s+$/g, (match) => '␣'.repeat(match.length))
+        .replace(/\n/g, '↵');
 };

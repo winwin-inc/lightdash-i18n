@@ -26,7 +26,6 @@ import { useRef, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
 import { type ValueOf } from 'type-fest';
-
 import MantineIcon from '../../../components/common/MantineIcon';
 import { FormatForm } from '../../../components/Explorer/FormatForm';
 import useToaster from '../../../hooks/toaster/useToaster';
@@ -84,6 +83,7 @@ const TableCalculationModal: FC<Props> = ({
                 compact: tableCalculation?.format?.compact,
                 prefix: tableCalculation?.format?.prefix,
                 suffix: tableCalculation?.format?.suffix,
+                custom: tableCalculation?.format?.custom,
             },
         },
         validate: {

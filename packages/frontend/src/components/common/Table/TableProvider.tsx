@@ -80,7 +80,7 @@ export const TableProvider: FC<React.PropsWithChildren<ProviderProps>> = ({
                 ...col.meta,
                 className: `sticky-column ${
                     i === frozenColumns.length - 1 ? 'last-sticky-column' : ''
-                } ${hideRowNumbers ? 'first-sticky-column' : ''}`,
+                }`,
                 style: {
                     maxWidth: frozenColumnWidth,
                     minWidth: frozenColumnWidth,
@@ -88,7 +88,7 @@ export const TableProvider: FC<React.PropsWithChildren<ProviderProps>> = ({
                 },
             },
         }));
-    }, [frozenColumns, frozenColumnWidth, hideRowNumbers, rowColumnWidth]);
+    }, [frozenColumns, frozenColumnWidth, rowColumnWidth]);
 
     const otherColumns = useMemo(
         () => columns.filter((col) => !col.meta?.frozen),
@@ -101,11 +101,12 @@ export const TableProvider: FC<React.PropsWithChildren<ProviderProps>> = ({
             ...rowColumn,
             meta: {
                 ...rowColumn.meta,
-                className: 'sticky-column first-sticky-column',
+                className: 'sticky-column',
                 width: rowColumnWidth,
                 style: {
                     maxWidth: rowColumnWidth,
                     minWidth: rowColumnWidth,
+                    backgroundColor: 'white',
                 },
             },
         };

@@ -180,7 +180,6 @@ const Omnibar: FC<Props> = ({ projectUuid }) => {
                   )
             : [];
     }, [searchResults]);
-
     useEffect(() => {
         setFocusedItemIndex(undefined);
     }, [query, searchFilters]);

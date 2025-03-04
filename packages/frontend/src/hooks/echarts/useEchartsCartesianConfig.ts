@@ -4,6 +4,7 @@ import {
     CartesianSeriesType,
     DimensionType,
     formatItemValue,
+    formatValueWithExpression,
     friendlyName,
     getAxisName,
     getCustomFormatFromLegacy,
@@ -13,6 +14,7 @@ import {
     getResultValueArray,
     hasFormatting,
     hashFieldReference,
+    hasValidFormatExpression,
     isCompleteLayout,
     isCustomBinDimension,
     isCustomDimension,
@@ -27,16 +29,19 @@ import {
     TableCalculationType,
     timeFrameConfigs,
     TimeFrames,
+    XAxisSortType,
     type ApiQueryResults,
     type CartesianChart,
     type CustomDimension,
     type Field,
+    type Item,
     type ItemsMap,
     type PivotReference,
     type ResultRow,
     type Series,
     type TableCalculation,
 } from '@lightdash/common';
+import { useMantineTheme } from '@mantine/core';
 import dayjs from 'dayjs';
 import {
     type DefaultLabelFormatterCallbackParams,
@@ -85,7 +90,7 @@ const getLabelFromField = (fields: ItemsMap, key: string | undefined) => {
     }
 };
 
-const getAxisTypeFromField = (
+export const getAxisTypeFromField = (
     item?: ItemsMap[string],
     hasReferenceLine?: boolean,
 ): string => {
@@ -300,7 +305,7 @@ export type EChartSeries = {
     symbolSize?: number;
 };
 
-const getFormattedValue = (
+export const getFormattedValue = (
     value: any,
     key: string,
     itemsMap: ItemsMap,
@@ -581,6 +586,27 @@ type GetPivotSeriesArg = {
     pivotReference: Required<PivotReference>;
 };
 
+const seriesValueFormatter = (item: Item, value: unknown) => {
+    if (hasValidFormatExpression(item)) {
+        return formatValueWithExpression(item.format, value);
+    }
+
+    if (isCustomDimension(item)) {
+        return value;
+    }
+    if (isTableCalculation(item)) {
+        return formatItemValue(item, value);
+    } else {
+        const defaultFormatOptions = getCustomFormatFromLegacy({
+            format: item.format,
+            round: item.round,
+            compact: item.compact,
+        });
+        const formatOptions = isMetric(item) ? item.formatOptions : undefined;
+        return applyCustomFormat(value, formatOptions || defaultFormatOptions);
+    }
+};
+
 const getPivotSeries = ({
     series,
     pivotReference,
@@ -641,30 +667,8 @@ const getPivotSeries = ({
                     itemsMap[series.encode.yRef.field] && {
                         formatter: (value: any) => {
                             const field = itemsMap[series.encode.yRef.field];
-
-                            if (isCustomDimension(field)) {
-                                return value;
-                            }
-                            if (isTableCalculation(field)) {
-                                return formatItemValue(
-                                    field,
-                                    value?.value?.[yFieldHash],
-                                );
-                            } else {
-                                const defaultFormatOptions =
-                                    getCustomFormatFromLegacy({
-                                        format: field.format,
-                                        round: field.round,
-                                        compact: field.compact,
-                                    });
-                                const formatOptions = isMetric(field)
-                                    ? field.formatOptions
-                                    : undefined;
-                                return applyCustomFormat(
-                                    value?.value?.[yFieldHash],
-                                    formatOptions || defaultFormatOptions,
-                                );
-                            }
+                            const rawValue = value?.value?.[yFieldHash];
+                            return seriesValueFormatter(field, rawValue);
                         },
                     }),
             },
@@ -750,29 +754,8 @@ const getSimpleSeries = ({
                 itemsMap[yFieldHash] && {
                     formatter: (value: any) => {
                         const field = itemsMap[yFieldHash];
-                        if (isCustomDimension(field)) {
-                            return value;
-                        }
-                        if (isTableCalculation(field)) {
-                            return formatItemValue(
-                                field,
-                                value?.value?.[yFieldHash],
-                            );
-                        } else {
-                            const defaultFormatOptions =
-                                getCustomFormatFromLegacy({
-                                    format: field.format,
-                                    round: field.round,
-                                    compact: field.compact,
-                                });
-                            const formatOptions = isMetric(field)
-                                ? field.formatOptions
-                                : undefined;
-                            return applyCustomFormat(
-                                value?.value?.[yFieldHash],
-                                formatOptions || defaultFormatOptions,
-                            );
-                        }
+                        const rawValue = value?.value?.[yFieldHash];
+                        return seriesValueFormatter(field, rawValue);
                     },
                 }),
         },
@@ -945,8 +928,12 @@ const getEchartAxes = ({
         rotate?: number;
         defaultNameGap?: number;
     }) => {
-        const hasFormattingConfig = hasFormatting(axisItem);
-
+        const isTimestamp =
+            isField(axisItem) &&
+            (axisItem.type === DimensionType.DATE ||
+                axisItem.type === DimensionType.TIMESTAMP);
+        // Only apply axis formatting if the axis is NOT a date or timestamp
+        const hasFormattingConfig = !isTimestamp && hasFormatting(axisItem);
         const axisMinInterval =
             isDimension(axisItem) &&
             axisItem.timeInterval &&
@@ -1590,6 +1577,8 @@ const useEchartsCartesianConfig = (
         minimal,
     } = useVisualizationContext();
 
+    const theme = useMantineTheme();
+
     const validCartesianConfig = useMemo(() => {
         if (!isCartesianVisualizationConfig(visualizationConfig)) return;
         return visualizationConfig.chartConfig.validConfig;
@@ -1903,6 +1892,73 @@ const useEchartsCartesianConfig = (
         [itemsMap, validCartesianConfig?.layout.flipAxes],
     );
 
+    const sortedResultsByTotals = useMemo(() => {
+        if (!stackedSeriesWithColorAssignments?.length) return sortedResults;
+
+        const axis = validCartesianConfig?.layout.flipAxes
+            ? axes.yAxis[0]
+            : axes.xAxis[0];
+
+        const xFieldId = validCartesianConfig?.layout?.xField;
+        const xAxisConfig = validCartesianConfig?.eChartsConfig.xAxis?.[0];
+
+        if (
+            xFieldId &&
+            axis?.type === 'category' &&
+            xAxisConfig?.sortType === XAxisSortType.BAR_TOTALS
+        ) {
+            const stackTotalValueIndex = validCartesianConfig?.layout.flipAxes
+                ? 1
+                : 0;
+
+            const stackTotals = getStackTotalRows(
+                rows,
+                stackedSeriesWithColorAssignments,
+                validCartesianConfig?.layout.flipAxes,
+                validCartesianConfigLegend,
+            );
+
+            // Using entries since we cannot use a map here (cannot index with unknown)
+            // Also grouping by here since when there are no groups in the config we need to calculate the totals for bar
+            const stackTotalEntries: [unknown, number][] = Object.entries(
+                groupBy(stackTotals, (total) => total[stackTotalValueIndex]),
+            ).reduce<[unknown, number][]>((acc, [key, totals]) => {
+                acc.push([
+                    key,
+                    totals.reduce((sum, total) => sum + total[2], 0),
+                ]);
+
+                return acc;
+            }, []);
+
+            return sortedResults.sort((a, b) => {
+                const totalA =
+                    stackTotalEntries.find(
+                        (entry) => entry[0] === a[xFieldId],
+                    )?.[1] ?? 0;
+
+                const totalB =
+                    stackTotalEntries.find(
+                        (entry) => entry[0] === b[xFieldId],
+                    )?.[1] ?? 0;
+
+                return totalA - totalB; // Asc/Desc will be taken care of by inverse config
+            });
+        }
+
+        return sortedResults;
+    }, [
+        stackedSeriesWithColorAssignments,
+        sortedResults,
+        validCartesianConfig?.layout.flipAxes,
+        validCartesianConfig?.layout?.xField,
+        validCartesianConfig?.eChartsConfig.xAxis,
+        axes.yAxis,
+        axes.xAxis,
+        rows,
+        validCartesianConfigLegend,
+    ]);
+
     const eChartsOptions = useMemo(
         () => ({
             xAxis: axes.xAxis,
@@ -1917,7 +1973,7 @@ const useEchartsCartesianConfig = (
             ),
             dataset: {
                 id: 'lightdashResults',
-                source: sortedResults,
+                source: sortedResultsByTotals,
             },
             tooltip,
             grid: {
@@ -1925,6 +1981,9 @@ const useEchartsCartesianConfig = (
                 ...removeEmptyProperties(
                     validCartesianConfig?.eChartsConfig.grid,
                 ),
+            },
+            textStyle: {
+                fontFamily: theme?.other.chartFont as string | undefined,
             },
             // We assign colors per series, so we specify an empty list here.
             color: [],
@@ -1939,8 +1998,9 @@ const useEchartsCartesianConfig = (
             validCartesianConfig?.eChartsConfig.grid,
             validCartesianConfigLegend,
             series,
-            sortedResults,
+            sortedResultsByTotals,
             tooltip,
+            theme?.other?.chartFont,
         ],
     );
 

@@ -3,7 +3,6 @@ import { Group, Modal, Text } from '@mantine/core';
 import { IconBell, IconSend } from '@tabler/icons-react';
 import React, { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import MantineIcon from '../../../components/common/MantineIcon';
 import DocumentationHelpButton from '../../../components/DocumentationHelpButton';
 import SchedulerModalContent from './SchedulerModalContent';

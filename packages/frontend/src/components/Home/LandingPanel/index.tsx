@@ -3,9 +3,9 @@ import { Group, Stack, Text, Title } from '@mantine/core';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import { EventName } from '../../../types/Events';
-import { Can } from '../../common/Authorization';
 import MantineLinkButton from '../../common/MantineLinkButton';
 
 interface Props {

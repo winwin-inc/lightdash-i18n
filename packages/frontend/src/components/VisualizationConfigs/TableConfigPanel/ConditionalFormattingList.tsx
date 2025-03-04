@@ -3,6 +3,7 @@ import {
     getItemId,
     isFilterableItem,
     isNumericItem,
+    isStringDimension,
     type ConditionalFormattingConfig,
     type FilterableItem,
 } from '@lightdash/common';
@@ -41,13 +42,14 @@ const ConditionalFormattingList = ({}) => {
         ]);
     }, [resultsData]);
 
-    const visibleActiveNumericFields = useMemo<FilterableItem[]>(() => {
+    const fieldsForConditionalFormatting = useMemo<FilterableItem[]>(() => {
         if (!itemsMap) return [];
-
         return Object.values(itemsMap)
             .filter((field) => activeFields.has(getItemId(field)))
             .filter(
-                (field) => isNumericItem(field) && isFilterableItem(field),
+                (field) =>
+                    (isNumericItem(field) || isStringDimension(field)) &&
+                    isFilterableItem(field),
             ) as FilterableItem[];
     }, [itemsMap, activeFields]);
 
@@ -58,12 +60,12 @@ const ConditionalFormattingList = ({}) => {
 
         return conditionalFormattings.filter((config) => {
             return config.target
-                ? visibleActiveNumericFields.find(
+                ? fieldsForConditionalFormatting.find(
                       (field) => getItemId(field) === config.target?.fieldId,
                   )
                 : true;
         });
-    }, [chartConfig, visibleActiveNumericFields]);
+    }, [chartConfig, fieldsForConditionalFormatting]);
 
     const handleAdd = useCallback(() => {
         if (!chartConfig) return;
@@ -148,7 +150,7 @@ const ConditionalFormattingList = ({}) => {
                             removeItem={removeItem}
                             colorPalette={colorPalette}
                             index={index + 1}
-                            fields={visibleActiveNumericFields}
+                            fields={fieldsForConditionalFormatting}
                             value={conditionalFormatting}
                             onChange={(newConfig) =>
                                 handleChange(index, newConfig)

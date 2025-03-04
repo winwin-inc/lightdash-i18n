@@ -15,13 +15,13 @@ import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useSemanticLayerInfo } from '../../features/semanticViewer/api/hooks';
 import { useFeatureFlagEnabled } from '../../hooks/useFeatureFlagEnabled';
+import { Can } from '../../providers/Ability';
 import useApp from '../../providers/App/useApp';
-import { Can } from '../common/Authorization';
 import LargeMenuItem from '../common/LargeMenuItem';
 import MantineIcon from '../common/MantineIcon';
-import DashboardCreateModal from '../common/modal/DashboardCreateModal';
 import SpaceActionModal from '../common/SpaceActionModal';
 import { ActionType } from '../common/SpaceActionModal/types';
+import DashboardCreateModal from '../common/modal/DashboardCreateModal';
 
 type Props = {
     projectUuid: string;

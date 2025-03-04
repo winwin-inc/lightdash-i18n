@@ -6,8 +6,8 @@ import { IconArrowLeft, IconPlus } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Can } from '../../../../providers/Ability';
 import useApp from '../../../../providers/App/useApp';
-import { Can } from '../../Authorization';
 import MantineIcon from '../../MantineIcon';
 import { type SaveToSpaceFormType } from './types';
 

@@ -3,7 +3,6 @@ import { useParams } from 'react-router';
 import { ResourceViewItemType } from '@lightdash/common';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import ErrorState from '../components/common/ErrorState';
 import Page from '../components/common/Page/Page';
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
@@ -112,6 +111,9 @@ const SavedExplorer = () => {
                                   isOpen: false,
                               },
                               customDimension: {
+                                  isOpen: false,
+                              },
+                              additionalMetricWriteBack: {
                                   isOpen: false,
                               },
                           },

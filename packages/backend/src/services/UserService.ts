@@ -16,6 +16,7 @@ import {
     ForbiddenError,
     getEmailDomain,
     hasInviteCode,
+    hasProperty,
     InviteLink,
     isOpenIdIdentityIssuerType,
     isOpenIdUser,
@@ -1523,10 +1524,13 @@ export class UserService extends BaseService {
                         return;
                     }
 
-                    const scopes: string[] =
-                        result && typeof result.scope === 'string'
-                            ? result.scope.split(' ')
-                            : [];
+                    const scopes: string[] = hasProperty<string>(
+                        result,
+                        'scope',
+                    )
+                        ? result.scope.split(' ')
+                        : [];
+
                     if (
                         scopes.includes(
                             'https://www.googleapis.com/auth/drive.file',
@@ -1553,7 +1557,7 @@ export class UserService extends BaseService {
      * @returns accessToken
      */
     async getAccessToken(user: SessionUser): Promise<string> {
-        const refreshToken = await this.userModel.getRefreshToken(
+        const refreshToken: string = await this.userModel.getRefreshToken(
             user.userUuid,
         );
         const accessToken = await UserService.generateGoogleAccessToken(

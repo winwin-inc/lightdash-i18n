@@ -77,7 +77,11 @@ export const SingleSeriesConfiguration = ({
             >
                 <Config.Subheading>{reference}</Config.Subheading>
                 <Flex justify="flex-start" align="center" wrap="nowrap">
-                    <Config.Label w={LABEL_WIDTH}>{t('components_dataviz_config_single_series_configuration.label')}</Config.Label>
+                    <Config.Label w={LABEL_WIDTH}>
+                        {t(
+                            'components_dataviz_config_single_series_configuration.label',
+                        )}
+                    </Config.Label>
                     <Group
                         spacing="xs"
                         position="left"
@@ -145,7 +149,11 @@ export const SingleSeriesConfiguration = ({
                                             icon={IconAlignLeft}
                                             color="dark.0"
                                         />
-                                        <Text>{t('components_dataviz_config_single_series_configuration.left')}</Text>
+                                        <Text>
+                                            {t(
+                                                'components_dataviz_config_single_series_configuration.left',
+                                            )}
+                                        </Text>
                                     </Group>
                                 ),
                             },
@@ -153,7 +161,11 @@ export const SingleSeriesConfiguration = ({
                                 value: 'right',
                                 label: (
                                     <Group spacing="xs" noWrap position="right">
-                                        <Text>{t('components_dataviz_config_single_series_configuration.right')}</Text>
+                                        <Text>
+                                            {t(
+                                                'components_dataviz_config_single_series_configuration.right',
+                                            )}
+                                        </Text>
                                         <MantineIcon
                                             icon={IconAlignRight}
                                             color="dark.0"

@@ -109,6 +109,39 @@
         "update_success": "成功！图表已更新。",
         "update_error": "更新图表失败"
     },
+    "hooks_organization_appearance": {
+        "color_palette": {
+            "name": "颜色调色板",
+            "create": "创建颜色调色板",
+            "edit": "编辑颜色调色板",
+            "delete": "删除颜色调色板"
+        },
+        "create": {
+            "success": "成功！颜色调色板已创建。",
+            "error": "创建颜色调色板失败"
+        },
+        "update": {
+            "success": "成功！颜色调色板已更新。",
+            "error": "更新颜色调色板失败"
+        },
+        "delete": {
+            "success": "成功！颜色调色板已删除。",
+            "error": "删除颜色调色板失败"
+        },
+        "set_active": {
+            "success": "成功！活动颜色调色板已更新。",
+            "error": "设置活动颜色调色板失败"
+        }
+    },
+    "hooks_index_catalog_job": {
+        "success": "成功刷新目录",
+        "error": "刷新目录失败"
+    },
+    "hooks_custom_metric_write_back": {
+        "success": "成功！自定义指标已写回。",
+        "error": "写回自定义指标失败",
+        "open_pull_request": "打开拉取请求"
+    },
 
     "providers_active_job": {
         "view_log": "查看日志",
@@ -1487,33 +1520,33 @@
         },
         "select_value": "选择值",
         "filter_operator_labels": {
-            "is_null": "is null",
-            "is_not_null": "is not null",
-            "is": "is",
-            "is_not": "is not",
-            "starts_with": "starts with",
-            "ends_with": "ends with",
-            "does_not_include": "does not include",
-            "includes": "includes",
-            "is_less_than": "is less than",
-            "is_less_than_or_equal": "is less than or equal",
-            "is_greater_than": "is greater than",
-            "is_greater_than_or_equal": "is greater than or equal",
-            "is_the_last": "is the last",
-            "not_in_the_last": "not in the last",
-            "in_the_next": "in the next",
-            "in_the_current": "in the current",
-            "not_in_the_current": "not in the current",
-            "is_between": "is between"
+            "is_null": "是空值",
+            "is_not_null": "不是空值",
+            "is": "是",
+            "is_not": "不是",
+            "starts_with": "以...开始",
+            "ends_with": "以...结束",
+            "does_not_include": "不包含",
+            "includes": "包含",
+            "is_less_than": "小于",
+            "is_less_than_or_equal": "小于或等于",
+            "is_greater_than": "大于",
+            "is_greater_than_or_equal": "大于或等于",
+            "is_the_last": "是最后一个",
+            "not_in_the_last": "不是最后一个",
+            "in_the_next": "在下一个",
+            "in_the_current": "在当前",
+            "not_in_the_current": "不在当前",
+            "is_between": "在之间"
         },
         "time_filter_options": {
-            "is_before": "is before",
-            "is_on_or_before": "is on or before",
-            "is_after": "is after",
-            "is_on_or_after": "is on or after",
-            "is_between": "is between"
+            "is_before": "在之前",
+            "is_on_or_before": "在或之前",
+            "is_after": "在之后",
+            "is_on_or_after": "在或之后",
+            "is_between": "在之间"
         },
-        "completed": "completed ",
+        "completed": "已完成",
         "multi_value_paste_popver": {
             "title": "检测到多个以逗号分隔的值：",
             "subtitle": "您想将它们添加为单个值还是多个值？",
@@ -3018,7 +3051,7 @@
         "copied": "已复制",
         "copy": "复制",
         "table_columns": {
-            "name": "名称",
+            "description": "描述",
             "expiration_date": "到期日期",
             "last_used_at": "最后使用于",
             "uuid": "UUID"
@@ -3320,6 +3353,10 @@
                 "label": "描述",
                 "placeholder": "例如: 用户数据查询的国家。"
             },
+            "default_value": {
+                "label": "默认值",
+                "tooltip": "如果未分配其他值, 这将作为属性的默认值。"
+            },
             "email": {
                 "label": "用户邮箱",
                 "placeholder": "例如: test@lightdash.com"
@@ -3343,6 +3380,8 @@
         "add": "添加"
     },
     "components_user_settings_appearance_settings_panel": {
+        "new_palette": "添加新调色板",
+        "customize_color_palettes": "自定义图表和可视化中使用的调色板。",
         "color_palettes": {
             "default_colors": "默认颜色",
             "lightdash_of_colors": "Lightdash 颜色",
@@ -3492,6 +3531,40 @@
             "delete": "删除"
         }
     },
+    "components_user_settings_appearance_settings_panel_palette_modal": {
+        "validate": {
+            "name": "名称必须至少包含 3 个字符",
+            "unique": "名称必须唯一",
+            "invalid_colors": "无效的颜色"
+        },
+        "name": {
+            "label": "调色板名称",
+            "placeholder": "输入一个唯一的名称"
+        },
+        "colors": {
+            "show_all_colors": "显示所有颜色",
+            "show_fewer_colors": "显示较少颜色"
+        },
+        "item": {
+            "edit": "编辑调色板",
+            "delete": "删除调色板"
+        },
+        "create": {
+            "title": "创建新调色板",
+            "submit_button_text": "创建调色板"
+        },
+        "delete": {
+            "title": "删除 {{name}} 调色板",
+            "content": "您确定要删除此调色板吗?",
+            "cancel": "取消",
+            "delete": "删除调色板"
+        },
+        "edit": {
+            "title": "编辑 {{name}} 调色板",
+            "submit_button_text": "更新调色板"
+        },
+        "cancel": "取消"
+    },
 
     "components_version_auto_updater": {
         "title": "Lightdash 的新版本已经准备好了!"
@@ -3551,6 +3624,12 @@
             "sort": "排序",
             "rotation": "旋转",
             "show_grid": "显示网格"
+        },
+        "sort": {
+            "ascending": "升序",
+            "descending": "降序",
+            "bars_ascending": "条形图升序",
+            "bars_descending": "条形图降序"
         },
         "layout": {
             "flip_axis": "翻转轴",
@@ -3795,7 +3874,8 @@
             "title": "自定义指标",
             "label": {
                 "part_1": "将鼠标悬停在您选择的维度上并选择三点操作菜单来添加自定义指标。",
-                "part_2": "点击查看文档。"
+                "part_2": "点击查看文档。",
+                "part_3": "写回自定义指标"
             }
         },
         "tooltip_custom_dimensions": {
@@ -3833,7 +3913,8 @@
     "components_explorer_sider_bar": {
         "error": "无法加载探索数据",
         "title": "表格",
-        "search_tables": "搜索表格"
+        "search_tables": "搜索表格",
+        "virtual_views": "虚拟视图"
     },
     "components_explorer_custom_dimension_modal": {
         "tips": {
@@ -3880,7 +3961,9 @@
         "tips": {
             "is_exists": "此标签的维度/表计算已存在",
             "edit_success": "自定义维度修改成功",
-            "add_success": "自定义维度添加成功"
+            "add_success": "自定义维度添加成功",
+            "error": "创建自定义维度时出错",
+            "error_message": "SQL 中无效的字段引用或维度名称"
         },
         "modal": {
             "title": "{{title}}自定义维度",
@@ -3890,7 +3973,8 @@
         "form": {
             "label": {
                 "label": "标签",
-                "placeholder": "输入自定义尺寸标签"
+                "placeholder": "输入自定义维度标签",
+                "select": "维度类型"
             },
             "sql": {
                 "placeholder": "输入 SQL"
@@ -3932,6 +4016,42 @@
             "create": "创建"
         },
         "add_filter": "添加筛选器"
+    },
+    "components_explorer_custom_metric_write_back_modal": {
+        "pr_disabled_message": "拉取请求只能为 GitHub 连接的项目打开",
+        "unsupported_metric_definition_error": "不支持的指标定义",
+        "create_pr": {
+            "write_back_to_dbt": "写回 dbt",
+            "content": {
+                "part_1": "您的拉取请求",
+                "part_2": "在 Github 上成功创建。",
+                "part_3": "一旦合并，刷新您的 dbt 连接以查看您的更新指标。"
+            },
+            "close": "关闭"
+        },
+        "error": "不支持的指标定义",
+        "single_custom_metric": {
+            "write_back_to_dbt": "写回 dbt",
+            "content": {
+                "part_1": "将此自定义指标转换为您的 dbt 项目中的指标。这将创建一个新分支并开始一个拉取请求。",
+                "part_2": "为以下指标在您的 dbt 项目 GitHub 存储库中创建一个拉取请求:"
+            },
+            "cancel": "取消",
+            "create_pr": "创建拉取请求...",
+            "open_pr": "打开拉取请求"
+        },
+        "multiple_custom_metrics": {
+            "select_metrics": "选择指标以打开拉取请求",
+            "write_back_to_dbt": "写回 dbt",
+            "content": {
+                "part_1": "在您的 dbt 项目 GitHub 存储库中为以下指标创建一个拉取请求:",
+                "part_2": "可用指标 ({{length}} 已选择)"
+            },
+            "metric_yaml_to_be_created": "Metric YAML 要创建:",
+            "cancel": "取消",
+            "create_pr": "创建拉取请求...",
+            "open_pr": "打开拉取请求"
+        }
     },
     "components_explorer_panel": {
         "tables": "表格",
@@ -4378,6 +4498,7 @@
         "sql_runner": "SQL 运行器",
         "chart": "图表",
         "sql": "SQL",
+        "open_sidebar": "打开侧边栏",
         "results": "结果",
         "tooltip_search_waring": {
             "label": "为了防止性能问题,已经应用了 {{maxLimit}} 行的限制。如果需要增加此限制,请联系您的管理员或支持人员。",
@@ -4765,6 +4886,16 @@
             "part_1": "目标",
             "part_2": "是 Lightdash 将在您的数据仓库中查找您的 dbt 模型的数据集/模式。默认情况下,我们将其设置为与您在 profiles.yml 文件中的默认值相同。"
         },
+        "advanced": {
+            "title": "高级",
+            "selector": "dbt 选择器",
+            "invalid": "dbt 选择器无效",
+            "content": {
+                "part_1": "添加 dbt 选择器以过滤掉您的 dbt 项目中的模型。您可以在",
+                "part_2": "我们的文档",
+                "part_3": "中了解更多信息。"
+            }
+        },
         "environment_variables": "环境变量",
         "advanced_configuration_options": "高级配置选项"
     },
@@ -4959,6 +5090,30 @@
             }
         },
         "github": {
+            "dropdown_tooltip": {
+                "part_1": "点击这里打开您的 Github 安装页面以添加更多仓库。",
+                "part_2": "没有看到您的仓库? 配置这里",
+                "part_3": "配置这里"
+            },
+            "authorization_method": {
+                "label": "授权方法",
+                "description": {
+                    "part_1": "选择您想要用于连接到 GitHub 的方法。",
+                    "part_2": "点击打开文档"
+                },
+                "select": {
+                    "part_1": "您已连接到 GitHub。",
+                    "part_2": "点击这里使用其他账户"
+                },
+                "data": {
+                    "oauth": "OAuth (推荐)",
+                    "personal_access_token": "个人访问令牌"
+                },
+                "error": {
+                    "part_1": "您未连接到 GitHub。",
+                    "part_2": "点击这里连接"
+                }
+            },
             "access_token": {
                 "label": "个人访问令牌",
                 "description": {
@@ -5136,6 +5291,8 @@
         }
     },
     "components_project_connection_warehouse_form": {
+        "dbt_version": "dbt 版本",
+        "latest": "最新版本",
         "days_of_week": {
             "monday": "星期一",
             "tuesday": "星期二",
@@ -6154,6 +6311,8 @@
         }
     },
     "ai_embed_dashboard": {
+        "print": "打印此页面",
+        "embed_token": "嵌入令牌是必需的",
         "missing_project_uuid": "缺少项目UUID",
         "error_loading_dashboard": "加载看板失败",
         "jwt_expired": "此嵌入链接已过期",
@@ -6163,4 +6322,4 @@
         "dashboard_tile_type_not_recognised": "看板图表类型未识别",
         "embed_link_not_valid": "此嵌入链接无效"
     }
-}       
+}

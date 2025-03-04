@@ -26,7 +26,6 @@ import {
 } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import FieldIcon from '../../../components/common/Filters/FieldIcon';
 import FieldLabel from '../../../components/common/Filters/FieldLabel';
 import FilterInputComponent from '../../../components/common/Filters/FilterInputs';
