@@ -26,7 +26,7 @@ export const useSearchItemLabel = () => {
                 );
             default:
                 return assertUnreachable(
-                    itemType,
+                    itemType as never,
                     `Unknown search item type: ${itemType}`,
                 );
         }

@@ -114,17 +114,21 @@ const CreatedPullRequestModalContent = ({
     );
 };
 
-const parseError = (error: unknown): string => {
-    const errorName = error instanceof Error ? error.name : 'unknown error';
-    return `Error: ${
-        error instanceof NotImplementedError
-            ? t(
-                  'components_explorer_custom_metric_write_back_modal.unsupported_metric_definition_error',
-              )
-            : errorName
-    }
+const useParseError = () => {
+    const { t } = useTranslation();
+
+    return (error: unknown): string => {
+        const errorName = error instanceof Error ? error.name : 'unknown error';
+        return `Error: ${
+            error instanceof NotImplementedError
+                ? t(
+                      'components_explorer_custom_metric_write_back_modal.unsupported_metric_definition_error',
+                  )
+                : errorName
+        }
 
 ${getErrorMessage(error)}`;
+    };
 };
 
 const SingleCustomMetricModalContent = ({
@@ -139,6 +143,7 @@ const SingleCustomMetricModalContent = ({
     const { t } = useTranslation();
     const { prDisabledMessage, unsupportedMetricDefinitionError } =
         useGetModalContent();
+    const parseError = useParseError();
 
     const {
         mutate: writeBackCustomMetrics,
@@ -161,7 +166,7 @@ const SingleCustomMetricModalContent = ({
             setError(parseError(e));
             return '';
         }
-    }, [item]);
+    }, [item, parseError]);
 
     if (data) {
         // Return a simple confirmation modal with the PR URL
@@ -295,6 +300,7 @@ const MultipleCustomMetricModalContent = ({
     const { t } = useTranslation();
     const { prDisabledMessage, unsupportedMetricDefinitionError } =
         useGetModalContent();
+    const parseError = useParseError();
 
     const {
         mutate: writeBackCustomMetrics,
@@ -324,7 +330,7 @@ const MultipleCustomMetricModalContent = ({
             setError(parseError(e));
             return '';
         }
-    }, [items, selectedItems]);
+    }, [items, selectedItems, parseError]);
 
     if (data) {
         // Return a simple confirmation modal with the PR URL

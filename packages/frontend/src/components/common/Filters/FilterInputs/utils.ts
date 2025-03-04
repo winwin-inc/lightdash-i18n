@@ -219,13 +219,13 @@ const useValueAsString = () => {
                             .join(', ');
                     default:
                         return assertUnreachable(
-                            operator,
+                            operator as never,
                             `Unexpected operator: ${operator}`,
                         );
                 }
             default:
                 return assertUnreachable(
-                    filterType,
+                    filterType as never,
                     `Unexpected filter type: ${filterType}`,
                 );
         }
