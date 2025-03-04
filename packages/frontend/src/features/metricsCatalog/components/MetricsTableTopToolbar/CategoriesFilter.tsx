@@ -56,9 +56,7 @@ const CategoriesFilter: FC<CategoriesFilterProps> = ({
 
     const buttonLabel = hasSelectedCategories
         ? categoryNames
-        : t(
-              'features_metrics_metrics_table_top_toolbar.all_categories',
-          );
+        : t('features_metrics_metrics_table_top_toolbar.all_categories');
 
     return (
         <Group spacing="two">

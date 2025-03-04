@@ -42,11 +42,13 @@ const SummaryPreview: FC<SummaryPreviewProps> = ({
                 rehypePlugins={[[rehypeExternalLinks, { target: '_blank' }]]}
             />
             <Flex align="center" justify="space-between" mt="md" w="100%">
-                <Text
-                    color="gray.7"
-                    fz="xs"
-                >{`${t('ai_dashboard_summary_preview.generated')} ${relativeDate}`}</Text>
-                <Tooltip label={t('ai_dashboard_summary_preview.regenerate_summary')} position="left">
+                <Text color="gray.7" fz="xs">{`${t(
+                    'ai_dashboard_summary_preview.generated',
+                )} ${relativeDate}`}</Text>
+                <Tooltip
+                    label={t('ai_dashboard_summary_preview.regenerate_summary')}
+                    position="left"
+                >
                     <ActionIcon onClick={handleSummaryRegen} color="violet">
                         <MantineIcon icon={IconRefresh} />
                     </ActionIcon>

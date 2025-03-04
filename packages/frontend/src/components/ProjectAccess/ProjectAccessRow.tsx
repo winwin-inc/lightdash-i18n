@@ -1,7 +1,6 @@
 import {
     getHighestProjectRole,
     ProjectMemberRole,
-    ProjectMemberRoleLabels,
     type InheritedRoles,
     type OrganizationMemberProfile,
     type ProjectRole,

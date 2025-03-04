@@ -40,7 +40,13 @@ const PresetsForm: FC<PresetsFormProps> = ({
 }) => {
     const { t } = useTranslation();
 
-const placeholder = `${t('ai_dashboard_summary_presets_form.placeholder.part_1')}\n\n${t('ai_dashboard_summary_presets_form.placeholder.part_2')}\n\n${t('ai_dashboard_summary_presets_form.placeholder.part_3')}\n\n${t('ai_dashboard_summary_presets_form.placeholder.part_4')}\n\n${t('ai_dashboard_summary_presets_form.placeholder.part_5')}\n\n${t('ai_dashboard_summary_presets_form.placeholder.part_6')}`;
+    const placeholder = `${t(
+        'ai_dashboard_summary_presets_form.placeholder.part_1',
+    )}\n\n${t('ai_dashboard_summary_presets_form.placeholder.part_2')}\n\n${t(
+        'ai_dashboard_summary_presets_form.placeholder.part_3',
+    )}\n\n${t('ai_dashboard_summary_presets_form.placeholder.part_4')}\n\n${t(
+        'ai_dashboard_summary_presets_form.placeholder.part_5',
+    )}\n\n${t('ai_dashboard_summary_presets_form.placeholder.part_6')}`;
 
     const form = useForm<PresetFormValues>({
         initialValues: {

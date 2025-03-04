@@ -10,8 +10,8 @@ import { Button, Group, Modal, Stack, Title } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { isEqual } from 'lodash';
 import { useCallback, useEffect } from 'react';
-import { type ValueOf } from 'type-fest';
 import { useTranslation } from 'react-i18next';
+import { type ValueOf } from 'type-fest';
 import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import { FormatForm } from '../FormatForm';
 
@@ -118,16 +118,12 @@ export const FormatModal = () => {
                                     })
                                 }
                             >
-                                {t(
-                                    'components_explorer_format_modal.reset',
-                                )}
+                                {t('components_explorer_format_modal.reset')}
                             </Button>
                         )}
 
                         <Button display="block" type="submit">
-                            {t(
-                                'components_explorer_format_modal.save_changes',
-                            )}
+                            {t('components_explorer_format_modal.save_changes')}
                         </Button>
                     </Group>
                 </Stack>

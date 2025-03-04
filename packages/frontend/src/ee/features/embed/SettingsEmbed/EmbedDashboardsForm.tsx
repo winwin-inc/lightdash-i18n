@@ -1,8 +1,8 @@
 import { type DashboardBasicDetails } from '@lightdash/common';
 import { Button, Flex, MultiSelect, Stack } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { useTranslation } from 'react-i18next';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const EmbedDashboardsForm: FC<{
     disabled: boolean;
@@ -36,7 +36,9 @@ const EmbedDashboardsForm: FC<{
                     }))}
                     disabled={disabled}
                     defaultValue={[]}
-                    placeholder={t('ai_embed_dashboards_form.select_a_dashboard')}
+                    placeholder={t(
+                        'ai_embed_dashboards_form.select_a_dashboard',
+                    )}
                     searchable
                     withinPortal
                     {...form.getInputProps('dashboardUuids')}

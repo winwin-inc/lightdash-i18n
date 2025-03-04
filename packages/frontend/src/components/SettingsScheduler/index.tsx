@@ -42,9 +42,7 @@ const SettingsScheduler: FC<SettingsSchedulerProps> = ({ projectUuid }) => {
                     ? e.error.message
                     : getErrorMessage(e);
                 showToastError({
-                    title: t(
-                        'components_settings_scheduler.tips.failed',
-                    ),
+                    title: t('components_settings_scheduler.tips.failed'),
                     subtitle: errorMessage,
                 });
             }

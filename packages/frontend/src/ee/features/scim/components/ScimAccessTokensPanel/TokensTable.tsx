@@ -61,16 +61,18 @@ const TokenItem: FC<{
                         <span>
                             {expiresAt
                                 ? formatDate(expiresAt)
-                                : t('ai_scim_access_tokens_panel_tokens_table.no_expiration_date')}
+                                : t(
+                                      'ai_scim_access_tokens_panel_tokens_table.no_expiration_date',
+                                  )}
                         </span>
                         {rotatedAt && (
                             <Tooltip
                                 withinPortal
                                 position="top"
                                 maw={350}
-                                label={`${t('ai_scim_access_tokens_panel_tokens_table.last_rotated_at')} ${formatTimestamp(
-                                    rotatedAt,
-                                )}`}
+                                label={`${t(
+                                    'ai_scim_access_tokens_panel_tokens_table.last_rotated_at',
+                                )} ${formatTimestamp(rotatedAt)}`}
                             >
                                 <MantineIcon
                                     icon={IconInfoCircle}
@@ -106,7 +108,15 @@ const TokenItem: FC<{
                         <CopyButton value={uuid}>
                             {({ copied, copy }) => (
                                 <Tooltip
-                                    label={copied ? t('ai_scim_access_tokens_panel_tokens_table.copied') : t('ai_scim_access_tokens_panel_tokens_table.copy')}
+                                    label={
+                                        copied
+                                            ? t(
+                                                  'ai_scim_access_tokens_panel_tokens_table.copied',
+                                              )
+                                            : t(
+                                                  'ai_scim_access_tokens_panel_tokens_table.copy',
+                                              )
+                                    }
                                     withArrow
                                     position="right"
                                 >
@@ -164,10 +174,26 @@ export const TokensTable = () => {
                 <Table className={cx(classes.root, classes.alignLastTdRight)}>
                     <thead>
                         <tr>
-                            <th>{t('ai_scim_access_tokens_panel_tokens_table.tables.name')}</th>
-                            <th>{t('ai_scim_access_tokens_panel_tokens_table.tables.expiration_date')}</th>
-                            <th>{t('ai_scim_access_tokens_panel_tokens_table.tables.last_used_at')}</th>
-                            <th>{t('ai_scim_access_tokens_panel_tokens_table.tables.uuid')}</th>
+                            <th>
+                                {t(
+                                    'ai_scim_access_tokens_panel_tokens_table.tables.name',
+                                )}
+                            </th>
+                            <th>
+                                {t(
+                                    'ai_scim_access_tokens_panel_tokens_table.tables.expiration_date',
+                                )}
+                            </th>
+                            <th>
+                                {t(
+                                    'ai_scim_access_tokens_panel_tokens_table.tables.last_used_at',
+                                )}
+                            </th>
+                            <th>
+                                {t(
+                                    'ai_scim_access_tokens_panel_tokens_table.tables.uuid',
+                                )}
+                            </th>
                             <th></th>
                         </tr>
                     </thead>
@@ -188,18 +214,25 @@ export const TokensTable = () => {
                 onClose={() => !isDeleting && setTokenToDelete(undefined)}
                 title={
                     <Title order={4}>
-                        {t('ai_scim_access_tokens_panel_tokens_table.modal.delete_token')} {tokenToDelete?.description}
+                        {t(
+                            'ai_scim_access_tokens_panel_tokens_table.modal.delete_token',
+                        )}{' '}
+                        {tokenToDelete?.description}
                     </Title>
                 }
             >
                 <Stack spacing="xl">
                     <Text>
-                        {t('ai_scim_access_tokens_panel_tokens_table.modal.content.part_1')}
+                        {t(
+                            'ai_scim_access_tokens_panel_tokens_table.modal.content.part_1',
+                        )}
                         <Text fw={600} component="span">
                             {' '}
                             {tokenToDelete?.description}{' '}
                         </Text>
-                        {t('ai_scim_access_tokens_panel_tokens_table.modal.content.part_2')}
+                        {t(
+                            'ai_scim_access_tokens_panel_tokens_table.modal.content.part_2',
+                        )}
                     </Text>
 
                     <Flex gap="sm" justify="flex-end">
@@ -209,7 +242,9 @@ export const TokensTable = () => {
                             disabled={isDeleting}
                             onClick={() => setTokenToDelete(undefined)}
                         >
-                            {t('ai_scim_access_tokens_panel_tokens_table.modal.cancel')}
+                            {t(
+                                'ai_scim_access_tokens_panel_tokens_table.modal.cancel',
+                            )}
                         </Button>
                         <Button
                             color="red"
@@ -218,7 +253,9 @@ export const TokensTable = () => {
                                 mutate(tokenToDelete?.uuid ?? '');
                             }}
                         >
-                            {t('ai_scim_access_tokens_panel_tokens_table.modal.delete')}
+                            {t(
+                                'ai_scim_access_tokens_panel_tokens_table.modal.delete',
+                            )}
                         </Button>
                     </Flex>
                 </Stack>

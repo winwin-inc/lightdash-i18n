@@ -148,7 +148,9 @@ export const CartesianChartSeries = ({
     return (
         <Stack mt="sm" spacing="xs">
             {Object.keys(groupedSeries).length === 0 && (
-                <Text>{t('components_dataviz_config_cartesian_chart.title')}</Text>
+                <Text>
+                    {t('components_dataviz_config_cartesian_chart.title')}
+                </Text>
             )}
             {Object.keys(groupedSeries).length > 0 && (
                 <>

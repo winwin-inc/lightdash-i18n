@@ -49,7 +49,9 @@ const useEmbedUrlCreateMutation = (projectUuid: string) => {
             mutationKey: ['create-embed-url'],
             onError: (error) => {
                 showToastError({
-                    title: t('ai_embed_url_form.error_tips.could_not_create_embed_url'),
+                    title: t(
+                        'ai_embed_url_form.error_tips.could_not_create_embed_url',
+                    ),
                     subtitle: error.error.message,
                 });
             },
@@ -219,7 +221,9 @@ const EmbedUrlForm: FC<{
                 <Input.Wrapper label={t('ai_embed_url_form.user_email')}>
                     <TextInput
                         size={'xs'}
-                        placeholder={t('ai_embed_url_form.user_email_placeholder')}
+                        placeholder={t(
+                            'ai_embed_url_form.user_email_placeholder',
+                        )}
                         {...form.getInputProps('email')}
                     />
                 </Input.Wrapper>
@@ -228,14 +232,18 @@ const EmbedUrlForm: FC<{
                         <Group key={item.uuid} mt="xs">
                             <TextInput
                                 size={'xs'}
-                                placeholder={t('ai_embed_url_form.user_attributes_placeholder.part_1')}
+                                placeholder={t(
+                                    'ai_embed_url_form.user_attributes_placeholder.part_1',
+                                )}
                                 {...form.getInputProps(
                                     `userAttributes.${index}.key`,
                                 )}
                             />
                             <TextInput
                                 size={'xs'}
-                                placeholder={t('ai_embed_url_form.user_attributes_placeholder.part_2')}
+                                placeholder={t(
+                                    'ai_embed_url_form.user_attributes_placeholder.part_2',
+                                )}
                                 {...form.getInputProps(
                                     `userAttributes.${index}.value`,
                                 )}
@@ -329,7 +337,9 @@ const EmbedUrlForm: FC<{
             </Stack>
             <Stack mb="md">
                 <Stack spacing="xs">
-                    <Title order={5}>{t('ai_embed_url_form.code_snippet')}</Title>
+                    <Title order={5}>
+                        {t('ai_embed_url_form.code_snippet')}
+                    </Title>
                     <Text color="dimmed">
                         {t('ai_embed_url_form.copy_to_clipboard_description')}
                     </Text>

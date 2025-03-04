@@ -64,16 +64,12 @@ export const useCreateColorPalette = () => {
         onSuccess: async () => {
             await queryClient.invalidateQueries(['color_palettes']);
             showToastSuccess({
-                title: t(
-                    'hooks_organization_appearance.create.success',
-                ),
+                title: t('hooks_organization_appearance.create.success'),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: t(
-                    'hooks_organization_appearance.create.error',
-                ),
+                title: t('hooks_organization_appearance.create.error'),
                 apiError: error,
             });
         },
@@ -107,16 +103,12 @@ export const useUpdateColorPalette = () => {
         onSuccess: async () => {
             await queryClient.invalidateQueries(['color_palettes']);
             showToastSuccess({
-                title: t(
-                    'hooks_organization_appearance.update.success',
-                ),
+                title: t('hooks_organization_appearance.update.success'),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: t(
-                    'hooks_organization_appearance.update.error',
-                ),
+                title: t('hooks_organization_appearance.update.error'),
                 apiError: error,
             });
         },
@@ -135,16 +127,12 @@ export const useDeleteColorPalette = () => {
             onSuccess: async () => {
                 await queryClient.invalidateQueries(['color_palettes']);
                 showToastSuccess({
-                    title: t(
-                        'hooks_organization_appearance.delete.success',
-                    ),
+                    title: t('hooks_organization_appearance.delete.success'),
                 });
             },
-            onError: ({ error }, colorPaletteUuid) => {
+            onError: ({ error }) => {
                 showToastApiError({
-                    title: t(
-                        'hooks_organization_appearance.delete.error',
-                    ),
+                    title: t('hooks_organization_appearance.delete.error'),
                     apiError: error,
                 });
             },
@@ -171,9 +159,7 @@ export const useSetActiveColorPalette = () => {
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: t(
-                        'hooks_organization_appearance.set_active.error',
-                    ),
+                    title: t('hooks_organization_appearance.set_active.error'),
                     apiError: error,
                 });
             },

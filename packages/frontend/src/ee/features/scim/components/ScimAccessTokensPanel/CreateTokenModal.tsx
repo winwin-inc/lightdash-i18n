@@ -94,7 +94,11 @@ export const CreateTokenModal: FC<{
             }}
             title={
                 <Title order={4}>
-                    {data ? t('ai_scim_access_tokens_panel.token_has_been_generated') : t('ai_scim_access_tokens_panel.new_token')}
+                    {data
+                        ? t(
+                              'ai_scim_access_tokens_panel.token_has_been_generated',
+                          )
+                        : t('ai_scim_access_tokens_panel.new_token')}
                 </Title>
             }
         >
@@ -104,7 +108,9 @@ export const CreateTokenModal: FC<{
                         <TextInput
                             label={t('ai_scim_access_tokens_panel.description')}
                             disabled={isLoading}
-                            placeholder={t('ai_scim_access_tokens_panel.description')}
+                            placeholder={t(
+                                'ai_scim_access_tokens_panel.description',
+                            )}
                             required
                             {...form.getInputProps('description')}
                         />
@@ -136,7 +142,15 @@ export const CreateTokenModal: FC<{
                             <CopyButton value={data.token}>
                                 {({ copied, copy }) => (
                                     <Tooltip
-                                        label={copied ? t('ai_scim_access_tokens_panel.copied') : t('ai_scim_access_tokens_panel.copy')}
+                                        label={
+                                            copied
+                                                ? t(
+                                                      'ai_scim_access_tokens_panel.copied',
+                                                  )
+                                                : t(
+                                                      'ai_scim_access_tokens_panel.copy',
+                                                  )
+                                        }
                                         withArrow
                                         position="right"
                                     >
@@ -159,9 +173,13 @@ export const CreateTokenModal: FC<{
                     />
                     <Alert icon={<MantineIcon icon={IconAlertCircle} />}>
                         {data.expiresAt &&
-                            `${t('ai_scim_access_tokens_panel.token_will_expire')}
+                            `${t(
+                                'ai_scim_access_tokens_panel.token_will_expire',
+                            )}
                         ${formatTimestamp(data.expiresAt)} `}
-                        {t('ai_scim_access_tokens_panel.make_sure_to_copy_your_access_token_now')}
+                        {t(
+                            'ai_scim_access_tokens_panel.make_sure_to_copy_your_access_token_now',
+                        )}
                     </Alert>
                 </Stack>
             )}

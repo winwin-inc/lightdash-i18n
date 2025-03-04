@@ -23,8 +23,8 @@ import { useQuery } from '@tanstack/react-query';
 import MDEditor from '@uiw/react-md-editor';
 import dayjs from 'dayjs';
 import type { FC } from 'react';
-import { Link, useNavigate, useParams, type LinkProps } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { Link, useNavigate, useParams, type LinkProps } from 'react-router';
 
 import { lightdashApi } from '../../api';
 import Page from '../../components/common/Page/Page';
@@ -154,7 +154,9 @@ const AiThreadMessage: FC<AiThreadMessageProps> = ({
                             style={{ backgroundColor: 'transparent' }}
                         />
                     ) : (
-                        <Text italic>{t('ai_conversations.no_response_yet')}</Text>
+                        <Text italic>
+                            {t('ai_conversations.no_response_yet')}
+                        </Text>
                     )}
 
                     {actor === 'ai' && humanScore !== undefined && (
@@ -342,7 +344,9 @@ const AiConversationsPage: FC = () => {
                 <Center style={{ flexGrow: 1 }}>
                     <SuboptimalState
                         icon={IconMessage}
-                        description={t('ai_conversations.suboptimal_state.description')}
+                        description={t(
+                            'ai_conversations.suboptimal_state.description',
+                        )}
                     />
                 </Center>
             ) : isAiMessagesLoading || !aiMessages ? (

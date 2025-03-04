@@ -45,9 +45,9 @@ import {
     IconX,
 } from '@tabler/icons-react';
 import { isEqual } from 'lodash';
-import { useTranslation } from 'react-i18next';
 import { type MRT_TableInstance } from 'mantine-react-table';
 import { memo, useCallback, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router';
 
 import MantineIcon from '../../../../components/common/MantineIcon';

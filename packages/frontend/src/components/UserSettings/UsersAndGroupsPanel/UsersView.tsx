@@ -1,6 +1,5 @@
 import {
     FeatureFlags,
-    getRoleDescription,
     isOrganizationMemberProfileWithGroups,
     OrganizationMemberRole,
     type OrganizationMemberProfile,

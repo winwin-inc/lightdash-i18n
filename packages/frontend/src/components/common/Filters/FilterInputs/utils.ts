@@ -27,108 +27,112 @@ import isEmpty from 'lodash/isEmpty';
 import uniq from 'lodash/uniq';
 import { type MomentInput } from 'moment';
 import { useTranslation } from 'react-i18next';
-import { useFilterOperatorLabel, useTimeFilterOptions } from './constants';
+import { useFilterOperatorLabel } from './constants';
 
 export const useFilterOperatorOptions = () => {
-    const { getFilterOptions } = useFilterOperatorLabel();
-    const timeFilterOptions = useTimeFilterOptions();
-
     return (filterType: FilterType) => {
         switch (filterType) {
             case FilterType.STRING:
             case FilterType.NUMBER:
                 switch (operator) {
-              case FilterOperator.IN_BETWEEN:
-              case FilterOperator.NOT_IN_BETWEEN:
-                  return `${firstValue || 0}, ${secondValue || 0}`;
-              default:
-                  return values?.join(', ');
-          }
-      case FilterType.BOOLEAN:
-          return values?.map(formatBoolean).join(', ');
-      case FilterType.DATE:
-          switch (operator) {
-              case FilterOperator.IN_THE_PAST:
-              case FilterOperator.NOT_IN_THE_PAST:
-              case FilterOperator.IN_THE_NEXT:
-                  if (!isFilterRule(rule)) throw new Error('Invalid rule');
+                    case FilterOperator.IN_BETWEEN:
+                    case FilterOperator.NOT_IN_BETWEEN:
+                        return `${firstValue || 0}, ${secondValue || 0}`;
+                    default:
+                        return values?.join(', ');
+                }
+            case FilterType.BOOLEAN:
+                return values?.map(formatBoolean).join(', ');
+            case FilterType.DATE:
+                switch (operator) {
+                    case FilterOperator.IN_THE_PAST:
+                    case FilterOperator.NOT_IN_THE_PAST:
+                    case FilterOperator.IN_THE_NEXT:
+                        if (!isFilterRule(rule))
+                            throw new Error('Invalid rule');
 
-                  return `${firstValue} ${
-                      rule.settings?.completed ? 'completed ' : ''
-                  }${rule.settings?.unitOfTime}`;
-              case FilterOperator.IN_BETWEEN:
-                  if (
-                      isDimension(field) &&
-                      isMomentInput(firstValue) &&
-                      isMomentInput(secondValue) &&
-                      field.type === DimensionType.DATE
-                  ) {
-                      return `${formatDate(
-                          firstValue as MomentInput,
-                          field.timeInterval,
-                      )} and ${formatDate(
-                          secondValue as MomentInput,
-                          field.timeInterval,
-                      )}`;
-                  }
-                  return `${getLocalTimeDisplay(
-                      firstValue as MomentInput,
-                      false,
-                  )} and ${getLocalTimeDisplay(secondValue as MomentInput)}`;
-              case FilterOperator.IN_THE_CURRENT:
-              case FilterOperator.NOT_IN_THE_CURRENT:
-                  if (!isFilterRule(rule)) throw new Error('Invalid rule');
+                        return `${firstValue} ${
+                            rule.settings?.completed ? 'completed ' : ''
+                        }${rule.settings?.unitOfTime}`;
+                    case FilterOperator.IN_BETWEEN:
+                        if (
+                            isDimension(field) &&
+                            isMomentInput(firstValue) &&
+                            isMomentInput(secondValue) &&
+                            field.type === DimensionType.DATE
+                        ) {
+                            return `${formatDate(
+                                firstValue as MomentInput,
+                                field.timeInterval,
+                            )} and ${formatDate(
+                                secondValue as MomentInput,
+                                field.timeInterval,
+                            )}`;
+                        }
+                        return `${getLocalTimeDisplay(
+                            firstValue as MomentInput,
+                            false,
+                        )} and ${getLocalTimeDisplay(
+                            secondValue as MomentInput,
+                        )}`;
+                    case FilterOperator.IN_THE_CURRENT:
+                    case FilterOperator.NOT_IN_THE_CURRENT:
+                        if (!isFilterRule(rule))
+                            throw new Error('Invalid rule');
 
-                  return rule.settings?.unitOfTime.slice(0, -1);
-              case FilterOperator.NULL:
-              case FilterOperator.NOT_NULL:
-              case FilterOperator.EQUALS:
-              case FilterOperator.NOT_EQUALS:
-              case FilterOperator.STARTS_WITH:
-              case FilterOperator.ENDS_WITH:
-              case FilterOperator.INCLUDE:
-              case FilterOperator.NOT_INCLUDE:
-              case FilterOperator.LESS_THAN:
-              case FilterOperator.LESS_THAN_OR_EQUAL:
-              case FilterOperator.GREATER_THAN:
-              case FilterOperator.GREATER_THAN_OR_EQUAL:
-                  return values
-                      ?.map((value) => {
-                          const type = isCustomSqlDimension(field)
-                              ? field.dimensionType
-                              : field.type;
-                          if (
-                              isDimension(field) &&
-                              isMomentInput(value) &&
-                              type === DimensionType.TIMESTAMP
-                          ) {
-                              return getLocalTimeDisplay(value);
-                          } else if (
-                              isDimension(field) &&
-                              isMomentInput(value) &&
-                              type === DimensionType.DATE
-                          ) {
-                              return formatDate(value, field.timeInterval);
-                          } else {
-                              return value;
-                          }
-                      })
-                      .join(', ');
-              case FilterOperator.NOT_IN_BETWEEN:
-                  throw new Error('Not implemented');
-              default:
-                  return assertUnreachable(
-                      operator,
-                      `Unexpected operator: ${operator}`,
-                  );
-          }
-      default:
-          return assertUnreachable(
-              filterType,
-              `Unexpected filter type: ${filterType}`,
-          );
+                        return rule.settings?.unitOfTime.slice(0, -1);
+                    case FilterOperator.NULL:
+                    case FilterOperator.NOT_NULL:
+                    case FilterOperator.EQUALS:
+                    case FilterOperator.NOT_EQUALS:
+                    case FilterOperator.STARTS_WITH:
+                    case FilterOperator.ENDS_WITH:
+                    case FilterOperator.INCLUDE:
+                    case FilterOperator.NOT_INCLUDE:
+                    case FilterOperator.LESS_THAN:
+                    case FilterOperator.LESS_THAN_OR_EQUAL:
+                    case FilterOperator.GREATER_THAN:
+                    case FilterOperator.GREATER_THAN_OR_EQUAL:
+                        return values
+                            ?.map((value) => {
+                                const type = isCustomSqlDimension(field)
+                                    ? field.dimensionType
+                                    : field.type;
+                                if (
+                                    isDimension(field) &&
+                                    isMomentInput(value) &&
+                                    type === DimensionType.TIMESTAMP
+                                ) {
+                                    return getLocalTimeDisplay(value);
+                                } else if (
+                                    isDimension(field) &&
+                                    isMomentInput(value) &&
+                                    type === DimensionType.DATE
+                                ) {
+                                    return formatDate(
+                                        value,
+                                        field.timeInterval,
+                                    );
+                                } else {
+                                    return value;
+                                }
+                            })
+                            .join(', ');
+                    case FilterOperator.NOT_IN_BETWEEN:
+                        throw new Error('Not implemented');
+                    default:
+                        return assertUnreachable(
+                            operator,
+                            `Unexpected operator: ${operator}`,
+                        );
+                }
+            default:
+                return assertUnreachable(
+                    filterType,
+                    `Unexpected filter type: ${filterType}`,
+                );
         }
-  }
+    };
 };
 
 const useValueAsString = () => {

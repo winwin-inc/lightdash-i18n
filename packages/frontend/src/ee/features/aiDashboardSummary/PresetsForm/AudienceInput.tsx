@@ -8,7 +8,6 @@ import {
 } from '@mantine/core';
 import { type GetInputPropsReturnType } from '@mantine/form/lib/types';
 import { IconPlus, IconTrash } from '@tabler/icons-react';
-import { useTranslation } from 'react-i18next';
 import {
     useCallback,
     useState,
@@ -16,6 +15,7 @@ import {
     type FC,
     type KeyboardEventHandler,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../../../components/common/MantineIcon';
 
 type AudienceItemProps = {

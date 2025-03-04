@@ -32,8 +32,8 @@ import { useParams } from 'react-router';
 
 import FieldSelect from '../../common/FieldSelect';
 import FilterInputComponent from '../../common/Filters/FilterInputs';
-import { useFilterOperatorOptions } from '../../common/Filters/FilterInputs/utils';
 import { useFilterOperatorLabel } from '../../common/Filters/FilterInputs/constants';
+import { useFilterOperatorOptions } from '../../common/Filters/FilterInputs/utils';
 import FiltersProvider from '../../common/Filters/FiltersProvider';
 import MantineIcon from '../../common/MantineIcon';
 
@@ -141,7 +141,7 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
             ]);
         }
         return [];
-    }, [filterType, rule]);
+    }, [filterType, rule, getFilterOptions, getFilterOperatorOptions]);
 
     const availableCompareFields = useMemo(() => {
         return fields.filter((f) => {

@@ -11,7 +11,6 @@ import { useCallback, useEffect, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import useToaster from '../../hooks/toaster/useToaster';
 import {
-    jobStatusLabel,
     runningStepsInfo,
     TOAST_KEY_FOR_REFRESH_JOB,
     useJob,

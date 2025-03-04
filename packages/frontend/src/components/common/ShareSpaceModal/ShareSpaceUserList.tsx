@@ -394,7 +394,7 @@ const GroupsAccessList: FC<GroupAccessListProps> = ({
                                     )
                                   : t(
                                         'components_common_share_space_modal.access_delete.reset',
-                                    )
+                                    ),
                           }
                         : accessType,
                 );

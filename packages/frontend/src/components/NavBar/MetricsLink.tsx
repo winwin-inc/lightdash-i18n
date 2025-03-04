@@ -17,7 +17,7 @@ interface Props {
 }
 
 export const MetricsLink: FC<Props> = ({ projectUuid, asMenu }) => {
-    const { t } = useTranslation()
+    const { t } = useTranslation();
 
     const { user } = useApp();
     const navigate = useNavigate();

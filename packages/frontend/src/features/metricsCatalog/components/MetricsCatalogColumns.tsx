@@ -35,7 +35,9 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
     return [
         {
             accessorKey: SpotlightTableColumns.METRIC,
-            header: t('features_metrics_catalog_components.columns.metric.label'),
+            header: t(
+                'features_metrics_catalog_components.columns.metric.label',
+            ),
             enableSorting: true,
             enableEditing: false,
             size: 350,
@@ -48,7 +50,7 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                 const canManageExplore = useAppSelector(
                     (state) => state.metricsCatalog.abilities.canManageExplore,
                 );
-    
+
                 return (
                     <Flex
                         justify="space-between"
@@ -72,12 +74,17 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
         },
         {
             accessorKey: SpotlightTableColumns.TABLE,
-            header: t('features_metrics_catalog_components.columns.table.label'),
+            header: t(
+                'features_metrics_catalog_components.columns.table.label',
+            ),
             enableSorting: false,
             enableEditing: false,
             size: 150,
             Header: ({ column }) => (
-                <MetricCatalogColumnHeaderCell Icon={Table} tooltipLabel="Table">
+                <MetricCatalogColumnHeaderCell
+                    Icon={Table}
+                    tooltipLabel="Table"
+                >
                     {column.columnDef.header}
                 </MetricCatalogColumnHeaderCell>
             ),
@@ -85,20 +92,24 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                 const projectUuid = useAppSelector(
                     (state) => state.metricsCatalog.projectUuid,
                 );
-    
-                const savedChartVersion = createMetricPreviewUnsavedChartVersion({
-                    name: row.original.name,
-                    table: row.original.tableName,
-                });
-    
+
+                const savedChartVersion =
+                    createMetricPreviewUnsavedChartVersion({
+                        name: row.original.name,
+                        table: row.original.tableName,
+                    });
+
                 const exploreUrl = getExplorerUrlFromCreateSavedChartVersion(
                     projectUuid,
                     savedChartVersion,
                 );
-    
-                const url = new URL(exploreUrl.pathname, window.location.origin);
+
+                const url = new URL(
+                    exploreUrl.pathname,
+                    window.location.origin,
+                );
                 url.search = exploreUrl.search;
-    
+
                 return (
                     <Button
                         component="a"
@@ -135,22 +146,30 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
             enableEditing: false,
             size: 400,
             minSize: 200,
-            header: t('features_metrics_catalog_components.columns.description.label'),
+            header: t(
+                'features_metrics_catalog_components.columns.description.label',
+            ),
             Header: ({ column }) => (
                 <MetricCatalogColumnHeaderCell
                     Icon={Description}
-                    tooltipLabel={t('features_metrics_catalog_components.columns.description.content')}
+                    tooltipLabel={t(
+                        'features_metrics_catalog_components.columns.description.content',
+                    )}
                 >
                     {column.columnDef.header}
                 </MetricCatalogColumnHeaderCell>
             ),
             Cell: ({ row, table }) => {
-                return <MetricsCatalogColumnDescription row={row} table={table} />;
+                return (
+                    <MetricsCatalogColumnDescription row={row} table={table} />
+                );
             },
         },
         {
             accessorKey: SpotlightTableColumns.CATEGORIES,
-            header: t('features_metrics_catalog_components.columns.category.label'),
+            header: t(
+                'features_metrics_catalog_components.columns.category.label',
+            ),
             enableSorting: false,
             enableEditing: true,
             size: 270,
@@ -169,7 +188,9 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
             Header: ({ column }) => (
                 <MetricCatalogColumnHeaderCell
                     Icon={Tag}
-                    tooltipLabel={t('features_metrics_catalog_components.columns.category.content')}
+                    tooltipLabel={t(
+                        'features_metrics_catalog_components.columns.category.content',
+                    )}
                 >
                     {column.columnDef.header}
                 </MetricCatalogColumnHeaderCell>
@@ -179,12 +200,12 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                 const canManageTags = useAppSelector(
                     (state) => state.metricsCatalog.abilities.canManageTags,
                 );
-    
+
                 const categories = useMemo(
                     () => row.original.categories ?? [],
                     [row],
                 );
-    
+
                 return (
                     <Group
                         pos="absolute"
@@ -206,7 +227,9 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                         </Group>
                         {canManageTags && (
                             <MetricsCatalogCategoryForm
-                                catalogSearchUuid={row.original.catalogSearchUuid}
+                                catalogSearchUuid={
+                                    row.original.catalogSearchUuid
+                                }
                                 metricCategories={categories}
                                 opened={
                                     table.getState().editingCell?.id === cell.id
@@ -214,7 +237,7 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                                 onClose={() => {
                                     dispatch(setCategoryPopoverIsClosing(true));
                                     table.setEditingCell(null);
-    
+
                                     // Resetting the state to avoid race conditions with the category cell click
                                     setTimeout(() => {
                                         dispatch(
@@ -233,17 +256,18 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                     (state) => state.metricsCatalog.popovers.category.isClosing,
                 );
                 const isDescriptionPopoverClosing = useAppSelector(
-                    (state) => state.metricsCatalog.popovers.description.isClosing,
+                    (state) =>
+                        state.metricsCatalog.popovers.description.isClosing,
                 );
                 const canManageTags = useAppSelector(
                     (state) => state.metricsCatalog.abilities.canManageTags,
                 );
-    
+
                 const categories = useMemo(
                     () => row.original.categories ?? [],
                     [row],
                 );
-    
+
                 return (
                     <Flex
                         ref={ref}
@@ -262,7 +286,7 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                             ) {
                                 return;
                             }
-    
+
                             table.setEditingCell(cell);
                         }}
                         sx={{
@@ -277,7 +301,9 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
                                     size={12}
                                 />
                                 <Text span fz="sm" color="dark.1">
-                                    {t('features_metrics_catalog_components.columns.category.add')}
+                                    {t(
+                                        'features_metrics_catalog_components.columns.category.add',
+                                    )}
                                 </Text>
                             </Group>
                         ) : (
@@ -304,7 +330,9 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
         },
         {
             accessorKey: SpotlightTableColumns.CHART_USAGE,
-            header: t('features_metrics_catalog_components.columns.popularity.label'),
+            header: t(
+                'features_metrics_catalog_components.columns.popularity.label',
+            ),
             enableSorting: true,
             enableEditing: false,
             size: 150,
@@ -319,7 +347,9 @@ export const useMetricsCatalogColumns = (): MRT_ColumnDef<CatalogField>[] => {
             Header: ({ column }) => (
                 <MetricCatalogColumnHeaderCell
                     Icon={Popularity}
-                    tooltipLabel={t('features_metrics_catalog_components.columns.popularity.content')}
+                    tooltipLabel={t(
+                        'features_metrics_catalog_components.columns.popularity.content',
+                    )}
                 >
                     {column.columnDef.header}
                 </MetricCatalogColumnHeaderCell>

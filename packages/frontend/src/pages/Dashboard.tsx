@@ -1,9 +1,9 @@
 import {
     DashboardTileTypes,
     ResourceViewItemType,
-    type Dashboard as IDashboard,
     type DashboardTab,
     type DashboardTile,
+    type Dashboard as IDashboard,
 } from '@lightdash/common';
 import { Box, Button, Flex, Group, Modal, Stack, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';

@@ -20,8 +20,8 @@ import { useTranslation } from 'react-i18next';
 
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import {
-    useConditionalRuleLabel,
     getFilterRuleTables,
+    useConditionalRuleLabel,
 } from '../common/Filters/FilterInputs/utils';
 import MantineIcon from '../common/MantineIcon';
 import FilterConfiguration from './FilterConfiguration';

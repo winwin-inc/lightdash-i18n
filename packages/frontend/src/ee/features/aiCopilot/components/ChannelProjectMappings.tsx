@@ -63,7 +63,9 @@ const ChannelProjectMapping: FC<ChannelProjectMappingProps> = ({
                         size="xs"
                         data={projectOptions}
                         searchable
-                        placeholder={t('ai_copilot_channel_project_mappings.select_project')}
+                        placeholder={t(
+                            'ai_copilot_channel_project_mappings.select_project',
+                        )}
                         icon={<MantineIcon icon={IconDatabase} />}
                         {...form.getInputProps(
                             `slackChannelProjectMappings.${index}.projectUuid`,
@@ -80,7 +82,9 @@ const ChannelProjectMapping: FC<ChannelProjectMappingProps> = ({
                             disabled: usedChannels.includes(channel.value),
                         }))}
                         searchable
-                        placeholder={t('ai_copilot_channel_project_mappings.select_channel')}
+                        placeholder={t(
+                            'ai_copilot_channel_project_mappings.select_channel',
+                        )}
                         icon={<MantineIcon icon={IconHash} />}
                         {...form.getInputProps(
                             `slackChannelProjectMappings.${index}.slackChannelId`,
@@ -97,7 +101,9 @@ const ChannelProjectMapping: FC<ChannelProjectMappingProps> = ({
                 <Stack px="xs" spacing="xs">
                     <Radio.Group
                         size="xs"
-                        label={t('ai_copilot_channel_project_mappings.configure_available_tags')}
+                        label={t(
+                            'ai_copilot_channel_project_mappings.configure_available_tags',
+                        )}
                         value={showTagsInput ? 'tags' : 'all'}
                         onChange={(value) => {
                             form.setFieldValue(
@@ -109,17 +115,23 @@ const ChannelProjectMapping: FC<ChannelProjectMappingProps> = ({
                         <Stack spacing="xs" pt="xs">
                             <Radio
                                 value="all"
-                                label={t('ai_copilot_channel_project_mappings.radio_group.all')}
+                                label={t(
+                                    'ai_copilot_channel_project_mappings.radio_group.all',
+                                )}
                             />
                             <Radio
                                 value="tags"
-                                label={t('ai_copilot_channel_project_mappings.radio_group.tags')}
+                                label={t(
+                                    'ai_copilot_channel_project_mappings.radio_group.tags',
+                                )}
                             />
 
                             {showTagsInput && (
                                 <TagInput
                                     size="xs"
-                                    placeholder={t('ai_copilot_channel_project_mappings.radio_group.placeholder')}
+                                    placeholder={t(
+                                        'ai_copilot_channel_project_mappings.radio_group.placeholder',
+                                    )}
                                     {...form.getInputProps(
                                         `slackChannelProjectMappings.${index}.availableTags`,
                                     )}
@@ -170,14 +182,18 @@ const ChannelProjectMappings: FC<Props> = ({
             <Group position="apart" spacing="two" mb="two">
                 <Group spacing="two">
                     <Title order={6} fw={500}>
-                        {t('ai_copilot_channel_project_mappings.ai_bot_channel_mappings.title')}
+                        {t(
+                            'ai_copilot_channel_project_mappings.ai_bot_channel_mappings.title',
+                        )}
                     </Title>
 
                     <Tooltip
                         variant="xs"
                         multiline
                         maw={250}
-                        label={t('ai_copilot_channel_project_mappings.ai_bot_channel_mappings.content')}
+                        label={t(
+                            'ai_copilot_channel_project_mappings.ai_bot_channel_mappings.content',
+                        )}
                     >
                         <MantineIcon icon={IconHelpCircle} />
                     </Tooltip>
@@ -189,9 +205,13 @@ const ChannelProjectMappings: FC<Props> = ({
                     maw={250}
                     label={
                         <Text fw={500}>
-                            {t('ai_copilot_channel_project_mappings.tooltip_refresh.label')}
+                            {t(
+                                'ai_copilot_channel_project_mappings.tooltip_refresh.label',
+                            )}
                             <Text c="gray.4" fw={400}>
-                                {t('ai_copilot_channel_project_mappings.tooltip_refresh.content')}
+                                {t(
+                                    'ai_copilot_channel_project_mappings.tooltip_refresh.content',
+                                )}
                             </Text>
                         </Text>
                     }
@@ -227,7 +247,9 @@ const ChannelProjectMappings: FC<Props> = ({
                         leftIcon={<MantineIcon icon={IconPlus} />}
                         size="xs"
                     >
-                        {t('ai_copilot_channel_project_mappings.add_new_mapping')}
+                        {t(
+                            'ai_copilot_channel_project_mappings.add_new_mapping',
+                        )}
                     </Button>
                 </div>
             </Stack>

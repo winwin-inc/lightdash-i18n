@@ -2,8 +2,8 @@ import { DbtProjectType } from '@lightdash/common';
 import { Alert, Anchor, MultiSelect, Stack } from '@mantine/core';
 import { IconInfoCircle } from '@tabler/icons-react';
 import React, { useCallback, useState, type FC } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Controller } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 
 import { hasNoWhiteSpaces } from '../../../utils/fieldValidators';
 import MantineIcon from '../../common/MantineIcon';

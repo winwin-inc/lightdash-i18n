@@ -125,7 +125,10 @@ const SettingsEmbed: FC<{ projectUuid: string }> = ({ projectUuid }) => {
     if (isLoading || isLoadingDashboards || !health.data) {
         return (
             <div style={{ marginTop: '20px' }}>
-                <SuboptimalState title={t('ai_embed_settings_embed.loading_embed_config')} loading />
+                <SuboptimalState
+                    title={t('ai_embed_settings_embed.loading_embed_config')}
+                    loading
+                />
             </div>
         );
     }
@@ -155,7 +158,9 @@ const SettingsEmbed: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                         />
                     }
                     title={t('ai_embed_settings_embed.no_embed_secret')}
-                    description={t('ai_embed_settings_embed.no_embed_secret_description')}
+                    description={t(
+                        'ai_embed_settings_embed.no_embed_secret_description',
+                    )}
                 >
                     <Button
                         disabled={isSaving}
@@ -174,7 +179,9 @@ const SettingsEmbed: FC<{ projectUuid: string }> = ({ projectUuid }) => {
         <Stack mb="lg">
             <SettingsGridCard>
                 <Stack spacing="sm">
-                    <Title order={4}>{t('ai_embed_settings_embed.embed_secret')}</Title>
+                    <Title order={4}>
+                        {t('ai_embed_settings_embed.embed_secret')}
+                    </Title>
                     <Text color="dimmed">
                         {t('ai_embed_settings_embed.embed_secret_description')}
                     </Text>
@@ -208,9 +215,13 @@ const SettingsEmbed: FC<{ projectUuid: string }> = ({ projectUuid }) => {
             </SettingsGridCard>
             <SettingsGridCard>
                 <Stack spacing="sm">
-                    <Title order={4}>{t('ai_embed_settings_embed.allowed_dashboards')}</Title>
+                    <Title order={4}>
+                        {t('ai_embed_settings_embed.allowed_dashboards')}
+                    </Title>
                     <Text color="dimmed">
-                        {t('ai_embed_settings_embed.allowed_dashboards_description')}
+                        {t(
+                            'ai_embed_settings_embed.allowed_dashboards_description',
+                        )}
                     </Text>
                 </Stack>
                 <EmbedDashboardsForm
@@ -228,7 +239,9 @@ const SettingsEmbed: FC<{ projectUuid: string }> = ({ projectUuid }) => {
             </SettingsGridCard>
             <Paper shadow="sm" withBorder p="md">
                 <Stack spacing="sm" mb="md">
-                    <Title order={4}>{t('ai_embed_settings_embed.preview_and_code_snippet')}</Title>
+                    <Title order={4}>
+                        {t('ai_embed_settings_embed.preview_and_code_snippet')}
+                    </Title>
                 </Stack>
                 <EmbedUrlForm
                     projectUuid={projectUuid}

@@ -39,8 +39,8 @@ import {
     type FC,
     type UIEvent,
 } from 'react';
-import { useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useLocation, useNavigate } from 'react-router';
 
 import MantineIcon from '../../../components/common/MantineIcon';
 import SuboptimalState from '../../../components/common/SuboptimalState/SuboptimalState';

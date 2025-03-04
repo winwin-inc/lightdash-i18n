@@ -1,7 +1,7 @@
 import { Paper, Text } from '@mantine/core';
 import type { Node, NodeProps } from '@xyflow/react';
-import { useTranslation } from 'react-i18next';
 import { useRef, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export type FreeGroupNodeData = Node;
 

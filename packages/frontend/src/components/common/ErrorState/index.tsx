@@ -37,9 +37,11 @@ const ErrorState: FC<{
                                 {t('components_common_error_state.description')}
                             </Text>
                             <Prism ta="left" language="yaml" pr="lg">
-                                {`\n${t('components_common_error_state.error_id')}: ${
-                                    error.sentryEventId || 'n/a'
-                                }\n${t('components_common_error_state.trace_id')}: ${error.sentryTraceId || 'n/a'}`}
+                                {`\n${t(
+                                    'components_common_error_state.error_id',
+                                )}: ${error.sentryEventId || 'n/a'}\n${t(
+                                    'components_common_error_state.trace_id',
+                                )}: ${error.sentryTraceId || 'n/a'}`}
                             </Prism>
                         </>
                     )}

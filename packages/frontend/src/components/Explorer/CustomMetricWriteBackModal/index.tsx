@@ -33,13 +33,7 @@ const useIsGithubProject = (projectUuid: string) => {
     return project?.dbtConnection.type === DbtProjectType.GITHUB;
 };
 
-const CreatedPullRequestModalContent = ({
-    onClose,
-    data,
-}: {
-    onClose: () => void;
-    data: { prUrl: string };
-}) => {
+const useGetModalContent = () => {
     const { t } = useTranslation();
 
     const prDisabledMessage = t(
@@ -48,6 +42,18 @@ const CreatedPullRequestModalContent = ({
     const unsupportedMetricDefinitionError = t(
         'components_explorer_custom_metric_write_back_modal.unsupported_metric_definition_error',
     );
+
+    return { prDisabledMessage, unsupportedMetricDefinitionError };
+};
+
+const CreatedPullRequestModalContent = ({
+    onClose,
+    data,
+}: {
+    onClose: () => void;
+    data: { prUrl: string };
+}) => {
+    const { t } = useTranslation();
 
     return (
         <Modal
@@ -131,6 +137,9 @@ const SingleCustomMetricModalContent = ({
     item: AdditionalMetric;
 }) => {
     const { t } = useTranslation();
+    const { prDisabledMessage, unsupportedMetricDefinitionError } =
+        useGetModalContent();
+
     const {
         mutate: writeBackCustomMetrics,
         data,
@@ -284,6 +293,9 @@ const MultipleCustomMetricModalContent = ({
     items: AdditionalMetric[];
 }) => {
     const { t } = useTranslation();
+    const { prDisabledMessage, unsupportedMetricDefinitionError } =
+        useGetModalContent();
+
     const {
         mutate: writeBackCustomMetrics,
         data,

@@ -157,7 +157,9 @@ const AIDashboardSummary: FC<DashboardAIProps> = ({
                 label={
                     summary
                         ? t('ai_dashboard_summary.view_dashboard_summary')
-                        : t('ai_dashboard_summary.generate_a_summary_of_your_dashboard')
+                        : t(
+                              'ai_dashboard_summary.generate_a_summary_of_your_dashboard',
+                          )
                 }
                 withinPortal
                 position="bottom"
@@ -175,7 +177,9 @@ const AIDashboardSummary: FC<DashboardAIProps> = ({
                 >
                     {summary
                         ? t('ai_dashboard_summary.view_dashboard_summary')
-                        : t('ai_dashboard_summary.generate_a_summary_of_your_dashboard')}
+                        : t(
+                              'ai_dashboard_summary.generate_a_summary_of_your_dashboard',
+                          )}
                 </Button>
             </Tooltip>
         </>
