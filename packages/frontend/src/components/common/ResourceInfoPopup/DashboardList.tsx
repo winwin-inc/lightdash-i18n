@@ -26,7 +26,6 @@ export const DashboardList: FC<Props> = ({ resourceItemId, projectUuid }) => {
                             size: relatedDashboards?.length ?? 0,
                         },
                     )}
-                    {relatedDashboards?.length === 1 ? '' : 's'}
                     {relatedDashboards && relatedDashboards.length > 0
                         ? ':'
                         : ''}

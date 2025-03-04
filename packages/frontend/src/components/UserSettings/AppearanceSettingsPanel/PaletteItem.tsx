@@ -82,12 +82,16 @@ export const PaletteItem: FC<PaletteItemProps> = ({
                                         : 'hidden',
                             })}
                         >
-                            Use This Theme
+                            {t(
+                                'components_user_settings_appearance_settings_panel_palette_modal.item.use_theme',
+                            )}
                         </Button>
 
                         {isActive && (
                             <Badge color="green" variant="light">
-                                Active
+                                {t(
+                                    'components_user_settings_appearance_settings_panel_palette_modal.item.active',
+                                )}
                             </Badge>
                         )}
 

@@ -110,12 +110,6 @@
         "update_error": "更新图表失败"
     },
     "hooks_organization_appearance": {
-        "color_palette": {
-            "name": "颜色调色板",
-            "create": "创建颜色调色板",
-            "edit": "编辑颜色调色板",
-            "delete": "删除颜色调色板"
-        },
         "create": {
             "success": "成功！颜色调色板已创建。",
             "error": "创建颜色调色板失败"
@@ -3546,6 +3540,8 @@
             "show_fewer_colors": "显示较少颜色"
         },
         "item": {
+            "use_theme": "使用此主题",
+            "active": "激活",
             "edit": "编辑调色板",
             "delete": "删除调色板"
         },

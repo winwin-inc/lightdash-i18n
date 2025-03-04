@@ -16,7 +16,7 @@ import {
 import { useClickOutside, useDisclosure } from '@mantine/hooks';
 import { IconRefresh, IconSparkles, IconX } from '@tabler/icons-react';
 import { useCallback, useEffect, useRef, useState, type FC } from 'react';
-import { useTranslation, useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { useIntercom } from 'react-use-intercom';
 import MantineIcon from '../../../components/common/MantineIcon';

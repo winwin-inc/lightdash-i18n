@@ -110,12 +110,6 @@
         "update_error": "Failed to update chart"
     },
     "hooks_organization_appearance": {
-        "color_palette": {
-            "name": "Color palette",
-            "create": "Create color palette",
-            "edit": "Edit color palette",
-            "delete": "Delete color palette"
-        },
         "create": {
             "success": "Color palette created successfully",
             "error": "Failed to create color palette"
@@ -1394,7 +1388,7 @@
         "user_access": "User access"
     },
     "components_common_resource_info_popup": {
-        "use_in_dashboard": "Used in {{size}} dashboard",
+        "use_in_dashboard": "Used in {{size}} dashboards",
         "views_since": "views since",
         "views": "Views",
         "description": "Description"
@@ -3549,6 +3543,8 @@
             "delete": "Delete palette"
         },
         "create": {
+            "use_theme": "Use This theme",
+            "active": "Active",
             "title": "Create new palette",
             "submit_button_text": "Create palette"
         },

@@ -32,10 +32,8 @@ import { useParams } from 'react-router';
 
 import FieldSelect from '../../common/FieldSelect';
 import FilterInputComponent from '../../common/Filters/FilterInputs';
-import {
-    getFilterOperatorOptions,
-    getFilterOptions,
-} from '../../common/Filters/FilterInputs/utils';
+import { useFilterOperatorOptions } from '../../common/Filters/FilterInputs/utils';
+import { useFilterOperatorLabel } from '../../common/Filters/FilterInputs/constants';
 import FiltersProvider from '../../common/Filters/FiltersProvider';
 import MantineIcon from '../../common/MantineIcon';
 
@@ -69,6 +67,8 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
     hasRemove,
 }) => {
     const { t } = useTranslation();
+    const { getFilterOptions } = useFilterOperatorLabel();
+    const getFilterOperatorOptions = useFilterOperatorOptions();
 
     const { projectUuid } = useParams<{ projectUuid: string }>();
 

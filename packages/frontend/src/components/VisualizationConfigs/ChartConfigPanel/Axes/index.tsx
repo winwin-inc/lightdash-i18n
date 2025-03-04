@@ -184,21 +184,21 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                                     {
                                         value: XAxisSort.ASCENDING,
                                         label: t(
-                                            'components_visualization_configs_chart.axes.sort.ascending',
+                                            'components_visualization_configs_chart.sort.ascending',
                                         ),
                                         icon: IconSortAscending,
                                     },
                                     {
                                         value: XAxisSort.DESCENDING,
                                         label: t(
-                                            'components_visualization_configs_chart.axes.sort.descending',
+                                            'components_visualization_configs_chart.sort.descending',
                                         ),
                                         icon: IconSortDescending,
                                     },
                                     {
                                         value: XAxisSort.BAR_TOTALS_ASCENDING,
                                         label: t(
-                                            'components_visualization_configs_chart.axes.sort.bars_ascending',
+                                            'components_visualization_configs_chart.sort.bars_ascending',
                                         ),
                                         icon: IconChartBar,
                                         disabled: !canSortByBarTotals,
@@ -206,7 +206,7 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                                     {
                                         value: XAxisSort.BAR_TOTALS_DESCENDING,
                                         label: t(
-                                            'components_visualization_configs_chart.axes.sort.bars_descending',
+                                            'components_visualization_configs_chart.sort.bars_descending',
                                         ),
                                         icon: IconChartBar,
                                         mirrorIcon: true,

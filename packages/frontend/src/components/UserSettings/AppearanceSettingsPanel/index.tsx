@@ -21,6 +21,7 @@ import { CreatePaletteModal } from './CreatePaletteModal';
 import { PaletteItem } from './PaletteItem';
 
 const AppearanceColorSettings: FC = () => {
+    const { t } = useTranslation();
     const { data: palettes = [], isLoading } = useColorPalettes();
 
     const setActivePalette = useSetActiveColorPalette();
