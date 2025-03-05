@@ -10,6 +10,8 @@ export const useSearchItemLabel = () => {
                 return t('features_omnibar_labels.items.field');
             case SearchItemType.DASHBOARD:
                 return t('features_omnibar_labels.items.dashboard');
+            case SearchItemType.DASHBOARD_TAB:
+                return t('features_omnibar_labels.items.dashboard_tab');
             case SearchItemType.CHART:
                 return t('features_omnibar_labels.items.chart');
             case SearchItemType.SPACE:
@@ -42,6 +44,8 @@ export const useSearchItemErrorLabel = () => {
                 return t('features_omnibar_labels.errors.field');
             case SearchItemType.DASHBOARD:
                 return t('features_omnibar_labels.errors.dashboard');
+            case SearchItemType.DASHBOARD_TAB:
+                return t('features_omnibar_labels.errors.dashboard_tab');
             case SearchItemType.CHART:
                 return t('features_omnibar_labels.errors.chart');
             case SearchItemType.SPACE:

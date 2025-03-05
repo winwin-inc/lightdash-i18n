@@ -264,11 +264,13 @@
         "errors": {
             "filed": "字段",
             "dashboard": "看板",
+            "dashboard_tab": "看板标签",
             "chart": "图表"
         },
         "items": {
             "field": "字段",
             "dashboard": "看板",
+            "dashboard_tab": "看板标签",
             "chart": "图表",
             "space": "空间",
             "table": "表格",

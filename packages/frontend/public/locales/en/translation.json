@@ -264,11 +264,13 @@
         "errors": {
             "filed": "field",
             "dashboard": "dashboard",
+            "dashboard_tab": "dashboard tab",
             "chart": "chart"
         },
         "items": {
             "field": "Fields",
             "dashboard": "Dashboards",
+            "dashboard_tab": "Dashboard tabs",
             "chart": "Charts",
             "space": "Spaces",
             "table": "Tables",
