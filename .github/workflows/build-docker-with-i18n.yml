@@ -10,7 +10,7 @@ on:
     workflow_dispatch:
 
 env:
-    REGISTRY_IMAGE: registry.cn-hangzhou.aliyuncs.com/winwin/lightdash-i18n
+    REGISTRY_IMAGE: registry.cn-hangzhou.aliyuncs.com/winwin/lightdash
 
 jobs:
     # This job builds Docker images for various architectures in parallel
@@ -51,8 +51,8 @@ jobs:
               uses: docker/login-action@v3
               with:
                   registry: registry.cn-hangzhou.aliyuncs.com
-                  username: ${{ secrets.ALIYUN_USERNAME }}
-                  password: ${{ secrets.ALIYUN_PASSWORD }}
+                  username: ${{ secrets.ALIYUN_REGISTRY_USER }}
+                  password: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
 
             - name: Build and push by digest
               id: build
@@ -107,8 +107,8 @@ jobs:
               uses: docker/login-action@v3
               with:
                   registry: registry.cn-hangzhou.aliyuncs.com
-                  username: ${{ secrets.ALIYUN_USERNAME }}
-                  password: ${{ secrets.ALIYUN_PASSWORD }}
+                  username: ${{ secrets.ALIYUN_REGISTRY_USER }}
+                  password: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
 
             - name: Create manifest list and push
               working-directory: /tmp/digests
