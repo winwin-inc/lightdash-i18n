@@ -13,92 +13,92 @@ RUN pnpm config set store-dir /pnpm/store
 WORKDIR /usr/app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    g++ \
-    libsasl2-modules-gssapi-mit \
-    python3 \
-    python3-psycopg2 \
-    python3-venv \
-    python3-dev \
-    software-properties-common \
-    unzip \
-    git \
-    libcairo2-dev \
-    libpango1.0-dev \
-    librsvg2-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+  build-essential \
+  g++ \
+  libsasl2-modules-gssapi-mit \
+  python3 \
+  python3-psycopg2 \
+  python3-venv \
+  python3-dev \
+  software-properties-common \
+  unzip \
+  git \
+  libcairo2-dev \
+  libpango1.0-dev \
+  librsvg2-dev \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 # Fix package vulnerabilities
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgnutls28-dev  \
-    tar \
-    libsystemd0
+  libgnutls28-dev  \
+  tar \
+  libsystemd0
 
-# Installing multiple versions of dbt
-# dbt 1.4 is the default
-RUN python3 -m venv /usr/local/dbt1.4 \
-  && /usr/local/dbt1.4/bin/pip install \
-  "dbt-postgres~=1.4.0" \
-  "dbt-redshift~=1.4.0" \
-  "dbt-snowflake~=1.4.0" \
-  "dbt-bigquery~=1.4.0" \
-  "dbt-databricks~=1.4.0" \
-  "dbt-trino~=1.4.0" \
-  "psycopg2-binary==2.9.6"
+# # Installing multiple versions of dbt
+# # dbt 1.4 is the default
+# RUN python3 -m venv /usr/local/dbt1.4 \
+#   && /usr/local/dbt1.4/bin/pip install \
+#   "dbt-postgres~=1.4.0" \
+#   "dbt-redshift~=1.4.0" \
+#   "dbt-snowflake~=1.4.0" \
+#   "dbt-bigquery~=1.4.0" \
+#   "dbt-databricks~=1.4.0" \
+#   "dbt-trino~=1.4.0" \
+#   "psycopg2-binary==2.9.6"
 
-RUN ln -s /usr/local/dbt1.4/bin/dbt /usr/local/bin/dbt\
-  && python3 -m venv /usr/local/dbt1.5 \
-  && /usr/local/dbt1.5/bin/pip install \
-  "dbt-postgres~=1.5.0" \
-  "dbt-redshift~=1.5.0" \
-  "dbt-snowflake~=1.5.0" \
-  "dbt-bigquery~=1.5.0" \
-  "dbt-databricks~=1.5.0" \
-  "dbt-trino==1.5.0" \
-  "psycopg2-binary==2.9.6" \
-  && ln -s /usr/local/dbt1.5/bin/dbt /usr/local/bin/dbt1.5\
-  && python3 -m venv /usr/local/dbt1.6 \
-  && /usr/local/dbt1.6/bin/pip install \
-  "dbt-postgres~=1.6.0" \
-  "dbt-redshift~=1.6.0" \
-  "dbt-snowflake~=1.6.0" \
-  "dbt-bigquery~=1.6.0" \
-  "dbt-databricks~=1.6.0" \
-  "dbt-trino==1.6.0" \
-  "psycopg2-binary==2.9.6"\
-  && ln -s /usr/local/dbt1.6/bin/dbt /usr/local/bin/dbt1.6 \
-  && python3 -m venv /usr/local/dbt1.7 \
-  && /usr/local/dbt1.7/bin/pip install \
-  "dbt-postgres~=1.7.0" \
-  "dbt-redshift~=1.7.0" \
-  "dbt-snowflake~=1.7.0" \
-  "dbt-bigquery~=1.7.0" \
-  "dbt-databricks~=1.7.0" \
-  "dbt-trino==1.7.0" \
-  "psycopg2-binary==2.9.6" \
-  && ln -s /usr/local/dbt1.7/bin/dbt /usr/local/bin/dbt1.7 \
-  && python3 -m venv /usr/local/dbt1.8 \
-  && /usr/local/dbt1.8/bin/pip install \
-  # from 1.8, dbt-core needs to be explicitly installed
-  "dbt-core~=1.8.0" \
-  "dbt-postgres~=1.8.0" \
-  "dbt-redshift~=1.8.0" \
-  "dbt-snowflake~=1.8.0" \
-  "dbt-bigquery~=1.8.0" \
-  "dbt-databricks~=1.8.0" \
-  "dbt-trino~=1.8.0" \
-  && ln -s /usr/local/dbt1.8/bin/dbt /usr/local/bin/dbt1.8 \
-  && python3 -m venv /usr/local/dbt1.9 \
-  && /usr/local/dbt1.9/bin/pip install \
-  "dbt-core~=1.9.0" \
-  "dbt-postgres~=1.9.0" \
-  "dbt-redshift~=1.9.0" \
-  "dbt-snowflake~=1.9.0" \
-  "dbt-bigquery~=1.9.0" \
-  "dbt-databricks~=1.9.0" \
-  #"dbt-trino~=1.9.0" \ # Not yet available
-  && ln -s /usr/local/dbt1.9/bin/dbt /usr/local/bin/dbt1.9
+# RUN ln -s /usr/local/dbt1.4/bin/dbt /usr/local/bin/dbt\
+#   && python3 -m venv /usr/local/dbt1.5 \
+#   && /usr/local/dbt1.5/bin/pip install \
+#   "dbt-postgres~=1.5.0" \
+#   "dbt-redshift~=1.5.0" \
+#   "dbt-snowflake~=1.5.0" \
+#   "dbt-bigquery~=1.5.0" \
+#   "dbt-databricks~=1.5.0" \
+#   "dbt-trino==1.5.0" \
+#   "psycopg2-binary==2.9.6" \
+#   && ln -s /usr/local/dbt1.5/bin/dbt /usr/local/bin/dbt1.5\
+#   && python3 -m venv /usr/local/dbt1.6 \
+#   && /usr/local/dbt1.6/bin/pip install \
+#   "dbt-postgres~=1.6.0" \
+#   "dbt-redshift~=1.6.0" \
+#   "dbt-snowflake~=1.6.0" \
+#   "dbt-bigquery~=1.6.0" \
+#   "dbt-databricks~=1.6.0" \
+#   "dbt-trino==1.6.0" \
+#   "psycopg2-binary==2.9.6"\
+#   && ln -s /usr/local/dbt1.6/bin/dbt /usr/local/bin/dbt1.6 \
+#   && python3 -m venv /usr/local/dbt1.7 \
+#   && /usr/local/dbt1.7/bin/pip install \
+#   "dbt-postgres~=1.7.0" \
+#   "dbt-redshift~=1.7.0" \
+#   "dbt-snowflake~=1.7.0" \
+#   "dbt-bigquery~=1.7.0" \
+#   "dbt-databricks~=1.7.0" \
+#   "dbt-trino==1.7.0" \
+#   "psycopg2-binary==2.9.6" \
+#   && ln -s /usr/local/dbt1.7/bin/dbt /usr/local/bin/dbt1.7 \
+#   && python3 -m venv /usr/local/dbt1.8 \
+#   && /usr/local/dbt1.8/bin/pip install \
+#   # from 1.8, dbt-core needs to be explicitly installed
+#   "dbt-core~=1.8.0" \
+#   "dbt-postgres~=1.8.0" \
+#   "dbt-redshift~=1.8.0" \
+#   "dbt-snowflake~=1.8.0" \
+#   "dbt-bigquery~=1.8.0" \
+#   "dbt-databricks~=1.8.0" \
+#   "dbt-trino~=1.8.0" \
+#   && ln -s /usr/local/dbt1.8/bin/dbt /usr/local/bin/dbt1.8 \
+#   && python3 -m venv /usr/local/dbt1.9 \
+#   && /usr/local/dbt1.9/bin/pip install \
+#   "dbt-core~=1.9.0" \
+#   "dbt-postgres~=1.9.0" \
+#   "dbt-redshift~=1.9.0" \
+#   "dbt-snowflake~=1.9.0" \
+#   "dbt-bigquery~=1.9.0" \
+#   "dbt-databricks~=1.9.0" \
+#   #"dbt-trino~=1.9.0" \ # Not yet available
+#   && ln -s /usr/local/dbt1.9/bin/dbt /usr/local/bin/dbt1.9
 
 # -----------------------------
 # Stage 1: stop here for dev environment
@@ -129,7 +129,7 @@ COPY packages/backend/package.json ./packages/backend/
 COPY packages/frontend/package.json ./packages/frontend/
 
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --prefer-offline
+  pnpm install --frozen-lockfile --prefer-offline
 
 # Build common
 COPY packages/common/tsconfig.json ./packages/common/
@@ -161,7 +161,7 @@ RUN rm -rf node_modules \
 # Install production dependencies
 ENV NODE_ENV production
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --prod --frozen-lockfile --prefer-offline
+  pnpm install --prod --frozen-lockfile --prefer-offline
 
 # -----------------------------
 # Stage 3: execution environment for backend
@@ -179,32 +179,35 @@ RUN pnpm config set store-dir /pnpm/store
 WORKDIR /usr/app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-psycopg2 \
-    python3-venv \
-    git \
-    build-essential \
-    libcairo2-dev \
-    libpango1.0-dev \
-    librsvg2-dev \
-    dumb-init \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+  python3 \
+  python3-psycopg2 \
+  python3-venv \
+  git \
+  build-essential \
+  libcairo2-dev \
+  libpango1.0-dev \
+  librsvg2-dev \
+  dumb-init \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
-COPY --from=prod-builder  /usr/local/dbt1.4 /usr/local/dbt1.4
-COPY --from=prod-builder  /usr/local/dbt1.5 /usr/local/dbt1.5
-COPY --from=prod-builder  /usr/local/dbt1.6 /usr/local/dbt1.6
-COPY --from=prod-builder  /usr/local/dbt1.7 /usr/local/dbt1.7
-COPY --from=prod-builder  /usr/local/dbt1.8 /usr/local/dbt1.8
-COPY --from=prod-builder  /usr/local/dbt1.9 /usr/local/dbt1.9
+# # Copy dbt environments from builder
+# COPY --from=prod-builder  /usr/local/dbt1.4 /usr/local/dbt1.4
+# COPY --from=prod-builder  /usr/local/dbt1.5 /usr/local/dbt1.5
+# COPY --from=prod-builder  /usr/local/dbt1.6 /usr/local/dbt1.6
+# COPY --from=prod-builder  /usr/local/dbt1.7 /usr/local/dbt1.7
+# COPY --from=prod-builder  /usr/local/dbt1.8 /usr/local/dbt1.8
+# COPY --from=prod-builder  /usr/local/dbt1.9 /usr/local/dbt1.9
+
 COPY --from=prod-builder /usr/app /usr/app
 
-RUN ln -s /usr/local/dbt1.4/bin/dbt /usr/local/bin/dbt \
-  && ln -s /usr/local/dbt1.5/bin/dbt /usr/local/bin/dbt1.5 \
-  && ln -s /usr/local/dbt1.6/bin/dbt /usr/local/bin/dbt1.6 \
-  && ln -s /usr/local/dbt1.7/bin/dbt /usr/local/bin/dbt1.7 \
-  && ln -s /usr/local/dbt1.8/bin/dbt /usr/local/bin/dbt1.8 \
-  && ln -s /usr/local/dbt1.9/bin/dbt /usr/local/bin/dbt1.9
+# # Create dbt symlinks
+# RUN ln -s /usr/local/dbt1.4/bin/dbt /usr/local/bin/dbt \
+#   && ln -s /usr/local/dbt1.5/bin/dbt /usr/local/bin/dbt1.5 \
+#   && ln -s /usr/local/dbt1.6/bin/dbt /usr/local/bin/dbt1.6 \
+#   && ln -s /usr/local/dbt1.7/bin/dbt /usr/local/bin/dbt1.7 \
+#   && ln -s /usr/local/dbt1.8/bin/dbt /usr/local/bin/dbt1.8 \
+#   && ln -s /usr/local/dbt1.9/bin/dbt /usr/local/bin/dbt1.9
 
 # Set timezone
 ARG tz=Asia/Shanghai
