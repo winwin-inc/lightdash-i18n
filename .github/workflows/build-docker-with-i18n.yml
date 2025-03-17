@@ -37,6 +37,8 @@ jobs:
                   images: ${{ env.REGISTRY_IMAGE }}
                   tags: |
                       type=semver,pattern={{version}}
+                      type=semver,pattern={{major}}.{{minor}}
+                      type=raw,value=latest,enable={{is_default_branch}}
 
             # We need this to perform cross-platform Docker builds
             - name: Set up QEMU
@@ -63,7 +65,8 @@ jobs:
                   labels: ${{ steps.meta.outputs.labels }}
                   platforms: ${{ matrix.platform }}
                   tags: ${{ steps.meta.outputs.tags }}
-                  outputs: type=registry
+                  outputs: type=image,name=${{ env.REGISTRY_IMAGE }}
+                  provenance: false
                   cache-from: type=registry,ref=${{ env.REGISTRY_IMAGE }}
                   cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,mode=min,ref={0}', env.REGISTRY_IMAGE) || '' }}
 
@@ -114,8 +117,10 @@ jobs:
             - name: Create manifest list and push
               working-directory: /tmp/digests
               run: |
-                  docker buildx imagetools create -t ${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }} \
-                    $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
+                  for tag in $(echo "${{ steps.meta.outputs.tags }}" | tr '\n' ' '); do
+                    docker buildx imagetools create -t $tag \
+                      $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
+                  done
 
             - name: Inspect image
               run: |
