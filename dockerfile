@@ -12,28 +12,28 @@ RUN pnpm config set store-dir /pnpm/store
 
 WORKDIR /usr/app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  build-essential \
-  g++ \
-  libsasl2-modules-gssapi-mit \
-  python3 \
-  python3-psycopg2 \
-  python3-venv \
-  python3-dev \
-  software-properties-common \
-  unzip \
-  git \
-  libcairo2-dev \
-  libpango1.0-dev \
-  librsvg2-dev \
-  && apt-get clean \
-  && rm -rf /var/lib/apt/lists/*
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#   build-essential \
+#   g++ \
+#   libsasl2-modules-gssapi-mit \
+#   python3 \
+#   python3-psycopg2 \
+#   python3-venv \
+#   python3-dev \
+#   software-properties-common \
+#   unzip \
+#   git \
+#   libcairo2-dev \
+#   libpango1.0-dev \
+#   librsvg2-dev \
+#   && apt-get clean \
+#   && rm -rf /var/lib/apt/lists/*
 
-# Fix package vulnerabilities
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  libgnutls28-dev  \
-  tar \
-  libsystemd0
+# # Fix package vulnerabilities
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#   libgnutls28-dev  \
+#   tar \
+#   libsystemd0
 
 # # Installing multiple versions of dbt
 # # dbt 1.4 is the default
@@ -103,14 +103,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # -----------------------------
 # Stage 1: stop here for dev environment
 # -----------------------------
-FROM base AS dev
+# FROM base AS dev
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  postgresql-client \
-  && apt-get clean
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#   postgresql-client \
+#   && apt-get clean
 
-EXPOSE 3000
-EXPOSE 8080
+# EXPOSE 3000
+# EXPOSE 8080
 
 # -----------------------------
 # Stage 2: continue build for production environment
@@ -179,14 +179,14 @@ RUN pnpm config set store-dir /pnpm/store
 WORKDIR /usr/app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  python3 \
-  python3-psycopg2 \
-  python3-venv \
-  git \
-  build-essential \
-  libcairo2-dev \
-  libpango1.0-dev \
-  librsvg2-dev \
+  # python3 \
+  # python3-psycopg2 \
+  # python3-venv \
+  # git \
+  # build-essential \
+  # libcairo2-dev \
+  # libpango1.0-dev \
+  # librsvg2-dev \
   dumb-init \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
