@@ -108,7 +108,14 @@ apiV1Router.get(lightdashConfig.auth.oidc.callbackPath, (req, res, next) =>
         failureRedirect: getOidcRedirectURL(false)(req),
         successRedirect: getOidcRedirectURL(true)(req),
         failureFlash: true,
-    })(req, res, next),
+        failWithError: true,
+    })(req, res, (err) => {
+        if (err) {
+            console.error('oidc callback error', err);
+            return res.redirect(getOidcRedirectURL(false)(req));
+        }
+        return next();
+    }),
 );
 
 apiV1Router.get(
