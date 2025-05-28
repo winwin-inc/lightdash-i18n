@@ -374,7 +374,11 @@ export const SaveToSpaceOrDashboard: FC<Props> = ({
                         />
 
                         <Stack spacing="sm" mt="sm">
-                            <Text fw={500}>Save to</Text>
+                            <Text fw={500}>
+                                {t(
+                                    'components_common_modal_chart_create.save_to',
+                                )}
+                            </Text>
 
                             <Radio.Group
                                 value={saveDestination}

@@ -16,9 +16,9 @@ import { ResourceInfoPopup } from '../ResourceInfoPopup/ResourceInfoPopup';
 import ResourceAccessInfo from './ResourceAccessInfo';
 import AttributeCount from './ResourceAttributeCount';
 import {
-    getResourceTypeName,
     getResourceUrl,
     getResourceViewsSinceWhenDescription,
+    useResourceTypeName,
 } from './resourceUtils';
 
 type ResourceValidationErrorIndicatorProps = {
@@ -98,6 +98,8 @@ const InfiniteResourceTableColumnName = ({
     projectUuid,
     canUserManageValidation,
 }: InfiniteResourceTableColumnNameProps) => {
+    const getResourceTypeName = useResourceTypeName();
+
     const isSpace = isResourceViewSpaceItem(item);
     const isChartOrDashboard =
         isResourceViewItemChart(item) || isResourceViewItemDashboard(item);

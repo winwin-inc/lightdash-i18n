@@ -1,5 +1,6 @@
 import { ContentType } from '@lightdash/common';
 import { Center, SegmentedControl, Text } from '@mantine/core';
+import { IconChartBar, IconLayoutDashboard } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 

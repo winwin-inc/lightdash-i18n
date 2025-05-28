@@ -81,7 +81,7 @@ const useTimeFilterOptions = (): Array<{
     ];
 };
 
-const useFilterOperatorOptions = () => {
+export const useFilterOperatorOptions = () => {
     const { getFilterOptions } = useFilterOperatorLabel();
     const timeFilterOptions = useTimeFilterOptions();
 

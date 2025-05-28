@@ -717,7 +717,9 @@ export const MetricsTable: FC<MetricsTableProps> = ({ metricCatalogView }) => {
                                                 });
                                             }}
                                         >
-                                            Back to list view
+                                            {t(
+                                                'features_metrics.table.back_to_list_view',
+                                            )}
                                         </Button>
                                     }
                                 />

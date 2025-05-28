@@ -264,6 +264,8 @@
             "empty": "SQL 不能为空",
             "name": "名称不能为空"
         },
+        "edit": "编辑表计算",
+        "create": "创建表计算",
         "form": {
             "name": {
                 "label": "名称",
@@ -726,7 +728,7 @@
     "features_sql_runner_header_view": {
         "edit_chart": "编辑图表",
         "manage": "管理",
-        "add_to_dashboard": "添加到仪表板",
+        "add_to_dashboard": "添加到看板",
         "delete": "删除"
     },
     "features_sql_runner_transformers_sql_chart": {
@@ -1236,7 +1238,8 @@
                     "part_2": "文档",
                     "part_3": "未找到结果"
                 }
-            }
+            },
+            "back_to_list_view": "返回列表视图"
         }
     },
     "features_metrics_catalog": {
@@ -2593,7 +2596,8 @@
         "cancel_query": "取消查询"
     },
     "components_refresh_dbt_button": {
-        "refresh": "刷新数据库",
+        "loading": "刷新 dbt 中",
+        "refresh": "刷新 dbt",
         "tip": {
             "part_1": "你仍然连接到通过 CLI 创建的 dbt 项目。",
             "part_2": "为保持 Lightdash 项目与 dbt 项目同步,",
@@ -2884,6 +2888,7 @@
     },
     "components_common_modal_chart_create": {
         "title": "保存图表",
+        "save_to": "保存到",
         "add": {
             "form": {
                 "name": {
@@ -2944,15 +2949,17 @@
             },
             "cancel": "取消",
             "submit": "保存",
+            "back": "返回",
             "next": "下一步",
-            "save": "保存"
+            "save": "保存",
+            "new_space": "新空间"
         },
         "save_dashboard": {
             "form": {
                 "dashboard": {
-                    "label": "仪表板",
-                    "description": "选择一个仪表板以直接保存图表",
-                    "nothing_found": "未找到匹配的仪表板"
+                    "label": "看板",
+                    "description": "选择一个看板以直接保存图表",
+                    "nothing_found": "未找到匹配的看板"
                 }
             }
         },
@@ -3098,7 +3105,7 @@
             "part_1": "权限将继承自",
             "part_2": "此空间将是私有的，并且对其他用户不可见。您可以稍后更改这一点。"
         },
-        "search ": {
+        "search": {
             "placeholder": "搜索空间"
         },
         "spaces": "空间"
@@ -3108,6 +3115,7 @@
         "new_space": "新空间",
         "move": "移动",
         "cancel": "取消",
+        "confirm": "确认",
         "create_space": "创建空间 & 移动",
         "create_space_and_share": "创建空间 & 共享",
         "select_space": "选择一个空间来移动 {{name}} 到:",
@@ -4816,6 +4824,11 @@
             "admin_content_view": "公开内容视图"
         },
         "infinite_resource_table": {
+            "last_modified": "最后编辑时间",
+            "access": "访问",
+            "content": "内容",
+            "name": "名称",
+            "space": "空间",
             "columns": {
                 "name": {
                     "label": "名称",
@@ -4824,7 +4837,7 @@
                         "part_2": "在这里",
                         "part_3": "此处有错误",
                         "part_4": "图表",
-                        "part_5": "仪表板"
+                        "part_5": "看板"
                     },
                     "views": "浏览次数"
                 },
@@ -4836,7 +4849,9 @@
                 }
             },
             "toolbar": {
+                "move_to_space": "移动到空间",
                 "search": "按名称搜索",
+                "search_placeholder": "按名称搜索",
                 "load_more": "正在加载更多...",
                 "scroll": "向下滚动以获取更多结果",
                 "all_results": "所有结果已加载"
@@ -5290,7 +5305,11 @@
             "create_new_dashboard": "创建新看板",
             "add_chart": "添加图表",
             "add_existing_chart": "添加现有图表",
-            "create_new_chart": "创建新图表"
+            "create_new_chart": "创建新图表",
+            "delete_space": "删除空间",
+            "delete": "删除",
+            "create_space_in": "在 {{spaceName}} 中创建空间",
+            "create": "创建"
         },
         "tabs": {
             "dashboards": "看板",
@@ -5318,7 +5337,8 @@
             "update_space": "更新空间",
             "update": "更新",
             "delete_space": "删除空间",
-            "delete": "删除"
+            "delete": "删除",
+            "add": "添加"
         },
         "create_new_space": "创建新空间",
         "create": "创建"
@@ -5889,7 +5909,7 @@
                     "part_3": "中了解更多详细信息。"
                 }
             },
-            "maximun_bytes_billed": {
+            "maximum_bytes_billed": {
                 "label": "最大计费字节数",
                 "description": {
                     "part_1": "当设置了一个值时,如果 dbt 执行的查询超过了配置的最大字节阈值,查询将会失败。您可以在",
@@ -6098,6 +6118,7 @@
             },
             "ssh_tunnel": {
                 "label": "使用 SSH 隧道",
+                "description": "允许 dbt 使用跨数据库资源。",
                 "yes": "是",
                 "no": "否"
             },

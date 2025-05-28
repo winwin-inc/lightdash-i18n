@@ -40,7 +40,9 @@ import {
     IconTrash,
 } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useBlocker, useLocation, useNavigate, useParams } from 'react-router';
+
 import { PromotionConfirmDialog } from '../../../features/promotion/components/PromotionConfirmDialog';
 import {
     usePromoteChartDiffMutation,

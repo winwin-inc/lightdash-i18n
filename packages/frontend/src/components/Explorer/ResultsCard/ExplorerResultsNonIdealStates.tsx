@@ -260,23 +260,58 @@ export const EmptyStateExploreLoading = () => {
     );
 };
 
-export const ExploreLoadingState = () => (
-    <EmptyState
-        title={t(
-            'components_explorer_results_card_non_ideal_state.explore_loading_state.title',
-        )}
-    >
-        <Loader color="gray" />
-    </EmptyState>
-);
+export const ExploreIdleState = () => {
+    const { t } = useTranslation();
 
-export const ExploreErrorState = () => (
-    <EmptyState
-        title={t(
-            'components_explorer_results_card_non_ideal_state.explore_error_state.title',
-        )}
-        description={t(
-            'components_explorer_results_card_non_ideal_state.explore_error_state.description',
-        )}
-    ></EmptyState>
-);
+    return (
+        <EmptyState
+            title={t(
+                'components_explorer_results_card_non_ideal_state.explore_idle_state.title',
+            )}
+        />
+    );
+};
+
+export const ExploreEmptyQueryState = () => {
+    const { t } = useTranslation();
+
+    return (
+        <EmptyState
+            title={t(
+                'components_explorer_results_card_non_ideal_state.explore_empty_query_state.title',
+            )}
+            description={t(
+                'components_explorer_results_card_non_ideal_state.explore_empty_query_state.description',
+            )}
+        />
+    );
+};
+
+export const ExploreLoadingState = () => {
+    const { t } = useTranslation();
+
+    return (
+        <EmptyState
+            title={t(
+                'components_explorer_results_card_non_ideal_state.explore_loading_state.title',
+            )}
+        >
+            <Loader color="gray" />
+        </EmptyState>
+    );
+};
+
+export const ExploreErrorState = () => {
+    const { t } = useTranslation();
+
+    return (
+        <EmptyState
+            title={t(
+                'components_explorer_results_card_non_ideal_state.explore_error_state.title',
+            )}
+            description={t(
+                'components_explorer_results_card_non_ideal_state.explore_error_state.description',
+            )}
+        ></EmptyState>
+    );
+};

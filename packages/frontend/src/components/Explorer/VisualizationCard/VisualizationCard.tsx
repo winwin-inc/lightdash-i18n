@@ -5,6 +5,8 @@ import {
     NotFoundError,
 } from '@lightdash/common';
 import { useDisclosure } from '@mantine/hooks';
+import { useTranslation } from 'react-i18next';
+
 import { type FC, memo, useCallback, useMemo, useState } from 'react';
 import { downloadCsv } from '../../../api/csv';
 import ErrorBoundary from '../../../features/errorBoundary/ErrorBoundary';

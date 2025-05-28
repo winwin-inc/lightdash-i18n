@@ -108,10 +108,10 @@ const TrinoForm: FC<{
                 <TextInput
                     name="warehouse.dbname"
                     label={t(
-                        'components_project_connection_warehouse_form.trino.dbname.label',
+                        'components_project_connection_warehouse_form.trino.db_name.label',
                     )}
                     description={t(
-                        'components_project_connection_warehouse_form.trino.dbname.description',
+                        'components_project_connection_warehouse_form.trino.db_name.description',
                     )}
                     required
                     {...form.getInputProps('warehouse.dbname')}

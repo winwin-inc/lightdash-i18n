@@ -34,6 +34,7 @@ import TransferItemsModal from '../components/common/TransferItemsModal/Transfer
 import AddResourceToSpaceModal from '../components/Explorer/SpaceBrowser/AddResourceToSpaceModal';
 import CreateResourceToSpace from '../components/Explorer/SpaceBrowser/CreateResourceToSpace';
 import { SpaceBrowserMenu } from '../components/Explorer/SpaceBrowser/SpaceBrowserMenu';
+import { AddToSpaceResources } from '../components/Explorer/SpaceBrowser/types';
 import ForbiddenPanel from '../components/ForbiddenPanel';
 import { useSpacePinningMutation } from '../hooks/pinning/useSpaceMutation';
 import { useContentAction } from '../hooks/useContent';
@@ -318,8 +319,10 @@ const Space: FC = () => {
                                     spaceUuid={space?.uuid}
                                     actionType={ActionType.DELETE}
                                     parentSpaceUuid={null}
-                                    title="Delete space"
-                                    confirmButtonLabel="Delete"
+                                    title={t('pages_space.menus.delete_space')}
+                                    confirmButtonLabel={t(
+                                        'pages_space.menus.delete',
+                                    )}
                                     confirmButtonColor="red"
                                     icon={IconFolderX}
                                     onSubmitForm={() => {
@@ -397,8 +400,10 @@ const Space: FC = () => {
                         projectUuid={projectUuid}
                         actionType={ActionType.CREATE}
                         parentSpaceUuid={space.uuid}
-                        title={`Create space in "${space.name}"`}
-                        confirmButtonLabel="Create"
+                        title={t('pages_space.menus.create_space_in', {
+                            spaceName: space.name,
+                        })}
+                        confirmButtonLabel={t('pages_space.menus.create')}
                         icon={IconFolderPlus}
                         onClose={() => setIsCreateNestedSpaceOpen(false)}
                         spaceUuid={spaceUuid}

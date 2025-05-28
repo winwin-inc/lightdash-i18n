@@ -201,8 +201,9 @@ const TableCalculationModal: FC<Props> = ({
                             <MantineIcon icon={IconCalculator} size="sm" />
                         </Paper>
                         <Text color="dark.7" fw={700} fz="md">
-                            {tableCalculation ? 'Edit' : 'Create'} Table
-                            Calculation
+                            {tableCalculation
+                                ? t('features_table_calculation_modal.edit')
+                                : t('features_table_calculation_modal.create')}
                             {tableCalculation ? (
                                 <Text span fw={400}>
                                     {' '}

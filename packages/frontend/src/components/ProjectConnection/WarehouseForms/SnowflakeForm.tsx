@@ -315,12 +315,12 @@ const SnowflakeForm: FC<{
                         <BooleanSwitch
                             name="warehouse.clientSessionKeepAlive"
                             label={t(
-                                'components_project_connection_warehouse_form.snowflake.keep_client_session_alive.label',
+                                'components_project_connection_warehouse_form.snowflake.keep_session_alive.label',
                             )}
                             description={
                                 <p>
                                     {t(
-                                        'components_project_connection_warehouse_form.snowflake.keep_client_session_alive.description.part_1',
+                                        'components_project_connection_warehouse_form.snowflake.keep_session_alive.description.part_1',
                                     )}{' '}
                                     <Anchor
                                         target="_blank"
@@ -328,11 +328,11 @@ const SnowflakeForm: FC<{
                                         rel="noreferrer"
                                     >
                                         {t(
-                                            'components_project_connection_warehouse_form.snowflake.keep_client_session_alive.description.part_2',
+                                            'components_project_connection_warehouse_form.snowflake.keep_session_alive.description.part_2',
                                         )}
                                     </Anchor>
                                     {t(
-                                        'components_project_connection_warehouse_form.snowflake.keep_client_session_alive.description.part_3',
+                                        'components_project_connection_warehouse_form.snowflake.keep_session_alive.description.part_3',
                                     )}
                                 </p>
                             }

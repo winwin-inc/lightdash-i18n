@@ -84,7 +84,7 @@ const Spaces: FC = () => {
                                 leftIcon={<IconPlus size={18} />}
                                 onClick={handleCreateSpace}
                             >
-                                {t('pages_spaces.menus.add')}
+                                {t('pages_spaces.tabs.add')}
                             </Button>
                         )}
                     </Group>
@@ -115,8 +115,8 @@ const Spaces: FC = () => {
                         projectUuid={projectUuid}
                         parentSpaceUuid={null}
                         actionType={ActionType.CREATE}
-                        title={t('pages_spaces.menus.create_space')}
-                        confirmButtonLabel={t('pages_spaces.menus.create')}
+                        title={t('pages_spaces.tabs.create_space')}
+                        confirmButtonLabel={t('pages_spaces.tabs.create')}
                         icon={IconFolderPlus}
                         onClose={() => setIsCreateModalOpen(false)}
                     />

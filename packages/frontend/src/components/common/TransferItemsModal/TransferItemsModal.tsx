@@ -69,7 +69,7 @@ const TransferItemsModal = <
     const getItemsText = <S extends ResourceViewItem>(itemsToProcess: S[]) => {
         if (itemsToProcess.length === 1) {
             return {
-                name: <ItemName name={itemsToProcess[0].data.name} />,
+                name: itemsToProcess[0].data.name,
                 type: itemsToProcess[0].type,
             };
         }

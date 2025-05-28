@@ -26,7 +26,7 @@ import { useTranslation } from 'react-i18next';
 import rehypeExternalLinks from 'rehype-external-links';
 
 import { rehypeRemoveHeaderLinks } from '../../../../utils/markdownUtils';
-import { filterOperatorLabel } from '../../../common/Filters/FilterInputs/constants';
+import { useFilterOperatorLabel } from '../../../common/Filters/FilterInputs/constants';
 import MantineIcon from '../../../common/MantineIcon';
 import { useItemDetail } from './useItemDetails';
 
@@ -73,6 +73,7 @@ export const ItemDetailPreview: FC<{
     };
 }> = ({ description, onViewDescription, metricInfo }) => {
     const { t } = useTranslation();
+    const filterOperatorLabel = useFilterOperatorLabel();
 
     /**
      * This value is pretty arbitrary - it's an amount of characters that will exceed

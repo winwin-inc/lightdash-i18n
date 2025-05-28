@@ -263,6 +263,8 @@
             "empty": "SQL cannot be empty",
             "name": "Name cannot be empty"
         },
+        "edit": "Edit table calculation",
+        "create": "Create table calculation",
         "form": {
             "name": {
                 "label": "Name",
@@ -1233,7 +1235,8 @@
                     "part_2": "documentation",
                     "part_3": "No results found"
                 }
-            }
+            },
+            "back_to_list_view": "Back to list view"
         }
     },
     "features_metrics_catalog": {
@@ -2590,6 +2593,7 @@
         "cancel_query": "Cancel query"
     },
     "components_refresh_dbt_button": {
+        "loading": "Refreshing dbt",
         "refresh": "Refresh dbt",
         "tip": {
             "part_1": "You're still connected to a dbt project created from the CLI.",
@@ -2881,6 +2885,7 @@
     },
     "components_common_modal_chart_create": {
         "title": "Save chart",
+        "save_to": "Save to",
         "add": {
             "form": {
                 "name": {
@@ -3097,7 +3102,7 @@
             "part_1": "Permissions will be inherited from",
             "part_2": "This space will be private and not visible to other users. You can change this later."
         },
-        "search ": {
+        "search": {
             "placeholder": "Search spaces"
         },
         "spaces": "Spaces"
@@ -3107,6 +3112,7 @@
         "new_space": "New Space",
         "move": "Move",
         "cancel": "Cancel",
+        "confirm": "Confirm",
         "create_space": "Create space & move",
         "create_space_and_share": "Create space & share",
         "select_space": "Select a space to move {{name}} to:",
@@ -4819,6 +4825,11 @@
             "admin_content_view": "Public content view"
         },
         "infinite_resource_table": {
+            "last_modified": "Last Modified",
+            "access": "Access",
+            "content": "Content",
+            "name": "Name",
+            "space": "Space",
             "columns": {
                 "name": {
                     "label": "Name",
@@ -4839,7 +4850,9 @@
                 }
             },
             "toolbar": {
+                "move_to_space": "Move to space",
                 "search": "Search by name",
+                "search_placeholder": "Search by name",
                 "load_more": "Loading more...",
                 "scroll": "Scroll for more results",
                 "all_results": "All results loaded"
@@ -5299,7 +5312,11 @@
             "create_new_dashboard": "Create new dashboard",
             "add_chart": "Add chart",
             "add_existing_chart": "Add existing chart",
-            "create_new_chart": "Create new chart"
+            "create_new_chart": "Create new chart",
+            "delete_space": "Delete space",
+            "delete": "Delete",
+            "create_space_in": "Create space in {{spaceName}}",
+            "create": "Create"
         },
         "tabs": {
             "dashboards": "Dashboards",
@@ -5327,7 +5344,8 @@
             "update_space": "Update space",
             "update": "Update",
             "delete_space": "Delete space",
-            "delete": "Delete"
+            "delete": "Delete",
+            "add": "Add"
         },
         "create_new_space": "Create new space",
         "create": "Create"
@@ -5882,7 +5900,7 @@
                     "part_3": "."
                 }
             },
-            "maximun_bytes_billed": {
+            "maximum_bytes_billed": {
                 "label": "Maximum bytes billed",
                 "description": {
                     "part_1": "When a value is configured, queries executed by dbt will fail if they exceed the configured maximum bytes threshold. You can see more details in",
@@ -6089,6 +6107,7 @@
             },
             "ssh_tunnel": {
                 "label": "Use SSH tunnel",
+                "description": "Allow dbt to use cross-database-resources.",
                 "yes": "Yes",
                 "no": "No"
             },

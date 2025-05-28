@@ -1,7 +1,6 @@
 import { subject } from '@casl/ability';
 import {
     assertUnreachable,
-    capitalize,
     ChartSourceType,
     ContentSortByColumns,
     contentToResourceViewItem,
@@ -144,7 +143,9 @@ const InfiniteResourceTable = ({
     const ResourceColumns: MRT_ColumnDef<ResourceViewItem>[] = [
         {
             accessorKey: ColumnVisibility.NAME,
-            header: capitalize(ColumnVisibility.NAME),
+            header: t(
+                'components_common_resource_view_action_menu.infinite_resource_table.columns.name.label',
+            ),
             enableSorting: true,
             enableEditing: false,
             size: 300,
@@ -162,7 +163,9 @@ const InfiniteResourceTable = ({
             accessorKey: ColumnVisibility.SPACE,
             enableSorting: true,
             enableEditing: false,
-            header: capitalize(ColumnVisibility.SPACE),
+            header: t(
+                'components_common_resource_view_action_menu.infinite_resource_table.columns.space.label',
+            ),
             Cell: ({ row }) => {
                 const item = row.original;
                 if (isResourceViewSpaceItem(item)) {
@@ -193,7 +196,9 @@ const InfiniteResourceTable = ({
             accessorKey: ColumnVisibility.UPDATED_AT,
             enableSorting: true,
             enableEditing: false,
-            header: 'Last Modified',
+            header: t(
+                'components_common_resource_view_action_menu.infinite_resource_table.last_modified',
+            ),
             Cell: ({ row }) => {
                 if (isResourceViewSpaceItem(row.original))
                     return (
@@ -208,7 +213,9 @@ const InfiniteResourceTable = ({
             accessorKey: ColumnVisibility.ACCESS,
             enableSorting: false,
             enableEditing: false,
-            header: 'Access',
+            header: t(
+                'components_common_resource_view_action_menu.infinite_resource_table.access',
+            ),
             Cell: ({ row }) => {
                 if (!isResourceViewSpaceItem(row.original)) return null;
                 return (
@@ -224,7 +231,9 @@ const InfiniteResourceTable = ({
             accessorKey: ColumnVisibility.CONTENT,
             enableSorting: false,
             enableEditing: false,
-            header: 'Content',
+            header: t(
+                'components_common_resource_view_action_menu.infinite_resource_table.content',
+            ),
             Cell: ({ row }) => {
                 if (!isResourceViewSpaceItem(row.original)) return null;
                 const {
@@ -602,7 +611,9 @@ const InfiniteResourceTable = ({
                                     })}
                                     type="search"
                                     variant="default"
-                                    placeholder="Search by name"
+                                    placeholder={t(
+                                        'components_common_resource_view_action_menu.infinite_resource_table.toolbar.search_placeholder',
+                                    )}
                                     value={search ?? ''}
                                     icon={
                                         <MantineIcon
@@ -666,7 +677,9 @@ const InfiniteResourceTable = ({
                                 }
                                 onClick={openTransferItemsModal}
                             >
-                                Move to space
+                                {t(
+                                    'components_common_resource_view_action_menu.infinite_resource_table.toolbar.move_to_space',
+                                )}
                             </Button>
                         ) : null}
                     </Group>

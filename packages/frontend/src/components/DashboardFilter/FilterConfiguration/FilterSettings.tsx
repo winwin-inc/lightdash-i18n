@@ -25,10 +25,8 @@ import { useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import FilterInputComponent from '../../common/Filters/FilterInputs';
-import {
-    useFilterOperatorOptions,
-    usePlaceholderByFilterTypeAndOperator,
-} from '../../common/Filters/FilterInputs/utils';
+import { useFilterOperatorOptions } from '../../common/Filters/FilterInputs/utils';
+import { usePlaceholderByFilterTypeAndOperator } from '../../common/Filters/utils/getPlaceholderByFilterTypeAndOperator';
 import MantineIcon from '../../common/MantineIcon';
 
 interface FilterSettingsProps {
