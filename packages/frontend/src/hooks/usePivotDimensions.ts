@@ -1,17 +1,17 @@
-import { type ApiQueryResults } from '@lightdash/common';
+import { type MetricQuery } from '@lightdash/common';
 import { useMemo, useState } from 'react';
 
 const usePivotDimensions = (
     initialPivotDimensions: string[] | undefined,
-    resultsData: ApiQueryResults | undefined,
+    metricQuery?: MetricQuery,
 ) => {
     const [dirtyPivotDimensions, setPivotDimensions] = useState(
         initialPivotDimensions,
     );
 
     const validPivotDimensions = useMemo(() => {
-        if (resultsData) {
-            const availableDimensions = resultsData.metricQuery.dimensions;
+        if (metricQuery) {
+            const availableDimensions = metricQuery.dimensions;
 
             if (
                 dirtyPivotDimensions &&
@@ -25,7 +25,7 @@ const usePivotDimensions = (
             }
             return undefined;
         }
-    }, [resultsData, dirtyPivotDimensions]);
+    }, [metricQuery, dirtyPivotDimensions]);
 
     return {
         validPivotDimensions,

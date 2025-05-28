@@ -1,14 +1,11 @@
 import {
-    ChartType,
     ECHARTS_DEFAULT_COLORS,
     getHiddenTableFields,
     getPivotConfig,
     NotFoundError,
 } from '@lightdash/common';
 import { useDisclosure } from '@mantine/hooks';
-import { memo, useCallback, useMemo, useState, type FC } from 'react';
-import { useTranslation } from 'react-i18next';
-
+import { type FC, memo, useCallback, useMemo, useState } from 'react';
 import { downloadCsv } from '../../../api/csv';
 import ErrorBoundary from '../../../features/errorBoundary/ErrorBoundary';
 import { type EChartSeries } from '../../../hooks/echarts/useEchartsCartesianConfig';
@@ -45,11 +42,21 @@ const VisualizationCard: FC<{
     );
 
     const isLoadingQueryResults = useExplorerContext(
-        (context) => context.queryResults.isLoading,
+        (context) =>
+            context.query.isFetching || context.queryResults.isFetchingRows,
     );
-    const queryResults = useExplorerContext(
-        (context) => context.queryResults.data,
+    const query = useExplorerContext((context) => context.query);
+    const queryResults = useExplorerContext((context) => context.queryResults);
+
+    const resultsData = useMemo(
+        () => ({
+            ...queryResults,
+            metricQuery: query.data?.metricQuery,
+            fields: query.data?.fields,
+        }),
+        [query.data, queryResults],
     );
+
     const setPivotFields = useExplorerContext(
         (context) => context.actions.setPivotFields,
     );
@@ -74,13 +81,12 @@ const VisualizationCard: FC<{
     const tableCalculationsMetadata = useExplorerContext(
         (context) => context.state.metadata?.tableCalculations,
     );
-    const pivotConfig = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.pivotConfig,
-    );
+
     const isOpen = useMemo(
         () => expandedSections.includes(ExplorerSection.VISUALIZATION),
         [expandedSections],
     );
+
     const toggleSection = useCallback(
         () => toggleExpandedSection(ExplorerSection.VISUALIZATION),
         [toggleExpandedSection],
@@ -137,10 +143,7 @@ const VisualizationCard: FC<{
                 hiddenFields: getHiddenTableFields(
                     unsavedChartVersion.chartConfig,
                 ),
-                pivotColumns:
-                    unsavedChartVersion.chartConfig.type === ChartType.TABLE
-                        ? pivotConfig?.columns
-                        : undefined,
+                pivotConfig: getPivotConfig(unsavedChartVersion),
             });
             return csvResponse;
         }
@@ -180,7 +183,7 @@ const VisualizationCard: FC<{
                 initialPivotDimensions={
                     unsavedChartVersion.pivotConfig?.columns
                 }
-                resultsData={queryResults}
+                resultsData={resultsData}
                 isLoading={isLoadingQueryResults}
                 columnOrder={unsavedChartVersion.tableConfig.columnOrder}
                 onSeriesContextMenu={onSeriesContextMenu}

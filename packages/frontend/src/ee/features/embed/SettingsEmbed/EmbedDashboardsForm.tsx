@@ -1,51 +1,88 @@
-import { type DashboardBasicDetails } from '@lightdash/common';
-import { Button, Flex, MultiSelect, Stack } from '@mantine/core';
+import {
+    type DashboardBasicDetails,
+    type DecodedEmbed,
+    type UpdateEmbed,
+} from '@lightdash/common';
+import { Button, Flex, MultiSelect, Stack, Switch } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import React, { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 const EmbedDashboardsForm: FC<{
     disabled: boolean;
-    selectedDashboardsUuids: string[];
+    embedConfig: DecodedEmbed;
     dashboards: DashboardBasicDetails[];
-    onSave: (dashboardUuids: string[]) => void;
-}> = ({ disabled, selectedDashboardsUuids, dashboards, onSave }) => {
+    onSave: (values: UpdateEmbed) => void;
+}> = ({ disabled, embedConfig, dashboards, onSave }) => {
     const { t } = useTranslation();
 
     const form = useForm({
         initialValues: {
-            dashboardUuids: selectedDashboardsUuids,
+            allowAllDashboards: embedConfig.allowAllDashboards,
+            dashboardUuids: embedConfig.dashboardUuids,
         },
     });
 
     const handleSubmit = form.onSubmit((values) => {
-        if (values.dashboardUuids.length > 0) {
-            onSave(values.dashboardUuids);
-        }
+        onSave({
+            dashboardUuids: values.dashboardUuids,
+            allowAllDashboards: values.allowAllDashboards,
+        });
     });
 
     return (
         <form id="add-dashboard-to-embed-config" onSubmit={handleSubmit}>
             <Stack>
-                <MultiSelect
-                    required
-                    label={t('ai_embed_dashboards_form.dashboards')}
-                    data={dashboards.map((dashboard) => ({
-                        value: dashboard.uuid,
-                        label: dashboard.name,
-                    }))}
-                    disabled={disabled}
-                    defaultValue={[]}
-                    placeholder={t(
-                        'ai_embed_dashboards_form.select_a_dashboard',
+                <Switch
+                    name="allowAllDashboards"
+                    label={t(
+                        'features_embed_settings_embed_dashboards_form.allow_all_dashboards',
                     )}
-                    searchable
-                    withinPortal
-                    {...form.getInputProps('dashboardUuids')}
+                    {...form.getInputProps('allowAllDashboards', {
+                        type: 'checkbox',
+                    })}
                 />
+                {!form.values.allowAllDashboards && (
+                    <MultiSelect
+                        required={!form.values.allowAllDashboards}
+                        label={t(
+                            'features_embed_settings_embed_dashboards_form.dashboards',
+                        )}
+                        data={dashboards.map((dashboard) => ({
+                            value: dashboard.uuid,
+                            label: dashboard.name,
+                        }))}
+                        disabled={
+                            disabled ||
+                            dashboards.length === 0 ||
+                            form.values.allowAllDashboards
+                        }
+                        defaultValue={[]}
+                        placeholder={
+                            dashboards.length === 0
+                                ? t(
+                                      'features_embed_settings_embed_dashboards_form.no_dashboards',
+                                  )
+                                : t(
+                                      'features_embed_settings_embed_dashboards_form.select_dashboards',
+                                  )
+                        }
+                        searchable
+                        withinPortal
+                        description={t(
+                            'features_embed_settings_embed_dashboards_form.select_dashboards_description',
+                        )}
+                        {...form.getInputProps('dashboardUuids')}
+                    />
+                )}
                 <Flex justify="flex-end" gap="sm">
-                    <Button type="submit" disabled={disabled}>
-                        {t('ai_embed_dashboards_form.save_changes')}
+                    <Button
+                        type="submit"
+                        disabled={disabled || dashboards.length === 0}
+                    >
+                        {t(
+                            'features_embed_settings_embed_dashboards_form.save_changes',
+                        )}
                     </Button>
                 </Flex>
             </Stack>

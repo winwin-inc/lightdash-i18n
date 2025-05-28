@@ -14,18 +14,22 @@ import {
     AiWebAppPrompt,
     AnyType,
     CatalogType,
+    CommercialFeatureFlags,
     DashboardDAO,
     DashboardSummary,
     FeatureFlags,
     ItemsMap,
     LightdashUser,
     QueryExecutionContext,
+    ResultRow,
     SessionUser,
     SlackPrompt,
     UnexpectedServerError,
     assertUnreachable,
     getErrorMessage,
+    getItemId,
     isDashboardChartTileType,
+    isField,
     isSlackPrompt,
 } from '@lightdash/common';
 import * as Sentry from '@sentry/node';
@@ -42,12 +46,15 @@ import { OrganizationModel } from '../../../models/OrganizationModel';
 import { ProjectModel } from '../../../models/ProjectModel/ProjectModel';
 import { UserModel } from '../../../models/UserModel';
 import { isFeatureFlagEnabled } from '../../../postHog';
+import { FeatureFlagService } from '../../../services/FeatureFlag/FeatureFlagService';
 import { ProjectService } from '../../../services/ProjectService/ProjectService';
 import {
+    CustomVizGenerated,
     DashboardSummaryCreated,
     DashboardSummaryViewed,
 } from '../../analytics';
 import OpenAi from '../../clients/OpenAi';
+import { AiAgentModel } from '../../models/AiAgentModel';
 import { AiModel } from '../../models/AiModel';
 import type { CommercialSlackAuthenticationModel } from '../../models/CommercialSlackAuthenticationModel';
 import { DashboardSummaryModel } from '../../models/DashboardSummaryModel';
@@ -76,6 +83,7 @@ import {
 } from './utils/prepareData';
 import {
     DEFAULT_CHART_SUMMARY_PROMPT,
+    DEFAULT_CUSTOM_VIZ_PROMPT,
     DEFAULT_DASHBOARD_SUMMARY_PROMPT,
 } from './utils/prompts';
 import { getTotalTokenUsage } from './utils/tokens';
@@ -93,6 +101,7 @@ type Dependencies = {
     dashboardModel: DashboardModel;
     dashboardSummaryModel: DashboardSummaryModel;
     aiModel: AiModel;
+    aiAgentModel: AiAgentModel;
     userModel: UserModel;
     projectModel: ProjectModel;
     organizationModel: OrganizationModel;
@@ -101,7 +110,7 @@ type Dependencies = {
     openAi: OpenAi;
     slackClient: SlackClient;
     lightdashConfig: LightdashConfig;
-    slackAuthenticationModel: CommercialSlackAuthenticationModel;
+    featureFlagService: FeatureFlagService;
 };
 
 export class AiService {
@@ -110,6 +119,8 @@ export class AiService {
     private readonly dashboardModel: DashboardModel;
 
     private readonly aiModel: AiModel;
+
+    private readonly aiAgentModel: AiAgentModel;
 
     private readonly userModel: UserModel;
 
@@ -123,13 +134,13 @@ export class AiService {
 
     private readonly catalogService: CommercialCatalogService;
 
-    private readonly slackAuthenticationModel: CommercialSlackAuthenticationModel;
-
     private readonly openAi: OpenAi;
 
     private readonly slackClient: SlackClient;
 
     private readonly lightdashConfig: LightdashConfig;
+
+    private readonly featureFlagService: FeatureFlagService;
 
     constructor(dependencies: Dependencies) {
         this.analytics = dependencies.analytics;
@@ -138,13 +149,24 @@ export class AiService {
         this.projectService = dependencies.projectService;
         this.openAi = dependencies.openAi;
         this.aiModel = dependencies.aiModel;
+        this.aiAgentModel = dependencies.aiAgentModel;
         this.userModel = dependencies.userModel;
         this.slackClient = dependencies.slackClient;
         this.projectModel = dependencies.projectModel;
         this.catalogService = dependencies.catalogService;
         this.lightdashConfig = dependencies.lightdashConfig;
         this.organizationModel = dependencies.organizationModel;
-        this.slackAuthenticationModel = dependencies.slackAuthenticationModel;
+        this.featureFlagService = dependencies.featureFlagService;
+    }
+
+    private async getIsCopilotEnabled(
+        user: Pick<LightdashUser, 'userUuid' | 'organizationUuid'>,
+    ) {
+        const aiCopilotFlag = await this.featureFlagService.get({
+            user,
+            featureFlagId: CommercialFeatureFlags.AiCopilot,
+        });
+        return aiCopilotFlag.enabled;
     }
 
     private static async throwOnFeatureDisabled(user: SessionUser) {
@@ -234,6 +256,92 @@ export class AiService {
             chart_name: chartData.name,
             chart_description: chartData.description ?? '',
         });
+    }
+
+    async generateCustomViz({
+        user,
+        projectUuid,
+        prompt,
+        itemsMap,
+        sampleResults,
+        currentVizConfig,
+    }: {
+        user: SessionUser;
+        projectUuid: string;
+        prompt: string;
+        itemsMap: ItemsMap;
+        sampleResults: {
+            [k: string]: unknown;
+        }[];
+        currentVizConfig: string;
+    }) {
+        const isAICustomVizEnabled = await isFeatureFlagEnabled(
+            FeatureFlags.AiCustomViz,
+            user,
+            {
+                throwOnTimeout: true,
+            },
+        );
+
+        if (!isAICustomVizEnabled) {
+            throw new Error('AI Custom viz feature not enabled!');
+        }
+        let openAiResponse: {
+            result: string;
+            tokenUsage: TokenUsage | undefined;
+        };
+
+        const fields = Object.values(itemsMap).map((item) => ({
+            id: getItemId(item),
+            name: item.name,
+            type: item.type,
+            fieldType: isField(item) ? item.fieldType : undefined,
+        }));
+
+        const startTime = new Date().getTime();
+
+        try {
+            openAiResponse = await this.openAi.run(DEFAULT_CUSTOM_VIZ_PROMPT, {
+                user_prompt: prompt,
+                fields: JSON.stringify(fields),
+                sample_data: JSON.stringify(sampleResults),
+                current_viz_config: currentVizConfig,
+            });
+        } catch (e) {
+            const errorCode =
+                e instanceof Error && 'code' in e ? e.code : getErrorMessage(e);
+            throw new Error(`Failed to generate vega config - ${errorCode}`);
+        }
+
+        const { result: vegaConfigResult, tokenUsage } = openAiResponse;
+
+        const timeOpenAi = new Date().getTime() - startTime;
+
+        const totalTokenUsages = [tokenUsage].filter(
+            (t): t is TokenUsage => t !== undefined,
+        );
+
+        const totalTokens = getTotalTokenUsage(totalTokenUsages);
+
+        if (this.openAi.model === undefined) {
+            throw new UnexpectedServerError('OpenAi model is not initialized');
+        }
+
+        this.analytics.track<CustomVizGenerated>({
+            userId: user.userUuid,
+            event: 'ai.custom_viz.generated',
+            properties: {
+                openAIModelName: this.openAi.model.modelName,
+                organizationId: user.organizationUuid!,
+                projectId: projectUuid,
+                prompt,
+                responseSize: vegaConfigResult.length,
+                tokenUsage: totalTokens,
+                timeOpenAi,
+            },
+        });
+
+        return vegaConfigResult;
     }
 
     async createDashboardSummary(
@@ -542,18 +650,18 @@ export class AiService {
             throw new Error('Organization not found');
         }
 
-        if (!this.lightdashConfig.ai.copilot.enabled) {
+        if (!(await this.getIsCopilotEnabled(user))) {
             throw new Error('AI Copilot is not enabled');
         }
 
         const { projectUuid } = slackOrWebAppPrompt;
 
-        const projectSettings =
+        const agentSettings =
             'slackChannelId' in slackOrWebAppPrompt
-                ? await this.slackAuthenticationModel.getProjectSettingsForSlackChannelId(
-                      user.organizationUuid,
-                      slackOrWebAppPrompt.slackChannelId,
-                  )
+                ? await this.aiAgentModel.getAgentBySlackChannelId({
+                      organizationUuid: user.organizationUuid,
+                      slackChannelId: slackOrWebAppPrompt.slackChannelId,
+                  })
                 : undefined;
 
         const {
@@ -566,20 +674,20 @@ export class AiService {
         } = this.getToolUtilities(
             user,
             slackOrWebAppPrompt,
-            projectSettings?.availableTags ?? null,
+            agentSettings?.tags ?? null,
         );
 
         const findFieldsTool = getFindFieldsTool({
             getExplore,
             searchFields,
-            availableTags: projectSettings?.availableTags ?? null,
+            availableTags: agentSettings?.tags ?? null,
         });
 
         const generateQueryFilters = getGenerateQueryFiltersTool({
             getExplore,
             promptUuid: slackOrWebAppPrompt.promptUuid,
             updatePrompt: this.aiModel.updateSlackResponse.bind(this.aiModel),
-            availableTags: projectSettings?.availableTags ?? null,
+            availableTags: agentSettings?.tags ?? null,
         });
 
         const generateBarVizConfigTool = getGenerateBarVizConfigTool({
@@ -698,7 +806,7 @@ ${e.llmOutput}
             await this.getMinimalExploreInformation(
                 user,
                 projectUuid,
-                projectSettings?.availableTags ?? null,
+                agentSettings?.tags ?? null,
             );
 
         const results = await agentExecutor.invoke({
@@ -736,6 +844,7 @@ ${e.llmOutput}
         slackThreadTs: string | undefined;
         prompt: string;
         promptSlackTs: string;
+        agentUuid: string | null;
     }): Promise<[string, boolean]> {
         let createdThread = false;
         let threadUuid: string | undefined;
@@ -774,6 +883,7 @@ ${e.llmOutput}
                 slackUserId: data.slackUserId,
                 slackChannelId: data.slackChannelId,
                 slackThreadTs: data.slackThreadTs || data.promptSlackTs,
+                agentUuid: data.agentUuid,
             });
         }
 
@@ -975,14 +1085,16 @@ ${
         user: SessionUser,
         projectUuid: string,
     ): Promise<AiConversation[]> {
-        if (!this.lightdashConfig.ai.copilot.enabled) {
+        if (!(await this.getIsCopilotEnabled(user))) {
             throw new Error('AI Copilot is not enabled');
         }
+
+        const projectSummary = await this.projectModel.getSummary(projectUuid);
 
         const canViewProject = user.ability.can(
             'view',
             subject('Project', {
-                organizationUuid: user.organizationUuid,
+                organizationUuid: projectSummary.organizationUuid,
                 projectUuid,
             }),
         );
@@ -1017,7 +1129,7 @@ ${
         projectUuid: string,
         aiThreadUuid: string,
     ): Promise<AiConversationMessage[]> {
-        if (!this.lightdashConfig.ai.copilot.enabled) {
+        if (!(await this.getIsCopilotEnabled(user))) {
             throw new Error('AI Copilot is not enabled');
         }
 
@@ -1076,6 +1188,7 @@ ${
             projectUuid,
             userUuid: user.userUuid,
             createdFrom: 'web_app',
+            agentUuid: null,
         });
 
         if (threadUuid === undefined) {
@@ -1099,7 +1212,7 @@ ${
         prompt: AiWebAppPrompt;
         rows: Record<string, AnyType>[] | undefined;
     }> {
-        if (!this.lightdashConfig.ai.copilot.enabled) {
+        if (!(await this.getIsCopilotEnabled(user))) {
             throw new Error('AI Copilot is not enabled');
         }
 
@@ -1129,6 +1242,7 @@ ${
             projectUuid,
             createdFrom: 'web_app',
             userUuid: user.userUuid,
+            agentUuid: null,
         });
 
         const promptUuid = await this._createWebAppPrompt(

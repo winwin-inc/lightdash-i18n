@@ -4,8 +4,10 @@ import {
     ChartSummary,
     DashboardDAO,
     ForbiddenError,
+    getDeepestPaths,
     getErrorMessage,
-    isChartTile,
+    isDashboardChartTileType,
+    isSubPath,
     NotFoundError,
     ParameterError,
     PromotedChart as PromotedChangeChart,
@@ -14,6 +16,7 @@ import {
     PromotionChanges,
     SavedChartDAO,
     SessionUser,
+    Space,
     SpaceShare,
     SpaceSummary,
     UnexpectedServerError,
@@ -30,20 +33,22 @@ import { BaseService } from '../BaseService';
 export type PromotedChart = {
     projectUuid: string;
     chart: SavedChartDAO;
-    space: Omit<SpaceSummary, 'userAccess'>; // even if chart belongs to dashboard, this is not undefined
+    space: PromotedSpace; // even if chart belongs to dashboard, this is not undefined
+    spaces: PromotedSpace[];
     access: SpaceShare[];
 };
 export type UpstreamChart = {
     projectUuid: string;
     chart: (ChartSummary & { updatedAt: Date }) | undefined;
-    space: Omit<SpaceSummary, 'userAccess'> | undefined;
+    space: PromotedSpace | undefined;
     access: SpaceShare[];
     dashboardUuid?: string; // dashboard uuid if chart belongs to dashboard
 };
 export type PromotedDashboard = {
     projectUuid: string;
     dashboard: DashboardDAO;
-    space: Omit<SpaceSummary, 'userAccess'>;
+    space: PromotedSpace;
+    spaces: PromotedSpace[];
     access: SpaceShare[];
 };
 
@@ -52,7 +57,7 @@ export type UpstreamDashboard = {
     dashboard:
         | Pick<DashboardDAO, 'uuid' | 'name' | 'spaceUuid' | 'description'>
         | undefined;
-    space: Omit<SpaceSummary, 'userAccess'> | undefined;
+    space: PromotedSpace | undefined;
     access: SpaceShare[];
 };
 
@@ -124,8 +129,9 @@ export class PromoteService extends BaseService {
                         : upstreamContent.dashboard !== undefined,
                 chartsCount:
                     'dashboard' in promotedContent
-                        ? promotedContent.dashboard.tiles.filter(isChartTile)
-                              .length
+                        ? promotedContent.dashboard.tiles.filter(
+                              isDashboardChartTileType,
+                          ).length
                         : undefined,
                 error,
             },
@@ -146,6 +152,20 @@ export class PromoteService extends BaseService {
         const promotedSpace = await this.spaceModel.getSpaceSummary(
             savedChart.spaceUuid,
         );
+
+        const promotedSpaceAncestorUuids =
+            await this.spaceModel.getSpaceAncestors({
+                spaceUuid: savedChart.spaceUuid,
+                projectUuid: savedChart.projectUuid,
+            });
+
+        const promotedSpaceAncestors =
+            promotedSpaceAncestorUuids.length > 0
+                ? await this.spaceModel.find({
+                      spaceUuids: promotedSpaceAncestorUuids,
+                  })
+                : [];
+
         const upstreamCharts = await this.savedChartModel.find({
             projectUuid: upstreamProjectUuid,
             slug: savedChart.slug,
@@ -158,9 +178,10 @@ export class PromoteService extends BaseService {
         }
         const upstreamChart =
             upstreamCharts.length === 1 ? upstreamCharts[0] : undefined;
+
         const upstreamSpaces = await this.spaceModel.find({
             projectUuid: upstreamProjectUuid,
-            slug: promotedSpace.slug,
+            path: promotedSpace.path,
         });
         if (upstreamSpaces.length > 1) {
             throw new AlreadyExistsError(
@@ -175,6 +196,7 @@ export class PromoteService extends BaseService {
                 chart: savedChart,
                 projectUuid: upstreamProjectUuid,
                 space: promotedSpace,
+                spaces: promotedSpaceAncestors,
                 access: await this.spaceModel.getUserSpaceAccess(
                     user.userUuid,
                     promotedSpace.uuid,
@@ -410,8 +432,8 @@ export class PromoteService extends BaseService {
     }
 
     private static isSpaceUpdated(
-        promotedSpace: Omit<SpaceSummary, 'userAccess'>,
-        upstreamSpace: Omit<SpaceSummary, 'userAccess'>,
+        promotedSpace: Pick<SpaceSummary, 'name'>,
+        upstreamSpace: Pick<SpaceSummary, 'name'>,
     ) {
         return promotedSpace.name !== upstreamSpace.name;
     }
@@ -498,6 +520,7 @@ export class PromoteService extends BaseService {
                         ...updatedChart,
                         oldUuid: changeChart.oldUuid,
                         spaceSlug: changeChart.spaceSlug,
+                        spacePath: changeChart.spacePath,
                     }));
             });
         const updatedCharts = await Promise.all(updatedChartPromises);
@@ -505,7 +528,7 @@ export class PromoteService extends BaseService {
         const createdChartPromises: Promise<PromotedChangeChart>[] =
             promotionChanges.charts
                 .filter((change) => change.action === PromotionAction.CREATE)
-                .map((chartChange) => {
+                .map(async (chartChange) => {
                     const changeChart = chartChange.data;
 
                     // Update dashboard with new space if it was created
@@ -528,16 +551,21 @@ export class PromoteService extends BaseService {
                                   updatedByUser: user,
                                   slug: changeChart.slug,
                               };
-                    return this.savedChartModel
-                        .create(changeChart.projectUuid, user.userUuid, {
+                    const createdChart = await this.savedChartModel.create(
+                        changeChart.projectUuid,
+                        user.userUuid,
+                        {
                             ...chartData,
                             forceSlug: true,
-                        })
-                        .then((chart) => ({
-                            ...chart,
-                            oldUuid: changeChart.oldUuid,
-                            spaceSlug: changeChart.spaceSlug,
-                        }));
+                        },
+                    );
+
+                    return {
+                        ...createdChart,
+                        oldUuid: changeChart.oldUuid,
+                        spaceSlug: changeChart.spaceSlug,
+                        spacePath: changeChart.spacePath,
+                    };
                 });
         const createdCharts = await Promise.all(createdChartPromises);
 
@@ -562,7 +590,7 @@ export class PromoteService extends BaseService {
                     ...dashboardChange.data,
                     tiles: dashboardChange.data.tiles.map((tile) => {
                         if (
-                            isChartTile(tile) &&
+                            isDashboardChartTileType(tile) &&
                             tile.properties.savedChartUuid
                         ) {
                             const newTileChart = getChartByOldUuid(
@@ -632,10 +660,16 @@ export class PromoteService extends BaseService {
                 upstreamChart,
             );
 
-            let promotionChanges: PromotionChanges =
-                PromoteService.getChartChanges(promotedChart, upstreamChart);
+            let promotionChanges: PromotionChanges = await this.getChartChanges(
+                promotedChart,
+                upstreamChart,
+            );
 
-            promotionChanges = await this.upsertSpaces(user, promotionChanges);
+            promotionChanges = await this.upsertSpaces(
+                user,
+                projectUuid,
+                promotionChanges,
+            );
 
             promotionChanges = await this.upsertCharts(user, promotionChanges);
 
@@ -678,10 +712,15 @@ export class PromoteService extends BaseService {
             chartUuid,
         );
 
-        const promotionChanges: PromotionChanges =
-            PromoteService.getChartChanges(promotedChart, upstreamChart);
+        const promotionChanges = await this.getChartChanges(
+            promotedChart,
+            upstreamChart,
+        );
 
-        return promotionChanges;
+        return {
+            ...promotionChanges,
+            spaces: PromoteService.sortSpaceChanges(promotionChanges.spaces),
+        };
     }
 
     async getPromoteDashboardDiff(user: SessionUser, dashboardUuid: string) {
@@ -710,17 +749,20 @@ export class PromoteService extends BaseService {
                 upstreamDashboard,
             );
 
-        return promotionChanges;
+        return {
+            ...promotionChanges,
+            spaces: PromoteService.sortSpaceChanges(promotionChanges.spaces),
+        };
     }
 
-    private static getSpaceBySlug(
+    private static getSpaceByPath(
         spaces: PromotionChanges['spaces'],
-        slug: string,
+        path: string,
     ) {
-        const space = spaces.find((s) => s.data.slug === slug);
+        const space = spaces.find((s) => s.data.path === path);
         if (space === undefined) {
             throw new UnexpectedServerError(
-                `Missing space with slug "${slug}" to promote`,
+                `Missing space with path "${path}" to promote`,
             );
         }
         return space.data;
@@ -776,6 +818,7 @@ export class PromoteService extends BaseService {
                     data: {
                         ...newDashboard,
                         spaceSlug: promotedDashboard.spaceSlug,
+                        spacePath: promotedDashboard.spacePath,
                     },
                 },
             ],
@@ -823,6 +866,7 @@ export class PromoteService extends BaseService {
                     data: {
                         ...updatedDashboard,
                         spaceSlug: promotedDashboard.spaceSlug,
+                        spacePath: promotedDashboard.spacePath,
                     },
                 },
             ],
@@ -831,9 +875,11 @@ export class PromoteService extends BaseService {
 
     async upsertSpaces(
         user: SessionUser,
+        projectUuid: string, // The base project uuid
         promotionChanges: PromotionChanges,
     ): Promise<PromotionChanges> {
         const spaceChanges = promotionChanges.spaces;
+
         // Creates the spaces needed and return a new list of spaces with the right uuids
         const existingSpaces = spaceChanges.filter(
             (change) => change.action === PromotionAction.NO_CHANGES,
@@ -850,21 +896,85 @@ export class PromoteService extends BaseService {
         );
         await Promise.all(updatedSpacePromises);
 
-        const newSpaces = spaceChanges
+        const paths = spaceChanges
             .filter((change) => change.action === PromotionAction.CREATE)
-            .map(async (spaceChange) => {
-                const { data } = spaceChange;
-                const space = await this.spaceModel.createSpace(
-                    data.projectUuid,
-                    data.name,
-                    user.userId,
-                    data.isPrivate,
-                    data.slug,
-                    true, // forceSameSlug
+            .map((change) => change.data.path);
+        const deepestPaths = getDeepestPaths(paths);
+
+        const newSpaces = new Map<string, Space>();
+
+        for await (const deepestPath of deepestPaths) {
+            const filteredSortedSpaceChanges = spaceChanges
+                .filter((change) => change.action === PromotionAction.CREATE)
+                .filter(
+                    (change) =>
+                        change.data.path === deepestPath ||
+                        isSubPath(change.data.path, deepestPath),
+                )
+                // Sort by path length to create the parent spaces first
+                .sort(
+                    (a, b) =>
+                        a.data.path.split('.').length -
+                        b.data.path.split('.').length,
                 );
+
+            let parentSpaceUuid: string | null = null;
+            if (filteredSortedSpaceChanges.length > 0) {
+                // parentSpaceUuid of promoted space in downstream project
+                const promotedParentSpaceChangesData =
+                    filteredSortedSpaceChanges[0].data;
+
+                if (promotedParentSpaceChangesData.parentSpaceUuid) {
+                    const promotedParentSpace =
+                        await this.spaceModel.getSpaceSummary(
+                            promotedParentSpaceChangesData.parentSpaceUuid,
+                        );
+
+                    const parentSpace = await this.spaceModel.find({
+                        path: promotedParentSpace.path,
+                        projectUuid: promotedParentSpaceChangesData.projectUuid, // this is correctly set in `getSpaceChange`
+                    });
+
+                    if (parentSpace.length !== 1) {
+                        throw new UnexpectedServerError(
+                            `Expected 1 parent space for ${promotedParentSpace.path}, got ${parentSpace.length}`,
+                        );
+                    }
+
+                    parentSpaceUuid = parentSpace[0].uuid;
+                }
+            }
+
+            for await (const spaceChange of filteredSortedSpaceChanges) {
+                if (newSpaces.has(spaceChange.data.path)) {
+                    parentSpaceUuid = newSpaces.get(
+                        spaceChange.data.path,
+                    )!.uuid;
+
+                    // eslint-disable-next-line no-continue
+                    continue;
+                }
+
+                const { data } = spaceChange;
+
+                const space = await this.spaceModel.createSpace(
+                    {
+                        isPrivate: data.isPrivate,
+                        name: data.name,
+                        parentSpaceUuid,
+                    },
+                    {
+                        projectUuid: data.projectUuid,
+                        userId: user.userId,
+                        path: data.path,
+                    },
+                );
+                parentSpaceUuid = space.uuid;
+
                 if (data.isPrivate) {
                     const promotedSpaceWithAccess =
                         await this.spaceModel.getFullSpace(data.uuid);
+
                     const userAccessPromises = promotedSpaceWithAccess.access
                         .filter((access) => access.hasDirectAccess)
                         .map((userAccess) =>
@@ -874,6 +984,7 @@ export class PromoteService extends BaseService {
                                 userAccess.role,
                             ),
                         );
+
                     const groupAccessPromises =
                         promotedSpaceWithAccess.groupsAccess.map(
                             (groupAccess) =>
@@ -883,15 +994,18 @@ export class PromoteService extends BaseService {
                                     groupAccess.spaceRole,
                                 ),
                         );
+
                     await Promise.all([
                         ...userAccessPromises,
                         ...groupAccessPromises,
                     ]);
                 }
-                return space;
-            });
-        const newSpaceSummaries = await Promise.all(newSpaces);
-        const newSpaceChanges = newSpaceSummaries.map((space) => {
+
+                newSpaces.set(space.path, space);
+            }
+        }
+
+        const newSpaceChanges = Array.from(newSpaces.values()).map((space) => {
             const promotedSpace: PromotedSpace = {
                 ...space,
                 access: [],
@@ -912,9 +1026,9 @@ export class PromoteService extends BaseService {
         const updateChartsWithSpace = promotionChanges.charts.map(
             (chartChange) => {
                 const chart = chartChange.data;
-                const space = PromoteService.getSpaceBySlug(
+                const space = PromoteService.getSpaceByPath(
                     allSpaces,
-                    chart.spaceSlug,
+                    chart.spacePath,
                 );
                 return {
                     ...chartChange,
@@ -928,9 +1042,9 @@ export class PromoteService extends BaseService {
         const updateDashboardWithSpace = promotionChanges.dashboards.map(
             (dashboardChange) => {
                 const dashboard = dashboardChange.data;
-                const space = PromoteService.getSpaceBySlug(
+                const space = PromoteService.getSpaceByPath(
                     allSpaces,
-                    dashboard.spaceSlug,
+                    dashboard.spacePath,
                 );
                 return {
                     ...dashboardChange,
@@ -967,6 +1081,7 @@ export class PromoteService extends BaseService {
                     spaceUuid: upstreamChart.chart.spaceUuid,
                     uuid: upstreamChart.chart.uuid,
                     spaceSlug: promotedChart.space?.slug,
+                    spacePath: promotedChart.space?.path,
                     oldUuid: promotedChart.chart.uuid,
                     projectUuid: upstreamChart.projectUuid,
                 },
@@ -983,16 +1098,31 @@ export class PromoteService extends BaseService {
                     upstreamChart.space?.uuid || promotedChart.space.uuid, // set the new space uuid after creation
                 projectUuid: upstreamChart.projectUuid,
                 spaceSlug: promotedChart.space?.slug,
+                spacePath: promotedChart.space?.path,
                 oldUuid: promotedChart.chart.uuid,
             },
         };
     }
 
-    static getSpaceChange(
+    private async getSpaceChange(
         upstreamProjectUuid: string,
-        promotedSpace: Omit<SpaceSummary, 'userAccess'>,
-        upstreamSpace: Omit<SpaceSummary, 'userAccess'> | undefined,
-    ): PromotionChanges['spaces'][number] {
+        promotedSpace: PromotedSpace,
+    ): Promise<PromotionChanges['spaces'][number]> {
+        const upstreamSpaceQueryResults = await this.spaceModel.find({
+            path: promotedSpace.path,
+            projectUuid: upstreamProjectUuid,
+        });
+        if (upstreamSpaceQueryResults.length > 1) {
+            throw new UnexpectedServerError(
+                `Expected 0 or 1 upstream space for ${promotedSpace.path}, got ${upstreamSpaceQueryResults.length}`,
+            );
+        }
+
+        const upstreamSpace =
+            upstreamSpaceQueryResults.length === 1
+                ? upstreamSpaceQueryResults[0]
+                : undefined;
+
         if (upstreamSpace !== undefined) {
             if (PromoteService.isSpaceUpdated(promotedSpace, upstreamSpace)) {
                 return {
@@ -1001,6 +1131,8 @@ export class PromoteService extends BaseService {
                         ...upstreamSpace,
                         name: promotedSpace.name,
                     },
+
+                    // TODO: implement path change and call SpaceService.move
                 };
             }
             return {
@@ -1008,32 +1140,56 @@ export class PromoteService extends BaseService {
                 data: upstreamSpace,
             };
         }
+
         return {
             action: PromotionAction.CREATE,
             data: {
+                // slug in the upstream project can already exist.
                 ...promotedSpace,
                 projectUuid: upstreamProjectUuid,
             },
         };
     }
 
-    static getChartChanges(
+    static sortSpaceChanges(
+        spaceChanges: PromotionChanges['spaces'],
+    ): PromotionChanges['spaces'] {
+        return spaceChanges.sort(
+            (a, b) =>
+                a.data.path.split('.').length - b.data.path.split('.').length,
+        );
+    }
+
+    async getChartChanges(
         promotedChart: PromotedChart,
         upstreamChart: UpstreamChart,
-    ): PromotionChanges {
-        const spaceChange = PromoteService.getSpaceChange(
-            upstreamChart.projectUuid,
-            promotedChart.space,
-            upstreamChart.space,
-        );
-
+    ): Promise<PromotionChanges> {
         const chartChange = PromoteService.getChartChange(
             promotedChart,
             upstreamChart,
         );
 
+        const spaceChange = await this.getSpaceChange(
+            upstreamChart.projectUuid,
+            promotedChart.space,
+        );
+
+        if (chartChange.action === PromotionAction.NO_CHANGES) {
+            return {
+                spaces: [spaceChange],
+                dashboards: [],
+                charts: [chartChange],
+            };
+        }
+
+        const spaceChanges = await Promise.all(
+            promotedChart.spaces.map((space) =>
+                this.getSpaceChange(upstreamChart.projectUuid, space),
+            ),
+        );
+
         return {
-            spaces: [spaceChange],
+            spaces: [spaceChange, ...spaceChanges],
             dashboards: [],
             charts: [chartChange],
         };
@@ -1057,7 +1213,10 @@ export class PromoteService extends BaseService {
 
         const chartUuids = promotedDashboard.dashboard.tiles.reduce<string[]>(
             (acc, tile) => {
-                if (isChartTile(tile) && tile.properties.savedChartUuid) {
+                if (
+                    isDashboardChartTileType(tile) &&
+                    tile.properties.savedChartUuid
+                ) {
                     return [...acc, tile.properties.savedChartUuid];
                 }
                 return acc;
@@ -1080,34 +1239,55 @@ export class PromoteService extends BaseService {
                 promotedSpace: promotedDashboard.space,
                 upstreamSpace: upstreamDashboard.space,
             },
-            ...charts.map(({ promotedChart, upstreamChart }) => ({
-                promotedSpace: promotedChart.space,
-                upstreamSpace: upstreamChart.space,
+            ...promotedDashboard.spaces.map((space) => ({
+                promotedSpace: space,
+                upstreamSpace: undefined,
             })),
+            ...charts.flatMap(({ promotedChart, upstreamChart }) => [
+                {
+                    promotedSpace: promotedChart.space,
+                    upstreamSpace: upstreamChart.space,
+                },
+                ...promotedChart.spaces.map((space) => ({
+                    promotedSpace: space,
+                    upstreamSpace: undefined,
+                })),
+            ]),
         ];
 
-        const spaceChanges = chartsAndDashboardSpaces.reduce<
-            {
-                action: PromotionAction;
-                data: PromotedSpace;
-            }[]
-        >((acc, content) => {
+        const spaceChanges: {
+            action: PromotionAction;
+            data: PromotedSpace;
+        }[] = [];
+
+        for await (const content of chartsAndDashboardSpaces) {
+            // TODO: check if upstreamSpace is necessary elsewhere
             const { promotedSpace, upstreamSpace } = content;
 
-            if (promotedSpace === undefined) return acc;
-            if (acc.some((space) => space.data.slug === promotedSpace.slug))
-                return acc; // Space already exists
-            const spaceChange = PromoteService.getSpaceChange(
+            // eslint-disable-next-line no-continue
+            if (promotedSpace === undefined) continue;
+
+            // checks if Space already exists in the spaceChanges
+            if (
+                spaceChanges.some(
+                    (space) => space.data.path === promotedSpace.path,
+                )
+            ) {
+                // eslint-disable-next-line no-continue
+                continue;
+            }
+
+            const spaceChange = await this.getSpaceChange(
                 upstreamProjectUuid,
                 promotedSpace,
-                upstreamSpace,
             );
-            return [...acc, spaceChange];
-        }, []);
+
+            spaceChanges.push(spaceChange);
+        }
 
         const dashboardChanges: PromotionChanges['dashboards'] = [
             upstreamDashboard,
-        ].map((dashboard) => {
+        ].map(() => {
             if (upstreamDashboard.dashboard !== undefined) {
                 return {
                     action: PromoteService.isDashboardUpdated(
@@ -1121,6 +1301,7 @@ export class PromoteService extends BaseService {
                         uuid: upstreamDashboard.dashboard.uuid,
                         spaceUuid: upstreamDashboard.dashboard.spaceUuid,
                         spaceSlug: promotedDashboard.space?.slug,
+                        spacePath: promotedDashboard.space?.path,
                         projectUuid: upstreamProjectUuid,
                     },
                 };
@@ -1134,6 +1315,7 @@ export class PromoteService extends BaseService {
                         promotedDashboard.dashboard.spaceUuid, // Or set the new space uuid after creation
                     projectUuid: upstreamProjectUuid,
                     spaceSlug: promotedDashboard.space?.slug,
+                    spacePath: promotedDashboard.space?.path,
                 },
             };
         });
@@ -1160,10 +1342,26 @@ export class PromoteService extends BaseService {
         user: SessionUser,
         dashboard: DashboardDAO,
         upstreamProjectUuid: string,
-    ) {
+    ): Promise<{
+        promotedDashboard: PromotedDashboard;
+        upstreamDashboard: UpstreamDashboard;
+    }> {
         const promotedSpace = await this.spaceModel.getSpaceSummary(
             dashboard.spaceUuid,
         );
+
+        const promotedSpaceAncestorUuids =
+            await this.spaceModel.getSpaceAncestors({
+                spaceUuid: dashboard.spaceUuid,
+                projectUuid: dashboard.projectUuid,
+            });
+
+        const promotedSpaceAncestors =
+            promotedSpaceAncestorUuids.length > 0
+                ? await this.spaceModel.find({
+                      spaceUuids: promotedSpaceAncestorUuids,
+                  })
+                : [];
 
         const existingUpstreamDashboards = await this.dashboardModel.find({
             projectUuid: upstreamProjectUuid,
@@ -1177,7 +1375,7 @@ export class PromoteService extends BaseService {
 
         const upstreamSpaces = await this.spaceModel.find({
             projectUuid: upstreamProjectUuid,
-            slug: promotedSpace.slug,
+            path: promotedSpace.path,
         });
         if (upstreamSpaces.length > 1) {
             throw new AlreadyExistsError(
@@ -1189,6 +1387,7 @@ export class PromoteService extends BaseService {
             dashboard,
             projectUuid: dashboard.projectUuid,
             space: promotedSpace,
+            spaces: promotedSpaceAncestors,
             access: await this.spaceModel.getUserSpaceAccess(
                 user.userUuid,
                 promotedSpace.uuid,
@@ -1196,7 +1395,8 @@ export class PromoteService extends BaseService {
         };
         const upstreamSpace =
             upstreamSpaces.length === 1 ? upstreamSpaces[0] : undefined;
-        const upstreamDashboard = {
+
+        const upstreamDashboard: UpstreamDashboard = {
             dashboard:
                 existingUpstreamDashboards.length === 1
                     ? existingUpstreamDashboards[0]
@@ -1260,7 +1460,11 @@ export class PromoteService extends BaseService {
 
             // at this point, all permisions checks are done, so we can safely promote the dashboard and charts.
             // And return the list of dashboards and charts with the new space
-            promotionChanges = await this.upsertSpaces(user, promotionChanges);
+            promotionChanges = await this.upsertSpaces(
+                user,
+                dashboard.projectUuid,
+                promotionChanges,
+            );
 
             // We first create the dashboard if needed, with empty tiles
             // Because we need the dashboardUuid to update the charts within the dashboard

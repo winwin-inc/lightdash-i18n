@@ -1,6 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
+.pnpm-store
 /node_modules
 /.pnp
 .pnp.js
@@ -23,14 +24,13 @@ lightdash_dev.yml
 
 # production
 /packages/frontend/build
-/packages/frontend/dist
+/packages/frontend/sdk/dist
 /packages/common/dist
 /packages/backend/dist
 /packages/cli/dist
 /packages/warehouses/dist
 /packages/sdk/dist
 /packages/sdk-test-app/dist
-
 # misc
 .DS_Store
 .env.local
@@ -71,6 +71,8 @@ dangerfile.development.ts
 
 # Charts as code
 lightdash
+*storybook.log
 
-# pnpm
-.pnpm-store
+# Prometheus
+prometheus.yml
+data/

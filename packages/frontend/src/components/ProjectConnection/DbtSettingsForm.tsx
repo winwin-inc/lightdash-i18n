@@ -3,18 +3,14 @@ import {
     DbtProjectType,
     DbtProjectTypeLabels,
     FeatureFlags,
-    validateDbtSelector,
     WarehouseTypes,
 } from '@lightdash/common';
 import { Anchor, Select, Stack, TextInput } from '@mantine/core';
-import { useEffect, useMemo, useState, type FC } from 'react';
-import { Controller, useFormContext, useWatch } from 'react-hook-form';
+import { useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useFeatureFlagEnabled } from '../../hooks/useFeatureFlagEnabled';
 import useApp from '../../providers/App/useApp';
-import FormSection from '../ReactHookForm/FormSection';
-import { MultiKeyValuePairsInput } from '../ReactHookForm/MultiKeyValuePairsInput';
 import AzureDevOpsForm from './DbtForms/AzureDevOpsForm';
 import BitBucketForm from './DbtForms/BitBucketForm';
 import DbtCloudForm from './DbtForms/DbtCloudForm';
@@ -22,42 +18,40 @@ import DbtLocalForm from './DbtForms/DbtLocalForm';
 import DbtNoneForm from './DbtForms/DbtNoneForm';
 import GithubForm from './DbtForms/GithubForm';
 import GitlabForm from './DbtForms/GitlabForm';
+import { dbtDefaults } from './DbtForms/defaultValues';
 import FormCollapseButton from './FormCollapseButton';
-import { type SelectedWarehouse } from './ProjectConnectFlow/types';
+import FormSection from './Inputs/FormSection';
+import { MultiKeyValuePairsInput } from './Inputs/MultiKeyValuePairsInput';
 import { BigQuerySchemaInput } from './WarehouseForms/BigQueryForm';
 import { DatabricksSchemaInput } from './WarehouseForms/DatabricksForm';
 import { PostgresSchemaInput } from './WarehouseForms/PostgresForm';
 import { RedshiftSchemaInput } from './WarehouseForms/RedshiftForm';
 import { SnowflakeSchemaInput } from './WarehouseForms/SnowflakeForm';
 import { TrinoSchemaInput } from './WarehouseForms/TrinoForm';
+import { useFormContext } from './formContext';
 
 interface DbtSettingsFormProps {
     disabled: boolean;
     defaultType?: DbtProjectType;
-    selectedWarehouse?: SelectedWarehouse | undefined;
 }
 
 const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
     disabled,
     defaultType,
-    selectedWarehouse,
 }) => {
     const { t } = useTranslation();
-    const {
-        resetField,
-        register,
-        unregister,
-        formState: { errors },
-    } = useFormContext();
 
-    const type: DbtProjectType = useWatch({
-        name: 'dbt.type',
-        defaultValue: defaultType || DbtProjectType.GITHUB,
-    });
-    const warehouseType: WarehouseTypes = useWatch({
-        name: 'warehouse.type',
-        defaultValue: WarehouseTypes.BIGQUERY,
-    });
+    const form = useFormContext();
+    const selectedWarehouse = form.values.warehouse?.type;
+
+    const type: DbtProjectType =
+        form.values.dbt.type ?? (defaultType || DbtProjectType.GITHUB);
+
+    const warehouseType: WarehouseTypes =
+        form.values.warehouse?.type ??
+        selectedWarehouse ??
+        WarehouseTypes.BIGQUERY;
+
     const [isAdvancedSettingsOpen, setIsAdvancedSettingsOpen] =
         useState<boolean>(false);
     const toggleAdvancedSettingsOpen = () =>
@@ -87,28 +81,22 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
         }));
     }, [isEnabled, health, type]);
 
-    useEffect(() => {
-        // Reset field validation from github form
-        unregister('dbt.personal_access_token');
-    }, [type, unregister]);
-
-    const form = useMemo(() => {
-        resetField('dbt.host_domain');
+    const DbtForm = useMemo(() => {
         switch (type) {
             case DbtProjectType.DBT:
-                return <DbtLocalForm />;
+                return DbtLocalForm;
             case DbtProjectType.DBT_CLOUD_IDE:
-                return <DbtCloudForm disabled={disabled} />;
+                return DbtCloudForm;
             case DbtProjectType.GITHUB:
-                return <GithubForm disabled={disabled} />;
+                return GithubForm;
             case DbtProjectType.GITLAB:
-                return <GitlabForm disabled={disabled} />;
+                return GitlabForm;
             case DbtProjectType.BITBUCKET:
-                return <BitBucketForm disabled={disabled} />;
+                return BitBucketForm;
             case DbtProjectType.AZURE_DEVOPS:
-                return <AzureDevOpsForm disabled={disabled} />;
+                return AzureDevOpsForm;
             case DbtProjectType.NONE:
-                return <DbtNoneForm disabled={disabled} />;
+                return DbtNoneForm;
             default: {
                 return assertUnreachable(
                     type,
@@ -116,7 +104,8 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                 );
             }
         }
-    }, [disabled, type, resetField]);
+    }, [type]);
+
     const baseDocUrl =
         'https://docs.lightdash.com/get-started/setup-lightdash/connect-project#';
     const typeDocUrls = {
@@ -143,54 +132,61 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
         },
     };
 
-    const warehouseSchemaInput = useMemo(() => {
-        switch (selectedWarehouse || warehouseType) {
+    const WarehouseSchemaInput = useMemo(() => {
+        switch (warehouseType) {
             case WarehouseTypes.BIGQUERY:
-                return <BigQuerySchemaInput disabled={disabled} />;
+                return BigQuerySchemaInput;
             case WarehouseTypes.POSTGRES:
-                return <PostgresSchemaInput disabled={disabled} />;
+                return PostgresSchemaInput;
             case WarehouseTypes.TRINO:
-                return <TrinoSchemaInput disabled={disabled} />;
+                return TrinoSchemaInput;
             case WarehouseTypes.REDSHIFT:
-                return <RedshiftSchemaInput disabled={disabled} />;
+                return RedshiftSchemaInput;
             case WarehouseTypes.SNOWFLAKE:
-                return <SnowflakeSchemaInput disabled={disabled} />;
+                return SnowflakeSchemaInput;
             case WarehouseTypes.DATABRICKS:
-                return <DatabricksSchemaInput disabled={disabled} />;
+                return DatabricksSchemaInput;
             default: {
-                return <></>;
+                return assertUnreachable(
+                    warehouseType,
+                    `Unknown warehouse type ${warehouseType}`,
+                );
             }
         }
-    }, [disabled, warehouseType, selectedWarehouse]);
+    }, [warehouseType]);
+
     return (
         <div
             style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
         >
             <Stack style={{ marginTop: '8px' }}>
-                <Controller
+                <Select
                     name="dbt.type"
+                    {...form.getInputProps('dbt.type')}
+                    onChange={(value: DbtProjectType) => {
+                        form.getInputProps('dbt.type').onChange(value);
+                        if (value) {
+                            form.setValues({
+                                dbt: dbtDefaults.formValues[value],
+                            });
+                        }
+                    }}
                     defaultValue={DbtProjectType.GITHUB}
-                    render={({ field }) => (
-                        <Select
-                            label={t(
-                                'components_project_connection_dbt_settings.type',
-                            )}
-                            data={options}
-                            required
-                            name={field.name}
-                            value={field.value}
-                            onChange={field.onChange}
-                            disabled={disabled}
-                        />
-                    )}
+                    label={t('components_project_connection_dbt_settings.type')}
+                    data={options}
+                    required
+                    disabled={disabled}
                 />
-                {form}
+
+                <DbtForm disabled={disabled} />
+
                 {type !== DbtProjectType.NONE && (
                     <>
                         <FormSection name="target">
                             <Stack style={{ marginTop: '8px' }}>
                                 <TextInput
-                                    {...register('dbt.target')}
+                                    name="dbt.target"
+                                    {...form.getInputProps('dbt.target')}
                                     label={t(
                                         'components_project_connection_dbt_settings.target_name',
                                     )}
@@ -209,7 +205,7 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                                     disabled={disabled}
                                     placeholder="prod"
                                 />
-                                {warehouseSchemaInput}
+                                <WarehouseSchemaInput disabled={disabled} />
                             </Stack>
                         </FormSection>
                         <FormSection
@@ -219,19 +215,8 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                             <Stack style={{ marginTop: '8px' }}>
                                 {type !== DbtProjectType.DBT_CLOUD_IDE && (
                                     <TextInput
-                                        {...register('dbt.selector', {
-                                            validate: (value) => {
-                                                if (
-                                                    value === '' ||
-                                                    validateDbtSelector(value)
-                                                )
-                                                    return true;
-
-                                                return t(
-                                                    'components_project_connection_dbt_settings.advanced.invalid',
-                                                );
-                                            },
-                                        })}
+                                        name="dbt.selector"
+                                        {...form.getInputProps('dbt.selector')}
                                         label={t(
                                             'components_project_connection_dbt_settings.advanced.selector',
                                         )}
@@ -256,7 +241,6 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                                         }
                                         disabled={disabled}
                                         placeholder="tag:lightdash"
-                                        error={!!errors.dbt?.selector}
                                     />
                                 )}
 

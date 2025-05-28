@@ -5,6 +5,8 @@ import { useMemo, type ComponentProps, type FC } from 'react';
 import type DashboardChartTile from '../../../../../components/DashboardTiles/DashboardChartTile';
 import { GenericDashboardChartTile } from '../../../../../components/DashboardTiles/DashboardChartTile';
 import TileBase from '../../../../../components/DashboardTiles/TileBase';
+import type { DashboardChartReadyQuery } from '../../../../../hooks/dashboard/useDashboardChartReadyQuery';
+import type { InfiniteQueryResults } from '../../../../../hooks/useQueryResults';
 import useEmbed from '../../../../providers/Embed/useEmbed';
 import { useEmbedChartAndResults } from '../hooks';
 
@@ -64,6 +66,50 @@ const EmbedDashboardChartTile: FC<Props> = ({
         });
     }, [data, languageMap?.chart]);
 
+    // Mimic the DashboardChartReadyQuery object
+    const query = useMemo<DashboardChartReadyQuery | undefined>(() => {
+        if (!translatedChartData) return undefined;
+
+        return {
+            executeQueryResponse: {
+                queryUuid: '', // Does not use paginated query therefore there's no queryUuid
+                appliedDashboardFilters:
+                    translatedChartData.appliedDashboardFilters ?? {
+                        dimensions: [],
+                        metrics: [],
+                        tableCalculations: [],
+                    },
+                cacheMetadata: translatedChartData.cacheMetadata,
+                metricQuery: translatedChartData?.metricQuery,
+                fields: translatedChartData?.fields,
+            },
+            chart: translatedChartData.chart,
+            explore: translatedChartData.explore,
+        } satisfies DashboardChartReadyQuery;
+    }, [translatedChartData]);
+
+    const resultData = useMemo<InfiniteQueryResults>(
+        () =>
+            ({
+                queryUuid: '', // Does not use paginated query therefore there's no queryUuid
+                rows: translatedChartData?.rows ?? [],
+                totalResults: translatedChartData?.rows.length,
+                initialQueryExecutionMs: 0,
+                isFetchingRows: false,
+                isFetchingAllPages: false,
+                fetchMoreRows: () => undefined,
+                setFetchAll: () => undefined,
+                fetchAll: true,
+                hasFetchedAllRows: true,
+                totalClientFetchTimeMs: 0,
+                isInitialLoading: false,
+                isFetchingFirstPage: false,
+                projectUuid: translatedChartData?.chart.projectUuid,
+                error: error,
+            } satisfies InfiniteQueryResults),
+        [translatedChartData, error],
+    );
+
     if (locked) {
         return (
             <Box h="100%">
@@ -86,7 +132,8 @@ const EmbedDashboardChartTile: FC<Props> = ({
             canExportImages={canExportImages}
             canExportPagePdf={canExportPagePdf}
             canDateZoom={canDateZoom}
-            data={translatedChartData}
+            resultsData={resultData}
+            dashboardChartReadyQuery={query}
             error={error}
         />
     );

@@ -1,6 +1,5 @@
 import {
     friendlyName,
-    getErrorMessage,
     MissingConfigError,
     SlackAppCustomSettings,
     SlackChannel,
@@ -8,7 +7,6 @@ import {
     SlackSettings,
     UnexpectedServerError,
 } from '@lightdash/common';
-import * as Sentry from '@sentry/node';
 import { Block } from '@slack/bolt';
 import {
     ChatPostMessageArguments,
@@ -18,8 +16,10 @@ import {
     UsersListResponse,
     WebAPICallResult,
     WebClient,
+    type FilesUploadV2Arguments,
 } from '@slack/web-api';
 import { LightdashConfig } from '../../config/parseConfig';
+import { slackErrorHandler } from '../../errors';
 import Logger from '../../logging/logger';
 import { SlackAuthenticationModel } from '../../models/SlackAuthenticationModel';
 
@@ -35,7 +35,7 @@ export type PostSlackFile = {
     organizationUuid: string;
     channelId: string;
     threadTs: string;
-    file: Buffer;
+    file: FilesUploadV2Arguments['file'];
     title: string;
     comment?: string;
     filename: string;
@@ -152,11 +152,7 @@ export class SlackClient {
                     ? [...allChannels, ...conversations.channels]
                     : allChannels;
             } catch (e) {
-                Logger.error(
-                    `Unable to fetch slack channels: ${getErrorMessage(e)}`,
-                );
-                Sentry.captureException(e);
-                break;
+                slackErrorHandler(e, 'Unable to fetch slack channels');
             }
         } while (nextCursor);
         Logger.debug(`Total slack channels ${allChannels.length}`);
@@ -178,12 +174,7 @@ export class SlackClient {
                     ? [...allUsers, ...users.members]
                     : allUsers;
             } catch (e) {
-                Logger.error(
-                    `Unable to fetch slack users: ${getErrorMessage(e)}`,
-                );
-                Sentry.captureException(e);
-
-                break;
+                slackErrorHandler(e, 'Unable to fetch slack users');
             }
         } while (nextCursor);
         Logger.debug(`Total slack users ${allUsers.length}`);
@@ -227,10 +218,9 @@ export class SlackClient {
             });
             await Promise.all(joinPromises);
         } catch (e) {
-            Logger.error(
-                `Unable to join channels ${channels} on organization ${organizationUuid}: ${getErrorMessage(
-                    e,
-                )}`,
+            slackErrorHandler(
+                e,
+                `Unable to join channels ${channels} on organization ${organizationUuid}`,
             );
         }
     }
@@ -260,9 +250,7 @@ export class SlackClient {
                 ...slackMessageArgs,
             })
             .catch((e) => {
-                Logger.error(
-                    `Unable to post message on Slack: ${getErrorMessage(e)}`,
-                );
+                slackErrorHandler(e, 'Unable to post message on Slack');
                 throw e;
             });
     }
@@ -296,10 +284,9 @@ export class SlackClient {
                         : {}),
                 })
                 .catch((e) => {
-                    Logger.error(
-                        `Unable to post message on Slack. You might need to add the Slack app to the channel you wish you sent notifications to. Error: ${getErrorMessage(
-                            e,
-                        )}`,
+                    slackErrorHandler(
+                        e,
+                        'Unable to post message on Slack. You might need to add the Slack app to the channel you wish you sent notifications to',
                     );
                     throw e;
                 });
@@ -382,8 +369,29 @@ export class SlackClient {
     async postFileToThread(args: PostSlackFile) {
         const webClient = await this.getWebClient(args.organizationUuid);
 
+        let { channelId } = args;
+        // If the channel ID is a user ID (starts with U), we need to open a DM channel first
+        // Slack API's files.uploadV2 doesn't support uploading files where channel_id is a user ID
+        if (channelId.startsWith('U')) {
+            try {
+                const response = await webClient.conversations.open({
+                    users: channelId,
+                });
+                if (!response.ok || !response.channel?.id) {
+                    throw new Error('Failed to open DM channel');
+                }
+                channelId = response.channel.id;
+            } catch (error) {
+                Logger.error(
+                    `Failed to open DM channel with user ${channelId}`,
+                    error,
+                );
+                throw new Error(`Failed to open DM channel: ${error}`);
+            }
+        }
+
         const result = await webClient.files.uploadV2({
-            channel_id: args.channelId,
+            channel_id: channelId,
             thread_ts: args.threadTs,
             file: args.file,
             title: args.title,
@@ -485,9 +493,7 @@ export class SlackClient {
             });
             return { url: slackFileUrl, expiring: false };
         } catch (e) {
-            Logger.error(
-                `Failed to upload image to slack: ${getErrorMessage(e)}`,
-            );
+            slackErrorHandler(e, 'Failed to upload image to slack');
             return { url: imageUrl, expiring: true };
         }
     }

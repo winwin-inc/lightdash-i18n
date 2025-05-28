@@ -11,7 +11,6 @@ export type PivotConfig = {
     metricsAsRows: boolean;
     columnOrder?: string[];
     hiddenMetricFieldIds?: string[];
-    summableMetricFieldIds?: string[];
     columnTotals?: boolean;
     rowTotals?: boolean;
 };
@@ -69,6 +68,7 @@ export type PivotData = {
         allCombinedData: ResultRow[];
         pivotColumnInfo: PivotColumn[];
     };
+    groupedSubtotals?: Record<string, Record<string, number>[]>;
 };
 
 export const getPivotConfig = (
@@ -78,10 +78,13 @@ export const getPivotConfig = (
     savedChart.pivotConfig !== undefined
         ? {
               pivotDimensions: savedChart.pivotConfig.columns,
-              metricsAsRows: false,
+              metricsAsRows:
+                  savedChart.chartConfig.config?.metricsAsRows ?? false,
               hiddenMetricFieldIds: getHiddenTableFields(
                   savedChart.chartConfig,
               ),
               columnOrder: savedChart.tableConfig.columnOrder,
+              rowTotals:
+                  savedChart.chartConfig.config?.showRowCalculation ?? false,
           }
         : undefined;

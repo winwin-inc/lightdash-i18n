@@ -9,18 +9,19 @@ import {
 } from '@mantine/core';
 import { useForm, zodResolver } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
-import { IconChartBar } from '@tabler/icons-react';
-import { useCallback, useEffect, type FC } from 'react';
+import { IconChartBar, IconPlus } from '@tabler/icons-react';
+import { useCallback, useEffect, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
+
 import MantineIcon from '../../../../components/common/MantineIcon';
 import SaveToSpaceForm from '../../../../components/common/modal/ChartCreateModal/SaveToSpaceForm';
 import { saveToSpaceSchema } from '../../../../components/common/modal/ChartCreateModal/types';
 import { selectCompleteConfigByKind } from '../../../../components/DataViz/store/selectors';
 import useToaster from '../../../../hooks/toaster/useToaster';
-import {
-    useCreateMutation as useSpaceCreateMutation,
-    useSpaceSummaries,
-} from '../../../../hooks/useSpaces';
+import { useModalSteps } from '../../../../hooks/useModalSteps';
+import { useSpaceManagement } from '../../../../hooks/useSpaceManagement';
+import { useSpaceSummaries } from '../../../../hooks/useSpaces';
 import { useAppDispatch, useAppSelector } from '../../../sqlRunner/store/hooks';
 import { useCreateSemanticViewerChartMutation } from '../../api/hooks';
 import {
@@ -31,6 +32,11 @@ import {
     updateName,
     updateSaveModalOpen,
 } from '../../store/semanticViewerSlice';
+
+enum ModalStep {
+    InitialInfo = 'initialInfo',
+    SelectDestination = 'selectDestination',
+}
 
 const saveSemanticViewerChartSchema = z
     .object({
@@ -54,6 +60,7 @@ const SaveSemanticViewerChartModal: FC<Props> = ({ onSave }) => {
         (state) => state.semanticViewer.semanticLayerView,
     );
     const semanticLayerQuery = useAppSelector(selectSemanticLayerQuery);
+    const { t } = useTranslation();
 
     const activeChartKind = useAppSelector(
         (state) => state.semanticViewer.activeChartKind,
@@ -62,13 +69,24 @@ const SaveSemanticViewerChartModal: FC<Props> = ({ onSave }) => {
         selectCompleteConfigByKind(state, activeChartKind),
     );
 
-    const spacesQuery = useSpaceSummaries(projectUuid, true);
-
-    const spaceCreateMutation = useSpaceCreateMutation(projectUuid);
-
     const form = useForm<FormValues>({
         validate: zodResolver(saveToSpaceSchema),
     });
+
+    const modalSteps = useModalSteps<ModalStep>(ModalStep.InitialInfo, {
+        validators: {
+            [ModalStep.InitialInfo]: () => !!form.values.name,
+        },
+    });
+
+    const spacesQuery = useSpaceSummaries(projectUuid, true);
+
+    const spaceManagement = useSpaceManagement({
+        projectUuid,
+    });
+
+    const { handleCreateNewSpace, isCreatingNewSpace, openCreateSpaceForm } =
+        spaceManagement;
 
     const handleClose = useCallback(() => {
         close();
@@ -84,7 +102,7 @@ const SaveSemanticViewerChartModal: FC<Props> = ({ onSave }) => {
                 name,
                 description: null,
                 newSpaceName: null,
-                spaceUuid: spacesQuery.data[0].uuid ?? null,
+                spaceUuid: spacesQuery.data[0]?.uuid ?? null,
             });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -109,19 +127,23 @@ const SaveSemanticViewerChartModal: FC<Props> = ({ onSave }) => {
     useEffect(() => {
         if (isSavingError) {
             showToastApiError({
-                title: `Failed to create chart`,
+                title: t(
+                    'features_semantic_viewer_save_chart_modal.tips.create_failed',
+                ),
                 apiError: saveError.error,
             });
         }
-    }, [isSavingError, saveError, showToastApiError]);
+    }, [isSavingError, saveError, showToastApiError, t]);
 
     useEffect(() => {
         if (isSaved) {
             showToastSuccess({
-                title: 'Chart saved successfully',
+                title: t(
+                    'features_semantic_viewer_save_chart_modal.tips.save_success',
+                ),
             });
         }
-    }, [isSaved, showToastSuccess]);
+    }, [isSaved, showToastSuccess, t]);
 
     const hasConfigAndQuery = !!selectedChartConfig && !!semanticLayerQuery;
 
@@ -130,15 +152,15 @@ const SaveSemanticViewerChartModal: FC<Props> = ({ onSave }) => {
         if (!hasConfigAndQuery) return;
 
         let newSpace = form.values.newSpaceName
-            ? await spaceCreateMutation.mutateAsync({
-                  name: form.values.newSpaceName,
-                  access: [],
+            ? await handleCreateNewSpace({
                   isPrivate: true,
               })
             : undefined;
 
         const spaceUuid =
-            newSpace?.uuid || form.values.spaceUuid || spacesQuery.data[0].uuid;
+            newSpace?.uuid ||
+            form.values.spaceUuid ||
+            spacesQuery.data[0]?.uuid;
 
         const newChart = await saveChart({
             name: form.values.name,
@@ -161,7 +183,7 @@ const SaveSemanticViewerChartModal: FC<Props> = ({ onSave }) => {
         form.values.spaceUuid,
         form.values.name,
         form.values.description,
-        spaceCreateMutation,
+        handleCreateNewSpace,
         saveChart,
         semanticLayerView,
         semanticLayerQuery,
@@ -170,6 +192,41 @@ const SaveSemanticViewerChartModal: FC<Props> = ({ onSave }) => {
         handleClose,
         onSave,
     ]);
+
+    const handleNextStep = () => {
+        modalSteps.goToStep(ModalStep.SelectDestination);
+    };
+
+    const handleBack = () => {
+        modalSteps.goToStep(ModalStep.InitialInfo);
+    };
+
+    const shouldShowNewSpaceButton = useMemo(
+        () =>
+            modalSteps.currentStep === ModalStep.SelectDestination &&
+            !isCreatingNewSpace,
+        [modalSteps.currentStep, isCreatingNewSpace],
+    );
+
+    const isFormReadyToSave = useMemo(
+        () =>
+            modalSteps.currentStep === ModalStep.SelectDestination &&
+            form.values.name &&
+            (form.values.newSpaceName || form.values.spaceUuid) &&
+            hasConfigAndQuery,
+        [
+            modalSteps.currentStep,
+            form.values.name,
+            form.values.newSpaceName,
+            form.values.spaceUuid,
+            hasConfigAndQuery,
+        ],
+    );
+
+    const isLoading =
+        isSaving ||
+        spacesQuery.isLoading ||
+        spaceManagement.createSpaceMutation.isLoading;
 
     return (
         <Modal
@@ -188,33 +245,48 @@ const SaveSemanticViewerChartModal: FC<Props> = ({ onSave }) => {
             })}
         >
             <form onSubmit={form.onSubmit(handleOnSubmit)}>
-                <Stack p="md">
-                    <Stack spacing="xs">
-                        <TextInput
-                            label="Chart name"
-                            placeholder="eg. How many weekly active users do we have?"
-                            required
-                            {...form.getInputProps('name')}
-                            value={form.values.name ?? ''}
-                        />
-                        <Textarea
-                            label="Description"
-                            {...form.getInputProps('description')}
-                            value={form.values.description ?? ''}
+                {modalSteps.currentStep === ModalStep.InitialInfo && (
+                    <Stack p="md">
+                        <Stack spacing="xs">
+                            <TextInput
+                                label={t(
+                                    'features_semantic_viewer_save_chart_modal.name.label',
+                                )}
+                                placeholder={t(
+                                    'features_semantic_viewer_save_chart_modal.name.placeholder',
+                                )}
+                                required
+                                {...form.getInputProps('name')}
+                                value={form.values.name ?? ''}
+                            />
+                            <Textarea
+                                label={t(
+                                    'features_semantic_viewer_save_chart_modal.description.label',
+                                )}
+                                {...form.getInputProps('description')}
+                                value={form.values.description ?? ''}
+                            />
+                        </Stack>
+                    </Stack>
+                )}
+
+                {modalSteps.currentStep === ModalStep.SelectDestination && (
+                    <Stack p="md">
+                        <SaveToSpaceForm
+                            form={form}
+                            isLoading={isSaving || spacesQuery.isLoading}
+                            spaces={spacesQuery.data}
+                            projectUuid={projectUuid}
+                            spaceManagement={spaceManagement}
+                            selectedSpaceName={
+                                spacesQuery.data?.find(
+                                    (space) =>
+                                        space.uuid === form.values.spaceUuid,
+                                )?.name
+                            }
                         />
                     </Stack>
-
-                    <SaveToSpaceForm
-                        form={form}
-                        isLoading={
-                            isSaving ||
-                            spacesQuery.isLoading ||
-                            spaceCreateMutation.isLoading
-                        }
-                        spaces={spacesQuery.data}
-                        projectUuid={projectUuid}
-                    />
-                </Stack>
+                )}
 
                 <Group
                     position="right"
@@ -225,21 +297,47 @@ const SaveSemanticViewerChartModal: FC<Props> = ({ onSave }) => {
                         padding: theme.spacing.md,
                     })}
                 >
-                    <Button
-                        onClick={handleClose}
-                        variant="outline"
-                        disabled={isSaving}
-                    >
-                        Cancel
-                    </Button>
+                    {shouldShowNewSpaceButton && (
+                        <Button
+                            variant="subtle"
+                            size="xs"
+                            leftIcon={<MantineIcon icon={IconPlus} />}
+                            onClick={openCreateSpaceForm}
+                            mr="auto"
+                        >
+                            {t(
+                                'features_semantic_viewer_save_chart_modal.new_space',
+                            )}
+                        </Button>
+                    )}
 
-                    <Button
-                        type="submit"
-                        disabled={!form.values.name || !hasConfigAndQuery}
-                        loading={isSaving}
-                    >
-                        Save
-                    </Button>
+                    {modalSteps.currentStep === ModalStep.InitialInfo ? (
+                        <Button
+                            onClick={handleNextStep}
+                            disabled={!form.values.name}
+                        >
+                            {t(
+                                'features_semantic_viewer_save_chart_modal.next',
+                            )}
+                        </Button>
+                    ) : (
+                        <>
+                            <Button onClick={handleBack} variant="outline">
+                                {t(
+                                    'features_semantic_viewer_save_chart_modal.back',
+                                )}
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={!isFormReadyToSave}
+                                loading={isLoading}
+                            >
+                                {t(
+                                    'features_semantic_viewer_save_chart_modal.save',
+                                )}
+                            </Button>
+                        </>
+                    )}
                 </Group>
             </form>
         </Modal>

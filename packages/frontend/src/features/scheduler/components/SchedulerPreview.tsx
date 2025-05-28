@@ -12,7 +12,6 @@ import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useExportDashboard } from '../../../hooks/dashboard/useDashboard';
 import { PreviewAndCustomizeScreenshot } from '../../preview';
-import { useCustomWidthOptions } from '../constants';
 
 type Props = {
     dashboard: Dashboard;
@@ -28,9 +27,7 @@ export const SchedulerPreview: FC<Props> = ({
     onChange,
 }) => {
     const { t } = useTranslation();
-    const customWidthOptions = useCustomWidthOptions();
 
-    const [previews, setPreviews] = useState<Record<string, string>>({});
     const [previewChoice, setPreviewChoice] = useState<
         typeof customWidthOptions[number]['value'] | undefined
     >(customViewportWidth?.toString() ?? customWidthOptions[1].value);
@@ -56,17 +53,12 @@ export const SchedulerPreview: FC<Props> = ({
     }, [dashboard.filters, schedulerFilters]);
 
     const handlePreviewClick = useCallback(async () => {
-        const url = await exportDashboardMutation.mutateAsync({
+        await exportDashboardMutation.mutateAsync({
             dashboard,
             gridWidth: previewChoice ? parseInt(previewChoice) : undefined,
             queryFilters: getSchedulerFilterOverridesQueryString(),
             isPreview: true,
         });
-
-        setPreviews((prev) => ({
-            ...prev,
-            ...(previewChoice ? { [previewChoice]: url } : {}),
-        }));
     }, [
         dashboard,
         exportDashboardMutation,
@@ -89,8 +81,6 @@ export const SchedulerPreview: FC<Props> = ({
             </Group>
             <PreviewAndCustomizeScreenshot
                 exportMutation={exportDashboardMutation}
-                previews={previews}
-                setPreviews={setPreviews}
                 previewChoice={previewChoice}
                 setPreviewChoice={(pc: string | undefined) => {
                     setPreviewChoice(() => {

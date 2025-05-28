@@ -1,30 +1,26 @@
-import { type CompiledDimension } from '@lightdash/common';
+import {
+    type CompiledDimension,
+    type DateGranularity,
+} from '@lightdash/common';
 import { Text, Tooltip } from '@mantine/core';
 import { IconCalendarSearch } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../components/common/MantineIcon';
-import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 
 type Props = {
-    chartUuid: string | null;
+    dateZoomGranularity: DateGranularity;
     dateDimension: Pick<CompiledDimension, 'label' | 'name'>;
 };
 
-export const DateZoomInfoOnTile: FC<Props> = ({ chartUuid, dateDimension }) => {
+export const DateZoomInfoOnTile: FC<Props> = ({
+    dateZoomGranularity,
+    dateDimension,
+}) => {
     const { t } = useTranslation();
 
-    const dateZoomGranularity = useDashboardContext(
-        (c) => c.dateZoomGranularity,
-    );
-    const chartsWithDateZoomApplied = useDashboardContext(
-        (c) => c.chartsWithDateZoomApplied,
-    );
-
-    return chartUuid &&
-        dateZoomGranularity &&
-        chartsWithDateZoomApplied?.has(chartUuid) ? (
+    return (
         <Tooltip
             label={
                 <>
@@ -46,7 +42,12 @@ export const DateZoomInfoOnTile: FC<Props> = ({ chartUuid, dateDimension }) => {
             multiline
             withinPortal
         >
-            <MantineIcon icon={IconCalendarSearch} color="blue" />
+            <MantineIcon
+                icon={IconCalendarSearch}
+                color="blue"
+                size={20}
+                style={{ flexShrink: 0 }}
+            />
         </Tooltip>
-    ) : null;
+    );
 };

@@ -1,8 +1,5 @@
 import { subject } from '@casl/ability';
-import {
-    type ApiScheduledDownloadCsv,
-    type ResultRow,
-} from '@lightdash/common';
+import { type ApiScheduledDownloadCsv } from '@lightdash/common';
 import { Alert, Box, Button, NumberInput, Radio, Stack } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconTableExport } from '@tabler/icons-react';
@@ -34,7 +31,7 @@ type ExportCsvRenderProps = {
 
 export type ExportCSVProps = {
     projectUuid: string;
-    rows: ResultRow[] | undefined;
+    totalResults: number | undefined;
     getCsvLink: (
         limit: number | null,
         onlyRaw: boolean,
@@ -44,7 +41,13 @@ export type ExportCSVProps = {
 };
 
 const ExportCSV: FC<ExportCSVProps> = memo(
-    ({ projectUuid, rows, getCsvLink, isDialogBody, renderDialogActions }) => {
+    ({
+        projectUuid,
+        totalResults,
+        getCsvLink,
+        isDialogBody,
+        renderDialogActions,
+    }) => {
         const { showToastError, showToastInfo, showToastWarning } =
             useToaster();
         const { t } = useTranslation();
@@ -57,13 +60,13 @@ const ExportCSV: FC<ExportCSVProps> = memo(
 
         const { isLoading: isExporting, mutateAsync: exportCsvMutation } =
             useMutation(
-                [limit, customLimit, rows, format],
+                [limit, customLimit, totalResults, format],
                 () =>
                     getCsvLink(
                         limit === Limit.CUSTOM
                             ? customLimit
                             : limit === Limit.TABLE
-                            ? rows?.length ?? 0
+                            ? totalResults ?? 0
                             : null,
                         format === Values.RAW,
                     ),
@@ -124,7 +127,7 @@ const ExportCSV: FC<ExportCSVProps> = memo(
                 },
             );
 
-        if (!rows || rows.length <= 0) {
+        if (!totalResults || totalResults <= 0) {
             return (
                 <Alert color="gray">
                     {t('components_export_csv.no_data_to_export')}

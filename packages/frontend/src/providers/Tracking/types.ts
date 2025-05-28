@@ -361,12 +361,15 @@ type MetricsCatalogTreesCanvasModeClickedEvent = {
 type WriteBackEvent = {
     name:
         | EventName.WRITE_BACK_FROM_CUSTOM_METRIC_HEADER_CLICKED
-        | EventName.WRITE_BACK_FROM_CUSTOM_METRIC_CLICKED;
+        | EventName.WRITE_BACK_FROM_CUSTOM_METRIC_CLICKED
+        | EventName.WRITE_BACK_FROM_CUSTOM_DIMENSION_HEADER_CLICKED
+        | EventName.WRITE_BACK_FROM_CUSTOM_DIMENSION_CLICKED;
     properties: {
         userId: string;
         organizationId: string;
         projectId: string;
-        customMetricsCount: number;
+        customMetricsCount?: number;
+        customDimensionsCount?: number;
     };
 };
 
@@ -378,6 +381,32 @@ type CustomMetricReplacementEvent = {
         projectId: string;
         chartId?: string;
         customMetricIds: string[];
+    };
+};
+
+type DashboardChartLoadedEvent = {
+    name: EventName.DASHBOARD_CHART_LOADED;
+    properties: {
+        userId: string;
+        organizationId: string;
+        projectId: string;
+        dashboardId: string;
+        chartId: string;
+        queryId: string;
+        warehouseExecutionTimeMs: number | undefined;
+        totalTimeMs: number | undefined;
+        totalResults: number;
+        loadedRows: number;
+        // cacheMetadata: CacheMetadata;
+    };
+};
+
+type SpaceBreadcrumbClickedEvent = {
+    name: EventName.SPACE_BREADCRUMB_CLICKED;
+    properties: {
+        userId: string;
+        organizationId: string;
+        projectId: string;
     };
 };
 
@@ -413,7 +442,9 @@ export type EventData =
     | MetricsCatalogTreesEdgeRemovedEvent
     | MetricsCatalogTreesCanvasModeClickedEvent
     | WriteBackEvent
-    | CustomMetricReplacementEvent;
+    | DashboardChartLoadedEvent
+    | CustomMetricReplacementEvent
+    | SpaceBreadcrumbClickedEvent;
 
 export type IdentifyData = {
     id: string;

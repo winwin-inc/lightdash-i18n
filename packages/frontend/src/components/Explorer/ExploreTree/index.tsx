@@ -46,7 +46,14 @@ const ExploreTree: FC<ExploreTreeProps> = ({
     const [search, setSearch] = useState<string>('');
     const isSearching = !!search && search !== '';
 
-    const searchHasResults = useCallback(
+    const handleSearchChange = useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value),
+        [],
+    );
+
+    const handleClearSearch = useCallback(() => setSearch(''), []);
+
+    const searchResults = useCallback(
         (table: CompiledTable) => {
             const allValues = Object.values({
                 ...table.dimensions,
@@ -59,7 +66,7 @@ const ExploreTree: FC<ExploreTreeProps> = ({
                 return { ...acc, [getItemId(item)]: item };
             }, {});
 
-            return getSearchResults(allFields, search).size > 0;
+            return getSearchResults(allFields, search);
         },
         [additionalMetrics, search],
     );
@@ -74,9 +81,10 @@ const ExploreTree: FC<ExploreTreeProps> = ({
             })
             .filter(
                 (table) =>
-                    !(isSearching && !searchHasResults(table)) && !table.hidden,
+                    !(isSearching && searchResults(table).length === 0) &&
+                    !table.hidden,
             );
-    }, [explore, searchHasResults, isSearching]);
+    }, [explore, isSearching, searchResults]);
 
     return (
         <>
@@ -84,14 +92,14 @@ const ExploreTree: FC<ExploreTreeProps> = ({
                 icon={<MantineIcon icon={IconSearch} />}
                 rightSection={
                     search ? (
-                        <ActionIcon onClick={() => setSearch('')}>
+                        <ActionIcon onClick={handleClearSearch}>
                             <MantineIcon icon={IconX} />
                         </ActionIcon>
                     ) : null
                 }
                 placeholder={t('components_explorer_tree.search')}
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={handleSearchChange}
             />
 
             <ScrollArea

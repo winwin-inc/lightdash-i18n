@@ -1,10 +1,10 @@
 import {
-    ChartSourceType,
-    ResourceViewItemType,
     assertUnreachable,
+    ChartSourceType,
+    ContentType,
     convertChartSourceTypeToDashboardTileType,
-    type ResourceViewChartItem,
-    type ResourceViewDashboardItem,
+    ResourceViewItemType,
+    type ResourceViewItem,
     type Space,
 } from '@lightdash/common';
 import {
@@ -17,15 +17,15 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
 import { DeleteSqlChartModal } from '../../../features/sqlRunner/components/DeleteSqlChartModal';
-import { useUpdateSqlChartMutation } from '../../../features/sqlRunner/hooks/useSavedSqlCharts';
-import { useMoveDashboardMutation } from '../../../hooks/dashboard/useDashboard';
 import { useChartPinningMutation } from '../../../hooks/pinning/useChartPinningMutation';
 import { useDashboardPinningMutation } from '../../../hooks/pinning/useDashboardPinningMutation';
 import { useSpacePinningMutation } from '../../../hooks/pinning/useSpaceMutation';
-import { useMoveChartMutation } from '../../../hooks/useSavedQuery';
+import { useContentAction } from '../../../hooks/useContent';
+import { useSpaceSummaries } from '../../../hooks/useSpaces';
 import AddTilesToDashboardModal from '../../SavedDashboards/AddTilesToDashboardModal';
 import SpaceActionModal from '../SpaceActionModal';
 import { ActionType } from '../SpaceActionModal/types';
+import TransferItemsModal from '../TransferItemsModal/TransferItemsModal';
 import ChartDeleteModal from '../modal/ChartDeleteModal';
 import ChartDuplicateModal from '../modal/ChartDuplicateModal';
 import ChartUpdateModal from '../modal/ChartUpdateModal';
@@ -47,16 +47,12 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
     onAction,
 }) => {
     const { projectUuid } = useParams<{ projectUuid: string }>();
+    const { data: spaces } = useSpaceSummaries(projectUuid, true, {});
     const { t } = useTranslation();
 
-    const { mutate: moveChart } = useMoveChartMutation();
-    const { mutate: updateSqlChart } = useUpdateSqlChartMutation(
-        projectUuid,
-        '',
-        '', // TODO: get slug or savedSqlUuid to invalidate the query if necessary
-    );
+    const { mutateAsync: contentAction, isLoading: isContentActionLoading } =
+        useContentAction(projectUuid);
 
-    const { mutate: moveDashboard } = useMoveDashboardMutation();
     const { mutate: pinChart } = useChartPinningMutation();
     const { mutate: pinDashboard } = useDashboardPinningMutation();
     const { mutate: pinSpace } = useSpacePinningMutation(projectUuid);
@@ -66,31 +62,42 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
     }, [onAction]);
 
     const moveToSpace = useCallback(
-        (
-            item: ResourceViewChartItem | ResourceViewDashboardItem,
-            spaceUuid: string,
-        ) => {
+        (item: ResourceViewItem, spaceUuid: string | null) => {
             switch (item.type) {
                 case ResourceViewItemType.CHART:
-                    if (item.data.source === ChartSourceType.SQL) {
-                        return updateSqlChart({
-                            savedSqlUuid: item.data.uuid,
-                            unversionedData: {
-                                name: item.data.name,
-                                description: item.data.description || null,
-                                spaceUuid: spaceUuid,
-                            },
-                        });
-                    }
-                    return moveChart({
-                        uuid: item.data.uuid,
-                        spaceUuid,
+                    return contentAction({
+                        action: {
+                            type: 'move',
+                            targetSpaceUuid: spaceUuid,
+                        },
+                        item: {
+                            uuid: item.data.uuid,
+                            contentType: ContentType.CHART,
+                            source:
+                                item.data.source ?? ChartSourceType.DBT_EXPLORE,
+                        },
                     });
                 case ResourceViewItemType.DASHBOARD:
-                    return moveDashboard({
-                        uuid: item.data.uuid,
-                        name: item.data.name,
-                        spaceUuid,
+                    return contentAction({
+                        action: {
+                            type: 'move',
+                            targetSpaceUuid: spaceUuid,
+                        },
+                        item: {
+                            uuid: item.data.uuid,
+                            contentType: ContentType.DASHBOARD,
+                        },
+                    });
+                case ResourceViewItemType.SPACE:
+                    return contentAction({
+                        action: {
+                            type: 'move',
+                            targetSpaceUuid: spaceUuid ?? null,
+                        },
+                        item: {
+                            uuid: item.data.uuid,
+                            contentType: ContentType.SPACE,
+                        },
                     });
                 default:
                     return assertUnreachable(
@@ -99,23 +106,18 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                     );
             }
         },
-        [moveChart, moveDashboard, updateSqlChart],
+        [contentAction],
     );
 
     const handleCreateSpace = useCallback(
-        (space: Space | null) => {
+        async (space: Space | null) => {
             if (!space) return;
             if (action.type !== ResourceViewItemAction.CREATE_SPACE) return;
 
-            moveToSpace(action.item, space.uuid);
+            await moveToSpace(action.item, space.uuid);
         },
         [action, moveToSpace],
     );
-
-    const handleMoveToSpace = useCallback(() => {
-        if (action.type !== ResourceViewItemAction.MOVE_TO_SPACE) return;
-        moveToSpace(action.item, action.data.spaceUuid);
-    }, [action, moveToSpace]);
 
     const handlePinToHomepage = useCallback(() => {
         if (action.type !== ResourceViewItemAction.PIN_TO_HOMEPAGE) return;
@@ -134,13 +136,6 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                 );
         }
     }, [action, pinChart, pinDashboard, pinSpace]);
-
-    useEffect(() => {
-        if (action.type === ResourceViewItemAction.MOVE_TO_SPACE) {
-            handleMoveToSpace();
-            handleReset();
-        }
-    }, [action, handleMoveToSpace, handleReset]);
 
     useEffect(() => {
         if (action.type === ResourceViewItemAction.PIN_TO_HOMEPAGE) {
@@ -189,6 +184,7 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                             icon={IconFolderCog}
                             onClose={handleReset}
                             onSubmitForm={handleReset}
+                            parentSpaceUuid={action.item.data.parentSpaceUuid}
                         />
                     );
                 default:
@@ -245,6 +241,7 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                             icon={IconFolderX}
                             onClose={handleReset}
                             onSubmitForm={handleReset}
+                            parentSpaceUuid={null}
                         />
                     );
 
@@ -281,6 +278,7 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                     icon={IconFolderPlus}
                     onClose={handleReset}
                     onSubmitForm={handleCreateSpace}
+                    parentSpaceUuid={null}
                 />
             );
 
@@ -311,8 +309,23 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                     );
             }
 
+        case ResourceViewItemAction.TRANSFER_TO_SPACE:
+            return (
+                <TransferItemsModal
+                    projectUuid={projectUuid}
+                    opened
+                    onClose={handleReset}
+                    items={[action.item]}
+                    spaces={spaces ?? []}
+                    isLoading={isContentActionLoading}
+                    onConfirm={async (spaceUuid) => {
+                        await moveToSpace(action.item, spaceUuid);
+                        handleReset();
+                    }}
+                />
+            );
+
         case ResourceViewItemAction.CLOSE:
-        case ResourceViewItemAction.MOVE_TO_SPACE:
         case ResourceViewItemAction.PIN_TO_HOMEPAGE:
             return null;
         default:

@@ -24,7 +24,9 @@ import { OrganizationModel } from './OrganizationModel';
 import { PasswordResetLinkModel } from './PasswordResetLinkModel';
 import { PinnedListModel } from './PinnedListModel';
 import { ProjectModel } from './ProjectModel/ProjectModel';
+import { QueryHistoryModel } from './QueryHistoryModel';
 import { ResourceViewItemModel } from './ResourceViewItemModel';
+import { ResultsFileModel } from './ResultsFileModel/ResultsFileModel';
 import { SavedChartModel } from './SavedChartModel';
 import { SavedSemanticViewerChartModel } from './SavedSemanticViewerChartModel';
 import { SavedSqlModel } from './SavedSqlModel';
@@ -89,8 +91,11 @@ export type ModelManifest = {
     tagsModel: TagsModel;
     featureFlagModel: FeatureFlagModel;
     spotlightTableConfigModel: SpotlightTableConfigModel;
+    queryHistoryModel: QueryHistoryModel;
+    resultsFileModel: ResultsFileModel;
     /** An implementation signature for these models are not available at this stage */
     aiModel: unknown;
+    aiAgentModel: unknown;
     embedModel: unknown;
     dashboardSummaryModel: unknown;
     scimOrganizationAccessTokenModel: unknown;
@@ -312,7 +317,7 @@ export class ModelRepository
     public getOrganizationModel(): OrganizationModel {
         return this.getModel(
             'organizationModel',
-            () => new OrganizationModel(this.database),
+            () => new OrganizationModel(this.database, this.lightdashConfig),
         );
     }
 
@@ -517,6 +522,10 @@ export class ModelRepository
         return this.getModel('aiModel');
     }
 
+    public getAiAgentModel<ModelImplT>(): ModelImplT {
+        return this.getModel('aiAgentModel');
+    }
+
     public getEmbedModel<ModelImplT>(): ModelImplT {
         return this.getModel('embedModel');
     }
@@ -541,6 +550,24 @@ export class ModelRepository
             'spotlightTableConfigModel',
             () =>
                 new SpotlightTableConfigModel({
+                    database: this.database,
+                    lightdashConfig: this.lightdashConfig,
+                }),
+        );
+    }
+
+    public getQueryHistoryModel(): QueryHistoryModel {
+        return this.getModel(
+            'queryHistoryModel',
+            () => new QueryHistoryModel({ database: this.database }),
+        );
+    }
+
+    public getResultsFileModel(): ResultsFileModel {
+        return this.getModel(
+            'resultsFileModel',
+            () =>
+                new ResultsFileModel({
                     database: this.database,
                     lightdashConfig: this.lightdashConfig,
                 }),

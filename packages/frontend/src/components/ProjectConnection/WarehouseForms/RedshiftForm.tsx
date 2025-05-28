@@ -4,39 +4,38 @@ import {
     Anchor,
     Button,
     CopyButton,
-    Group,
     NumberInput,
     PasswordInput,
     Select,
     Stack,
-    Switch,
     TextInput,
     Tooltip,
 } from '@mantine/core';
 import { IconCheck, IconCopy } from '@tabler/icons-react';
-import React, { type FC } from 'react';
-import { Controller, useFormContext, useWatch } from 'react-hook-form';
+import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
 
 import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
-import { hasNoWhiteSpaces } from '../../../utils/fieldValidators';
-import BooleanSwitch from '../../ReactHookForm/BooleanSwitch';
-import FormSection from '../../ReactHookForm/FormSection';
 import MantineIcon from '../../common/MantineIcon';
 import FormCollapseButton from '../FormCollapseButton';
+import BooleanSwitch from '../Inputs/BooleanSwitch';
+import FormSection from '../Inputs/FormSection';
+import StartOfWeekSelect from '../Inputs/StartOfWeekSelect';
+import { useFormContext } from '../formContext';
 import { useProjectFormContext } from '../useProjectFormContext';
-import StartOfWeekSelect from './Inputs/StartOfWeekSelect';
+import { RedshiftDefaultValues } from './defaultValues';
 import { useCreateSshKeyPair } from './sshHooks';
 
 export const RedshiftSchemaInput: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
-    const { register } = useFormContext();
+    const form = useFormContext();
     const { t } = useTranslation();
 
     return (
         <TextInput
+            name="warehouse.schema"
             label={t(
                 'components_project_connection_warehouse_form.redshift.schema.label',
             )}
@@ -44,11 +43,7 @@ export const RedshiftSchemaInput: FC<{
                 'components_project_connection_warehouse_form.redshift.schema.description',
             )}
             required
-            {...register('warehouse.schema', {
-                validate: {
-                    hasNoWhiteSpaces: hasNoWhiteSpaces('Schema'),
-                },
-            })}
+            {...form.getInputProps('warehouse.schema')}
             disabled={disabled}
         />
     );
@@ -60,29 +55,35 @@ const RedshiftForm: FC<{
     const { t } = useTranslation();
     const [isOpen, toggleOpen] = useToggle(false);
     const { savedProject } = useProjectFormContext();
+    const form = useFormContext();
+
     const requireSecrets: boolean =
         savedProject?.warehouseConnection?.type !== WarehouseTypes.REDSHIFT;
-    const { setValue, register } = useFormContext();
-    const showSshTunnelConfiguration: boolean = useWatch({
-        name: 'warehouse.useSshTunnel',
-        defaultValue:
-            (savedProject?.warehouseConnection?.type ===
-                WarehouseTypes.REDSHIFT &&
-                savedProject.warehouseConnection.useSshTunnel) ||
-            false,
-    });
-    const sshTunnelPublicKey: string = useWatch({
-        name: 'warehouse.sshTunnelPublicKey',
-        defaultValue:
-            savedProject?.warehouseConnection?.type ===
-                WarehouseTypes.REDSHIFT &&
-            savedProject.warehouseConnection.sshTunnelPublicKey,
-    });
+
+    if (form.values.warehouse?.type !== WarehouseTypes.REDSHIFT) {
+        throw new Error(
+            'Redshift form is not available for this warehouse type',
+        );
+    }
+
+    const showSshTunnelConfiguration: boolean =
+        form.values.warehouse.useSshTunnel ??
+        (savedProject?.warehouseConnection?.type === WarehouseTypes.REDSHIFT &&
+            savedProject.warehouseConnection.useSshTunnel) ??
+        false;
+
+    const sshTunnelPublicKey: string | undefined =
+        form.values.warehouse.sshTunnelPublicKey ??
+        (savedProject?.warehouseConnection?.type === WarehouseTypes.REDSHIFT
+            ? savedProject?.warehouseConnection?.sshTunnelPublicKey
+            : undefined);
+
     const { mutate, isLoading } = useCreateSshKeyPair({
         onSuccess: (data) => {
-            setValue('warehouse.sshTunnelPublicKey', data.publicKey);
+            form.setFieldValue('warehouse.sshTunnelPublicKey', data.publicKey);
         },
     });
+
     const isPassthroughLoginFeatureEnabled = useFeatureFlagEnabled(
         FeatureFlags.PassthroughLogin,
     );
@@ -91,6 +92,7 @@ const RedshiftForm: FC<{
         <>
             <Stack style={{ marginTop: '8px' }}>
                 <TextInput
+                    name="warehouse.host"
                     label={t(
                         'components_project_connection_warehouse_form.redshift.host.label',
                     )}
@@ -98,15 +100,12 @@ const RedshiftForm: FC<{
                         'components_project_connection_warehouse_form.redshift.host.description',
                     )}
                     required
-                    {...register('warehouse.host', {
-                        validate: {
-                            hasNoWhiteSpaces: hasNoWhiteSpaces('Host'),
-                        },
-                    })}
+                    {...form.getInputProps('warehouse.host')}
                     disabled={disabled}
                     labelProps={{ style: { marginTop: '8px' } }}
                 />
                 <TextInput
+                    name="warehouse.user"
                     label={t(
                         'components_project_connection_warehouse_form.redshift.user.label',
                     )}
@@ -114,11 +113,7 @@ const RedshiftForm: FC<{
                         'components_project_connection_warehouse_form.redshift.user.description',
                     )}
                     required={requireSecrets}
-                    {...register('warehouse.user', {
-                        validate: {
-                            hasNoWhiteSpaces: hasNoWhiteSpaces('User'),
-                        },
-                    })}
+                    {...form.getInputProps('warehouse.user')}
                     placeholder={
                         disabled || !requireSecrets
                             ? '**************'
@@ -127,6 +122,7 @@ const RedshiftForm: FC<{
                     disabled={disabled}
                 />
                 <PasswordInput
+                    name="warehouse.password"
                     label={t(
                         'components_project_connection_warehouse_form.redshift.password.label',
                     )}
@@ -139,10 +135,11 @@ const RedshiftForm: FC<{
                             ? '**************'
                             : undefined
                     }
-                    {...register('warehouse.password')}
+                    {...form.getInputProps('warehouse.password')}
                     disabled={disabled}
                 />
                 <TextInput
+                    name="warehouse.dbname"
                     label={t(
                         'components_project_connection_warehouse_form.redshift.db_name.label',
                     )}
@@ -150,11 +147,7 @@ const RedshiftForm: FC<{
                         'components_project_connection_warehouse_form.redshift.db_name.description',
                     )}
                     required
-                    {...register('warehouse.dbname', {
-                        validate: {
-                            hasNoWhiteSpaces: hasNoWhiteSpaces('DB name'),
-                        },
-                    })}
+                    {...form.getInputProps('warehouse.dbname')}
                     disabled={disabled}
                 />
                 <FormSection isOpen={isOpen} name="advanced">
@@ -163,222 +156,199 @@ const RedshiftForm: FC<{
                             <BooleanSwitch
                                 name="warehouse.requireUserCredentials"
                                 label={t(
-                                    'components_project_connection_warehouse_form.redshift.switch.label',
+                                    'components_project_connection_warehouse_form.redshift.require_user_credentials.label',
                                 )}
-                                defaultValue={false}
+                                {...form.getInputProps(
+                                    'warehouse.requireUserCredentials',
+                                    { type: 'checkbox' },
+                                )}
+                                defaultChecked={
+                                    RedshiftDefaultValues.requireUserCredentials
+                                }
                                 disabled={disabled}
                             />
                         )}
-                        <Controller
+
+                        <NumberInput
                             name="warehouse.port"
-                            defaultValue={5439}
-                            render={({ field }) => (
-                                <NumberInput
-                                    {...field}
-                                    label={t(
-                                        'components_project_connection_warehouse_form.redshift.port.label',
-                                    )}
-                                    description={t(
-                                        'components_project_connection_warehouse_form.redshift.port.description',
-                                    )}
-                                    required
-                                    disabled={disabled}
-                                />
+                            defaultValue={RedshiftDefaultValues.port}
+                            {...form.getInputProps('warehouse.port')}
+                            label={t(
+                                'components_project_connection_warehouse_form.redshift.port.label',
                             )}
+                            description={t(
+                                'components_project_connection_warehouse_form.redshift.port.description',
+                            )}
+                            required
+                            disabled={disabled}
                         />
-                        <Controller
+
+                        <NumberInput
                             name="warehouse.keepalivesIdle"
-                            defaultValue={0}
-                            render={({ field }) => (
-                                <NumberInput
-                                    {...field}
-                                    label={t(
-                                        'components_project_connection_warehouse_form.redshift.keep_alive_idle.label',
-                                    )}
-                                    description={
-                                        <p>
-                                            {t(
-                                                'components_project_connection_warehouse_form.redshift.keep_alive_idle.description.part_1',
-                                            )}{' '}
-                                            <Anchor
-                                                target="_blank"
-                                                href="https://postgresqlco.nf/doc/en/param/tcp_keepalives_idle/"
-                                                rel="noreferrer"
-                                            >
-                                                {t(
-                                                    'components_project_connection_warehouse_form.redshift.keep_alive_idle.description.part_2',
-                                                )}
-                                            </Anchor>
-                                            {t(
-                                                'components_project_connection_warehouse_form.redshift.keep_alive_idle.description.part_3',
-                                            )}
-                                        </p>
-                                    }
-                                    required
-                                    disabled={disabled}
-                                />
+                            {...form.getInputProps('warehouse.keepalivesIdle')}
+                            defaultValue={RedshiftDefaultValues.keepalivesIdle}
+                            label={t(
+                                'components_project_connection_warehouse_form.redshift.keep_alive_idle.label',
                             )}
+                            description={
+                                <p>
+                                    {t(
+                                        'components_project_connection_warehouse_form.redshift.keep_alive_idle.description.part_1',
+                                    )}{' '}
+                                    <Anchor
+                                        target="_blank"
+                                        href="https://postgresqlco.nf/doc/en/param/tcp_keepalives_idle/"
+                                        rel="noreferrer"
+                                    >
+                                        {t(
+                                            'components_project_connection_warehouse_form.redshift.keep_alive_idle.description.part_2',
+                                        )}
+                                    </Anchor>
+                                    {t(
+                                        'components_project_connection_warehouse_form.redshift.keep_alive_idle.description.part_3',
+                                    )}
+                                </p>
+                            }
+                            required
+                            disabled={disabled}
                         />
-                        <Controller
+
+                        <Select
                             name="warehouse.sslmode"
-                            defaultValue="prefer"
-                            render={({ field }) => (
-                                <Select
-                                    name={field.name}
-                                    label={t(
-                                        'components_project_connection_warehouse_form.redshift.ssl_mode.label',
-                                    )}
-                                    description={
-                                        <p>
-                                            {t(
-                                                'components_project_connection_warehouse_form.redshift.ssl_mode.description.part_1',
-                                            )}{' '}
-                                            <Anchor
-                                                target="_blank"
-                                                href="https://docs.getdbt.com/docs/core/connect-data-platform/redshift-setup#sslmode-change"
-                                                rel="noreferrer"
-                                            >
-                                                {t(
-                                                    'components_project_connection_warehouse_form.redshift.ssl_mode.description.part_2',
-                                                )}
-                                            </Anchor>
-                                            {t(
-                                                'components_project_connection_warehouse_form.redshift.ssl_mode.description.part_3',
-                                            )}
-                                        </p>
-                                    }
-                                    data={[
-                                        'disable',
-                                        'no-verify',
-                                        'allow',
-                                        'prefer',
-                                        'require',
-                                        'verify-ca',
-                                        'verify-full',
-                                    ].map((x) => ({ value: x, label: x }))}
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    disabled={disabled}
-                                />
+                            {...form.getInputProps('warehouse.sslmode')}
+                            defaultValue={RedshiftDefaultValues.sslmode}
+                            label={t(
+                                'components_project_connection_warehouse_form.redshift.ssl_mode.label',
                             )}
+                            description={
+                                <p>
+                                    {t(
+                                        'components_project_connection_warehouse_form.redshift.ssl_mode.description.part_1',
+                                    )}{' '}
+                                    <Anchor
+                                        target="_blank"
+                                        href="https://docs.getdbt.com/docs/core/connect-data-platform/redshift-setup#sslmode-change"
+                                        rel="noreferrer"
+                                    >
+                                        {t(
+                                            'components_project_connection_warehouse_form.redshift.ssl_mode.description.part_2',
+                                        )}
+                                    </Anchor>
+                                    {t(
+                                        'components_project_connection_warehouse_form.redshift.ssl_mode.description.part_3',
+                                    )}
+                                </p>
+                            }
+                            data={[
+                                'disable',
+                                'no-verify',
+                                'allow',
+                                'prefer',
+                                'require',
+                                'verify-ca',
+                                'verify-full',
+                            ].map((x) => ({ value: x, label: x }))}
+                            disabled={disabled}
                         />
-                        <Controller
+
+                        <BooleanSwitch
                             name="warehouse.ra3Node"
-                            render={({ field }) => (
-                                <Switch.Group
-                                    label={t(
-                                        'components_project_connection_warehouse_form.redshift.ra3_node.label',
-                                    )}
-                                    description={t(
-                                        'components_project_connection_warehouse_form.redshift.ra3_node.description',
-                                    )}
-                                    value={field.value ? ['true'] : []}
-                                    onChange={(values) =>
-                                        field.onChange(values.length > 0)
-                                    }
-                                    size="md"
-                                >
-                                    <Group mt="xs">
-                                        <Switch
-                                            onLabel={t(
-                                                'components_project_connection_warehouse_form.redshift.ra3_node.yes',
-                                            )}
-                                            offLabel={t(
-                                                'components_project_connection_warehouse_form.redshift.ra3_node.no',
-                                            )}
-                                            value="true"
-                                            disabled={disabled}
-                                        />
-                                    </Group>
-                                </Switch.Group>
+                            label={t(
+                                'components_project_connection_warehouse_form.redshift.ra3_node.label',
+                            )}
+                            description={t(
+                                'components_project_connection_warehouse_form.redshift.ra3_node.description',
+                            )}
+                            {...form.getInputProps('warehouse.ra3Node', {
+                                type: 'checkbox',
+                            })}
+                            onLabel={t(
+                                'components_project_connection_warehouse_form.redshift.ra3_node.yes',
+                            )}
+                            offLabel={t(
+                                'components_project_connection_warehouse_form.redshift.ra3_node.no',
                             )}
                         />
 
                         <StartOfWeekSelect disabled={disabled} />
 
-                        <Controller
+                        <NumberInput
                             name="warehouse.timeoutSeconds"
-                            defaultValue={300}
-                            render={({ field }) => (
-                                <NumberInput
-                                    {...field}
-                                    label="Timeout in seconds"
-                                    description={
-                                        <p>
-                                            If a query takes longer than this
-                                            timeout to complete, then the query
-                                            will be cancelled.
-                                        </p>
-                                    }
-                                    required
-                                    disabled={disabled}
-                                />
+                            {...form.getInputProps('warehouse.timeoutSeconds')}
+                            defaultValue={RedshiftDefaultValues.timeoutSeconds}
+                            label={t(
+                                'components_project_connection_warehouse_form.redshift.timeout.label',
                             )}
+                            description={
+                                <p>
+                                    {t(
+                                        'components_project_connection_warehouse_form.redshift.timeout.description',
+                                    )}
+                                </p>
+                            }
+                            required
+                            disabled={disabled}
                         />
 
-                        <Controller
+                        <BooleanSwitch
                             name="warehouse.useSshTunnel"
-                            render={({ field }) => (
-                                <Switch.Group
-                                    label={t(
-                                        'components_project_connection_warehouse_form.redshift.ssh_tunnel.label',
-                                    )}
-                                    value={field.value ? ['true'] : []}
-                                    onChange={(values) =>
-                                        field.onChange(values.length > 0)
-                                    }
-                                    size="md"
-                                >
-                                    <Group mt="xs">
-                                        <Switch
-                                            onLabel={t(
-                                                'components_project_connection_warehouse_form.redshift.ssh_tunnel.yes',
-                                            )}
-                                            offLabel={t(
-                                                'components_project_connection_warehouse_form.redshift.ssh_tunnel.no',
-                                            )}
-                                            value="true"
-                                            disabled={disabled}
-                                        />
-                                    </Group>
-                                </Switch.Group>
+                            label={t(
+                                'components_project_connection_warehouse_form.redshift.ssh_tunnel.label',
                             )}
+                            description={t(
+                                'components_project_connection_warehouse_form.redshift.ssh_tunnel.description',
+                            )}
+                            {...form.getInputProps('warehouse.useSshTunnel', {
+                                type: 'checkbox',
+                            })}
+                            onLabel="Yes"
+                            offLabel="No"
+                            defaultChecked={RedshiftDefaultValues.useSshTunnel}
                         />
+
                         <FormSection
                             isOpen={showSshTunnelConfiguration}
                             name="ssh-config"
                         >
                             <Stack style={{ marginBottom: '8px' }}>
                                 <TextInput
+                                    name="warehouse.sshTunnelHost"
                                     label={t(
                                         'components_project_connection_warehouse_form.redshift.ssh_remote_host.label',
                                     )}
                                     disabled={disabled}
-                                    {...register('warehouse.sshTunnelHost')}
-                                />
-                                <Controller
-                                    name="warehouse.sshTunnelPort"
-                                    defaultValue={22}
-                                    render={({ field }) => (
-                                        <NumberInput
-                                            {...field}
-                                            label={t(
-                                                'components_project_connection_warehouse_form.redshift.ssh_remote_port.label',
-                                            )}
-                                            disabled={disabled}
-                                        />
+                                    {...form.getInputProps(
+                                        'warehouse.sshTunnelHost',
                                     )}
                                 />
+
+                                <NumberInput
+                                    name="warehouse.sshTunnelPort"
+                                    defaultValue={22}
+                                    {...form.getInputProps(
+                                        'warehouse.sshTunnelPort',
+                                    )}
+                                    label={t(
+                                        'components_project_connection_warehouse_form.redshift.ssh_remote_port.label',
+                                    )}
+                                    disabled={disabled}
+                                />
+
                                 <TextInput
+                                    name="warehouse.sshTunnelUser"
                                     label={t(
                                         'components_project_connection_warehouse_form.redshift.ssh_username.label',
                                     )}
                                     disabled={disabled}
-                                    {...register('warehouse.sshTunnelUser')}
+                                    {...form.getInputProps(
+                                        'warehouse.sshTunnelUser',
+                                    )}
                                 />
+
                                 {sshTunnelPublicKey && (
                                     <TextInput
-                                        {...register(
+                                        name="warehouse.sshTunnelPublicKey"
+                                        {...form.getInputProps(
                                             'warehouse.sshTunnelPublicKey',
                                         )}
                                         label={t(

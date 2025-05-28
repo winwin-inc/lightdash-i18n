@@ -99,8 +99,8 @@ const TreeSingleNodeActions: FC<Props> = ({
     const toggleAdditionalMetricModal = useExplorerContext(
         (context) => context.actions.toggleAdditionalMetricModal,
     );
-    const toggleAdditionalMetricWriteBackModal = useExplorerContext(
-        (context) => context.actions.toggleAdditionalMetricWriteBackModal,
+    const toggleWriteBackModal = useExplorerContext(
+        (context) => context.actions.toggleWriteBackModal,
     );
     const removeCustomDimension = useExplorerContext(
         (context) => context.actions.removeCustomDimension,
@@ -121,8 +121,8 @@ const TreeSingleNodeActions: FC<Props> = ({
         return isDimension(item) ? getCustomMetricType(item.type) : [];
     }, [item]);
 
-    const isCustomSqlEnabled = useFeatureFlagEnabled(
-        FeatureFlags.CustomSQLEnabled,
+    const isWriteBackCustomBinDimensionsEnabled = useFeatureFlagEnabled(
+        FeatureFlags.WriteBackCustomBinDimensions,
     );
 
     const duplicateCustomMetric = (customMetric: AdditionalMetric) => {
@@ -233,38 +233,35 @@ const TreeSingleNodeActions: FC<Props> = ({
                             )}
                         </Menu.Item>
 
-                        {isCustomSqlEnabled && (
-                            <Menu.Item
-                                key="custommetric"
-                                component="button"
-                                icon={<MantineIcon icon={IconCode} />}
-                                onClick={(
-                                    e: React.MouseEvent<HTMLButtonElement>,
-                                ) => {
-                                    e.stopPropagation();
-                                    if (
-                                        projectUuid &&
-                                        user.data?.organizationUuid
-                                    ) {
-                                        track({
-                                            name: EventName.WRITE_BACK_FROM_CUSTOM_METRIC_CLICKED,
-                                            properties: {
-                                                userId: user.data.userUuid,
-                                                projectId: projectUuid,
-                                                organizationId:
-                                                    user.data.organizationUuid,
-                                                customMetricsCount: 1,
-                                            },
-                                        });
-                                    }
-                                    toggleAdditionalMetricWriteBackModal({
-                                        items: [item],
+                        <Menu.Item
+                            component="button"
+                            icon={<MantineIcon icon={IconCode} />}
+                            onClick={(
+                                e: React.MouseEvent<HTMLButtonElement>,
+                            ) => {
+                                e.stopPropagation();
+                                if (
+                                    projectUuid &&
+                                    user.data?.organizationUuid
+                                ) {
+                                    track({
+                                        name: EventName.WRITE_BACK_FROM_CUSTOM_METRIC_CLICKED,
+                                        properties: {
+                                            userId: user.data.userUuid,
+                                            projectId: projectUuid,
+                                            organizationId:
+                                                user.data.organizationUuid,
+                                            customMetricsCount: 1,
+                                        },
                                     });
-                                }}
-                            >
-                                Write back to dbt
-                            </Menu.Item>
-                        )}
+                                }
+                                toggleWriteBackModal({
+                                    items: [item],
+                                });
+                            }}
+                        >
+                            Write back to dbt
+                        </Menu.Item>
 
                         <Menu.Item
                             color="red"
@@ -343,6 +340,40 @@ const TreeSingleNodeActions: FC<Props> = ({
                                 'components_explorer_table_tree.duplicate_custom_dimension',
                             )}
                         </Menu.Item>
+                        {(isCustomSqlDimension(item) ||
+                            isWriteBackCustomBinDimensionsEnabled) && (
+                            <Menu.Item
+                                component="button"
+                                icon={<MantineIcon icon={IconCode} />}
+                                onClick={(
+                                    e: React.MouseEvent<HTMLButtonElement>,
+                                ) => {
+                                    e.stopPropagation();
+                                    if (
+                                        projectUuid &&
+                                        user.data?.organizationUuid
+                                    ) {
+                                        track({
+                                            name: EventName.WRITE_BACK_FROM_CUSTOM_DIMENSION_CLICKED,
+                                            properties: {
+                                                userId: user.data.userUuid,
+                                                projectId: projectUuid,
+                                                organizationId:
+                                                    user.data.organizationUuid,
+                                                customDimensionsCount: 1,
+                                            },
+                                        });
+                                    }
+
+                                    toggleWriteBackModal({
+                                        items: [item],
+                                    });
+                                }}
+                            >
+                                Write back to dbt
+                            </Menu.Item>
+                        )}
+
                         <Menu.Item
                             color="red"
                             component="button"

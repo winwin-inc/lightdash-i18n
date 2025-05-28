@@ -1,6 +1,12 @@
 import { subject } from '@casl/ability';
 import { ActionIcon, Box, Menu } from '@mantine/core';
-import { IconEdit, IconPin, IconPinned, IconTrash } from '@tabler/icons-react';
+import {
+    IconEdit,
+    IconFolderSymlink,
+    IconPin,
+    IconPinned,
+    IconTrash,
+} from '@tabler/icons-react';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
@@ -13,6 +19,7 @@ interface Props {
     onRename: () => void;
     onDelete: () => void;
     onTogglePin: () => void;
+    onTransferToSpace: () => void;
 }
 
 export const SpaceBrowserMenu: React.FC<React.PropsWithChildren<Props>> = ({
@@ -20,6 +27,7 @@ export const SpaceBrowserMenu: React.FC<React.PropsWithChildren<Props>> = ({
     onRename,
     onDelete,
     onTogglePin,
+    onTransferToSpace,
     children,
 }) => {
     const { user } = useApp();
@@ -80,6 +88,21 @@ export const SpaceBrowserMenu: React.FC<React.PropsWithChildren<Props>> = ({
                               )}
                     </Menu.Item>
                 )}
+
+                <Menu.Divider />
+
+                <Menu.Item
+                    component="button"
+                    role="menuitem"
+                    icon={<IconFolderSymlink size={18} />}
+                    onClick={() => {
+                        onTransferToSpace();
+                    }}
+                >
+                    {t('components_explorer_space_browser.menus.move')}
+                </Menu.Item>
+
+                <Menu.Divider />
 
                 <Menu.Item
                     component="button"

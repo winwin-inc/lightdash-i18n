@@ -24,6 +24,9 @@ const BrowseMenu: FC<Props> = ({ projectUuid }) => {
     const { data: spaces, isInitialLoading } = useSpaceSummaries(
         projectUuid,
         true,
+        {
+            select: (data) => data.filter((space) => !space.parentSpaceUuid),
+        },
     );
     const { data: hasMetrics } = useHasMetricsInCatalog({
         projectUuid,

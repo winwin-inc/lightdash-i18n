@@ -136,6 +136,29 @@
         "error": "写回自定义指标失败",
         "open_pull_request": "打开拉取请求"
     },
+    "hooks_columns": {
+        "not_found_in_dbt_project": "此字段未在 dbt 项目中找到。"
+    },
+    "hooks_content": {
+        "project_uuid_required": "项目 UUID 是必需的",
+        "move_success": "成功移动 {{contentType}} 到空间",
+        "go_to_space": "前往空间",
+        "delete_success": "成功删除 {{contentType}}。",
+        "invalid_action": "无效的操作类型",
+        "move_content_error": "移动内容失败",
+        "move_item": {
+            "success": "成功移动 {{contentType}} 到空间",
+            "go_to_space": "前往空间",
+            "item": "项",
+            "items": "项"
+        },
+        "delete_item": {
+            "success": "成功删除 {{contentType}}。",
+            "item": "项",
+            "items": "项"
+        },
+        "invalid_action_type": "无效的操作类型"
+    },
 
     "providers_active_job": {
         "view_log": "查看日志",
@@ -158,6 +181,50 @@
     "providers_tracking": {
         "tracking_used": "必须在 TrackingProvider 内部使用 useTracking"
     },
+    "providers_support_drawer": {
+        "success": {
+            "title": "成功",
+            "subtitle": "支持请求已发送成功"
+        },
+        "include_image": "包含此图片",
+        "more_details": "您还有其他要分享的细节吗？",
+        "allow_access": "允许 Lightdash 支持访问您的实例",
+        "tips": {
+            "part_1": "勾选此框，您同意给予 Lightdash 支持访问您的组织 12 小时以调查此问题。",
+            "part_2": "我们还将分享您的 Lightdash 日志和最近的网络请求，以帮助我们调查此问题。",
+            "part_3": "分享"
+        }
+    },
+
+    "stories_form_card": {
+        "tips": {
+            "field_is_required": "此字段是必填项",
+            "this_is_a_form_card": "这是一个表单卡片"
+        },
+        "name": {
+            "label": "姓名",
+            "placeholder": "姓名"
+        },
+        "email": {
+            "label": "邮箱",
+            "placeholder": "邮箱"
+        },
+        "phone": {
+            "label": "电话",
+            "placeholder": "电话"
+        },
+        "login_options": {
+            "label": "登录选项",
+            "placeholder": "选择"
+        },
+        "remember_me": {
+            "label": "记住我"
+        },
+        "submit": {
+            "label": "提交"
+        }
+    },
+    "stories_modal": {},
 
     "features_users": {
         "title": "登录",
@@ -212,6 +279,9 @@
                     "label": "结果类型"
                 }
             },
+            "expand": "展开/折叠",
+            "save_changes": "保存更改",
+            "create": "创建",
             "cancel": "取消",
             "save": "保存"
         }
@@ -419,7 +489,11 @@
         "run_query": "运行查询以查看图表",
         "sql": "SQL",
         "chart": "图表",
-        "limit_rows": " 显示前 {limit} 行"
+        "limit_rows": " 显示前 {limit} 行",
+        "prvot_columns_limit": {
+            "part_1": "此查询超过最大列数 ({{limit}})。",
+            "part_2": "显示前 {{limit}} 列。"
+        }
     },
     "features_sql_runner_header": {
         "save_chart": "保存图表",
@@ -445,6 +519,10 @@
         "no_results_found": "未找到结果"
     },
     "features_sql_runner_tables": {
+        "copied_to_clipboard": "已复制到剪贴板",
+        "copy": "复制",
+        "filtering_tables": "过滤前 {limitTableResults} 个表格，搜索以查看更多",
+        "enter_at_least_3_characters_to_search": "输入至少 3 个字符进行搜索",
         "search_tables": "搜索表格",
         "no_results_found": "未找到结果"
     },
@@ -499,6 +577,7 @@
                 "label": "描述"
             }
         },
+        "new_space": "新空间",
         "test_saved_chart": "一个测试保存的图表",
         "save_chart": "保存图表",
         "memorable": {
@@ -597,6 +676,9 @@
             "placeholder": "例如: 我们每周活跃用户有多少?",
             "description": "描述"
         },
+        "new_space": "新空间",
+        "next": "下一步",
+        "back": "返回",
         "cancel": "取消",
         "save": "保存"
     },
@@ -610,6 +692,12 @@
         "pie_chart": "饼图"
     },
     "features_sql_runner_header_create": {
+        "github_integration_not_enabled": "Github 集成未启用，点击此处查看更多详情",
+        "github_integration_not_active": "Github 集成未激活，点击此处打开集成页面",
+        "write_back_disabled_message": {
+            "part_1": "此项目",
+            "part_2": "未连接到 Github 仓库，点击此处打开项目设置页面"
+        },
         "title": "保存",
         "save": {
             "label": "保存图表",
@@ -682,6 +770,15 @@
             "part_1": "您可以联系支持人员并提供以下错误 ID",
             "part_2": "错误 ID"
         }
+    },
+
+    "features_embed_settings_embed_dashboards_form": {
+        "allow_all_dashboards": "允许所有看板",
+        "dashboards": "看板",
+        "select_dashboards": "选择看板...",
+        "no_dashboards": "没有可嵌入的看板",
+        "select_dashboards_description": "只有这些看板可以被嵌入。",
+        "save_changes": "保存更改"
     },
 
     "features_mertic_flow": {
@@ -797,6 +894,9 @@
             "part_2": "要创建 Slack 交付计划，您需要",
             "part_3": "重新安装 Slack 集成",
             "part_4": "为您的组织"
+        },
+        "microsoft_teams_destination": {
+            "placeholder": "输入 Microsoft Teams webhook URLs"
         },
         "validate_tips": {
             "name": "姓名为必填项",
@@ -993,8 +1093,35 @@
     "features_semantic_viewer_content_charts": {
         "results": "结果"
     },
+    "features_semantic_viewer_header": {
+        "edit_chart": "编辑图表",
+        "manage": "管理",
+        "add_to_dashboard": "添加到看板",
+        "delete": "删除"
+    },
+    "features_semantic_viewer_save_chart_modal": {
+        "tips": {
+            "create_failed": "创建图表失败",
+            "save_success": "图表保存成功"
+        },
+        "name": {
+            "label": "图表名称",
+            "placeholder": "例如：我们有多少每周活跃用户？"
+        },
+        "description": {
+            "label": "描述"
+        },
+        "new_space": "新空间",
+        "next": "下一步",
+        "back": "返回",
+        "save": "保存"
+    },
 
     "features_sync": {
+        "toogle_modal": {
+            "toggle_off": "切换关闭以暂时暂停通知",
+            "toggle_on": "通知已暂停。切换开启以恢复"
+        },
         "select_google_sheet": "通过 Google 驱动程序选择 Google 表格",
         "modal": {
             "title": {
@@ -1191,6 +1318,8 @@
             "content": "我们希望能为您展示更多，但该范围内的数据不可用。请尝试选择不同的范围以继续探索！"
         },
         "metric_tree": {
+            "canvas_mode": "画布模式",
+            "current_month_to_date": "当前月到日",
             "clean_up": "清理"
         },
         "metric_explore_tooltip": {
@@ -1308,6 +1437,82 @@
         "define": "定义并查看指标关系和层级。"
     },
 
+    "features_ai_copilot": {
+        "validation": {
+            "select_project": "您必须选择一个项目",
+            "invalid_project": "无效的项目"
+        },
+        "back_to_agents": "返回代理",
+        "agent_not_found": "代理不存在",
+        "new_agent": "新代理",
+        "agent": "代理",
+        "last_modified": "最后修改",
+        "conversations": "对话",
+        "form": {
+            "details": "详情",
+            "agent_name": {
+                "label": "代理名称",
+                "placeholder": "输入代理名称"
+            },
+            "project": {
+                "label": "项目",
+                "placeholder": "选择项目"
+            },
+            "tags": {
+                "label": "标签",
+                "placeholder": "选择标签"
+            },
+            "integrations": "集成",
+            "refresh_channels": "刷新频道",
+            "slack": {
+                "description": "您需要在集成设置中先连接 Slack，才能配置 AI 代理。",
+                "label": "Slack",
+                "placeholder": "选择频道"
+            }
+        },
+        "delete_agent": "删除代理",
+        "create_agent": "创建代理",
+        "save_changes": "保存更改",
+        "cancel": "取消",
+        "delete": "删除",
+        "delete_tip": "您确定要删除此代理吗？此操作无法撤销。"
+    },
+    "features_ai_copilot_agents": {
+        "project_not_found": "项目不存在",
+        "add": "添加",
+        "no_agents_found": "没有找到代理。请添加一个代理开始。",
+        "name": "名称",
+        "last_modified": "最后修改",
+        "something_went_wrong": "发生意外错误"
+    },
+    "features_ai_copilot_agents_list": {
+        "no_conversations_found": "没有找到此代理的对话。",
+        "conversations": "对话",
+        "conversation": "对话",
+        "user": "用户",
+        "created": "创建",
+        "source": "来源"
+    },
+    "features_ai_copilot_agents_details": {
+        "conversation_details": "对话详情",
+        "loading_conversation": "加载对话...",
+        "started_by": "由 {{user}} 于 {{date}} 开始",
+        "ai_assistant": "AI 助手",
+        "thread_not_found": "未找到对话"
+    },
+    "features_ai_copilot_agents_hooks": {
+        "failed_to_fetch_agents": "获取AI代理失败",
+        "failed_to_fetch_agent": "获取AI代理详情失败",
+        "created_agent": "AI代理创建成功",
+        "failed_to_create_agent": "创建AI代理失败",
+        "updated_agent": "AI代理更新成功",
+        "failed_to_update_agent": "更新AI代理失败",
+        "deleted_agent": "AI代理删除成功",
+        "failed_to_delete_agent": "删除AI代理失败",
+        "failed_to_fetch_threads": "获取AI代理对话失败",
+        "failed_to_fetch_thread": "获取AI代理对话详情失败"
+    },
+
     "components_common_paginate": {
         "page": "页",
         "of": "的"
@@ -1329,6 +1534,9 @@
             "part_4": "在我们的",
             "part_5": "文档",
             "part_6": "中了解更多关于权限的信息。"
+        },
+        "nested_space": {
+            "part_1": "继承自其父空间"
         },
         "members_of": "{{name}} 的成员",
         "no_access": "无访问权限",
@@ -1417,6 +1625,7 @@
         },
         "menus": {
             "duplicate": "复制",
+            "move_dashboard": "移动看板",
             "move_to_space": "移动到空间",
             "create_new_space": "创建新空间",
             "unpin_from_homepage": "从主页上取消固定",
@@ -1457,6 +1666,26 @@
     },
     "components_common_authorization": {
         "ablitity_not_allowed": "useAbilityContext 必须在 AbilityContext.Provider 内使用"
+    },
+    "components_common_admin_content": {
+        "shared_with_me": "共享给我",
+        "view_all": "查看您组织中的所有公共和私有空间",
+        "admin_content_view": "管理员内容视图"
+    },
+    "commpnents_common_space_action_modal": {
+        "type_to_delete": "输入空间名称以确认",
+        "space_name": "空间名称",
+        "delete": {
+            "part_1": "您确定要删除空间",
+            "part_2": "?",
+            "part_3": "这将永久删除:",
+            "part_4": "图表",
+            "part_5": "看板",
+            "part_6": "{{count}} 个嵌套空间{{suffix}}",
+            "part_7": "及其所有内容?"
+        },
+        "cancel": "取消",
+        "delete_space": "删除空间"
     },
 
     "components_common_filters": {
@@ -1533,7 +1762,19 @@
             "in_the_next": "在下一个",
             "in_the_current": "在当前",
             "not_in_the_current": "不在当前",
-            "is_between": "在之间"
+            "is_between": "在之间",
+            "is_not_between": "不在之间"
+        },
+        "filter_quarter_picker": {
+            "select_quarter": "选择季度"
+        },
+        "filter_placeholder": {
+            "any_value": "任何值",
+            "enter_value": "输入值",
+            "enter_value_s": "输入值(s)",
+            "start_typing_to_filter_results": "开始输入以过滤结果",
+            "select_date": "选择日期",
+            "false": "否"
         },
         "time_filter_options": {
             "is_before": "在之前",
@@ -1569,7 +1810,7 @@
     },
 
     "components_common_table": {
-        "copied_to_clipboard": "已复制到剪贴板",
+        "copied_to_clipboard": "已复制到剪贴板!",
         "pagination": {
             "pages": "页",
             "scroll": "滚动",
@@ -1578,7 +1819,8 @@
         },
         "provider": {
             "error": "useTableContext 必须在 TableProvider 内部使用"
-        }
+        },
+        "loading_more_rows": "加载更多行..."
     },
 
     "components_custom_sql_panel": {
@@ -1615,8 +1857,20 @@
             "no_custom_metrics": "此项目没有自定义指标"
         }
     },
+    "components_custom_visualization": {
+        "no_visualization_loaded": "没有加载可视化",
+        "tooltip": {
+            "part_1": "开始输入您的",
+            "part_2": "Vega-Lite JSON",
+            "part_3": "代码或从我们的预构建模板中选择以创建您的图表。"
+        }
+    },
 
     "components_dashboard_filter": {
+        "inactive_filter_info": {
+            "part_1": "此筛选器仅适用于标签",
+            "part_2": "此筛选器当前未应用于任何标签"
+        },
         "configuration": {
             "filter": {
                 "label": "筛选器标签",
@@ -1631,7 +1885,13 @@
                 },
                 "content": "提供默认值"
             },
-            "require": "看板运行需要值"
+            "require": "看板运行需要值",
+            "edit_filter_operator": {
+                "allow_multiple_values": "允许选择多个值",
+                "prevent_multiple_values": "防止选择多个值",
+                "single_value": "单个值",
+                "multi_values": "多个值"
+            }
         },
         "tabs": {
             "tooltip_filter": {
@@ -1795,12 +2055,31 @@
         "run_validation": "运行验证",
         "no_validation_errors_found": "未发现验证错误"
     },
+    "components_settings_validator_modal": {
+        "rename_tip": "您可以通过重命名受影响的字段或模型来重命名缺失的维度，使用下拉菜单。",
+        "field": "字段",
+        "model": "模型",
+        "old_field": "旧字段",
+        "not_found": "无法在探索 {{tableName}} 上找到任何字段。也许您想替换模型？",
+        "new_field": "新字段",
+        "select_field": "选择要重命名的字段",
+        "old_model": "旧模型",
+        "new_model": "新模型",
+        "select_model": "选择要重命名的模型",
+        "check_all": "选中此项以重命名其他图表和看板中的此字段。",
+        "fix_all": "修复所有出现 {{totalOcurrences}}",
+        "not_used_in_other_charts": "此 {{renameType}} 未在任何其他图表中使用。",
+        "cancel": "取消",
+        "rename": "重命名"
+    },
     "components_settings_validator_table": {
         "tooltip_delete": {
             "chart": "此图表已被删除",
             "dashboard": "此看板已被删除"
         },
+        "view": "查看",
         "last_edited_by": "最后编辑者",
+        "fix": "修复",
         "tooltip_dismiss_error": {
             "label": "忽略错误"
         },
@@ -1812,6 +2091,18 @@
             "no_longer_exists": "不再存在",
             "is_broken": "已损坏",
             "error": "错误"
+        }
+    },
+    "components_settings_validator_hooks": {
+        "rename_chart_toast": {
+            "success": "成功! {{type}} \"{{from}}\" 已重命名。",
+            "open": "打开"
+        },
+        "rename_references_toast": {
+            "success": "成功! {{type}} \"{{from}}\" 已重命名在 {{totalCharts}} 个图表中",
+            "updating": "更新 {{type}} \"{{from}}\" 在其他图表中...",
+            "error": "无法重命名其他 {{type}}s",
+            "failed": "无法重命名图表"
         }
     },
     "components_settings_scheduler": {
@@ -1959,7 +2250,8 @@
         "form": {
             "saved_charts": {
                 "label": "选择要添加到此看板的图表",
-                "placeholder": "搜索..."
+                "placeholder": "搜索...",
+                "no_charts_found": "未找到图表"
             },
             "cancel": "取消",
             "add": "添加"
@@ -2297,7 +2589,8 @@
     },
 
     "components_refresh_button": {
-        "run_query": "运行查询"
+        "run_query": "运行查询",
+        "cancel_query": "取消查询"
     },
     "components_refresh_dbt_button": {
         "refresh": "刷新数据库",
@@ -2469,6 +2762,11 @@
             "feedback": {
                 "title": "Lightdash 的反馈",
                 "description": "提交功能请求或错误报告以改进 Lightdash。"
+            },
+            "share_with_support": {
+                "title": "与 Lightdash 支持团队分享",
+                "report_issue": "向 Lightdash 支持团队报告问题",
+                "description": "与 Lightdash 支持团队分享详细的问题报告"
             }
         }
     },
@@ -2494,6 +2792,8 @@
         "home": "首页"
     },
     "components_navbar_create_preview_project_modal": {
+        "add_variable": "添加变量",
+        "require_developer_access": "需要开发者访问权限",
         "create": {
             "part_1": "创建预览项目",
             "part_2": "从"
@@ -2511,6 +2811,25 @@
             "label": "预览名称",
             "placeholder": "输入预览名称",
             "tooltip": "生成唯一名称"
+        },
+        "branch": {
+            "loading_branch": "加载 Github 分支...",
+            "select_branch": "选择分支"
+        },
+        "schema": {
+            "label": "Schema/Dataset",
+            "placeholder": "如果您想覆盖默认架构，请更改此项"
+        },
+        "environment": {
+            "label": "环境变量"
+        },
+        "advanced_options": "高级配置选项",
+        "project_seetings": {
+            "part_1": "此",
+            "part_2": "未知",
+            "part_3": "项目将复制与父项目相同的连接详细信息。要更改源代码的分支，请在",
+            "part_4": "项目设置",
+            "part_5": "。"
         },
         "cancel": "取消",
         "creating_preview": "正在创建预览",
@@ -2576,6 +2895,8 @@
                     "placeholder": "给你的团队介绍一些背景信息"
                 }
             },
+            "space": "空间",
+            "dashboard": "看板",
             "success": "保存成功! {{name}} 被添加到 {{dashboardName}}",
             "saving_tip_1": "保存到 \"{{dashboardName}}\" 看板",
             "saving_tip_2": "此图表将仅保存到看板 \"{{dashboardName}}\", 保持您的空间整洁。",
@@ -2602,7 +2923,6 @@
                 }
             },
             "create": "创建新空间",
-            "save": "保存到已存在空间",
             "boxs": {
                 "name": {
                     "label": "图表名称",
@@ -2623,7 +2943,9 @@
                 }
             },
             "cancel": "取消",
-            "submit": "保存"
+            "submit": "保存",
+            "next": "下一步",
+            "save": "保存"
         },
         "save_dashboard": {
             "form": {
@@ -2695,6 +3017,9 @@
             }
         },
         "cancel": "取消",
+        "new_space": "新空间",
+        "next": "下一步",
+        "back": "返回",
         "create": "创建"
     },
     "components_common_modal_dashboard_delete": {
@@ -2705,6 +3030,7 @@
         },
         "no_charts": "您确定要删除看板吗",
         "cancel": "取消",
+
         "delete": "删除"
     },
     "components_common_modal_dashboard_duplicate": {
@@ -2730,6 +3056,10 @@
             "label": "以 zip 文件形式导出所有图表的表格结果",
             "button": "导出 CSV"
         },
+        "select_all_tabs_tooltip": "选择所有选项卡以包含所有选项卡。如果您不选择此选项，则仅选择选项卡将被包含。",
+        "include_all_tabs": "包含所有选项卡",
+        "select_tabs": "选择要包含的选项卡",
+        "no_tiles_in_selected_tabs": "所选选项卡中没有图块",
         "cancel": "取消",
         "export_dashboard": "导出看板"
     },
@@ -2753,8 +3083,42 @@
         "part_1": "设置筛选值以开始使用",
         "part_2": "此看板在未设置所需的筛选值的情况下无法运行"
     },
+    "components_common_space_selector": {
+        "back": "返回",
+        "create_tip": {
+            "part_1": "您正在创建一个新空间",
+            "part_2": "在",
+            "part_3": "."
+        },
+        "name": {
+            "label": "空间名称",
+            "placeholder": "空间名称"
+        },
+        "permissions": {
+            "part_1": "权限将继承自",
+            "part_2": "此空间将是私有的，并且对其他用户不可见。您可以稍后更改这一点。"
+        },
+        "search ": {
+            "placeholder": "搜索空间"
+        },
+        "spaces": "空间"
+    },
+    "components_common_transfer_items_modal": {
+        "items": "项",
+        "new_space": "新空间",
+        "move": "移动",
+        "cancel": "取消",
+        "create_space": "创建空间 & 移动",
+        "create_space_and_share": "创建空间 & 共享",
+        "select_space": "选择一个空间来移动 {{name}} 到:",
+        "to": "到"
+    },
 
     "components_space_action_modal_common": {
+        "name": {
+            "required": "名称是必填的"
+        },
+        "error_saving": "保存失败",
         "continue": "继续",
         "back": "返回"
     },
@@ -3142,6 +3506,11 @@
     "components_user_settings_slack_settings_panel": {
         "title": "Slack",
         "add": "已添加到Slack工作区: ",
+        "validation": {
+            "project": "您必须选择一个项目",
+            "slack_channel": "您必须选择一个Slack频道",
+            "invalid_project": "无效的项目"
+        },
         "content": {
             "part_1": "在Slack中分享允许您解开Lightdash URL并向您的Slack工作区中的特定人员或频道安排交付。",
             "part_2": "查看文档"
@@ -3154,7 +3523,12 @@
                 "nothingFound": "找不到任何频道"
             },
             "title": "Slack机器人头像",
-            "profile_photo_url": "头像照片URL"
+            "profile_photo_url": "头像照片URL",
+            "alert": {
+                "part_1": "配置Slack频道项目映射",
+                "part_2": "这里",
+                "part_3": "了解更多。"
+            }
         },
         "tip": "您的Slack集成已过期,您应该重新安装Slack集成以确保最佳用户体验。",
         "reinstall": "重新安装",
@@ -3541,6 +3915,10 @@
             "show_all_colors": "显示所有颜色",
             "show_fewer_colors": "显示较少颜色"
         },
+        "override": {
+            "override": "覆盖",
+            "tooltip": "此调色板是只读的。它已被配置为组织的覆盖颜色调色板。在此设置期间，您无法更新/编辑或删除此调色板。"
+        },
         "item": {
             "use_theme": "使用此主题",
             "active": "激活",
@@ -3564,6 +3942,12 @@
         "cancel": "取消"
     },
 
+    "components_user_settings_ai_agents_panel": {
+        "title": "AI 代理",
+        "description": "AI 代理功能未在您的组织中启用。",
+        "create_and_manage_agents": "创建和管理您的 AI 代理。"
+    },
+
     "components_version_auto_updater": {
         "title": "Lightdash 的新版本已经准备好了!"
     },
@@ -3575,6 +3959,10 @@
             "custom_hex": "输入自定义 HEX 颜色",
             "invalid_hex": "无效的 HEX 颜色"
         }
+    },
+    "components_visualization_configs_color_selector": {
+        "type_in_custom_hex": "输入自定义 {{color}} 颜色",
+        "invalid_hex": "无效的 {{color}} 颜色"
     },
     "components_visualization_configs_big_number": {
         "comparison": {
@@ -3777,6 +4165,17 @@
             "add_new_condition": "添加新条件",
             "color": "颜色"
         },
+        "compare": {
+            "compare": "比较",
+            "compare_selected_field_to_values": "将选定字段与值进行比较",
+            "compare_selected_field_to_another_field": "将选定字段与另一个字段进行比较",
+            "compare_another_field_to_values": "将另一个字段与值进行比较",
+            "field_values": "字段值",
+            "compare_field": "比较字段",
+            "condition": "条件",
+            "value": "值",
+            "values": "值"
+        },
         "formatting_list": {
             "rules_and_conditions": "规则和条件"
         },
@@ -3812,13 +4211,35 @@
             "conditional_formating": "条件格式化"
         }
     },
+    "components_visualization_configs_custom_vis": {
+        "placeholder": "开始输入您的 Vega-Lite JSON代码或从我们的预构建模板中选择以创建您的图表。"
+    },
+    "components_visualization_configs_custom_vis_ai": {
+        "placeholder": "创建一个带有详细工具提示和清晰值的热图，用于快速洞察",
+        "generate": "生成",
+        "generating": "正在生成..."
+    },
+    "components_visualization_configs_custom_vis_template": {
+        "selecting_new_template_will_reset_the_config": "选择新模板将重置配置。使用 \"ctrl+z\" 撤消。",
+        "insert_template": "插入模板"
+    },
+    "components_visualization_configs_custom_vis_hooks": {
+        "error": "生成自定义可视化失败"
+    },
+    "components_visualization_configs_panel": {
+        "tooltip": {
+            "label": "使用此输入来增强图表工具提示的额外内容。您可以包含 HTML 代码并使用格式 ${variable_name} 包含动态值。点击此处阅读有关此内容的更多信息。",
+            "total_orders": "总订单"
+        }
+    },
 
     "components_chart_download": {
         "chart_error": "图表实例不可用",
         "options": "选项",
         "opaque": "不透明",
         "transparent": "透明",
-        "download": "下载"
+        "download": "下载",
+        "copy_to_clipboard": "复制到剪贴板"
     },
 
     "components_forbidden_panel": {
@@ -3850,6 +4271,14 @@
         "no_fields": "未找到任何字段...",
         "read_full_description": "阅读完整描述",
         "no_dimensions": "您的 dbt 项目中未定义维度",
+        "completed": "已完成",
+        "metric_id_already_exists": "具有此 ID 的指标已存在于表中。重命名您的自定义指标以防止冲突。",
+        "sql": {
+            "show_original": "显示原始 SQL",
+            "show_compiled": "显示编译后的 SQL",
+            "original": "原始 SQL",
+            "compiled": "编译后的 SQL"
+        },
         "tooltip_missing": {
             "title": "缺少字段",
             "label": "此图表上未找到字段 {{missingField}}。单击此处将其删除。"
@@ -3880,7 +4309,8 @@
             "title": "自定义维度",
             "label": {
                 "part_1": "将鼠标悬停在您选择的尺寸上并选择三点操作菜单来添加自定义维度。",
-                "part_2": "点击查看文档。"
+                "part_2": "点击查看文档。",
+                "part_3": "写回自定义维度"
             }
         }
     },
@@ -3957,6 +4387,8 @@
     },
     "components_explorer_custom_sql_dimension_modal": {
         "tips": {
+            "sql_is_required": "SQL 是必需的",
+            "invalid_field_reference": "SQL 中无效的字段引用。引用必须为 'table.field' 格式，例如 'orders.id'",
             "is_exists": "此标签的维度/表计算已存在",
             "edit_success": "自定义维度修改成功",
             "add_success": "自定义维度添加成功",
@@ -3964,7 +4396,7 @@
             "error_message": "SQL 中无效的字段引用或维度名称"
         },
         "modal": {
-            "title": "{{title}}自定义维度",
+            "title": "自定义维度",
             "edit": "编辑",
             "create": "创建"
         },
@@ -3977,9 +4409,13 @@
             "sql": {
                 "placeholder": "输入 SQL"
             },
+            "tooltip": {
+                "expand_collapse": "展开/折叠"
+            },
             "select": {
                 "label": "返回类型"
             },
+            "cancel": "取消",
             "save": "保存更改",
             "create": "创建"
         }
@@ -4017,7 +4453,17 @@
     },
     "components_explorer_custom_metric_write_back_modal": {
         "pr_disabled_message": "拉取请求只能为 GitHub 连接的项目打开",
-        "unsupported_metric_definition_error": "不支持的指标定义",
+        "custom_dimension": {
+            "name": "自定义维度",
+            "base_name": "维度"
+        },
+        "custom_metric": {
+            "name": "自定义指标",
+            "base_name": "指标"
+        },
+        "error": "错误",
+        "unsupported_definition_error": "不支持的 {{type}} 定义",
+        "select_item_to_open_pr": "选择 {{type}} 以打开拉取请求",
         "create_pr": {
             "write_back_to_dbt": "写回 dbt",
             "content": {
@@ -4027,29 +4473,30 @@
             },
             "close": "关闭"
         },
-        "error": "不支持的指标定义",
         "single_custom_metric": {
             "write_back_to_dbt": "写回 dbt",
             "content": {
-                "part_1": "将此自定义指标转换为您的 dbt 项目中的指标。这将创建一个新分支并开始一个拉取请求。",
-                "part_2": "为以下指标在您的 dbt 项目 GitHub 存储库中创建一个拉取请求:"
+                "part_1": "将此 {{type}} 转换为您的 dbt 项目中的 {{base_name}}。这将创建一个新分支并开始一个拉取请求。",
+                "part_2": "为以下 {{type}} 在您的 dbt 项目 GitHub 存储库中创建一个拉取请求:"
             },
+            "show_code": "显示 {{type}} 代码",
             "cancel": "取消",
             "create_pr": "创建拉取请求...",
             "open_pr": "打开拉取请求"
         },
         "multiple_custom_metrics": {
-            "select_metrics": "选择指标以打开拉取请求",
+            "select_metrics": "选择 {{type}} 以打开拉取请求",
             "write_back_to_dbt": "写回 dbt",
             "content": {
-                "part_1": "在您的 dbt 项目 GitHub 存储库中为以下指标创建一个拉取请求:",
+                "part_1": "在您的 dbt 项目 GitHub 存储库中为以下 {{type}} 创建一个拉取请求:",
                 "part_2": "可用指标 ({{length}} 已选择)"
             },
-            "metric_yaml_to_be_created": "Metric YAML 要创建:",
+            "yaml_to_be_created": "{{type}} YAML 要创建:",
             "cancel": "取消",
             "create_pr": "创建拉取请求...",
             "open_pr": "打开拉取请求"
-        }
+        },
+        "no_items_to_write_back": "没有要写回的项"
     },
     "components_explorer_panel": {
         "tables": "表格",
@@ -4178,6 +4625,10 @@
         },
         "explore_loading_state": {
             "title": "正在加载结果"
+        },
+        "explore_error_state": {
+            "title": "加载结果时出错",
+            "description": "加载结果时出错"
         }
     },
     "components_explorer_save_charts_header": {
@@ -4197,6 +4648,7 @@
         "cancel": "取消",
         "change": "更改",
         "move_to_space": "移动到空间",
+        "return_to_dashboard": "返回看板",
         "menus": {
             "save_chart_as": "将图表另存为",
             "duplicate": "复制",
@@ -4204,6 +4656,7 @@
             "move_to_space": "移动到空间",
             "unpin": "从主页取消固定",
             "pin": "固定到主页",
+            "move_chart": "移动图表",
             "version_history": "版本历史",
             "tooltip_can_prompote": {
                 "label": {
@@ -4258,7 +4711,8 @@
             },
             "delete": {
                 "title": "删除空间"
-            }
+            },
+            "move": "移动"
         }
     },
     "components_explorer_visualization_card": {
@@ -4306,6 +4760,25 @@
     "components_explorer_sql_card": {
         "copied_to_clipboard": "已复制到剪贴板",
         "copy_sql": "复制 SQL"
+    },
+    "components_explorer_write_back_modal": {
+        "title": "写回 dbt",
+        "content": {
+            "part_1": "您的拉取请求",
+            "part_2": "已成功创建在 Github 上。",
+            "part_3": "一旦合并，刷新您的 dbt 连接以查看您的更新指标。"
+        },
+        "close": "关闭",
+        "tips_write_back_custom_dimension": {
+            "write_back_success": "成功！自定义维度已写回。",
+            "open_pr": "打开拉取请求",
+            "failed_to_write_back": "写回自定义维度失败"
+        },
+        "tips_write_back_custom_metric": {
+            "write_back_success": "成功！自定义指标已写回。",
+            "open_pr": "打开拉取请求",
+            "failed_to_write_back": "写回自定义指标失败"
+        }
     },
 
     "components_common_resource_view_grid": {
@@ -4399,7 +4872,8 @@
             "promote": {
                 "title": "推广",
                 "chart": "图表",
-                "dashboard": "看板"
+                "dashboard": "看板",
+                "tooltip_can_prompote": "您必须先在设置 > 数据操作中启用上游项目"
             },
             "toggle_pin": {
                 "pin": "固定到主页",
@@ -4455,6 +4929,11 @@
         "all": "全部",
         "dashboards": "看板",
         "charts": "图表"
+    },
+    "components_common_resource_view_access_info": {
+        "only_visible_to_you": "只有你可见",
+        "project_access": "此项目中的所有人都有访问权限",
+        "shared_with": "与 {{length}} 位用户共享"
     },
 
     "component_saved_dashboards_files_add": {
@@ -4563,6 +5042,12 @@
         }
     },
     "components_simple_table": {
+        "application_update_required": {
+            "title": "需要更新应用程序",
+            "description": "刷新浏览器以加载最新版本并正确显示此可视化效果。",
+            "subtitle": "如果刷新后仍然存在，请联系支持。",
+            "refresh": "刷新页面"
+        },
         "error": {
             "title": "结果不可用"
         },
@@ -4583,9 +5068,13 @@
         }
     },
     "components_sort_button": {
-        "sort": "排序",
+        "no_sort": "未排序",
+        "fields": "字段",
+        "field": "1个字段",
+        "sort": "排序方式",
         "sort_by": "排序方式",
-        "then_by": "然后通过"
+        "then_by": "然后通过",
+        "add_sort_field": "添加排序字段"
     },
 
     "components_export_csv": {
@@ -4794,6 +5283,8 @@
             "spaces": "空间"
         },
         "menus": {
+            "add": "添加",
+            "create_space": "创建空间",
             "add_dashboard": "添加看板",
             "add_existing_dashboard": "添加现有看板",
             "create_new_dashboard": "创建新看板",
@@ -4815,6 +5306,8 @@
             "all_spaces": "所有空间",
             "create_space": "创建空间"
         },
+        "spaces": "空间",
+        "home": "首页",
         "tabs": {
             "shared_with_me": "与我共享",
             "admin_content_view": "管理员内容视图",
@@ -4862,7 +5355,8 @@
         },
         "tips_error": {
             "title": "表单错误",
-            "subtitle": "出现意外错误,请联系支持"
+            "subtitle": "出现意外错误,请联系支持",
+            "form_error": "表单错误"
         },
         "alert_preview": {
             "title": "开发者预览是临时的 Lightdash 项目,无法更改设置",
@@ -5047,12 +5541,20 @@
                     "part_2": "必填字段"
                 }
             },
+            "webhook": {
+                "label": "dbt 的 Webhook"
+            },
             "discovery_api_endpoint": {
                 "label": "Discovery API 端点",
                 "content": {
                     "part_1": "使用适合您的",
                     "part_2": "区域和计划"
                 }
+            },
+            "tags": {
+                "label": "标签",
+                "description": "只有具有所有这些标签的模型才会被同步。",
+                "placeholder": "例如 lightdash, prod"
             }
         },
         "dbt_local": {
@@ -5088,6 +5590,8 @@
             }
         },
         "github": {
+            "success_connected": "成功连接到 GitHub",
+            "sign_in_with_github": "使用 GitHub 登录",
             "dropdown_tooltip": {
                 "part_1": "点击这里打开您的 Github 安装页面以添加更多仓库。",
                 "part_2": "没有看到您的仓库? 配置这里",
@@ -5116,11 +5620,14 @@
                 "label": "个人访问令牌",
                 "description": {
                     "part_1": "这用于访问您的仓库。",
-                    "part_2": "点击打开文档"
+                    "part_2": "点击打开文档",
+                    "part_3": "。"
                 }
             },
             "repository": {
                 "label": "仓库",
+                "refresh_repositories": "更新 Github 上的访问权限后刷新仓库",
+                "login_first": "登录后才能选择仓库",
                 "description": {
                     "part_1": "这应该采用格式 ",
                     "part_2": "my-org/my-repo",
@@ -5346,6 +5853,14 @@
                     "part_3": "。"
                 }
             },
+            "execution_project": {
+                "label": "执行项目",
+                "description": {
+                    "part_1": "您可以指定一个项目来为查询执行计费,而不是您最常存储资源的项目/数据库。您可以在",
+                    "part_2": "dbt 文档",
+                    "part_3": "."
+                }
+            },
             "timeout": {
                 "label": "超时时间(秒)",
                 "description": {
@@ -5423,6 +5938,14 @@
                 "label": "目录名称",
                 "description": "这是目录名称。"
             },
+            "compute": {
+                "label": "计算资源",
+                "description": "配置计算资源以在您的模型中使用",
+                "placeholder": "计算名称",
+                "http_path": "HTTP 路径",
+                "remove": "删除计算",
+                "add": "添加计算"
+            },
             "advanced_configuration_options": "高级配置选项"
         },
         "postgress": {
@@ -5477,8 +6000,24 @@
                     "part_3": "中了解更多详细信息。"
                 }
             },
+            "ssl_cert": {
+                "label": "SSL 证书",
+                "description": "用于验证与数据库连接的客户端证书。"
+            },
+            "ssl_key": {
+                "label": "SSL 私钥",
+                "description": "与您的证书关联的私钥，用于安全认证。"
+            },
+            "ssl_root_cert": {
+                "label": "SSL 根证书",
+                "description": "用于验证数据库服务器身份的可信证书颁发机构 (CA) 证书。"
+            },
             "role": {
                 "label": "身份"
+            },
+            "timeout": {
+                "label": "超时时间(秒)",
+                "description": "如果查询执行时间超过此超时时间，则查询将被取消。您可以在"
             },
             "ssh_tunnel": {
                 "label": "使用 SSH 隧道"
@@ -5516,6 +6055,9 @@
                 "label": "用户",
                 "description": "这是数据库用户名。"
             },
+            "require_user_credentials": {
+                "label": "要求用户提供自己的凭证"
+            },
             "password": {
                 "label": "密码",
                 "description": "这是数据库用户密码。"
@@ -5523,9 +6065,6 @@
             "db_name": {
                 "label": "数据库名称",
                 "description": "这是数据库名称。"
-            },
-            "switch": {
-                "label": "要求用户提供自己的凭证"
             },
             "port": {
                 "label": "端口",
@@ -5552,6 +6091,10 @@
                 "description": "允许 dbt 使用跨数据库资源。",
                 "yes": "是",
                 "no": "否"
+            },
+            "timeout": {
+                "label": "超时时间(秒)",
+                "description": "如果查询执行时间超过此超时时间，则查询将被取消。您可以在"
             },
             "ssh_tunnel": {
                 "label": "使用 SSH 隧道",
@@ -5589,6 +6132,25 @@
                 "label": "用户",
                 "description": "这是数据库用户名。"
             },
+            "private_key": {
+                "label": "认证类型",
+                "description": "选择密码或密钥对认证",
+                "private_key": "私钥(推荐)",
+                "password": "密码"
+            },
+            "file": {
+                "label": "私钥文件",
+                "placeholder": "选择文件...",
+                "description": {
+                    "part_1": "这是 .p8 私钥文件。您可以在",
+                    "part_2": "这里",
+                    "part_3": "了解更多详细信息。"
+                }
+            },
+            "private_key_pass": {
+                "label": "私钥密码",
+                "description": "可选的加密私钥密码"
+            },
             "password": {
                 "label": "密码",
                 "description": "这是数据库用户的密码。"
@@ -5606,7 +6168,9 @@
                 "description": "这是仓库名称。"
             },
             "warehouse_override": {
-                "label": "总是使用此仓库"
+                "label": "总是使用此仓库",
+                "yes": "是",
+                "no": "否"
             },
             "switch": {
                 "label": "要求用户提供自己的凭证"
@@ -5668,7 +6232,7 @@
                 "label": "端口",
                 "description": "这是数据库端口。"
             },
-            "ssh_mode": {
+            "http_scheme": {
                 "label": "SSL 模式",
                 "description": {
                     "part_1": "这控制着 dbt 使用 SSL 连接 Trino 数据库的方式。您可以在",
@@ -5683,6 +6247,9 @@
         "updating_project_settings": "正在更新项目设置...",
         "project_settings_updated": "项目设置已更新!",
         "updating_error": "更新项目时出现错误..."
+    },
+    "components_project_connection_dbt_version": {
+        "dbt_version": "dbt 版本"
     },
 
     "components_limit_button": {
@@ -6188,7 +6755,8 @@
         "some_filters": "一些过滤器",
         "all_filters": "所有过滤器",
         "no_filters": "没有过滤器",
-        "unknown_filter_interactivity_value": "未知 FilterInteractivityValue {{value}}"
+        "unknown_filter_interactivity_value": "未知 FilterInteractivityValue {{value}}",
+        "is_any_value": "是任何值"
     },
     "ai_embed_url_form": {
         "error_tips": {
@@ -6235,6 +6803,8 @@
         "embed_secret": "嵌入密钥",
         "embed_secret_description": "密钥用于生成嵌入令牌以嵌入看板。",
         "secret": "密钥",
+        "embed_secret_read_more": "阅读更多关于使用嵌入密钥的文档指南",
+        "embed_secret_docs_guide": "文档指南",
         "generate_new_secret": "生成新密钥",
         "allowed_dashboards": "允许的看板",
         "allowed_dashboards_description": "只有这些看板会被允许嵌入。",

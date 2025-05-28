@@ -1,7 +1,7 @@
 import { subject } from '@casl/ability';
 import {
     createDashboardFilterRuleFromField,
-    hasCustomDimension,
+    hasCustomBinDimension,
     isDimension,
     isFilterableDimension,
     type FilterDashboardToRule,
@@ -193,7 +193,8 @@ const PieChartContextMenu: FC<PieChartContextMenuProps> = ({
                     {t('components_simple_pie_chart.menus.copy.title')}
                 </Menu.Item>
 
-                {canViewUnderlyingData && !hasCustomDimension(metricQuery) ? (
+                {canViewUnderlyingData &&
+                !hasCustomBinDimension(metricQuery) ? (
                     <Menu.Item
                         icon={<MantineIcon icon={IconStack} />}
                         onClick={handleOpenUnderlyingDataModal}

@@ -1,7 +1,20 @@
-import { type RawResultRow, type ResultRow } from '@lightdash/common';
+import {
+    isField,
+    isRawResultRow,
+    isResultValue,
+    type RawResultRow,
+    type ResultRow,
+} from '@lightdash/common';
 import { getHotkeyHandler, useClipboard, useDisclosure } from '@mantine/hooks';
 import { type Cell } from '@tanstack/react-table';
-import { useCallback, useEffect, useRef, useState, type FC } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type FC,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { type CSSProperties } from 'styled-components';
 
@@ -10,7 +23,6 @@ import { Td } from '../Table.styles';
 import { type CellContextMenuProps } from '../types';
 import CellMenu from './CellMenu';
 import CellTooltip from './CellTooltip';
-import RichBodyCell from './RichBodyCell';
 
 interface CommonBodyCellProps {
     cell: Cell<ResultRow, unknown> | Cell<RawResultRow, unknown>;
@@ -55,6 +67,8 @@ const BodyCell: FC<React.PropsWithChildren<CommonBodyCellProps>> = ({
 
     const canHaveMenu = !!cellContextMenu && hasData;
     const canHaveTooltip = !!tooltipContent && !minimal;
+    const item = cell.column.columnDef.meta?.item;
+    const hasUrls = isField(item) && item.urls ? item.urls.length > 0 : false;
 
     const shouldRenderMenu = canHaveMenu && isMenuOpen && elementRef.current;
     const shouldRenderTooltip =
@@ -63,13 +77,24 @@ const BodyCell: FC<React.PropsWithChildren<CommonBodyCellProps>> = ({
         elementRef.current &&
         !shouldRenderMenu;
 
+    const displayValue = useMemo(() => {
+        if (!hasData) return null;
+
+        const cellValue = cell.getValue();
+
+        if (isResultValue(cellValue)) {
+            return cellValue.value.formatted;
+        } else if (isRawResultRow(cellValue)) {
+            return cellValue;
+        } else {
+            return null;
+        }
+    }, [hasData, cell]);
+
     const handleCopy = useCallback(() => {
         if (!isMenuOpen) return;
 
-        const value = (cell as Cell<ResultRow, ResultRow[0]>).getValue().value
-            .formatted;
-
-        copy(value);
+        copy(displayValue);
         showToastSuccess({
             title: t('components_common_table.copied_to_clipboard'),
         });
@@ -80,7 +105,7 @@ const BodyCell: FC<React.PropsWithChildren<CommonBodyCellProps>> = ({
             }
             return true;
         });
-    }, [isMenuOpen, cell, copy, showToastSuccess, t]);
+    }, [isMenuOpen, displayValue, copy, showToastSuccess, t]);
 
     useEffect(() => {
         const handleKeyDown = getHotkeyHandler([['mod+C', handleCopy]]);
@@ -110,13 +135,16 @@ const BodyCell: FC<React.PropsWithChildren<CommonBodyCellProps>> = ({
                 $fontColor={fontColor}
                 $hasData={hasData}
                 $isNaN={!hasData || !isNumericItem}
+                $hasUrls={hasUrls}
+                $hasNewlines={
+                    typeof displayValue === 'string' &&
+                    displayValue.includes('\n')
+                }
                 onClick={canHaveMenu ? toggleMenu : undefined}
                 onMouseEnter={canHaveTooltip ? openTooltip : undefined}
                 onMouseLeave={canHaveTooltip ? closeTooltip : undefined}
             >
-                <RichBodyCell cell={cell as Cell<ResultRow, ResultRow[0]>}>
-                    {children}
-                </RichBodyCell>
+                <span>{children}</span>
             </Td>
 
             {shouldRenderMenu ? (

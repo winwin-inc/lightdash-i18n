@@ -24,8 +24,8 @@ import {
     type TimeZone,
 } from '@lightdash/common';
 import {
-    type useChartVersionResultsMutation,
-    type useQueryResults,
+    type useGetReadyQueryResults,
+    type useInfiniteQueryResults,
 } from '../../hooks/useQueryResults';
 
 export enum ExplorerSection {
@@ -65,7 +65,7 @@ export enum ActionType {
     EDIT_ADDITIONAL_METRIC,
     REMOVE_ADDITIONAL_METRIC,
     TOGGLE_ADDITIONAL_METRIC_MODAL,
-    TOGGLE_ADDITIONAL_METRIC_WRITE_BACK_MODAL,
+    TOGGLE_WRITE_BACK_MODAL,
     SET_PIVOT_FIELDS,
     SET_CHART_TYPE,
     SET_CHART_CONFIG,
@@ -172,11 +172,8 @@ export type Action =
           >;
       }
     | {
-          type: ActionType.TOGGLE_ADDITIONAL_METRIC_WRITE_BACK_MODAL;
-          payload?: Omit<
-              ExplorerReduceState['modals']['additionalMetricWriteBack'],
-              'isOpen'
-          >;
+          type: ActionType.TOGGLE_WRITE_BACK_MODAL;
+          payload?: Omit<ExplorerReduceState['modals']['writeBack'], 'isOpen'>;
       }
     | {
           type: ActionType.SET_PIVOT_FIELDS;
@@ -253,16 +250,15 @@ export interface ExplorerReduceState {
             item?: Dimension | AdditionalMetric | CustomDimension;
             type?: MetricType;
         };
-        additionalMetricWriteBack: {
-            isOpen: boolean;
-            items?: AdditionalMetric[];
-            multiple?: boolean;
-        };
         customDimension: {
             isOpen: boolean;
             isEditing?: boolean;
             table?: string;
             item?: Dimension | CustomDimension;
+        };
+        writeBack: {
+            isOpen: boolean;
+            items?: CustomDimension[] | AdditionalMetric[];
         };
     };
 }
@@ -277,9 +273,8 @@ export interface ExplorerState extends ExplorerReduceState {
 
 export interface ExplorerContextType {
     state: ExplorerState;
-    queryResults: ReturnType<
-        typeof useQueryResults | typeof useChartVersionResultsMutation
-    >;
+    query: ReturnType<typeof useGetReadyQueryResults>;
+    queryResults: ReturnType<typeof useInfiniteQueryResults>;
     actions: {
         clearExplore: () => void;
         clearQuery: () => void;
@@ -313,12 +308,6 @@ export interface ExplorerContextType {
                 'isOpen'
             >,
         ) => void;
-        toggleAdditionalMetricWriteBackModal: (
-            additionalMetricWriteBackModalData?: Omit<
-                ExplorerReduceState['modals']['additionalMetricWriteBack'],
-                'isOpen'
-            >,
-        ) => void;
         setColumnOrder: (order: string[]) => void;
         addTableCalculation: (tableCalculation: TableCalculation) => void;
         updateTableCalculation: (
@@ -330,6 +319,7 @@ export interface ExplorerContextType {
         setChartType: (chartType: ChartType) => void;
         setChartConfig: (chartConfig: ChartConfig) => void;
         fetchResults: () => void;
+        cancelQuery: () => void;
         toggleExpandedSection: (section: ExplorerSection) => void;
         addCustomDimension: (customDimension: CustomDimension) => void;
         editCustomDimension: (
@@ -340,6 +330,12 @@ export interface ExplorerContextType {
         toggleCustomDimensionModal: (
             additionalMetricModalData?: Omit<
                 ExplorerReduceState['modals']['customDimension'],
+                'isOpen'
+            >,
+        ) => void;
+        toggleWriteBackModal: (
+            writeBackModalData?: Omit<
+                ExplorerReduceState['modals']['writeBack'],
                 'isOpen'
             >,
         ) => void;

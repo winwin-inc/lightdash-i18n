@@ -8,6 +8,7 @@ import KnexPaginate from '../../database/pagination';
 import { dashboardContentConfiguration } from './ContentConfigurations/DashboardContentConfiguration';
 import { dbtExploreChartContentConfiguration } from './ContentConfigurations/DbtExploreChartContentConfiguration';
 import { semanticViewerChartContentConfiguration } from './ContentConfigurations/SemanticViewerChartContentConfiguration';
+import { spaceContentConfiguration } from './ContentConfigurations/SpaceContentConfiguration';
 import { sqlChartContentConfiguration } from './ContentConfigurations/SqlChartContentConfiguration';
 
 import {
@@ -31,10 +32,15 @@ export class ContentModel {
         dbtExploreChartContentConfiguration,
         dashboardContentConfiguration,
         semanticViewerChartContentConfiguration,
+        spaceContentConfiguration,
     ];
 
     constructor(args: { database: Knex }) {
         this.database = args.database;
+    }
+
+    getDatabase() {
+        return this.database;
     }
 
     async findSummaryContents(
@@ -59,12 +65,27 @@ export class ContentModel {
         });
 
         if (queryArgs.sortBy) {
-            void query.orderBy(
-                queryArgs.sortBy,
-                queryArgs.sortDirection ?? 'DESC',
-            );
+            void query.orderBy([
+                {
+                    column: 'content_type_rank',
+                    order: 'ASC',
+                },
+                {
+                    column: queryArgs.sortBy,
+                    order: queryArgs.sortDirection ?? 'DESC',
+                },
+            ]);
         } else {
-            void query.orderBy('last_updated_at', 'DESC');
+            void query.orderBy([
+                {
+                    column: 'content_type_rank',
+                    order: 'ASC',
+                },
+                {
+                    column: 'last_updated_at',
+                    order: 'DESC',
+                },
+            ]);
         }
 
         const { pagination, data } = await KnexPaginate.paginate(

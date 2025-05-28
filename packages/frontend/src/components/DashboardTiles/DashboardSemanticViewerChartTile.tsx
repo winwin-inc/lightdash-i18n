@@ -158,15 +158,6 @@ const SemanticViewerChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
             ? [chartQuery.data.space.userAccess]
             : [];
 
-    const canManageSemanticViewer = user.data?.ability?.can(
-        'manage',
-        subject('SemanticViewer', {
-            organizationUuid: user.data?.organizationUuid,
-            projectUuid,
-            access: savedChartSpaceUserAccess,
-        }),
-    );
-
     const canUpdateChart = user.data?.ability?.can(
         'update',
         subject('SavedChart', {
@@ -232,7 +223,6 @@ const SemanticViewerChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
             {...rest}
             extraMenuItems={
                 projectUuid &&
-                canManageSemanticViewer &&
                 canUpdateChart && (
                     <ChartTileOptions
                         isEditMode={isEditMode}

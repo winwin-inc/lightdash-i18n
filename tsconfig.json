@@ -24,11 +24,8 @@
             "path": "./packages/e2e"
         },
         {
-            "path": "./packages/sdk"
-        },
-        {
             "path": "./packages/sdk-test-app"
-        },
+        }
     ],
     "exclude": [
         "dist",

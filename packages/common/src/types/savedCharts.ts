@@ -267,6 +267,7 @@ export type CompleteEChartsConfig = {
     series: Series[];
     xAxis: XAxis[];
     yAxis: Axis[];
+    tooltip?: string;
 };
 
 export type EChartsConfig = Partial<CompleteEChartsConfig>;
@@ -723,6 +724,20 @@ export type CalculateTotalFromQuery = {
 export type ApiCalculateTotalResponse = {
     status: 'ok';
     results: Record<string, number>;
+};
+
+export type CalculateSubtotalsFromQuery = CalculateTotalFromQuery & {
+    columnOrder: string[];
+    pivotDimensions?: string[];
+};
+
+export type ApiCalculateSubtotalsResponse = {
+    status: 'ok';
+    results: {
+        [subtotalDimensions: string]: {
+            [key: string]: number;
+        }[];
+    };
 };
 
 export type ReplaceableFieldMatchMap = {

@@ -1,4 +1,5 @@
 import {
+    CompleteUserSchema,
     LightdashMode,
     getEmailDomain,
     validateOrganizationEmailDomains,
@@ -17,6 +18,7 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import shuffle from 'lodash/shuffle';
+import { zodResolver } from 'mantine-form-zod-resolver';
 import { useEffect, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -45,6 +47,16 @@ const UserCompletionModal: FC = () => {
         t('components_user_completion_modal.roles.role_13'),
     ];
 
+    const canEnterOrganizationName = user.data?.organizationName === '';
+
+    const validate = zodResolver(
+        canEnterOrganizationName
+            ? CompleteUserSchema
+            : // User is not creating org, just accepting invite
+              // They cannot input org name so don't validate it for backwards compat reasons
+              CompleteUserSchema.omit({ organizationName: true }),
+    );
+
     const form = useForm<CompleteUserArgs>({
         initialValues: {
             organizationName: '',
@@ -53,6 +65,7 @@ const UserCompletionModal: FC = () => {
             isMarketingOptedIn: true,
             isTrackingAnonymized: false,
         },
+        validate,
     });
 
     const { isLoading, mutate, isSuccess } = useUserCompleteMutation();
@@ -75,8 +88,6 @@ const UserCompletionModal: FC = () => {
             getEmailDomain(user.data.email),
         ]);
     }, [user.data?.email]);
-
-    const canEnterOrganizationName = user.data?.organizationName === '';
 
     const canEnableEmailDomainAccess =
         canEnterOrganizationName && isValidOrganizationDomain;
@@ -218,4 +229,14 @@ const UserCompletionModal: FC = () => {
     );
 };
 
-export default UserCompletionModal;
+const UserCompletionModalWithUser = () => {
+    const { user } = useApp();
+
+    if (!user.isSuccess) {
+        return null;
+    }
+
+    return <UserCompletionModal />;
+};
+
+export default UserCompletionModalWithUser;

@@ -1,20 +1,23 @@
 import { subject } from '@casl/ability';
 import {
     ChartKind,
+    getDashboardFilterRulesForTile,
     isVizCartesianChartConfig,
     isVizPieChartConfig,
     isVizTableConfig,
     type DashboardSqlChartTile,
+    type ResultColumn,
 } from '@lightdash/common';
 import { Box } from '@mantine/core';
 import { IconAlertCircle, IconFilePencil } from '@tabler/icons-react';
-import { memo, useMemo, type FC } from 'react';
+import { memo, useEffect, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
 import { useSavedSqlChartResults } from '../../features/sqlRunner/hooks/useSavedSqlChartResults';
 import useSearchParams from '../../hooks/useSearchParams';
 import useApp from '../../providers/App/useApp';
+import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import ChartView from '../DataViz/visualizations/ChartView';
 import { Table } from '../DataViz/visualizations/Table';
 import LinkMenuItem from '../common/LinkMenuItem';
@@ -64,8 +67,7 @@ const DashboardOptions = memo(
 const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
     const { user } = useApp();
     const { t } = useTranslation();
-
-    const { projectUuid } = useParams<{
+    const { projectUuid, dashboardUuid } = useParams<{
         projectUuid: string;
         dashboardUuid: string;
     }>();
@@ -78,6 +80,30 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
             projectUuid,
         }),
     );
+    const updateSqlChartTilesMetadata = useDashboardContext(
+        (c) => c.updateSqlChartTilesMetadata,
+    );
+    const dashboardFilters = useDashboardContext((c) => c.dashboardFilters);
+
+    const dashboardFiltersForThisTile = useMemo(() => {
+        return {
+            dimensions: getDashboardFilterRulesForTile(
+                tile.uuid,
+                dashboardFilters.dimensions,
+                true,
+            ),
+            metrics: getDashboardFilterRulesForTile(
+                tile.uuid,
+                dashboardFilters.metrics,
+                true,
+            ),
+            tableCalculations: getDashboardFilterRulesForTile(
+                tile.uuid,
+                dashboardFilters.tableCalculations,
+                true,
+            ),
+        };
+    }, [tile.uuid, dashboardFilters]);
 
     const {
         chartQuery: {
@@ -95,6 +121,10 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
         projectUuid,
         savedSqlUuid,
         context,
+        dashboardUuid,
+        tileUuid: tile.uuid,
+        dashboardFilters: dashboardFiltersForThisTile,
+        dashboardSorts: [],
     });
 
     // Charts in Dashboard shouldn't have animation
@@ -105,6 +135,23 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
             animation: false,
         };
     }, [chartResultsData?.chartSpec]);
+
+    // Update SQL chart columns in the dashboard context
+    useEffect(() => {
+        if (chartResultsData?.resultsRunner) {
+            const columns = chartResultsData.resultsRunner
+                .getPivotQueryDimensions()
+                .map<ResultColumn>(({ reference, dimensionType }) => ({
+                    reference,
+                    type: dimensionType,
+                }));
+            updateSqlChartTilesMetadata(tile.uuid, { columns });
+        }
+    }, [
+        chartResultsData?.resultsRunner,
+        tile.uuid,
+        updateSqlChartTilesMetadata,
+    ]);
 
     // No chart available or savedSqlUuid is undefined - which means that the chart was deleted
     if (chartData === undefined || !savedSqlUuid) {
@@ -117,15 +164,14 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
                 title={tile.properties.title || tile.properties.chartName || ''}
                 {...rest}
             >
-                <SuboptimalState
-                    icon={IconAlertCircle}
-                    title={
-                        chartError?.error?.message ||
-                        t(
-                            'components_dashboard_tiles_sql_chart.error_fetching_chart',
-                        )
-                    }
-                />
+                {!isChartLoading && (
+                    <SuboptimalState
+                        icon={IconAlertCircle}
+                        title={
+                            chartError?.error?.message || 'Error fetching chart'
+                        }
+                    />
+                )}
             </TileBase>
         );
     }

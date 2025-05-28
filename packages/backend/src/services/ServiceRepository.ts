@@ -1,9 +1,11 @@
 import { LightdashAnalytics } from '../analytics/LightdashAnalytics';
 import { ClientRepository } from '../clients/ClientRepository';
 import { LightdashConfig } from '../config/parseConfig';
+import { AiAgentService } from '../ee/services/AiAgentService';
 import { ModelRepository } from '../models/ModelRepository';
 import type { UtilRepository } from '../utils/UtilRepository';
 import { AnalyticsService } from './AnalyticsService/AnalyticsService';
+import { AsyncQueryService } from './AsyncQueryService/AsyncQueryService';
 import { BaseService } from './BaseService';
 import { CatalogService } from './CatalogService/CatalogService';
 import { CoderService } from './CoderService/CoderService';
@@ -18,6 +20,7 @@ import { GithubAppService } from './GithubAppService/GithubAppService';
 import { GitIntegrationService } from './GitIntegrationService/GitIntegrationService';
 import { GroupsService } from './GroupService';
 import { HealthService } from './HealthService/HealthService';
+import { LightdashAnalyticsService } from './LightdashAnalyticsService/LightdashAnalyticsService';
 import { MetricsExplorerService } from './MetricsExplorerService/MetricsExplorerService';
 import { NotificationsService } from './NotificationsService/NotificationsService';
 import { OrganizationService } from './OrganizationService/OrganizationService';
@@ -25,6 +28,7 @@ import { PersonalAccessTokenService } from './PersonalAccessTokenService';
 import { PinningService } from './PinningService/PinningService';
 import { ProjectService } from './ProjectService/ProjectService';
 import { PromoteService } from './PromoteService/PromoteService';
+import { RenameService } from './RenameService/RenameService';
 import { SavedChartService } from './SavedChartsService/SavedChartService';
 import { SavedSemanticViewerChartService } from './SavedSemanticViewerChartService/SavedSemanticViewerChartService';
 import { SavedSqlService } from './SavedSqlService/SavedSqlService';
@@ -40,7 +44,6 @@ import { UnfurlService } from './UnfurlService/UnfurlService';
 import { UserAttributesService } from './UserAttributesService/UserAttributesService';
 import { UserService } from './UserService';
 import { ValidationService } from './ValidationService/ValidationService';
-
 /**
  * Interface outlining all services available under the `ServiceRepository`. Add new services to
  * this list (in alphabetical order, please!) to have typescript help ensure you've updated the
@@ -83,10 +86,16 @@ interface ServiceManifest {
     coderService: CoderService;
     featureFlagService: FeatureFlagService;
     spotlightService: SpotlightService;
+    lightdashAnalyticsService: LightdashAnalyticsService;
+    asyncQueryService: AsyncQueryService;
+    renameService: RenameService;
     /** An implementation signature for these services are not available at this stage */
     embedService: unknown;
     aiService: unknown;
+    aiAgentService: unknown;
     scimService: unknown;
+    supportService: unknown;
+    cacheService: unknown;
 }
 
 /**
@@ -229,6 +238,8 @@ export class ServiceRepository
                 new AnalyticsService({
                     analytics: this.context.lightdashAnalytics,
                     analyticsModel: this.models.getAnalyticsModel(),
+                    projectModel: this.models.getProjectModel(),
+                    csvService: this.getCsvService(),
                 }),
         );
     }
@@ -340,6 +351,7 @@ export class ServiceRepository
                     dashboardModel: this.models.getDashboardModel(),
                     savedChartModel: this.models.getSavedChartModel(),
                     schedulerClient: this.clients.getSchedulerClient(),
+                    projectModel: this.models.getProjectModel(),
                 }),
         );
     }
@@ -395,6 +407,10 @@ export class ServiceRepository
                     organizationAllowedEmailDomainsModel:
                         this.models.getOrganizationAllowedEmailDomainsModel(),
                     groupsModel: this.models.getGroupsModel(),
+                    personalAccessTokenModel:
+                        this.models.getPersonalAccessTokenModel(),
+                    emailModel: this.models.getEmailModel(),
+                    projectService: this.getProjectService(),
                 }),
         );
     }
@@ -459,6 +475,47 @@ export class ServiceRepository
                     catalogModel: this.models.getCatalogModel(),
                     contentModel: this.models.getContentModel(),
                     encryptionUtil: this.utils.getEncryptionUtil(),
+                    userModel: this.models.getUserModel(),
+                }),
+        );
+    }
+
+    public getAsyncQueryService(): AsyncQueryService {
+        return this.getService(
+            'asyncQueryService',
+            () =>
+                new AsyncQueryService({
+                    lightdashConfig: this.context.lightdashConfig,
+                    analytics: this.context.lightdashAnalytics,
+                    projectModel: this.models.getProjectModel(),
+                    onboardingModel: this.models.getOnboardingModel(),
+                    savedChartModel: this.models.getSavedChartModel(),
+                    jobModel: this.models.getJobModel(),
+                    emailClient: this.clients.getEmailClient(),
+                    spaceModel: this.models.getSpaceModel(),
+                    sshKeyPairModel: this.models.getSshKeyPairModel(),
+                    userAttributesModel: this.models.getUserAttributesModel(),
+                    s3CacheClient: this.clients.getS3CacheClient(),
+                    analyticsModel: this.models.getAnalyticsModel(),
+                    dashboardModel: this.models.getDashboardModel(),
+                    userWarehouseCredentialsModel:
+                        this.models.getUserWarehouseCredentialsModel(),
+                    warehouseAvailableTablesModel:
+                        this.models.getWarehouseAvailableTablesModel(),
+                    emailModel: this.models.getEmailModel(),
+                    schedulerClient: this.clients.getSchedulerClient(),
+                    downloadFileModel: this.models.getDownloadFileModel(),
+                    s3Client: this.clients.getS3Client(),
+                    groupsModel: this.models.getGroupsModel(),
+                    tagsModel: this.models.getTagsModel(),
+                    catalogModel: this.models.getCatalogModel(),
+                    contentModel: this.models.getContentModel(),
+                    encryptionUtil: this.utils.getEncryptionUtil(),
+                    userModel: this.models.getUserModel(),
+                    queryHistoryModel: this.models.getQueryHistoryModel(),
+                    savedSqlModel: this.models.getSavedSqlModel(),
+                    resultsFileModel: this.models.getResultsFileModel(),
+                    storageClient: this.clients.getResultsFileStorageClient(),
                 }),
         );
     }
@@ -701,6 +758,22 @@ export class ServiceRepository
         );
     }
 
+    public getRenameService(): RenameService {
+        return this.getService(
+            'renameService',
+            () =>
+                new RenameService({
+                    lightdashConfig: this.context.lightdashConfig,
+                    analytics: this.context.lightdashAnalytics,
+                    projectModel: this.models.getProjectModel(),
+                    savedChartModel: this.models.getSavedChartModel(),
+                    dashboardModel: this.models.getDashboardModel(),
+                    schedulerClient: this.clients.getSchedulerClient(),
+                    schedulerModel: this.models.getSchedulerModel(),
+                }),
+        );
+    }
+
     public getSavedSqlService(): SavedSqlService {
         return this.getService(
             'savedSqlService',
@@ -722,9 +795,17 @@ export class ServiceRepository
             () =>
                 new ContentService({
                     analytics: this.context.lightdashAnalytics,
+                    // models
                     projectModel: this.models.getProjectModel(),
-                    spaceModel: this.models.getSpaceModel(),
                     contentModel: this.models.getContentModel(),
+                    spaceModel: this.models.getSpaceModel(),
+                    // services
+                    spaceService: this.getSpaceService(),
+                    dashboardService: this.getDashboardService(),
+                    savedChartService: this.getSavedChartService(),
+                    savedSqlService: this.getSavedSqlService(),
+                    savedSemanticViewerChartService:
+                        this.getSavedSemanticViewerChartService(),
                 }),
         );
     }
@@ -736,14 +817,15 @@ export class ServiceRepository
                 new SemanticLayerService({
                     lightdashConfig: this.context.lightdashConfig,
                     analytics: this.context.lightdashAnalytics,
-                    projectModel: this.models.getProjectModel(),
-                    downloadFileModel: this.models.getDownloadFileModel(),
 
                     schedulerClient: this.clients.getSchedulerClient(),
                     s3Client: this.clients.getS3Client(),
 
                     savedSemanticViewerChartService:
                         this.getSavedSemanticViewerChartService(),
+
+                    projectModel: this.models.getProjectModel(),
+                    downloadFileModel: this.models.getDownloadFileModel(),
                 }),
         );
     }
@@ -781,8 +863,16 @@ export class ServiceRepository
         return this.getService('aiService');
     }
 
+    public getAiAgentService<AiAgentServiceImplT>(): AiAgentServiceImplT {
+        return this.getService('aiAgentService');
+    }
+
     public getScimService<ScimServiceImplT>(): ScimServiceImplT {
         return this.getService('scimService');
+    }
+
+    public getSupportService<SupportServiceImptT>(): SupportServiceImptT {
+        return this.getService('supportService');
     }
 
     public getSpotlightService(): SpotlightService {
@@ -793,8 +883,25 @@ export class ServiceRepository
                     lightdashConfig: this.context.lightdashConfig,
                     spotlightTableConfigModel:
                         this.models.getSpotlightTableConfigModel(),
+                    projectModel: this.models.getProjectModel(),
                 }),
         );
+    }
+
+    public getLightdashAnalyticsService(): LightdashAnalyticsService {
+        return this.getService(
+            'lightdashAnalyticsService',
+            () =>
+                new LightdashAnalyticsService({
+                    analytics: this.context.lightdashAnalytics,
+                    projectModel: this.models.getProjectModel(),
+                    savedChartModel: this.models.getSavedChartModel(),
+                }),
+        );
+    }
+
+    public getCacheService<CacheServiceImplT>(): CacheServiceImplT {
+        return this.getService('cacheService');
     }
 
     /**

@@ -8,16 +8,8 @@ export enum FeatureFlags {
     /**/
     PassthroughLogin = 'passthrough-login',
 
-    /**
-     * Enables custom visualizations when the environment variable is also enabled
-     */
-    CustomVisualizationsEnabled = 'custom-visualizations-enabled',
-
     /**/
     ShowDbtCloudProjectOption = 'show-dbt-cloud-project-option',
-
-    /**/
-    CustomSQLEnabled = 'custom-sql-enabled',
 
     /* Show user groups */
     UserGroupsEnabled = 'user-groups-enabled',
@@ -42,9 +34,45 @@ export enum FeatureFlags {
      * Enable scheduler task that replaces custom metrics after project compile
      */
     ReplaceCustomMetricsOnCompile = 'replace-custom-metrics-on-compile',
+
+    /**
+     * Enable the dynamic calculation of series color, when not manually set on the chart config.
+     * This aims to make the colors more consistent, depending on the groups, but this could cause the opposite effect.
+     * For more details, see https://github.com/lightdash/lightdash/issues/13831
+     */
+    CalculateSeriesColor = 'calculate-series-color',
+
+    /**
+     * Enable the ability to write back custom bin dimensions to dbt.
+     */
+    WriteBackCustomBinDimensions = 'write-back-custom-bin-dimensions',
+
+    /**
+     * Enable a new API endpoint that requests results page by page.
+     */
+    QueryPagination = 'query-pagination',
+
+    /**
+     * Enable the ability to show the warehouse execution time and total time in the chart tile.
+     */
+    ShowExecutionTime = 'show-execution-time',
+
+    /**
+     * Enable the ability to create custom visualizations with AI
+     */
+    AiCustomViz = 'ai-custom-viz',
+
+    /**
+     * Enable the ability for dashboard filters to be applied to SQL charts
+     */
+    SqlChartDashboardFilters = 'sql-chart-dashboard-filters',
 }
 
 export type FeatureFlag = {
     id: string;
     enabled: boolean;
 };
+
+export function isFeatureFlags(value: string): value is FeatureFlags {
+    return Object.values(FeatureFlags).includes(value as FeatureFlags);
+}

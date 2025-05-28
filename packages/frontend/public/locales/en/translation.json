@@ -136,6 +136,29 @@
         "error": "Failed to write back custom metric",
         "open_pull_request": "Open Pull Request"
     },
+    "hooks_columns": {
+        "not_found_in_dbt_project": "This field was not found in the dbt project."
+    },
+    "hooks_content": {
+        "project_uuid_required": "Project UUID is required",
+        "move_success": "Successfully moved {{contentType}} to a space",
+        "go_to_space": "Go to space",
+        "delete_success": "Successfully deleted {{contentType}}.",
+        "invalid_action": "Invalid action type in useContentAction",
+        "move_content_error": "Failed to move content",
+        "move_item": {
+            "success": "Successfully moved {{contentType}} to a space",
+            "item": "item",
+            "items": "items",
+            "go_to_space": "Go to space"
+        },
+        "delete_item": {
+            "success": "Successfully deleted {{contentType}}.",
+            "item": "item",
+            "items": "items"
+        },
+        "invalid_action_type": "Invalid action type in useContentBulkAction"
+    },
 
     "providers_active_job": {
         "view_log": "View log",
@@ -157,6 +180,49 @@
     },
     "providers_tracking": {
         "tracking_used": "useTracking must be used within a TrackingProvider"
+    },
+    "providers_support_drawer": {
+        "success": {
+            "title": "Success",
+            "subtitle": "Support request sent successfully"
+        },
+        "include_image": "Include this image",
+        "more_details": "Do you have and other details you'd like to share?",
+        "allow_access": "Allow Lightdash support access to your instance",
+        "tips": {
+            "part_1": "By ticking this box, you agree to give Lightdash Support access to your organization for 12 hours to investigate this issue.",
+            "part_2": "We will also share your Lightdash logs and your recent network requests to help us investigate this issue.",
+            "part_3": "Share"
+        }
+    },
+
+    "stories_form_card": {
+        "tips": {
+            "field_is_required": "This field is required",
+            "this_is_a_form_card": "This is a form card"
+        },
+        "name": {
+            "label": "Name",
+            "placeholder": "name"
+        },
+        "email": {
+            "label": "Email",
+            "placeholder": "email"
+        },
+        "phone": {
+            "label": "Phone",
+            "placeholder": "phone"
+        },
+        "login_options": {
+            "label": "Login options",
+            "placeholder": "Select"
+        },
+        "remember_me": {
+            "label": "Remember me"
+        },
+        "submit": {
+            "label": "Submit"
+        }
     },
 
     "features_users": {
@@ -212,6 +278,9 @@
                     "label": "Result type"
                 }
             },
+            "expand": "Expand/Collapse",
+            "save_changes": "Save changes",
+            "create": "Create",
             "cancel": "Cancel",
             "save": "Save"
         }
@@ -418,7 +487,11 @@
         "run_query": "Run a query to see the chart",
         "sql": "SQL",
         "chart": "Chart",
-        "limit_rows": " Showing first {limit} rows"
+        "limit_rows": " Showing first {limit} rows",
+        "prvot_columns_limit": {
+            "part_1": "This query exceeds the maximum number of columns ({{limit}}).",
+            "part_2": "Showing the first {{limit}} columns."
+        }
     },
     "features_sql_runner_header": {
         "save_chart": "Save chart",
@@ -444,6 +517,10 @@
         "no_results_found": "No results found"
     },
     "features_sql_runner_tables": {
+        "copied_to_clipboard": "Copied to clipboard",
+        "copy": "Copy",
+        "filtering_tables": "Filtering first {limitTableResults} of {totalTables} tables, search to see more",
+        "enter_at_least_3_characters_to_search": "Enter at least 3 characters to search",
         "search_tables": "Search tables",
         "no_results_found": "No results found"
     },
@@ -498,6 +575,7 @@
                 "label": "Description"
             }
         },
+        "new_space": "New Space",
         "test_saved_chart": "A test saved chart",
         "save_chart": "Save chart",
         "memorable": {
@@ -596,6 +674,9 @@
             "placeholder": "eg. How many weekly active users do we have?",
             "description": "Description"
         },
+        "new_space": "New Space",
+        "next": "Next",
+        "back": "Back",
         "cancel": "Cancel",
         "save": "Save"
     },
@@ -609,6 +690,12 @@
         "pie_chart": "Pie chart"
     },
     "features_sql_runner_header_create": {
+        "github_integration_not_enabled": "Github integration is not enabled on this instance, click here to see more details ",
+        "github_integration_not_active": "Github integration is not active on this organization, click here to open integrations page",
+        "write_back_disabled_message": {
+            "part_1": "This project",
+            "part_2": "is not connected to a Github repository, click here to open project settings page"
+        },
         "title": "Save",
         "save": {
             "label": "Save chart",
@@ -681,6 +768,15 @@
             "part_1": "You can contact support with the following error ID",
             "part_2": "Error ID"
         }
+    },
+
+    "features_embed_settings_embed_dashboards_form": {
+        "allow_all_dashboards": "Allow all dashboards",
+        "dashboards": "Dashboards",
+        "select_dashboards": "Select dashboards...",
+        "no_dashboards": "No dashboards available to embed",
+        "select_dashboards_description": "Only these dashboards will be allowed to be embedded.",
+        "save_changes": "Save changes"
     },
 
     "features_mertic_flow": {
@@ -796,6 +892,9 @@
             "part_2": "To create a slack scheduled delivery, you need to",
             "part_3": "reinstall the Slack integration",
             "part_4": "for your organization"
+        },
+        "microsoft_teams_destination": {
+            "placeholder": "Enter Microsoft Teams webhook URLs"
         },
         "validate_tips": {
             "name": "Name is required",
@@ -991,8 +1090,35 @@
     "features_semantic_viewer_content_charts": {
         "results": "Results"
     },
+    "features_semantic_viewer_header": {
+        "edit_chart": "Edit chart",
+        "manage": "Manage",
+        "add_to_dashboard": "Add to dashboard",
+        "delete": "Delete"
+    },
+    "features_semantic_viewer_save_chart_modal": {
+        "tips": {
+            "create_failed": "Failed to create chart",
+            "save_success": "Chart saved successfully"
+        },
+        "name": {
+            "label": "Chart name",
+            "placeholder": "eg. How many weekly active users do we have?"
+        },
+        "description": {
+            "label": "Description"
+        },
+        "new_space": "New Space",
+        "next": "Next",
+        "back": "Back",
+        "save": "Save"
+    },
 
     "features_sync": {
+        "toogle_modal": {
+            "toggle_off": "Toggle off to temporarily pause notifications",
+            "toggle_on": "Notifications paused. Toggle on to resume"
+        },
         "select_google_sheet": "Select Google Sheet via Google drive",
         "modal": {
             "title": {
@@ -1189,6 +1315,8 @@
             "content": "We'd love to show you more, but the data isn't available for this range. Try selecting a different range to continue exploring!"
         },
         "metric_tree": {
+            "canvas_mode": "Canvas mode",
+            "current_month_to_date": "Current month to date",
             "clean_up": "Clean up"
         },
         "metric_explore_tooltip": {
@@ -1306,6 +1434,82 @@
         "define": "Define & view Metric relationships & hierarchies."
     },
 
+    "features_ai_copilot": {
+        "validation": {
+            "select_project": "You must select a project",
+            "invalid_project": "Invalid project"
+        },
+        "back_to_agents": "Back to Agents",
+        "agent_not_found": "Agent not found",
+        "new_agent": "New Agent",
+        "agent": "Agent",
+        "last_modified": "Last modified",
+        "conversations": "Conversations",
+        "form": {
+            "details": "Details",
+            "agent_name": {
+                "label": "Agent Name",
+                "placeholder": "Enter a name for this agent"
+            },
+            "project": {
+                "label": "Project",
+                "placeholder": "Select a project"
+            },
+            "tags": {
+                "label": "Tags",
+                "placeholder": "Select tags"
+            },
+            "integrations": "Integrations",
+            "refresh_channels": "Refresh channels",
+            "slack": {
+                "description": "You need to connect Slack first in the Integrations settings before you can configure AI agents.",
+                "label": "Slack",
+                "placeholder": "Pick a channel"
+            }
+        },
+        "delete_agent": "Delete agent",
+        "create_agent": "Create agent",
+        "save_changes": "Save changes",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "delete_tip": "Are you sure you want to delete this agent? This action cannot be undone."
+    },
+    "features_ai_copilot_agents": {
+        "project_not_found": "Project not found",
+        "add": "Add",
+        "no_agents_found": "No agents found. Get started by adding an agent.",
+        "name": "Name",
+        "last_modified": "Last modified",
+        "something_went_wrong": "Something went wrong"
+    },
+    "features_ai_copilot_agents_list": {
+        "no_conversations_found": "No conversations found for this agent.",
+        "conversations": "Conversations",
+        "conversation": "Conversation",
+        "user": "User",
+        "created": "Created",
+        "source": "Source"
+    },
+    "features_ai_copilot_agents_details": {
+        "conversation_details": "Conversation Details",
+        "loading_conversation": "Loading conversation...",
+        "started_by": "Started by {{user}} on {{date}}",
+        "ai_assistant": "AI Assistant",
+        "thread_not_found": "Thread not found"
+    },
+    "features_ai_copilot_agents_hooks": {
+        "failed_to_fetch_agents": "Failed to fetch AI agents",
+        "failed_to_fetch_agent": "Failed to fetch AI agent details",
+        "created_agent": "AI agent created successfully",
+        "failed_to_create_agent": "Failed to create AI agent",
+        "updated_agent": "AI agent updated successfully",
+        "failed_to_update_agent": "Failed to update AI agent",
+        "deleted_agent": "AI agent deleted successfully",
+        "failed_to_delete_agent": "Failed to delete AI agent",
+        "failed_to_fetch_threads": "Failed to fetch AI agent threads",
+        "failed_to_fetch_thread": "Failed to fetch AI agent thread details"
+    },
+
     "components_common_paginate": {
         "page": "Page",
         "of": "of"
@@ -1326,6 +1530,9 @@
             "part_4": "Learn more about permissions in our",
             "part_5": "docs",
             "part_6": "."
+        },
+        "nested_space": {
+            "part_1": "inherits permissions from its parent space"
         },
         "members_of": "Members of {{name}}",
         "no_access": "No access",
@@ -1414,6 +1621,7 @@
         },
         "menus": {
             "duplicate": "Duplicate",
+            "move_dashboard": "Move dashboard",
             "move_to_space": "Move to space",
             "create_new_space": "Create new space",
             "unpin_from_homepage": "Unpin from homepage",
@@ -1454,6 +1662,26 @@
     },
     "components_common_authorization": {
         "ablitity_not_allowed": "useAbilityContext must be used within a AbilityContext.Provider"
+    },
+    "components_common_admin_content": {
+        "shared_with_me": "Shared with me",
+        "view_all": "View all public and private spaces in your organization",
+        "admin_content_view": "Admin Content View"
+    },
+    "commpnents_common_space_action_modal": {
+        "type_to_delete": "Type the space name to confirm",
+        "space_name": "Space name",
+        "delete": {
+            "part_1": "Are you sure you want to delete space",
+            "part_2": "?",
+            "part_3": "This will permanently delete:",
+            "part_4": "chart {{count}}",
+            "part_5": "dashboard {{count}}",
+            "part_6": "{{count}} nested space{{suffix}}",
+            "part_7": "and all its contents?"
+        },
+        "cancel": "Cancel",
+        "delete_space": "Delete space"
     },
 
     "components_common_filters": {
@@ -1530,7 +1758,19 @@
             "in_the_next": "in the next",
             "in_the_current": "in the current",
             "not_in_the_current": "not in the current",
-            "is_between": "is between"
+            "is_between": "is between",
+            "is_not_between": "is not between"
+        },
+        "filter_quarter_picker": {
+            "select_quarter": "Select quarter"
+        },
+        "filter_placeholder": {
+            "any_value": "any value",
+            "enter_value": "Enter value",
+            "enter_value_s": "Enter value(s)",
+            "start_typing_to_filter_results": "Start typing to filter results",
+            "select_date": "Select a date",
+            "false": "False"
         },
         "time_filter_options": {
             "is_before": "is before",
@@ -1566,7 +1806,7 @@
     },
 
     "components_common_table": {
-        "copied_to_clipboard": "Copied to clipboard",
+        "copied_to_clipboard": "Copied to clipboard!",
         "pagination": {
             "pages": "Pages",
             "scroll": "Scroll",
@@ -1575,7 +1815,8 @@
         },
         "provider": {
             "error": "useTableContext must be used within a TableProvider"
-        }
+        },
+        "loading_more_rows": "Loading more rows..."
     },
 
     "components_custom_sql_panel": {
@@ -1612,8 +1853,20 @@
             "no_custom_metrics": "No custom metrics on this project"
         }
     },
+    "components_custom_visualization": {
+        "no_visualization_loaded": "No visualization loaded",
+        "tooltip": {
+            "part_1": "Start by entering your",
+            "part_2": "Vega-Lite JSON",
+            "part_3": "code or choose from our pre-built templates to create your chart."
+        }
+    },
 
     "components_dashboard_filter": {
+        "inactive_filter_info": {
+            "part_1": "This filter only applies to tab{{suffix}}",
+            "part_2": "This filter is not currently applied to any tabs"
+        },
         "configuration": {
             "filter": {
                 "label": "Filter label",
@@ -1628,7 +1881,13 @@
                 },
                 "content": "Provide default value"
             },
-            "require": "Require value for dashboard to run"
+            "require": "Require value for dashboard to run",
+            "edit_filter_operator": {
+                "allow_multiple_values": "Allow selection of multiple values",
+                "prevent_multiple_values": "Prevent selection of multiple values",
+                "single_value": "Single value",
+                "multi_values": "Multiple values"
+            }
         },
         "tabs": {
             "tooltip_filter": {
@@ -1676,7 +1935,7 @@
                 "content": "Required"
             },
             "table": "Table",
-            "tables": "Tables",
+            "tables": "Tables: ",
             "filter_rules": {
                 "part_1": "is any value"
             }
@@ -1792,12 +2051,31 @@
         "run_validation": "Run validation",
         "no_validation_errors_found": "No validation errors found"
     },
+    "components_settings_validator_modal": {
+        "rename_tip": "You can rename the missing dimension by renaming the affected field or model using the drop down below.",
+        "field": "Field",
+        "model": "Model",
+        "old_field": "Old field",
+        "not_found": "Could not find any fields on explore {{tableName}}. Perhaps you want to replace the model instead?",
+        "new_field": "New field",
+        "select_field": "Select a field to rename to",
+        "old_model": "Old model",
+        "new_model": "New model",
+        "select_model": "Select a model to rename to",
+        "check_all": "Check this to rename all occurrences of this field in other charts and dashboards.",
+        "fix_all": "Fix all occurrences {{totalOcurrences}}",
+        "not_used_in_other_charts": "This {{renameType}} is not used in any other charts.",
+        "cancel": "Cancel",
+        "rename": "Rename"
+    },
     "components_settings_validator_table": {
         "tooltip_delete": {
             "chart": "This chart has been deleted",
             "dashboard": "This dashboard has been deleted"
         },
+        "view": "View{{suffix}}",
         "last_edited_by": "Last edited by",
+        "fix": "Fix",
         "tooltip_dismiss_error": {
             "label": "Dismiss error"
         },
@@ -1809,6 +2087,18 @@
             "no_longer_exists": "no longer exists",
             "is_broken": "is broken",
             "error": "error"
+        }
+    },
+    "components_settings_validator_hooks": {
+        "rename_chart_toast": {
+            "success": "Success! {{type}} \"{{from}}\" was renamed on chart.",
+            "open": "Open"
+        },
+        "rename_references_toast": {
+            "success": "Success! {{type}} \"{{from}}\" was renamed on {{totalCharts}} charts",
+            "updating": "Updating {{type}} \"{{from}}\" in other charts...",
+            "error": "Unable to rename other {{type}}s",
+            "failed": "Unable to rename chart"
         }
     },
     "components_settings_scheduler": {
@@ -1956,7 +2246,8 @@
         "form": {
             "saved_charts": {
                 "label": "Select the charts you want to add to this dashboard",
-                "placeholder": "Search..."
+                "placeholder": "Search...",
+                "no_charts_found": "No charts found"
             },
             "cancel": "Cancel",
             "add": "Add"
@@ -2295,7 +2586,8 @@
     },
 
     "components_refresh_button": {
-        "run_query": "Run query"
+        "run_query": "Run query",
+        "cancel_query": "Cancel query"
     },
     "components_refresh_dbt_button": {
         "refresh": "Refresh dbt",
@@ -2467,6 +2759,11 @@
             "feedback": {
                 "title": "Feedback on Lightdash",
                 "description": "Submit a feature request or bug report to improve Lightdash."
+            },
+            "share_with_support": {
+                "title": "Share with Lightdash Support",
+                "report_issue": "Report an issue to Lightdash Support",
+                "description": "Share a detailed issue report with Lightdash Support"
             }
         }
     },
@@ -2492,6 +2789,8 @@
         "home": "Home"
     },
     "components_navbar_create_preview_project_modal": {
+        "add_variable": "Add variable",
+        "require_developer_access": "Requires Developer Access",
         "create": {
             "part_1": "Create a preview project",
             "part_2": "from"
@@ -2509,6 +2808,25 @@
             "label": "Preview name",
             "placeholder": "Enter preview name",
             "tooltip": "Generate unique name"
+        },
+        "branch": {
+            "loading_branch": "Loading branches from Github...",
+            "select_branch": "Select branch"
+        },
+        "schema": {
+            "label": "Schema/Dataset",
+            "placeholder": "Change this if you want to override the default schema"
+        },
+        "environment": {
+            "label": "Environment Variables"
+        },
+        "advanced_options": "Advanced configuration options",
+        "project_seetings": {
+            "part_1": "This",
+            "part_2": "unknown",
+            "part_3": "project will copy the same connection details as the parent project. To change the branch of the source code, switch to Github connection on",
+            "part_4": " project settings",
+            "part_5": "."
         },
         "cancel": "Cancel",
         "creating_preview": "Creating preview",
@@ -2574,6 +2892,8 @@
                     "placeholder": "A few words to give your team some context"
                 }
             },
+            "space": "Space",
+            "dashboard": "Dashboard",
             "success": "Success! {{name}} was added to {{dashboardName}}",
             "saving_tip_1": "Saving to \"{{dashboardName}}\" dashboard",
             "saving_tip_2": "This chart will be saved exclusively to the dashboard \"{{dashboardName}}\", keeping your space clutter-free.",
@@ -2601,7 +2921,6 @@
                 }
             },
             "create": "Create new space",
-            "save": "Save to existing space",
             "boxs": {
                 "name": {
                     "label": "Chart name",
@@ -2622,7 +2941,11 @@
                 }
             },
             "cancel": "Cancel",
-            "submit": "Save"
+            "submit": "Save",
+            "next": "Next",
+            "new_space": "New Space",
+            "back": "Back",
+            "save": "Save"
         },
         "save_dashboard": {
             "form": {
@@ -2694,6 +3017,9 @@
             }
         },
         "cancel": "Cancel",
+        "new_space": "New Space",
+        "next": "Next",
+        "back": "Back",
         "create": "Create"
     },
     "components_common_modal_dashboard_delete": {
@@ -2729,6 +3055,10 @@
             "label": "Export results in table for all charts in a zip file",
             "button": "Export CSV"
         },
+        "select_all_tabs_tooltip": "Select all tabs to include all tabs in the export. If you don't select this option, only selected tabs will be included.",
+        "include_all_tabs": "Include all tabs",
+        "select_tabs": "Select tabs to include in the export",
+        "no_tiles_in_selected_tabs": "There are no tiles in the selected tab(s)",
         "cancel": "Cancel",
         "export_dashboard": "Export dashboard"
     },
@@ -2752,8 +3082,42 @@
         "part_1": "Set filter values to get started",
         "part_2": "This dashboard cannot be run without setting the filter values that are required"
     },
+    "components_common_space_selector": {
+        "back": "Back",
+        "create_tip": {
+            "part_1": "You are creating a new space",
+            "part_2": "in",
+            "part_3": "."
+        },
+        "name": {
+            "label": "Name",
+            "placeholder": "Space name"
+        },
+        "permissions": {
+            "part_1": "Permissions will be inherited from",
+            "part_2": "This space will be private and not visible to other users. You can change this later."
+        },
+        "search ": {
+            "placeholder": "Search spaces"
+        },
+        "spaces": "Spaces"
+    },
+    "components_common_transfer_items_modal": {
+        "items": "items",
+        "new_space": "New Space",
+        "move": "Move",
+        "cancel": "Cancel",
+        "create_space": "Create space & move",
+        "create_space_and_share": "Create space & share",
+        "select_space": "Select a space to move {{name}} to:",
+        "to": " to "
+    },
 
     "components_space_action_modal_common": {
+        "name": {
+            "required": "Name is required"
+        },
+        "error_saving": "Error saving",
         "continue": "Continue",
         "back": "Back"
     },
@@ -3141,6 +3505,11 @@
     "components_user_settings_slack_settings_panel": {
         "title": "Slack",
         "add": "Added to the Slack workspace: ",
+        "validation": {
+            "project": "You must select a project",
+            "slack_channel": "You must select a Slack channel",
+            "invalid_project": "Invalid project"
+        },
         "content": {
             "part_1": "Sharing in Slack allows you to unfurl Lightdash URLs and schedule deliveries to specific people or channels within your Slack workspace.",
             "part_2": "View docs"
@@ -3153,7 +3522,12 @@
                 "nothingFound": "No channels found"
             },
             "title": "Slack bot avatar",
-            "profile_photo_url": "Profile photo URL"
+            "profile_photo_url": "Profile photo URL",
+            "alert": {
+                "part_1": "Configure Slack channel project mappings",
+                "part_2": "here",
+                "part_3": "."
+            }
         },
         "tip": "Your Slack integration is not up to date, you should reinstall the Slack integration to guarantee the best user experience.",
         "reinstall": "Reinstall",
@@ -3540,7 +3914,13 @@
             "show_all_colors": "Show all colors",
             "show_fewer_colors": "Show fewer colors"
         },
+        "override": {
+            "override": "Override",
+            "tooltip": "This palette is read only. It has been configured as the override color palette for your organization. While this is set, you cannot update/edit, or delete this palette."
+        },
         "item": {
+            "use_theme": "Use This theme",
+            "active": "Active",
             "edit": "Edit palette",
             "delete": "Delete palette"
         },
@@ -3563,6 +3943,12 @@
         "cancel": "Cancel"
     },
 
+    "components_user_settings_ai_agents_panel": {
+        "title": "AI Agents",
+        "description": "The AI Agents feature is not enabled for your organization.",
+        "create_and_manage_agents": "Create and manage your AI agents."
+    },
+
     "components_version_auto_updater": {
         "title": "A new version of Lightdash is ready for you!"
     },
@@ -3574,6 +3960,10 @@
             "custom_hex": "Type in a custom HEX color",
             "invalid_hex": "Invalid HEX color"
         }
+    },
+    "components_visualization_configs_color_selector": {
+        "type_in_custom_hex": "Type in a custom {{color}} color",
+        "invalid_hex": "Invalid {{color}} color"
     },
     "components_visualization_configs_big_number": {
         "comparison": {
@@ -3776,6 +4166,17 @@
             "add_new_condition": "Add new condition",
             "color": "Color"
         },
+        "compare": {
+            "compare": "Compare",
+            "compare_selected_field_to_values": "Compare selected field to values",
+            "compare_selected_field_to_another_field": "Compare selected field to another field",
+            "compare_another_field_to_values": "Compare another field to values",
+            "field_values": "Field values",
+            "compare_field": "Compare field",
+            "condition": "Condition",
+            "value": "Value(s)",
+            "values": "Values"
+        },
         "formatting_list": {
             "rules_and_conditions": "Rules and conditions"
         },
@@ -3811,13 +4212,35 @@
             "conditional_formating": "Conditional formatting"
         }
     },
+    "components_visualization_configs_custom_vis": {
+        "placeholder": "Start by entering your Vega-Lite JSON code or choose from our pre-built templates to create your chart."
+    },
+    "components_visualization_configs_custom_vis_ai": {
+        "placeholder": "Create a heatmap with detailed tooltips and clear values for fast insights",
+        "generate": "Generate",
+        "generating": "Generating..."
+    },
+    "components_visualization_configs_custom_vis_template": {
+        "selecting_new_template_will_reset_the_config": "Selecting a new template will reset the config. Use \"ctrl+z\" to undo.",
+        "insert_template": "Insert template"
+    },
+    "components_visualization_configs_custom_vis_hooks": {
+        "error": "Failed to generate custom visualization"
+    },
+    "components_visualization_configs_panel": {
+        "tooltip": {
+            "label": "Use this input to enhance chart tooltips with additional content. You can incorporate HTML code and include dynamic values using the format ${variable_name}. Click here to read more about this on our docs.",
+            "total_orders": "Total orders"
+        }
+    },
 
     "components_chart_download": {
         "chart_error": "Chart instance is not available",
         "options": "Options",
         "opaque": "Opaque",
         "transparent": "Transparent",
-        "download": "Download"
+        "download": "Download",
+        "copy_to_clipboard": "Copy to clipboard"
     },
 
     "components_forbidden_panel": {
@@ -3849,6 +4272,14 @@
         "no_fields": "No fields found...",
         "read_full_description": "Read full description",
         "no_dimensions": "No dimensions defined in your dbt project",
+        "sql": {
+            "show_original": "Show original SQL",
+            "show_compiled": "Show compiled SQL",
+            "original": "Original SQL",
+            "compiled": "Compiled SQL"
+        },
+        "completed": "completed",
+        "metric_id_already_exists": "A metric with this ID already exists in the table. Rename your custom metric to prevent conflicts.",
         "tooltip_missing": {
             "title": "Missing fields",
             "label": "Field {{missingField}} not found on this chart. Click here to remove it."
@@ -3871,7 +4302,8 @@
             "title": "Custom metrics",
             "label": {
                 "part_1": "Add custom metrics by hovering over the dimension of your choice & selecting the three-dot Action Menu.",
-                "part_2": "Click to view docs."
+                "part_2": "Click to view docs.",
+                "part_3": "Write back custom metrics"
             }
         },
         "tooltip_custom_dimensions": {
@@ -3879,7 +4311,7 @@
             "label": {
                 "part_1": "Add custom dimensions by hovering over the dimension of your choice & selecting the three-dot Action Menu.",
                 "part_2": "Click to view docs.",
-                "part_3": "Write back custom metrics"
+                "part_3": "Write back custom dimensions"
             }
         }
     },
@@ -3956,6 +4388,8 @@
     },
     "components_explorer_custom_sql_dimension_modal": {
         "tips": {
+            "sql_is_required": "SQL is required",
+            "invalid_field_reference": "Invalid field references in SQL. References must be of the format 'table.field', e.g 'orders.id'",
             "is_exists": "Dimension/Table calculation with this label already exists",
             "edit_success": "Custom dimension edited successfully",
             "add_success": "Custom dimension added successfully",
@@ -3963,7 +4397,7 @@
             "error_message": "Invalid field reference in SQL or dimension name"
         },
         "modal": {
-            "title": "{{title}} Custom Dimension",
+            "title": "Custom Dimension",
             "edit": "Edit",
             "create": "Create"
         },
@@ -3976,9 +4410,13 @@
             "sql": {
                 "placeholder": "Enter SQL"
             },
+            "tooltip": {
+                "expand_collapse": "Expand/Collapse"
+            },
             "select": {
                 "label": "Return type"
             },
+            "cancel": "Cancel",
             "save": "Save changes",
             "create": "Create"
         }
@@ -4016,7 +4454,17 @@
     },
     "components_explorer_custom_metric_write_back_modal": {
         "pr_disabled_message": "Pull requests can only be opened for GitHub connected projects",
-        "unsupported_metric_definition_error": "Unsupported metric definition",
+        "custom_dimension": {
+            "name": "custom dimension",
+            "base_name": "dimension"
+        },
+        "custom_metric": {
+            "name": "custom metric",
+            "base_name": "metric"
+        },
+        "unsupported_definition_error": "Unsupported {{type}} definition",
+        "error": "Error",
+        "select_item_to_open_pr": "Select {{type}}s to open a pull request",
         "create_pr": {
             "write_back_to_dbt": "Write back to dbt",
             "content": {
@@ -4026,13 +4474,13 @@
             },
             "close": "Close"
         },
-        "error": "Unsupported metric definition",
         "single_custom_metric": {
             "write_back_to_dbt": "Write back to dbt",
             "content": {
-                "part_1": "Convert this custom metric into a metric in your dbt project. This will create a new branch and start a pull request.",
-                "part_2": "Create a pull request in your dbt project's GitHub repository for the following metric:"
+                "part_1": "Convert this {{type}} into a {{base_name}} in your dbt project. This will create a new branch and start a pull request.",
+                "part_2": "Create a pull request in your dbt project's GitHub repository for the following {{type}}:"
             },
+            "show_code": "Show {{type}} code",
             "cancel": "Cancel",
             "create_pr": "Create pull request...",
             "open_pr": "Open pull request"
@@ -4041,14 +4489,15 @@
             "select_metrics": "Select metrics to open a pull request",
             "write_back_to_dbt": "Write back to dbt",
             "content": {
-                "part_1": "Create a pull request in your dbt project's GitHub repository for the following metrics:",
-                "part_2": "Available metrics ({{length}} selected)"
+                "part_1": "Create a pull request in your dbt project's GitHub repository for the following {{type}}s:",
+                "part_2": "Available {{type}}s ({{length}} selected)"
             },
-            "metric_yaml_to_be_created": "Metric YAML to be created:",
+            "yaml_to_be_created": "{{type}} YAML to be created:",
             "cancel": "Cancel",
             "create_pr": "Create pull request...",
             "open_pr": "Open pull request"
-        }
+        },
+        "no_items_to_write_back": "No items to write back"
     },
     "components_explorer_panel": {
         "tables": "Tables",
@@ -4178,6 +4627,10 @@
         },
         "explore_loading_state": {
             "title": "Loading results"
+        },
+        "explore_error_state": {
+            "title": "Error loading results",
+            "description": "There was an error loading the results"
         }
     },
     "components_explorer_save_charts_header": {
@@ -4197,6 +4650,7 @@
         "cancel": "Cancel",
         "move_to_space": "Move to space",
         "change": " changes",
+        "return_to_dashboard": "Return to dashboard",
         "menus": {
             "save_chart_as": "Save chart as",
             "duplicate": "Duplicate",
@@ -4204,6 +4658,7 @@
             "move_to_space": "Move to space",
             "unpin": "Unpin from homepage",
             "pin": "Pin to homepage",
+            "move_chart": "Move chart",
             "version_history": "Version history",
             "tooltip_can_prompote": {
                 "label": {
@@ -4258,7 +4713,8 @@
             },
             "delete": {
                 "title": "Delete space"
-            }
+            },
+            "move": "Move"
         }
     },
     "components_explorer_visualization_card": {
@@ -4307,6 +4763,25 @@
     "components_explorer_sql_card": {
         "copied_to_clipboard": "Copied to clipboard",
         "copy_sql": "Copy SQL"
+    },
+    "components_explorer_write_back_modal": {
+        "title": "Write back to dbt",
+        "content": {
+            "part_1": "Your pull request",
+            "part_2": "was successfully created on Github.",
+            "part_3": "Once it is merged, refresh your dbt connection to see your updated metrics."
+        },
+        "close": "Close",
+        "tips_write_back_custom_dimension": {
+            "write_back_success": "Success! Custom dimension was written back.",
+            "open_pr": "Open Pull Request",
+            "failed_to_write_back": "Failed to write back custom dimension"
+        },
+        "tips_write_back_custom_metric": {
+            "write_back_success": "Success! Custom metric was written back.",
+            "open_pr": "Open Pull Request",
+            "failed_to_write_back": "Failed to write back custom metric"
+        }
     },
 
     "components_common_resource_view_grid": {
@@ -4400,7 +4875,8 @@
             "promote": {
                 "title": "Promote",
                 "chart": "chart",
-                "dashboard": "dashboard"
+                "dashboard": "dashboard",
+                "tooltip_can_prompote": "You must enable first an upstream project in settings > Data ops"
             },
             "toggle_pin": {
                 "pin": "Pin to homepage",
@@ -4456,6 +4932,11 @@
         "all": "All",
         "dashboards": "Dashboards",
         "charts": "Charts"
+    },
+    "components_common_resource_view_access_info": {
+        "only_visible_to_you": "Only visible to you",
+        "project_access": "Everyone in this project has access",
+        "shared_with": "Shared with {{length}} user{{suffix}}"
     },
 
     "component_saved_dashboards_files_add": {
@@ -4564,6 +5045,12 @@
         }
     },
     "components_simple_table": {
+        "application_update_required": {
+            "title": "Application update required",
+            "description": "Refresh your browser to load the latest version and display this visualization correctly.",
+            "subtitle": "If this persists after refreshing, contact support.",
+            "refresh": "Refresh page"
+        },
         "error": {
             "title": "Results not available"
         },
@@ -4584,9 +5071,13 @@
         }
     },
     "components_sort_button": {
+        "no_sort": "No sort",
+        "fields": "fields",
+        "field": "1 field",
         "sort": "Sorted by",
         "sort_by": "Sort by",
-        "then_by": "then by"
+        "then_by": "then by",
+        "add_sort_field": "Add sort field"
     },
 
     "components_export_csv": {
@@ -4801,6 +5292,8 @@
             "spaces": "Spaces"
         },
         "menus": {
+            "add": "Add",
+            "create_space": "Create space",
             "add_dashboard": "Add dashboard",
             "add_existing_dashboard": "Add existing dashboard",
             "create_new_dashboard": "Create new dashboard",
@@ -4822,6 +5315,8 @@
             "all_spaces": "All Spaces",
             "create_space": "Create space"
         },
+        "spaces": "Spaces",
+        "home": "Home",
         "tabs": {
             "shared_with_me": "Shared with me",
             "admin_content_view": "Admin content view",
@@ -4852,7 +5347,8 @@
         },
         "tips_error": {
             "title": "Form error",
-            "subtitle": "Unexpected error, please contact support"
+            "subtitle": "Unexpected error, please contact support",
+            "form_error": "Form errors"
         },
         "alert_preview": {
             "title": "Developer previews are temporary Lightdash projects where settings cannot be changed",
@@ -5037,12 +5533,20 @@
                     "part_2": "Required field"
                 }
             },
+            "webhook": {
+                "label": "Webhook for dbt"
+            },
             "discovery_api_endpoint": {
                 "label": "Discovery API endpoint",
                 "content": {
                     "part_1": "Use the endpoint that's appropriate for your",
                     "part_2": "region and plan"
                 }
+            },
+            "tags": {
+                "label": "Tags",
+                "description": "Only models with all these tags will be synced.",
+                "placeholder": "e.g lightdash, prod"
             }
         },
         "dbt_local": {
@@ -5079,6 +5583,8 @@
             }
         },
         "github": {
+            "success_connected": "Successfully connected to GitHub",
+            "sign_in_with_github": "Sign in with GitHub",
             "authorization_method": {
                 "label": "Authorization method",
                 "description": {
@@ -5102,11 +5608,14 @@
                 "label": "Personal access token",
                 "description": {
                     "part_1": "This is used to access your repo.",
-                    "part_2": "Click to open documentation"
+                    "part_2": "Click to open documentation",
+                    "part_3": "."
                 }
             },
             "repository": {
                 "label": "Repository",
+                "refresh_repositories": "Refresh repositories after updating access on Github",
+                "login_first": "Login first in order to be able to select a repository",
                 "description": {
                     "part_1": "This should be in the format ",
                     "part_2": "my-org/my-repo",
@@ -5337,6 +5846,14 @@
                     "part_3": "."
                 }
             },
+            "execution_project": {
+                "label": "Execution project",
+                "description": {
+                    "part_1": "You may specify a project to bill for query execution, instead of the project/database where you materialize most resources. You can see more details in",
+                    "part_2": "dbt documentation",
+                    "part_3": "."
+                }
+            },
             "timeout": {
                 "label": "Timeout in seconds",
                 "description": {
@@ -5414,6 +5931,14 @@
                 "label": "Catalog name",
                 "description": "This is the catalog name."
             },
+            "compute": {
+                "label": "Compute resources",
+                "description": "Configure compute resources to use in your models",
+                "placeholder": "Compute Name",
+                "http_path": "HTTP Path",
+                "remove": "Remove compute",
+                "add": "Add compute"
+            },
             "advanced_configuration_options": "Advanced configuration options"
         },
         "postgress": {
@@ -5468,8 +5993,24 @@
                     "part_3": "."
                 }
             },
+            "ssl_cert": {
+                "label": "SSL certificate",
+                "description": "The client certificate used to authenticate your connection to the database."
+            },
+            "ssl_key": {
+                "label": "SSL private key",
+                "description": "The private key associated with your certificate, required for secure authentication."
+            },
+            "ssl_root_cert": {
+                "label": "SSL root certificate",
+                "description": "The trusted certificate authority (CA) certificate used to verify the database server’s identity."
+            },
             "role": {
                 "label": "Role"
+            },
+            "timeout": {
+                "label": "Timeout in seconds",
+                "description": "If a query takes longer than this timeout to complete, then the query will be cancelled. You can see more details in"
             },
             "ssh_tunnel": {
                 "label": "Use SSH tunnel"
@@ -5505,6 +6046,9 @@
                 "label": "User",
                 "description": "This is the database user name."
             },
+            "require_user_credentials": {
+                "label": "Require users to provide their own credentials"
+            },
             "password": {
                 "label": "Password",
                 "description": "This is the database user password."
@@ -5512,9 +6056,6 @@
             "db_name": {
                 "label": "DB name",
                 "description": "This is the database name."
-            },
-            "switch": {
-                "label": "Require users to provide their own credentials"
             },
             "port": {
                 "label": "Port",
@@ -5541,6 +6082,10 @@
                 "description": "Allow dbt to use cross-database-resources.",
                 "yes": "Yes",
                 "no": "No"
+            },
+            "timeout": {
+                "label": "Timeout in seconds",
+                "description": "If a query takes longer than this timeout to complete, then the query will be cancelled. You can see more details in"
             },
             "ssh_tunnel": {
                 "label": "Use SSH tunnel",
@@ -5578,6 +6123,25 @@
                 "label": "User",
                 "description": "This is the database user name."
             },
+            "private_key": {
+                "label": "Authentication Type",
+                "description": "Choose between password or key pair authentication",
+                "private_key": "Private Key (recommended)",
+                "password": "Password"
+            },
+            "file": {
+                "label": "Private Key File",
+                "placeholder": "Choose file...",
+                "description": {
+                    "part_1": "This is the .p8 private key file. You can see",
+                    "part_2": "how to create a key here",
+                    "part_3": "."
+                }
+            },
+            "private_key_pass": {
+                "label": "Private Key Passphrase",
+                "description": "Optional passphrase for encrypted private keys"
+            },
             "password": {
                 "label": "Password",
                 "description": "This is the database user password."
@@ -5595,7 +6159,9 @@
                 "description": "This is the warehouse name."
             },
             "warehouse_override": {
-                "label": "Always use this warehouse"
+                "label": "Always use this warehouse",
+                "yes": "Yes",
+                "no": "No"
             },
             "switch": {
                 "label": "Require users to provide their own credentials"
@@ -5657,7 +6223,7 @@
                 "label": "Port",
                 "description": "This is the database port."
             },
-            "ssh_mode": {
+            "http_scheme": {
                 "label": "SSL mode",
                 "description": {
                     "part_1": "This controls how dbt connects to Trino database using SSL. You can see more details in",
@@ -5672,6 +6238,9 @@
         "updating_project_settings": "Updating project settings...",
         "project_settings_updated": "Project settings updated!",
         "updating_error": "There was an error updating the project..."
+    },
+    "components_project_connection_dbt_version": {
+        "dbt_version": "dbt version"
     },
 
     "components_limit_button": {
@@ -6186,7 +6755,8 @@
         "some_filters": "Some filters",
         "all_filters": "All filters",
         "no_filters": "No filters",
-        "unknown_filter_interactivity_value": "Unknown FilterInteractivityValue {{value}}"
+        "unknown_filter_interactivity_value": "Unknown FilterInteractivityValue {{value}}",
+        "is_any_value": "is any value"
     },
     "ai_embed_url_form": {
         "error_tips": {
@@ -6231,6 +6801,8 @@
         "no_embed_secret_description": "You haven't generated any secret yet!",
         "generate_embed_secret": "Generate embed secret",
         "embed_secret": "Embed secret",
+        "embed_secret_read_more": "Read more about using embed secret in our docs guide",
+        "embed_secret_docs_guide": "docs guide",
         "embed_secret_description": "The secret is used to generate embed tokens for embedding dashboards.",
         "secret": "Secret",
         "generate_new_secret": "Generate new secret",

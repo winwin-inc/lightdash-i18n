@@ -21,26 +21,31 @@ import { type Organization } from './organization';
 import { type Project } from './projects';
 import { type RawResultRow } from './results';
 import { type ChartKind } from './savedCharts';
-import { SchedulerJobStatus } from './scheduler';
+import { SchedulerJobStatus, type TraceTaskBase } from './scheduler';
 import { type SpaceSummary } from './space';
 import { type LightdashUser } from './user';
 
-export type SqlRunnerPayload = {
-    projectUuid: string;
-    userUuid: string;
-    organizationUuid: string | undefined;
+export type SqlRunnerPayload = TraceTaskBase & {
     sqlChartUuid?: string;
     context: QueryExecutionContext;
 } & SqlRunnerBody;
 
+export type ValuesColumn = {
+    reference: string;
+    aggregation: VizAggregationOptions;
+};
+
+export type GroupByColumn = {
+    reference: string;
+};
+
+export type SortBy = PivotChartLayout['sortBy'];
+
 type ApiSqlRunnerPivotQueryPayload = {
     savedSqlUuid?: string;
     indexColumn: PivotIndexColum;
-    valuesColumns: {
-        reference: string;
-        aggregation: VizAggregationOptions;
-    }[];
-    groupByColumns: { reference: string }[] | undefined;
+    valuesColumns: ValuesColumn[];
+    groupByColumns: GroupByColumn[] | undefined;
     sortBy: PivotChartLayout['sortBy'] | undefined;
 };
 
@@ -56,9 +61,6 @@ export type SqlRunnerPivotQueryBody = SqlRunnerBody &
     ApiSqlRunnerPivotQueryPayload;
 
 export type SqlRunnerResults = RawResultRow[];
-
-export const sqlRunnerJob = 'sqlRunner';
-export const sqlRunnerPivotQueryJob = 'sqlRunnerPivotQuery';
 
 type SqlRunnerJobStatusSuccessDetails = {
     fileUrl: string;

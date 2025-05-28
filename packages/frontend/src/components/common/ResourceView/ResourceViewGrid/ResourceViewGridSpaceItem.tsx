@@ -1,7 +1,4 @@
-import {
-    assertUnreachable,
-    type ResourceViewSpaceItem,
-} from '@lightdash/common';
+import { type ResourceViewSpaceItem } from '@lightdash/common';
 import {
     Box,
     Flex,
@@ -13,21 +10,16 @@ import {
     useMantineTheme,
 } from '@mantine/core';
 import { useDisclosure, useHover } from '@mantine/hooks';
-import {
-    IconChartBar,
-    IconLayoutDashboard,
-    IconLock,
-    IconUser,
-    IconUsers,
-    type Icon as IconType,
-} from '@tabler/icons-react';
+import { IconChartBar, IconLayoutDashboard } from '@tabler/icons-react';
 import { useMemo, type FC, type ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
 
 import { ResourceIcon } from '../../ResourceIcon';
+import AccessInfo from '../ResourceAccessInfo';
 import ResourceViewActionMenu, {
     type ResourceViewActionMenuCommonProps,
 } from '../ResourceActionMenu';
+import AttributeCount from '../ResourceAttributeCount';
+import { useResourceAccessLabel } from '../utils';
 
 interface ResourceViewGridSpaceItemProps
     extends Pick<ResourceViewActionMenuCommonProps, 'onAction'> {
@@ -36,80 +28,13 @@ interface ResourceViewGridSpaceItemProps
     allowDelete?: boolean;
 }
 
-enum ResourceAccess {
-    Private = 'private',
-    Public = 'public',
-    Shared = 'shared',
-}
-
-const getResourceAccessType = (item: ResourceViewSpaceItem): ResourceAccess => {
-    if (!item.data.isPrivate) {
-        return ResourceAccess.Public;
-    } else if (item.data.accessListLength > 1) {
-        return ResourceAccess.Shared;
-    } else {
-        return ResourceAccess.Private;
-    }
-};
-
-const AccessInfoData = {
-    [ResourceAccess.Private]: {
-        Icon: IconLock,
-        status: 'Private',
-    },
-    [ResourceAccess.Public]: {
-        Icon: IconUsers,
-        status: 'Public',
-    },
-    [ResourceAccess.Shared]: {
-        Icon: IconUser,
-        status: 'Shared',
-    },
-} as const;
-
-interface AccessInfoProps {
-    item: ResourceViewSpaceItem;
-}
-
-const AccessInfo: FC<AccessInfoProps> = ({ item }) => {
-    const { Icon, status } = AccessInfoData[getResourceAccessType(item)];
-
-    const theme = useMantineTheme();
-
-    return (
-        <>
-            <Icon color={theme.colors.gray[6]} size={14} />
-
-            <Text size={14} color="gray.6" fz="xs">
-                {status}
-            </Text>
-        </>
-    );
-};
-
-const AttributeCount: FC<{ Icon: IconType; count: number }> = ({
-    Icon,
-    count,
-}) => {
-    const theme = useMantineTheme();
-    return (
-        <Flex align="center" gap={4}>
-            <Icon color={theme.colors.gray[6]} size={14} />
-
-            <Text size={14} color="gray.6" fz="xs">
-                {count}
-            </Text>
-        </Flex>
-    );
-};
-
 const ResourceViewGridSpaceItem: FC<ResourceViewGridSpaceItemProps> = ({
     item,
     onAction,
     dragIcon,
     allowDelete,
 }) => {
-    const { t } = useTranslation();
+    const getResourceAccessLabel = useResourceAccessLabel();
 
     const { hovered, ref } = useHover();
     const [opened, handlers] = useDisclosure(false);
@@ -117,32 +42,8 @@ const ResourceViewGridSpaceItem: FC<ResourceViewGridSpaceItemProps> = ({
     const theme = useMantineTheme();
 
     const tooltipText = useMemo(() => {
-        const accessType = getResourceAccessType(item);
-
-        switch (accessType) {
-            case ResourceAccess.Private:
-                return t(
-                    'components_common_resource_view_grid.access_type_options.only_visible_to_you',
-                );
-            case ResourceAccess.Public:
-                return t(
-                    'components_common_resource_view_grid.access_type_options.project_access',
-                );
-            case ResourceAccess.Shared:
-                return t(
-                    'components_common_resource_view_grid.access_type_options.shared_with',
-                    {
-                        length: item.data.accessListLength,
-                        suffix: item.data.accessListLength > 1 ? 's' : '',
-                    },
-                );
-            default:
-                return assertUnreachable(
-                    accessType,
-                    `Unknown access type ${accessType}`,
-                );
-        }
-    }, [item, t]);
+        return getResourceAccessLabel(item);
+    }, [item, getResourceAccessLabel]);
 
     return (
         <Paper

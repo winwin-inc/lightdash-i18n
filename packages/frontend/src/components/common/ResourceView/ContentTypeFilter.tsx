@@ -1,33 +1,15 @@
 import { ContentType } from '@lightdash/common';
-import { Box, Center, SegmentedControl, Text } from '@mantine/core';
-import {
-    IconChartBar,
-    IconLayoutDashboard,
-    type Icon,
-} from '@tabler/icons-react';
-import React, { type FC } from 'react';
+import { Center, SegmentedControl, Text } from '@mantine/core';
+import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import MantineIcon from '../MantineIcon';
 
 interface OptionProps {
     label: string;
     color?: string;
-    icon?: Icon;
 }
 
-const ContentTypeSelectOption = ({ label, icon, color }: OptionProps) => (
+const ContentTypeSelectOption = ({ label }: OptionProps) => (
     <Center px={'xxs'}>
-        {icon && (
-            <Box mr={'xxs'}>
-                <MantineIcon
-                    icon={icon}
-                    fillOpacity={0.1}
-                    fill={color}
-                    color={color}
-                />
-            </Box>
-        )}
         <Text size="sm" color="gray.7">
             {label}
         </Text>

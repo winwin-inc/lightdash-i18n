@@ -2,6 +2,7 @@
 import {
     getErrorMessage,
     LightdashError,
+    RenameType,
     ValidationTarget,
 } from '@lightdash/common';
 import { InvalidArgumentError, Option, program } from 'commander';
@@ -20,6 +21,7 @@ import {
     startPreviewHandler,
     stopPreviewHandler,
 } from './handlers/preview';
+import { renameHandler } from './handlers/renameHandler';
 import { setProjectHandler } from './handlers/setProject';
 import { validateHandler } from './handlers/validate';
 import * as styles from './styles';
@@ -254,8 +256,16 @@ ${styles.bold('Examples:')}
     .option('--no-version-check')
     .option('-s, --select, <select> [selects...]')
     .option('--state <state>')
-    .option('--defer')
-    .option('--no-defer')
+    .option(
+        '--defer',
+        'dbt property. Resolve unselected nodes by deferring to the manifest within the --state directory.',
+        undefined,
+    )
+    .option(
+        '--no-defer',
+        'dbt property. Do not resolve unselected nodes by deferring to the manifest within the --state directory.',
+        undefined,
+    )
     .option('--full-refresh')
     .option(
         '--exclude-meta',
@@ -265,6 +275,11 @@ ${styles.bold('Examples:')}
     .option('--verbose', undefined, false)
     .option('-y, --assume-yes', 'assume yes to prompts', false)
     .option('-no, --assume-no', 'assume no to prompts', false)
+    .option(
+        '--preserve-column-case',
+        'preserve original casing of column names in generated schema files',
+        false,
+    )
     .action(dbtRunHandler);
 
 program
@@ -312,6 +327,16 @@ program
         'Skip `dbt compile` and deploy from the existing ./target/manifest.json',
         false,
     )
+    .option(
+        '--defer',
+        'dbt property. Resolve unselected nodes by deferring to the manifest within the --state directory.',
+        undefined,
+    )
+    .option(
+        '--no-defer',
+        'dbt property. Do not resolve unselected nodes by deferring to the manifest within the --state directory.',
+        undefined,
+    )
     .action(compileHandler);
 
 program
@@ -338,6 +363,16 @@ program
     )
     .option('--target <name>', 'target to use in profiles.yml file', undefined)
     .option('--vars <vars>')
+    .option(
+        '--defer',
+        'dbt property. Resolve unselected nodes by deferring to the manifest within the --state directory.',
+        undefined,
+    )
+    .option(
+        '--no-defer',
+        'dbt property. Do not resolve unselected nodes by deferring to the manifest within the --state directory.',
+        undefined,
+    )
     .option('--threads <number>')
     .option('--no-version-check')
     .option(
@@ -401,6 +436,16 @@ program
     )
     .option('--target <name>', 'target to use in profiles.yml file', undefined)
     .option('--vars <vars>')
+    .option(
+        '--defer',
+        'dbt property. Resolve unselected nodes by deferring to the manifest within the --state directory.',
+        undefined,
+    )
+    .option(
+        '--no-defer',
+        'dbt property. Do not resolve unselected nodes by deferring to the manifest within the --state directory.',
+        undefined,
+    )
     .option('--threads <number>')
     .option('--no-version-check')
     .option(
@@ -725,9 +770,38 @@ ${styles.bold('Examples:')}
         'exclude Lightdash metadata from the generated .yml',
         false,
     )
+    .option(
+        '--preserve-column-case',
+        'preserve original casing of column names in generated schema files',
+        false,
+    )
     .option('--verbose', undefined, false)
 
     .action(generateHandler);
+
+program
+    .command('rename')
+    .description('Rename models and fields on Lightdash content')
+    .option('--verbose', undefined, false)
+    .option(
+        '-p, --project <project uuid>',
+        'specify a project UUID to rename',
+        parseProjectArgument,
+        undefined,
+    )
+    .option(
+        '-m, --model <model>',
+        'When renaming a field, specify which model the field belongs to',
+        undefined,
+    )
+    .option('-y, --assume-yes', 'assume yes to prompts', false)
+    .requiredOption('-t, --type <type>', 'model or field', RenameType.MODEL)
+    .requiredOption('--from <from>', 'Name to replace from', undefined)
+    .requiredOption('--to <to>', 'Name to replace to', undefined)
+    .option('--dry-run', 'Test the rename, no changes will be made', false)
+    .option('--list', 'List all charts and dashboards that are renamed', false)
+
+    .action(renameHandler);
 
 program
     .command('generate-exposures')

@@ -15,7 +15,9 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { IconDots, IconLayoutGridAdd, IconTrash } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
+
 import { TitleBreadCrumbs } from '../../../../components/Explorer/SavedChartsHeader/TitleBreadcrumbs';
 import AddTilesToDashboardModal from '../../../../components/SavedDashboards/AddTilesToDashboardModal';
 import MantineIcon from '../../../../components/common/MantineIcon';
@@ -35,6 +37,7 @@ export const HeaderView: FC<Props> = ({
 }) => {
     const navigate = useNavigate();
     const { user } = useApp();
+    const { t } = useTranslation();
 
     const [
         isDeleteModalOpen,
@@ -48,15 +51,6 @@ export const HeaderView: FC<Props> = ({
     const savedChartSpaceUserAccess = chart.space.userAccess
         ? [chart.space.userAccess]
         : [];
-
-    const canManageSemanticViewer = user.data?.ability?.can(
-        'manage',
-        subject('SemanticViewer', {
-            organizationUuid: user.data?.organizationUuid,
-            projectUuid,
-            access: savedChartSpaceUserAccess,
-        }),
-    );
 
     const canManageChart = user.data?.ability?.can(
         'manage',
@@ -103,7 +97,7 @@ export const HeaderView: FC<Props> = ({
                     </Stack>
 
                     <Group spacing="md">
-                        {canManageSemanticViewer && canManageChart && (
+                        {canManageChart && (
                             <Button
                                 size="xs"
                                 variant="default"
@@ -113,7 +107,9 @@ export const HeaderView: FC<Props> = ({
                                     )
                                 }
                             >
-                                Edit chart
+                                {t(
+                                    'features_semantic_viewer_header.edit_chart',
+                                )}
                             </Button>
                         )}
 
@@ -130,14 +126,20 @@ export const HeaderView: FC<Props> = ({
                                 </ActionIcon>
                             </Menu.Target>
                             <Menu.Dropdown>
-                                <Menu.Label>Manage</Menu.Label>
+                                <Menu.Label>
+                                    {t(
+                                        'features_semantic_viewer_header.manage',
+                                    )}
+                                </Menu.Label>
                                 <Menu.Item
                                     icon={
                                         <MantineIcon icon={IconLayoutGridAdd} />
                                     }
                                     onClick={openAddToDashboardModal}
                                 >
-                                    Add to dashboard
+                                    {t(
+                                        'features_semantic_viewer_header.add_to_dashboard',
+                                    )}
                                 </Menu.Item>
                                 <Menu.Item
                                     icon={
@@ -147,15 +149,12 @@ export const HeaderView: FC<Props> = ({
                                         />
                                     }
                                     color="red"
-                                    disabled={
-                                        !(
-                                            canManageSemanticViewer &&
-                                            canManageChart
-                                        )
-                                    }
+                                    disabled={!canManageChart}
                                     onClick={openDeleteModal}
                                 >
-                                    Delete
+                                    {t(
+                                        'features_semantic_viewer_header.delete',
+                                    )}
                                 </Menu.Item>
                             </Menu.Dropdown>
                         </Menu>

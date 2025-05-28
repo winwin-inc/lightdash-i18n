@@ -1,4 +1,4 @@
-import { DimensionType } from '@lightdash/common';
+import { DimensionType, type ResultRow } from '@lightdash/common';
 import { createConnection } from 'snowflake-sdk';
 import { Readable } from 'stream';
 import {
@@ -24,21 +24,35 @@ const mockStreamRows = () =>
         },
     });
 
+const executeMock = jest.fn(({ sqlText, complete }) => {
+    complete(
+        undefined,
+        {
+            streamRows: mockStreamRows,
+            getColumns: () => queryColumnsMock,
+            getQueryId: () => 'queryId',
+            getSqlText: () => sqlText,
+        },
+        [],
+    );
+});
+
+const getResultsFromQueryIdMock = jest.fn(({ sqlText, queryId }) => ({
+    streamRows: mockStreamRows,
+    getColumns: () => queryColumnsMock,
+    getQueryId: () => queryId,
+    getNumRows: () => 1,
+}));
+
 jest.mock('snowflake-sdk', () => ({
     ...jest.requireActual('snowflake-sdk'),
     createConnection: jest.fn(() => ({
         connect: jest.fn((callback) => callback(null, {})),
-        execute: jest.fn(({ sqlText, complete }) => {
-            complete(
-                undefined,
-                {
-                    streamRows: mockStreamRows,
-                    getColumns: () => queryColumnsMock,
-                },
-                [],
-            );
-        }),
+        execute: executeMock,
         destroy: jest.fn((callback) => callback(null, {})),
+        getResultsFromQueryId: getResultsFromQueryIdMock,
+        getQueryStatus: jest.fn(() => 'SUCCESS'),
+        isStillRunning: jest.fn(() => false),
     })),
 }));
 

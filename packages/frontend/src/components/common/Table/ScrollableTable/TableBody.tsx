@@ -7,19 +7,28 @@ import {
     type ConditionalFormattingRowFields,
     type ResultRow,
 } from '@lightdash/common';
-import { Button, Group } from '@mantine/core';
+import {
+    Button,
+    Center,
+    Group,
+    Loader,
+    Skeleton,
+    Tooltip,
+} from '@mantine/core';
 import { IconChevronDown, IconChevronRight } from '@tabler/icons-react';
 import { flexRender, type Row } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import React, { useMemo, type FC } from 'react';
+import React, { useEffect, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { getColorFromRange, readableColor } from '../../../../utils/colorUtils';
-import { useConditionalRuleLabel } from '../../Filters/FilterInputs/utils';
+import { useConditionalRuleLabelFromItem } from '../../Filters/FilterInputs/utils';
 import MantineIcon from '../../MantineIcon';
+import { SMALL_TEXT_LENGTH } from '../constants';
 import { ROW_HEIGHT_PX, Tr } from '../Table.styles';
 import { type TableContext } from '../types';
 import { useTableContext } from '../useTableContext';
 import { countSubRows } from '../utils';
-import { SMALL_TEXT_LENGTH } from './../constants';
 import BodyCell from './BodyCell';
 
 export const VirtualizedArea: FC<{ cellCount: number; padding: number }> = ({
@@ -58,7 +67,7 @@ const TableRow: FC<TableRowProps> = ({
     minMaxMap,
     minimal = false,
 }) => {
-    const getConditionalRuleLabel = useConditionalRuleLabel();
+    const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
     const rowFields = useMemo(
         () =>
@@ -118,7 +127,7 @@ const TableRow: FC<TableRowProps> = ({
                     field,
                     conditionalFormattingConfig,
                     rowFields,
-                    getConditionalRuleLabel,
+                    getConditionalRuleLabelFromItem,
                 );
 
                 const toggleExpander = row.getToggleExpandedHandler();
@@ -218,16 +227,44 @@ const TableRow: FC<TableRowProps> = ({
 const VirtualizedTableBody: FC<{
     tableContainerRef: React.RefObject<HTMLDivElement | null>;
 }> = ({ tableContainerRef }) => {
-    const { table, cellContextMenu, conditionalFormattings, minMaxMap } =
-        useTableContext();
+    const {
+        table,
+        cellContextMenu,
+        conditionalFormattings,
+        minMaxMap,
+        isInfiniteScrollEnabled,
+        isFetchingRows,
+        fetchMoreRows,
+    } = useTableContext();
     const { rows } = table.getRowModel();
+    const { t } = useTranslation();
 
     const rowVirtualizer = useVirtualizer({
         getScrollElement: () => tableContainerRef.current,
         count: rows.length,
-        estimateSize: () => ROW_HEIGHT_PX,
+        estimateSize: (_index) => ROW_HEIGHT_PX,
         overscan: 25,
     });
+
+    useEffect(() => {
+        const scrollElement = rowVirtualizer.scrollElement;
+        // Check if we're near the end of the list
+        const threshold = 100;
+        if (
+            isInfiniteScrollEnabled &&
+            scrollElement &&
+            rowVirtualizer.scrollOffset !== null &&
+            rowVirtualizer.scrollOffset + scrollElement.clientHeight >=
+                scrollElement.scrollHeight - threshold
+        ) {
+            fetchMoreRows();
+        }
+    }, [
+        rowVirtualizer.scrollOffset,
+        fetchMoreRows,
+        isInfiniteScrollEnabled,
+        rowVirtualizer.scrollElement,
+    ]);
 
     const virtualRows = rowVirtualizer.getVirtualItems();
     const paddingTop =
@@ -239,23 +276,78 @@ const VirtualizedTableBody: FC<{
             : 0;
     const cellsCount = rows[0]?.getVisibleCells().length || 0;
 
+    const skeletonRows = useMemo(() => {
+        const tableColumnsCount = table.getAllColumns().length;
+        const pageSize = table.getState().pagination.pageSize;
+
+        return Array.from({ length: pageSize }).map((_, index) => {
+            return (
+                <tr key={index}>
+                    {new Array(tableColumnsCount).fill(
+                        // Same padding as CellStyles in Table.styles.ts
+                        <td style={{ padding: 8.5 }}>
+                            <Skeleton
+                                w="100%"
+                                // Removing 17px to account for the padding of the table defined in Table.styles.ts
+                                h={`calc(${ROW_HEIGHT_PX}px - 17px)`}
+                            />
+                        </td>,
+                    )}
+                </tr>
+            );
+        });
+    }, [table]);
+
     return (
         <tbody>
             {paddingTop > 0 && (
                 <VirtualizedArea cellCount={cellsCount} padding={paddingTop} />
             )}
-            {virtualRows.map(({ index }) => {
-                return (
-                    <TableRow
-                        key={index}
-                        index={index}
-                        row={rows[index]}
-                        cellContextMenu={cellContextMenu}
-                        conditionalFormattings={conditionalFormattings}
-                        minMaxMap={minMaxMap}
-                    />
-                );
-            })}
+
+            {virtualRows.length === 0 && isFetchingRows
+                ? skeletonRows
+                : virtualRows.map(({ index }) => {
+                      // If this is the last row and we're loading, show the loader
+                      if (
+                          isFetchingRows &&
+                          index + 1 === rows.length &&
+                          isInfiniteScrollEnabled
+                      ) {
+                          return (
+                              <tr key={index}>
+                                  <td
+                                      colSpan={
+                                          table.getVisibleFlatColumns().length
+                                      }
+                                  >
+                                      <Center>
+                                          <Tooltip
+                                              withinPortal
+                                              position="top"
+                                              label={t(
+                                                  'components_common_table.loading_more_rows',
+                                              )}
+                                          >
+                                              <Loader size="xs" color="gray" />
+                                          </Tooltip>
+                                      </Center>
+                                  </td>
+                              </tr>
+                          );
+                      }
+
+                      return (
+                          <TableRow
+                              key={index}
+                              index={index}
+                              row={rows[index]}
+                              cellContextMenu={cellContextMenu}
+                              conditionalFormattings={conditionalFormattings}
+                              minMaxMap={minMaxMap}
+                          />
+                      );
+                  })}
+
             {paddingBottom > 0 && (
                 <VirtualizedArea
                     cellCount={cellsCount}

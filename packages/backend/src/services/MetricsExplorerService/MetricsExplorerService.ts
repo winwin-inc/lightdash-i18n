@@ -243,7 +243,7 @@ export class MetricsExplorerService<
         timeDimensionOverride: TimeDimensionConfig | undefined,
         filter: FilterRule | undefined,
     ): Promise<MetricsExplorerQueryResults> {
-        return measureTime(
+        const { result } = await measureTime(
             () =>
                 this._runMetricExplorerQuery(
                     user,
@@ -265,6 +265,8 @@ export class MetricsExplorerService<
                 timeDimensionOverride,
             },
         );
+
+        return result;
     }
 
     private async _getTopNSegments(
@@ -564,11 +566,12 @@ export class MetricsExplorerService<
         exploreName: string,
         metricName: string,
         timeFrame: TimeFrames,
+        granularity: TimeFrames,
         startDate: string,
         endDate: string,
         comparisonType: MetricTotalComparisonType = MetricTotalComparisonType.NONE,
     ): Promise<MetricTotalResults> {
-        return measureTime(
+        const { result } = await measureTime(
             () =>
                 this._getMetricTotal(
                     user,
@@ -576,6 +579,7 @@ export class MetricsExplorerService<
                     exploreName,
                     metricName,
                     timeFrame,
+                    granularity,
                     startDate,
                     endDate,
                     comparisonType,
@@ -587,6 +591,8 @@ export class MetricsExplorerService<
                 comparisonType,
             },
         );
+
+        return result;
     }
 
     private async _getMetricTotal(
@@ -595,6 +601,7 @@ export class MetricsExplorerService<
         exploreName: string,
         metricName: string,
         timeFrame: TimeFrames,
+        granularity: TimeFrames,
         startDate: string,
         endDate: string,
         comparisonType: MetricTotalComparisonType = MetricTotalComparisonType.NONE,
@@ -604,7 +611,7 @@ export class MetricsExplorerService<
             projectUuid,
             exploreName,
             metricName,
-            timeFrame,
+            granularity,
         );
 
         if (!metric.timeDimension) {
@@ -646,8 +653,8 @@ export class MetricsExplorerService<
 
         if (comparisonType === MetricTotalComparisonType.PREVIOUS_PERIOD) {
             compareDateRange = [
-                getDateCalcUtils(timeFrame).back(dateRange[0]),
-                getDateCalcUtils(timeFrame).back(dateRange[1]),
+                getDateCalcUtils(timeFrame, granularity).back(dateRange[0]),
+                getDateCalcUtils(timeFrame, granularity).back(dateRange[1]),
             ];
 
             const compareMetricQuery = {

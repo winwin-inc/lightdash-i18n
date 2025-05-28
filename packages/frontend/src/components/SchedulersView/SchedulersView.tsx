@@ -1,5 +1,6 @@
 import {
     getHumanReadableCronExpression,
+    isMsTeamsTarget,
     isSchedulerGsheetsOptions,
     isSlackTarget,
     SchedulerFormat,
@@ -203,11 +204,14 @@ const Schedulers: FC<SchedulersProps> = ({
                               );
                               let emails: string[] = [];
                               let slackChannels: string[] = [];
-                              currentTargets.map((_) => {
-                                  if (isSlackTarget(_)) {
+                              let msTeamsTargets: string[] = [];
+                              currentTargets.map((target) => {
+                                  if (isSlackTarget(target)) {
                                       return slackChannels.push(
                                           getSlackChannelName(_.channel),
                                       );
+                                  } else if (isMsTeamsTarget(t)) {
+                                      return msTeamsTargets.push(t.webhook);
                                   } else {
                                       return emails.push(_.recipient);
                                   }

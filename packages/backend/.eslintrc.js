@@ -21,6 +21,7 @@ module.exports = {
         'no-template-curly-in-string': 'off',
         'no-restricted-syntax': 'off',
         eqeqeq: 'error',
+        '@typescript-eslint/no-floating-promises': 'error'
     },
     overrides: [
         

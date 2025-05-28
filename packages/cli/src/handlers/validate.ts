@@ -9,6 +9,7 @@ import {
     isTableValidationError,
     ParameterError,
     SchedulerJobStatus,
+    UnexpectedServerError,
     ValidationTarget,
 } from '@lightdash/common';
 import columnify from 'columnify';
@@ -18,7 +19,7 @@ import * as styles from '../styles';
 import { compile, CompileHandlerOptions } from './compile';
 import { checkLightdashVersion, lightdashApi } from './dbt/apiClient';
 
-const requestValidation = async (
+export const requestValidation = async (
     projectUuid: string,
     explores: (Explore | ExploreError)[],
     validationTargets: ValidationTarget[],
@@ -29,21 +30,21 @@ const requestValidation = async (
         body: JSON.stringify({ explores, validationTargets }),
     });
 
-const getJobState = async (jobUuid: string) =>
+export const getJobState = async (jobUuid: string) =>
     lightdashApi<ApiJobStatusResponse['results']>({
         method: 'GET',
         url: `/api/v1/schedulers/job/${jobUuid}/status`,
         body: undefined,
     });
 
-const getValidation = async (projectUuid: string, jobId: string) =>
+export const getValidation = async (projectUuid: string, jobId: string) =>
     lightdashApi<ApiValidateResponse['results']>({
         method: 'GET',
         url: `/api/v1/projects/${projectUuid}/validate?jobId=${jobId}`,
         body: undefined,
     });
 
-function delay(ms: number) {
+export function delay(ms: number) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);
     });
@@ -58,13 +59,15 @@ type ValidateHandlerOptions = CompileHandlerOptions & {
     only: ValidationTarget[];
 };
 
-const waitUntilFinished = async (jobUuid: string): Promise<string> => {
+export const waitUntilFinished = async (jobUuid: string): Promise<string> => {
     const job = await getJobState(jobUuid);
     if (job.status === SchedulerJobStatus.COMPLETED) {
         return job.status;
     }
     if (job.status === SchedulerJobStatus.ERROR) {
-        throw new Error(`Validation failed`);
+        throw new UnexpectedServerError(
+            `\nValidation failed: ${job.details?.error || 'unknown error'}`,
+        );
     }
 
     return delay(REFETCH_JOB_INTERVAL).then(() => waitUntilFinished(jobUuid));

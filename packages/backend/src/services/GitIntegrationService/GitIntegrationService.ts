@@ -2,9 +2,8 @@
 import { subject } from '@casl/ability';
 import {
     AdditionalMetric,
-    AnyType,
     ApiGithubDbtWritePreview,
-    CustomSqlDimension,
+    CustomDimension,
     DbtProjectType,
     DbtSchemaEditor,
     ForbiddenError,
@@ -12,7 +11,6 @@ import {
     getErrorMessage,
     GitIntegrationConfiguration,
     isUserWithOrg,
-    lightdashDbtYamlSchema,
     ParameterError,
     ParseError,
     PullRequestCreated,
@@ -22,11 +20,8 @@ import {
     snakeCaseName,
     UnexpectedServerError,
     VizColumn,
-    YamlSchema,
 } from '@lightdash/common';
-import Ajv from 'ajv';
 import { nanoid } from 'nanoid';
-import { parse } from 'yaml';
 import {
     LightdashAnalytics,
     WriteBackEvent,
@@ -36,6 +31,7 @@ import {
     createBranch,
     createFile,
     createPullRequest,
+    getBranches,
     getFileContent,
     getLastCommit,
     getOrRefreshToken,
@@ -119,24 +115,6 @@ export class GitIntegrationService extends BaseService {
             enabled: !!installationId,
             installationId,
         };
-    }
-
-    protected static async loadYamlSchema(
-        content: AnyType,
-    ): Promise<DbtSchemaEditor> {
-        const schemaFile = parse(content);
-        const ajvCompiler = new Ajv({ coerceTypes: true });
-
-        const validate = ajvCompiler.compile<YamlSchema>(
-            lightdashDbtYamlSchema,
-        );
-        if (schemaFile === undefined) {
-            return new DbtSchemaEditor(`version: 2`);
-        }
-        if (!validate(schemaFile)) {
-            throw new ParseError(`Not valid schema ${validate}`);
-        }
-        return new DbtSchemaEditor(content);
     }
 
     static async createBranch({
@@ -263,9 +241,7 @@ Affected charts:
             token,
         });
 
-        const yamlSchema = await GitIntegrationService.loadYamlSchema(
-            fileContent,
-        );
+        const yamlSchema = new DbtSchemaEditor(fileContent, fileName);
 
         if (!yamlSchema.hasModels()) {
             throw new Error(`No models found in ${fileName}`);
@@ -295,7 +271,7 @@ Affected charts:
     } & (
         | {
               type: 'customDimensions';
-              fields: CustomSqlDimension[];
+              fields: CustomDimension[];
           }
         | {
               type: 'customMetrics';
@@ -330,8 +306,19 @@ Affected charts:
 
             let updatedYml: string;
             if (type === 'customDimensions') {
+                const warehouseCredentials =
+                    await this.projectModel.getWarehouseCredentialsForProject(
+                        projectUuid,
+                    );
+                const warehouseClient =
+                    this.projectModel.getWarehouseClientFromCredentials(
+                        warehouseCredentials,
+                    );
                 updatedYml = yamlSchema
-                    .addCustomDimensions(fieldsForTable as CustomSqlDimension[])
+                    .addCustomDimensions(
+                        fieldsForTable as CustomDimension[],
+                        warehouseClient,
+                    )
                     .toString({
                         quoteChar,
                     });
@@ -452,7 +439,7 @@ Affected charts:
         args:
             | {
                   type: 'customDimensions';
-                  fields: CustomSqlDimension[];
+                  fields: CustomDimension[];
               }
             | {
                   type: 'customMetrics';
@@ -610,8 +597,10 @@ ${sql}
         const content = new DbtSchemaEditor(`version: 2`)
             .addModel({
                 name: snakeCaseName(name),
-                label: friendlyName(name),
                 description: `SQL model for ${friendlyName(name)}`,
+                meta: {
+                    label: friendlyName(name),
+                },
                 columns: columns.map((c) => ({
                     name: c.reference,
                     meta: {
@@ -721,5 +710,11 @@ Triggered by user ${user.firstName} ${user.lastName} (${user.email})
             ],
             owner,
         };
+    }
+
+    async getBranches(user: SessionUser, projectUuid: string) {
+        const githubProps = await this.getGithubProps(user, projectUuid, '"');
+        const branches = await getBranches(githubProps);
+        return branches.map((branch) => branch.name);
     }
 }

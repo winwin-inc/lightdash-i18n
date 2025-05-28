@@ -20,11 +20,12 @@ import {
     Textarea,
 } from '@mantine/core';
 import { useForm, zodResolver } from '@mantine/form';
-import { useCallback, useEffect, useState, type FC } from 'react';
+import { IconPlus } from '@tabler/icons-react';
+import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import { v4 as uuid4 } from 'uuid';
 import { z } from 'zod';
+
 import {
     appendNewTilesToBottom,
     useDashboardQuery,
@@ -32,11 +33,10 @@ import {
 } from '../../../../hooks/dashboard/useDashboard';
 import { useDashboards } from '../../../../hooks/dashboard/useDashboards';
 import { useCreateMutation } from '../../../../hooks/useSavedQuery';
-import {
-    useCreateMutation as useSpaceCreateMutation,
-    useSpaceSummaries,
-} from '../../../../hooks/useSpaces';
+import { useSpaceManagement } from '../../../../hooks/useSpaceManagement';
+import { useSpaceSummaries } from '../../../../hooks/useSpaces';
 import useApp from '../../../../providers/App/useApp';
+import MantineIcon from '../../../common/MantineIcon';
 import SaveToDashboardForm from './SaveToDashboardForm';
 import SaveToSpaceForm from './SaveToSpaceForm';
 import { saveToDashboardSchema, saveToSpaceSchema } from './types';
@@ -44,6 +44,11 @@ import { saveToDashboardSchema, saveToSpaceSchema } from './types';
 enum SaveDestination {
     Dashboard = 'dashboard',
     Space = 'space',
+}
+
+enum ModalStep {
+    InitialInfo,
+    SelectDestination,
 }
 
 const saveToSpaceOrDashboardSchema = z
@@ -83,12 +88,25 @@ export const SaveToSpaceOrDashboard: FC<Props> = ({
 
     const { mutateAsync: createChart, isLoading: isSavingChart } =
         useCreateMutation();
-    const { mutateAsync: createSpace, isLoading: isSavingSpace } =
-        useSpaceCreateMutation(projectUuid);
 
     const [saveDestination, setSaveDestination] = useState<SaveDestination>(
         SaveDestination.Space,
     );
+    const [currentStep, setCurrentStep] = useState<ModalStep>(
+        ModalStep.InitialInfo,
+    );
+
+    const spaceManagement = useSpaceManagement({
+        projectUuid,
+        defaultSpaceUuid,
+    });
+
+    const {
+        selectedSpaceUuid,
+        isCreatingNewSpace,
+        openCreateSpaceForm,
+        handleCreateNewSpace,
+    } = spaceManagement;
 
     const form = useForm<FormValues>({
         validate: zodResolver(saveToSpaceOrDashboardSchema),
@@ -98,9 +116,13 @@ export const SaveToSpaceOrDashboard: FC<Props> = ({
         data: dashboards,
         isLoading: isLoadingDashboards,
         isSuccess: isDashboardsSuccess,
-    } = useDashboards(projectUuid, {
-        staleTime: 0,
-    });
+    } = useDashboards(
+        projectUuid,
+        {
+            staleTime: 0,
+        },
+        true,
+    );
 
     const {
         data: spaces,
@@ -121,36 +143,58 @@ export const SaveToSpaceOrDashboard: FC<Props> = ({
         staleTime: 0,
     });
 
-    useEffect(() => {
-        if (!isSpacesSuccess || !isDashboardsSuccess) return;
-        if (form.initialized) return;
+    const { initialize } = form;
 
-        const isValidDefaultSpaceUuid = spaces.some(
-            (space) => space.uuid === defaultSpaceUuid,
-        );
+    useEffect(
+        function initializeForm() {
+            if (!isSpacesSuccess || !isDashboardsSuccess) return;
+            if (form.initialized) return;
 
-        const initialSpaceUuid = isValidDefaultSpaceUuid
-            ? defaultSpaceUuid
-            : spaces[0].uuid;
+            const initialValues: FormValues = {
+                name: '',
+                description: null,
+                newSpaceName: null,
+                dashboardUuid: dashboardInfoFromSavedData.dashboardUuid,
+                spaceUuid: null,
+            };
 
-        const initialValues: FormValues = {
-            name: '',
-            description: null,
+            initialize(initialValues);
+        },
+        [
+            form.initialized,
+            initialize,
+            dashboardInfoFromSavedData.dashboardUuid,
+            isDashboardsSuccess,
+            isSpacesSuccess,
+        ],
+    );
 
-            newSpaceName: null,
+    const { setFieldValue } = form;
 
-            dashboardUuid: dashboardInfoFromSavedData.dashboardUuid,
-            spaceUuid: initialSpaceUuid ?? null,
-        };
+    // If default space is set, set the spaceUuid to the default space
+    // This happens when the user creates a chart from a space view, so that space is selected by default
+    const setPreselectedSpace = useCallback(() => {
+        if (form.values.spaceUuid === null) {
+            const isValidDefaultSpaceUuid = spaces?.some(
+                (space) => space.uuid === defaultSpaceUuid,
+            );
 
-        form.initialize(initialValues);
+            const initialSpaceUuid = isValidDefaultSpaceUuid
+                ? defaultSpaceUuid
+                : spaces?.find((space) => !space.parentSpaceUuid)?.uuid;
+
+            if (initialSpaceUuid) {
+                spaceManagement.setSelectedSpaceUuid(initialSpaceUuid);
+
+                setFieldValue('spaceUuid', initialSpaceUuid);
+            }
+        }
     }, [
-        form,
-        dashboardInfoFromSavedData.dashboardUuid,
-        defaultSpaceUuid,
-        isDashboardsSuccess,
-        isSpacesSuccess,
+        setFieldValue,
         spaces,
+        defaultSpaceUuid,
+        spaceManagement,
+        form.values.spaceUuid,
     ]);
 
     const { mutateAsync: updateDashboard } = useUpdateDashboard(
@@ -160,8 +204,28 @@ export const SaveToSpaceOrDashboard: FC<Props> = ({
         form.values.dashboardUuid ?? undefined,
     );
 
+    const isFormReadyToSave = useMemo(() => {
+        if (currentStep === ModalStep.SelectDestination) {
+            if (saveDestination === SaveDestination.Space) {
+                return (
+                    form.values.newSpaceName ||
+                    (form.values.spaceUuid !== null &&
+                        form.values.spaceUuid !== undefined)
+                );
+            }
+            if (saveDestination === SaveDestination.Dashboard) {
+                return form.values.dashboardUuid;
+            }
+        }
+        return false;
+    }, [currentStep, form.values, saveDestination]);
+
     const handleOnSubmit = useCallback(
         async (values: FormValues) => {
+            if (!isFormReadyToSave) {
+                return;
+            }
+
             let savedQuery: SavedChart | undefined;
             /**
              * Create chart
@@ -205,9 +269,7 @@ export const SaveToSpaceOrDashboard: FC<Props> = ({
              */
             if (saveDestination === SaveDestination.Space) {
                 let newSpace = values.newSpaceName
-                    ? await createSpace({
-                          name: values.newSpaceName,
-                          access: [],
+                    ? await handleCreateNewSpace({
                           isPrivate: true,
                       })
                     : undefined;
@@ -230,12 +292,13 @@ export const SaveToSpaceOrDashboard: FC<Props> = ({
             }
         },
         [
+            isFormReadyToSave,
             saveDestination,
             selectedDashboard,
             createChart,
             savedData,
             updateDashboard,
-            createSpace,
+            handleCreateNewSpace,
             onConfirm,
         ],
     );
@@ -245,86 +308,120 @@ export const SaveToSpaceOrDashboard: FC<Props> = ({
         isLoadingDashboards ||
         isLoadingSpaces ||
         isSavingChart ||
-        isSavingSpace;
+        spaceManagement.createSpaceMutation.isLoading;
+
+    const handleBack = () => {
+        setCurrentStep(ModalStep.InitialInfo);
+    };
+
+    const handleNextStep = () => {
+        setCurrentStep(ModalStep.SelectDestination);
+        if (saveDestination === SaveDestination.Space) {
+            setPreselectedSpace();
+        }
+    };
+
+    // Determine if we should show the "New Space" button
+    const shouldShowNewSpaceButton =
+        currentStep === ModalStep.SelectDestination &&
+        saveDestination === SaveDestination.Space &&
+        !isCreatingNewSpace;
+
+    // Get the name of the selected space for display in SpaceCreationForm
+    const selectedSpaceName = useMemo(() => {
+        if (!selectedSpaceUuid) return undefined;
+        return spaces?.find((space) => space.uuid === selectedSpaceUuid)?.name;
+    }, [selectedSpaceUuid, spaces]);
 
     return (
-        <form onSubmit={form.onSubmit((values) => handleOnSubmit(values))}>
+        <form
+            onSubmit={(e) => {
+                if (currentStep === ModalStep.InitialInfo) {
+                    e.preventDefault();
+                    return;
+                }
+                form.onSubmit((values) => handleOnSubmit(values))(e);
+            }}
+        >
             <LoadingOverlay visible={isLoading} />
 
             <Box p="md">
-                <Stack spacing="xs">
-                    <TextInput
-                        label={t(
-                            'components_common_modal_chart_create.default.boxs.name.label',
-                        )}
-                        placeholder={t(
-                            'components_common_modal_chart_create.default.boxs.name.placeholder',
-                        )}
-                        required
-                        {...form.getInputProps('name')}
-                        value={form.values.name ?? ''}
-                        data-testid="ChartCreateModal/NameInput"
-                    />
-                    <Textarea
-                        label={t(
-                            'components_common_modal_chart_create.default.boxs.description.label',
-                        )}
-                        placeholder={t(
-                            'components_common_modal_chart_create.default.boxs.description.placeholder',
-                        )}
-                        autosize
-                        maxRows={3}
-                        {...form.getInputProps('description')}
-                        value={form.values.description ?? ''}
-                    />
-                </Stack>
+                {currentStep === ModalStep.InitialInfo && (
+                    <Stack spacing="xs">
+                        <TextInput
+                            label={t(
+                                'components_common_modal_chart_create.add.form.name.label',
+                            )}
+                            placeholder={t(
+                                'components_common_modal_chart_create.add.form.name.placeholder',
+                            )}
+                            required
+                            {...form.getInputProps('name')}
+                            value={form.values.name ?? ''}
+                            data-testid="ChartCreateModal/NameInput"
+                        />
+                        <Textarea
+                            label={t(
+                                'components_common_modal_chart_create.add.form.description.label',
+                            )}
+                            placeholder={t(
+                                'components_common_modal_chart_create.add.form.description.placeholder',
+                            )}
+                            autosize
+                            maxRows={3}
+                            {...form.getInputProps('description')}
+                            value={form.values.description ?? ''}
+                        />
 
-                <Stack spacing="sm" mt="sm">
-                    <Radio.Group
-                        size="xs"
-                        value={saveDestination}
-                        onChange={(value: SaveDestination) =>
-                            setSaveDestination(value)
-                        }
-                    >
-                        <Group spacing="xs" mb="xs">
-                            <Text fw={500}>
-                                {t(
-                                    'components_common_modal_chart_create.default.save_to',
-                                )}
-                            </Text>
+                        <Stack spacing="sm" mt="sm">
+                            <Text fw={500}>Save to</Text>
 
-                            <Radio
-                                value={SaveDestination.Space}
-                                label={t(
-                                    'components_common_modal_chart_create.default.radio_groups.space.label',
-                                )}
-                                styles={(theme) => ({
-                                    label: {
-                                        paddingLeft: theme.spacing.xs,
-                                    },
-                                })}
-                                disabled={!spaces || isLoadingSpaces}
-                            />
-                            <Radio
-                                value={SaveDestination.Dashboard}
-                                label={t(
-                                    'components_common_modal_chart_create.default.radio_groups.dashboard.label',
-                                )}
-                                styles={(theme) => ({
-                                    label: {
-                                        paddingLeft: theme.spacing.xs,
-                                    },
-                                })}
-                            />
-                        </Group>
+                            <Radio.Group
+                                value={saveDestination}
+                                onChange={(value: SaveDestination) =>
+                                    setSaveDestination(value)
+                                }
+                            >
+                                <Stack spacing="xs">
+                                    <Radio
+                                        value={SaveDestination.Space}
+                                        label={t(
+                                            'components_common_modal_chart_create.add.space',
+                                        )}
+                                        styles={(theme) => ({
+                                            label: {
+                                                paddingLeft: theme.spacing.xs,
+                                            },
+                                        })}
+                                        disabled={!spaces || isLoadingSpaces}
+                                    />
+                                    <Radio
+                                        value={SaveDestination.Dashboard}
+                                        label={t(
+                                            'components_common_modal_chart_create.add.dashboard',
+                                        )}
+                                        styles={(theme) => ({
+                                            label: {
+                                                paddingLeft: theme.spacing.xs,
+                                            },
+                                        })}
+                                    />
+                                </Stack>
+                            </Radio.Group>
+                        </Stack>
+                    </Stack>
+                )}
 
+                {currentStep === ModalStep.SelectDestination && (
+                    <>
                         {saveDestination === SaveDestination.Space ? (
                             <SaveToSpaceForm
                                 form={form}
                                 isLoading={isLoadingSpaces}
                                 spaces={spaces}
                                 projectUuid={projectUuid}
+                                spaceManagement={spaceManagement}
+                                selectedSpaceName={selectedSpaceName}
                             />
                         ) : saveDestination === SaveDestination.Dashboard ? (
                             <SaveToDashboardForm
@@ -341,8 +438,8 @@ export const SaveToSpaceOrDashboard: FC<Props> = ({
                                 `Unknown save destination ${saveDestination}`,
                             )
                         )}
-                    </Radio.Group>
-                </Stack>
+                    </>
+                )}
             </Box>
             <Group
                 position="right"
@@ -353,24 +450,63 @@ export const SaveToSpaceOrDashboard: FC<Props> = ({
                     padding: theme.spacing.md,
                 })}
             >
-                <Button onClick={onClose} variant="outline">
-                    {t('components_common_modal_chart_create.default.cancel')}
-                </Button>
+                {currentStep === ModalStep.InitialInfo ? (
+                    <>
+                        <Button onClick={onClose} variant="outline">
+                            {t(
+                                'components_common_modal_chart_create.default.cancel',
+                            )}
+                        </Button>
+                        <Button
+                            onClick={(
+                                e: React.MouseEvent<HTMLButtonElement>,
+                            ) => {
+                                e.preventDefault();
+                                handleNextStep();
+                            }}
+                            disabled={!form.values.name}
+                            type="button"
+                        >
+                            {t(
+                                'components_common_modal_chart_create.default.next',
+                            )}
+                        </Button>
+                    </>
+                ) : (
+                    <>
+                        {shouldShowNewSpaceButton && (
+                            <Button
+                                variant="subtle"
+                                size="xs"
+                                leftIcon={<MantineIcon icon={IconPlus} />}
+                                onClick={openCreateSpaceForm}
+                                mr="auto"
+                            >
+                                {t(
+                                    'components_common_modal_chart_create.default.new_space',
+                                )}
+                            </Button>
+                        )}
 
-                <Button
-                    type="submit"
-                    loading={isSavingChart || isSavingSpace}
-                    disabled={
-                        !form.values.name ||
-                        (!form.values.newSpaceName &&
-                            saveDestination === SaveDestination.Space &&
-                            !form.values.spaceUuid) ||
-                        (!form.values.dashboardUuid &&
-                            saveDestination === SaveDestination.Dashboard)
-                    }
-                >
-                    {t('components_common_modal_chart_create.default.submit')}
-                </Button>
+                        <Button onClick={handleBack} variant="outline">
+                            {t(
+                                'components_common_modal_chart_create.default.back',
+                            )}
+                        </Button>
+                        <Button
+                            type="submit"
+                            loading={
+                                isSavingChart ||
+                                spaceManagement.createSpaceMutation.isLoading
+                            }
+                            disabled={!isFormReadyToSave}
+                        >
+                            {t(
+                                'components_common_modal_chart_create.default.save',
+                            )}
+                        </Button>
+                    </>
+                )}
             </Group>
         </form>
     );

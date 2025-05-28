@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useSemanticLayerInfo } from '../../features/semanticViewer/api/hooks';
 import { useFeatureFlagEnabled } from '../../hooks/useFeatureFlagEnabled';
+import useCreateInAnySpaceAccess from '../../hooks/user/useCreateInAnySpaceAccess';
 import { Can } from '../../providers/Ability';
 import useApp from '../../providers/App/useApp';
 import LargeMenuItem from '../common/LargeMenuItem';
@@ -33,11 +34,16 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
+    const { user } = useApp();
+
+    const userCanCreateDashboards = useCreateInAnySpaceAccess(
+        projectUuid,
+        'Dashboard',
+    );
+
     const isSemanticLayerEnabled = useFeatureFlagEnabled(
         FeatureFlags.SemanticLayerEnabled,
     );
-
-    const { user } = useApp();
 
     const semanticLayerInfoQuery = useSemanticLayerInfo(
         { projectUuid },
@@ -100,7 +106,7 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                             semanticLayerInfoQuery.isSuccess &&
                             semanticLayerInfoQuery.data !== null && (
                                 <Can
-                                    I="manage"
+                                    I="view"
                                     this={subject('SemanticViewer', {
                                         organizationUuid:
                                             user.data?.organizationUuid,
@@ -164,13 +170,7 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                             />
                         </Can>
 
-                        <Can
-                            I="create"
-                            this={subject('Dashboard', {
-                                organizationUuid: user.data?.organizationUuid,
-                                projectUuid,
-                            })}
-                        >
+                        {userCanCreateDashboards && (
                             <LargeMenuItem
                                 title={t(
                                     'components_navbar_explore_menu.menus.dashboard.title',
@@ -182,7 +182,7 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                                 icon={IconLayoutDashboard}
                                 data-testid="ExploreMenu/NewDashboardButton"
                             />
-                        </Can>
+                        )}
 
                         <Can
                             I="create"
@@ -222,6 +222,7 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                                 `/projects/${projectUuid}/spaces/${space.uuid}`,
                             );
                     }}
+                    parentSpaceUuid={null}
                 />
             )}
 

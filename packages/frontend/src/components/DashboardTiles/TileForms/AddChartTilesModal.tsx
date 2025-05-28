@@ -332,7 +332,7 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
                     <MantineIcon
                         icon={IconChartAreaLine}
                         size="lg"
-                        color="blue.8"
+                        color="blue.6"
                     />
 
                     <Title order={4}>
@@ -382,7 +382,9 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
                         searchable
                         withinPortal
                         itemComponent={SelectItem}
-                        nothingFound="No charts found"
+                        nothingFound={t(
+                            'components_dashboard_tiles_forms_add_chart.form.saved_charts.no_charts_found',
+                        )}
                         clearable
                         clearSearchOnChange
                         clearSearchOnBlur

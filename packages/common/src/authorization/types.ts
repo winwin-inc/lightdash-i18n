@@ -18,10 +18,7 @@ interface Organization {
     organizationUuid: string;
 }
 
-type Subject =
-    | Project
-    | Organization
-    | OrganizationMemberProfile
+export type CaslSubjectNames =
     | 'Project'
     | 'Organization'
     | 'OrganizationMemberProfile'
@@ -35,7 +32,7 @@ type Subject =
     | 'Explore'
     | 'UnderlyingData'
     | 'ExportCsv'
-    | 'CsvJobResult'
+    | 'JobStatus'
     | 'PinnedItems'
     | 'Validation'
     | 'Group'
@@ -50,7 +47,13 @@ type Subject =
     | 'PersonalAccessToken'
     | 'MetricsTree'
     | 'SpotlightTableConfig'
-    | 'ContentAsCode'
+    | 'ContentAsCode';
+
+export type Subject =
+    | CaslSubjectNames
+    | Project
+    | Organization
+    | OrganizationMemberProfile
     | 'all';
 
 export type PossibleAbilities = [

@@ -1,10 +1,19 @@
 import { subject } from '@casl/ability';
-import { ProjectType } from '@lightdash/common';
+import {
+    DbtProjectType,
+    DbtProjectTypeLabels,
+    ProjectType,
+    type ApiError,
+    type DbtProjectEnvironmentVariable,
+} from '@lightdash/common';
 import {
     ActionIcon,
     Anchor,
     Button,
+    Flex,
     Group,
+    Input,
+    Loader,
     MantineProvider,
     Modal,
     Select,
@@ -13,16 +22,177 @@ import {
     TextInput,
     Tooltip,
 } from '@mantine/core';
-import { IconExternalLink, IconRefresh } from '@tabler/icons-react';
-import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
+import {
+    IconExternalLink,
+    IconHelpCircle,
+    IconPlus,
+    IconRefresh,
+    IconTrash,
+} from '@tabler/icons-react';
+import { useQuery } from '@tanstack/react-query';
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type FC,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { animals, colors, uniqueNamesGenerator } from 'unique-names-generator';
 
+import { lightdashApi } from '../../api';
 import { useActiveProjectUuid } from '../../hooks/useActiveProject';
+import { useProject } from '../../hooks/useProject';
 import { useCreatePreviewMutation } from '../../hooks/useProjectPreview';
 import { useProjects } from '../../hooks/useProjects';
 import useApp from '../../providers/App/useApp';
 import MantineIcon from '../common/MantineIcon';
+import DocumentationHelpButton from '../DocumentationHelpButton';
+import FormCollapseButton from '../ProjectConnection/FormCollapseButton';
+
+const getProjectGitBranches = async (projectUuid: string) =>
+    lightdashApi<string[]>({
+        url: `/projects/${projectUuid}/git-integration/branches`,
+        method: 'GET',
+        body: undefined,
+    });
+
+const useBranches = (projectUuid?: string) => {
+    return useQuery<string[], ApiError>({
+        enabled: !!projectUuid,
+        queryKey: ['project_git_branches', projectUuid],
+        queryFn: () => getProjectGitBranches(projectUuid!),
+        retry: false,
+    });
+};
+
+type EnvironmentVariablesInputProps = {
+    value: DbtProjectEnvironmentVariable[];
+    onChange: (value: DbtProjectEnvironmentVariable[]) => void;
+    label: string;
+    disabled?: boolean;
+    documentationUrl?: string;
+    labelHelp?: string | React.ReactNode;
+};
+
+const EnvironmentVariablesInput: FC<EnvironmentVariablesInputProps> = ({
+    value,
+    onChange,
+    label,
+    disabled,
+    documentationUrl,
+    labelHelp,
+}) => {
+    const { t } = useTranslation();
+    const [isLabelInfoOpen, setIsLabelInfoOpen] = useState<boolean>(false);
+
+    const handleAddVariable = () => {
+        onChange([...value, { key: '', value: '' }]);
+    };
+
+    const handleRemoveVariable = (index: number) => {
+        const newVariables = [...value];
+        newVariables.splice(index, 1);
+        onChange(newVariables);
+    };
+
+    const handleUpdateVariable = (
+        index: number,
+        field: 'key' | 'value',
+        newValue: string,
+    ) => {
+        const newVariables = [...value];
+        newVariables[index] = {
+            ...newVariables[index],
+            [field]: newValue,
+        };
+        onChange(newVariables);
+    };
+
+    return (
+        <Input.Wrapper
+            styles={{
+                label: {
+                    display: 'flex',
+                    alignItems: 'center',
+                },
+            }}
+            label={
+                <>
+                    {label}
+                    <div style={{ flex: 1 }}></div>
+                    {documentationUrl && !labelHelp && (
+                        <DocumentationHelpButton href={documentationUrl} />
+                    )}
+                    {labelHelp && (
+                        <ActionIcon
+                            onClick={(
+                                e: React.MouseEvent<HTMLButtonElement>,
+                            ) => {
+                                e.preventDefault();
+                                setIsLabelInfoOpen(!isLabelInfoOpen);
+                            }}
+                        >
+                            <MantineIcon icon={IconHelpCircle} />
+                        </ActionIcon>
+                    )}
+                </>
+            }
+            description={isLabelInfoOpen && labelHelp}
+        >
+            <Stack>
+                {value.map((variable, index) => (
+                    <Flex key={index} gap="xs" align="center">
+                        <TextInput
+                            value={variable.key}
+                            onChange={(e) =>
+                                handleUpdateVariable(
+                                    index,
+                                    'key',
+                                    e.target.value,
+                                )
+                            }
+                            placeholder="Key"
+                            disabled={disabled}
+                        />
+
+                        <TextInput
+                            value={variable.value}
+                            onChange={(e) =>
+                                handleUpdateVariable(
+                                    index,
+                                    'value',
+                                    e.target.value,
+                                )
+                            }
+                            placeholder="Value"
+                            disabled={disabled}
+                        />
+
+                        <ActionIcon
+                            onClick={() => handleRemoveVariable(index)}
+                            disabled={disabled}
+                        >
+                            <MantineIcon icon={IconTrash} />
+                        </ActionIcon>
+                    </Flex>
+                ))}
+
+                <Button
+                    size="sm"
+                    onClick={handleAddVariable}
+                    leftIcon={<MantineIcon icon={IconPlus} />}
+                    disabled={disabled}
+                    variant="outline"
+                >
+                    {t(
+                        'components_navbar_create_preview_project_modal.add_variable',
+                    )}
+                </Button>
+            </Stack>
+        </Input.Wrapper>
+    );
+};
 
 type Props = {
     isOpened: boolean;
@@ -40,8 +210,14 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
     const { mutateAsync: createPreviewProject, isLoading: isPreviewCreating } =
         useCreatePreviewMutation();
 
+    const [isOpen, setIsOpen] = useState(false);
     const [selectedProjectUuid, setSelectedProjectUuid] = useState<string>();
     const [previewName, setPreviewName] = useState('');
+    const [selectedBranch, setSelectedBranch] = useState<string>();
+    const [schema, setSchema] = useState<string>();
+    const [environment, setEnvironment] = useState<
+        DbtProjectEnvironmentVariable[]
+    >([]);
 
     const handleGeneratePreviewName = useCallback(() => {
         return uniqueNamesGenerator({
@@ -78,7 +254,9 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
                     value: project.projectUuid,
                     label: project.name,
                     group: userCannotCreatePreview
-                        ? 'Requires Developer Access'
+                        ? t(
+                              'components_navbar_create_preview_project_modal.requires_developer_access',
+                          )
                         : undefined,
                     disabled: userCannotCreatePreview,
                 };
@@ -86,7 +264,7 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
             .sort((a, b) =>
                 a.disabled === b.disabled ? 0 : a.disabled ? 1 : -1,
             );
-    }, [isLoadingProjects, projects, user.data]);
+    }, [isLoadingProjects, projects, user.data, t]);
 
     const selectedProject = useMemo(() => {
         if (selectedProjectUuid && projects) {
@@ -95,6 +273,11 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
             );
         }
     }, [projects, selectedProjectUuid]);
+
+    const { data: projectDetails } = useProject(selectedProjectUuid);
+    const hasGithub = useMemo(() => {
+        return projectDetails?.dbtConnection?.type === DbtProjectType.GITHUB;
+    }, [projectDetails?.dbtConnection?.type]);
 
     useEffect(() => {
         if (
@@ -127,9 +310,21 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
         await createPreviewProject({
             projectUuid: selectedProjectUuid,
             name: previewName,
+            dbtConnectionOverrides: { branch: selectedBranch, environment },
+            warehouseConnectionOverrides: { schema },
         });
         onClose();
-    }, [createPreviewProject, onClose, previewName, selectedProjectUuid]);
+    }, [
+        selectedProjectUuid,
+        previewName,
+        createPreviewProject,
+        selectedBranch,
+        environment,
+        schema,
+        onClose,
+    ]);
+
+    const branches = useBranches(selectedProjectUuid);
 
     return (
         <MantineProvider inherit theme={{ colorScheme: 'light' }}>
@@ -243,6 +438,108 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
                                 </Tooltip>
                             }
                         />
+                        {hasGithub ? (
+                            <>
+                                <Select
+                                    withinPortal
+                                    label="Branch"
+                                    placeholder={
+                                        branches.isLoading
+                                            ? t(
+                                                  'components_navbar_create_preview_project_modal.branch.loading_branch',
+                                              )
+                                            : t(
+                                                  'components_navbar_create_preview_project_modal.branch.select_branch',
+                                              )
+                                    }
+                                    searchable
+                                    value={selectedBranch}
+                                    readOnly={isPreviewCreating}
+                                    disabled={
+                                        branches.isSuccess &&
+                                        (!branches.data ||
+                                            branches.data.length <= 0)
+                                    }
+                                    data={branches.data ?? []}
+                                    onChange={(value) => {
+                                        setSelectedBranch(value ?? undefined);
+                                    }}
+                                    rightSection={
+                                        branches.isFetching && (
+                                            <Loader size="xs" color="gray" />
+                                        )
+                                    }
+                                />{' '}
+                                {/* only show if branch changed + change label based on warehouse type? + get value from dbt cloud api */}
+                                <TextInput
+                                    label={t(
+                                        'components_navbar_create_preview_project_modal.schema.label',
+                                    )}
+                                    placeholder={t(
+                                        'components_navbar_create_preview_project_modal.schema.placeholder',
+                                    )}
+                                    value={schema}
+                                    disabled={isPreviewCreating}
+                                    onChange={(e) => {
+                                        setSchema(e.currentTarget.value);
+                                    }}
+                                />
+                                {isOpen && (
+                                    <Stack>
+                                        {/* only show if branch changed + check if project dbt connection type has environment + advanced option */}
+                                        <EnvironmentVariablesInput
+                                            label={t(
+                                                'components_navbar_create_preview_project_modal.environment.label',
+                                            )}
+                                            value={environment}
+                                            onChange={(newVariables) =>
+                                                setEnvironment(newVariables)
+                                            }
+                                            disabled={isPreviewCreating}
+                                        />
+                                    </Stack>
+                                )}
+                                <FormCollapseButton
+                                    isSectionOpen={isOpen}
+                                    onClick={() => {
+                                        setIsOpen(!isOpen);
+                                    }}
+                                >
+                                    {t(
+                                        'components_navbar_create_preview_project_modal.advanced_options',
+                                    )}
+                                </FormCollapseButton>
+                            </>
+                        ) : (
+                            <Text color="gray.6">
+                                {t(
+                                    'components_navbar_create_preview_project_modal.project_seetings.part_1',
+                                )}{' '}
+                                <Text span weight={600}>
+                                    {projectDetails?.dbtConnection?.type
+                                        ? DbtProjectTypeLabels[
+                                              projectDetails.dbtConnection.type
+                                          ]
+                                        : t(
+                                              'components_navbar_create_preview_project_modal.project_seetings.part_2',
+                                          )}
+                                </Text>{' '}
+                                {t(
+                                    'components_navbar_create_preview_project_modal.project_seetings.part_3',
+                                )}{' '}
+                                <Anchor
+                                    target="_blank"
+                                    href={`/generalSettings/projectManagement/${selectedProjectUuid}/settings`}
+                                >
+                                    {t(
+                                        'components_navbar_create_preview_project_modal.project_seetings.part_4',
+                                    )}
+                                </Anchor>{' '}
+                                {t(
+                                    'components_navbar_create_preview_project_modal.project_seetings.part_5',
+                                )}
+                            </Text>
+                        )}
                     </Stack>
 
                     <Group position="right">

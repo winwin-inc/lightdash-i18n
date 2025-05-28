@@ -1,27 +1,38 @@
 import { DbtProjectType } from '@lightdash/common';
-import { Alert, Anchor, MultiSelect, Stack } from '@mantine/core';
+import {
+    Alert,
+    Anchor,
+    MultiSelect,
+    PasswordInput,
+    Stack,
+    TextInput,
+} from '@mantine/core';
 import { IconInfoCircle } from '@tabler/icons-react';
 import React, { useCallback, useState, type FC } from 'react';
-import { Controller } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
-import { hasNoWhiteSpaces } from '../../../utils/fieldValidators';
+import useApp from '../../../providers/App/useApp';
 import MantineIcon from '../../common/MantineIcon';
-import Input from '../../ReactHookForm/Input';
-import PasswordInput from '../../ReactHookForm/PasswordInput';
+import DocumentationHelpButton from '../../DocumentationHelpButton';
+import { useFormContext } from '../formContext';
+import DbtVersionSelect from '../Inputs/DbtVersion';
 import { useProjectFormContext } from '../useProjectFormContext';
-import DbtVersionSelect from '../WarehouseForms/Inputs/DbtVersion';
 
 const DbtCloudForm: FC<{ disabled: boolean }> = ({ disabled }) => {
-    const { t } = useTranslation();
+    const { health } = useApp();
     const { savedProject } = useProjectFormContext();
     const requireSecrets: boolean =
         savedProject?.dbtConnection.type !== DbtProjectType.DBT_CLOUD_IDE;
+    const { t } = useTranslation();
 
     const [search, setSearch] = useState('');
     const handleResetSearch = useCallback(() => {
         setTimeout(() => setSearch(() => ''), 0);
     }, [setSearch]);
+
+    const form = useFormContext();
+
+    const dbtTagsField = form.getInputProps('dbt.tags');
 
     return (
         <Stack>
@@ -53,58 +64,56 @@ const DbtCloudForm: FC<{ disabled: boolean }> = ({ disabled }) => {
             </Alert>
             <PasswordInput
                 name="dbt.api_key"
+                {...form.getInputProps('dbt.api_key')}
                 label={t(
                     'components_project_connection_dbt_form.dbt_cloud.api_key.label',
                 )}
                 description={
                     <p>
                         {t(
-                            'components_project_connection_dbt_form.dbt_cloud.api_key.content.part_1',
+                            'components_project_connection_dbt_form.dbt_cloud.api_key.content.part_2',
                         )}
+                        <DocumentationHelpButton href="https://docs.getdbt.com/docs/dbt-cloud-apis/service-tokens" />
                     </p>
                 }
-                documentationUrl="https://docs.getdbt.com/docs/dbt-cloud-apis/service-tokens"
-                rules={{
-                    required: requireSecrets
-                        ? t(
-                              'components_project_connection_dbt_form.dbt_cloud.api_key.content.part_2',
-                          )
-                        : undefined,
-                    validate: {
-                        hasNoWhiteSpaces: hasNoWhiteSpaces('API key'),
-                    },
-                }}
+                required={requireSecrets}
                 placeholder={
                     disabled || !requireSecrets ? '**************' : undefined
                 }
                 disabled={disabled}
             />
-            <Input
+            <TextInput
                 name="dbt.environment_id"
+                {...form.getInputProps('dbt.environment_id')}
                 label={t(
-                    'components_project_connection_dbt_form.dbt_cloud.environment.label',
+                    'components_project_connection_dbt_form.dbt_cloud.environment_id.label',
                 )}
                 description={
                     <p>
                         {t(
-                            'components_project_connection_dbt_form.dbt_cloud.environment.content.part_1',
-                        )}
+                            'components_project_connection_dbt_form.dbt_cloud.environment_id.content.part_1',
+                        )}{' '}
+                        <DocumentationHelpButton href="https://docs.getdbt.com/docs/dbt-cloud-apis/sl-jdbc#connection-parameters" />
                     </p>
                 }
-                documentationUrl="https://docs.getdbt.com/docs/dbt-cloud-apis/sl-jdbc#connection-parameters"
-                rules={{
-                    required: t(
-                        'components_project_connection_dbt_form.dbt_cloud.environment.content.part_2',
-                    ),
-                    validate: {
-                        hasNoWhiteSpaces: hasNoWhiteSpaces('Environment ID'),
-                    },
-                }}
+                required
                 disabled={disabled}
             />
-            <Input
+            {savedProject?.projectUuid && (
+                <TextInput
+                    label={t(
+                        'components_project_connection_dbt_form.dbt_cloud.webhook.label',
+                    )}
+                    value={`${health?.data?.siteUrl}/api/v1/projects/${savedProject?.projectUuid}/dbt-cloud/webhook`}
+                    readOnly
+                />
+            )}
+            <TextInput
                 name="dbt.discovery_api_endpoint"
-                label="Discovery API endpoint"
+                {...form.getInputProps('dbt.discovery_api_endpoint')}
+                label={t(
+                    'components_project_connection_dbt_form.dbt_cloud.discovery_api_endpoint.label',
+                )}
                 description={
                     <p>
                         {t(
@@ -122,68 +131,61 @@ const DbtCloudForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                         .
                     </p>
                 }
-                rules={{
-                    validate: {
-                        hasNoWhiteSpaces: hasNoWhiteSpaces(
-                            'Discovery API endpoint',
-                        ),
-                    },
-                }}
-                placeholder={'https://metadata.cloud.getdbt.com/graphql'}
+                placeholder="https://metadata.cloud.getdbt.com/graphql"
                 disabled={disabled}
             />
-            <Controller
+            <MultiSelect
                 name="dbt.tags"
-                render={({ field }) => (
-                    <MultiSelect
-                        {...field}
-                        label="Tags"
-                        disabled={disabled}
-                        description={
-                            <p>
-                                Only models with <b>all</b> these tags will be
-                                synced.
-                            </p>
-                        }
-                        placeholder="e.g lightdash, prod"
-                        searchable
-                        searchValue={search}
-                        onSearchChange={setSearch}
-                        clearable
-                        creatable
-                        clearSearchOnChange
-                        data={field.value || []}
-                        getCreateLabel={(query) => `+ Add ${query}`}
-                        onCreate={(query) => {
-                            const newValue = [...(field.value || []), query];
-                            field.onChange(newValue);
-                            return query;
-                        }}
-                        onChange={field.onChange}
-                        onKeyDown={(
-                            event: React.KeyboardEvent<HTMLInputElement>,
-                        ) => {
-                            if (
-                                event.key === 'Enter' &&
-                                event.currentTarget.value.trim()
-                            ) {
-                                event.preventDefault(); // Prevent form submission
-                                const newValue =
-                                    event.currentTarget.value.trim();
-                                if (!field.value?.includes(newValue)) {
-                                    field.onChange([
-                                        ...(field.value || []),
-                                        newValue,
-                                    ]);
-                                    handleResetSearch();
-                                }
-                            }
-                        }}
-                        onDropdownClose={() => {
-                            handleResetSearch();
-                        }}
-                    />
+                {...form.getInputProps('dbt.tags')}
+                {...dbtTagsField}
+                label={t(
+                    'components_project_connection_dbt_form.dbt_cloud.tags.label',
                 )}
+                disabled={disabled}
+                description={
+                    <p>
+                        {t(
+                            'components_project_connection_dbt_form.dbt_cloud.tags.description',
+                        )}
+                    </p>
+                }
+                placeholder={t(
+                    'components_project_connection_dbt_form.dbt_cloud.tags.placeholder',
+                )}
+                searchable
+                searchValue={search}
+                onSearchChange={setSearch}
+                clearable
+                creatable
+                clearSearchOnChange
+                data={dbtTagsField.value || []}
+                getCreateLabel={(query) => `+ Add ${query}`}
+                onCreate={(query) => {
+                    form.insertListItem('dbt.tags', query);
+                    return query;
+                }}
+                onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
+                    if (
+                        event.key === 'Enter' &&
+                        event.currentTarget.value.trim()
+                    ) {
+                        event.preventDefault(); // Prevent form submission
+                        if (
+                            !dbtTagsField.value.includes(
+                                event.currentTarget.value.trim(),
+                            )
+                        ) {
+                            form.insertListItem(
+                                'dbt.tags',
+                                event.currentTarget.value.trim(),
+                            );
+                            handleResetSearch();
+                        }
+                    }
+                }}
+                onDropdownClose={() => {
+                    handleResetSearch();
+                }}
             />
         </Stack>
     );

@@ -34,11 +34,11 @@ describe('Explore', () => {
         // wait for query to finish
         cy.findByText('Loading results').should('not.exist');
 
-        // check that first row in first column is 'Adam'
+        // check that first row in first column is 'Aaron'
         cy.get('table')
             .find('td', { timeout: 10000 })
             .eq(1)
-            .should('contain.text', 'Adam');
+            .should('contain.text', 'Aaron');
     });
 
     it('Should save chart', () => {
@@ -53,10 +53,9 @@ describe('Explore', () => {
         cy.findByTestId('Chart-card-expand').click();
 
         cy.findByText('Save chart').click();
-        cy.findByText('Select a space to save the chart directly to').should(
-            'exist',
-        );
+
         cy.findByTestId('ChartCreateModal/NameInput').type('My chart');
+        cy.contains('Next').click();
         cy.findByText('Save').click();
         cy.findByText('Success! Chart was saved.');
 
@@ -236,7 +235,11 @@ describe('Explore', () => {
             // sort `Orders Unique order count` by ascending
             cy.findByRole('menuitem', { name: 'Sort 1-9' }).click();
 
-            cy.get('span').contains('Sorted by 1 field').should('exist');
+            cy.get('.mantine-Badge-inner')
+                .contains('Sorted by')
+                .parent()
+                .contains('Unique order count')
+                .should('exist');
 
             cy.get('th')
                 .contains('Customers First name')
@@ -246,7 +249,34 @@ describe('Explore', () => {
             // sort `Customers First name` by ascending
             cy.findByRole('menuitem', { name: 'Sort Z-A' }).click();
 
-            cy.get('span').contains('Sorted by 2 fields').should('exist');
+            cy.get('.mantine-Badge-inner')
+                .contains('Sorted by')
+                .parent()
+                .contains('First name')
+                .should('exist');
+
+            // wait for query to finish
+            cy.findByText('Loading results').should('not.exist');
+
+            // Add multi sort via popover
+            cy.get('.mantine-Badge-inner')
+                .contains('Sorted by')
+                .parent()
+                .click();
+            cy.get('button').contains('Add sort').click();
+            cy.findByPlaceholderText('Add sort field').click();
+
+            // click on Unique order count to add it to the sort
+            cy.get('.mantine-Select-item')
+                .contains('Unique order count')
+                .click();
+
+            // Multiple sort should be visible in badge
+            cy.get('.mantine-Badge-inner')
+                .contains('Sorted by')
+                .parent()
+                .contains('2 fields')
+                .should('exist');
 
             // wait for query to finish
             cy.findByText('Loading results').should('not.exist');

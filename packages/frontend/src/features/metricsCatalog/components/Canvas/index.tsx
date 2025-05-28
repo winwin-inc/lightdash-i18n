@@ -1,6 +1,6 @@
 import Dagre from '@dagrejs/dagre';
 import {
-    DEFAULT_METRICS_EXPLORER_TIME_INTERVAL,
+    TimeFrames,
     type CatalogField,
     type CatalogMetricsTreeEdge,
 } from '@lightdash/common';
@@ -86,7 +86,7 @@ enum STATIC_NODE_TYPES {
     UNCONNECTED = 'UNCONNECTED',
 }
 
-const DEFAULT_TIME_FRAME = DEFAULT_METRICS_EXPLORER_TIME_INTERVAL; // TODO: this should be dynamic
+const DEFAULT_TIME_FRAME = TimeFrames.MONTH; // TODO: this should be dynamic
 
 type MetricTreeNode = ExpandedNodeData | CollapsedNodeData | FreeGroupNodeData;
 
@@ -566,9 +566,14 @@ const Canvas: FC<Props> = ({ metrics, edges, viewOnly }) => {
                     <Group spacing="xs">
                         <Text fz={14} fw={600} c="gray.7">
                             <Text span fw={500} c="gray.6">
-                                Canvas mode:
+                                {t(
+                                    'features_metrics_catalog_components.canvas_mode',
+                                )}
+                                :
                             </Text>{' '}
-                            Current month to date
+                            {t(
+                                'features_metrics_catalog_components.metric_tree.current_month_to_date',
+                            )}
                         </Text>
                         <ActionIcon
                             component="a"

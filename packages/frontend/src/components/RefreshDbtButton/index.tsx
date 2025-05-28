@@ -4,6 +4,7 @@ import {
     Badge,
     Box,
     Button,
+    Group,
     Popover,
     Text,
     Tooltip,
@@ -132,7 +133,7 @@ const RefreshDbtButton: FC<{
                         >
                             {t('components_refresh_dbt_button.tip.part_8')}
                         </Anchor>
-                        ) {t('components_refresh_dbt_button.tip.part_9')}
+                        {t('components_refresh_dbt_button.tip.part_9')}
                     </Text>
                 </Popover.Dropdown>
             </Popover>
@@ -148,46 +149,45 @@ const RefreshDbtButton: FC<{
         });
     };
 
-    if (data?.type === ProjectType.PREVIEW) {
-        return (
+    return (
+        <Group spacing="xs">
             <Tooltip
                 withinPortal
-                label={t('components_refresh_dbt_button.tooltip_preview.label')}
+                multiline
+                w={320}
+                position="bottom"
+                label={t('components_refresh_dbt_button.tooltip_refresh.label')}
             >
-                <Badge color="yellow" size="lg" radius="sm">
-                    {t('components_refresh_dbt_button.tooltip_preview.text')}
-                </Badge>
+                <Button
+                    size="xs"
+                    variant="default"
+                    leftIcon={leftIcon ?? <MantineIcon icon={IconRefresh} />}
+                    loading={isLoading}
+                    onClick={handleRefresh}
+                    sx={buttonStyles}
+                >
+                    {!isLoading
+                        ? defaultTextOverride ??
+                          t('components_refresh_dbt_button.refresh')
+                        : refreshingTextOverride ??
+                          t('components_refresh_dbt_button.loading')}
+                </Button>
             </Tooltip>
-        );
-    }
-
-    return (
-        <Tooltip
-            withinPortal
-            multiline
-            w={320}
-            position="bottom"
-            label={t('components_refresh_dbt_button.tooltip_refresh.label')}
-        >
-            <Button
-                size="xs"
-                variant="default"
-                leftIcon={leftIcon ?? <MantineIcon icon={IconRefresh} />}
-                loading={isLoading}
-                onClick={handleRefresh}
-                sx={buttonStyles}
-            >
-                {!isLoading
-                    ? defaultTextOverride ??
-                      t(
-                          'components_refresh_dbt_button.tooltip_refresh.normal_text',
-                      )
-                    : refreshingTextOverride ??
-                      t(
-                          'components_refresh_dbt_button.tooltip_refresh.loading_text',
-                      )}
-            </Button>
-        </Tooltip>
+            {data?.type === ProjectType.PREVIEW && (
+                <Tooltip
+                    withinPortal
+                    label={t(
+                        'components_refresh_dbt_button.tooltip_preview.label',
+                    )}
+                >
+                    <Badge color="yellow" size="lg" radius="sm">
+                        {t(
+                            'components_refresh_dbt_button.tooltip_preview.text',
+                        )}
+                    </Badge>
+                </Tooltip>
+            )}
+        </Group>
     );
 };
 

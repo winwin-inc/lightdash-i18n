@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import useEchartsPieConfig, {
     type PieSeriesDataPoint,
 } from '../../hooks/echarts/useEchartsPieConfig';
+import { useLegendDoubleClickSelection } from '../../hooks/echarts/useLegendDoubleClickSelection';
 import useApp from '../../providers/App/useApp';
 import { useVisualizationContext } from '../LightdashVisualization/useVisualizationContext';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
@@ -54,9 +55,13 @@ type SimplePieChartProps = Omit<EChartsReactProps, 'option'> & {
 const EchartOptions: Opts = { renderer: 'svg' };
 
 const SimplePieChart: FC<SimplePieChartProps> = memo((props) => {
-    const { chartRef, isLoading } = useVisualizationContext();
+    const { chartRef, isLoading, resultsData } = useVisualizationContext();
+    const { selectedLegends, onLegendChange } = useLegendDoubleClickSelection();
 
-    const pieChartOptions = useEchartsPieConfig(props.isInDashboard);
+    const pieChartOptions = useEchartsPieConfig(
+        selectedLegends,
+        props.isInDashboard,
+    );
     const { user } = useApp();
 
     const [isOpen, { open, close }] = useDisclosure();
@@ -65,6 +70,11 @@ const SimplePieChart: FC<SimplePieChartProps> = memo((props) => {
         value: PieChartContextMenuProps['value'];
         rows: PieChartContextMenuProps['rows'];
     }>();
+
+    useEffect(() => {
+        // Load all the rows
+        resultsData?.setFetchAll(true);
+    }, [resultsData]);
 
     useEffect(() => {
         const listener = () => chartRef.current?.getEchartsInstance().resize();
@@ -125,6 +135,7 @@ const SimplePieChart: FC<SimplePieChartProps> = memo((props) => {
                 onEvents={{
                     click: handleOpenContextMenu,
                     oncontextmenu: handleOpenContextMenu,
+                    legendselectchanged: onLegendChange,
                 }}
             />
 

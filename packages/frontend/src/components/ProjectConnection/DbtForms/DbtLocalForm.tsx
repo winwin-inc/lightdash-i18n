@@ -4,14 +4,14 @@ import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../common/MantineIcon';
-import DbtVersionSelect from '../WarehouseForms/Inputs/DbtVersion';
+import DbtVersionSelect from '../Inputs/DbtVersion';
 
-const DbtLocalForm: FC = () => {
+const DbtLocalForm: FC<{ disabled: boolean }> = ({ disabled }) => {
     const { t } = useTranslation();
 
     return (
         <Stack>
-            <DbtVersionSelect disabled={false} />
+            <DbtVersionSelect disabled={disabled} />
 
             <Alert
                 color="orange"

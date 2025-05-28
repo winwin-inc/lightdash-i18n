@@ -21,16 +21,23 @@ import {
     CreateProjectMember,
     DashboardAsCode,
     DbtExposure,
+    DbtProjectEnvironmentVariable,
+    LightdashRequestMethodHeader,
     ParameterError,
     RequestMethod,
     UpdateMetadata,
     UpdateProjectMember,
     UserWarehouseCredentials,
+    getRequestMethod,
     isDuplicateDashboardParams,
+    type ApiCalculateSubtotalsResponse,
     type ApiCreateDashboardResponse,
     type ApiGetDashboardsResponse,
     type ApiGetTagsResponse,
+    type ApiRefreshResults,
+    type ApiSuccess,
     type ApiUpdateDashboardsResponse,
+    type CalculateSubtotalsFromQuery,
     type CreateDashboard,
     type DuplicateDashboardParams,
     type SemanticLayerConnectionUpdate,
@@ -375,6 +382,25 @@ export class ProjectController extends BaseController {
 
     @Middlewares([allowApiKeyAuthentication, isAuthenticated])
     @SuccessResponse('200', 'Success')
+    @Post('{projectUuid}/calculate-subtotals')
+    @OperationId('CalculateSubtotalsFromQuery')
+    async CalculateSubtotalsFromQuery(
+        @Path() projectUuid: string,
+        @Body() body: CalculateSubtotalsFromQuery,
+        @Request() req: express.Request,
+    ): Promise<ApiCalculateSubtotalsResponse> {
+        this.setStatus(200);
+        const subtotalsResult = await this.services
+            .getProjectService()
+            .calculateSubtotalsFromQuery(req.user!, projectUuid, body);
+        return {
+            status: 'ok',
+            results: subtotalsResult,
+        };
+    }
+
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
     @Get('{projectUuid}/dbt-exposures')
     @OperationId('GetDbtExposures')
     @Hidden()
@@ -656,6 +682,11 @@ export class ProjectController extends BaseController {
         body: {
             name: string;
             copyContent: boolean;
+            dbtConnectionOverrides?: {
+                branch?: string;
+                environment?: DbtProjectEnvironmentVariable[];
+            };
+            warehouseConnectionOverrides?: { schema?: string };
         },
         @Request() req: express.Request,
     ): Promise<{ status: 'ok'; results: string }> {
@@ -950,6 +981,57 @@ export class ProjectController extends BaseController {
                     ...dashboard,
                     description: dashboard.description ?? undefined,
                 }),
+        };
+    }
+
+    @Post('{projectUuid}/dbt-cloud/webhook')
+    @OperationId('webhook')
+    async testWebhook(
+        @Request() req: express.Request,
+        @Path() projectUuid: string,
+        @Body() body: AnyType,
+    ) {
+        // TODO validate webhook signature https://docs.getdbt.com/docs/deploy/webhooks#validate-a-webhook
+        if (!body) {
+            throw new ParameterError('Invalid body');
+        }
+        if (body.eventType === 'job.run.completed') {
+            // TODO: validate body is an object and has the account id and run id
+            const accountId: string = body.accountId as string;
+            const runId: string = body.data.runId as string;
+            await this.services
+                .getProjectService()
+                .createPreviewWithExplores(projectUuid, accountId, runId);
+        }
+
+        this.setStatus(200);
+        return {
+            status: 'ok',
+        };
+    }
+
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @SuccessResponse('200', 'Success')
+    @Post('{projectUuid}/refresh')
+    @OperationId('refresh')
+    async refresh(
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+    ): Promise<ApiSuccess<ApiRefreshResults>> {
+        this.setStatus(200);
+        const context = getRequestMethod(
+            req.header(LightdashRequestMethodHeader),
+        );
+        const results = await this.services
+            .getProjectService()
+            .scheduleCompileProject(req.user!, projectUuid, context);
+        return {
+            status: 'ok',
+            results,
         };
     }
 }

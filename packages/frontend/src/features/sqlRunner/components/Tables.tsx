@@ -24,6 +24,7 @@ import {
     IconX,
 } from '@tabler/icons-react';
 import dayjs from 'dayjs';
+import Fuse from 'fuse.js';
 import { memo, useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -32,6 +33,8 @@ import { useIsTruncated } from '../../../hooks/useIsTruncated';
 import { useTables, type TablesBySchema } from '../hooks/useTables';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { setSql, toggleActiveTable } from '../store/sqlRunnerSlice';
+
+const limitTableResults = 100;
 
 interface TableItemProps extends BoxProps {
     table: string;
@@ -120,17 +123,21 @@ const TableItem: FC<TableItemProps> = memo(
                             wordBreak: 'break-word',
                         }}
                     >
-                        <Highlight
-                            ref={truncatedRef}
-                            component={Text}
-                            highlight={search || ''}
-                            truncate
-                            sx={{
-                                flex: 1,
-                            }}
-                        >
-                            {table}
-                        </Highlight>
+                        {search.length > 2 ? (
+                            <Highlight
+                                ref={truncatedRef}
+                                component={Text}
+                                highlight={search || ''}
+                                truncate
+                                sx={{
+                                    flex: 1,
+                                }}
+                            >
+                                {table}
+                            </Highlight>
+                        ) : (
+                            <Text>{table}</Text>
+                        )}
                     </Tooltip>
                 </UnstyledButton>
 
@@ -177,6 +184,7 @@ const Table: FC<{
     database: string;
 }> = ({ schema, tables, search, activeTable, activeSchema, database }) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const { t } = useTranslation();
 
     const hasMatchingTable = useMemo(() => {
         if (!search || search.trim().length <= 2) return false;
@@ -188,15 +196,20 @@ const Table: FC<{
     }, [tables, schema, search]);
 
     useEffect(() => {
-        if (
+        const isTableSelected =
             activeTable &&
             Object.keys(tables).includes(activeTable) &&
-            schema === activeSchema
-        ) {
+            schema === activeSchema;
+        if (hasMatchingTable || isTableSelected) {
             setIsExpanded(true);
-        }
-        if (hasMatchingTable) {
-            setIsExpanded(true);
+        } else {
+            // Autoclose when search is empty and no matching table is selected
+            // to avoid rendering all tables after a search
+
+            // TODO fix this edge case
+            // when this happens, there is still a render loop that is rendering all tables without search or filtering
+            // which is making the UI unresponsive for a short while until this state is updated
+            setIsExpanded(false);
         }
     }, [activeTable, tables, hasMatchingTable, activeSchema, schema]);
     return (
@@ -220,21 +233,35 @@ const Table: FC<{
                     />
                 </Group>
             </UnstyledButton>
-            {isExpanded &&
-                Object.keys(tables).map((table) => (
-                    <TableItem
-                        key={table}
-                        search={search}
-                        isActive={
-                            activeTable === table && schema === activeSchema
-                        }
-                        table={table}
-                        schema={`${schema}`}
-                        database={database}
-                        partitionColumn={tables[table].partitionColumn}
-                        ml="sm"
-                    />
-                ))}
+            {isExpanded && (
+                <>
+                    {Object.keys(tables)
+                        .slice(0, limitTableResults)
+                        .map((table) => (
+                            <TableItem
+                                key={table}
+                                search={search}
+                                isActive={
+                                    activeTable === table &&
+                                    schema === activeSchema
+                                }
+                                table={table}
+                                schema={`${schema}`}
+                                database={database}
+                                partitionColumn={tables[table].partitionColumn}
+                                ml="sm"
+                            />
+                        ))}
+                    {Object.keys(tables).length > limitTableResults && (
+                        <Text ml="md" c="gray.5">
+                            {t('features_sql_runner_tables.filtering_tables', {
+                                limitTableResults,
+                                totalTables: Object.keys(tables).length,
+                            })}
+                        </Text>
+                    )}
+                </>
+            )}
         </Stack>
     );
 };
@@ -256,39 +283,112 @@ export const Tables: FC = () => {
 
     const { data, isLoading, isSuccess } = useTables({
         projectUuid,
-        search: isValidSearch ? debouncedSearch : undefined,
     });
+
+    const transformedData:
+        | { database: string; tablesBySchema: TablesBySchema }
+        | undefined = useMemo(() => {
+        if (!data) return undefined;
+        const tablesBySchema = Object.entries(data).flatMap(([, schemas]) =>
+            Object.entries(schemas).map(([schema, tables]) => ({
+                schema,
+                tables,
+            })),
+        );
+        return {
+            database: Object.keys(data)[0],
+            tablesBySchema,
+        };
+    }, [data]);
+
+    const filteredTablesBySchema:
+        | { database: string; tablesBySchema: TablesBySchema }
+        | undefined = useMemo(() => {
+        if (
+            !transformedData?.tablesBySchema ||
+            !debouncedSearch ||
+            !isValidSearch
+        )
+            return transformedData;
+
+        const searchResults: TablesBySchema = transformedData.tablesBySchema
+            .map((schemaData) => {
+                const { schema, tables } = schemaData;
+                const tableNames = Object.keys(tables);
+
+                const fuse = new Fuse(tableNames, {
+                    threshold: 0.3,
+                    isCaseSensitive: false,
+                });
+
+                const fuseResult = fuse
+                    .search(debouncedSearch)
+                    .map((res) => res.item);
+
+                return {
+                    schema,
+                    tables: fuseResult.reduce<typeof tables>(
+                        (acc, tableName) => {
+                            acc[tableName] = tables[tableName];
+                            return acc;
+                        },
+                        {},
+                    ),
+                };
+            })
+            .filter((schemaData) => Object.keys(schemaData.tables).length > 0);
+        if (searchResults.length === 0) {
+            return undefined;
+        } else
+            return {
+                database: transformedData.database,
+                tablesBySchema: searchResults,
+            };
+    }, [isValidSearch, debouncedSearch, transformedData]);
 
     return (
         <>
             <Box px="sm">
-                <TextInput
-                    size="xs"
-                    disabled={!data && !debouncedSearch}
-                    icon={
-                        isLoading ? (
-                            <Loader size="xs" />
-                        ) : (
-                            <MantineIcon icon={IconSearch} />
-                        )
-                    }
-                    rightSection={
-                        search ? (
-                            <ActionIcon size="xs" onClick={() => setSearch('')}>
-                                <MantineIcon icon={IconX} />
-                            </ActionIcon>
-                        ) : null
-                    }
-                    placeholder={t('features_sql_runner_tables.search_tables')}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    styles={(theme) => ({
-                        input: {
-                            borderRadius: theme.radius.md,
-                            border: `1px solid ${theme.colors.gray[3]}`,
-                        },
-                    })}
-                />
+                <Tooltip
+                    opened={search.length > 0 && search.length < 3}
+                    label={t(
+                        'features_sql_runner_tables.enter_at_least_3_characters_to_search',
+                    )}
+                    withinPortal
+                >
+                    <TextInput
+                        size="xs"
+                        disabled={!data && !debouncedSearch}
+                        icon={
+                            isLoading ? (
+                                <Loader size="xs" />
+                            ) : (
+                                <MantineIcon icon={IconSearch} />
+                            )
+                        }
+                        rightSection={
+                            search ? (
+                                <ActionIcon
+                                    size="xs"
+                                    onClick={() => setSearch('')}
+                                >
+                                    <MantineIcon icon={IconX} />
+                                </ActionIcon>
+                            ) : null
+                        }
+                        placeholder={t(
+                            'features_sql_runner_tables.search_tables',
+                        )}
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        styles={(theme) => ({
+                            input: {
+                                borderRadius: theme.radius.md,
+                                border: `1px solid ${theme.colors.gray[3]}`,
+                            },
+                        })}
+                    />
+                </Tooltip>
             </Box>
 
             <ScrollArea
@@ -301,18 +401,20 @@ export const Tables: FC = () => {
                 scrollbarSize={8}
             >
                 {isSuccess &&
-                    data &&
-                    data.tablesBySchema?.map(({ schema, tables }) => (
-                        <Table
-                            key={schema}
-                            schema={schema}
-                            tables={tables}
-                            search={search}
-                            activeTable={activeTable}
-                            activeSchema={activeSchema}
-                            database={data.database}
-                        />
-                    ))}
+                    filteredTablesBySchema &&
+                    filteredTablesBySchema.tablesBySchema?.map(
+                        ({ schema, tables }) => (
+                            <Table
+                                key={schema}
+                                schema={schema}
+                                tables={tables}
+                                search={isValidSearch ? debouncedSearch : ''}
+                                activeTable={activeTable}
+                                activeSchema={activeSchema}
+                                database={filteredTablesBySchema?.database}
+                            />
+                        ),
+                    )}
             </ScrollArea>
 
             {isSuccess && !data && (

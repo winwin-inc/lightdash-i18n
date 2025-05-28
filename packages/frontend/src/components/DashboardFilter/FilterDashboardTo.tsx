@@ -5,6 +5,7 @@ import {
 } from '@lightdash/common';
 import { Menu, Text } from '@mantine/core';
 import { IconFilter } from '@tabler/icons-react';
+import isNil from 'lodash/isNil';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -52,7 +53,7 @@ export const FilterDashboardTo: FC<Props> = ({ filters, onAddFilter }) => {
                             )}
                         </Text>
                     )}
-                    {filter.values && filter.values[0] && (
+                    {filter.values && !isNil(filter.values[0]) && (
                         <Text span fw={500}>
                             {String(filter.values[0])}
                         </Text>

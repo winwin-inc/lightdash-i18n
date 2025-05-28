@@ -36,17 +36,39 @@ export const ExplorerResults = memo(() => {
     const explorerColumnOrder = useExplorerContext(
         (context) => context.state.unsavedChartVersion.tableConfig.columnOrder,
     );
-    const resultsData = useExplorerContext(
-        (context) => context.queryResults.data,
+    const rows = useExplorerContext((context) => context.queryResults.rows);
+    const totalRows = useExplorerContext(
+        (context) => context.queryResults.totalResults,
     );
-    const status = useExplorerContext((context) => context.queryResults.status);
+
+    const isFetchingRows = useExplorerContext(
+        (context) =>
+            context.queryResults.isFetchingRows && !context.queryResults.error,
+    );
+    const fetchMoreRows = useExplorerContext(
+        (context) => context.queryResults.fetchMoreRows,
+    );
+    const status = useExplorerContext((context) => {
+        const isCreatingQuery = context.query.isFetching;
+        const isFetchingFirstPage = context.queryResults.isFetchingFirstPage;
+        // Don't return context.queryResults.status because we changed from mutation to query so 'loading' as a different meaning
+        if (context.queryResults.error) {
+            return 'error';
+        } else if (isCreatingQuery || isFetchingFirstPage) {
+            return 'loading';
+        } else if (context.query.status === 'loading') {
+            return 'idle';
+        } else {
+            return context.query.status;
+        }
+    });
     const setColumnOrder = useExplorerContext(
         (context) => context.actions.setColumnOrder,
     );
-    const { isInitialLoading, data: exploreData } = useExplore(
-        activeTableName,
-        { refetchOnMount: false },
-    );
+    const { data: exploreData, isInitialLoading: isExploreLoading } =
+        useExplore(activeTableName, {
+            refetchOnMount: false,
+        });
     const tableCalculations = useExplorerContext(
         (context) =>
             context.state.unsavedChartVersion.metricQuery.tableCalculations,
@@ -139,6 +161,7 @@ export const ExplorerResults = memo(() => {
     const pagination = useMemo(
         () => ({
             show: true,
+            showResultsTotal: true,
         }),
         [],
     );
@@ -151,16 +174,19 @@ export const ExplorerResults = memo(() => {
 
     if (!activeTableName) return <NoTableSelected />;
 
-    if (isInitialLoading) return <EmptyStateExploreLoading />;
-
     if (columns.length === 0) return <EmptyStateNoColumns />;
+
+    if (isExploreLoading) return <EmptyStateExploreLoading />;
 
     return (
         <TrackSection name={SectionName.RESULTS_TABLE}>
             <Box px="xs" py="lg">
                 <Table
                     status={status}
-                    data={resultsData?.rows || []}
+                    data={rows || []}
+                    totalRowsCount={totalRows || 0}
+                    isFetchingRows={isFetchingRows}
+                    fetchMoreRows={fetchMoreRows}
                     columns={columns}
                     columnOrder={explorerColumnOrder}
                     onColumnOrderChange={setColumnOrder}
