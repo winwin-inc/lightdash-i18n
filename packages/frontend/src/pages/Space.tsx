@@ -98,7 +98,7 @@ const Space: FC = () => {
     );
 
     if (isInitialLoading) {
-        return <LoadingState title="Loading space" />;
+        return <LoadingState title={t('pages_space.loading')} />;
     }
 
     if (error) {

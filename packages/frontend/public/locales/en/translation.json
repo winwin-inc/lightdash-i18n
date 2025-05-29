@@ -2202,6 +2202,7 @@
         "select": {
             "label": "Upstream project"
         },
+        "select_project": "Select project",
         "update": "Update",
         "toast_success": {
             "title": "Project updated",
@@ -3117,6 +3118,11 @@
         "create_space_and_share": "Create space & share",
         "select_space": "Select a space to move {{name}} to:",
         "to": " to "
+    },
+    "components_common_third_party_sign_in_button": {
+      "sign_up": "Sign up with {{providerName}}",
+      "sign_in": "Sign in with {{providerName}}",
+      "add": "Add +"
     },
 
     "components_space_action_modal_common": {
@@ -4234,6 +4240,7 @@
         "error": "Failed to generate custom visualization"
     },
     "components_visualization_configs_panel": {
+      "custom_tooltip": "Custom Tooltip",
         "tooltip": {
             "label": "Use this input to enhance chart tooltips with additional content. You can incorporate HTML code and include dynamic values using the format ${variable_name}. Click here to read more about this on our docs.",
             "total_orders": "Total orders"
@@ -5345,7 +5352,8 @@
             "update": "Update",
             "delete_space": "Delete space",
             "delete": "Delete",
-            "add": "Add"
+            "add": "Add",
+            "create": "Create"
         },
         "create_new_space": "Create new space",
         "create": "Create"

@@ -65,7 +65,7 @@ export const DataOps: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                         onChange={(value) => {
                             setSelectedProject(value || null);
                         }}
-                        placeholder="Select project"
+                        placeholder={t('components_data_pos.select_project')}
                     />
                     <Flex justify="flex-end" gap="sm" mt="sm">
                         <Button

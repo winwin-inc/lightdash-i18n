@@ -2206,6 +2206,7 @@
         "select": {
             "label": "上游项目"
         },
+        "select_project": "选择项目",
         "update": "更新",
         "toast_success": {
             "title": "项目已更新",
@@ -3120,6 +3121,11 @@
         "create_space_and_share": "创建空间 & 共享",
         "select_space": "选择一个空间来移动 {{name}} 到:",
         "to": "到"
+    },
+    "components_common_third_party_sign_in_button": {
+      "sign_up": "使用 {{providerName}} 注册",
+      "sign_in": "使用 {{providerName}} 登录",
+      "add": "添加 +"
     },
 
     "components_space_action_modal_common": {
@@ -4235,6 +4241,7 @@
         "error": "生成自定义可视化失败"
     },
     "components_visualization_configs_panel": {
+        "custom_tooltip": "自定义工具提示",
         "tooltip": {
             "label": "使用此输入来增强图表工具提示的额外内容。您可以包含 HTML 代码并使用格式 ${variable_name} 包含动态值。点击此处阅读有关此内容的更多信息。",
             "total_orders": "总订单"
@@ -5338,7 +5345,8 @@
             "update": "更新",
             "delete_space": "删除空间",
             "delete": "删除",
-            "add": "添加"
+            "add": "添加",
+            "create": "创建"
         },
         "create_new_space": "创建新空间",
         "create": "创建"

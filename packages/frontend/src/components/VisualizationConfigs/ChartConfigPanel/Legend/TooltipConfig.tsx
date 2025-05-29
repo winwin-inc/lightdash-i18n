@@ -161,7 +161,11 @@ export const TooltipConfig: FC<Props> = ({ fields }) => {
         <Config>
             <Config.Section>
                 <Group spacing="xs" align="center">
-                    <Config.Heading>Custom Tooltip</Config.Heading>
+                    <Config.Heading>
+                        {t(
+                            'components_visualization_configs_panel.custom_tooltip',
+                        )}
+                    </Config.Heading>
                     <Switch checked={show} onChange={() => setShow(!show)} />
                     <Tooltip
                         withinPortal={true}
