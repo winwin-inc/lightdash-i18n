@@ -14,7 +14,7 @@ type ExportCSVModalProps = ModalProps &
 const ExportCSVModal: FC<ExportCSVModalProps> = ({
     projectUuid,
     onConfirm,
-    rows,
+    totalResults,
     getCsvLink,
     ...modalProps
 }) => {
@@ -42,7 +42,7 @@ const ExportCSVModal: FC<ExportCSVModalProps> = ({
         >
             <ExportCSV
                 projectUuid={projectUuid}
-                rows={rows}
+                totalResults={totalResults}
                 getCsvLink={getCsvLink}
                 isDialogBody
                 renderDialogActions={({ onExport, isExporting }) => (

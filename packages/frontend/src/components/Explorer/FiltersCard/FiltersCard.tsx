@@ -22,13 +22,13 @@ import { ExplorerSection } from '../../../providers/Explorer/types';
 import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import CollapsableCard from '../../common/CollapsableCard/CollapsableCard';
 import FiltersForm from '../../common/Filters';
-import { useConditionalRuleLabel } from '../../common/Filters/FilterInputs/utils';
+import { useConditionalRuleLabelFromItem } from '../../common/Filters/FilterInputs/utils';
 import FiltersProvider from '../../common/Filters/FiltersProvider';
 import { useFieldsWithSuggestions } from './useFieldsWithSuggestions';
 
 const FiltersCard: FC = memo(() => {
     const { t } = useTranslation();
-    const getConditionalRuleLabel = useConditionalRuleLabel();
+    const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const project = useProject(projectUuid);
@@ -55,8 +55,8 @@ const FiltersCard: FC = memo(() => {
         const allRequiredFilters: FilterRule[] =
             reduceRequiredDimensionFiltersToFilterRules(
                 requiredFilters,
-                data.tables[tableName],
                 undefined,
+                data,
             );
         const allFilterRefs = allRequiredFilters.map(
             (filter) => filter.target.fieldId,
@@ -85,8 +85,8 @@ const FiltersCard: FC = memo(() => {
                 const reducedRules: FilterRule[] =
                     reduceRequiredDimensionFiltersToFilterRules(
                         requiredFilters,
-                        data.tables[tableName],
                         unsavedQueryFilters.dimensions,
+                        data,
                     );
                 // Add to the existing filter rules with the missing required filter rules
 
@@ -146,9 +146,7 @@ const FiltersCard: FC = memo(() => {
         (context) =>
             context.state.unsavedChartVersion.metricQuery.tableCalculations,
     );
-    const queryResults = useExplorerContext(
-        (context) => context.queryResults.data,
-    );
+    const rows = useExplorerContext((context) => context.queryResults.rows);
     const setFilters = useExplorerContext(
         (context) => context.actions.setFilters,
     );
@@ -165,7 +163,7 @@ const FiltersCard: FC = memo(() => {
     );
     const fieldsWithSuggestions = useFieldsWithSuggestions({
         exploreData: data,
-        queryResults,
+        rows,
         customDimensions,
         additionalMetrics,
         tableCalculations,
@@ -181,7 +179,7 @@ const FiltersCard: FC = memo(() => {
                 (f) => getItemId(f) === filterRule.target.fieldId,
             );
             if (field && isFilterableField(field)) {
-                const filterRuleLabels = getConditionalRuleLabel(
+                const filterRuleLabels = getConditionalRuleLabelFromItem(
                     filterRule,
                     field,
                 );
@@ -203,7 +201,7 @@ const FiltersCard: FC = memo(() => {
                 filterRule.target.fieldId
             }`;
         },
-        [data, t, getConditionalRuleLabel],
+        [data, t, getConditionalRuleLabelFromItem],
     );
 
     return (

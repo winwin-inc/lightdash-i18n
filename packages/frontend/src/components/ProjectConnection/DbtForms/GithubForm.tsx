@@ -16,23 +16,19 @@ import {
 } from '@mantine/core';
 import { IconCheck, IconRefresh } from '@tabler/icons-react';
 import React, { useEffect, type FC, type ReactNode } from 'react';
-import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+
 import useToaster from '../../../hooks/toaster/useToaster';
 import githubIcon from '../../../svgs/github-icon.svg';
-import {
-    hasNoWhiteSpaces,
-    isGitRepository,
-    isValidGithubToken,
-    startWithSlash,
-} from '../../../utils/fieldValidators';
 import {
     useGithubConfig,
     useGitHubRepositories,
 } from '../../common/GithubIntegration/hooks/useGithubIntegration';
 import MantineIcon from '../../common/MantineIcon';
+import { useFormContext } from '../formContext';
+import DbtVersionSelect from '../Inputs/DbtVersion';
 import { useProjectFormContext } from '../useProjectFormContext';
-import DbtVersionSelect from '../WarehouseForms/Inputs/DbtVersion';
+import { githubDefaultValues } from './defaultValues';
 
 const GITHUB_INSTALL_URL = `/api/v1/github/install`;
 
@@ -92,7 +88,7 @@ const DropdownComponentOverride = ({
 };
 
 const GithubLoginForm: FC<{ disabled: boolean }> = ({ disabled }) => {
-    const { register } = useFormContext();
+    const form = useFormContext();
     const { data: config, refetch } = useGithubConfig();
     const {
         data: repos,
@@ -101,123 +97,159 @@ const GithubLoginForm: FC<{ disabled: boolean }> = ({ disabled }) => {
     } = useGitHubRepositories();
     const isValidGithubInstallation =
         config?.installationId !== undefined && !isError;
+    const { t } = useTranslation();
 
     useEffect(() => {
-        if (config?.installationId) {
-            register('dbt.installation_id', { value: config?.installationId });
+        if (
+            config?.installationId &&
+            form.values.dbt.type === DbtProjectType.GITHUB &&
+            form.values.dbt.installation_id != config.installationId
+        ) {
+            form.setFieldValue('dbt.installation_id', config.installationId);
         }
-    }, [config?.installationId, register]);
+    }, [config?.installationId, form]);
+
+    useEffect(() => {
+        if (
+            repos &&
+            repos.length > 0 &&
+            form.values.dbt.type === DbtProjectType.GITHUB &&
+            form.values.dbt.repository === ''
+        ) {
+            form.setFieldValue('dbt.repository', repos[0].fullName);
+        }
+    }, [repos, form]);
+
     const { showToastSuccess } = useToaster();
+
+    const repositoryField = form.getInputProps('dbt.repository');
+
+    if (isValidGithubInstallation) {
+        return (
+            <>
+                {repos && repos.length > 0 && (
+                    <Group spacing="xs">
+                        <Select
+                            name="dbt.repository"
+                            searchable
+                            required
+                            w="90%"
+                            label={t(
+                                'components_project_connection_dbt_form.github.repository.label',
+                            )}
+                            disabled={disabled}
+                            data={repos.map((repo) => ({
+                                value: repo.fullName,
+                                label: repo.fullName,
+                            }))}
+                            dropdownComponent={({
+                                children,
+                            }: ScrollAreaProps) => (
+                                <DropdownComponentOverride
+                                    installationId={config?.installationId}
+                                >
+                                    {children}
+                                </DropdownComponentOverride>
+                            )}
+                            {...repositoryField}
+                            value={repositoryField.value}
+                            onChange={(value) => {
+                                if (value === 'configure') {
+                                    window.open(
+                                        `https://github.com/settings/installations/${config?.installationId}`,
+                                        '_blank',
+                                    );
+                                    return;
+                                }
+                                repositoryField.onChange(value);
+                            }}
+                        />
+
+                        <Tooltip
+                            label={t(
+                                'components_project_connection_dbt_form.github.repository.refresh_repositories',
+                            )}
+                        >
+                            <ActionIcon
+                                mt="20px"
+                                onClick={() => refetchRepos()}
+                                disabled={!isValidGithubInstallation}
+                            >
+                                <MantineIcon icon={IconRefresh} color="gray" />
+                            </ActionIcon>
+                        </Tooltip>
+                    </Group>
+                )}
+            </>
+        );
+    }
 
     return (
         <>
-            {isValidGithubInstallation ? (
-                <>
-                    {repos && repos.length > 0 && (
-                        <Group spacing="xs">
-                            <Controller
-                                name="dbt.repository"
-                                defaultValue={repos[0].fullName}
-                                render={({ field }) => (
-                                    <Select
-                                        searchable
-                                        required
-                                        w="90%"
-                                        name={field.name}
-                                        label={`Repository`}
-                                        disabled={disabled}
-                                        data={repos.map((repo) => ({
-                                            value: repo.fullName,
-                                            label: repo.fullName,
-                                        }))}
-                                        dropdownComponent={({
-                                            children,
-                                        }: ScrollAreaProps) => (
-                                            <DropdownComponentOverride
-                                                installationId={
-                                                    config?.installationId
-                                                }
-                                            >
-                                                {children}
-                                            </DropdownComponentOverride>
-                                        )}
-                                        value={field.value}
-                                        onChange={(value) => {
-                                            if (value === 'configure') {
-                                                window.open(
-                                                    `https://github.com/settings/installations/${config?.installationId}`,
-                                                    '_blank',
-                                                );
-                                                return;
-                                            }
-                                            field.onChange(value);
-                                        }}
-                                    />
-                                )}
-                            />
-                            <Tooltip label="Refresh repositories after updating access on Github">
-                                <ActionIcon
-                                    mt="20px"
-                                    onClick={() => refetchRepos()}
-                                    disabled={!isValidGithubInstallation}
-                                >
-                                    <MantineIcon
-                                        icon={IconRefresh}
-                                        color="gray"
-                                    />
-                                </ActionIcon>
-                            </Tooltip>
-                        </Group>
-                    )}
-                </>
-            ) : (
-                <>
-                    {' '}
-                    <Button
-                        leftIcon={
-                            <Avatar
-                                src={githubIcon}
-                                size="sm"
-                                styles={{ image: { filter: 'invert(1)' } }}
-                            />
-                        }
-                        sx={() => ({
-                            backgroundColor: 'black',
-                            color: 'white',
-                            '&:hover': {
-                                backgroundColor: 'gray.8',
-                            },
-                        })}
-                        onClick={() => {
-                            window.open(
-                                GITHUB_INSTALL_URL,
-                                '_blank',
-                                'popup=true,width=600,height=700',
-                            );
-                            // Poll the API to check if the installation is successful
-                            const interval = setInterval(() => {
-                                refetch()
-                                    .then((s) => {
-                                        if (
-                                            s.status === 'success' &&
-                                            s.data.installationId
-                                        ) {
-                                            showToastSuccess({
-                                                title: 'Successfully connected to GitHub',
-                                            });
+            {' '}
+            <Button
+                leftIcon={
+                    <Avatar
+                        src={githubIcon}
+                        size="sm"
+                        styles={{ image: { filter: 'invert(1)' } }}
+                    />
+                }
+                sx={() => ({
+                    backgroundColor: 'black',
+                    color: 'white',
+                    '&:hover': {
+                        backgroundColor: 'gray.8',
+                    },
+                })}
+                onClick={() => {
+                    window.open(
+                        GITHUB_INSTALL_URL,
+                        '_blank',
+                        'popup=true,width=600,height=700',
+                    );
+                    // Poll the API to check if the installation is successful
+                    const interval = setInterval(() => {
+                        refetch()
+                            .then((s) => {
+                                if (
+                                    s.status === 'success' &&
+                                    s.data.installationId
+                                ) {
+                                    showToastSuccess({
+                                        title: 'Successfully connected to GitHub',
+                                    });
 
-                                            clearInterval(interval);
-                                            void refetchRepos();
-                                        }
-                                    })
-                                    .catch(() => {});
-                            }, 2000);
-                        }}
-                    >
-                        Sign in with GitHub
-                    </Button>
-                </>
-            )}
+                                    clearInterval(interval);
+                                    void refetchRepos();
+                                }
+                            })
+                            .catch(() => {});
+                    }, 2000);
+                }}
+            >
+                {t(
+                    'components_project_connection_dbt_form.github.sign_in_with_github',
+                )}
+            </Button>
+            <TextInput
+                label="Repository"
+                readOnly
+                description={t(
+                    'components_project_connection_dbt_form.github.repository.login_first',
+                )}
+                required
+                sx={(theme) => ({
+                    // Make it look disabled
+                    input: {
+                        backgroundColor: theme.colors.gray[1],
+                        cursor: 'not-allowed',
+                        pointerEvents: 'none',
+                    },
+                })}
+                autoComplete="off"
+                value="" // Don't allow writting in this field
+            />
         </>
     );
 };
@@ -226,79 +258,103 @@ const GithubPersonalAccessTokenForm: FC<{ disabled: boolean }> = ({
     disabled,
 }) => {
     const { savedProject } = useProjectFormContext();
-    const { register } = useFormContext();
+    const form = useFormContext();
     const requireSecrets: boolean =
         savedProject?.dbtConnection.type !== DbtProjectType.GITHUB;
+
+    const { t } = useTranslation();
 
     return (
         <>
             <PasswordInput
-                label="Personal access token"
+                name="dbt.personal_access_token"
+                label={t(
+                    'components_project_connection_dbt_form.github.personal_access_token.label',
+                )}
                 description={
                     <p>
-                        This is used to access your repo.
+                        {t(
+                            'components_project_connection_dbt_form.github.personal_access_token.description.part_1',
+                        )}{' '}
                         <Anchor
                             target="_blank"
                             href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#github"
                             rel="noreferrer"
                         >
-                            {' '}
-                            Click to open documentation
+                            {t(
+                                'components_project_connection_dbt_form.github.personal_access_token.description.part_2',
+                            )}
                         </Anchor>
-                        .
+                        {t(
+                            'components_project_connection_dbt_form.github.personal_access_token.description.part_3',
+                        )}
                     </p>
                 }
                 required={requireSecrets}
-                {...register('dbt.personal_access_token', {
-                    validate: {
-                        hasNoWhiteSpaces: hasNoWhiteSpaces(
-                            'Personal access token',
-                        ),
-                        isValidGithubToken: isValidGithubToken(
-                            'Personal access token',
-                        ),
-                    },
-                })}
+                {...form.getInputProps('dbt.personal_access_token')}
                 placeholder={
                     disabled || !requireSecrets ? '**************' : undefined
                 }
                 disabled={disabled}
             />
             <TextInput
-                label="Repository"
+                label={t(
+                    'components_project_connection_dbt_form.github.repository.label',
+                )}
                 description={
                     <p>
-                        This should be in the format <b>my-org/my-repo</b>. e.g.{' '}
-                        <b>lightdash/lightdash-analytics</b>
+                        {t(
+                            'components_project_connection_dbt_form.github.repository.description.part_1',
+                        )}{' '}
+                        <b>
+                            {t(
+                                'components_project_connection_dbt_form.github.repository.description.part_2',
+                            )}
+                        </b>
+                        {t(
+                            'components_project_connection_dbt_form.github.repository.description.part_3',
+                        )}{' '}
+                        <b>
+                            {t(
+                                'components_project_connection_dbt_form.github.repository.description.part_4',
+                            )}
+                        </b>
                     </p>
                 }
                 required
-                {...register('dbt.repository', {
-                    validate: {
-                        hasNoWhiteSpaces: hasNoWhiteSpaces('Repository'),
-                        isGitRepository: isGitRepository('Repository'),
-                    },
-                })}
+                {...form.getInputProps('dbt.repository')}
                 disabled={disabled}
-                placeholder="org/project"
+                placeholder={t(
+                    'components_project_connection_dbt_form.github.repository.placeholder',
+                )}
             />
         </>
     );
 };
+
 const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
     const { savedProject } = useProjectFormContext();
-    const { register } = useFormContext();
+    const form = useFormContext();
     const { data: githubConfig } = useGithubConfig();
     const { t } = useTranslation();
 
-    const authorizationMethod: string = useWatch({
-        name: 'dbt.authorization_method',
-        defaultValue:
-            savedProject?.dbtConnection.type === DbtProjectType.GITHUB &&
-            savedProject?.dbtConnection?.personal_access_token !== undefined
-                ? 'personal_access_token'
-                : 'installation_id',
-    });
+    if (form.values.dbt.type !== DbtProjectType.GITHUB) {
+        throw new Error('GithubForm can only be used for Github projects');
+    }
+
+    const formAuthorizationMethod = form.values.dbt?.authorization_method;
+    const authorizationMethod: string =
+        formAuthorizationMethod ??
+        (savedProject?.dbtConnection.type === DbtProjectType.GITHUB &&
+        savedProject?.dbtConnection?.personal_access_token !== undefined
+            ? 'personal_access_token'
+            : 'installation_id');
+
+    useEffect(() => {
+        if (formAuthorizationMethod !== authorizationMethod) {
+            form.setFieldValue('dbt.authorization_method', authorizationMethod);
+        }
+    }, [authorizationMethod, formAuthorizationMethod, form]);
 
     const isInstallationValid =
         githubConfig?.enabled && authorizationMethod === 'installation_id';
@@ -307,58 +363,51 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
         <>
             <Stack style={{ marginTop: '8px' }}>
                 <Group spacing="sm">
-                    <Controller
+                    <Select
                         name="dbt.authorization_method"
+                        {...form.getInputProps('dbt.authorization_method')}
                         defaultValue={
                             // If installation is not valid, we still show personal_access_token on existing saved projects
                             isInstallationValid || savedProject === undefined
                                 ? 'installation_id'
                                 : 'personal_access_token'
                         }
-                        render={({ field }) => (
-                            <Select
-                                description={
-                                    isInstallationValid ? (
-                                        <Text>
-                                            {t(
-                                                'components_project_connection_dbt_form.github.authorization_method.select.part_1',
-                                            )}{' '}
-                                            <Anchor
-                                                href="/generalSettings/integrations"
-                                                target="_blank"
-                                            >
-                                                {t(
-                                                    'components_project_connection_dbt_form.github.authorization_method.select.part_2',
-                                                )}
-                                            </Anchor>
-                                        </Text>
-                                    ) : undefined
-                                }
-                                w={isInstallationValid ? '90%' : '100%'}
-                                name={field.name}
-                                label={t(
-                                    'components_project_connection_dbt_form.github.authorization_method.label',
-                                )}
-                                data={[
-                                    {
-                                        value: 'installation_id',
-                                        label: t(
-                                            'components_project_connection_dbt_form.github.authorization_method.data.oauth',
-                                        ),
-                                    },
-                                    {
-                                        value: 'personal_access_token',
-                                        label: t(
-                                            'components_project_connection_dbt_form.github.authorization_method.data.personal_access_token',
-                                        ),
-                                    },
-                                ]}
-                                value={field.value}
-                                onChange={field.onChange}
-                                disabled={disabled}
-                            />
-                        )}
+                        description={
+                            isInstallationValid ? (
+                                <Text>
+                                    {t(
+                                        'components_project_connection_dbt_form.github.authorization_method.select.part_1',
+                                    )}{' '}
+                                    <Anchor
+                                        href="/generalSettings/integrations"
+                                        target="_blank"
+                                    >
+                                        {t(
+                                            'components_project_connection_dbt_form.github.authorization_method.select.part_2',
+                                        )}
+                                    </Anchor>
+                                </Text>
+                            ) : undefined
+                        }
+                        w={isInstallationValid ? '90%' : '100%'}
+                        label="Authorization method"
+                        data={[
+                            {
+                                value: 'installation_id',
+                                label: t(
+                                    'components_project_connection_dbt_form.github.authorization_method.data.oauth',
+                                ),
+                            },
+                            {
+                                value: 'personal_access_token',
+                                label: t(
+                                    'components_project_connection_dbt_form.github.authorization_method.data.personal_access_token',
+                                ),
+                            },
+                        ]}
+                        disabled={disabled}
                     />
+
                     {isInstallationValid && (
                         <Tooltip
                             label={t(
@@ -379,9 +428,9 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
 
                 <DbtVersionSelect disabled={disabled} />
                 <TextInput
-                    label={t(
-                        'components_project_connection_dbt_form.github.branch.label',
-                    )}
+                    name="dbt.branch"
+                    {...form.getInputProps('dbt.branch')}
+                    label="Branch"
                     description={
                         <>
                             <p>
@@ -427,18 +476,13 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                         </>
                     }
                     required
-                    {...register('dbt.branch', {
-                        validate: {
-                            hasNoWhiteSpaces: hasNoWhiteSpaces('Branch'),
-                        },
-                    })}
+                    defaultValue={githubDefaultValues.branch}
                     disabled={disabled}
-                    defaultValue="main"
                 />
                 <TextInput
-                    label={t(
-                        'components_project_connection_dbt_form.github.project_directory_path.label',
-                    )}
+                    name="dbt.project_sub_path"
+                    {...form.getInputProps('dbt.project_sub_path')}
+                    label="Project directory path"
                     description={
                         <>
                             <p>
@@ -474,20 +518,12 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                         </>
                     }
                     required
-                    {...register('dbt.project_sub_path', {
-                        validate: {
-                            hasNoWhiteSpaces: hasNoWhiteSpaces(
-                                'Project directory path',
-                            ),
-                            startWithSlash: startWithSlash(
-                                'Project directory path',
-                            ),
-                        },
-                    })}
                     disabled={disabled}
-                    defaultValue="/"
+                    defaultValue={githubDefaultValues.project_sub_path}
                 />
                 <TextInput
+                    name="dbt.host_domain"
+                    {...form.getInputProps('dbt.host_domain')}
                     label={t(
                         'components_project_connection_dbt_form.github.host_domain.label',
                     )}
@@ -495,8 +531,7 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                         'components_project_connection_dbt_form.github.host_domain.description',
                     )}
                     disabled={disabled}
-                    defaultValue="github.com"
-                    {...register('dbt.host_domain')}
+                    defaultValue={githubDefaultValues.host_domain}
                 />
             </Stack>
         </>

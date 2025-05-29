@@ -10,7 +10,7 @@ interface HeaderContainerProps {
 export const HeaderContainer = styled.div<HeaderContainerProps>`
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     gap: 8px;
     height: ${TILE_HEADER_HEIGHT}px;
@@ -59,7 +59,7 @@ export const TitleWrapper = styled.div<TileTitleProps>`
                       z-index: 10;
 
                       a {
-                          outline: 8px solid #fff;
+                          outline: 4px solid #fff;
                           background-color: #fff;
                       }
                   `
@@ -100,13 +100,6 @@ export const TileTitleLink = styled.a<TileTitleProps>`
                 }
             }
         `}
-`;
-
-export const ButtonsWrapper = styled.div`
-    display: flex;
-    flex-direction: row;
-    justify-content: flex-end;
-    gap: 8px;
 `;
 
 export const ChartContainer = styled.div`

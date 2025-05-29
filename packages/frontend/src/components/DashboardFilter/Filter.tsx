@@ -21,7 +21,7 @@ import { useTranslation } from 'react-i18next';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import {
     getFilterRuleTables,
-    useConditionalRuleLabel,
+    useConditionalRuleLabelFromItem,
 } from '../common/Filters/FilterInputs/utils';
 import MantineIcon from '../common/MantineIcon';
 import FilterConfiguration from './FilterConfiguration';
@@ -77,7 +77,7 @@ const Filter: FC<Props> = ({
     const { t } = useTranslation();
     const { classes } = useDashboardFilterStyles();
     const popoverId = useId();
-    const getConditionalRuleLabel = useConditionalRuleLabel();
+    const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
     const dashboard = useDashboardContext((c) => c.dashboard);
     const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
@@ -124,8 +124,8 @@ const Filter: FC<Props> = ({
     const filterRuleLabels = useMemo(() => {
         if (!filterRule || !field) return;
 
-        return getConditionalRuleLabel(filterRule, field);
-    }, [filterRule, field, getConditionalRuleLabel]);
+        return getConditionalRuleLabelFromItem(filterRule, field);
+    }, [filterRule, field, getConditionalRuleLabelFromItem]);
 
     const filterRuleTables = useMemo(() => {
         if (!filterRule || !field || !allFilterableFields) return;
@@ -150,12 +150,13 @@ const Filter: FC<Props> = ({
                 })
                 .join(', ');
             return appliedTabList
-                ? `This filter only applies to tab${
-                      appliesToTabs.length === 1 ? '' : 's'
-                  }: ${appliedTabList}`
-                : 'This filter is not currently applied to any tabs';
+                ? `${t(
+                      'components_dashboard_filter.inactive_filter_info.part_1',
+                      { suffix: appliesToTabs.length === 1 ? '' : 's' },
+                  )}: ${appliedTabList}`
+                : t('components_dashboard_filter.inactive_filter_info.part_2');
         }
-    }, [activeTabUuid, appliesToTabs, dashboardTabs]);
+    }, [activeTabUuid, appliesToTabs, dashboardTabs, t]);
 
     const handleClose = useCallback(() => {
         if (isPopoverOpen) onPopoverClose();
@@ -178,247 +179,262 @@ const Filter: FC<Props> = ({
         !filterableFieldsByTileUuid || !allFilterableFields;
 
     return (
-        <Popover
-            position="bottom-start"
-            trapFocus
-            opened={isPopoverOpen}
-            closeOnEscape={!isSubPopoverOpen}
-            closeOnClickOutside={!isSubPopoverOpen}
-            onClose={handleClose}
-            disabled={isPopoverDisabled}
-            transitionProps={{ transition: 'pop-top-left' }}
-            withArrow
-            shadow="md"
-            offset={1}
-            arrowOffset={14}
-            withinPortal
-        >
-            <Popover.Target>
-                {isCreatingNew ? (
-                    <Tooltip
-                        disabled={isPopoverOpen || isEditMode}
-                        position="top-start"
-                        withinPortal
-                        offset={0}
-                        arrowOffset={16}
-                        label={
-                            <Text fz="xs">
-                                {t(
-                                    'components_dashboard_filter.filter.tooltip_creating_new.label.part_1',
-                                )}{' '}
-                                <Text span fw={600}>
-                                    '{' '}
+        <>
+            <Popover
+                position="bottom-start"
+                trapFocus
+                opened={isPopoverOpen}
+                closeOnEscape={!isSubPopoverOpen}
+                closeOnClickOutside={!isSubPopoverOpen}
+                onClose={handleClose}
+                disabled={isPopoverDisabled}
+                transitionProps={{ transition: 'pop-top-left' }}
+                withArrow
+                shadow="md"
+                offset={1}
+                arrowOffset={14}
+                withinPortal
+            >
+                <Popover.Target>
+                    {isCreatingNew ? (
+                        <Tooltip
+                            disabled={isPopoverOpen || isEditMode}
+                            position="top-start"
+                            withinPortal
+                            offset={0}
+                            arrowOffset={16}
+                            label={
+                                <Text fz="xs">
                                     {t(
-                                        'components_dashboard_filter.filter.tooltip_creating_new.label.part_2',
-                                    )}
-                                    '
-                                </Text>{' '}
-                                {t(
-                                    'components_dashboard_filter.filter.tooltip_creating_new.label.part_3',
-                                )}
-                            </Text>
-                        }
-                    >
-                        <Button
-                            size="xs"
-                            variant="default"
-                            leftIcon={
-                                <MantineIcon color="blue" icon={IconFilter} />
-                            }
-                            disabled={!allFilterableFields}
-                            loading={
-                                isLoadingDashboardFilters ||
-                                isFetchingDashboardFilters
-                            }
-                            onClick={() =>
-                                isPopoverOpen
-                                    ? handleClose()
-                                    : onPopoverOpen(popoverId)
-                            }
-                        >
-                            {t(
-                                'components_dashboard_filter.filter.tooltip_creating_new.content',
-                            )}
-                        </Button>
-                    </Tooltip>
-                ) : (
-                    <Indicator
-                        inline
-                        position="top-end"
-                        size={16}
-                        disabled={!hasUnsetRequiredFilter}
-                        label={
-                            <Tooltip
-                                fz="xs"
-                                label={t(
-                                    'components_dashboard_filter.filter.tooltip_set.label',
-                                )}
-                            >
-                                <Text fz="9px" fw={500}>
+                                        'components_dashboard_filter.filter.tooltip_creating_new.label.part_1',
+                                    )}{' '}
+                                    <Text span fw={600}>
+                                        '
+                                        {t(
+                                            'components_dashboard_filter.filter.tooltip_creating_new.label.part_2',
+                                        )}
+                                        ''
+                                    </Text>{' '}
                                     {t(
-                                        'components_dashboard_filter.filter.tooltip_set.content',
+                                        'components_dashboard_filter.filter.tooltip_creating_new.label.part_3',
                                     )}
                                 </Text>
-                            </Tooltip>
-                        }
-                        styles={(theme) => ({
-                            common: {
-                                top: -5,
-                                right: 24,
-                                borderRadius: theme.radius.xs,
-                                borderBottomRightRadius: 0,
-                                borderBottomLeftRadius: 0,
-                            },
-                        })}
-                    >
-                        <Tooltip
-                            fz="xs"
-                            label={inactiveFilterInfo}
-                            disabled={!inactiveFilterInfo}
-                            withinPortal
+                            }
                         >
                             <Button
-                                pos="relative"
                                 size="xs"
-                                variant={
-                                    isTemporary || hasUnsetRequiredFilter
-                                        ? 'outline'
-                                        : 'default'
-                                }
-                                className={`${classes.root} ${
-                                    hasUnsetRequiredFilter
-                                        ? classes.unsetRequiredFilter
-                                        : ''
-                                } ${
-                                    inactiveFilterInfo
-                                        ? classes.inactiveFilter
-                                        : ''
-                                }`}
+                                variant="default"
                                 leftIcon={
-                                    isDraggable && (
-                                        <MantineIcon
-                                            icon={IconGripVertical}
-                                            color="gray"
-                                            cursor="grab"
-                                            size="sm"
-                                        />
-                                    )
+                                    <MantineIcon
+                                        color="blue"
+                                        icon={IconFilter}
+                                    />
                                 }
-                                rightIcon={
-                                    (isEditMode || isTemporary) && (
-                                        <CloseButton
-                                            size="sm"
-                                            onClick={onRemove}
-                                        />
-                                    )
+                                disabled={!allFilterableFields}
+                                loading={
+                                    isLoadingDashboardFilters ||
+                                    isFetchingDashboardFilters
                                 }
-                                styles={{
-                                    inner: {
-                                        color: 'black',
-                                    },
-                                    label: {
-                                        maxWidth: '800px',
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                    },
-                                }}
                                 onClick={() =>
                                     isPopoverOpen
                                         ? handleClose()
                                         : onPopoverOpen(popoverId)
                                 }
                             >
-                                <Box
-                                    sx={{
-                                        maxWidth: '100%',
-                                        overflow: 'hidden',
-                                    }}
-                                >
-                                    <Text fz="xs" truncate>
-                                        <Tooltip
-                                            withinPortal
-                                            position="top-start"
-                                            disabled={
-                                                isPopoverOpen ||
-                                                !filterRuleTables?.length
-                                            }
-                                            openDelay={1000}
-                                            offset={8}
-                                            label={
-                                                <Text fz="xs">
-                                                    {filterRuleTables?.length ===
-                                                    1
-                                                        ? `${t(
-                                                              'components_dashboard_filter.filter.table',
-                                                          )}: `
-                                                        : `${t(
-                                                              'components_dashboard_filter.filter.tables',
-                                                          )}: `}
-                                                    <Text span fw={600}>
-                                                        {filterRuleTables?.join(
-                                                            ', ',
-                                                        )}
-                                                    </Text>
-                                                </Text>
-                                            }
-                                        >
-                                            <Text fw={600} span truncate>
-                                                {filterRule?.label ||
-                                                    filterRuleLabels?.field}{' '}
-                                            </Text>
-                                        </Tooltip>
-                                        {filterRule?.disabled ? (
-                                            <Text span color="gray.6" truncate>
-                                                {t(
-                                                    'components_dashboard_filter.filter.filter_rules.part_1',
-                                                )}
-                                            </Text>
-                                        ) : (
-                                            <>
-                                                <Text
-                                                    span
-                                                    color="gray.7"
-                                                    truncate
-                                                >
-                                                    {filterRuleLabels?.operator}{' '}
-                                                </Text>
-                                                <Text fw={700} span truncate>
-                                                    {filterRuleLabels?.value}
-                                                </Text>
-                                            </>
-                                        )}
-                                    </Text>
-                                </Box>
+                                Add filter
                             </Button>
                         </Tooltip>
-                    </Indicator>
-                )}
-            </Popover.Target>
+                    ) : (
+                        <Indicator
+                            inline
+                            position="top-end"
+                            size={16}
+                            disabled={!hasUnsetRequiredFilter}
+                            label={
+                                <Tooltip
+                                    fz="xs"
+                                    label={t(
+                                        'components_dashboard_filter.filter.tooltip_set.label',
+                                    )}
+                                >
+                                    <Text fz="9px" fw={500}>
+                                        {t(
+                                            'components_dashboard_filter.filter.tooltip_set.content',
+                                        )}
+                                    </Text>
+                                </Tooltip>
+                            }
+                            styles={(theme) => ({
+                                common: {
+                                    top: -5,
+                                    right: 24,
+                                    borderRadius: theme.radius.xs,
+                                    borderBottomRightRadius: 0,
+                                    borderBottomLeftRadius: 0,
+                                },
+                            })}
+                        >
+                            <Tooltip
+                                fz="xs"
+                                label={inactiveFilterInfo}
+                                disabled={!inactiveFilterInfo}
+                                withinPortal
+                            >
+                                <Button
+                                    pos="relative"
+                                    size="xs"
+                                    variant={
+                                        isTemporary || hasUnsetRequiredFilter
+                                            ? 'outline'
+                                            : 'default'
+                                    }
+                                    className={`${classes.root} ${
+                                        hasUnsetRequiredFilter
+                                            ? classes.unsetRequiredFilter
+                                            : ''
+                                    } ${
+                                        inactiveFilterInfo
+                                            ? classes.inactiveFilter
+                                            : ''
+                                    }`}
+                                    leftIcon={
+                                        isDraggable && (
+                                            <MantineIcon
+                                                icon={IconGripVertical}
+                                                color="gray"
+                                                cursor="grab"
+                                                size="sm"
+                                            />
+                                        )
+                                    }
+                                    rightIcon={
+                                        (isEditMode || isTemporary) && (
+                                            <CloseButton
+                                                size="sm"
+                                                onClick={onRemove}
+                                            />
+                                        )
+                                    }
+                                    styles={{
+                                        inner: {
+                                            color: 'black',
+                                        },
+                                        label: {
+                                            maxWidth: '800px',
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                        },
+                                    }}
+                                    onClick={() =>
+                                        isPopoverOpen
+                                            ? handleClose()
+                                            : onPopoverOpen(popoverId)
+                                    }
+                                >
+                                    <Box
+                                        sx={{
+                                            maxWidth: '100%',
+                                            overflow: 'hidden',
+                                        }}
+                                    >
+                                        <Text fz="xs" truncate>
+                                            <Tooltip
+                                                withinPortal
+                                                position="top-start"
+                                                disabled={
+                                                    isPopoverOpen ||
+                                                    !filterRuleTables?.length
+                                                }
+                                                openDelay={1000}
+                                                offset={8}
+                                                label={
+                                                    <Text fz="xs">
+                                                        {filterRuleTables?.length ===
+                                                        1
+                                                            ? t(
+                                                                  'components_dashboard_filter.filter.table',
+                                                              )
+                                                            : t(
+                                                                  'components_dashboard_filter.filter.tables',
+                                                              )}
+                                                        <Text span fw={600}>
+                                                            {filterRuleTables?.join(
+                                                                ', ',
+                                                            )}
+                                                        </Text>
+                                                    </Text>
+                                                }
+                                            >
+                                                <Text fw={600} span truncate>
+                                                    {filterRule?.label ||
+                                                        filterRuleLabels?.field}{' '}
+                                                </Text>
+                                            </Tooltip>
+                                            {filterRule?.disabled ? (
+                                                <Text
+                                                    span
+                                                    color="gray.6"
+                                                    truncate
+                                                >
+                                                    {t(
+                                                        'components_dashboard_filter.filter.filter_rules.part_1',
+                                                    )}
+                                                </Text>
+                                            ) : (
+                                                <>
+                                                    <Text
+                                                        span
+                                                        color="gray.7"
+                                                        truncate
+                                                    >
+                                                        {
+                                                            filterRuleLabels?.operator
+                                                        }{' '}
+                                                    </Text>
+                                                    <Text
+                                                        fw={700}
+                                                        span
+                                                        truncate
+                                                    >
+                                                        {
+                                                            filterRuleLabels?.value
+                                                        }
+                                                    </Text>
+                                                </>
+                                            )}
+                                        </Text>
+                                    </Box>
+                                </Button>
+                            </Tooltip>
+                        </Indicator>
+                    )}
+                </Popover.Target>
 
-            <Popover.Dropdown>
-                {filterableFieldsByTileUuid && dashboardTiles && (
-                    <FilterConfiguration
-                        isCreatingNew={isCreatingNew}
-                        isEditMode={isEditMode}
-                        isTemporary={isTemporary}
-                        field={field}
-                        fields={allFilterableFields || []}
-                        tiles={dashboardTiles}
-                        tabs={dashboardTabs}
-                        activeTabUuid={activeTabUuid}
-                        originalFilterRule={originalFilterRule}
-                        availableTileFilters={filterableFieldsByTileUuid}
-                        defaultFilterRule={defaultFilterRule}
-                        onSave={handelSaveChanges}
-                        popoverProps={{
-                            onOpen: openSubPopover,
-                            onClose: closeSubPopover,
-                        }}
-                    />
-                )}
-            </Popover.Dropdown>
-        </Popover>
+                <Popover.Dropdown>
+                    {filterableFieldsByTileUuid && dashboardTiles && (
+                        <FilterConfiguration
+                            isCreatingNew={isCreatingNew}
+                            isEditMode={isEditMode}
+                            isTemporary={isTemporary}
+                            field={field}
+                            fields={allFilterableFields || []}
+                            tiles={dashboardTiles}
+                            tabs={dashboardTabs}
+                            activeTabUuid={activeTabUuid}
+                            originalFilterRule={originalFilterRule}
+                            availableTileFilters={filterableFieldsByTileUuid}
+                            defaultFilterRule={defaultFilterRule}
+                            onSave={handelSaveChanges}
+                            popoverProps={{
+                                onOpen: openSubPopover,
+                                onClose: closeSubPopover,
+                            }}
+                        />
+                    )}
+                </Popover.Dropdown>
+            </Popover>
+        </>
     );
 };
 

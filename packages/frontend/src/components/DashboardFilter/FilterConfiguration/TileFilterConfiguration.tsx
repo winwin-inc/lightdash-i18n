@@ -1,9 +1,15 @@
 import {
+    FeatureFlags,
     getItemId,
     isDashboardChartTileType,
+    isDashboardFieldTarget,
+    isDashboardSqlChartTile,
+    isField,
     matchFieldByType,
     matchFieldByTypeAndName,
     matchFieldExact,
+    type ChartKind,
+    type DashboardFieldTarget,
     type DashboardFilterRule,
     type DashboardTab,
     type DashboardTile,
@@ -14,6 +20,7 @@ import {
     Box,
     Checkbox,
     Flex,
+    Select,
     Stack,
     Switch,
     Text,
@@ -24,10 +31,38 @@ import {
 import { useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
+import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import FieldSelect from '../../common/FieldSelect';
 import MantineIcon from '../../common/MantineIcon';
 import { getChartIcon } from '../../common/ResourceIcon/utils';
 import { FilterActions } from './constants';
+
+type TileWithTargetFields = {
+    key: string;
+    label: string;
+    checked: boolean;
+    disabled: boolean;
+    invalidField?: string;
+    tileUuid: string;
+    tileChartKind?: ChartKind | undefined;
+    sortedFilters: Field[] | undefined;
+    selectedField: Field | undefined;
+    tabUuid?: string;
+};
+
+type TileWithTargetColumns = {
+    key: string;
+    label: string;
+    checked: boolean;
+    disabled: boolean;
+    invalidField?: string;
+    tileUuid: string;
+    tileChartKind?: ChartKind | undefined;
+    sortedFilters: string[];
+    selectedField: string | undefined;
+    tabUuid?: string;
+};
 
 type Props = {
     tiles: DashboardTile[];
@@ -37,7 +72,11 @@ type Props = {
     field: Field;
     filterRule: DashboardFilterRule;
     popoverProps?: Omit<PopoverProps, 'children'>;
-    onChange: (action: FilterActions, tileUuid: string, field?: Field) => void;
+    onChange: (
+        action: FilterActions,
+        tileUuid: string,
+        target?: DashboardFieldTarget,
+    ) => void;
     onToggleAll: (checked: boolean, tileUuids: string[]) => void;
 };
 
@@ -54,7 +93,9 @@ const TileFilterConfiguration: FC<Props> = ({
 }) => {
     const { t } = useTranslation();
     const theme = useMantineTheme();
-
+    const sqlChartTilesMetadata = useDashboardContext(
+        (c) => c.sqlChartTilesMetadata,
+    );
     const sortTilesByFieldMatch = useCallback(
         (
             fieldMatcher: (a: Field) => (b: Field) => boolean,
@@ -93,72 +134,166 @@ const TileFilterConfiguration: FC<Props> = ({
             );
     }, [sortTilesByFieldMatch, availableTileFilters]);
 
+    const canUseSqlChartFilters = useFeatureFlagEnabled(
+        FeatureFlags.SqlChartDashboardFilters,
+    );
+
     const tileTargetList = useMemo(() => {
-        return sortedTileWithFilters.map(([tileUuid, filters], index) => {
-            const tile = tiles.find((_t) => _t.uuid === tileUuid);
-            const tabUuidFromTile = tile?.tabUuid;
+        const tileWithTargetFields =
+            sortedTileWithFilters.map<TileWithTargetFields>(
+                ([tileUuid, filters], index) => {
+                    const tile = tiles.find((item) => item.uuid === tileUuid);
+                    const tabUuidFromTile = tile?.tabUuid;
 
-            // tileConfig overrides the default filter state for a tile
-            // if it is a field, we use that field for the filter.
-            // If it is the empty string, the filter is disabled.
-            const tileConfig = filterRule.tileTargets?.[tileUuid];
+                    // tileConfig overrides the default filter state for a tile
+                    // if it is a field, we use that field for the filter.
+                    // If it is the empty string, the filter is disabled.
+                    const tileConfig = filterRule.tileTargets?.[tileUuid];
 
-            let selectedField;
-            let invalidField: string | undefined;
-            if (tileConfig !== false) {
-                selectedField = tileConfig?.fieldId
-                    ? filters?.find((f) => tileConfig?.fieldId === getItemId(f))
-                    : filters?.find((f) => matchFieldExact(f)(field));
+                    let selectedField;
+                    let invalidField: string | undefined;
+                    if (tileConfig !== false) {
+                        selectedField =
+                            tileConfig && isDashboardFieldTarget(tileConfig)
+                                ? filters?.find(
+                                      (f) =>
+                                          tileConfig?.fieldId === getItemId(f),
+                                  )
+                                : filters?.find((f) =>
+                                      matchFieldExact(f)(field),
+                                  );
 
-                // If tileConfig?.fieldId is set, but the field is not found in the filters, we mark it as invalid filter (missing dimension in model)
-                invalidField =
-                    tileConfig?.fieldId !== undefined &&
-                    selectedField === undefined
-                        ? tileConfig?.fieldId
-                        : undefined;
-            }
+                        // If tileConfig?.fieldId is set, but the field is not found in the filters, we mark it as invalid filter (missing dimension in model)
+                        invalidField =
+                            tileConfig &&
+                            isDashboardFieldTarget(tileConfig) &&
+                            tileConfig?.fieldId !== undefined &&
+                            selectedField === undefined
+                                ? tileConfig?.fieldId
+                                : undefined;
+                    }
 
-            const isFilterAvailable =
-                filters?.some(matchFieldByType(field)) ?? false;
+                    const isFilterAvailable =
+                        filters?.some(matchFieldByType(field)) ?? false;
 
-            const sortedFilters = filters
-                ?.filter(matchFieldByType(field))
-                .sort((a, b) =>
-                    sortFieldsByMatch(matchFieldByTypeAndName, a, b),
-                )
-                .sort((a, b) => sortFieldsByMatch(matchFieldExact, a, b));
+                    const sortedFilters = filters
+                        ?.filter(matchFieldByType(field))
+                        .sort((a, b) =>
+                            sortFieldsByMatch(matchFieldByTypeAndName, a, b),
+                        )
+                        .sort((a, b) =>
+                            sortFieldsByMatch(matchFieldExact, a, b),
+                        );
 
-            const tileWithoutTitle =
-                !tile?.properties.title || tile.properties.title.length === 0;
-            const isChartTileType = tile && isDashboardChartTileType(tile);
+                    const tileWithoutTitle =
+                        !tile?.properties.title ||
+                        tile.properties.title.length === 0;
+                    const isChartTileType =
+                        tile && isDashboardChartTileType(tile);
 
-            let tileLabel = '';
-            if (tile) {
-                if (tileWithoutTitle && isChartTileType) {
+                    let tileLabel = '';
+                    if (tile) {
+                        if (tileWithoutTitle && isChartTileType) {
+                            tileLabel = tile.properties.chartName || '';
+                        } else if (tile.properties.title) {
+                            tileLabel = tile.properties.title;
+                        }
+                    }
+
+                    return {
+                        key: tileUuid + index,
+                        label: tileLabel,
+                        checked: !!selectedField,
+                        disabled: !isFilterAvailable,
+                        invalidField,
+                        tileUuid,
+                        ...(tile &&
+                            isDashboardChartTileType(tile) && {
+                                tileChartKind:
+                                    tile.properties.lastVersionChartKind ??
+                                    undefined,
+                            }),
+                        sortedFilters,
+                        selectedField,
+                        tabUuid: tabUuidFromTile,
+                    };
+                },
+            );
+        const tileWithTargetColumns = Object.entries(
+            sqlChartTilesMetadata,
+        ).reduce<TileWithTargetColumns[]>(
+            (acc, [tileUuid, metadata], index) => {
+                const columns = metadata.columns.map(
+                    ({ reference }) => reference,
+                );
+                const tile = tiles.find((item) => item.uuid === tileUuid);
+                if (!tile) {
+                    return acc;
+                }
+
+                // tileConfig overrides the default filter state for a tile
+                // if it is a field, we use that field for the filter.
+                // If it is the empty string, the filter is disabled.
+                const tileConfig = filterRule.tileTargets?.[tileUuid];
+
+                let selectedField;
+                let invalidField: string | undefined;
+                if (tileConfig !== false) {
+                    selectedField =
+                        tileConfig && isDashboardFieldTarget(tileConfig)
+                            ? columns?.find((f) => tileConfig?.fieldId === f)
+                            : undefined;
+
+                    // If tileConfig?.fieldId is set, but the field is not found in the filters, we mark it as invalid filter (missing dimension in model)
+                    invalidField =
+                        tileConfig &&
+                        isDashboardFieldTarget(tileConfig) &&
+                        tileConfig?.fieldId !== undefined &&
+                        selectedField === undefined
+                            ? tileConfig?.fieldId
+                            : undefined;
+                }
+
+                const tileWithoutTitle =
+                    !tile.properties.title ||
+                    tile.properties.title.length === 0;
+                const isSqlTileType = tile && isDashboardSqlChartTile(tile);
+                let tileLabel = '';
+                if (tileWithoutTitle && isSqlTileType) {
                     tileLabel = tile.properties.chartName || '';
                 } else if (tile.properties.title) {
                     tileLabel = tile.properties.title;
                 }
-            }
+                acc.push({
+                    key: tileUuid + index,
+                    label: tileLabel,
+                    checked: !!selectedField,
+                    disabled: false,
+                    invalidField,
+                    tileUuid,
+                    sortedFilters: columns,
+                    selectedField,
+                    tabUuid: tile.tabUuid,
+                });
+                return acc;
+            },
+            [],
+        );
 
-            return {
-                key: tileUuid + index,
-                label: tileLabel,
-                checked: !!selectedField,
-                disabled: !isFilterAvailable,
-                invalidField,
-                tileUuid,
-                ...(tile &&
-                    isDashboardChartTileType(tile) && {
-                        tileChartKind:
-                            tile.properties.lastVersionChartKind ?? undefined,
-                    }),
-                sortedFilters,
-                selectedField,
-                tabUuid: tabUuidFromTile,
-            };
-        });
-    }, [filterRule, field, sortFieldsByMatch, sortedTileWithFilters, tiles]);
+        if (canUseSqlChartFilters) {
+            return [...tileWithTargetFields, ...tileWithTargetColumns];
+        }
+
+        return tileWithTargetFields;
+    }, [
+        sortedTileWithFilters,
+        sqlChartTilesMetadata,
+        tiles,
+        filterRule.tileTargets,
+        field,
+        sortFieldsByMatch,
+        canUseSqlChartFilters,
+    ]);
 
     const filteredTileTargetList = (tabUUid: string) => {
         return tileTargetList.filter((v) => v.tabUuid === tabUUid);
@@ -206,7 +341,11 @@ const TileFilterConfiguration: FC<Props> = ({
         );
     };
 
-    const StackSubComponent = ({ tileList }: { tileList: any[] }) => {
+    const StackSubComponent = ({
+        tileList,
+    }: {
+        tileList: Array<TileWithTargetFields | TileWithTargetColumns>;
+    }) => {
         return (
             <Stack spacing="md">
                 {tileList.map((value) => (
@@ -238,7 +377,7 @@ const TileFilterConfiguration: FC<Props> = ({
                                     label={
                                         <Flex align="center" gap="xxs">
                                             <MantineIcon
-                                                color="blue.8"
+                                                color="blue.6"
                                                 icon={getChartIcon(
                                                     value.tileChartKind,
                                                 )}
@@ -266,6 +405,16 @@ const TileFilterConfiguration: FC<Props> = ({
                                                 ? FilterActions.ADD
                                                 : FilterActions.REMOVE,
                                             value.tileUuid,
+                                            event.currentTarget.checked &&
+                                                typeof value.selectedField ===
+                                                    'string'
+                                                ? {
+                                                      fieldId:
+                                                          value.selectedField,
+                                                      tableName: 'mock_table',
+                                                      isSqlColumn: true,
+                                                  }
+                                                : undefined,
                                         );
                                     }}
                                 />
@@ -278,22 +427,60 @@ const TileFilterConfiguration: FC<Props> = ({
                                 mt="sm"
                                 display={!value.checked ? 'none' : 'auto'}
                             >
-                                <FieldSelect
-                                    size="xs"
-                                    disabled={!value.checked}
-                                    item={value.selectedField}
-                                    items={value.sortedFilters}
-                                    withinPortal={popoverProps?.withinPortal}
-                                    onDropdownOpen={popoverProps?.onOpen}
-                                    onDropdownClose={popoverProps?.onClose}
-                                    onChange={(newField) => {
-                                        onChange(
-                                            FilterActions.ADD,
-                                            value.tileUuid,
-                                            newField,
-                                        );
-                                    }}
-                                />
+                                {isField(value.selectedField) ? (
+                                    <FieldSelect
+                                        size="xs"
+                                        disabled={!value.checked}
+                                        item={value.selectedField}
+                                        items={value.sortedFilters as Field[]}
+                                        withinPortal={
+                                            popoverProps?.withinPortal
+                                        }
+                                        onDropdownOpen={popoverProps?.onOpen}
+                                        onDropdownClose={popoverProps?.onClose}
+                                        onChange={(newField) => {
+                                            onChange(
+                                                FilterActions.ADD,
+                                                value.tileUuid,
+                                                newField
+                                                    ? {
+                                                          fieldId:
+                                                              getItemId(
+                                                                  newField,
+                                                              ),
+                                                          tableName:
+                                                              newField.table,
+                                                      }
+                                                    : undefined,
+                                            );
+                                        }}
+                                    />
+                                ) : (
+                                    <Select
+                                        w="100%"
+                                        size="xs"
+                                        searchable
+                                        dropdownComponent="div"
+                                        icon={undefined}
+                                        allowDeselect={false}
+                                        value={value.selectedField}
+                                        data={value.sortedFilters as string[]}
+                                        onChange={(newField) => {
+                                            onChange(
+                                                FilterActions.ADD,
+                                                value.tileUuid,
+                                                newField
+                                                    ? {
+                                                          fieldId: newField,
+                                                          tableName:
+                                                              'mock_table',
+                                                          isSqlColumn: true,
+                                                      }
+                                                    : undefined,
+                                            );
+                                        }}
+                                    />
+                                )}
                             </Box>
                         )}
                     </Box>

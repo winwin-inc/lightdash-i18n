@@ -9,6 +9,7 @@ import {
     Text,
     Tooltip,
     type MultiSelectProps,
+    type MultiSelectValueProps,
 } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import uniq from 'lodash/uniq';
@@ -16,6 +17,7 @@ import {
     useCallback,
     useEffect,
     useMemo,
+    useRef,
     useState,
     type FC,
     type ReactNode,
@@ -38,6 +40,23 @@ type Props = Omit<MultiSelectProps, 'data' | 'onChange'> & {
     values: string[];
     suggestions: string[];
     onChange: (values: string[]) => void;
+    singleValue?: boolean;
+};
+
+// Single value component that mimics a single select behavior - maxSelectedValues={1} behaves weirdly so we don't use it.
+const SingleValueComponent = ({
+    value,
+    label,
+    onRemove,
+    ...others
+}: MultiSelectValueProps & { value: string }) => {
+    return (
+        <div {...others}>
+            <Text size="xs" lineClamp={1}>
+                {label}
+            </Text>
+        </div>
+    );
 };
 
 const FilterStringAutoComplete: FC<Props> = ({
@@ -50,10 +69,12 @@ const FilterStringAutoComplete: FC<Props> = ({
     placeholder,
     onDropdownOpen,
     onDropdownClose,
+    singleValue,
     ...rest
 }) => {
     const { t } = useTranslation();
 
+    const multiSelectRef = useRef<HTMLInputElement>(null);
     const { projectUuid, getAutocompleteFilterGroup } = useFiltersContext();
     if (!projectUuid) {
         throw new Error(t('components_common_filters_inputs.filters_error'));
@@ -107,25 +128,40 @@ const FilterStringAutoComplete: FC<Props> = ({
 
     const handleChange = useCallback(
         (updatedValues: string[]) => {
-            onChange(uniq(updatedValues));
+            if (singleValue && updatedValues.length > 1) {
+                onChange([updatedValues[updatedValues.length - 1]]);
+            } else {
+                onChange(uniq(updatedValues));
+            }
+            if (singleValue) {
+                multiSelectRef.current?.blur();
+            }
         },
-        [onChange],
+        [onChange, singleValue],
     );
 
     const handleAdd = useCallback(
         (newValue: string) => {
-            handleChange([...values, newValue]);
+            if (singleValue) {
+                handleChange([newValue]);
+            } else {
+                handleChange([...values, newValue]);
+            }
             return newValue;
         },
-        [handleChange, values],
+        [handleChange, values, singleValue],
     );
 
     const handleAddMultiple = useCallback(
         (newValues: string[]) => {
-            handleChange([...values, ...newValues]);
+            if (singleValue && newValues.length > 0) {
+                handleChange([newValues[newValues.length - 1]]);
+            } else {
+                handleChange([...values, ...newValues]);
+            }
             return newValues;
         },
-        [handleChange, values],
+        [handleChange, values, singleValue],
     );
 
     const handlePaste = useCallback(
@@ -148,6 +184,12 @@ const FilterStringAutoComplete: FC<Props> = ({
         },
         [handleAdd, handleResetSearch, search],
     );
+
+    useEffect(() => {
+        if (singleValue && values.length > 1) {
+            handleChange([values[values.length - 1]]);
+        }
+    }, [values, singleValue, handleChange]);
 
     const data = useMemo(() => {
         // Mantine does not show value tag if value is not found in data
@@ -266,6 +308,7 @@ const FilterStringAutoComplete: FC<Props> = ({
             }}
         >
             <MultiSelect
+                ref={multiSelectRef}
                 size="xs"
                 w="100%"
                 placeholder={
@@ -273,6 +316,7 @@ const FilterStringAutoComplete: FC<Props> = ({
                 }
                 disabled={disabled}
                 creatable
+                valueComponent={singleValue ? SingleValueComponent : undefined}
                 /**
                  * Opts out of Mantine's default condition and always allows adding, as long as not
                  * an empty query.
@@ -305,6 +349,7 @@ const FilterStringAutoComplete: FC<Props> = ({
                 }}
                 disableSelectedItemFiltering
                 searchable
+                clearable={singleValue}
                 clearSearchOnChange
                 {...rest}
                 searchValue={search}

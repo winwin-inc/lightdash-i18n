@@ -2,7 +2,9 @@ import {
     applyDimensionOverrides,
     compressDashboardFiltersToParam,
     convertDashboardFiltersParamToDashboardFilters,
+    DashboardTileTypes,
     DateGranularity,
+    FeatureFlags,
     getItemId,
     isDashboardChartTileType,
     type CacheMetadata,
@@ -18,7 +20,7 @@ import min from 'lodash/min';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useDeepCompareEffect, useMount } from 'react-use';
-import { useConditionalRuleLabel } from '../../components/common/Filters/FilterInputs/utils';
+import { useConditionalRuleLabelFromItem } from '../../components/common/Filters/FilterInputs/utils';
 import { hasSavedFilterValueChanged } from '../../components/DashboardFilter/FilterConfiguration/utils';
 import {
     useGetComments,
@@ -28,11 +30,13 @@ import {
     useDashboardQuery,
     useDashboardsAvailableFilters,
 } from '../../hooks/dashboard/useDashboard';
+import { useFeatureFlagEnabled } from '../../hooks/useFeatureFlagEnabled';
 import {
     hasSavedFiltersOverrides,
     useSavedDashboardFiltersOverrides,
 } from '../../hooks/useSavedDashboardFiltersOverrides';
 import DashboardContext from './context';
+import { type SqlChartTileMetadata } from './types';
 
 const emptyFilters: DashboardFilters = {
     dimensions: [],
@@ -56,7 +60,7 @@ const DashboardProvider: React.FC<
     dashboardCommentsCheck,
     children,
 }) => {
-    const getConditionalRuleLabel = useConditionalRuleLabel();
+    const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
     const { search, pathname } = useLocation();
     const navigate = useNavigate();
@@ -128,6 +132,10 @@ const DashboardProvider: React.FC<
     const [invalidateCache, setInvalidateCache] = useState<boolean>(false);
 
     const [chartSort, setChartSort] = useState<Record<string, SortField[]>>({});
+
+    const [sqlChartTilesMetadata, setSqlChartTilesMetadata] = useState<
+        Record<string, SqlChartTileMetadata>
+    >({});
 
     const [dateZoomGranularity, setDateZoomGranularity] = useState<
         DateGranularity | undefined
@@ -205,12 +213,13 @@ const DashboardProvider: React.FC<
                             overridesForSavedDashboardFilters,
                         ),
                     };
+                    setHaveFiltersChanged(true);
                 } else {
                     updatedDashboardFilters = dashboard.filters;
+                    setHaveFiltersChanged(false);
                 }
 
                 setDashboardFilters(updatedDashboardFilters);
-                setHaveFiltersChanged(false);
             }
 
             setOriginalDashboardFilters(dashboard.filters);
@@ -415,14 +424,18 @@ const DashboardProvider: React.FC<
         resetSavedFilterOverrides,
     ]);
 
-    const hasChartTiles = useMemo(
-        () =>
-            Boolean(
-                dashboardTiles &&
-                    dashboardTiles.filter(isDashboardChartTileType).length >= 1,
-            ),
-        [dashboardTiles],
+    const canUseSqlChartFilters = useFeatureFlagEnabled(
+        FeatureFlags.SqlChartDashboardFilters,
     );
+
+    const hasTilesThatSupportFilters = useMemo(() => {
+        const tileTypesThatSupportFilters = canUseSqlChartFilters
+            ? [DashboardTileTypes.SQL_CHART, DashboardTileTypes.SAVED_CHART]
+            : [DashboardTileTypes.SAVED_CHART];
+        return !!dashboardTiles?.some(({ type }) =>
+            tileTypesThatSupportFilters.includes(type),
+        );
+    }, [dashboardTiles, canUseSqlChartFilters]);
 
     const addDimensionDashboardFilter = useCallback(
         (filter: DashboardFilterRule, isTemporary: boolean) => {
@@ -540,8 +553,12 @@ const DashboardProvider: React.FC<
         [removeSavedFilterOverride],
     );
 
-    const addResultsCacheTime = useCallback((cacheMetadata: CacheMetadata) => {
-        if (cacheMetadata.cacheHit && cacheMetadata.cacheUpdatedTime) {
+    const addResultsCacheTime = useCallback((cacheMetadata?: CacheMetadata) => {
+        if (
+            cacheMetadata &&
+            cacheMetadata.cacheHit &&
+            cacheMetadata.cacheUpdatedTime
+        ) {
             setResultsCacheTimes((old) =>
                 cacheMetadata.cacheUpdatedTime
                     ? [...old, cacheMetadata.cacheUpdatedTime]
@@ -556,6 +573,16 @@ const DashboardProvider: React.FC<
         // Causes results refetch
         setInvalidateCache(true);
     }, []);
+
+    const updateSqlChartTilesMetadata = useCallback(
+        (tileUuid: string, metadata: SqlChartTileMetadata) => {
+            setSqlChartTilesMetadata((prev) => ({
+                ...prev,
+                [tileUuid]: metadata,
+            }));
+        },
+        [],
+    );
 
     const oldestCacheTime = useMemo(
         () => min(resultsCacheTimes),
@@ -577,7 +604,10 @@ const DashboardProvider: React.FC<
                         if (f.label) {
                             label = f.label;
                         } else if (field) {
-                            label = getConditionalRuleLabel(f, field).field;
+                            label = getConditionalRuleLabelFromItem(
+                                f,
+                                field,
+                            ).field;
                         }
 
                         return [
@@ -593,7 +623,7 @@ const DashboardProvider: React.FC<
         [
             dashboardFilters.dimensions,
             allFilterableFieldsMap,
-            getConditionalRuleLabel,
+            getConditionalRuleLabelFromItem,
         ],
     );
 
@@ -634,9 +664,11 @@ const DashboardProvider: React.FC<
         isFetchingDashboardFilters,
         filterableFieldsByTileUuid,
         allFilters,
-        hasChartTiles,
+        hasTilesThatSupportFilters,
         chartSort,
         setChartSort,
+        sqlChartTilesMetadata,
+        updateSqlChartTilesMetadata,
         dateZoomGranularity,
         setDateZoomGranularity,
         chartsWithDateZoomApplied,

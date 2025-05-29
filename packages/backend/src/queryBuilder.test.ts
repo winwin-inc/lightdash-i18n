@@ -316,7 +316,7 @@ describe('Query builder', () => {
                     intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
                     timezone: QUERY_BUILDER_UTC_TIMEZONE,
                 }).query,
-        ).toThrowError(ForbiddenError);
+        ).toThrow(ForbiddenError);
     });
 
     test('Should replace user attributes from sql filter', () => {
@@ -336,7 +336,7 @@ describe('Query builder', () => {
 });
 
 describe('replaceUserAttributes', () => {
-    it('method with no user attribute should return same sqlFilter', async () => {
+    it('method with no user attribute should return same sqlFilter', () => {
         expect(
             replaceUserAttributesAsStrings(
                 '${dimension} > 1',
@@ -363,7 +363,7 @@ describe('replaceUserAttributes', () => {
         ).toEqual('${dimension} = ${TABLE}.dimension');
     });
 
-    it('method with missing user attribute should throw error', async () => {
+    it('method with missing user attribute should throw error', () => {
         expect(() =>
             replaceUserAttributesAsStrings(
                 '${lightdash.attribute.test} > 1',
@@ -383,7 +383,7 @@ describe('replaceUserAttributes', () => {
         ).toThrowError(ForbiddenError);
     });
 
-    it('method with no user attribute value should throw error', async () => {
+    it('method with no user attribute value should throw error', () => {
         expect(() =>
             replaceUserAttributesAsStrings(
                 '${lightdash.attribute.test} > 1',
@@ -396,7 +396,7 @@ describe('replaceUserAttributes', () => {
         ).toThrowError(ForbiddenError);
     });
 
-    it('method should replace sqlFilter with user attribute', async () => {
+    it('method should replace sqlFilter with user attribute', () => {
         const userAttributes = { test: ['1'] };
         const expected = "('1' > 1)";
         expect(
@@ -418,7 +418,7 @@ describe('replaceUserAttributes', () => {
         ).toEqual(expected);
     });
 
-    it('method should replace sqlFilter with user attribute with multiple values', async () => {
+    it('method should replace sqlFilter with user attribute with multiple values', () => {
         expect(
             replaceUserAttributesAsStrings(
                 "'1' IN (${lightdash.attribute.test})",
@@ -431,7 +431,7 @@ describe('replaceUserAttributes', () => {
         ).toEqual("('1' IN ('1', '2'))");
     });
 
-    it('method should replace sqlFilter with multiple user attributes', async () => {
+    it('method should replace sqlFilter with multiple user attributes', () => {
         const userAttributes = { test: ['1'], another: ['2'] };
         const sqlFilter =
             '${dimension} IS NOT NULL OR (${lightdash.attribute.test} > 1 AND ${lightdash.attribute.another} = 2)';
@@ -446,7 +446,7 @@ describe('replaceUserAttributes', () => {
         ).toEqual(expected);
     });
 
-    it('method should replace sqlFilter using short aliases', async () => {
+    it('method should replace sqlFilter using short aliases', () => {
         const userAttributes = { test: ['1'], another: ['2'] };
         const expected = "('1' > 1)";
         expect(
@@ -484,7 +484,7 @@ describe('replaceUserAttributes', () => {
         ).toEqual(expected);
     });
 
-    it('method should not replace any invalid attribute', async () => {
+    it('method should not replace any invalid attribute', () => {
         expect(
             replaceUserAttributesAsStrings(
                 '${lightdash.foo.test} > 1',
@@ -495,7 +495,7 @@ describe('replaceUserAttributes', () => {
         ).toEqual('${lightdash.foo.test} > 1');
     });
 
-    it('should replace `email` intrinsic user attribute', async () => {
+    it('should replace `email` intrinsic user attribute', () => {
         expect(
             replaceUserAttributesAsStrings(
                 '${lightdash.user.email} = "mock@lightdash.com"',
@@ -508,7 +508,7 @@ describe('replaceUserAttributes', () => {
 });
 
 describe('assertValidDimensionRequiredAttribute', () => {
-    it('should not throw errors if no user attributes are required', async () => {
+    it('should not throw errors if no user attributes are required', () => {
         const result = assertValidDimensionRequiredAttribute(
             COMPILED_DIMENSION,
             {},
@@ -518,7 +518,7 @@ describe('assertValidDimensionRequiredAttribute', () => {
         expect(result).toBeUndefined();
     });
 
-    it('should throw errors if required attributes are required and user attributes are missing', async () => {
+    it('should throw errors if required attributes are required and user attributes are missing', () => {
         expect(() =>
             assertValidDimensionRequiredAttribute(
                 {
@@ -546,7 +546,7 @@ describe('assertValidDimensionRequiredAttribute', () => {
         ).toThrowError(ForbiddenError);
     });
 
-    it('should not throw errors if required attributes are required and user attributes exist', async () => {
+    it('should not throw errors if required attributes are required and user attributes exist', () => {
         const result = assertValidDimensionRequiredAttribute(
             {
                 ...COMPILED_DIMENSION,

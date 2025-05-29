@@ -1,10 +1,12 @@
 import { LightdashMode } from '@lightdash/common';
 import { Button, Menu } from '@mantine/core';
+import { modals } from '@mantine/modals';
 import {
     IconBook,
     IconHelp,
     IconMessageCircle2,
     IconMessages,
+    IconSos,
     IconUsers,
 } from '@tabler/icons-react';
 import { type FC } from 'react';
@@ -12,12 +14,14 @@ import { useTranslation } from 'react-i18next';
 
 import { useIntercom } from 'react-use-intercom';
 import useHealth from '../../hooks/health/useHealth';
+import SupportDrawerContent from '../../providers/SupportDrawer/SupportDrawerContent';
 import LargeMenuItem from '../common/LargeMenuItem';
 import MantineIcon from '../common/MantineIcon';
 
 const HelpMenu: FC = () => {
     const health = useHealth();
     const isCloudCustomer = health.data?.mode === LightdashMode.CLOUD_BETA;
+    const isDevelopment = health.data?.mode === LightdashMode.DEV;
 
     const { show: showIntercom } = useIntercom();
     const { t } = useTranslation();
@@ -94,6 +98,30 @@ const HelpMenu: FC = () => {
                     )}
                     icon={IconMessageCircle2}
                 />
+                {(isCloudCustomer || isDevelopment) && (
+                    <LargeMenuItem
+                        component="a"
+                        onClick={() => {
+                            modals.open({
+                                id: 'support-drawer',
+                                title: t(
+                                    'components_navbar_help_menu.menus.share_with_support.title',
+                                ),
+                                size: 'lg',
+                                children: <SupportDrawerContent />,
+                                yOffset: 100,
+                                zIndex: 1000,
+                            });
+                        }}
+                        title={t(
+                            'components_navbar_help_menu.menus.share_with_support.report_issue',
+                        )}
+                        description={t(
+                            'components_navbar_help_menu.menus.share_with_support.description',
+                        )}
+                        icon={IconSos}
+                    />
+                )}
             </Menu.Dropdown>
         </Menu>
     );

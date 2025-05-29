@@ -1,7 +1,11 @@
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import { z } from 'zod';
-import { type UserActivity, type ViewStatistics } from './types/analytics';
+import {
+    type ApiUserActivityDownloadCsv,
+    type UserActivity,
+    type ViewStatistics,
+} from './types/analytics';
 import {
     type Dashboard,
     type DashboardAvailableFilters,
@@ -31,9 +35,9 @@ import {
 } from './types/field';
 import { type AdditionalMetric, type MetricQuery } from './types/metricQuery';
 import {
+    OrganizationMemberRole,
     type ApiOrganizationMemberProfiles,
     type OrganizationMemberProfile,
-    type OrganizationMemberRole,
 } from './types/organizationMemberProfile';
 import {
     type CreatePersonalAccessToken,
@@ -41,6 +45,7 @@ import {
 } from './types/personalAccessToken';
 import { type ProjectMemberProfile } from './types/projectMemberProfile';
 import {
+    type ApiCalculateSubtotalsResponse,
     type ApiCalculateTotalResponse,
     type ChartHistory,
     type ChartVersion,
@@ -91,16 +96,15 @@ import {
     type WarehouseCredentials,
 } from './types/projects';
 import { type MostPopularAndRecentlyUpdated } from './types/resourceViewItem';
-import { type ResultRow } from './types/results';
+import { type ResultColumns, type ResultRow } from './types/results';
 import {
     type ApiJobScheduledResponse,
     type ApiJobStatusResponse,
     type SchedulerAndTargets,
     type SchedulerJobStatus,
-    type SchedulerWithLogs,
 } from './types/scheduler';
 import { type ApiSlackChannelsResponse } from './types/slack';
-import { type Space } from './types/space';
+import { SpaceMemberRole, type CreateSpace, type Space } from './types/space';
 import { type ApiSshKeyPairResponse } from './types/SshKeyPair';
 import { type TableBase } from './types/table';
 import {
@@ -112,6 +116,7 @@ import { type UserWarehouseCredentials } from './types/userWarehouseCredentials'
 import { type ValidationResponse } from './types/validation';
 
 import type {
+    ApiAiAgentThreadResponse,
     ApiAiConversationMessages,
     ApiAiConversationResponse,
     ApiAiConversations,
@@ -140,7 +145,11 @@ import type {
     ApiMetricsExplorerQueryResults,
     ApiMetricsExplorerTotalResults,
 } from './types/metricsExplorer';
+import type { ResultsPaginationMetadata } from './types/paginateResults';
 import { type ApiPromotionChangesResponse } from './types/promotion';
+import type { QueryHistoryStatus } from './types/queryHistory';
+import { type ApiRenameFieldsResponse } from './types/rename';
+import { type SchedulerWithLogs } from './types/schedulerLog';
 import {
     type ApiSemanticLayerClientInfo,
     type ApiSemanticViewerChartCreate,
@@ -154,6 +163,8 @@ import {
     type ApiSqlChart,
     type ApiSqlRunnerJobStatusResponse,
     type ApiUpdateSqlChart,
+    type GroupByColumn,
+    type SortBy,
 } from './types/sqlRunner';
 import { TimeFrames } from './types/timeFrames';
 import { type ApiWarehouseTableFields } from './types/warehouse';
@@ -161,6 +172,11 @@ import { convertAdditionalMetric } from './utils/additionalMetrics';
 import { getFields } from './utils/fields';
 import { formatItemValue } from './utils/formatting';
 import { getItemId, getItemLabelWithoutTableName } from './utils/item';
+import { getOrganizationNameSchema } from './utils/organization';
+import type {
+    PivotIndexColum,
+    PivotValuesColumn,
+} from './visualizations/types';
 
 dayjs.extend(utc);
 export * from './authorization/index';
@@ -168,6 +184,7 @@ export * from './authorization/types';
 export * from './compiler/exploreCompiler';
 export * from './compiler/filtersCompiler';
 export * from './compiler/translator';
+export * from './constants/sqlRunner';
 export { default as DbtSchemaEditor } from './dbt/DbtSchemaEditor/DbtSchemaEditor';
 export * from './dbt/validation';
 export * from './ee/index';
@@ -181,6 +198,7 @@ export * from './types/api';
 export * from './types/api/comments';
 export * from './types/api/errors';
 export * from './types/api/notifications';
+export * from './types/api/paginatedQuery';
 export * from './types/api/share';
 export * from './types/api/sort';
 export * from './types/api/spotlight';
@@ -216,6 +234,7 @@ export * from './types/notifications';
 export * from './types/openIdIdentity';
 export * from './types/organization';
 export * from './types/organizationMemberProfile';
+export * from './types/paginateResults';
 export * from './types/personalAccessToken';
 export * from './types/pinning';
 export * from './types/pivot';
@@ -224,10 +243,14 @@ export * from './types/projectMemberProfile';
 export * from './types/projectMemberRole';
 export * from './types/projects';
 export * from './types/promotion';
+export * from './types/queryHistory';
+export * from './types/rename';
 export * from './types/resourceViewItem';
 export * from './types/results';
 export * from './types/savedCharts';
 export * from './types/scheduler';
+export * from './types/schedulerLog';
+export * from './types/schedulerTaskList';
 export * from './types/search';
 export * from './types/semanticLayer';
 export * from './types/share';
@@ -253,9 +276,11 @@ export * from './utils/api';
 export { default as assertUnreachable } from './utils/assertUnreachable';
 export * from './utils/catalogMetricsTree';
 export * from './utils/charts';
+export * from './utils/colors';
 export * from './utils/conditionalFormatting';
 export * from './utils/convertCustomDimensionsToYaml';
 export * from './utils/convertCustomMetricsToYaml';
+export * from './utils/customDimensions';
 export * from './utils/dashboard';
 export * from './utils/dbt';
 export * from './utils/email';
@@ -267,11 +292,16 @@ export * from './utils/i18n';
 export * from './utils/item';
 export * from './utils/loadLightdashProjectConfig';
 export * from './utils/metricsExplorer';
+export * from './utils/organization';
 export * from './utils/projectMemberRole';
+export * from './utils/promises';
 export * from './utils/sanitizeHtml';
 export * from './utils/scheduler';
+export * from './utils/searchParams';
 export * from './utils/semanticLayer';
+export * from './utils/sleep';
 export * from './utils/slugs';
+export * from './utils/subtotals';
 export * from './utils/time';
 export * from './utils/timeFrames';
 export * from './utils/virtualView';
@@ -379,6 +409,44 @@ export const SEED_ORG_1_ADMIN_EMAIL = {
 export const SEED_ORG_1_ADMIN_PASSWORD = {
     password: 'demo_password!',
 };
+export const SEED_ORG_1_ADMIN_ROLE = OrganizationMemberRole.ADMIN;
+
+export const SEED_ORG_1_EDITOR = {
+    user_uuid: '80fb8b59-d6b7-4ed6-b969-9849310f3e53',
+    first_name: 'Editor',
+    last_name: 'User',
+    is_marketing_opted_in: true,
+    is_tracking_anonymized: false,
+    is_setup_complete: true,
+    is_active: true,
+};
+export const SEED_ORG_1_EDITOR_EMAIL = {
+    email: 'demo2@lightdash.com',
+    is_primary: true,
+};
+export const SEED_ORG_1_EDITOR_PASSWORD = {
+    password: 'demo_password!',
+};
+export const SEED_ORG_1_EDITOR_ROLE = OrganizationMemberRole.EDITOR;
+
+export const SEED_ORG_1_VIEWER = {
+    user_uuid: 'e0dd2003-c291-4e14-b977-7a03b7edc842',
+    first_name: 'Viewer',
+    last_name: 'User',
+    is_marketing_opted_in: true,
+    is_tracking_anonymized: false,
+    is_setup_complete: true,
+    is_active: true,
+};
+export const SEED_ORG_1_VIEWER_EMAIL = {
+    email: 'demo3@lightdash.com',
+    is_primary: true,
+};
+export const SEED_ORG_1_VIEWER_PASSWORD = {
+    password: 'demo_password!',
+};
+export const SEED_ORG_1_VIEWER_ROLE = OrganizationMemberRole.VIEWER;
+
 // Another user
 export const SEED_ORG_2 = {
     organization_uuid: '42339eef-359e-4ec4-b810-54ef0b4e3446',
@@ -400,7 +468,7 @@ export const SEED_ORG_2_ADMIN_EMAIL = {
 export const SEED_ORG_2_ADMIN_PASSWORD = {
     password: 'demo_password!',
 };
-
+export const SEED_ORG_2_ADMIN_ROLE = OrganizationMemberRole.ADMIN;
 export const SEED_EMBED_SECRET = 'zU3h50saDOO20czNFNRok';
 
 export const SEED_PROJECT = {
@@ -418,6 +486,11 @@ export const SEED_SPACE = {
 export const SEED_GROUP = {
     groupUuid: '9d615ede-5758-4954-9fb9-2a07fc415ba5',
     name: 'Org 1 Group',
+};
+
+export const SEED_GROUP_2 = {
+    groupUuid: '1456c265-f375-4d64-bd33-105c84ad9b5d',
+    name: 'Org 1 Editor Group',
 };
 
 export type ArgumentsOf<F extends Function> = F extends (
@@ -446,6 +519,8 @@ export const hasSpecialCharacters = (text: string) => /[^a-zA-Z ]/g.test(text);
 
 export type CacheMetadata = {
     cacheUpdatedTime?: Date;
+    cacheExpiresAt?: Date;
+    cacheKey?: string;
     cacheHit: boolean;
 };
 
@@ -454,6 +529,72 @@ export type ApiQueryResults = {
     cacheMetadata: CacheMetadata;
     rows: ResultRow[];
     fields: ItemsMap;
+};
+
+type ApiExecuteAsyncQueryResultsCommon = {
+    queryUuid: string;
+    cacheMetadata: CacheMetadata;
+};
+
+export type ApiExecuteAsyncMetricQueryResults =
+    ApiExecuteAsyncQueryResultsCommon & {
+        metricQuery: MetricQuery;
+        fields: ItemsMap;
+    };
+
+export type ApiExecuteAsyncDashboardChartQueryResults =
+    ApiExecuteAsyncQueryResultsCommon & {
+        metricQuery: MetricQuery;
+        fields: ItemsMap;
+        appliedDashboardFilters: DashboardFilters;
+    };
+
+export type ApiExecuteAsyncSqlQueryResults =
+    ApiExecuteAsyncQueryResultsCommon & {
+        // leaving empty for now
+    };
+
+export type ApiExecuteAsyncDashboardSqlChartQueryResults =
+    ApiExecuteAsyncQueryResultsCommon & {
+        appliedDashboardFilters: DashboardFilters;
+    };
+
+export type ReadyQueryResultsPage = ResultsPaginationMetadata<ResultRow> & {
+    queryUuid: string;
+    columns: ResultColumns;
+    rows: ResultRow[];
+    initialQueryExecutionMs: number;
+    resultsPageExecutionMs: number;
+    status: QueryHistoryStatus.READY;
+    pivotDetails: {
+        // Unlimited total column count, this is used to display a warning to the user in the frontend when the number of columns is over MAX_PIVOT_COLUMN_LIMIT
+        totalColumnCount: number | null;
+        indexColumn: PivotIndexColum;
+        valuesColumns: PivotValuesColumn[];
+        groupByColumns: GroupByColumn[] | undefined;
+        sortBy: SortBy | undefined;
+    } | null;
+};
+
+export type ApiGetAsyncQueryResults =
+    | ReadyQueryResultsPage
+    | {
+          status: QueryHistoryStatus.PENDING | QueryHistoryStatus.CANCELLED;
+          queryUuid: string;
+      }
+    | {
+          status: QueryHistoryStatus.ERROR;
+          queryUuid: string;
+          error: string | null;
+      };
+
+export type ApiDownloadAsyncQueryResults = {
+    fileUrl: string;
+};
+
+export type ApiDownloadAsyncQueryResultsAsCsv = {
+    fileUrl: string;
+    truncated: boolean;
 };
 
 export type ApiChartAndResults = {
@@ -568,13 +709,15 @@ export const hasInviteCode = (
     data: RegisterOrActivateUser,
 ): data is ActivateUserWithInviteCode => 'inviteCode' in data;
 
-export type CompleteUserArgs = {
-    organizationName?: string;
-    jobTitle: string;
-    isMarketingOptedIn: boolean;
-    isTrackingAnonymized: boolean;
-    enableEmailDomainAccess: boolean;
-};
+export const CompleteUserSchema = z.object({
+    organizationName: getOrganizationNameSchema().optional(),
+    jobTitle: z.string().min(0),
+    enableEmailDomainAccess: z.boolean().default(false),
+    isMarketingOptedIn: z.boolean().default(true),
+    isTrackingAnonymized: z.boolean().default(false),
+});
+
+export type CompleteUserArgs = z.infer<typeof CompleteUserSchema>;
 
 export type UpdateUserArgs = {
     firstName: string;
@@ -632,6 +775,11 @@ export type ApiAiDashboardSummaryResponse = {
 export type ApiAiGetDashboardSummaryResponse = {
     status: 'ok';
     results: DashboardSummary;
+};
+
+export type ApiAiGenerateCustomVizResponse = {
+    status: 'ok';
+    results: string;
 };
 
 type ApiResults =
@@ -744,7 +892,17 @@ type ApiResults =
     | ApiChartAsCodeUpsertResponse['results']
     | ApiGetMetricsTree['results']
     | ApiMetricsExplorerTotalResults['results']
-    | ApiGetSpotlightTableConfig['results'];
+    | ApiGetSpotlightTableConfig['results']
+    | ApiCalculateSubtotalsResponse['results']
+    | ApiExecuteAsyncSqlQueryResults
+    | ApiExecuteAsyncDashboardSqlChartQueryResults
+    | ApiExecuteAsyncMetricQueryResults
+    | ApiExecuteAsyncDashboardChartQueryResults
+    | ApiGetAsyncQueryResults
+    | ApiUserActivityDownloadCsv['results']
+    | ApiRenameFieldsResponse['results']
+    | ApiDownloadAsyncQueryResults
+    | ApiAiAgentThreadResponse['results'];
 
 export type ApiResponse<T extends ApiResults = ApiResults> = {
     status: 'ok';
@@ -816,6 +974,7 @@ export type HealthState = {
     isAuthenticated: boolean;
     requiresOrgRegistration: boolean;
     hasEmailClient: boolean;
+    hasMicrosoftTeams: boolean;
     latest: {
         version?: string;
     };
@@ -881,16 +1040,20 @@ export type HealthState = {
         maxLimit: number;
         defaultLimit: number;
         csvCellsLimit: number;
+        maxPageSize: number;
     };
     pivotTable: {
         maxColumnLimit: number;
     };
-    customVisualizationsEnabled: boolean;
     hasSlack: boolean;
     hasGithub: boolean;
     hasHeadlessBrowser: boolean;
     hasExtendedUsageAnalytics: boolean;
     hasCacheAutocompleResults: boolean;
+    appearance: {
+        overrideColorPalette: string[] | undefined;
+        overrideColorPaletteName: string | undefined;
+    };
 };
 
 export enum DBFieldTypes {
@@ -1160,10 +1323,11 @@ function formatRawValue(
     return value;
 }
 
-export function formatRows(
+// ! We format raw values so we can't use the values directly from the warehouse to compare with subtotals of date dimensions
+export function formatRawRows(
     rows: { [col: string]: AnyType }[],
     itemsMap: ItemsMap,
-): ResultRow[] {
+): Record<string, unknown>[] {
     return rows.map((row) => {
         const resultRow: ResultRow = {};
         const columnNames = Object.keys(row || {});
@@ -1172,16 +1336,40 @@ export function formatRows(
             const value = row[columnName];
             const item = itemsMap[columnName];
 
-            resultRow[columnName] = {
-                value: {
-                    raw: formatRawValue(item, value),
-                    formatted: formatItemValue(item, value),
-                },
-            };
+            resultRow[columnName] = formatRawValue(item, value);
         }
 
         return resultRow;
     });
+}
+
+export function formatRow(
+    row: { [col: string]: AnyType },
+    itemsMap: ItemsMap,
+): ResultRow {
+    const resultRow: ResultRow = {};
+    const columnNames = Object.keys(row || {});
+
+    for (const columnName of columnNames) {
+        const value = row[columnName];
+        const item = itemsMap[columnName];
+
+        resultRow[columnName] = {
+            value: {
+                raw: formatRawValue(item, value),
+                formatted: formatItemValue(item, value),
+            },
+        };
+    }
+
+    return resultRow;
+}
+
+export function formatRows(
+    rows: { [col: string]: AnyType }[],
+    itemsMap: ItemsMap,
+): ResultRow[] {
+    return rows.map((row) => formatRow(row, itemsMap));
 }
 
 const isObject = (object: AnyType) =>
@@ -1240,3 +1428,119 @@ export const getProjectDirectory = (
 export function isNotNull<T>(arg: T): arg is Exclude<T, null> {
     return arg !== null;
 }
+
+export type TreeCreateSpace = CreateSpace & {
+    children?: TreeCreateSpace[];
+    groupAccess?: {
+        groupUuid: string;
+        role: SpaceMemberRole;
+    }[];
+};
+
+export const SPACE_TREE_1: TreeCreateSpace[] = [
+    {
+        name: 'Parent Space 1',
+        children: [
+            {
+                name: 'Child Space 1.1',
+                children: [
+                    {
+                        name: 'Grandchild Space 1.1.1',
+                    },
+                    {
+                        name: 'Grandchild Space 1.1.2',
+                    },
+                ],
+            },
+            {
+                name: 'Child Space 1.2',
+                children: [
+                    {
+                        name: 'Grandchild Space 1.2.1',
+                    },
+                    {
+                        name: 'Grandchild Space 1.2.2',
+                        children: [
+                            {
+                                name: 'Great Grandchild Space 1.2.2.1',
+                            },
+                        ],
+                    },
+                ],
+            },
+            {
+                name: 'Child Space 1.3',
+                children: [
+                    {
+                        name: 'Grandchild Space 1.3.1',
+                        children: [
+                            {
+                                name: 'Great Grandchild Space 1.3.1.1',
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        name: 'Parent Space 2',
+        isPrivate: true,
+        children: [
+            {
+                name: 'Child Space 2.1',
+                children: [
+                    {
+                        name: 'Grandchild Space 2.1.1',
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        name: 'Parent Space 3',
+        isPrivate: true,
+        access: [
+            // Admin will automatically be added, we only seed editor
+            {
+                userUuid: SEED_ORG_1_EDITOR.user_uuid,
+                role: SpaceMemberRole.EDITOR,
+            },
+        ],
+        children: [
+            {
+                name: 'Child Space 3.1',
+            },
+        ],
+    },
+    // Created by admin and added group access
+    {
+        name: 'Parent Space 5',
+        isPrivate: true,
+        access: [],
+        groupAccess: [
+            {
+                groupUuid: SEED_GROUP_2.groupUuid,
+                role: SpaceMemberRole.EDITOR,
+            },
+        ],
+        children: [
+            {
+                name: 'Child Space 5.1',
+            },
+        ],
+    },
+] as const;
+
+export const SPACE_TREE_2: TreeCreateSpace[] = [
+    {
+        name: 'Parent Space 4',
+        isPrivate: true,
+        access: [],
+        children: [
+            {
+                name: 'Child Space 4.1',
+            },
+        ],
+    },
+] as const;

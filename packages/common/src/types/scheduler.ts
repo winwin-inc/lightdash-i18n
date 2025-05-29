@@ -1,9 +1,10 @@
 import assertUnreachable from '../utils/assertUnreachable';
 import { type AnyType } from './any';
 import { type Explore, type ExploreError } from './explore';
-import { type DashboardFilterRule } from './filter';
+import { type DashboardFilterRule, type DashboardFilters } from './filter';
 import { type MetricQuery } from './metricQuery';
 import { type PivotConfig } from './pivot';
+import { type DateGranularity } from './timeFrames';
 import { type ValidationTarget } from './validation';
 
 export type SchedulerCsvOptions = {
@@ -46,40 +47,6 @@ export enum JobPriority {
     LOW = 2, // Background jobs (scheduled deliveries, sheets sync)
 }
 
-type ReplaceCustomFieldsTaskType = 'replaceCustomFields';
-export const ReplaceCustomFieldsTask: ReplaceCustomFieldsTaskType =
-    'replaceCustomFields';
-
-export type SchedulerLog = {
-    task:
-        | 'handleScheduledDelivery'
-        | 'sendEmailNotification'
-        | 'sendSlackNotification'
-        | 'uploadGsheets'
-        | 'downloadCsv'
-        | 'uploadGsheetFromQuery'
-        | 'createProjectWithCompile'
-        | 'compileProject'
-        | 'testAndCompileProject'
-        | 'validateProject'
-        | 'sqlRunner'
-        | 'sqlRunnerPivotQuery'
-        | 'semanticLayer'
-        | ReplaceCustomFieldsTaskType
-        | 'indexCatalog';
-    schedulerUuid?: string;
-    jobId: string;
-    jobGroup?: string;
-    scheduledTime: Date;
-    createdAt: Date;
-    status: SchedulerJobStatus;
-    target?: string;
-    targetType?: 'email' | 'slack' | 'gsheets';
-    details?: Record<string, AnyType>;
-};
-
-export type CreateSchedulerLog = Omit<SchedulerLog, 'createdAt'>;
-
 export enum ThresholdOperator {
     GREATER_THAN = 'greaterThan',
     LESS_THAN = 'lessThan',
@@ -115,6 +82,7 @@ export const operatorActionValue = (
     }
     return '';
 };
+
 export type ThresholdOptions = {
     operator: ThresholdOperator;
     fieldId: string;
@@ -164,7 +132,11 @@ export type DashboardScheduler = SchedulerBase & {
 export type Scheduler = ChartScheduler | DashboardScheduler;
 
 export type SchedulerAndTargets = Scheduler & {
-    targets: (SchedulerSlackTarget | SchedulerEmailTarget)[];
+    targets: (
+        | SchedulerSlackTarget
+        | SchedulerEmailTarget
+        | SchedulerMsTeamsTarget
+    )[];
 };
 
 export type SchedulerSlackTarget = {
@@ -174,7 +146,13 @@ export type SchedulerSlackTarget = {
     schedulerUuid: string;
     channel: string;
 };
-
+export type SchedulerMsTeamsTarget = {
+    schedulerMsTeamsTargetUuid: string;
+    createdAt: Date;
+    updatedAt: Date;
+    schedulerUuid: string;
+    webhook: string;
+};
 export type SchedulerEmailTarget = {
     schedulerEmailTargetUuid: string;
     createdAt: Date;
@@ -185,13 +163,21 @@ export type SchedulerEmailTarget = {
 
 export type CreateSchedulerTarget =
     | Pick<SchedulerSlackTarget, 'channel'>
+    | Pick<SchedulerMsTeamsTarget, 'webhook'>
     | Pick<SchedulerEmailTarget, 'recipient'>;
 
 export const getSchedulerTargetUuid = (
-    target: SchedulerSlackTarget | SchedulerEmailTarget | CreateSchedulerTarget,
+    target:
+        | SchedulerSlackTarget
+        | SchedulerMsTeamsTarget
+        | SchedulerEmailTarget
+        | CreateSchedulerTarget,
 ): string | undefined => {
     if ('schedulerSlackTargetUuid' in target) {
         return target.schedulerSlackTargetUuid;
+    }
+    if ('schedulerMsTeamsTargetUuid' in target) {
+        return target.schedulerMsTeamsTargetUuid;
     }
     if ('schedulerEmailTargetUuid' in target) {
         return target.schedulerEmailTargetUuid;
@@ -202,6 +188,11 @@ export const getSchedulerTargetUuid = (
 export type UpdateSchedulerSlackTarget = Pick<
     SchedulerSlackTarget,
     'schedulerSlackTargetUuid' | 'channel'
+>;
+
+export type UpdateSchedulerMsTeamsTarget = Pick<
+    SchedulerMsTeamsTarget,
+    'schedulerMsTeamsTargetUuid' | 'webhook'
 >;
 
 export type UpdateSchedulerEmailTarget = Pick<
@@ -252,27 +243,64 @@ export const isUpdateSchedulerSlackTarget = (
 ): data is UpdateSchedulerSlackTarget =>
     'schedulerSlackTargetUuid' in data && !!data.schedulerSlackTargetUuid;
 
+export const isUpdateSchedulerMsTeamsTarget = (
+    data: CreateSchedulerTarget | UpdateSchedulerSlackTarget,
+): data is UpdateSchedulerMsTeamsTarget =>
+    'schedulerMsTeamsTargetUuid' in data && !!data.schedulerMsTeamsTargetUuid;
+
 export const isUpdateSchedulerEmailTarget = (
     data: CreateSchedulerTarget | UpdateSchedulerEmailTarget,
 ): data is UpdateSchedulerEmailTarget =>
     'schedulerEmailTargetUuid' in data && !!data.schedulerEmailTargetUuid;
 
-export const isChartScheduler = (data: Scheduler): data is ChartScheduler =>
+export const isChartScheduler = (
+    data: Scheduler | CreateSchedulerAndTargets,
+): data is ChartScheduler => 'savedChartUuid' in data && !!data.savedChartUuid;
+
+export const isChartCreateScheduler = (
+    data: CreateSchedulerAndTargets,
+): data is ChartScheduler & { targets: CreateSchedulerTarget[] } =>
     'savedChartUuid' in data && !!data.savedChartUuid;
 
+export const isDashboardCreateScheduler = (
+    data: CreateSchedulerAndTargets,
+): data is DashboardScheduler & { targets: CreateSchedulerTarget[] } =>
+    'dashboardUuid' in data && !!data.dashboardUuid;
+
 export const isSlackTarget = (
-    target: SchedulerSlackTarget | SchedulerEmailTarget,
+    target:
+        | SchedulerSlackTarget
+        | SchedulerEmailTarget
+        | SchedulerMsTeamsTarget,
 ): target is SchedulerSlackTarget => 'channel' in target;
 
+export const isMsTeamsTarget = (
+    target:
+        | SchedulerSlackTarget
+        | SchedulerEmailTarget
+        | SchedulerMsTeamsTarget,
+): target is SchedulerMsTeamsTarget => 'webhook' in target;
+
 export const isEmailTarget = (
-    target: SchedulerSlackTarget | SchedulerEmailTarget,
-): target is SchedulerEmailTarget => !isSlackTarget(target);
+    target:
+        | SchedulerSlackTarget
+        | SchedulerEmailTarget
+        | SchedulerMsTeamsTarget,
+): target is SchedulerEmailTarget => 'recipient' in target;
 
 export const isCreateSchedulerSlackTarget = (
     target:
         | Pick<SchedulerSlackTarget, 'channel'>
-        | Pick<SchedulerEmailTarget, 'recipient'>,
+        | Pick<SchedulerEmailTarget, 'recipient'>
+        | Pick<SchedulerMsTeamsTarget, 'webhook'>,
 ): target is Pick<SchedulerSlackTarget, 'channel'> => 'channel' in target;
+
+export const isCreateSchedulerMsTeamsTarget = (
+    target:
+        | Pick<SchedulerSlackTarget, 'channel'>
+        | Pick<SchedulerEmailTarget, 'recipient'>
+        | Pick<SchedulerMsTeamsTarget, 'webhook'>,
+): target is Pick<SchedulerMsTeamsTarget, 'webhook'> => 'webhook' in target;
 
 export const isSchedulerCsvOptions = (
     options:
@@ -300,14 +328,6 @@ export type ApiSchedulerAndTargetsResponse = {
     results: SchedulerAndTargets;
 };
 
-export type SchedulerWithLogs = {
-    schedulers: SchedulerAndTargets[];
-    users: { firstName: string; lastName: string; userUuid: string }[];
-    charts: { name: string; savedChartUuid: string }[];
-    dashboards: { name: string; dashboardUuid: string }[];
-    logs: SchedulerLog[];
-};
-
 export type ScheduledJobs = {
     date: Date;
     id: string;
@@ -317,10 +337,6 @@ export type ApiScheduledJobsResponse = {
     results: ScheduledJobs[];
 };
 
-export type ApiSchedulerLogsResponse = {
-    status: 'ok';
-    results: SchedulerWithLogs;
-};
 export type ApiTestSchedulerResponse = {
     status: 'ok';
     results: {
@@ -328,19 +344,32 @@ export type ApiTestSchedulerResponse = {
     };
 };
 
+export type TraceTaskBase = {
+    organizationUuid: string;
+    projectUuid: string;
+    userUuid: string;
+    schedulerUuid?: string;
+};
+
+export type QueueTraceProperties = {
+    traceHeader?: string;
+    baggageHeader?: string;
+    sentryMessageId?: string;
+};
+
 // Scheduler task types
-export type ScheduledDeliveryPayload =
-    | { schedulerUuid: string }
-    | CreateSchedulerAndTargets;
+export type ScheduledDeliveryPayload = TraceTaskBase &
+    (CreateSchedulerAndTargets | Pick<Scheduler, 'schedulerUuid'>);
+
 export const isCreateScheduler = (
     data: ScheduledDeliveryPayload,
-): data is CreateSchedulerAndTargets => 'targets' in data;
+): data is CreateSchedulerAndTargets & TraceTaskBase => 'targets' in data;
 export const hasSchedulerUuid = (
     data: SchedulerAndTargets | CreateSchedulerAndTargets,
 ): data is SchedulerAndTargets => 'schedulerUuid' in data;
 
 export const getSchedulerUuid = (
-    data: ScheduledDeliveryPayload,
+    data: CreateSchedulerAndTargets | Pick<Scheduler, 'schedulerUuid'>,
 ): string | undefined =>
     'schedulerUuid' in data ? data.schedulerUuid : undefined;
 
@@ -375,30 +404,38 @@ export type NotificationPayloadBase = {
             localPath: string;
             truncated: boolean;
         }[];
-        pdfFile?: string;
+        pdfFile?: {
+            source: string;
+            fileName: string;
+        };
     };
     scheduler: CreateSchedulerAndTargets;
 };
 
-export type SlackNotificationPayload = NotificationPayloadBase & {
-    schedulerSlackTargetUuid?: string;
-    channel: string;
-};
+export type SlackNotificationPayload = TraceTaskBase &
+    NotificationPayloadBase & {
+        schedulerSlackTargetUuid?: string;
+        channel: string;
+    };
+export type MsTeamsNotificationPayload = TraceTaskBase &
+    NotificationPayloadBase & {
+        schedulerMsTeamsTargetUuid?: string;
+        webhook: string;
+    };
 
-export type EmailNotificationPayload = NotificationPayloadBase & {
-    schedulerEmailTargetUuid?: string;
-    recipient: string;
-};
+export type EmailNotificationPayload = TraceTaskBase &
+    NotificationPayloadBase & {
+        schedulerEmailTargetUuid?: string;
+        recipient: string;
+    };
 
-export type GsheetsNotificationPayload = {
+export type GsheetsNotificationPayload = TraceTaskBase & {
     schedulerUuid: string;
     scheduledTime: Date;
     jobGroup: string;
 };
 
-export type DownloadCsvPayload = {
-    userUuid: string;
-    projectUuid: string;
+export type DownloadCsvPayload = TraceTaskBase & {
     exploreId: string;
     metricQuery: MetricQuery;
     onlyRaw: boolean;
@@ -421,35 +458,29 @@ export type ApiCsvUrlResponse = {
     };
 };
 
-export type SchedulerCreateProjectWithCompilePayload = {
+export type SchedulerCreateProjectWithCompilePayload = Omit<
+    TraceTaskBase,
+    'projectUuid'
+> & {
     createdByUserUuid: string;
-    organizationUuid: string;
     requestMethod: string;
     isPreview: boolean;
     data: string; // base64 string (CreateProject)
     jobUuid: string;
+    projectUuid: undefined; // New project uuid is not known at this point
 };
 
-export type CompileProjectPayload = {
+export type CompileProjectPayload = TraceTaskBase & {
     createdByUserUuid: string;
-    organizationUuid: string;
-    projectUuid: string;
     requestMethod: string;
     jobUuid: string;
     isPreview: boolean;
 };
 
-export type ReplaceCustomFieldsPayload = {
-    createdByUserUuid: string;
-    organizationUuid: string;
-    projectUuid: string;
-};
+export type ReplaceCustomFieldsPayload = TraceTaskBase;
 
-export type ValidateProjectPayload = {
-    projectUuid: string;
+export type ValidateProjectPayload = TraceTaskBase & {
     context: 'lightdash_app' | 'dbt_refresh' | 'test_and_compile' | 'cli';
-    userUuid: string;
-    organizationUuid: string | undefined;
     explores?: (Explore | ExploreError)[];
     validationTargets?: ValidationTarget[];
 };
@@ -470,3 +501,9 @@ export type ApiJobStatusResponse = {
 };
 
 export type SchedulerCronUpdate = { schedulerUuid: string; cron: string };
+
+export type ExportCsvDashboardPayload = TraceTaskBase & {
+    dashboardUuid: string;
+    dashboardFilters: DashboardFilters;
+    dateZoomGranularity?: DateGranularity;
+};

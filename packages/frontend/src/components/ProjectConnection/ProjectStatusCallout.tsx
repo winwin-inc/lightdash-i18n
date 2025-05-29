@@ -1,3 +1,4 @@
+import { type ApiError } from '@lightdash/common';
 import { Alert, Loader, type AlertProps } from '@mantine/core';
 import {
     IconAlertTriangleFilled,
@@ -7,18 +8,20 @@ import MDEditor from '@uiw/react-md-editor';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import rehypeExternalLinks from 'rehype-external-links';
-import {
-    type useCreateMutation,
-    type useUpdateMutation,
-} from '../../hooks/useProject';
 import MantineIcon from '../common/MantineIcon';
 
 type ProjectStatusCalloutProps = Omit<AlertProps, 'children'> & {
-    mutation: ReturnType<typeof useUpdateMutation | typeof useCreateMutation>;
+    isSuccess: boolean;
+    isError: boolean;
+    isLoading: boolean;
+    error: ApiError | null;
 };
 
 const ProjectStatusCallout: FC<ProjectStatusCalloutProps> = ({
-    mutation: { isSuccess, error, isLoading, isError },
+    isSuccess,
+    isError,
+    isLoading,
+    error,
     ...props
 }) => {
     const { t } = useTranslation();

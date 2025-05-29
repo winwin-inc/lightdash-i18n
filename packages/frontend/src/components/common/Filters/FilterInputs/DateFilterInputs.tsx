@@ -17,13 +17,14 @@ import { useTranslation } from 'react-i18next';
 import { type FilterInputsProps } from '.';
 import useFiltersContext from '../useFiltersContext';
 import { getFirstDayOfWeek } from '../utils/filterDateUtils';
-import { getPlaceholderByFilterTypeAndOperator } from '../utils/getPlaceholderByFilterTypeAndOperator';
+import { usePlaceholderByFilterTypeAndOperator } from '../utils/getPlaceholderByFilterTypeAndOperator';
 import DefaultFilterInputs from './DefaultFilterInputs';
 import FilterDatePicker from './FilterDatePicker';
 import FilterDateRangePicker from './FilterDateRangePicker';
 import FilterDateTimePicker from './FilterDateTimePicker';
 import FilterDateTimeRangePicker from './FilterDateTimeRangePicker';
 import FilterMonthAndYearPicker from './FilterMonthAndYearPicker';
+import FilterQuarterPicker from './FilterQuarterPicker';
 import FilterUnitOfTimeAutoComplete from './FilterUnitOfTimeAutoComplete';
 import FilterWeekPicker from './FilterWeekPicker';
 import FilterYearPicker from './FilterYearPicker';
@@ -36,12 +37,16 @@ const DateFilterInputs = <T extends ConditionalRule = DateFilterRule>(
     const { startOfWeek } = useFiltersContext();
 
     const isTimestamp =
+        !field ||
         (isCustomSqlDimension(field) ? field.dimensionType : field.type) ===
-        DimensionType.TIMESTAMP;
+            DimensionType.TIMESTAMP;
 
     if (!isFilterRule(rule)) {
         throw new Error(t('components_common_filters_inputs.rule_error'));
     }
+
+    const getPlaceholderByFilterTypeAndOperator =
+        usePlaceholderByFilterTypeAndOperator();
 
     const placeholder = getPlaceholderByFilterTypeAndOperator({
         type: filterType,
@@ -134,6 +139,28 @@ const DateFilterInputs = <T extends ConditionalRule = DateFilterRule>(
                                         ...rule,
                                         values: [
                                             formatDate(value, TimeFrames.MONTH),
+                                        ],
+                                    });
+                                }}
+                            />
+                        );
+                    case TimeFrames.QUARTER:
+                        const ruleValue = rule.values?.[0];
+                        const parsedValue = ruleValue
+                            ? parseDate(ruleValue, TimeFrames.DAY)
+                            : null;
+                        return (
+                            <FilterQuarterPicker
+                                disabled={disabled}
+                                placeholder={placeholder}
+                                autoFocus={true}
+                                popoverProps={popoverProps}
+                                value={parsedValue}
+                                onChange={(newDate: Date) => {
+                                    onChange({
+                                        ...rule,
+                                        values: [
+                                            formatDate(newDate, TimeFrames.DAY),
                                         ],
                                     });
                                 }}
@@ -301,7 +328,7 @@ const DateFilterInputs = <T extends ConditionalRule = DateFilterRule>(
                     }
                     showOptionsInPlural={false}
                     showCompletedOptions={false}
-                    autoFocus={true}
+                    autoFocus={!rule.settings?.unitOfTime}
                     completed={false}
                     withinPortal={popoverProps?.withinPortal}
                     onDropdownOpen={popoverProps?.onOpen}

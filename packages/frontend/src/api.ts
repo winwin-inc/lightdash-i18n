@@ -2,12 +2,16 @@ import {
     LightdashRequestMethodHeader,
     LightdashVersionHeader,
     RequestMethod,
+    type AnyType,
     type ApiError,
     type ApiResponse,
 } from '@lightdash/common';
 import { spanToTraceHeader, startSpan } from '@sentry/react';
 import fetch from 'isomorphic-fetch';
-import { LIGHTDASH_SDK_INSTANCE_URL_LOCAL_STORAGE_KEY } from './sdk';
+
+// TODO: import from common or fix the instantiation of the request module
+const LIGHTDASH_SDK_INSTANCE_URL_LOCAL_STORAGE_KEY =
+    '__lightdash_sdk_instance_url';
 
 export const BASE_API_URL =
     import.meta.env.VITEST === 'true'
@@ -49,7 +53,11 @@ type LightdashApiProps = {
     body: BodyInit | null | undefined;
     headers?: Record<string, string> | undefined;
     version?: 'v1' | 'v2';
+    signal?: AbortSignal;
 };
+
+const MAX_NETWORK_HISTORY = 10;
+export let networkHistory: AnyType[] = [];
 
 export const lightdashApi = async <T extends ApiResponse['results']>({
     method,
@@ -57,6 +65,7 @@ export const lightdashApi = async <T extends ApiResponse['results']>({
     body,
     headers,
     version = 'v1',
+    signal,
 }: LightdashApiProps): Promise<T> => {
     const baseUrl = sessionStorage.getItem(
         LIGHTDASH_SDK_INSTANCE_URL_LOCAL_STORAGE_KEY,
@@ -90,6 +99,7 @@ export const lightdashApi = async <T extends ApiResponse['results']>({
             ...(sentryTrace ? { 'sentry-trace': sentryTrace } : {}),
         },
         body,
+        signal,
     })
         .then((r) => {
             if (!r.ok) {
@@ -99,7 +109,17 @@ export const lightdashApi = async <T extends ApiResponse['results']>({
             }
             return r;
         })
-        .then((r) => r.json())
+        .then(async (r) => {
+            const js = await r.json();
+            networkHistory.push({
+                method,
+                url,
+                body,
+                status: r.status,
+                json: JSON.stringify(js).substring(0, 500),
+            });
+            return js;
+        })
         .then((d: ApiResponse | ApiError) => {
             switch (d.status) {
                 case 'ok':
@@ -113,6 +133,17 @@ export const lightdashApi = async <T extends ApiResponse['results']>({
             }
         })
         .catch((err) => {
+            // TODO do not capture some requests, like passwords or sensitive data
+            networkHistory.push({
+                method,
+                status: err.status,
+                url,
+                body,
+                error: JSON.stringify(err).substring(0, 500),
+            });
+            // only store last MAX_NETWORK_HISTORY requests
+            if (networkHistory.length > MAX_NETWORK_HISTORY)
+                networkHistory.shift();
             throw handleError(err);
         });
 };

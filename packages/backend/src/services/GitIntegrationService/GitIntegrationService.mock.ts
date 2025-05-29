@@ -5,9 +5,12 @@ import {
     DimensionType,
     MetricType,
 } from '@lightdash/common';
+import { warehouseClientMock } from '../../queryBuilder.mock';
 
 export const PROJECT_MODEL = {
     getExploreFromCache: jest.fn(() => ({ ymlPath: 'path/to/schema.yml' })),
+    getWarehouseCredentialsForProject: jest.fn(() => ({})),
+    getWarehouseClientFromCredentials: jest.fn(() => warehouseClientMock),
 };
 export const SAVED_CHART_MODEL = {};
 export const SPACE_MODEL = {};
@@ -46,59 +49,6 @@ models:
               type: count_distinct
             metric_b:
               type: sum
-`;
-
-export const SCHEMA_JSON = {
-    version: 2,
-    models: [
-        {
-            name: 'table_a',
-            description: '# Description\nThis table has basic information\n',
-            columns: [
-                {
-                    name: 'dim_a',
-                    tests: ['unique', 'not_null'],
-                    meta: {
-                        metrics: {
-                            metric_a: {
-                                type: 'count_distinct',
-                            },
-                            metric_b: {
-                                type: 'sum',
-                            },
-                        },
-                    },
-                },
-            ],
-        },
-        {
-            name: 'table_b',
-            description: '# Description This table has basic information',
-            columns: [
-                {
-                    name: 'dim_a',
-                    tests: ['unique', 'not_null'],
-                    meta: {
-                        metrics: {
-                            metric_a: {
-                                type: 'count_distinct',
-                            },
-                            metric_b: {
-                                type: 'sum',
-                            },
-                        },
-                    },
-                },
-            ],
-        },
-    ],
-};
-
-// invalid schema: models require a `name` field
-export const INVALID_SCHEMA_YML = `
-version: 2
-models:
- - label: table_a
 `;
 
 export const CUSTOM_METRIC: AdditionalMetric = {
@@ -175,13 +125,11 @@ models:
               type: count_distinct
             metric_b:
               type: sum
-        additional_dimensions:
-          amount_size:
-            label: Amount size
-            name: amount_size
-            description: ''
-            type: string
-            sql: \${table_a.dim_a}
+          additional_dimensions:
+            amount_size:
+              label: Amount size
+              type: string
+              sql: \${table_a.dim_a}
   - name: table_b
     description: >-
       # Description This table has basic information

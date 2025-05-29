@@ -2,6 +2,7 @@ import {
     type ResourceViewChartItem,
     type ResourceViewDashboardItem,
     type ResourceViewItem,
+    type ResourceViewSpaceItem,
 } from '@lightdash/common';
 import { type ReactNode } from 'react';
 
@@ -12,8 +13,8 @@ export enum ResourceViewItemAction {
     DUPLICATE,
     ADD_TO_DASHBOARD,
     CREATE_SPACE,
-    MOVE_TO_SPACE,
     PIN_TO_HOMEPAGE,
+    TRANSFER_TO_SPACE,
 }
 
 export enum ResourceViewType {
@@ -27,7 +28,9 @@ export enum ResourceSortDirection {
 }
 
 export type ResourceViewItemActionState =
-    | { type: ResourceViewItemAction.CLOSE }
+    | {
+          type: ResourceViewItemAction.CLOSE;
+      }
     | {
           type: ResourceViewItemAction.UPDATE;
           item: ResourceViewItem;
@@ -53,9 +56,11 @@ export type ResourceViewItemActionState =
           item: ResourceViewItem;
       }
     | {
-          type: ResourceViewItemAction.MOVE_TO_SPACE;
-          item: ResourceViewChartItem | ResourceViewDashboardItem;
-          data: { spaceUuid: string };
+          type: ResourceViewItemAction.TRANSFER_TO_SPACE;
+          item:
+              | ResourceViewChartItem
+              | ResourceViewDashboardItem
+              | ResourceViewSpaceItem;
       };
 
 type TabType = {
@@ -88,4 +93,26 @@ export interface ResourceEmptyStateProps {
     title?: string;
     description?: string;
     action?: ReactNode;
+}
+
+export enum ColumnVisibility {
+    NAME = 'name',
+    SPACE = 'space',
+    UPDATED_AT = 'updatedAt',
+    ACCESS = 'access',
+    CONTENT = 'content',
+}
+
+export type ColumnVisibilityConfig = {
+    [ColumnVisibility.NAME]?: boolean;
+    [ColumnVisibility.SPACE]?: boolean;
+    [ColumnVisibility.UPDATED_AT]?: boolean;
+    [ColumnVisibility.ACCESS]?: boolean;
+    [ColumnVisibility.CONTENT]?: boolean;
+};
+
+export enum ResourceAccess {
+    Private = 'private',
+    Public = 'public',
+    Shared = 'shared',
 }

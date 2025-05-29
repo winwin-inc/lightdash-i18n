@@ -59,6 +59,9 @@ export const useFilterOperatorLabel = () => {
         [FilterOperator.IN_BETWEEN]: t(
             'components_common_filters_inputs.filter_operator_labels.is_between',
         ),
+        [FilterOperator.NOT_IN_BETWEEN]: t(
+            'components_common_filters_inputs.filter_operator_labels.is_not_between',
+        ),
     } as Record<FilterOperator, string>;
 
     const getFilterOptions = <T extends FilterOperator>(

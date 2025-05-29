@@ -10,7 +10,7 @@ import {
 import { Checkbox, Flex, Group, Select, Stack, Text } from '@mantine/core';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useConditionalRuleLabel } from '../../../../components/common/Filters/FilterInputs/utils';
+import { useConditionalRuleLabelFromItem } from '../../../../components/common/Filters/FilterInputs/utils';
 import { type FieldsWithSuggestions } from '../../../../components/Explorer/FiltersCard/useFieldsWithSuggestions';
 import {
     useDashboardQuery,
@@ -31,7 +31,8 @@ const EmbedFiltersInteractivity: React.FC<Props> = ({
     onInteractivityOptionsChange,
 }) => {
     const { t } = useTranslation();
-    const getConditionalRuleLabel = useConditionalRuleLabel();
+
+    const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
     const { data: dashboard } = useDashboardQuery(dashboardUuid);
     const dashboardFilters = useMemo(() => {
@@ -191,7 +192,7 @@ const EmbedFiltersInteractivity: React.FC<Props> = ({
 
                                 if (!field) return;
 
-                                const labels = getConditionalRuleLabel(
+                                const labels = getConditionalRuleLabelFromItem(
                                     filter,
                                     field,
                                 );
@@ -207,7 +208,9 @@ const EmbedFiltersInteractivity: React.FC<Props> = ({
                                                 </Text>
                                                 {filter.disabled ? (
                                                     <Text span color="gray.6">
-                                                        is any value
+                                                        {t(
+                                                            'ai_embed_filters_interactivity.is_any_value',
+                                                        )}
                                                     </Text>
                                                 ) : (
                                                     <>

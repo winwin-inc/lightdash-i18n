@@ -78,7 +78,6 @@ export const lightdashConfigMock: LightdashConfig = {
         path: '/metrics',
     },
     chart: { versionHistory: { daysLimit: 0 } },
-    customVisualizations: { enabled: false },
     database: {
         connectionUri: undefined,
         maxConnections: undefined,
@@ -105,11 +104,20 @@ export const lightdashConfigMock: LightdashConfig = {
     maxPayloadSize: '',
     pivotTable: { maxColumnLimit: 0 },
     posthog: undefined,
-    resultsCache: {
+    s3: {
+        endpoint: 'mock_endpoint',
+        bucket: 'mock_bucket',
+        region: 'mock_region',
+    },
+    results: {
         cacheStateTimeSeconds: 0,
-        resultsEnabled: false,
+        cacheEnabled: false,
         autocompleteEnabled: false,
-        s3: {},
+        s3: {
+            endpoint: 'mock_endpoint',
+            bucket: 'mock_bucket',
+            region: 'mock_region',
+        },
     },
     rudder: {
         writeKey: '',
@@ -149,6 +157,7 @@ export const lightdashConfigMock: LightdashConfig = {
     smtp: undefined,
     siteUrl: 'https://test.lightdash.cloud',
     query: {
+        maxPageSize: 2500,
         maxLimit: 5000,
         defaultLimit: 500,
         csvCellsLimit: 100000,
@@ -157,6 +166,7 @@ export const lightdashConfigMock: LightdashConfig = {
     ai: {
         copilot: {
             enabled: false,
+            requiresFeatureFlag: false,
         },
     },
     embedding: {
@@ -185,5 +195,12 @@ export const lightdashConfigMock: LightdashConfig = {
     },
     contentAsCode: {
         maxDownloads: 100,
+    },
+    appearance: {},
+    microsoftTeams: {
+        enabled: false,
+    },
+    googleCloudPlatform: {
+        projectId: 'test-project-id',
     },
 };

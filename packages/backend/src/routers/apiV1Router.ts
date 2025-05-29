@@ -8,7 +8,6 @@ import {
     storeOIDCRedirect,
 } from '../controllers/authentication';
 import { UserModel } from '../models/UserModel';
-import { analyticsRouter } from './analyticsRouter';
 import { dashboardRouter } from './dashboardRouter';
 import { headlessBrowserRouter } from './headlessBrowser';
 import { inviteLinksRouter } from './inviteLinksRouter';
@@ -109,7 +108,14 @@ apiV1Router.get(lightdashConfig.auth.oidc.callbackPath, (req, res, next) =>
         failureRedirect: getOidcRedirectURL(false)(req),
         successRedirect: getOidcRedirectURL(true)(req),
         failureFlash: true,
-    })(req, res, next),
+        failWithError: true,
+    })(req, res, (err: unknown) => {
+        if (err) {
+            console.error('oidc callback error', err);
+            return res.redirect(getOidcRedirectURL(false)(req));
+        }
+        return next();
+    }),
 );
 
 apiV1Router.get(
@@ -191,4 +197,3 @@ apiV1Router.use('/password-reset', passwordResetLinksRouter);
 apiV1Router.use('/jobs', jobsRouter);
 apiV1Router.use('/slack', slackRouter);
 apiV1Router.use('/headless-browser', headlessBrowserRouter);
-apiV1Router.use('/analytics', analyticsRouter);

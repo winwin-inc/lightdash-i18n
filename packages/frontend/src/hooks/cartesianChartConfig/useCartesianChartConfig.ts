@@ -7,13 +7,13 @@ import {
     isNumericItem,
     XAxisSort,
     XAxisSortType,
-    type ApiQueryResults,
     type CartesianChart,
     type CompleteCartesianChartLayout,
     type EchartsGrid,
     type EchartsLegend,
     type ItemsMap,
     type MarkLineData,
+    type MetricQuery,
     type Series,
     type SeriesMetadata,
     type TableCalculationMetadata,
@@ -25,6 +25,7 @@ import {
     getMarkLineAxis,
     type ReferenceLineField,
 } from '../../components/common/ReferenceLine';
+import type { InfiniteQueryResults } from '../useQueryResults';
 import {
     getExpectedSeriesMap,
     mergeExistingAndExpectedSeries,
@@ -42,7 +43,12 @@ export type CartesianTypeOptions = {
 type Args = {
     initialChartConfig: CartesianChart | undefined;
     pivotKeys: string[] | undefined;
-    resultsData: ApiQueryResults | undefined;
+    resultsData:
+        | (InfiniteQueryResults & {
+              metricQuery?: MetricQuery;
+              fields?: ItemsMap;
+          })
+        | undefined;
     setPivotDimensions: React.Dispatch<
         React.SetStateAction<string[] | undefined>
     >;
@@ -61,6 +67,11 @@ const applyReferenceLines = (
 ): Series[] => {
     let appliedReferenceLines: string[] = []; // Don't apply the same reference line to multiple series
     return series.map((serie) => {
+        // Skip if the series is filtered out
+        if (serie.isFilteredOut) {
+            return { ...serie, markLine: undefined };
+        }
+
         const referenceLinesForSerie = referenceLines.filter(
             (referenceLine) => {
                 if (referenceLine.fieldId === undefined) return false;
@@ -542,7 +553,7 @@ const useCartesianChartConfig = ({
         // This is computed on first load and also when the table calculation is updated in edit mode
         if (stacking === false) return;
         const tableCalculation =
-            resultsData?.metricQuery.tableCalculations?.find(
+            resultsData?.metricQuery?.tableCalculations?.find(
                 (tc) => tc.name === dirtyLayout?.xField,
             );
         if (tableCalculation) {
@@ -551,7 +562,7 @@ const useCartesianChartConfig = ({
         }
     }, [
         dirtyLayout?.xField,
-        resultsData?.metricQuery.tableCalculations,
+        resultsData?.metricQuery?.tableCalculations,
         stacking,
         setStacking,
     ]);
@@ -564,17 +575,17 @@ const useCartesianChartConfig = ({
 
     const sortedDimensions = useMemo(() => {
         return sortDimensions(
-            resultsData?.metricQuery.dimensions || [],
+            resultsData?.metricQuery?.dimensions || [],
             itemsMap,
             columnOrder,
         );
-    }, [resultsData?.metricQuery.dimensions, itemsMap, columnOrder]);
+    }, [resultsData?.metricQuery?.dimensions, itemsMap, columnOrder]);
 
     const [availableFields, availableDimensions, availableMetrics] =
         useMemo(() => {
-            const metrics = resultsData?.metricQuery.metrics || [];
+            const metrics = resultsData?.metricQuery?.metrics || [];
             const tableCalculations =
-                resultsData?.metricQuery.tableCalculations.map(
+                resultsData?.metricQuery?.tableCalculations.map(
                     ({ name }) => name,
                 ) || [];
 
@@ -844,9 +855,13 @@ const useCartesianChartConfig = ({
     const [referenceLines, setReferenceLines] = useState<ReferenceLineField[]>(
         selectedReferenceLines,
     );
+
+    const [tooltip, setTooltip] = useState<string | undefined>(
+        dirtyEchartsConfig?.tooltip,
+    );
     // Generate expected series
     useEffect(() => {
-        if (isCompleteLayout(dirtyLayout) && resultsData) {
+        if (isCompleteLayout(dirtyLayout) && resultsData?.hasFetchedAllRows) {
             setDirtyEchartsConfig((prev) => {
                 const defaultCartesianType =
                     prev?.series?.[0]?.type || CartesianSeriesType.BAR;
@@ -866,7 +881,7 @@ const useCartesianChartConfig = ({
                     availableDimensions,
                     isStacked,
                     pivotKeys,
-                    resultsData,
+                    rows: resultsData.rows,
                     xField: dirtyLayout.xField,
                     yFields: dirtyLayout.yField,
                     defaultLabel,
@@ -913,11 +928,12 @@ const useCartesianChartConfig = ({
                       series: dirtyEchartsConfig.series.filter(
                           (serie) => !serie.isFilteredOut,
                       ),
+                      tooltip,
                   },
                   metadata: dirtyMetadata,
               }
             : EMPTY_CARTESIAN_CHART_CONFIG;
-    }, [dirtyLayout, dirtyEchartsConfig, dirtyMetadata]);
+    }, [dirtyLayout, dirtyEchartsConfig, dirtyMetadata, tooltip]);
 
     const { dirtyChartType } = useMemo(() => {
         const firstSeriesType =
@@ -973,6 +989,8 @@ const useCartesianChartConfig = ({
         updateSeries,
         referenceLines,
         setReferenceLines,
+        tooltip,
+        setTooltip,
         updateMetadata,
     };
 };

@@ -702,41 +702,63 @@ export class SavedChartModel {
             .where(`${ProjectTableName}.project_uuid`, projectUuid);
     }
 
-    async getChartCountPerField(projectUuid: string) {
-        const chartSummaryQuery = this.getChartSummaryQuery().clearSelect();
-        const results = await chartSummaryQuery
+    async getChartCountPerField(projectUuid: string, fieldIds: string[]) {
+        // First CTE: Get relevant saved_query_ids for the project through spaces and dashboards
+        const relevantCharts = this.database
+            .select(`${SavedChartsTableName}.saved_query_id`)
+            .distinct()
+            .from(SavedChartsTableName)
+            .leftJoin(
+                DashboardsTableName,
+                `${DashboardsTableName}.dashboard_uuid`,
+                `${SavedChartsTableName}.dashboard_uuid`,
+            )
+            .innerJoin(SpaceTableName, function spaceJoin() {
+                this.on(
+                    `${SpaceTableName}.space_id`,
+                    '=',
+                    `${DashboardsTableName}.space_id`,
+                ).orOn(
+                    `${SpaceTableName}.space_id`,
+                    '=',
+                    `${SavedChartsTableName}.space_id`,
+                );
+            })
+            .innerJoin(
+                ProjectTableName,
+                `${SpaceTableName}.project_id`,
+                `${ProjectTableName}.project_id`,
+            )
+            .where(`${ProjectTableName}.project_uuid`, projectUuid);
+
+        // Get latest versions for these charts
+        const latestVersions = this.database
+            .select('saved_query_id')
+            .max('saved_queries_version_id')
+            .from(SavedChartVersionsTableName)
+            .whereIn('saved_query_id', relevantCharts)
+            .groupBy('saved_query_id')
+            .as('latest_versions');
+
+        const results = await this.database
             .select({
                 fieldId: `${SavedChartVersionFieldsTableName}.name`,
             })
-            // Count returns by default as BigInt, so we need to cast to number
             .count<{ fieldId: string; count: BigInt }[]>(
-                `${SavedChartsTableName}.saved_query_uuid`,
+                `latest_versions.saved_query_id`,
             )
-            .leftJoin(
-                SavedChartVersionsTableName,
-                `${SavedChartsTableName}.saved_query_id`,
-                `${SavedChartVersionsTableName}.saved_query_id`,
-            )
-            .leftJoin(
-                SavedChartVersionFieldsTableName,
-                `${SavedChartVersionsTableName}.saved_queries_version_id`,
+            .from(SavedChartVersionFieldsTableName)
+            .innerJoin(
+                latestVersions,
                 `${SavedChartVersionFieldsTableName}.saved_queries_version_id`,
+                'latest_versions.max',
             )
-            .where(
-                // filter by last version
-                `${SavedChartVersionsTableName}.saved_queries_version_id`,
-                this.database.raw(`(select saved_queries_version_id
-                               from ${SavedChartVersionsTableName}
-                               where saved_queries.saved_query_id = ${SavedChartVersionsTableName}.saved_query_id
-                               order by ${SavedChartVersionsTableName}.created_at desc
-                               limit 1)`),
-            )
-            .where(`${ProjectTableName}.project_uuid`, projectUuid)
+            .whereIn(`${SavedChartVersionFieldsTableName}.name`, fieldIds)
             .groupBy(`${SavedChartVersionFieldsTableName}.name`);
 
         return results.map(({ fieldId, count }) => ({
             fieldId,
-            count: Number(count),
+            count: Number(count), // Count returns by default as BigInt, so we need to cast to number
         }));
     }
 
@@ -973,6 +995,21 @@ export class SavedChartModel {
                     config: savedQuery.chart_config,
                 } as ChartConfig;
 
+                const getColorPalette = () => {
+                    if (
+                        this.lightdashConfig.appearance.overrideColorPalette &&
+                        this.lightdashConfig.appearance.overrideColorPalette
+                            .length > 0
+                    ) {
+                        return this.lightdashConfig.appearance
+                            .overrideColorPalette;
+                    }
+                    if (savedQuery.color_palette) {
+                        return savedQuery.color_palette;
+                    }
+                    return ECHARTS_DEFAULT_COLORS;
+                };
+
                 return {
                     uuid: savedQuery.saved_query_uuid,
                     projectUuid: savedQuery.project_uuid,
@@ -1052,8 +1089,7 @@ export class SavedChartModel {
                     pinnedListOrder: null,
                     dashboardUuid: savedQuery.dashboard_uuid,
                     dashboardName: savedQuery.dashboardName,
-                    colorPalette:
-                        savedQuery.color_palette ?? ECHARTS_DEFAULT_COLORS,
+                    colorPalette: getColorPalette(),
                     slug: savedQuery.slug,
                 };
             },
@@ -1116,6 +1152,72 @@ export class SavedChartModel {
         return chartsNotInTilesUuids;
     }
 
+    // CTE to get the last version of each chart in the project
+    private getProjectChartsLastVersionCTE(
+        qb: Knex.QueryBuilder,
+        projectUuid: string,
+    ) {
+        return qb.unionAll([
+            // First part of UNION - charts in space
+            this.database
+                .select({
+                    saved_query_uuid: 'sq.saved_query_uuid',
+                    name: 'sq.name',
+                    saved_queries_version_id: this.database.raw(
+                        'MAX(sqv.saved_queries_version_id)',
+                    ),
+                    dashboard_uuid: 'sq.dashboard_uuid',
+                })
+                .from(`${SavedChartsTableName} as sq`)
+                .innerJoin(
+                    `${SpaceTableName} as s`,
+                    's.space_id',
+                    'sq.space_id',
+                )
+                .innerJoin(
+                    `${ProjectTableName} as p`,
+                    'p.project_id',
+                    's.project_id',
+                )
+                .leftJoin(
+                    `${SavedChartVersionsTableName} as sqv`,
+                    'sq.saved_query_id',
+                    'sqv.saved_query_id',
+                )
+                .where('p.project_uuid', projectUuid)
+                .groupBy('sq.saved_query_uuid', 'sq.name', 'sq.dashboard_uuid'),
+
+            this.database
+                .select({
+                    saved_query_uuid: 'sq.saved_query_uuid',
+                    name: 'sq.name',
+                    saved_queries_version_id: this.database.raw(
+                        'MAX(sqv.saved_queries_version_id)',
+                    ),
+                    dashboard_uuid: 'sq.dashboard_uuid',
+                })
+                .from(`${SavedChartsTableName} as sq`)
+                .innerJoin(
+                    `${DashboardsTableName} as d`,
+                    'd.dashboard_uuid',
+                    'sq.dashboard_uuid',
+                )
+                .innerJoin(`${SpaceTableName} as s`, 's.space_id', 'd.space_id')
+                .innerJoin(
+                    `${ProjectTableName} as p`,
+                    'p.project_id',
+                    's.project_id',
+                )
+                .leftJoin(
+                    `${SavedChartVersionsTableName} as sqv`,
+                    'sq.saved_query_id',
+                    'sqv.saved_query_id',
+                )
+                .where('p.project_uuid', projectUuid)
+                .groupBy('sq.saved_query_uuid', 'sq.name', 'sq.dashboard_uuid'),
+        ]);
+    }
+
     async findChartsForValidation(projectUuid: string): Promise<
         Array<{
             uuid: string;
@@ -1136,51 +1238,9 @@ export class SavedChartModel {
     > {
         const cteName = 'chart_last_version_cte';
         const savedCharts = await this.database
-            // cte to get the last version of each chart in the project
-            .with(cteName, (qb) => {
-                void qb
-                    .select({
-                        saved_query_uuid: 'saved_queries.saved_query_uuid',
-                        name: 'saved_queries.name',
-                        saved_queries_version_id: this.database.raw(
-                            'MAX(saved_queries_versions.saved_queries_version_id)',
-                        ),
-                        dashboard_uuid: 'saved_queries.dashboard_uuid',
-                    })
-                    .from(SavedChartsTableName)
-                    .leftJoin(
-                        DashboardsTableName,
-                        `${DashboardsTableName}.dashboard_uuid`,
-                        `${SavedChartsTableName}.dashboard_uuid`,
-                    )
-                    .innerJoin(SpaceTableName, function spaceJoin() {
-                        this.on(
-                            `${SpaceTableName}.space_id`,
-                            '=',
-                            `${DashboardsTableName}.space_id`,
-                        ).orOn(
-                            `${SpaceTableName}.space_id`,
-                            '=',
-                            `${SavedChartsTableName}.space_id`,
-                        );
-                    })
-                    .leftJoin(
-                        ProjectTableName,
-                        'spaces.project_id',
-                        'projects.project_id',
-                    )
-                    .leftJoin(
-                        SavedChartVersionsTableName,
-                        'saved_queries.saved_query_id',
-                        'saved_queries_versions.saved_query_id',
-                    )
-                    .where('projects.project_uuid', projectUuid)
-                    .groupBy(
-                        'saved_queries.saved_query_uuid',
-                        'saved_queries.name',
-                        'saved_queries.dashboard_uuid',
-                    );
-            })
+            .with(cteName, (qb) =>
+                this.getProjectChartsLastVersionCTE(qb, projectUuid),
+            )
             .select({
                 uuid: `${cteName}.saved_query_uuid`,
                 name: `${cteName}.name`,
@@ -1278,6 +1338,7 @@ export class SavedChartModel {
         slug?: string;
         slugs?: string[];
         exploreName?: string;
+        exploreNames?: string[];
         excludeChartsSavedInDashboard?: boolean;
         includeOrphanChartsWithinDashboard?: boolean;
     }): Promise<(ChartSummary & { updatedAt: Date })[]> {
@@ -1375,6 +1436,19 @@ export class SavedChartModel {
                         .where(
                             'saved_queries_versions.explore_name',
                             filters.exploreName,
+                        )
+                        .distinctOn('saved_queries.saved_query_uuid');
+                }
+                if (filters.exploreNames) {
+                    void query
+                        .leftJoin(
+                            SavedChartVersionsTableName,
+                            `${SavedChartVersionsTableName}.saved_query_id`,
+                            `${SavedChartsTableName}.saved_query_id`,
+                        )
+                        .whereIn(
+                            'saved_queries_versions.explore_name',
+                            filters.exploreNames,
                         )
                         .distinctOn('saved_queries.saved_query_uuid');
                 }
@@ -1568,51 +1642,9 @@ export class SavedChartModel {
     > {
         const cteName = 'chart_last_version_cte';
         const savedCharts = await this.database
-            // cte to get the last version of each chart in the project
-            .with(cteName, (qb) => {
-                void qb
-                    .select({
-                        saved_query_uuid: 'saved_queries.saved_query_uuid',
-                        name: 'saved_queries.name',
-                        saved_queries_version_id: this.database.raw(
-                            'MAX(saved_queries_versions.saved_queries_version_id)',
-                        ),
-                        dashboard_uuid: 'saved_queries.dashboard_uuid',
-                    })
-                    .from(SavedChartsTableName)
-                    .leftJoin(
-                        DashboardsTableName,
-                        `${DashboardsTableName}.dashboard_uuid`,
-                        `${SavedChartsTableName}.dashboard_uuid`,
-                    )
-                    .innerJoin(SpaceTableName, function spaceJoin() {
-                        this.on(
-                            `${SpaceTableName}.space_id`,
-                            '=',
-                            `${DashboardsTableName}.space_id`,
-                        ).orOn(
-                            `${SpaceTableName}.space_id`,
-                            '=',
-                            `${SavedChartsTableName}.space_id`,
-                        );
-                    })
-                    .leftJoin(
-                        ProjectTableName,
-                        'spaces.project_id',
-                        'projects.project_id',
-                    )
-                    .leftJoin(
-                        SavedChartVersionsTableName,
-                        'saved_queries.saved_query_id',
-                        'saved_queries_versions.saved_query_id',
-                    )
-                    .where('projects.project_uuid', projectUuid)
-                    .groupBy(
-                        'saved_queries.saved_query_uuid',
-                        'saved_queries.name',
-                        'saved_queries.dashboard_uuid',
-                    );
-            })
+            .with(cteName, (qb) =>
+                this.getProjectChartsLastVersionCTE(qb, projectUuid),
+            )
             .select({
                 uuid: `${cteName}.saved_query_uuid`,
                 name: `${cteName}.name`,
@@ -1650,5 +1682,46 @@ export class SavedChartModel {
                     SavedChartModel.convertDbSavedChartAdditionalMetricToAdditionalMetric,
                 ),
             }));
+    }
+
+    async moveToSpace(
+        {
+            projectUuid,
+            itemUuid: savedChartUuid,
+            targetSpaceUuid,
+        }: {
+            projectUuid: string;
+            itemUuid: string;
+            targetSpaceUuid: string | null;
+        },
+        { tx = this.database }: { tx?: Knex } = {},
+    ): Promise<void> {
+        if (targetSpaceUuid === null) {
+            throw new Error('Cannot move saved chart out of a space');
+        }
+
+        const space = await tx(SpaceTableName)
+            .select('space_id')
+            .innerJoin(
+                ProjectTableName,
+                `${ProjectTableName}.project_id`,
+                `${SpaceTableName}.project_id`,
+            )
+            .where('space_uuid', targetSpaceUuid)
+            .where(`${ProjectTableName}.project_uuid`, projectUuid)
+            .first();
+
+        if (!space) {
+            throw new NotFoundError('Space not found');
+        }
+
+        const updateCount = await tx(SavedChartsTableName)
+            // if we move a chart from a dashboard to a space, we need to set the dashboard_uuid to null
+            .update({ space_id: space.space_id, dashboard_uuid: null })
+            .where('saved_query_uuid', savedChartUuid);
+
+        if (updateCount !== 1) {
+            throw new Error('Failed to move saved chart to space');
+        }
     }
 }

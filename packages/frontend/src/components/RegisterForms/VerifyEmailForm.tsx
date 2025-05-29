@@ -106,6 +106,7 @@ const VerifyEmailForm: FC<{ isLoading?: boolean }> = ({ isLoading }) => {
                         }
                         {...form.getInputProps('code')}
                         data-testid="pin-input"
+                        autoFocus
                     />
                     <Text ta="center" color="red.7">
                         {errorMessage?.toString()}

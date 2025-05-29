@@ -1,5 +1,4 @@
 import {
-    MetricType,
     formatItemValue,
     getConditionalFormattingColor,
     getConditionalFormattingConfig,
@@ -7,7 +6,7 @@ import {
     getItemId,
     isDimension,
     isField,
-    isMetric,
+    isHexCodeColor,
     isNumericItem,
     isSummable,
     type ConditionalFormattingConfig,
@@ -26,7 +25,6 @@ import {
     getExpandedRowModel,
     useReactTable,
     type GroupingState,
-    type Row,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import isEqual from 'lodash/isEqual';
@@ -34,10 +32,17 @@ import last from 'lodash/last';
 import { readableColor } from 'polished';
 import React, { useCallback, useEffect, useMemo, useRef, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getDecimalPrecision } from '../../../hooks/tableVisualization/getDataAndColumns';
-import { formatCellContent } from '../../../hooks/useColumns';
-import { getColorFromRange, isHexCodeColor } from '../../../utils/colorUtils';
-import { useConditionalRuleLabel } from '../Filters/FilterInputs/utils';
+
+import {
+    getGroupingValuesAndSubtotalKey,
+    getSubtotalValueFromGroup,
+} from '../../../hooks/tableVisualization/getDataAndColumns';
+import {
+    formatCellContent,
+    getFormattedValueCell,
+} from '../../../hooks/useColumns';
+import { getColorFromRange } from '../../../utils/colorUtils';
+import { useConditionalRuleLabelFromItem } from '../Filters/FilterInputs/utils';
 import Table from '../LightTable';
 import { CELL_HEIGHT } from '../LightTable/constants';
 import MantineIcon from '../MantineIcon';
@@ -104,9 +109,10 @@ const PivotTable: FC<PivotTableProps> = ({
     ...tableProps
 }) => {
     const { t } = useTranslation();
-    const getConditionalRuleLabel = useConditionalRuleLabel();
     const containerRef = useRef<HTMLDivElement>(null);
     const [grouping, setGrouping] = React.useState<GroupingState>([]);
+
+    const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
     const hasColumnTotals = data.pivotConfig.columnTotals;
 
@@ -155,59 +161,13 @@ const PivotTable: FC<PivotTableProps> = ({
 
                 const itemId = col.underlyingId || col.baseId || col.fieldId;
                 const item = itemId ? getField(itemId) : undefined;
-
-                const shouldAggregate =
-                    col.columnType === 'rowTotal' ||
-                    (item &&
-                        isField(item) &&
-                        isMetric(item) &&
-                        [MetricType.SUM, MetricType.COUNT].includes(item.type));
-
-                // TODO: Remove code duplicated from non-pivot table version.
-                const aggregationFunction = shouldAggregate
-                    ? (
-                          columnId: string,
-                          _leafRows: Row<ResultRow>[],
-                          childRows: Row<ResultRow>[],
-                      ) => {
-                          const aggregatedValue = childRows.reduce<
-                              number | null
-                          >((agg, childRow) => {
-                              const cellValue = childRow.getValue(columnId) as
-                                  | ResultRow[number]
-                                  | undefined;
-                              const rawValue = cellValue?.value?.raw;
-
-                              if (rawValue === null) return agg;
-                              const adder = Number(rawValue);
-                              if (isNaN(adder)) return agg;
-
-                              const numericAgg = agg ?? 0;
-                              const precision = getDecimalPrecision(
-                                  adder,
-                                  numericAgg,
-                              );
-                              return (
-                                  (numericAgg * precision + adder * precision) /
-                                  precision
-                              );
-                          }, null);
-
-                          return (
-                              <Text span fw={600}>
-                                  {formatItemValue(item, aggregatedValue)}
-                              </Text>
-                          );
-                      }
-                    : undefined;
-
                 const column: TableColumn = columnHelper.accessor(
                     (row: ResultRow) => {
                         return row[col.fieldId];
                     },
                     {
                         id: col.fieldId,
-                        cell: (info) => formatCellContent(info.getValue()),
+                        cell: getFormattedValueCell,
                         meta: {
                             item: item,
                             type: col.columnType,
@@ -216,12 +176,69 @@ const PivotTable: FC<PivotTableProps> = ({
                                     ? finalHeaderInfoForColumns[colIndex]
                                     : undefined,
                         },
-                        aggregationFn: aggregationFunction,
                         aggregatedCell: (info) => {
-                            const value = info.getValue();
-                            const ret = value ?? info.cell.getValue();
-                            const numVal = Number(ret);
-                            return isNaN(numVal) ? ret : numVal;
+                            if (info.row.getIsGrouped()) {
+                                const groupingValuesAndSubtotalKey =
+                                    getGroupingValuesAndSubtotalKey(info);
+
+                                if (!groupingValuesAndSubtotalKey) {
+                                    return null;
+                                }
+
+                                const { groupingValues, subtotalGroupKey } =
+                                    groupingValuesAndSubtotalKey;
+
+                                // Get the pivoted header values for the column
+                                const pivotedHeaderValues =
+                                    finalHeaderInfoForColumns[colIndex];
+
+                                // Find the subtotal for the row, this is used to find the subtotal in the groupedSubtotals object
+                                const subtotal = data.groupedSubtotals?.[
+                                    subtotalGroupKey
+                                ]?.find((sub) => {
+                                    try {
+                                        return (
+                                            // All grouping values in the row must match the subtotal values
+                                            Object.keys(groupingValues).every(
+                                                (key) => {
+                                                    return (
+                                                        groupingValues[key]
+                                                            ?.value.raw ===
+                                                        sub[key]
+                                                    );
+                                                },
+                                            ) &&
+                                            // All pivoted header values in the row must match the subtotal values
+                                            Object.keys(
+                                                pivotedHeaderValues,
+                                            ).every((key) => {
+                                                return (
+                                                    pivotedHeaderValues[key]
+                                                        ?.raw === sub[key]
+                                                );
+                                            })
+                                        );
+                                    } catch (e) {
+                                        console.error(e);
+                                        return false;
+                                    }
+                                });
+
+                                const subtotalValue = getSubtotalValueFromGroup(
+                                    subtotal,
+                                    col.baseId ?? col.fieldId,
+                                );
+
+                                if (subtotalValue === null) {
+                                    return null;
+                                }
+
+                                return (
+                                    <Text span fw={600}>
+                                        {formatItemValue(item, subtotalValue)}
+                                    </Text>
+                                );
+                            }
                         },
                     },
                 );
@@ -234,14 +251,7 @@ const PivotTable: FC<PivotTableProps> = ({
         if (!hideRowNumbers) newColumns = [rowColumn, ...newColumns];
 
         return { columns: newColumns, columnOrder: newColumnOrder };
-    }, [
-        data.retrofitData.pivotColumnInfo,
-        data.indexValueTypes.length,
-        data.headerValues,
-        data.titleFields,
-        getField,
-        hideRowNumbers,
-    ]);
+    }, [data, hideRowNumbers, getField]);
 
     const table = useReactTable({
         data: data.retrofitData.allCombinedData,
@@ -325,9 +335,14 @@ const PivotTable: FC<PivotTableProps> = ({
             visibleCells.forEach((cell, cellIndex) => {
                 if (cell.column.columnDef.meta?.type === 'indexValue') {
                     if (cell.column.columnDef.id) {
-                        const fullValue = cell.getValue() as ResultRow[0];
-                        underlyingValues[cell.column.columnDef.id] =
-                            fullValue.value;
+                        const fullValue = cell.getValue() as
+                            | ResultRow[0]
+                            | undefined;
+
+                        if (fullValue) {
+                            underlyingValues[cell.column.columnDef.id] =
+                                fullValue.value;
+                        }
                     }
                 } else if (cell.column.columnDef.meta?.type === 'label') {
                     const info = data.indexValues[rowIndex].find(
@@ -370,6 +385,7 @@ const PivotTable: FC<PivotTableProps> = ({
             const groupedColumns = data.indexValueTypes.map(
                 (valueType) => valueType.fieldId,
             );
+
             const sortedColumns = table
                 .getState()
                 .columnOrder.reduce<string[]>((acc, sortedId) => {
@@ -550,7 +566,7 @@ const PivotTable: FC<PivotTableProps> = ({
                                 if (item && isDimension(item)) {
                                     const underlyingId = data.indexValues[
                                         rowIndex
-                                    ].find(
+                                    ]?.find(
                                         (indexValue) =>
                                             indexValue.type === 'label',
                                     )?.fieldId;
@@ -587,7 +603,7 @@ const PivotTable: FC<PivotTableProps> = ({
                                             item,
                                             conditionalFormattingConfig,
                                             rowFields,
-                                            getConditionalRuleLabel,
+                                            getConditionalRuleLabelFromItem,
                                         );
 
                                     if (

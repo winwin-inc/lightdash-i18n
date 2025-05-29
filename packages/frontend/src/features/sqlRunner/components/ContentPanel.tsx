@@ -1,6 +1,7 @@
 import {
     ChartKind,
     isVizTableConfig,
+    MAX_PIVOT_COLUMN_LIMIT,
     type VizTableConfig,
     type VizTableHeaderSortConfig,
 } from '@lightdash/common';
@@ -19,6 +20,7 @@ import {
 import { useElementSize, useHotkeys } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import {
+    IconAlertCircle,
     IconChartHistogram,
     IconCodeCircle,
     IconGripHorizontal,
@@ -54,6 +56,7 @@ import { Table } from '../../../components/DataViz/visualizations/Table';
 import RunSqlQueryButton from '../../../components/SqlRunner/RunSqlQueryButton';
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import useToaster from '../../../hooks/toaster/useToaster';
+import useApp from '../../../providers/App/useApp';
 import { DEFAULT_SQL_LIMIT } from '../constants';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
@@ -102,6 +105,7 @@ export const ContentPanel: FC = () => {
 
     // Get organization colors to generate chart specs with a color palette defined by the organization
     const { data: organization } = useOrganization();
+    const { health } = useApp();
 
     const { showToastError } = useToaster();
 
@@ -134,17 +138,17 @@ export const ContentPanel: FC = () => {
 
     const handleRunQuery = useCallback(
         async (sqlToUse: string) => {
-            if (!sqlToUse) return;
+            if (!sqlToUse || !limit) return;
 
             await dispatch(
                 runSqlQuery({
                     sql: sqlToUse,
-                    limit: DEFAULT_SQL_LIMIT,
+                    limit,
                     projectUuid,
                 }),
             );
         },
-        [dispatch, projectUuid],
+        [dispatch, projectUuid, limit],
     );
 
     useEffect(() => {
@@ -244,6 +248,13 @@ export const ContentPanel: FC = () => {
         selectPivotChartDataByKind(state, selectedChartType),
     );
 
+    const hasReachedPivotColumnLimit = useMemo(
+        () =>
+            pivotedChartInfo?.data?.columnCount &&
+            pivotedChartInfo?.data?.columnCount > MAX_PIVOT_COLUMN_LIMIT,
+        [pivotedChartInfo],
+    );
+
     const resultsFileUrl = useMemo(() => queryResults?.fileUrl, [queryResults]);
 
     useEffect(() => {
@@ -252,6 +263,16 @@ export const ContentPanel: FC = () => {
             setPanelSizes([50, 50]);
         }
     }, [queryResults, panelSizes]);
+
+    const defaultQueryLimit = useMemo(() => {
+        return health.data?.query.defaultLimit ?? DEFAULT_SQL_LIMIT;
+    }, [health]);
+
+    useEffect(() => {
+        if (!limit) {
+            dispatch(setSqlLimit(defaultQueryLimit));
+        }
+    }, [defaultQueryLimit, dispatch, limit]);
 
     const [activeEchartsInstance, setActiveEchartsInstance] =
         useState<EChartsInstance>();
@@ -460,6 +481,7 @@ export const ContentPanel: FC = () => {
                                             ) ?? []
                                         }
                                         chartName={savedSqlChart?.name}
+                                        defaultQueryLimit={defaultQueryLimit}
                                     />
                                 )
                             )}
@@ -684,7 +706,7 @@ export const ContentPanel: FC = () => {
                                     {t(
                                         'features_sql_runner_content_panel.limit_rows',
                                         {
-                                            limit: DEFAULT_SQL_LIMIT,
+                                            limit: defaultQueryLimit,
                                         },
                                     )}
                                 </Text>
@@ -746,24 +768,61 @@ export const ContentPanel: FC = () => {
                                         {selectedChartType &&
                                             pivotedChartInfo?.data
                                                 ?.tableData && (
-                                                <ChartDataTable
-                                                    columnNames={
-                                                        pivotedChartInfo?.data
-                                                            .tableData?.columns
-                                                    }
-                                                    rows={
-                                                        pivotedChartInfo?.data
-                                                            .tableData?.rows ??
-                                                        []
-                                                    }
-                                                    flexProps={{
-                                                        mah: '100%',
-                                                    }}
-                                                    onTHClick={
-                                                        handleTableHeaderClick
-                                                    }
-                                                    thSortConfig={sortConfig}
-                                                />
+                                                <>
+                                                    {hasReachedPivotColumnLimit && (
+                                                        <Group
+                                                            position="center"
+                                                            spacing="xs"
+                                                        >
+                                                            <MantineIcon
+                                                                color="gray"
+                                                                icon={
+                                                                    IconAlertCircle
+                                                                }
+                                                            />
+                                                            <Text
+                                                                fz="xs"
+                                                                fw={400}
+                                                                c="gray.7"
+                                                                ta="center"
+                                                            >
+                                                                {t(
+                                                                    'features_sql_runner_content_panel.prvot_columns_limit.part_1',
+                                                                    {
+                                                                        limit: MAX_PIVOT_COLUMN_LIMIT,
+                                                                    },
+                                                                )}
+                                                                {t(
+                                                                    'features_sql_runner_content_panel.prvot_columns_limit.part_2',
+                                                                    {
+                                                                        limit: MAX_PIVOT_COLUMN_LIMIT,
+                                                                    },
+                                                                )}
+                                                            </Text>
+                                                        </Group>
+                                                    )}
+                                                    <ChartDataTable
+                                                        columnNames={
+                                                            pivotedChartInfo
+                                                                ?.data.tableData
+                                                                ?.columns
+                                                        }
+                                                        rows={
+                                                            pivotedChartInfo
+                                                                ?.data.tableData
+                                                                ?.rows ?? []
+                                                        }
+                                                        flexProps={{
+                                                            mah: '100%',
+                                                        }}
+                                                        onTHClick={
+                                                            handleTableHeaderClick
+                                                        }
+                                                        thSortConfig={
+                                                            sortConfig
+                                                        }
+                                                    />
+                                                </>
                                             )}
                                     </ConditionalVisibility>
                                 </>

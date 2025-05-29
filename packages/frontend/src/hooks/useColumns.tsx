@@ -1,6 +1,5 @@
 import {
     formatItemValue,
-    friendlyName,
     getItemMap,
     isAdditionalMetric,
     isCustomDimension,
@@ -20,7 +19,9 @@ import {
 import { Group, Tooltip } from '@mantine/core';
 import { IconExclamationCircle } from '@tabler/icons-react';
 import { type CellContext } from '@tanstack/react-table';
-import { Fragment, useMemo } from 'react';
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { formatRowValueFromWarehouse } from '../components/DataViz/formatters/formatRowValueFromWarehouse';
 import MantineIcon from '../components/common/MantineIcon';
 import {
@@ -32,6 +33,7 @@ import {
     columnHelper,
     type TableColumn,
 } from '../components/common/Table/types';
+import useEmbed from '../ee/providers/Embed/useEmbed';
 import useExplorerContext from '../providers/Explorer/useExplorerContext';
 import { useCalculateTotal } from './useCalculateTotal';
 import { useExplore } from './useExplore';
@@ -48,28 +50,12 @@ export const getItemBgColor = (
 };
 
 export const formatCellContent = (data?: { value: ResultValue }) => {
-    if (!data) return '-';
-
-    const { value } = data;
-
-    if (typeof value?.formatted === 'string') {
-        const lines = value?.formatted.split('\n') ?? [];
-        return lines.length > 1
-            ? lines.map((line, index, array) => (
-                  <Fragment key={index}>
-                      {line}
-                      {index < array.length - 1 && <br />}
-                  </Fragment>
-              ))
-            : value?.formatted ?? value?.raw;
-    }
-
-    return value?.formatted ?? value?.raw;
+    return data?.value.formatted ?? '-';
 };
 
 export const getFormattedValueCell = (
     info: CellContext<ResultRow, { value: ResultValue }>,
-) => <span>{formatCellContent(info.getValue())}</span>;
+) => formatCellContent(info.getValue());
 
 export const getValueCell = (info: CellContext<RawResultRow, string>) => {
     const value = info.getValue();
@@ -78,6 +64,8 @@ export const getValueCell = (info: CellContext<RawResultRow, string>) => {
 };
 
 export const useColumns = (): TableColumn[] => {
+    const { t } = useTranslation();
+
     const activeFields = useExplorerContext(
         (context) => context.state.activeFields,
     );
@@ -99,13 +87,18 @@ export const useColumns = (): TableColumn[] => {
     const sorts = useExplorerContext(
         (context) => context.state.unsavedChartVersion.metricQuery.sorts,
     );
-    const resultsData = useExplorerContext(
-        (context) => context.queryResults.data,
+    const resultsMetricQuery = useExplorerContext(
+        (context) => context.query.data?.metricQuery,
+    );
+    const resultsFields = useExplorerContext(
+        (context) => context.query.data?.fields,
     );
 
     const { data: exploreData } = useExplore(tableName, {
         refetchOnMount: false,
     });
+
+    const { embedToken } = useEmbed();
 
     const itemsMap = useMemo<ItemsMap | undefined>(() => {
         if (exploreData) {
@@ -117,11 +110,11 @@ export const useColumns = (): TableColumn[] => {
                     tableCalculations,
                     customDimensions,
                 ),
-                ...(resultsData?.fields || {}),
+                ...(resultsFields || {}),
             };
         }
     }, [
-        resultsData,
+        resultsFields,
         exploreData,
         additionalMetrics,
         tableCalculations,
@@ -162,12 +155,13 @@ export const useColumns = (): TableColumn[] => {
     }, [itemsMap, activeFields]);
 
     const { data: totals } = useCalculateTotal({
-        metricQuery: resultsData?.metricQuery,
+        metricQuery: resultsMetricQuery,
         explore: exploreData?.baseTable,
-        fieldIds: resultsData
-            ? itemsInMetricQuery(resultsData.metricQuery)
+        fieldIds: resultsMetricQuery
+            ? itemsInMetricQuery(resultsMetricQuery)
             : undefined,
         itemsMap: activeItemsMap,
+        embedToken,
     });
 
     return useMemo(() => {
@@ -196,11 +190,15 @@ export const useColumns = (): TableColumn[] => {
                                         {item.label}
                                     </TableHeaderBoldLabel>
                                 </>
+                            ) : isCustomDimension(item) ? (
+                                <TableHeaderBoldLabel>
+                                    {item.name}
+                                </TableHeaderBoldLabel>
                             ) : (
                                 <TableHeaderBoldLabel>
-                                    {('displayName' in item &&
-                                        item.displayName) ||
-                                        friendlyName(item.name)}
+                                    {item && 'displayName' in item
+                                        ? item.displayName
+                                        : 'Undefined'}
                                 </TableHeaderBoldLabel>
                             )}
                         </TableHeaderLabelContainer>
@@ -239,7 +237,9 @@ export const useColumns = (): TableColumn[] => {
                             <Group spacing="two">
                                 <Tooltip
                                     withinPortal
-                                    label="This field was not found in the dbt project."
+                                    label={t(
+                                        'hooks_columns.not_found_in_dbt_project',
+                                    )}
                                     position="top"
                                 >
                                     <MantineIcon
@@ -267,5 +267,5 @@ export const useColumns = (): TableColumn[] => {
             [],
         );
         return [...validColumns, ...invalidColumns];
-    }, [activeItemsMap, invalidActiveItems, sorts, totals, exploreData]);
+    }, [activeItemsMap, invalidActiveItems, sorts, totals, exploreData, t]);
 };

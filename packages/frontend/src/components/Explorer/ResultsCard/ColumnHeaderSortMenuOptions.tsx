@@ -33,8 +33,8 @@ const ColumnHeaderSortMenuOptions: FC<Props> = ({ item, sort }) => {
             : SortDirection.ASC
         : undefined;
 
-    const addSortField = useExplorerContext(
-        (context) => context.actions.addSortField,
+    const setSortFields = useExplorerContext(
+        (context) => context.actions.setSortFields,
     );
     const removeSortField = useExplorerContext(
         (context) => context.actions.removeSortField,
@@ -59,10 +59,14 @@ const ColumnHeaderSortMenuOptions: FC<Props> = ({ item, sort }) => {
                         onClick={() =>
                             hasSort && selectedSortDirection === sortDirection
                                 ? removeSortField(itemFieldId)
-                                : addSortField(itemFieldId, {
-                                      descending:
-                                          sortDirection === SortDirection.DESC,
-                                  })
+                                : setSortFields([
+                                      {
+                                          fieldId: itemFieldId,
+                                          descending:
+                                              sortDirection ===
+                                              SortDirection.DESC,
+                                      },
+                                  ])
                         }
                     >
                         {t(

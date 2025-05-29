@@ -1,5 +1,6 @@
 import { subject } from '@casl/ability';
 import {
+    ResourceViewItemType,
     type Dashboard,
     type FeatureFlags,
     type SpaceSummary,
@@ -8,7 +9,6 @@ import {
     ActionIcon,
     Box,
     Button,
-    Flex,
     Group,
     Menu,
     Popover,
@@ -17,29 +17,25 @@ import {
     Title,
     Tooltip,
 } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import {
     IconArrowsMaximize,
     IconArrowsMinimize,
-    IconCheck,
-    IconChevronRight,
     IconCopy,
     IconDatabaseExport,
     IconDots,
-    IconFolder,
     IconFolderPlus,
-    IconFolders,
+    IconFolderSymlink,
     IconInfoCircle,
-    IconKey,
     IconPencil,
     IconPin,
     IconPinnedOff,
-    IconPlus,
     IconSend,
     IconTrash,
     IconUpload,
 } from '@tabler/icons-react';
 import dayjs from 'dayjs';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useParams } from 'react-router';
 import { useToggle } from 'react-use';
@@ -52,9 +48,9 @@ import {
 } from '../../../features/promotion/hooks/usePromoteDashboard';
 import { DashboardSchedulersModal } from '../../../features/scheduler';
 import { getSchedulerUuidFromUrlParams } from '../../../features/scheduler/utils';
+import { useDashboardPinningMutation } from '../../../hooks/pinning/useDashboardPinningMutation';
 import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
 import { useProject } from '../../../hooks/useProject';
-import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
@@ -62,17 +58,13 @@ import AddTileButton from '../../DashboardTiles/AddTileButton';
 import MantineIcon from '../MantineIcon';
 import DashboardUpdateModal from '../modal/DashboardUpdateModal';
 import PageHeader from '../Page/PageHeader';
-import {
-    InfoContainer,
-    PageActionsContainer,
-    PageTitleAndDetailsContainer,
-} from '../PageHeader';
+import SlugInfo from '../PageHeader/SlugInfo';
 import SpaceAndDashboardInfo from '../PageHeader/SpaceAndDashboardInfo';
 import { UpdatedInfo } from '../PageHeader/UpdatedInfo';
 import ViewInfo from '../PageHeader/ViewInfo';
 import SpaceActionModal from '../SpaceActionModal';
 import { ActionType } from '../SpaceActionModal/types';
-import TextCopy from '../TextCopy';
+import TransferItemsModal from '../TransferItemsModal/TransferItemsModal';
 import { DashboardRefreshButton } from './DashboardRefreshButton';
 import ShareLinkButton from './ShareLinkButton';
 
@@ -86,10 +78,10 @@ type DashboardHeaderProps = {
     isSaving: boolean;
     isFullScreenFeatureEnabled?: boolean;
     isFullscreen: boolean;
-    isPinned: boolean;
     oldestCacheTime?: Date;
     activeTabUuid?: string;
     dashboardTabs?: Dashboard['tabs'];
+    isMovingDashboardToSpace: boolean;
     onAddTiles: (tiles: Dashboard['tiles'][number][]) => void;
     onCancel: () => void;
     onSaveDashboard: () => void;
@@ -99,7 +91,6 @@ type DashboardHeaderProps = {
     onExport: () => void;
     onToggleFullscreen: () => void;
     setAddingTab: (value: React.SetStateAction<boolean>) => void;
-    onTogglePin: () => void;
     onEditClicked: () => void;
 };
 
@@ -111,9 +102,9 @@ const DashboardHeader = ({
     hasNewSemanticLayerChart,
     isEditMode,
     isSaving,
+    isMovingDashboardToSpace,
     isFullScreenFeatureEnabled,
     isFullscreen,
-    isPinned,
     oldestCacheTime,
     activeTabUuid,
     dashboardTabs,
@@ -126,10 +117,14 @@ const DashboardHeader = ({
     onExport,
     onToggleFullscreen,
     setAddingTab,
-    onTogglePin,
     onEditClicked,
 }: DashboardHeaderProps) => {
     const { t } = useTranslation();
+
+    const isDashboardSummariesEnabled = useFeatureFlagEnabled(
+        'ai-dashboard-summary' as FeatureFlags,
+    );
+
     const { search } = useLocation();
     const { projectUuid, dashboardUuid } = useParams<{
         projectUuid: string;
@@ -144,6 +139,8 @@ const DashboardHeader = ({
     const [isCreatingNewSpace, setIsCreatingNewSpace] = useState(false);
     const [isScheduledDeliveriesModalOpen, toggleScheduledDeliveriesModal] =
         useToggle(false);
+    const [isTransferToSpaceModalOpen, transferToSpaceModalHandlers] =
+        useDisclosure(false);
     const handleEditClick = () => {
         setIsUpdating(true);
         track({ name: EventName.UPDATE_DASHBOARD_NAME_CLICKED });
@@ -163,6 +160,15 @@ const DashboardHeader = ({
             toggleScheduledDeliveriesModal(true);
         }
     }, [search, toggleScheduledDeliveriesModal]);
+
+    const isPinned = useMemo(() => {
+        return Boolean(dashboard?.pinnedListUuid);
+    }, [dashboard?.pinnedListUuid]);
+    const { mutate: toggleDashboardPinning } = useDashboardPinningMutation();
+    const onDashboardPinning = useCallback(() => {
+        if (!dashboardUuid) return;
+        toggleDashboardPinning({ uuid: dashboardUuid });
+    }, [dashboardUuid, toggleDashboardPinning]);
 
     const { user } = useApp();
     const userCanManageDashboard = user.data?.ability.can(
@@ -195,12 +201,10 @@ const DashboardHeader = ({
         subject('Dashboard', {
             organizationUuid,
             projectUuid,
+            access: dashboard.access,
         }),
     );
 
-    const isDashboardSummariesEnabled = useFeatureFlagEnabled(
-        'ai-dashboard-summary' as FeatureFlags,
-    );
     const handleDashboardRefreshUpdateEvent = useCallback(
         (intervalMin?: number) => {
             track({
@@ -229,91 +233,106 @@ const DashboardHeader = ({
                 h: 'auto',
             }}
         >
-            <PageTitleAndDetailsContainer>
-                <Group spacing="xs">
-                    <Title order={4} fw={600}>
-                        {dashboard.name}
-                    </Title>
+            <Group spacing="xs" style={{ flex: 1 }}>
+                <Title order={4} fw={600}>
+                    {dashboard.name}
+                </Title>
 
-                    <Popover
-                        withinPortal
-                        withArrow
-                        offset={{
-                            mainAxis: -2,
-                            crossAxis: 6,
-                        }}
-                    >
-                        <Popover.Target>
-                            <ActionIcon color="dark">
-                                <MantineIcon icon={IconInfoCircle} />
-                            </ActionIcon>
-                        </Popover.Target>
-
-                        <Popover.Dropdown maw={500}>
-                            <Stack spacing="xs">
-                                {dashboard.description && (
-                                    <Text
-                                        fz="xs"
-                                        color="gray.7"
-                                        fw={500}
-                                        style={{ whiteSpace: 'pre-line' }}
-                                    >
-                                        {dashboard.description}
-                                    </Text>
-                                )}
-
-                                <UpdatedInfo
-                                    updatedAt={dashboard.updatedAt}
-                                    user={dashboard.updatedByUser}
-                                />
-
-                                <ViewInfo
-                                    views={dashboard.views}
-                                    firstViewedAt={dashboard.firstViewedAt}
-                                />
-
-                                <InfoContainer>
-                                    <MantineIcon icon={IconKey} />
-                                    Slug:
-                                    <TextCopy
-                                        variant="code"
-                                        text={dashboard.slug}
-                                        tooltipLabel="Copy slug"
-                                    />
-                                </InfoContainer>
-
-                                {dashboard.spaceName && (
-                                    <SpaceAndDashboardInfo
-                                        space={{
-                                            link: `/projects/${projectUuid}/spaces/${dashboard.spaceUuid}`,
-                                            name: dashboard.spaceName,
-                                        }}
-                                    />
-                                )}
-                            </Stack>
-                        </Popover.Dropdown>
-                    </Popover>
-
-                    {isEditMode && userCanManageDashboard && (
-                        <ActionIcon
-                            color="dark"
-                            disabled={isSaving}
-                            onClick={handleEditClick}
-                        >
-                            <MantineIcon icon={IconPencil} />
+                <Popover
+                    withinPortal
+                    withArrow
+                    offset={{
+                        mainAxis: -2,
+                        crossAxis: 6,
+                    }}
+                >
+                    <Popover.Target>
+                        <ActionIcon color="dark">
+                            <MantineIcon icon={IconInfoCircle} />
                         </ActionIcon>
-                    )}
+                    </Popover.Target>
 
-                    {isUpdating && dashboardUuid && (
-                        <DashboardUpdateModal
-                            uuid={dashboardUuid}
-                            opened={isUpdating}
-                            onClose={() => setIsUpdating(false)}
-                            onConfirm={() => setIsUpdating(false)}
-                        />
-                    )}
-                </Group>
-            </PageTitleAndDetailsContainer>
+                    <Popover.Dropdown maw={500}>
+                        <Stack spacing="xs">
+                            {dashboard.description && (
+                                <Text
+                                    fz="xs"
+                                    color="gray.7"
+                                    fw={500}
+                                    style={{ whiteSpace: 'pre-line' }}
+                                >
+                                    {dashboard.description}
+                                </Text>
+                            )}
+
+                            <UpdatedInfo
+                                updatedAt={dashboard.updatedAt}
+                                user={dashboard.updatedByUser}
+                            />
+
+                            <ViewInfo
+                                views={dashboard.views}
+                                firstViewedAt={dashboard.firstViewedAt}
+                            />
+
+                            <SlugInfo slug={dashboard.slug} />
+
+                            {dashboard.spaceName && (
+                                <SpaceAndDashboardInfo
+                                    space={{
+                                        link: `/projects/${projectUuid}/spaces/${dashboard.spaceUuid}`,
+                                        name: dashboard.spaceName,
+                                    }}
+                                />
+                            )}
+                        </Stack>
+                    </Popover.Dropdown>
+                </Popover>
+
+                {isEditMode && userCanManageDashboard && (
+                    <ActionIcon
+                        color="dark"
+                        disabled={isSaving}
+                        onClick={handleEditClick}
+                    >
+                        <MantineIcon icon={IconPencil} />
+                    </ActionIcon>
+                )}
+
+                {isUpdating && dashboardUuid && (
+                    <DashboardUpdateModal
+                        uuid={dashboardUuid}
+                        opened={isUpdating}
+                        onClose={() => setIsUpdating(false)}
+                        onConfirm={() => setIsUpdating(false)}
+                    />
+                )}
+
+                {isTransferToSpaceModalOpen && projectUuid && (
+                    <TransferItemsModal
+                        projectUuid={projectUuid}
+                        opened={isTransferToSpaceModalOpen}
+                        onClose={transferToSpaceModalHandlers.close}
+                        items={[
+                            {
+                                data: dashboard,
+                                type: ResourceViewItemType.DASHBOARD,
+                            },
+                        ]}
+                        spaces={spaces}
+                        isLoading={isMovingDashboardToSpace}
+                        onConfirm={async (spaceUuid) => {
+                            if (!spaceUuid) {
+                                throw new Error(
+                                    'Space UUID is required to move a dashboard',
+                                );
+                            }
+                            await onMoveToSpace(spaceUuid);
+                            transferToSpaceModalHandlers.close();
+                        }}
+                    />
+                )}
+            </Group>
 
             {oldestCacheTime && (
                 <Text
@@ -329,7 +348,7 @@ const DashboardHeader = ({
             )}
 
             {userCanManageDashboard && isEditMode ? (
-                <PageActionsContainer>
+                <Group spacing="xs">
                     <AddTileButton
                         onAddTiles={onAddTiles}
                         disabled={isSaving}
@@ -370,9 +389,9 @@ const DashboardHeader = ({
                     >
                         {t('components_common_dashboard_header.cancel')}
                     </Button>
-                </PageActionsContainer>
+                </Group>
             ) : (
-                <PageActionsContainer>
+                <Group spacing="xs">
                     {isDashboardSummariesEnabled &&
                         projectUuid &&
                         dashboardUuid && (
@@ -445,6 +464,7 @@ const DashboardHeader = ({
 
                     {!isFullscreen && (
                         <Menu
+                            data-testid="dashboard-header-menu"
                             position="bottom"
                             withArrow
                             withinPortal
@@ -476,138 +496,16 @@ const DashboardHeader = ({
                                         <Menu.Item
                                             icon={
                                                 <MantineIcon
-                                                    icon={IconFolders}
+                                                    icon={IconFolderSymlink}
                                                 />
                                             }
-                                            onClick={(
-                                                e: React.MouseEvent<HTMLButtonElement>,
-                                            ) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                            }}
+                                            onClick={
+                                                transferToSpaceModalHandlers.open
+                                            }
                                         >
-                                            <Menu
-                                                width={250}
-                                                withArrow
-                                                position="left-start"
-                                                shadow="md"
-                                                offset={40}
-                                                trigger="hover"
-                                            >
-                                                <Menu.Target>
-                                                    <Flex
-                                                        justify="space-between"
-                                                        align="center"
-                                                    >
-                                                        {t(
-                                                            'components_common_dashboard_header.menus.move_to_space',
-                                                        )}
-                                                        <MantineIcon
-                                                            icon={
-                                                                IconChevronRight
-                                                            }
-                                                        />
-                                                    </Flex>
-                                                </Menu.Target>
-                                                <Menu.Dropdown>
-                                                    {spaces
-                                                        ?.filter((space) => {
-                                                            return user.data?.ability.can(
-                                                                'create',
-                                                                subject(
-                                                                    'Dashboard',
-                                                                    {
-                                                                        ...space,
-                                                                        access: space.userAccess
-                                                                            ? [
-                                                                                  space.userAccess,
-                                                                              ]
-                                                                            : [],
-                                                                    },
-                                                                ),
-                                                            );
-                                                        })
-                                                        .map((spaceToMove) => {
-                                                            const isDisabled =
-                                                                dashboard.spaceUuid ===
-                                                                spaceToMove.uuid;
-
-                                                            return (
-                                                                <Menu.Item
-                                                                    icon={
-                                                                        <MantineIcon
-                                                                            icon={
-                                                                                isDisabled
-                                                                                    ? IconCheck
-                                                                                    : IconFolder
-                                                                            }
-                                                                        />
-                                                                    }
-                                                                    color={
-                                                                        isDisabled
-                                                                            ? 'gray.5'
-                                                                            : ''
-                                                                    }
-                                                                    onClick={(
-                                                                        e: React.MouseEvent<HTMLButtonElement>,
-                                                                    ) => {
-                                                                        e.preventDefault();
-                                                                        e.stopPropagation();
-                                                                        if (
-                                                                            dashboard.spaceUuid !==
-                                                                            spaceToMove.uuid
-                                                                        ) {
-                                                                            onMoveToSpace(
-                                                                                spaceToMove.uuid,
-                                                                            );
-                                                                        }
-                                                                    }}
-                                                                    key={
-                                                                        spaceToMove.uuid
-                                                                    }
-                                                                >
-                                                                    {
-                                                                        spaceToMove.name
-                                                                    }
-                                                                </Menu.Item>
-                                                            );
-                                                        })}
-                                                    <Can
-                                                        I="create"
-                                                        this={subject('Space', {
-                                                            organizationUuid:
-                                                                user.data
-                                                                    ?.organizationUuid,
-                                                            projectUuid,
-                                                        })}
-                                                    >
-                                                        <Menu.Divider />
-
-                                                        <Menu.Item
-                                                            icon={
-                                                                <MantineIcon
-                                                                    icon={
-                                                                        IconPlus
-                                                                    }
-                                                                />
-                                                            }
-                                                            onClick={(
-                                                                e: React.MouseEvent<HTMLButtonElement>,
-                                                            ) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                setIsCreatingNewSpace(
-                                                                    true,
-                                                                );
-                                                            }}
-                                                        >
-                                                            {t(
-                                                                'components_common_dashboard_header.menus.create_new_space',
-                                                            )}
-                                                        </Menu.Item>
-                                                    </Can>
-                                                </Menu.Dropdown>
-                                            </Menu>
+                                            {t(
+                                                'components_common_dashboard_header.menus.move_dashboard',
+                                            )}
                                         </Menu.Item>
                                     </>
                                 )}
@@ -625,7 +523,7 @@ const DashboardHeader = ({
                                                 <MantineIcon icon={IconPin} />
                                             )
                                         }
-                                        onClick={onTogglePin}
+                                        onClick={onDashboardPinning}
                                     >
                                         {isPinned
                                             ? t(
@@ -743,6 +641,7 @@ const DashboardHeader = ({
                             confirmButtonLabel="Create"
                             icon={IconFolderPlus}
                             onClose={() => setIsCreatingNewSpace(false)}
+                            parentSpaceUuid={null}
                             onSubmitForm={(space) => {
                                 if (space) onMoveToSpace(space.uuid);
                             }}
@@ -772,7 +671,7 @@ const DashboardHeader = ({
                                 }}
                             ></PromotionConfirmDialog>
                         )}
-                </PageActionsContainer>
+                </Group>
             )}
         </PageHeader>
     );

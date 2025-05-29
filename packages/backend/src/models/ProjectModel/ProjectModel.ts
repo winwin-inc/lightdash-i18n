@@ -21,7 +21,6 @@ import {
     ProjectType,
     SemanticLayerType,
     SpaceSummary,
-    SupportedDbtAdapter,
     SupportedDbtVersions,
     TablesConfiguration,
     UnexpectedServerError,
@@ -34,6 +33,7 @@ import {
     assertUnreachable,
     createVirtualView,
     generateSlug,
+    getLtreePathFromSlug,
     isExploreError,
     sensitiveCredentialsFieldNames,
     sensitiveDbtCredentialsFieldNames,
@@ -48,7 +48,6 @@ import {
 } from '@lightdash/warehouses';
 import { Knex } from 'knex';
 import { merge } from 'lodash';
-import uniqWith from 'lodash/uniqWith';
 import { DatabaseError } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 import { LightdashConfig } from '../../config/parseConfig';
@@ -85,12 +84,14 @@ import {
     SavedChartCustomSqlDimensionsTableName,
 } from '../../database/entities/savedCharts';
 import { DbSavedSql, InsertSql } from '../../database/entities/savedSql';
-import { DbSpace } from '../../database/entities/spaces';
+import { DbSpace, SpaceTableName } from '../../database/entities/spaces';
 import { DbUser } from '../../database/entities/users';
 import { WarehouseCredentialTableName } from '../../database/entities/warehouseCredentials';
 import Logger from '../../logging/logger';
 import { wrapSentryTransaction } from '../../utils';
 import { EncryptionUtil } from '../../utils/EncryptionUtil/EncryptionUtil';
+import { generateUniqueSpaceSlug } from '../../utils/SlugUtils';
+import { ExploreCache } from './ExploreCache';
 import Transaction = Knex.Transaction;
 
 export type ProjectModelArguments = {
@@ -108,10 +109,13 @@ export class ProjectModel {
 
     private encryptionUtil: EncryptionUtil;
 
+    private readonly exploreCache: ExploreCache;
+
     constructor(args: ProjectModelArguments) {
         this.database = args.database;
         this.lightdashConfig = args.lightdashConfig;
         this.encryptionUtil = args.encryptionUtil;
+        this.exploreCache = new ExploreCache();
     }
 
     static mergeMissingDbtConfigSecrets(
@@ -341,6 +345,13 @@ export class ProjectModel {
             .merge();
     }
 
+    async hasAnyProjects(): Promise<boolean> {
+        const results = await this.database('projects')
+            .count('project_uuid as count')
+            .first<{ count: string }>();
+        return parseInt(results.count, 10) > 0;
+    }
+
     async hasProjects(organizationUuid: string): Promise<boolean> {
         const orgs = await this.database('organizations')
             .where('organization_uuid', organizationUuid)
@@ -424,12 +435,26 @@ export class ProjectModel {
                 data.warehouseConnection,
             );
 
-            await trx('spaces').insert({
-                project_id: project.project_id,
-                name: 'Shared',
-                is_private: false,
-                slug: generateSlug('Shared'),
-            });
+            if (data.type !== ProjectType.PREVIEW) {
+                const slug = await generateUniqueSpaceSlug(
+                    'Shared',
+                    project.project_id,
+                    {
+                        trx,
+                    },
+                );
+
+                const path = getLtreePathFromSlug(slug);
+
+                await trx(SpaceTableName).insert({
+                    project_id: project.project_id,
+                    name: 'Shared',
+                    is_private: false,
+                    slug,
+                    parent_space_uuid: null,
+                    path,
+                });
+            }
 
             return project.project_uuid;
         });
@@ -842,8 +867,12 @@ export class ProjectModel {
 
     async findExploresFromCache(
         projectUuid: string,
-        exploreNames?: string[],
+        exploreNamesWithDuplicates?: string[],
     ): Promise<Record<string, Explore | ExploreError>> {
+        // dedupe values
+        const exploreNames = exploreNamesWithDuplicates
+            ? [...new Set(exploreNamesWithDuplicates)]
+            : undefined;
         return wrapSentryTransaction(
             'ProjectModel.findExploresFromCache',
             {
@@ -851,6 +880,17 @@ export class ProjectModel {
                 exploreNames,
             },
             async (span) => {
+                // Try to get from cache first
+                const cachedExplores = this.exploreCache?.getExplores(
+                    projectUuid,
+                    exploreNames,
+                );
+                if (cachedExplores) {
+                    span.setAttribute('cacheHit', true);
+                    // Return cached explores
+                    return cachedExplores;
+                }
+                // If not in cache, get from database
                 const query = this.database(CachedExploreTableName)
                     .select('explore')
                     .where('project_uuid', projectUuid);
@@ -859,16 +899,22 @@ export class ProjectModel {
                 }
                 const explores = await query;
                 span.setAttribute('foundExplores', !!explores.length);
-                return explores.reduce<Record<string, Explore | ExploreError>>(
-                    (acc, { explore }) => {
-                        acc[explore.name] =
-                            ProjectModel.convertMetricFiltersFieldIdsToFieldRef(
-                                explore,
-                            );
-                        return acc;
-                    },
-                    {},
+                const finalExplores = explores.reduce<
+                    Record<string, Explore | ExploreError>
+                >((acc, { explore }) => {
+                    acc[explore.name] =
+                        ProjectModel.convertMetricFiltersFieldIdsToFieldRef(
+                            explore,
+                        );
+                    return acc;
+                }, {});
+                // Store in cache
+                this.exploreCache?.setExplores(
+                    projectUuid,
+                    exploreNames,
+                    finalExplores,
                 );
+                return finalExplores;
             },
         );
     }
@@ -1354,6 +1400,7 @@ export class ProjectModel {
                                       space_id: undefined,
                                       space_uuid: undefined,
                                       project_id: previewProject.project_id,
+                                      parent_space_uuid: null,
                                   };
                                   // Remove the keys for the autogenerated fields
                                   // Some databases do not support undefined values
@@ -1365,6 +1412,20 @@ export class ProjectModel {
                           )
                           .returning('*')
                     : [];
+
+            // fix parent_space_uuid based on path for the spaces
+            await trx.raw(
+                `
+                UPDATE spaces AS child
+                SET parent_space_uuid = parent.space_uuid
+                FROM spaces AS parent
+                WHERE
+                    child.project_id = ?
+                    AND parent.project_id = ?
+                    AND subpath(child.path, 0, nlevel(child.path) - 1) = parent.path
+                    AND nlevel(child.path) > 1;`,
+                [previewProject.project_id, previewProject.project_id],
+            );
 
             const spaceMapping = dbSpaces.map((s, i) => ({
                 id: s.space_id,
@@ -1756,8 +1817,13 @@ export class ProjectModel {
 
                 if (content.length === 0) return undefined;
 
-                const newContent = await trx(table)
-                    .insert(
+                Logger.debug(
+                    `Copying ${content.length} chart content on ${table} table`,
+                );
+                const batchSize = 1000;
+                const newContent = await trx
+                    .batchInsert(
+                        table,
                         content.map((d) => {
                             const createContent = {
                                 ...d,
@@ -1777,6 +1843,7 @@ export class ProjectModel {
                             });
                             return createContent;
                         }),
+                        batchSize,
                     )
                     .returning('*');
 

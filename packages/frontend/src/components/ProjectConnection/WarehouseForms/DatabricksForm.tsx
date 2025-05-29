@@ -12,26 +12,28 @@ import {
 } from '@mantine/core';
 import { IconPlus, IconTrash } from '@tabler/icons-react';
 import { type FC } from 'react';
-import { useFieldArray, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
+import { v4 as uuidv4 } from 'uuid';
 
-import { hasNoWhiteSpaces } from '../../../utils/fieldValidators';
 import MantineIcon from '../../common/MantineIcon';
-import FormSection from '../../ReactHookForm/FormSection';
 import FormCollapseButton from '../FormCollapseButton';
+import FormSection from '../Inputs/FormSection';
+import StartOfWeekSelect from '../Inputs/StartOfWeekSelect';
+import { useFormContext } from '../formContext';
 import { useProjectFormContext } from '../useProjectFormContext';
-import StartOfWeekSelect from './Inputs/StartOfWeekSelect';
 
 export const DatabricksSchemaInput: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
-    const { register } = useFormContext();
+    const form = useFormContext();
     const { t } = useTranslation();
 
     return (
         <TextInput
             // this supposed to be a `schema` but changing it will break for existing customers
+            name="warehouse.database"
+            {...form.getInputProps('warehouse.database')}
             label={t(
                 'components_project_connection_warehouse_form.databricks.schema.label',
             )}
@@ -55,11 +57,6 @@ export const DatabricksSchemaInput: FC<{
                 </p>
             }
             required
-            {...register('warehouse.database', {
-                validate: {
-                    hasNoWhiteSpaces: hasNoWhiteSpaces('Schema'),
-                },
-            })}
             disabled={disabled}
         />
     );
@@ -68,25 +65,38 @@ export const DatabricksSchemaInput: FC<{
 const DatabricksForm: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
+    const form = useFormContext();
     const { t } = useTranslation();
+
     const [isOpen, toggleOpen] = useToggle(false);
     const { savedProject } = useProjectFormContext();
     const requireSecrets: boolean =
         savedProject?.warehouseConnection?.type !== WarehouseTypes.DATABRICKS;
-    const { register, control } = useFormContext();
-    const {
-        fields: computeFields,
-        append,
-        remove,
-    } = useFieldArray({
-        control,
-        name: 'warehouse.compute',
-    });
+
+    if (form.values.warehouse?.type !== WarehouseTypes.DATABRICKS) {
+        throw new Error(
+            'Databricks form is not available for this warehouse type',
+        );
+    }
+
+    const computes = form.values.warehouse?.compute ?? [];
+    const addCompute = () => {
+        form.insertListItem('warehouse.compute', {
+            key: uuidv4(),
+            name: '',
+            httpPath: '',
+        });
+    };
+    const removeCompute = (index: number) => {
+        form.removeListItem('warehouse.compute', index);
+    };
 
     return (
         <>
             <Stack style={{ marginTop: '8px' }}>
                 <TextInput
+                    name="warehouse.serverHostName"
+                    {...form.getInputProps('warehouse.serverHostName')}
                     label={t(
                         'components_project_connection_warehouse_form.databricks.server.label',
                     )}
@@ -110,12 +120,6 @@ const DatabricksForm: FC<{
                         </p>
                     }
                     required
-                    {...register('warehouse.serverHostName', {
-                        validate: {
-                            hasNoWhiteSpaces:
-                                hasNoWhiteSpaces('Server host name'),
-                        },
-                    })}
                     disabled={disabled}
                     placeholder={t(
                         'components_project_connection_warehouse_form.databricks.server.placeholder',
@@ -123,6 +127,8 @@ const DatabricksForm: FC<{
                     labelProps={{ style: { marginTop: '8px' } }}
                 />
                 <TextInput
+                    name="warehouse.httpPath"
+                    {...form.getInputProps('warehouse.httpPath')}
                     label={t(
                         'components_project_connection_warehouse_form.databricks.http_path.label',
                     )}
@@ -146,18 +152,14 @@ const DatabricksForm: FC<{
                         </p>
                     }
                     required
-                    {...register('warehouse.httpPath', {
-                        validate: {
-                            hasNoWhiteSpaces: hasNoWhiteSpaces('HTTP Path'),
-                        },
-                    })}
                     disabled={disabled}
                     placeholder={t(
                         'components_project_connection_warehouse_form.databricks.http_path.placeholder',
                     )}
                 />
                 <PasswordInput
-                    {...register('warehouse.personalAccessToken')}
+                    name="warehouse.personalAccessToken"
+                    {...form.getInputProps('warehouse.personalAccessToken')}
                     label={t(
                         'components_project_connection_warehouse_form.databricks.access_token.label',
                     )}
@@ -189,6 +191,8 @@ const DatabricksForm: FC<{
                     disabled={disabled}
                 />
                 <TextInput
+                    name="warehouse.catalog"
+                    {...form.getInputProps('warehouse.catalog')}
                     label={t(
                         'components_project_connection_warehouse_form.databricks.catalog.label',
                     )}
@@ -196,11 +200,6 @@ const DatabricksForm: FC<{
                         'components_project_connection_warehouse_form.databricks.catalog.description',
                     )}
                     required
-                    {...register('warehouse.catalog', {
-                        validate: {
-                            hasNoWhiteSpaces: hasNoWhiteSpaces('Catalog name'),
-                        },
-                    })}
                     disabled={disabled}
                 />
                 <FormSection isOpen={isOpen} name="advanced">
@@ -208,17 +207,23 @@ const DatabricksForm: FC<{
                         <StartOfWeekSelect disabled={disabled} />
                         <Stack spacing="xs">
                             <Stack spacing={0}>
-                                <Text fw={500}>Compute Resources</Text>
+                                <Text fw={500}>
+                                    {t(
+                                        'components_project_connection_warehouse_form.databricks.compute.label',
+                                    )}
+                                </Text>
                                 <Text c="dimmed" size="xs">
-                                    Configure compute resources to use in your
-                                    models
+                                    {t(
+                                        'components_project_connection_warehouse_form.databricks.compute.description',
+                                    )}
                                 </Text>
                             </Stack>
                             <FormSection name="compute">
                                 <Stack>
-                                    {computeFields.map((field, index) => (
+                                    {computes.map((field, index) => (
                                         <Group
-                                            key={field.id}
+                                            // @ts-expect-error
+                                            key={field.key}
                                             noWrap
                                             spacing="xs"
                                         >
@@ -227,10 +232,12 @@ const DatabricksForm: FC<{
                                                     flexGrow: 1,
                                                 }}
                                                 size="xs"
-                                                {...register(
+                                                {...form.getInputProps(
                                                     `warehouse.compute.${index}.name`,
                                                 )}
-                                                placeholder="Compute Name"
+                                                placeholder={t(
+                                                    'components_project_connection_warehouse_form.databricks.compute.placeholder',
+                                                )}
                                                 required
                                             />
                                             <TextInput
@@ -238,20 +245,24 @@ const DatabricksForm: FC<{
                                                     flexGrow: 1,
                                                 }}
                                                 size="xs"
-                                                {...register(
+                                                {...form.getInputProps(
                                                     `warehouse.compute.${index}.httpPath`,
                                                 )}
-                                                placeholder="HTTP Path"
+                                                placeholder={t(
+                                                    'components_project_connection_warehouse_form.databricks.compute.http_path',
+                                                )}
                                                 required
                                             />
                                             <Tooltip
                                                 variant="xs"
-                                                label="Remove compute"
+                                                label={t(
+                                                    'components_project_connection_warehouse_form.databricks.compute.remove',
+                                                )}
                                             >
                                                 <ActionIcon
                                                     size="sm"
                                                     onClick={() =>
-                                                        remove(index)
+                                                        removeCompute(index)
                                                     }
                                                     style={{
                                                         flexGrow: 0,
@@ -274,14 +285,11 @@ const DatabricksForm: FC<{
                                         leftIcon={
                                             <MantineIcon icon={IconPlus} />
                                         }
-                                        onClick={() =>
-                                            append({
-                                                name: '',
-                                                httpPath: '',
-                                            })
-                                        }
+                                        onClick={addCompute}
                                     >
-                                        Add compute
+                                        {t(
+                                            'components_project_connection_warehouse_form.databricks.compute.add',
+                                        )}
                                     </Button>
                                 </Stack>
                             </FormSection>

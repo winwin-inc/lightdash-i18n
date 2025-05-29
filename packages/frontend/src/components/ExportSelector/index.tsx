@@ -19,10 +19,9 @@ const ExportSelector: FC<
     ExportCSVProps & {
         getGsheetLink?: () => Promise<ApiScheduledDownloadCsv>;
     }
-> = memo(({ projectUuid, rows, getCsvLink, getGsheetLink }) => {
-    const { t } = useTranslation();
-
+> = memo(({ projectUuid, totalResults, getCsvLink, getGsheetLink }) => {
     const health = useHealth();
+    const { t } = useTranslation();
     const hasGoogleDrive =
         health.data?.auth.google.oauth2ClientId !== undefined &&
         health.data?.auth.google.googleDriveApiKey !== undefined;
@@ -50,7 +49,7 @@ const ExportSelector: FC<
                     {t('components_export_selector.export_selector')}
                 </Button>
                 <ExportCSV
-                    rows={rows}
+                    totalResults={totalResults}
                     getCsvLink={getCsvLink}
                     projectUuid={projectUuid}
                 />
@@ -76,7 +75,7 @@ const ExportSelector: FC<
 
     return (
         <ExportCSV
-            rows={rows}
+            totalResults={totalResults}
             getCsvLink={getCsvLink}
             projectUuid={projectUuid}
         />

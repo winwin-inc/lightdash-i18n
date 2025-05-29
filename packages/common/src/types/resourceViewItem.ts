@@ -1,6 +1,6 @@
 import assertUnreachable from '../utils/assertUnreachable';
 import {
-    ContentType,
+    ContentType as ResourceViewItemType,
     type ChartSourceType,
     type SummaryContent,
 } from './content';
@@ -8,11 +8,7 @@ import { type DashboardBasicDetails } from './dashboard';
 import { type SpaceQuery } from './savedCharts';
 import { type Space, type SpaceSummary } from './space';
 
-export enum ResourceViewItemType {
-    CHART = 'chart',
-    DASHBOARD = 'dashboard',
-    SPACE = 'space',
-}
+export { ResourceViewItemType };
 
 export enum ResourceItemCategory {
     MOST_POPULAR = 'mostPopular',
@@ -72,6 +68,8 @@ export type ResourceViewSpaceItem = {
         | 'pinnedListUuid'
         | 'pinnedListOrder'
         | 'organizationUuid'
+        | 'parentSpaceUuid'
+        | 'path'
     > & {
         access: string[];
         accessListLength: number;
@@ -139,6 +137,8 @@ export const spaceToResourceViewItem = (
     dashboardCount: space.dashboardCount,
     chartCount: space.chartCount,
     access: space.access,
+    parentSpaceUuid: space.parentSpaceUuid,
+    path: space.path,
 });
 
 export type MostPopularAndRecentlyUpdated = {
@@ -151,7 +151,7 @@ export const contentToResourceViewItem = (content: SummaryContent) => {
         content.lastUpdatedBy || content.createdBy || undefined;
 
     switch (content.contentType) {
-        case ContentType.CHART:
+        case ResourceViewItemType.CHART:
             const chartViewItem: ResourceViewChartItem['data'] & {
                 projectUuid: string;
                 organizationUuid: string;
@@ -170,7 +170,7 @@ export const contentToResourceViewItem = (content: SummaryContent) => {
                 organizationUuid: content.organization.uuid,
             };
             return wrapResource(chartViewItem, ResourceViewItemType.CHART);
-        case ContentType.DASHBOARD:
+        case ResourceViewItemType.DASHBOARD:
             const dashboardViewItem: ResourceViewDashboardItem['data'] & {
                 projectUuid: string;
                 organizationUuid: string;
@@ -192,7 +192,34 @@ export const contentToResourceViewItem = (content: SummaryContent) => {
                 dashboardViewItem,
                 ResourceViewItemType.DASHBOARD,
             );
+        case ResourceViewItemType.SPACE:
+            return wrapResource(
+                spaceToResourceViewItem({
+                    ...content,
+                    organizationUuid: content.organization.uuid,
+                    projectUuid: content.project.uuid,
+                    pinnedListUuid: content.pinnedList?.uuid || null,
+                    pinnedListOrder: content.pinnedList?.order || null,
+                    userAccess: undefined, // This propery is not needed for the resource view item
+                    parentSpaceUuid: content.parentSpaceUuid,
+                    path: content.path,
+                }),
+                ResourceViewItemType.SPACE,
+            );
         default:
             return assertUnreachable(content, `Unsupported content type`);
+    }
+};
+
+export const resourceToContent = (resource: ResourceViewItem) => {
+    switch (resource.type) {
+        case ResourceViewItemType.CHART:
+            return resource.data;
+        case ResourceViewItemType.DASHBOARD:
+            return resource.data;
+        case ResourceViewItemType.SPACE:
+            return resource.data;
+        default:
+            return assertUnreachable(resource, `Unsupported resource type`);
     }
 };

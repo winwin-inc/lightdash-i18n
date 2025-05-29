@@ -15,6 +15,8 @@ import {
     useColorPalettes,
     useSetActiveColorPalette,
 } from '../../../hooks/appearance/useOrganizationAppearance';
+import useHealth from '../../../hooks/health/useHealth';
+import { useOrganization } from '../../../hooks/organization/useOrganization';
 import MantineIcon from '../../common/MantineIcon';
 import { SettingsCard } from '../../common/Settings/SettingsCard';
 import { CreatePaletteModal } from './CreatePaletteModal';
@@ -22,7 +24,11 @@ import { PaletteItem } from './PaletteItem';
 
 const AppearanceColorSettings: FC = () => {
     const { t } = useTranslation();
-    const { data: palettes = [], isLoading } = useColorPalettes();
+
+    const { data: organization } = useOrganization();
+    const { data: health, isLoading: isHealthLoading } = useHealth();
+    const { data: palettes = [], isLoading: isPalettesLoading } =
+        useColorPalettes();
 
     const setActivePalette = useSetActiveColorPalette();
 
@@ -35,6 +41,10 @@ const AppearanceColorSettings: FC = () => {
         },
         [setActivePalette],
     );
+
+    const hasColorPaletteOverride =
+        health?.appearance.overrideColorPalette &&
+        health.appearance.overrideColorPalette.length > 0;
 
     return (
         <Stack spacing="md">
@@ -51,6 +61,7 @@ const AppearanceColorSettings: FC = () => {
                     variant="default"
                     size="xs"
                     sx={{ alignSelf: 'flex-end' }}
+                    disabled={hasColorPaletteOverride}
                 >
                     {t(
                         'components_user_settings_appearance_settings_panel.new_palette',
@@ -59,25 +70,55 @@ const AppearanceColorSettings: FC = () => {
             </Group>
 
             <Stack spacing="xs">
-                {isLoading ? (
+                {isPalettesLoading || isHealthLoading ? (
                     <>
                         <Skeleton height={30} />
                         <Skeleton height={30} />
                         <Skeleton height={30} />
                     </>
                 ) : (
-                    palettes.map((palette) => (
-                        <PaletteItem
-                            key={palette.colorPaletteUuid}
-                            palette={palette}
-                            isActive={palette.isActive}
-                            onSetActive={handleSetActive}
-                        />
-                    ))
+                    <>
+                        {hasColorPaletteOverride &&
+                            health?.appearance.overrideColorPalette &&
+                            organization?.organizationUuid && (
+                                <PaletteItem
+                                    palette={{
+                                        colorPaletteUuid: 'custom',
+                                        createdAt: new Date(),
+                                        name:
+                                            health.appearance
+                                                .overrideColorPaletteName ??
+                                            'Custom override',
+                                        colors: health.appearance
+                                            .overrideColorPalette,
+                                        organizationUuid:
+                                            organization?.organizationUuid,
+                                    }}
+                                    isActive={true}
+                                    readOnly
+                                    onSetActive={undefined}
+                                />
+                            )}
+                        {palettes.map((palette) => (
+                            <PaletteItem
+                                key={palette.colorPaletteUuid}
+                                palette={palette}
+                                isActive={
+                                    palette.isActive && !hasColorPaletteOverride
+                                }
+                                onSetActive={
+                                    hasColorPaletteOverride
+                                        ? undefined
+                                        : handleSetActive
+                                }
+                            />
+                        ))}
+                    </>
                 )}
             </Stack>
 
             <CreatePaletteModal
+                key={`create-palette-modal-${isCreatePaletteModalOpen}`}
                 opened={isCreatePaletteModalOpen}
                 onClose={() => {
                     setIsCreatePaletteModalOpen(false);

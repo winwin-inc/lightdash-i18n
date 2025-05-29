@@ -126,6 +126,8 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
                 const ignoredOperators = getFilterOptions([
                     FilterOperator.NULL,
                     FilterOperator.NOT_NULL,
+                    FilterOperator.IN_BETWEEN,
+                    FilterOperator.NOT_IN_BETWEEN,
                 ]);
 
                 return differenceBy(options, ignoredOperators, 'value');
@@ -255,7 +257,10 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
                 <Stack spacing="xs">
                     <Group noWrap spacing="xs">
                         <Text fw={500} fz="xs" c="dimmed">
-                            Compare:
+                            {t(
+                                'components_visualization_configs_table.compare.compare',
+                            )}
+                            :
                         </Text>
                         <SegmentedControl
                             size="xs"
@@ -265,7 +270,9 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
                                 {
                                     label: (
                                         <Tooltip
-                                            label="Compare selected field to values"
+                                            label={t(
+                                                'components_visualization_configs_table.compare.compare_selected_field_to_values',
+                                            )}
                                             withinPortal
                                             variant="xs"
                                         >
@@ -277,7 +284,9 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
                                 {
                                     label: (
                                         <Tooltip
-                                            label="Compare selected field to another field"
+                                            label={t(
+                                                'components_visualization_configs_table.compare.compare_selected_field_to_another_field',
+                                            )}
                                             withinPortal
                                             variant="xs"
                                         >
@@ -289,7 +298,9 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
                                 {
                                     label: (
                                         <Tooltip
-                                            label="Compare another field to values"
+                                            label={t(
+                                                'components_visualization_configs_table.compare.compare_another_field_to_values',
+                                            )}
                                             withinPortal
                                             variant="xs"
                                         >
@@ -309,7 +320,9 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
                                 items={availableCompareFields}
                                 onChange={handleChangeCompareField}
                                 hasGrouping
-                                placeholder="Compare field"
+                                placeholder={t(
+                                    'components_visualization_configs_table.compare.compare_field',
+                                )}
                             />
                         )}
                     <Group noWrap spacing="xs">
@@ -322,13 +335,17 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
                                     value as ConditionalOperator,
                                 );
                             }}
-                            placeholder="Condition"
+                            placeholder={t(
+                                'components_visualization_configs_table.compare.condition',
+                            )}
                             disabled={!field || !filterType}
                         />
 
                         <Select
                             display={field && filterType ? 'none' : 'block'}
-                            placeholder="Value(s)"
+                            placeholder={t(
+                                'components_visualization_configs_table.compare.value',
+                            )}
                             data={[]}
                             disabled={!field || !filterType}
                         />
@@ -347,7 +364,9 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
                                     ) : (
                                         <TextInput
                                             disabled={true}
-                                            placeholder="Values"
+                                            placeholder={t(
+                                                'components_visualization_configs_table.compare.values',
+                                            )}
                                         />
                                     )}
                                 </FiltersProvider>
@@ -360,7 +379,9 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
                                     items={availableCompareFields}
                                     onChange={handleChangeCompareField}
                                     hasGrouping
-                                    placeholder="Compare field"
+                                    placeholder={t(
+                                        'components_visualization_configs_table.compare.compare_field',
+                                    )}
                                 />
                             )}
                     </Group>

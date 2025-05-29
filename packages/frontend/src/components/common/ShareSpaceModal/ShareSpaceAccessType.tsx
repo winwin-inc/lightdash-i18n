@@ -18,6 +18,7 @@ interface ShareSpaceAccessTypeProps {
     projectUuid: string;
     selectedAccess: AccessOption;
     setSelectedAccess: (access: AccessOption) => void;
+    disabled?: boolean;
 }
 
 const SelectItem = forwardRef<HTMLDivElement, AccessOption>(
@@ -43,6 +44,7 @@ export const ShareSpaceAccessType: FC<ShareSpaceAccessTypeProps> = ({
     projectUuid,
     selectedAccess,
     setSelectedAccess,
+    disabled = false,
 }) => {
     const { t } = useTranslation();
     const SpaceAccessOptions = useSpaceAccessOptions();
@@ -119,6 +121,7 @@ export const ShareSpaceAccessType: FC<ShareSpaceAccessTypeProps> = ({
                             });
                         }
                     }}
+                    disabled={disabled}
                 />
             )}
         </Group>

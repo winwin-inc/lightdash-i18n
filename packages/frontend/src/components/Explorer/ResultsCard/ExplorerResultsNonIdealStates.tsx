@@ -300,3 +300,18 @@ export const ExploreLoadingState = () => {
         </EmptyState>
     );
 };
+
+export const ExploreErrorState = () => {
+    const { t } = useTranslation();
+
+    return (
+        <EmptyState
+            title={t(
+                'components_explorer_results_card_non_ideal_state.explore_error_state.title',
+            )}
+            description={t(
+                'components_explorer_results_card_non_ideal_state.explore_error_state.description',
+            )}
+        ></EmptyState>
+    );
+};

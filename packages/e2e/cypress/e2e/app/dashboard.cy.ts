@@ -80,6 +80,7 @@ describe('Dashboard', () => {
         cy.get('[data-testid="ExploreMenu/NewDashboardButton"]').click();
 
         cy.findByLabelText('Name your dashboard *').type('Title');
+        cy.findByText('Next').click();
         cy.findByText('Create').click();
 
         // Check url has no filters
@@ -94,6 +95,7 @@ describe('Dashboard', () => {
         cy.contains('Create dashboard').click();
         cy.findByLabelText('Name your dashboard *').type('Title');
         cy.findByLabelText('Dashboard description').type('Description');
+        cy.findByText('Next').click();
         cy.findByText('Create').click();
 
         // Add Saved Chart
@@ -273,6 +275,7 @@ describe('Dashboard', () => {
         // create dashboard with title small
         cy.contains('Create dashboard').click();
         cy.findByLabelText('Name your dashboard *').type('Small');
+        cy.findByText('Next').click();
         cy.findByText('Create').click();
 
         // Create chart within dashboard
@@ -297,7 +300,7 @@ describe('Dashboard', () => {
         cy.wait(2000);
 
         // get the fourth button with class  mantine-ActionIcon-root
-        cy.get('.mantine-ActionIcon-root').eq(4).click();
+        cy.get('[data-testid="dashboard-header-menu"]').click();
         cy.contains('Export dashboard').click();
         cy.findByText('Generate preview').click();
 

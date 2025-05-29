@@ -15,6 +15,7 @@ import { ActionIcon, Group, Menu, Skeleton, Stack, Text } from '@mantine/core';
 import { IconDots, IconPencil, IconTrash } from '@tabler/icons-react';
 import {
     memo,
+    useCallback,
     useEffect,
     useMemo,
     useState,
@@ -196,6 +197,25 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
         }
     }, [explore, additionalMetrics, metrics, dimensions, customDimensions]);
 
+    const handleEditVirtualView = useCallback(() => {
+        startTransition(() => setIsEditVirtualViewOpen(true));
+    }, []);
+
+    const handleDeleteVirtualView = useCallback(() => {
+        setIsDeleteVirtualViewOpen(true);
+    }, []);
+
+    const breadcrumbs = useMemo(() => {
+        if (!explore) return [];
+        const items = onBack
+            ? [
+                  { title: 'Tables', onClick: onBack },
+                  { title: explore.label, active: true },
+              ]
+            : [{ title: explore.label, active: true }];
+        return items;
+    }, [onBack, explore]);
+
     if (status === 'loading') {
         return <LoadingSkeleton />;
     }
@@ -210,25 +230,7 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
     return (
         <Stack h="100%" sx={{ flexGrow: 1 }}>
             <Group position="apart">
-                <PageBreadcrumbs
-                    size="md"
-                    items={[
-                        ...(onBack
-                            ? [
-                                  {
-                                      title: t(
-                                          'components_explorer_panel.tables',
-                                      ),
-                                      onClick: onBack,
-                                  },
-                              ]
-                            : []),
-                        {
-                            title: explore.label,
-                            active: true,
-                        },
-                    ]}
-                />
+                <PageBreadcrumbs size="md" items={breadcrumbs} />
                 {canManageVirtualViews &&
                     explore.type === ExploreType.VIRTUAL && (
                         <Menu withArrow offset={-2}>
@@ -240,11 +242,7 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
                             <Menu.Dropdown>
                                 <Menu.Item
                                     icon={<MantineIcon icon={IconPencil} />}
-                                    onClick={() => {
-                                        startTransition(() => {
-                                            setIsEditVirtualViewOpen(true);
-                                        });
-                                    }}
+                                    onClick={handleEditVirtualView}
                                 >
                                     <Text fz="xs" fw={500}>
                                         {t(
@@ -255,9 +253,7 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
                                 <Menu.Item
                                     icon={<MantineIcon icon={IconTrash} />}
                                     color="red"
-                                    onClick={() => {
-                                        setIsDeleteVirtualViewOpen(true);
-                                    }}
+                                    onClick={handleDeleteVirtualView}
                                 >
                                     <Text fz="xs" fw={500}>
                                         {t('components_explorer_panel.delete')}

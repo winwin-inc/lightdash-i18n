@@ -2,6 +2,7 @@ import { subject } from '@casl/ability';
 import { CommercialFeatureFlags, FeatureFlags } from '@lightdash/common';
 import { Box, ScrollArea, Stack, Text, Title } from '@mantine/core';
 import {
+    IconBrain,
     IconBrowser,
     IconBuildingSkyscraper,
     IconCalendarStats,
@@ -24,14 +25,15 @@ import {
 import { useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useRoutes, type RouteObject } from 'react-router';
-import ErrorState from '../components/common/ErrorState';
-import MantineIcon from '../components/common/MantineIcon';
-import Page from '../components/common/Page/Page';
-import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
-import RouterNavLink from '../components/common/RouterNavLink';
+import { default as ErrorState } from '../components/common/ErrorState';
+import { default as MantineIcon } from '../components/common/MantineIcon';
+import { default as Page } from '../components/common/Page/Page';
+import { default as PageBreadcrumbs } from '../components/common/PageBreadcrumbs';
+import { default as RouterNavLink } from '../components/common/RouterNavLink';
 import { SettingsGridCard } from '../components/common/Settings/SettingsCard';
 import PageSpinner from '../components/PageSpinner';
 import AccessTokensPanel from '../components/UserSettings/AccessTokensPanel';
+import AiAgentsPanel from '../components/UserSettings/AiAgentsPanel';
 import AllowedDomainsPanel from '../components/UserSettings/AllowedDomainsPanel';
 import AppearanceSettingsPanel from '../components/UserSettings/AppearanceSettingsPanel';
 import DefaultProjectPanel from '../components/UserSettings/DefaultProjectPanel';
@@ -46,6 +48,7 @@ import SlackSettingsPanel from '../components/UserSettings/SlackSettingsPanel';
 import SocialLoginsPanel from '../components/UserSettings/SocialLoginsPanel';
 import UserAttributesPanel from '../components/UserSettings/UserAttributesPanel';
 import UsersAndGroupsPanel from '../components/UserSettings/UsersAndGroupsPanel';
+import { AgentDetails } from '../ee/features/aiCopilot/components/AgentDetails';
 import ScimAccessTokensPanel from '../ee/features/scim/components/ScimAccessTokensPanel';
 import { useOrganization } from '../hooks/organization/useOrganization';
 import { useActiveProjectUuid } from '../hooks/useActiveProject';
@@ -76,6 +79,10 @@ const Settings: FC = () => {
 
     const { data: isScimTokenManagementEnabled } = useFeatureFlag(
         CommercialFeatureFlags.Scim,
+    );
+
+    const { data: aiCopilotFlag } = useFeatureFlag(
+        CommercialFeatureFlags.AiCopilot,
     );
 
     const {
@@ -276,7 +283,7 @@ const Settings: FC = () => {
             organization &&
             !organization.needsProject &&
             user?.ability.can(
-                'view',
+                'update',
                 subject('Project', {
                     organizationUuid: organization.organizationUuid,
                     projectUuid: project.projectUuid,
@@ -330,6 +337,20 @@ const Settings: FC = () => {
             });
         }
 
+        if (
+            user?.ability.can('manage', 'Organization') &&
+            aiCopilotFlag?.enabled
+        ) {
+            allowedRoutes.push({
+                path: '/aiAgents',
+                element: <AiAgentsPanel />,
+            });
+            allowedRoutes.push({
+                path: '/aiAgents/:agentId',
+                element: <AgentDetails />,
+            });
+        }
+
         return allowedRoutes;
     }, [
         isScimTokenManagementEnabled?.enabled,
@@ -341,6 +362,7 @@ const Settings: FC = () => {
         project,
         health,
         t,
+        aiCopilotFlag?.enabled,
     ]);
     const routeElements = useRoutes(routes);
 
@@ -543,6 +565,18 @@ const Settings: FC = () => {
                                     />
                                 )}
 
+                                {user.ability.can('manage', 'Organization') &&
+                                    aiCopilotFlag?.enabled && (
+                                        <RouterNavLink
+                                            label="AI Agents"
+                                            exact
+                                            to="/generalSettings/aiAgents"
+                                            icon={
+                                                <MantineIcon icon={IconBrain} />
+                                            }
+                                        />
+                                    )}
+
                                 {organization &&
                                     !organization.needsProject &&
                                     user.ability.can('view', 'Project') && (
@@ -692,8 +726,8 @@ const Settings: FC = () => {
                                     />
 
                                     {user.ability?.can(
-                                        'manage',
-                                        subject('CompileProject', {
+                                        'update',
+                                        subject('Project', {
                                             organizationUuid:
                                                 project.organizationUuid,
                                             projectUuid: project.projectUuid,

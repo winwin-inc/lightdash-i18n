@@ -234,7 +234,7 @@ export function formatNumberValue(
     }
 }
 
-function applyDefaultFormat(value: unknown) {
+export function applyDefaultFormat(value: unknown) {
     if (value === null) return '∅';
     if (value === undefined) return '-';
     if (!isNumber(value)) {
@@ -401,6 +401,7 @@ export function formatValueWithExpression(expression: string, value: unknown) {
         // format number
         return formatWithExpression(expression, Number(sanitizedValue));
     } catch (e) {
+        // eslint-disable-next-line no-console
         console.error('Error formatting value with expression', e);
         return `${value}`;
     }

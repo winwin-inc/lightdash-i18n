@@ -1,4 +1,5 @@
 import { type AnyType } from './any';
+import { type DateZoom } from './api/paginatedQuery';
 import {
     BinType,
     friendlyName,
@@ -19,7 +20,6 @@ import {
     type TableCalculation,
 } from './field';
 import { type Filters, type MetricFilterRule } from './filter';
-import { type DateGranularity } from './timeFrames';
 
 export interface AdditionalMetric {
     label?: string;
@@ -71,7 +71,7 @@ export type MetricQuery = {
     metricOverrides?: MetricOverrides; // Override format options for fields in "metrics"
     timezone?: string; // Local timezone to use for the query
     metadata?: {
-        hasADateDimension: Pick<CompiledDimension, 'label' | 'name'>;
+        hasADateDimension: Pick<CompiledDimension, 'label' | 'name' | 'table'>;
     };
 };
 export type CompiledMetricQuery = Omit<MetricQuery, 'customDimensions'> & {
@@ -113,7 +113,7 @@ export type MetricQueryResponse = {
     additionalMetrics?: AdditionalMetric[]; // existing metric type
     customDimensions?: CustomDimension[];
     metadata?: {
-        hasADateDimension: Pick<CompiledDimension, 'label' | 'name'>;
+        hasADateDimension: Pick<CompiledDimension, 'label' | 'name' | 'table'>;
     };
 };
 
@@ -144,8 +144,11 @@ export const countCustomDimensionsInMetricQuery = (
         ).length || 0,
 });
 
-export const hasCustomDimension = (metricQuery: MetricQuery | undefined) =>
-    metricQuery?.customDimensions && metricQuery.customDimensions.length > 0;
+export const hasCustomBinDimension = (metricQuery: MetricQuery | undefined) =>
+    metricQuery?.customDimensions &&
+    metricQuery.customDimensions.some((dimension) =>
+        isCustomBinDimension(dimension),
+    );
 
 export type MetricQueryRequest = {
     // tsoa doesn't support complex types like MetricQuery, so we simplified it
@@ -163,7 +166,7 @@ export type MetricQueryRequest = {
     additionalMetrics?: AdditionalMetric[]; // existing metric type
     csvLimit?: number;
     customDimensions?: CustomDimension[];
-    granularity?: DateGranularity;
+    dateZoom?: DateZoom;
     metadata?: MetricQuery['metadata'];
     timezone?: string;
     metricOverrides?: MetricOverrides;

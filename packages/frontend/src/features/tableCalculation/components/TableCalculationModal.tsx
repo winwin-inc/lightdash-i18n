@@ -9,19 +9,27 @@ import {
 } from '@lightdash/common';
 import {
     ActionIcon,
+    Box,
     Button,
+    getDefaultZIndex,
     Group,
     Modal,
+    Paper,
     Select,
     Stack,
     Tabs,
+    Text,
     TextInput,
     Tooltip,
     useMantineTheme,
     type ModalProps,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { IconMaximize, IconMinimize } from '@tabler/icons-react';
+import {
+    IconCalculator,
+    IconMaximize,
+    IconMinimize,
+} from '@tabler/icons-react';
 import { useRef, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
@@ -52,7 +60,8 @@ const TableCalculationModal: FC<Props> = ({
     onClose,
 }) => {
     const theme = useMantineTheme();
-    const [isFullscreen, toggleFullscreen] = useToggle(false);
+    const { colors } = theme;
+    const [isExpanded, toggleExpanded] = useToggle(false);
     const submitButtonRef = useRef<HTMLButtonElement>(null);
 
     const { t } = useTranslation();
@@ -79,7 +88,7 @@ const TableCalculationModal: FC<Props> = ({
                 separator:
                     tableCalculation?.format?.separator ||
                     NumberSeparator.DEFAULT,
-                currency: tableCalculation?.format?.currency || 'USD',
+                currency: tableCalculation?.format?.currency,
                 compact: tableCalculation?.format?.compact,
                 prefix: tableCalculation?.format?.prefix,
                 suffix: tableCalculation?.format?.suffix,
@@ -160,159 +169,223 @@ const TableCalculationModal: FC<Props> = ({
     };
 
     return (
-        <Modal
+        <Modal.Root
             opened={opened}
-            onClose={() => onClose()}
+            onClose={onClose}
             size="xl"
-            title={
-                tableCalculation
-                    ? t('features_table_calculation_modal.tips.edit')
-                    : t('features_table_calculation_modal.tips.add')
-            }
+            centered
             styles={{
-                title: {
-                    fontSize: theme.fontSizes.md,
-                    fontWeight: 700,
-                },
-                body: {
-                    paddingBottom: 0,
-                },
                 content: {
-                    maxHeight: '70vh !important',
+                    minWidth: isExpanded ? '90vw' : 'auto',
+                    height: isExpanded ? '80vh' : 'auto',
                 },
             }}
-            fullScreen={isFullscreen}
         >
-            <form name="table_calculation" onSubmit={handleSubmit}>
-                <Stack>
-                    <TextInput
-                        mb="sm"
-                        label={t(
-                            'features_table_calculation_modal.form.name.label',
-                        )}
-                        required
-                        placeholder={t(
-                            'features_table_calculation_modal.form.name.placeholder',
-                        )}
-                        data-testid="table-calculation-name-input"
-                        {...form.getInputProps('name')}
-                    />
+            <Modal.Overlay />
+            <Modal.Content
+                sx={{
+                    margin: '0 auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    maxHeight: isExpanded ? '90vh' : '60vh',
+                }}
+            >
+                <Modal.Header
+                    sx={(themeProps) => ({
+                        borderBottom: `1px solid ${themeProps.colors.gray[2]}`,
+                        padding: themeProps.spacing.sm,
+                    })}
+                >
+                    <Group spacing="xs">
+                        <Paper p="xs" withBorder radius="sm">
+                            <MantineIcon icon={IconCalculator} size="sm" />
+                        </Paper>
+                        <Text color="dark.7" fw={700} fz="md">
+                            {tableCalculation
+                                ? t('features_table_calculation_modal.edit')
+                                : t('features_table_calculation_modal.create')}
+                            {tableCalculation ? (
+                                <Text span fw={400}>
+                                    {' '}
+                                    - {tableCalculation.displayName}
+                                </Text>
+                            ) : null}
+                        </Text>
+                    </Group>
+                    <Modal.CloseButton />
+                </Modal.Header>
 
-                    <Tabs
-                        defaultValue="sqlEditor"
-                        color="indigo"
-                        variant="outline"
-                        radius="xs"
-                        styles={{
-                            panel: {
-                                borderColor: theme.colors.gray[2],
-                                borderWidth: 1,
-                                borderStyle: 'solid',
-                                borderTop: 'none',
-                                height: isFullscreen
-                                    ? 'calc(100vh - 260px)'
-                                    : '100%',
-                            },
+                <form
+                    name="table_calculation"
+                    onSubmit={handleSubmit}
+                    style={{ display: 'contents' }}
+                >
+                    <Modal.Body
+                        p={0}
+                        sx={{
+                            flex: 1,
                         }}
                     >
-                        <Tabs.List>
-                            <Tabs.Tab value="sqlEditor">
-                                {t(
-                                    'features_table_calculation_modal.form.tabs.sql',
+                        <Stack p="sm" spacing="xs">
+                            <TextInput
+                                label={t(
+                                    'features_table_calculation_modal.form.name.label',
                                 )}
-                            </Tabs.Tab>
-                            <Tabs.Tab value="format">
-                                {t(
-                                    'features_table_calculation_modal.form.tabs.format',
+                                required
+                                placeholder={t(
+                                    'features_table_calculation_modal.form.name.placeholder',
                                 )}
-                            </Tabs.Tab>
-                        </Tabs.List>
-                        <Tabs.Panel value="sqlEditor">
-                            <SqlForm
-                                form={form}
-                                isFullScreen={isFullscreen}
-                                focusOnRender={true}
-                                onCmdEnter={() => {
-                                    if (submitButtonRef.current) {
-                                        submitButtonRef.current.click();
-                                    }
-                                }}
+                                data-testid="table-calculation-name-input"
+                                {...form.getInputProps('name')}
                             />
-                        </Tabs.Panel>
-                        <Tabs.Panel value="format" p="sm">
-                            <FormatForm
-                                formatInputProps={getFormatInputProps}
-                                setFormatFieldValue={setFormatFieldValue}
-                                format={form.values.format}
-                            />
-                        </Tabs.Panel>
-                    </Tabs>
-                    <Tooltip
-                        position="bottom"
-                        withArrow
-                        multiline
-                        maw={400}
-                        withinPortal
-                        label={t(
-                            'features_table_calculation_modal.form.tooltip.label',
-                        )}
-                    >
-                        <Select
-                            label={t(
-                                'features_table_calculation_modal.form.tooltip.select.label',
-                            )}
-                            id="download-type"
-                            {...form.getInputProps('type')}
-                            onChange={(value) => {
-                                const tcType = Object.values(
-                                    TableCalculationType,
-                                ).find((type) => type === value);
-                                if (tcType) form.setFieldValue(`type`, tcType);
-                            }}
-                            data={Object.values(TableCalculationType)}
-                        ></Select>
-                    </Tooltip>
-                    <Group
-                        position="apart"
-                        pos="sticky"
-                        bottom={0}
-                        bg="white"
-                        style={{ zIndex: 1 }}
-                        mt="sm"
-                        p={theme.spacing.md}
-                        align="flex-end"
-                    >
-                        <ActionIcon
-                            variant="outline"
-                            onClick={toggleFullscreen}
-                        >
-                            <MantineIcon
-                                icon={
-                                    isFullscreen ? IconMinimize : IconMaximize
-                                }
-                            />
-                        </ActionIcon>
 
-                        <Group>
-                            <Button variant="outline" onClick={onClose}>
-                                {t(
-                                    'features_table_calculation_modal.form.cancel',
-                                )}
-                            </Button>
-                            <Button
-                                type="submit"
-                                ref={submitButtonRef}
-                                data-testid="table-calculation-save-button"
+                            <Tabs
+                                defaultValue="sqlEditor"
+                                color="indigo"
+                                variant="outline"
+                                radius="xs"
+                                styles={{
+                                    panel: {
+                                        borderColor: colors.gray[2],
+                                        borderWidth: 1,
+                                        borderStyle: 'solid',
+                                        borderTop: 'none',
+                                        height: isExpanded
+                                            ? 'calc(90vh - 400px)'
+                                            : 'auto',
+                                    },
+                                }}
                             >
-                                {t(
-                                    'features_table_calculation_modal.form.save',
+                                <Tabs.List>
+                                    <Tabs.Tab value="sqlEditor">
+                                        {t(
+                                            'features_table_calculation_modal.form.tabs.sql',
+                                        )}
+                                    </Tabs.Tab>
+                                    <Tabs.Tab value="format">
+                                        {t(
+                                            'features_table_calculation_modal.form.tabs.format',
+                                        )}
+                                    </Tabs.Tab>
+                                </Tabs.List>
+                                <Tabs.Panel value="sqlEditor">
+                                    <SqlForm
+                                        form={form}
+                                        isFullScreen={isExpanded}
+                                        focusOnRender={true}
+                                        onCmdEnter={() => {
+                                            if (submitButtonRef.current) {
+                                                submitButtonRef.current.click();
+                                            }
+                                        }}
+                                    />
+                                </Tabs.Panel>
+                                <Tabs.Panel value="format" p="sm">
+                                    <FormatForm
+                                        formatInputProps={getFormatInputProps}
+                                        setFormatFieldValue={
+                                            setFormatFieldValue
+                                        }
+                                        format={form.values.format}
+                                    />
+                                </Tabs.Panel>
+                            </Tabs>
+
+                            <Tooltip
+                                position="right"
+                                withArrow
+                                multiline
+                                maw={400}
+                                variant="xs"
+                                withinPortal
+                                label={t(
+                                    'features_table_calculation_modal.form.tooltip.label',
                                 )}
-                            </Button>
+                            >
+                                <Select
+                                    label={t(
+                                        'features_table_calculation_modal.form.tooltip.select.label',
+                                    )}
+                                    id="download-type"
+                                    sx={{
+                                        alignSelf: 'flex-start',
+                                    }}
+                                    {...form.getInputProps('type')}
+                                    onChange={(value) => {
+                                        const tcType = Object.values(
+                                            TableCalculationType,
+                                        ).find((type) => type === value);
+                                        if (tcType)
+                                            form.setFieldValue(`type`, tcType);
+                                    }}
+                                    data={Object.values(TableCalculationType)}
+                                />
+                            </Tooltip>
+                        </Stack>
+                    </Modal.Body>
+
+                    <Box
+                        sx={(themeProps) => ({
+                            borderTop: `1px solid ${themeProps.colors.gray[2]}`,
+                            padding: themeProps.spacing.sm,
+                            backgroundColor: themeProps.white,
+                            position: 'sticky',
+                            bottom: 0,
+                            width: '100%',
+                            zIndex: getDefaultZIndex('modal'),
+                        })}
+                    >
+                        <Group position="apart">
+                            <Tooltip
+                                label={t(
+                                    'features_table_calculation_modal.form.expand',
+                                )}
+                                variant="xs"
+                            >
+                                <ActionIcon
+                                    variant="outline"
+                                    onClick={toggleExpanded}
+                                >
+                                    <MantineIcon
+                                        icon={
+                                            isExpanded
+                                                ? IconMinimize
+                                                : IconMaximize
+                                        }
+                                    />
+                                </ActionIcon>
+                            </Tooltip>
+
+                            <Group spacing="xs">
+                                <Button
+                                    variant="default"
+                                    h={32}
+                                    onClick={onClose}
+                                >
+                                    {t(
+                                        'features_table_calculation_modal.form.cancel',
+                                    )}
+                                </Button>
+                                <Button
+                                    h={32}
+                                    type="submit"
+                                    ref={submitButtonRef}
+                                    data-testid="table-calculation-save-button"
+                                >
+                                    {tableCalculation
+                                        ? t(
+                                              'features_table_calculation_modal.form.save_changes',
+                                          )
+                                        : t(
+                                              'features_table_calculation_modal.form.create',
+                                          )}
+                                </Button>
+                            </Group>
                         </Group>
-                    </Group>
-                </Stack>
-            </form>
-        </Modal>
+                    </Box>
+                </form>
+            </Modal.Content>
+        </Modal.Root>
     );
 };
 

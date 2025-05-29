@@ -14,7 +14,6 @@ import {
     useExplorerRoute,
     useExplorerUrlState,
 } from '../hooks/useExplorerRoute';
-import { useQueryResults } from '../hooks/useQueryResults';
 import useApp from '../providers/App/useApp';
 import ExplorerProvider from '../providers/Explorer/ExplorerProvider';
 import useExplorerContext from '../providers/Explorer/useExplorerContext';
@@ -53,8 +52,6 @@ const ExplorerPage = memo(() => {
 
     const dateZoomGranularity = useDateZoomGranularitySearch();
 
-    const queryResults = useQueryResults({ dateZoomGranularity });
-
     const cannotViewProject = user.data?.ability?.cannot(
         'view',
         subject('Project', {
@@ -78,8 +75,8 @@ const ExplorerPage = memo(() => {
         <ExplorerProvider
             isEditMode={true}
             initialState={explorerUrlState}
-            queryResults={queryResults}
             defaultLimit={health.data?.query.defaultLimit}
+            dateZoomGranularity={dateZoomGranularity}
         >
             <ExplorerWithUrlParams />
         </ExplorerProvider>

@@ -1,18 +1,28 @@
 import { subject } from '@casl/ability';
 import {
+    addDashboardFiltersToMetricQuery,
     AlreadyExistsError,
     AlreadyProcessingError,
     AndFilterGroup,
     AnyType,
     ApiChartAndResults,
+    type ApiCreateProjectResults,
     ApiQueryResults,
     ApiSqlQueryResults,
+    assertUnreachable,
     CacheMetadata,
+    type CalculateSubtotalsFromQuery,
     CalculateTotalFromQuery,
     ChartSourceType,
     ChartSummary,
     CompiledDimension,
     ContentType,
+    convertCustomMetricToDbt,
+    convertExplores,
+    countCustomDimensionsInMetricQuery,
+    countTotalFilterRules,
+    type CreateDatabricksCredentials,
+    createDimensionWithGranularity,
     CreateJob,
     CreateProject,
     CreateProjectMember,
@@ -23,27 +33,61 @@ import {
     DashboardAvailableFilters,
     DashboardBasicDetails,
     DashboardFilters,
-    DateGranularity,
+    DateZoom,
     DbtExposure,
     DbtExposureType,
+    DbtManifestVersion,
+    DbtProjectEnvironmentVariable,
     DbtProjectType,
+    DbtRawModelNode,
+    deepEqual,
     DefaultSupportedDbtVersion,
     DimensionType,
     DownloadFileType,
     Explore,
     ExploreError,
     ExploreType,
+    FilterableDimension,
     FilterGroupItem,
     FilterOperator,
-    FilterableDimension,
+    findFieldByIdInExplore,
+    findReplaceableCustomMetrics,
     ForbiddenError,
+    formatRawRows,
+    formatRows,
+    getAggregatedField,
+    getDashboardFilterRulesForTables,
+    getDateDimension,
+    getDimensions,
+    getErrorMessage,
+    getFieldQuoteChar,
+    getFields,
+    getIntrinsicUserAttributes,
+    getItemId,
+    getMetrics,
+    getSubtotalKey,
+    getTimezoneLabel,
+    hasIntersection,
     IntrinsicUserAttributes,
+    isCartesianChartConfig,
+    isCustomSqlDimension,
+    isDateItem,
+    isDimension,
+    isExploreError,
+    isFilterableDimension,
+    isFilterRule,
+    isNotNull,
+    isUserWithOrg,
     ItemsMap,
     Job,
     JobStatusType,
     JobStepType,
     JobType,
     LightdashError,
+    MAX_PIVOT_COLUMN_LIMIT,
+    maybeOverrideDbtConnection,
+    maybeOverrideWarehouseConnection,
+    maybeReplaceFieldsInChartVersion,
     MetricQuery,
     MissingWarehouseCredentialsError,
     MostPopularAndRecentlyUpdated,
@@ -59,14 +103,18 @@ import {
     ProjectMemberRole,
     ProjectType,
     QueryExecutionContext,
+    ReplaceableCustomFields,
     ReplaceCustomFields,
     ReplaceCustomFieldsPayload,
-    ReplaceableCustomFields,
+    replaceDimensionInExplore,
     RequestMethod,
     ResultRow,
+    type RunQueryTags,
     SavedChartDAO,
     SavedChartsInfoForDashboardAvailableFilters,
+    type SemanticLayerConnectionUpdate,
     SessionUser,
+    snakeCaseName,
     SortByDirection,
     SortField,
     SpaceQuery,
@@ -74,8 +122,9 @@ import {
     SqlRunnerPayload,
     SqlRunnerPivotQueryPayload,
     SummaryExplore,
-    TableSelectionType,
     TablesConfiguration,
+    TableSelectionType,
+    type Tag,
     UnexpectedServerError,
     UpdateMetadata,
     UpdateProject,
@@ -86,49 +135,9 @@ import {
     VizColumn,
     WarehouseClient,
     WarehouseCredentials,
-    WarehouseTableSchema,
     WarehouseTablesCatalog,
+    WarehouseTableSchema,
     WarehouseTypes,
-    addDashboardFiltersToMetricQuery,
-    assertUnreachable,
-    convertCustomMetricToDbt,
-    countCustomDimensionsInMetricQuery,
-    countTotalFilterRules,
-    createDimensionWithGranularity,
-    deepEqual,
-    findFieldByIdInExplore,
-    findReplaceableCustomMetrics,
-    formatRows,
-    getAggregatedField,
-    getDashboardFilterRulesForTables,
-    getDateDimension,
-    getDimensions,
-    getErrorMessage,
-    getFieldQuoteChar,
-    getFields,
-    getIntrinsicUserAttributes,
-    getItemId,
-    getMetrics,
-    getTimezoneLabel,
-    hasIntersection,
-    isAndFilterGroup,
-    isCustomSqlDimension,
-    isDateItem,
-    isDimension,
-    isExploreError,
-    isFilterRule,
-    isFilterableDimension,
-    isNotNull,
-    isOrFilterGroup,
-    isUserWithOrg,
-    maybeReplaceFieldsInChartVersion,
-    replaceDimensionInExplore,
-    snakeCaseName,
-    type ApiCreateProjectResults,
-    type CreateDatabricksCredentials,
-    type RunQueryTags,
-    type SemanticLayerConnectionUpdate,
-    type Tag,
 } from '@lightdash/common';
 import { SshTunnel } from '@lightdash/warehouses';
 import * as Sentry from '@sentry/node';
@@ -136,13 +145,17 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { uniq } from 'lodash';
+import fetch from 'node-fetch';
 import { Readable } from 'stream';
 import { URL } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { Worker } from 'worker_threads';
-import { LightdashAnalytics } from '../../analytics/LightdashAnalytics';
+import {
+    LightdashAnalytics,
+    MetricQueryExecutionProperties,
+} from '../../analytics/LightdashAnalytics';
 import { S3CacheClient } from '../../clients/Aws/S3CacheClient';
-import { S3Client } from '../../clients/Aws/s3';
+import { S3Client } from '../../clients/Aws/S3Client';
 import EmailClient from '../../clients/EmailClient/EmailClient';
 import { LightdashConfig } from '../../config/parseConfig';
 import type { DbTagUpdate } from '../../database/entities/tags';
@@ -164,13 +177,15 @@ import { SpaceModel } from '../../models/SpaceModel';
 import { SshKeyPairModel } from '../../models/SshKeyPairModel';
 import type { TagsModel } from '../../models/TagsModel';
 import { UserAttributesModel } from '../../models/UserAttributesModel';
+import { UserModel } from '../../models/UserModel';
 import { UserWarehouseCredentialsModel } from '../../models/UserWarehouseCredentials/UserWarehouseCredentialsModel';
 import { WarehouseAvailableTablesModel } from '../../models/WarehouseAvailableTablesModel/WarehouseAvailableTablesModel';
+import { DbtBaseProjectAdapter } from '../../projectAdapters/dbtBaseProjectAdapter';
 import { projectAdapterFromConfig } from '../../projectAdapters/projectAdapter';
 import {
-    CompiledQuery,
     applyLimitToSqlQuery,
     buildQuery,
+    CompiledQuery,
 } from '../../queryBuilder';
 import { compileMetricQuery } from '../../queryCompiler';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
@@ -187,8 +202,9 @@ import {
     exploreHasFilteredAttribute,
     getFilteredExplore,
 } from '../UserAttributesService/UserAttributeUtils';
+import { ValidationService } from '../ValidationService/ValidationService';
 
-type ProjectServiceArguments = {
+export type ProjectServiceArguments = {
     lightdashConfig: LightdashConfig;
     analytics: LightdashAnalytics;
     projectModel: ProjectModel;
@@ -213,6 +229,7 @@ type ProjectServiceArguments = {
     catalogModel: CatalogModel;
     contentModel: ContentModel;
     encryptionUtil: EncryptionUtil;
+    userModel: UserModel;
 };
 
 export class ProjectService extends BaseService {
@@ -266,6 +283,8 @@ export class ProjectService extends BaseService {
 
     encryptionUtil: EncryptionUtil;
 
+    userModel: UserModel;
+
     constructor({
         lightdashConfig,
         analytics,
@@ -291,6 +310,7 @@ export class ProjectService extends BaseService {
         catalogModel,
         contentModel,
         encryptionUtil,
+        userModel,
     }: ProjectServiceArguments) {
         super();
         this.lightdashConfig = lightdashConfig;
@@ -318,6 +338,114 @@ export class ProjectService extends BaseService {
         this.catalogModel = catalogModel;
         this.contentModel = contentModel;
         this.encryptionUtil = encryptionUtil;
+        this.userModel = userModel;
+    }
+
+    static getMetricQueryExecutionProperties({
+        metricQuery,
+        dateZoom,
+        chartUuid,
+        queryTags,
+        explore,
+    }: {
+        metricQuery: MetricQuery;
+        dateZoom: DateZoom | undefined;
+        chartUuid: string | undefined;
+        queryTags: Record<string, unknown>;
+        explore: Explore;
+    }): MetricQueryExecutionProperties {
+        return {
+            dimensionsCount: metricQuery.dimensions.length,
+            metricsCount: metricQuery.metrics.length,
+            filtersCount: countTotalFilterRules(metricQuery.filters),
+            sortsCount: metricQuery.sorts.length,
+            tableCalculationsCount: metricQuery.tableCalculations.length,
+            tableCalculationsPercentFormatCount:
+                metricQuery.tableCalculations.filter(
+                    (tableCalculation) =>
+                        tableCalculation.format?.type ===
+                        CustomFormatType.PERCENT,
+                ).length,
+            tableCalculationsCurrencyFormatCount:
+                metricQuery.tableCalculations.filter(
+                    (tableCalculation) =>
+                        tableCalculation.format?.type ===
+                        CustomFormatType.CURRENCY,
+                ).length,
+            tableCalculationsNumberFormatCount:
+                metricQuery.tableCalculations.filter(
+                    (tableCalculation) =>
+                        tableCalculation.format?.type ===
+                        CustomFormatType.NUMBER,
+                ).length,
+            tableCalculationCustomFormatCount:
+                metricQuery.tableCalculations.filter(
+                    (tableCalculation) =>
+                        tableCalculation.format?.type ===
+                        CustomFormatType.CUSTOM,
+                ).length,
+            additionalMetricsCount: (
+                metricQuery.additionalMetrics || []
+            ).filter((metric) =>
+                metricQuery.metrics.includes(getItemId(metric)),
+            ).length,
+            additionalMetricsFilterCount: (
+                metricQuery.additionalMetrics || []
+            ).filter(
+                (metric) =>
+                    metricQuery.metrics.includes(getItemId(metric)) &&
+                    metric.filters &&
+                    metric.filters.length > 0,
+            ).length,
+            additionalMetricsPercentFormatCount: (
+                metricQuery.additionalMetrics || []
+            ).filter(
+                (metric) =>
+                    metricQuery.metrics.includes(getItemId(metric)) &&
+                    metric.formatOptions &&
+                    metric.formatOptions.type === CustomFormatType.PERCENT,
+            ).length,
+            additionalMetricsCurrencyFormatCount: (
+                metricQuery.additionalMetrics || []
+            ).filter(
+                (metric) =>
+                    metricQuery.metrics.includes(getItemId(metric)) &&
+                    metric.formatOptions &&
+                    metric.formatOptions.type === CustomFormatType.CURRENCY,
+            ).length,
+            additionalMetricsNumberFormatCount: (
+                metricQuery.additionalMetrics || []
+            ).filter(
+                (metric) =>
+                    metricQuery.metrics.includes(getItemId(metric)) &&
+                    metric.formatOptions &&
+                    metric.formatOptions.type === CustomFormatType.NUMBER,
+            ).length,
+            additionalMetricsCustomFormatCount: (
+                metricQuery.additionalMetrics || []
+            ).filter(
+                (metric) =>
+                    metricQuery.metrics.includes(getItemId(metric)) &&
+                    metric.formatOptions &&
+                    metric.formatOptions.type === CustomFormatType.CUSTOM,
+            ).length,
+            ...countCustomDimensionsInMetricQuery(metricQuery),
+            dateZoomGranularity: dateZoom?.granularity || null,
+            timezone: metricQuery.timezone,
+            ...(queryTags?.dashboard_uuid
+                ? { dashboardId: queryTags.dashboard_uuid }
+                : {}),
+            chartId: chartUuid,
+            ...(explore.type === ExploreType.VIRTUAL
+                ? { virtualViewId: explore.name }
+                : {}),
+            metricOverridesCount: Object.keys(
+                metricQuery.metricOverrides || {},
+            ).filter((metricOverrideKey) =>
+                metricQuery.metrics.includes(metricOverrideKey),
+            ).length,
+            limit: metricQuery.limit,
+        };
     }
 
     private async validateProjectCreationPermissions(
@@ -360,8 +488,9 @@ export class ProjectService extends BaseService {
                         user.ability.cannot(
                             'view',
                             subject('Project', {
-                                organizationUuid: user.organizationUuid,
-                                projectUuid: data.upstreamProjectUuid,
+                                organizationUuid:
+                                    upstreamProject.organizationUuid,
+                                projectUuid: upstreamProject.projectUuid,
                             }),
                         )
                     ) {
@@ -374,15 +503,27 @@ export class ProjectService extends BaseService {
                             'Cannot create a preview project from a preview project',
                         );
                     }
+                    if (
+                        // checks if user has permission to create project from an upstream project on a project level
+                        user.ability.can(
+                            'create',
+                            subject('Project', {
+                                upstreamProjectUuid:
+                                    upstreamProject.projectUuid,
+                                type: ProjectType.PREVIEW,
+                            }),
+                        )
+                    ) {
+                        return true;
+                    }
                 }
 
                 if (
-                    // checks if user has permission to create project on an organization level or from an upstream project on a project level
+                    // checks if user has permission to create project on an organization level
                     user.ability.can(
                         'create',
                         subject('Project', {
                             organizationUuid: user.organizationUuid,
-                            upstreamProjectUuid: data.upstreamProjectUuid,
                             type: ProjectType.PREVIEW,
                         }),
                     )
@@ -398,6 +539,26 @@ export class ProjectService extends BaseService {
                     `Unknown project type: ${data.type}`,
                 );
         }
+    }
+
+    private async getUserAttributes(
+        user: SessionUser,
+        organizationUuid: string,
+    ) {
+        const userAttributes =
+            await this.userAttributesModel.getAttributeValuesForOrgMember({
+                organizationUuid,
+                userUuid: user.userUuid,
+            });
+
+        const emailStatus = await this.emailModel.getPrimaryEmailStatus(
+            user.userUuid,
+        );
+        const intrinsicUserAttributes = emailStatus.isVerified
+            ? getIntrinsicUserAttributes(user)
+            : {};
+
+        return { userAttributes, intrinsicUserAttributes };
     }
 
     private async _resolveWarehouseClientSshKeys<
@@ -422,8 +583,7 @@ export class ProjectService extends BaseService {
     }
 
     // TODO: getWarehouseCredentials could be moved to a client WarehouseClientManager. However, this client shouldn't be using a model. Perhaps this information can be passed as a prop to the client so that other services can use the warehouse client credentials logic?
-
-    private async getWarehouseCredentials(
+    protected async getWarehouseCredentials(
         projectUuid: string,
         userUuid: string,
     ) {
@@ -474,6 +634,7 @@ export class ProjectService extends BaseService {
         warehouseClient: WarehouseClient;
         sshTunnel: SshTunnel<CreateWarehouseCredentials>;
     }> {
+        Sentry.setTag('warehouse.type', credentials.type);
         // Setup SSH tunnel for client (user needs to close this)
         const sshTunnel = new SshTunnel(credentials);
         const warehouseSshCredentials = await sshTunnel.connect();
@@ -578,6 +739,9 @@ export class ProjectService extends BaseService {
 
         const { cachedExploreUuids } =
             await this.projectModel.saveExploresToCache(projectUuid, explores);
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
 
         this.logger.info(
             `Saved ${cachedExploreUuids.length} explores to cache for project ${projectUuid}`,
@@ -585,6 +749,7 @@ export class ProjectService extends BaseService {
         return this.schedulerClient.indexCatalog({
             projectUuid,
             userUuid,
+            organizationUuid,
             prevCatalogItemsWithTags,
             prevCatalogItemsWithIcons,
             prevMetricTreeEdges,
@@ -731,6 +896,8 @@ export class ProjectService extends BaseService {
             requestMethod: method,
             jobUuid: job.jobUuid,
             data: encryptedData,
+            userUuid: user.userUuid,
+            projectUuid: undefined,
         });
         return { jobUuid: job.jobUuid };
     }
@@ -891,7 +1058,7 @@ export class ProjectService extends BaseService {
             userUuid: user.userUuid,
             projectUuid,
             context: 'cli',
-            organizationUuid: user.organizationUuid,
+            organizationUuid,
         });
     }
 
@@ -949,6 +1116,7 @@ export class ProjectService extends BaseService {
                 requestMethod: method,
                 jobUuid: job.jobUuid,
                 isPreview: savedProject.type === ProjectType.PREVIEW,
+                userUuid: user.userUuid,
             });
         } else {
             // Nothing to test and compile, just update the job status
@@ -1194,13 +1362,13 @@ export class ProjectService extends BaseService {
         return { adapter, sshTunnel };
     }
 
-    static updateExploreWithGranularity(
+    static updateExploreWithDateZoom(
         explore: Explore,
         metricQuery: MetricQuery,
         warehouseClient: WarehouseClient,
-        granularity?: DateGranularity,
+        dateZoom?: DateZoom,
     ): Explore {
-        if (granularity) {
+        if (dateZoom?.granularity) {
             const timeDimensionsMap: Record<string, CompiledDimension> =
                 Object.values(explore.tables).reduce<
                     Record<string, CompiledDimension>
@@ -1216,16 +1384,21 @@ export class ProjectService extends BaseService {
                     return acc;
                 }, {});
 
-            const firstTimeDimensionIdInMetricQuery =
-                metricQuery.dimensions.find(
-                    (dimension) => !!timeDimensionsMap[dimension],
-                );
-            if (firstTimeDimensionIdInMetricQuery) {
-                const dimToOverride =
-                    timeDimensionsMap[firstTimeDimensionIdInMetricQuery];
-                const { baseDimensionId } = getDateDimension(
-                    firstTimeDimensionIdInMetricQuery,
-                );
+            let timeOrDateDimension = dateZoom?.xAxisFieldId;
+
+            if (!timeOrDateDimension) {
+                const firstTimeDimensionIdInMetricQuery =
+                    metricQuery.dimensions.find(
+                        (dimension) => !!timeDimensionsMap[dimension],
+                    );
+
+                timeOrDateDimension = firstTimeDimensionIdInMetricQuery;
+            }
+
+            if (timeOrDateDimension) {
+                const dimToOverride = timeDimensionsMap[timeOrDateDimension];
+                const { baseDimensionId } =
+                    getDateDimension(timeOrDateDimension);
                 const baseTimeDimension =
                     dimToOverride.timeInterval && baseDimensionId
                         ? timeDimensionsMap[baseDimensionId]
@@ -1236,8 +1409,9 @@ export class ProjectService extends BaseService {
                         baseTimeDimension,
                         explore,
                         warehouseClient,
-                        granularity,
+                        dateZoom?.granularity,
                     );
+
                 return replaceDimensionInExplore(
                     explore,
                     dimWithGranularityOverride,
@@ -1254,13 +1428,13 @@ export class ProjectService extends BaseService {
         intrinsicUserAttributes: IntrinsicUserAttributes,
         userAttributes: UserAttributeValueMap,
         timezone: string,
-        granularity?: DateGranularity,
+        dateZoom?: DateZoom,
     ): Promise<CompiledQuery> {
-        const exploreWithOverride = ProjectService.updateExploreWithGranularity(
+        const exploreWithOverride = ProjectService.updateExploreWithDateZoom(
             explore,
             metricQuery,
             warehouseClient,
-            granularity,
+            dateZoom,
         );
 
         const compiledMetricQuery = compileMetricQuery({
@@ -1282,13 +1456,17 @@ export class ProjectService extends BaseService {
     }
 
     async compileQuery(
-        user: SessionUser,
-        metricQuery: MetricQuery,
-        projectUuid: string,
-        exploreName: string,
+        args: {
+            user: SessionUser;
+            metricQuery: MetricQuery;
+            projectUuid: string;
+        } & ({ exploreName: string } | { explore: Explore }),
     ) {
-        const { organizationUuid } =
-            await this.projectModel.getWithSensitiveFields(projectUuid);
+        const { user, metricQuery, projectUuid } = args;
+
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
 
         if (
             user.ability.cannot(
@@ -1310,7 +1488,10 @@ export class ProjectService extends BaseService {
             );
         }
 
-        const explore = await this.getExplore(user, projectUuid, exploreName);
+        const explore =
+            'explore' in args
+                ? args.explore
+                : await this.getExplore(user, projectUuid, args.exploreName);
 
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
@@ -1320,18 +1501,9 @@ export class ProjectService extends BaseService {
                 databricksCompute: explore.databricksCompute,
             },
         );
-        const userAttributes =
-            await this.userAttributesModel.getAttributeValuesForOrgMember({
-                organizationUuid,
-                userUuid: user.userUuid,
-            });
 
-        const emailStatus = await this.emailModel.getPrimaryEmailStatus(
-            user.userUuid,
-        );
-        const intrinsicUserAttributes = emailStatus.isVerified
-            ? getIntrinsicUserAttributes(user)
-            : {};
+        const { userAttributes, intrinsicUserAttributes } =
+            await this.getUserAttributes(user, organizationUuid);
 
         const compiledQuery = await ProjectService._compileQuery(
             metricQuery,
@@ -1389,8 +1561,9 @@ export class ProjectService extends BaseService {
         if (!isUserWithOrg(user)) {
             throw new ForbiddenError('User is not part of an organization');
         }
-        const { organizationUuid } =
-            await this.projectModel.getWithSensitiveFields(projectUuid);
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
 
         if (
             user.ability.cannot(
@@ -1531,7 +1704,7 @@ export class ProjectService extends BaseService {
         dashboardFilters,
         invalidateCache,
         dashboardSorts,
-        granularity,
+        dateZoom,
         dashboardUuid,
         autoRefresh,
         context = QueryExecutionContext.DASHBOARD,
@@ -1542,7 +1715,7 @@ export class ProjectService extends BaseService {
         dashboardFilters: DashboardFilters;
         invalidateCache?: boolean;
         dashboardSorts: SortField[];
-        granularity?: DateGranularity;
+        dateZoom?: DateZoom;
         autoRefresh?: boolean;
         context?: QueryExecutionContext;
     }): Promise<ApiChartAndResults> {
@@ -1647,7 +1820,7 @@ export class ProjectService extends BaseService {
                 queryTags,
                 invalidateCache,
                 explore,
-                granularity,
+                dateZoom,
                 chartUuid,
             });
 
@@ -1655,16 +1828,27 @@ export class ProjectService extends BaseService {
             ...metricQueryWithDashboardOverrides.dimensions,
             ...(metricQueryWithDashboardOverrides.customDimensions ?? []),
         ];
-        const hasADateDimension = exploreDimensions.find(
-            (c) =>
-                metricQueryDimensions.includes(getItemId(c)) && isDateItem(c),
-        );
+
+        const xAxisField = isCartesianChartConfig(savedChart.chartConfig.config)
+            ? savedChart.chartConfig.config.layout.xField
+            : undefined;
+
+        const hasADateDimension = xAxisField
+            ? exploreDimensions.find(
+                  (c) => getItemId(c) === xAxisField && isDateItem(c),
+              )
+            : exploreDimensions.find(
+                  (c) =>
+                      metricQueryDimensions.includes(getItemId(c)) &&
+                      isDateItem(c),
+              );
 
         if (hasADateDimension) {
             metricQueryWithDashboardOverrides.metadata = {
                 hasADateDimension: {
                     name: hasADateDimension.name,
                     label: hasADateDimension.label,
+                    table: hasADateDimension.table,
                 },
             };
         }
@@ -1686,14 +1870,15 @@ export class ProjectService extends BaseService {
         projectUuid: string,
         exploreName: string,
         csvLimit: number | null | undefined,
-        dateZoomGranularity?: DateGranularity,
+        dateZoom?: DateZoom,
         context: QueryExecutionContext = QueryExecutionContext.EXPLORE,
     ): Promise<ApiQueryResults> {
         if (!isUserWithOrg(user)) {
             throw new ForbiddenError('User is not part of an organization');
         }
-        const { organizationUuid } =
-            await this.projectModel.getWithSensitiveFields(projectUuid);
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
 
         if (
             user.ability.cannot(
@@ -1740,7 +1925,7 @@ export class ProjectService extends BaseService {
             csvLimit,
             context: QueryExecutionContext.EXPLORE,
             queryTags,
-            granularity: dateZoomGranularity,
+            dateZoom,
             chartUuid: undefined,
             invalidateCache: true, // Do not cache results for explore queries
         });
@@ -1756,7 +1941,7 @@ export class ProjectService extends BaseService {
         queryTags,
         invalidateCache,
         explore: validExplore,
-        granularity,
+        dateZoom,
         chartUuid,
     }: {
         user: SessionUser;
@@ -1768,7 +1953,7 @@ export class ProjectService extends BaseService {
         queryTags: RunQueryTags;
         invalidateCache?: boolean;
         explore?: Explore;
-        granularity?: DateGranularity;
+        dateZoom?: DateZoom;
         chartUuid: string | undefined;
     }): Promise<ApiQueryResults> {
         return wrapSentryTransaction(
@@ -1790,7 +1975,7 @@ export class ProjectService extends BaseService {
                         queryTags,
                         invalidateCache,
                         explore,
-                        granularity,
+                        dateZoom,
                         chartUuid,
                     });
                 span.setAttribute('rows', rows.length);
@@ -1816,7 +2001,7 @@ export class ProjectService extends BaseService {
                     async (formatRowsSpan) => {
                         const useWorker = rows.length > 500;
                         this.logger.info(`Formatting ${rows.length} rows`);
-                        return measureTime(
+                        const { result } = await measureTime(
                             async () => {
                                 formatRowsSpan.setAttribute(
                                     'useWorker',
@@ -1843,6 +2028,8 @@ export class ProjectService extends BaseService {
                                 useWorker,
                             },
                         );
+
+                        return result;
                     },
                 );
 
@@ -1867,7 +2054,7 @@ export class ProjectService extends BaseService {
         exploreName: string,
         metricQuery: MetricQuery,
     ) {
-        return measureTime(
+        const { result } = await measureTime(
             () =>
                 this.runMetricQuery({
                     user,
@@ -1886,6 +2073,8 @@ export class ProjectService extends BaseService {
                 metricQuery,
             },
         );
+
+        return result;
     }
 
     async getResultsForChart(
@@ -1965,7 +2154,7 @@ export class ProjectService extends BaseService {
                 span.setAttribute('cacheHit', false);
 
                 if (
-                    this.lightdashConfig.resultsCache?.resultsEnabled &&
+                    this.lightdashConfig.results.cacheEnabled &&
                     !invalidateCache
                 ) {
                     const cacheEntryMetadata = await this.s3CacheClient
@@ -1976,14 +2165,13 @@ export class ProjectService extends BaseService {
                         cacheEntryMetadata?.LastModified &&
                         new Date().getTime() -
                             cacheEntryMetadata.LastModified.getTime() <
-                            this.lightdashConfig.resultsCache
-                                .cacheStateTimeSeconds *
+                            this.lightdashConfig.results.cacheStateTimeSeconds *
                                 1000
                     ) {
                         this.logger.debug(
                             `Getting data from cache, key: ${queryHash}`,
                         );
-                        const cacheEntry = await measureTime(
+                        const { result: cacheEntry } = await measureTime(
                             () => this.s3CacheClient.getResults(queryHash),
                             'getResultsFromCache',
                             this.logger,
@@ -2026,7 +2214,7 @@ export class ProjectService extends BaseService {
                     },
                     async () => {
                         try {
-                            return await measureTime(
+                            const { result } = await measureTime(
                                 () =>
                                     warehouseClient.runQuery(
                                         query,
@@ -2035,14 +2223,17 @@ export class ProjectService extends BaseService {
                                     ),
                                 'runWarehouseQuery',
                                 this.logger,
+                                context,
                             );
+
+                            return result;
                         } catch (e) {
                             this.logger.warn(
                                 `Error running "${
                                     warehouseClient.credentials.type
                                 }" warehouse query:
                                 "${query}"
-                                with query tags: 
+                                with query tags:
                                 ${JSON.stringify(queryTags)}`,
                             );
                             throw e;
@@ -2050,7 +2241,7 @@ export class ProjectService extends BaseService {
                     },
                 );
 
-                if (this.lightdashConfig.resultsCache?.resultsEnabled) {
+                if (this.lightdashConfig.results.cacheEnabled) {
                     this.logger.debug(
                         `Writing data to cache with key ${queryHash}`,
                     );
@@ -2081,7 +2272,7 @@ export class ProjectService extends BaseService {
         queryTags,
         invalidateCache,
         explore: loadedExplore,
-        granularity,
+        dateZoom,
         chartUuid,
     }: {
         user: SessionUser;
@@ -2093,7 +2284,7 @@ export class ProjectService extends BaseService {
         queryTags: Omit<RunQueryTags, 'query_context'>; // We already have context in the context parameter
         invalidateCache?: boolean;
         explore?: Explore;
-        granularity?: DateGranularity;
+        dateZoom?: DateZoom;
         chartUuid: string | undefined; // for analytics
     }): Promise<{
         rows: Record<string, AnyType>[];
@@ -2171,10 +2362,10 @@ export class ProjectService extends BaseService {
                         intrinsicUserAttributes,
                         userAttributes,
                         this.lightdashConfig.query.timezone || 'UTC',
-                        granularity,
+                        dateZoom,
                     );
 
-                    const { query, hasExampleMetric } = fullQuery;
+                    const { query } = fullQuery;
 
                     const fieldsWithOverrides: ItemsMap = Object.fromEntries(
                         Object.entries(fullQuery.fields).map(([key, value]) => {
@@ -2213,114 +2404,16 @@ export class ProjectService extends BaseService {
                         properties: {
                             organizationId: organizationUuid,
                             projectId: projectUuid,
-                            hasExampleMetric,
-                            dimensionsCount: metricQuery.dimensions.length,
-                            metricsCount: metricQuery.metrics.length,
-                            filtersCount: countTotalFilterRules(
-                                metricQuery.filters,
-                            ),
-                            sortsCount: metricQuery.sorts.length,
-                            tableCalculationsCount:
-                                metricQuery.tableCalculations.length,
-                            tableCalculationsPercentFormatCount:
-                                metricQuery.tableCalculations.filter(
-                                    (tableCalculation) =>
-                                        tableCalculation.format?.type ===
-                                        CustomFormatType.PERCENT,
-                                ).length,
-                            tableCalculationsCurrencyFormatCount:
-                                metricQuery.tableCalculations.filter(
-                                    (tableCalculation) =>
-                                        tableCalculation.format?.type ===
-                                        CustomFormatType.CURRENCY,
-                                ).length,
-                            tableCalculationsNumberFormatCount:
-                                metricQuery.tableCalculations.filter(
-                                    (tableCalculation) =>
-                                        tableCalculation.format?.type ===
-                                        CustomFormatType.NUMBER,
-                                ).length,
-                            tableCalculationCustomFormatCount:
-                                metricQuery.tableCalculations.filter(
-                                    (tableCalculation) =>
-                                        tableCalculation.format?.type ===
-                                        CustomFormatType.CUSTOM,
-                                ).length,
-                            additionalMetricsCount: (
-                                metricQuery.additionalMetrics || []
-                            ).filter((metric) =>
-                                metricQuery.metrics.includes(getItemId(metric)),
-                            ).length,
-                            additionalMetricsFilterCount: (
-                                metricQuery.additionalMetrics || []
-                            ).filter(
-                                (metric) =>
-                                    metricQuery.metrics.includes(
-                                        getItemId(metric),
-                                    ) &&
-                                    metric.filters &&
-                                    metric.filters.length > 0,
-                            ).length,
-                            additionalMetricsPercentFormatCount: (
-                                metricQuery.additionalMetrics || []
-                            ).filter(
-                                (metric) =>
-                                    metricQuery.metrics.includes(
-                                        getItemId(metric),
-                                    ) &&
-                                    metric.formatOptions &&
-                                    metric.formatOptions.type ===
-                                        CustomFormatType.PERCENT,
-                            ).length,
-                            additionalMetricsCurrencyFormatCount: (
-                                metricQuery.additionalMetrics || []
-                            ).filter(
-                                (metric) =>
-                                    metricQuery.metrics.includes(
-                                        getItemId(metric),
-                                    ) &&
-                                    metric.formatOptions &&
-                                    metric.formatOptions.type ===
-                                        CustomFormatType.CURRENCY,
-                            ).length,
-                            additionalMetricsNumberFormatCount: (
-                                metricQuery.additionalMetrics || []
-                            ).filter(
-                                (metric) =>
-                                    metricQuery.metrics.includes(
-                                        getItemId(metric),
-                                    ) &&
-                                    metric.formatOptions &&
-                                    metric.formatOptions.type ===
-                                        CustomFormatType.NUMBER,
-                            ).length,
-                            additionalMetricsCustomFormatCount: (
-                                metricQuery.additionalMetrics || []
-                            ).filter(
-                                (metric) =>
-                                    metricQuery.metrics.includes(
-                                        getItemId(metric),
-                                    ) &&
-                                    metric.formatOptions &&
-                                    metric.formatOptions.type ===
-                                        CustomFormatType.CUSTOM,
-                            ).length,
                             context,
-                            ...countCustomDimensionsInMetricQuery(metricQuery),
-                            dateZoomGranularity: granularity || null,
-                            timezone: metricQuery.timezone,
-                            ...(queryTags?.dashboard_uuid
-                                ? { dashboardId: queryTags.dashboard_uuid }
-                                : {}),
-                            chartId: chartUuid,
-                            ...(explore.type === ExploreType.VIRTUAL
-                                ? { virtualViewId: explore.name }
-                                : {}),
-                            metricOverridesCount: Object.keys(
-                                metricQuery.metricOverrides || {},
-                            ).filter((metricOverrideKey) =>
-                                metricQuery.metrics.includes(metricOverrideKey),
-                            ).length,
+                            ...ProjectService.getMetricQueryExecutionProperties(
+                                {
+                                    metricQuery: metricQueryWithLimit,
+                                    queryTags,
+                                    chartUuid,
+                                    dateZoom,
+                                    explore,
+                                },
+                            ),
                         },
                     });
                     this.logger.debug(
@@ -2533,7 +2626,7 @@ export class ProjectService extends BaseService {
             ),
         ];
 
-        const orderBy: string = sortBy
+        const orderBy: string = sortBy?.length
             ? `ORDER BY ${sortBy
                   .map((s) => `${q}${s.reference}${q} ${s.direction}`)
                   .join(', ')}`
@@ -2553,12 +2646,38 @@ export class ProjectService extends BaseService {
         }${q}) as ${q}column_index${q} FROM group_by_query`;
 
         if (groupByColumns && groupByColumns.length > 0) {
-            // Wrap the original query in a CTE
-            let pivotedSql = `WITH original_query AS (${userSql}), group_by_query AS (${groupByQuery}), pivot_query AS (${pivotQuery})`;
+            // Calculate max allowed columns based on number of value columns
+            const valueColumnsCount = valuesColumns?.length || 1;
+            const remainingColumns = MAX_PIVOT_COLUMN_LIMIT - 1; // Account for the index column
+            const maxColumnsPerValueColumn = Math.floor(
+                remainingColumns / valueColumnsCount,
+            );
 
-            pivotedSql += `\nSELECT * FROM pivot_query WHERE ${q}row_index${q} <= ${
+            // Generate filtered rows and total columns so that we can apply a max column limit but also count the total number of columns if we exceed the MAX_PIVOT_COLUMN_LIMIT
+            let pivotedSql = `
+            WITH original_query AS (${userSql}), 
+                 group_by_query AS (${groupByQuery}), 
+                 pivot_query AS (${pivotQuery}),
+                 filtered_rows AS (
+                    SELECT * FROM pivot_query WHERE ${q}row_index${q} <= ${
                 limit ?? 500
-            } and ${q}column_index${q} <= 10 order by ${q}row_index${q}, ${q}column_index${q}`;
+            }
+                 ),
+                 total_columns AS (
+                    SELECT (COUNT(DISTINCT ${groupByColumns
+                        .map((col) => `filtered_rows.${q}${col.reference}${q}`)
+                        .join(', ')}) * ${
+                valuesColumns?.length || 1
+            }) as total_columns FROM filtered_rows
+                 )
+            `;
+
+            // Add a max column limit to avoid too many columns and performance issues.
+            // Warn the user if we exceed it.
+            pivotedSql += `\nSELECT p.*, t.total_columns FROM pivot_query p CROSS JOIN total_columns t WHERE p.${q}row_index${q} <= ${
+                limit ?? 500
+            } and p.${q}column_index${q} <= ${maxColumnsPerValueColumn} order by p.${q}row_index${q}, p.${q}column_index${q}`;
+
             return pivotedSql;
         }
 
@@ -2631,6 +2750,8 @@ export class ProjectService extends BaseService {
         let currentTransformedRow: ResultRow | undefined;
         const valuesColumnData = new Map<string, PivotValuesColumn>();
 
+        let columnCount: undefined | number;
+
         const fileUrl = await this.downloadFileModel.streamFunction(
             this.s3Client,
         )(
@@ -2640,6 +2761,9 @@ export class ProjectService extends BaseService {
                     await warehouseClient.streamQuery(
                         pivotedSql,
                         async ({ rows, fields }) => {
+                            if ('total_columns' in rows[0]) {
+                                columnCount = rows[0].total_columns;
+                            }
                             if (
                                 !groupByColumns ||
                                 groupByColumns.length === 0
@@ -2735,6 +2859,7 @@ export class ProjectService extends BaseService {
             fileUrl,
             valuesColumns: processedColumns,
             indexColumn,
+            columnCount: Number(columnCount) || undefined,
         };
     }
 
@@ -2907,18 +3032,8 @@ export class ProjectService extends BaseService {
                 databricksCompute: explore.databricksCompute,
             },
         );
-        const userAttributes =
-            await this.userAttributesModel.getAttributeValuesForOrgMember({
-                organizationUuid,
-                userUuid: user.userUuid,
-            });
-
-        const emailStatus = await this.emailModel.getPrimaryEmailStatus(
-            user.userUuid,
-        );
-        const intrinsicUserAttributes = emailStatus.isVerified
-            ? getIntrinsicUserAttributes(user)
-            : {};
+        const { userAttributes, intrinsicUserAttributes } =
+            await this.getUserAttributes(user, organizationUuid);
 
         const { query } = await ProjectService._compileQuery(
             metricQuery,
@@ -2937,9 +3052,7 @@ export class ProjectService extends BaseService {
             .update(queryHashKey)
             .digest('hex');
 
-        const isCacheEnabled =
-            this.lightdashConfig.resultsCache.autocompleteEnabled &&
-            this.s3CacheClient.isEnabled();
+        const isCacheEnabled = this.lightdashConfig.results.autocompleteEnabled;
 
         if (!forceRefresh && isCacheEnabled) {
             const isCached = await this.s3CacheClient.getResultsMetadata(
@@ -3053,12 +3166,7 @@ export class ProjectService extends BaseService {
                     ).length,
                     metricsCount: explores.reduce<number>((acc, explore) => {
                         if (!isExploreError(explore)) {
-                            return (
-                                acc +
-                                getMetrics(explore).filter(
-                                    ({ isAutoGenerated }) => !isAutoGenerated,
-                                ).length
-                            );
+                            return acc + getMetrics(explore).length;
                         }
                         return acc;
                     }, 0),
@@ -3277,6 +3385,7 @@ export class ProjectService extends BaseService {
             requestMethod,
             jobUuid: job.jobUuid,
             isPreview: type === ProjectType.PREVIEW,
+            userUuid: user.userUuid,
         });
 
         return { jobUuid: job.jobUuid };
@@ -3833,16 +3942,24 @@ export class ProjectService extends BaseService {
         if (!tableName) {
             throw new ParameterError('Table name is required');
         }
-        const warehouseCatalog = await warehouseClient.getFields(
-            tableName,
-            schemaName,
-            database,
-            queryTags,
-        );
 
-        await sshTunnel.disconnect();
+        try {
+            const warehouseCatalog = await warehouseClient.getFields(
+                tableName,
+                schemaName,
+                database,
+                queryTags,
+            );
 
-        return warehouseCatalog[database][schemaName][tableName];
+            await sshTunnel.disconnect();
+
+            return warehouseCatalog[database][schemaName][tableName];
+        } catch (error) {
+            this.logger.error('Error fetching warehouse fields', { error });
+            throw new NotFoundError(
+                `Could not find table "${tableName}" in schema "${schemaName}" of database "${database}". Please verify the table exists and you have access to it.`,
+            );
+        }
     }
 
     async getTablesConfiguration(
@@ -4391,11 +4508,12 @@ export class ProjectService extends BaseService {
         user: SessionUser,
         projectUuid: string,
     ): Promise<MostPopularAndRecentlyUpdated> {
+        const projectSummary = await this.projectModel.getSummary(projectUuid);
         if (
             user.ability.cannot(
                 'view',
                 subject('Project', {
-                    organizationUuid: user.organizationUuid,
+                    organizationUuid: projectSummary.organizationUuid,
                     projectUuid,
                 }),
             )
@@ -4544,6 +4662,11 @@ export class ProjectService extends BaseService {
         data: {
             name: string;
             copyContent: boolean;
+            dbtConnectionOverrides?: {
+                branch?: string;
+                environment?: DbtProjectEnvironmentVariable[];
+            };
+            warehouseConnectionOverrides?: { schema?: string };
         },
         context: RequestMethod,
     ): Promise<string> {
@@ -4560,8 +4683,14 @@ export class ProjectService extends BaseService {
         const previewData: CreateProject = {
             name: data.name,
             type: ProjectType.PREVIEW,
-            warehouseConnection: project.warehouseConnection,
-            dbtConnection: project.dbtConnection,
+            warehouseConnection: maybeOverrideWarehouseConnection(
+                project.warehouseConnection,
+                data.warehouseConnectionOverrides ?? {},
+            ),
+            dbtConnection: maybeOverrideDbtConnection(
+                project.dbtConnection,
+                data.dbtConnectionOverrides ?? {},
+            ),
             upstreamProjectUuid: data.copyContent ? projectUuid : undefined,
             dbtVersion: project.dbtVersion,
         };
@@ -4669,25 +4798,12 @@ export class ProjectService extends BaseService {
     }
 
     async _getCalculateTotalQuery(
-        user: SessionUser,
+        userAttributes: UserAttributeValueMap,
+        intrinsicUserAttributes: IntrinsicUserAttributes,
         explore: Explore,
         metricQuery: MetricQuery,
-        organizationUuid: string,
         warehouseClient: WarehouseClient,
     ) {
-        const userAttributes =
-            await this.userAttributesModel.getAttributeValuesForOrgMember({
-                organizationUuid,
-                userUuid: user.userUuid,
-            });
-
-        const emailStatus = await this.emailModel.getPrimaryEmailStatus(
-            user.userUuid,
-        );
-        const intrinsicUserAttributes = emailStatus.isVerified
-            ? getIntrinsicUserAttributes(user)
-            : {};
-
         const totalQuery: MetricQuery = {
             ...metricQuery,
             limit: 1,
@@ -4734,11 +4850,14 @@ export class ProjectService extends BaseService {
             },
         );
 
+        const { userAttributes, intrinsicUserAttributes } =
+            await this.getUserAttributes(user, organizationUuid);
+
         const { query } = await this._getCalculateTotalQuery(
-            user,
+            userAttributes,
+            intrinsicUserAttributes,
             explore,
             metricQuery,
-            organizationUuid,
             warehouseClient,
         );
 
@@ -4772,16 +4891,19 @@ export class ProjectService extends BaseService {
             },
         );
 
+        const { userAttributes, intrinsicUserAttributes } =
+            await this.getUserAttributes(user, organizationUuid);
+
         const { query, totalQuery } = await this._getCalculateTotalQuery(
-            user,
+            userAttributes,
+            intrinsicUserAttributes,
             explore,
             metricQuery,
-            organizationUuid,
             warehouseClient,
         );
 
         const queryTags: RunQueryTags = {
-            organization_uuid: user.organizationUuid,
+            organization_uuid: organizationUuid,
             project_uuid: projectUuid,
             user_uuid: user.userUuid,
             explore_name: explore.name,
@@ -4805,7 +4927,7 @@ export class ProjectService extends BaseService {
     async calculateTotalFromSavedChart(
         user: SessionUser,
         chartUuid: string,
-        dashboardFilters: DashboardFilters,
+        dashboardFilters?: DashboardFilters,
         invalidateCache: boolean = false,
     ) {
         if (!isUserWithOrg(user)) {
@@ -4898,8 +5020,9 @@ export class ProjectService extends BaseService {
         if (!isUserWithOrg(user)) {
             throw new ForbiddenError('User is not part of an organization');
         }
-        const { organizationUuid } =
-            await this.projectModel.getWithSensitiveFields(projectUuid);
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
 
         if (
             user.ability.cannot(
@@ -4930,6 +5053,182 @@ export class ProjectService extends BaseService {
             organizationUuid,
         );
         return results.row;
+    }
+
+    async _calculateSubtotals(
+        user: SessionUser,
+        projectUuid: string,
+        data: CalculateSubtotalsFromQuery,
+        organizationUuid: string,
+    ) {
+        const {
+            explore: exploreName,
+            metricQuery,
+            columnOrder,
+            pivotDimensions,
+        } = data;
+
+        const explore = await this.getExplore(
+            user,
+            projectUuid,
+            exploreName,
+            organizationUuid,
+        );
+
+        // Order dimensions according to columnOrder
+        const orderedDimensions = metricQuery.dimensions.sort((a, b) => {
+            const aIndex = columnOrder.indexOf(a);
+            const bIndex = columnOrder.indexOf(b);
+            // Handle cases where dimension isn't in columnOrder
+            if (aIndex === -1) return 1;
+            if (bIndex === -1) return -1;
+            return aIndex - bIndex;
+        });
+
+        // Pivot dimensions always need to be in the query, therefore we need to remove them before calculating the subtotal groupings by order
+        const orderedDimensionsWithoutPivot = orderedDimensions.filter(
+            (dimension) => !pivotDimensions?.includes(dimension),
+        );
+
+        // Remove the last dimension since it will not be used for subtotals, would produce the most detailed row
+        const dimensionsToSubtotal = orderedDimensionsWithoutPivot.slice(0, -1);
+
+        // Create a list of all the dimension groups to subtotal, starting with the first dimension, then the first two dimensions, then the first three dimensions, etc.
+        const dimensionGroupsToSubtotal = dimensionsToSubtotal.map(
+            (dimension, index) => {
+                if (index === 0) {
+                    return [dimension];
+                }
+
+                return [...dimensionsToSubtotal.slice(0, index), dimension];
+            },
+        );
+
+        this.analytics.track({
+            userId: user.userUuid,
+            event: 'query.subtotal',
+            properties: {
+                context: QueryExecutionContext.CALCULATE_SUBTOTAL,
+                organizationId: organizationUuid,
+                projectId: projectUuid,
+                exploreName,
+                subtotalDimensionGroups: dimensionGroupsToSubtotal.map(
+                    (group) => group.join(','),
+                ),
+                subtotalQueryCount: dimensionGroupsToSubtotal.length,
+            },
+        });
+
+        const queryTags: RunQueryTags = {
+            organization_uuid: user.organizationUuid,
+            project_uuid: projectUuid,
+            user_uuid: user.userUuid,
+            explore_name: exploreName,
+            query_context: QueryExecutionContext.CALCULATE_SUBTOTAL,
+        };
+
+        // Run the query for each dimension group and format the raw rows, this is needed because we apply raw formatting to date dimensions, and we need to compare values in the same format in the frontend
+        const runQueryAndFormatRaw = async (
+            subtotalMetricQuery: MetricQuery,
+        ) => {
+            const { rows, fields } = await this.runMetricQuery({
+                user,
+                metricQuery: subtotalMetricQuery,
+                explore,
+                queryTags,
+                projectUuid,
+                exploreName,
+                context: QueryExecutionContext.CALCULATE_SUBTOTAL,
+                csvLimit: null,
+                chartUuid: undefined,
+            });
+
+            return formatRawRows(rows, fields);
+        };
+
+        const subtotalsPromises = dimensionGroupsToSubtotal.map(
+            async (subtotalDimensions) => {
+                let subtotals: Record<string, unknown>[] = [];
+
+                const dimensions = [
+                    ...subtotalDimensions,
+                    ...(pivotDimensions || []), // we always need to include the pivot dimensions in the subtotal query
+                ];
+                // Exclude table calculations that require dims/metrics that are not in subtotal query
+                const tableCalculations = metricQuery.tableCalculations.filter(
+                    (tc) => {
+                        const referencedFields =
+                            ValidationService.getTableCalculationFieldIds([tc]);
+                        return referencedFields.every(
+                            (field) =>
+                                dimensions.includes(field) ||
+                                metricQuery.metrics.includes(field),
+                        );
+                    },
+                );
+                try {
+                    subtotals = await runQueryAndFormatRaw({
+                        ...metricQuery,
+                        dimensions,
+                        tableCalculations,
+                        sorts: [],
+                    });
+                } catch (e) {
+                    this.logger.error(
+                        `Error running subtotal query for dimensions ${subtotalDimensions.join(
+                            ',',
+                        )}`,
+                    );
+                }
+
+                return [getSubtotalKey(subtotalDimensions), subtotals];
+            },
+        );
+
+        const subtotalsEntries = await Promise.all(subtotalsPromises);
+        return Object.fromEntries(subtotalsEntries);
+    }
+
+    async calculateSubtotalsFromQuery(
+        user: SessionUser,
+        projectUuid: string,
+        data: CalculateSubtotalsFromQuery,
+    ) {
+        if (!isUserWithOrg(user)) {
+            throw new ForbiddenError('User is not part of an organization');
+        }
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'manage',
+                subject('Explore', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        if (
+            data.metricQuery.customDimensions?.some(isCustomSqlDimension) &&
+            user.ability.cannot(
+                'manage',
+                subject('CustomSql', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new ForbiddenError(
+                'User cannot run queries with custom SQL dimensions',
+            );
+        }
+
+        // Reuse the _calculateTotal method by passing the explore, metricQuery, and organizationUuid
+        return this._calculateSubtotals(
+            user,
+            projectUuid,
+            data,
+            organizationUuid,
+        );
     }
 
     async getDbtExposures(
@@ -5140,8 +5439,9 @@ export class ProjectService extends BaseService {
         projectUuid: string,
         payload: CreateVirtualViewPayload,
     ) {
-        const { organizationUuid } =
-            await this.projectModel.getWithSensitiveFields(projectUuid);
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
 
         if (
             user.ability.cannot(
@@ -5238,8 +5538,9 @@ export class ProjectService extends BaseService {
             throw new NotFoundError('Virtual view not found');
         }
 
-        const { organizationUuid } =
-            await this.projectModel.getWithSensitiveFields(projectUuid);
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
 
         if (
             user.ability.cannot(
@@ -5281,8 +5582,9 @@ export class ProjectService extends BaseService {
         projectUuid: string,
         name: string,
     ) {
-        const { organizationUuid } =
-            await this.projectModel.getWithSensitiveFields(projectUuid);
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
 
         if (
             user.ability.cannot(
@@ -5608,5 +5910,143 @@ export class ProjectService extends BaseService {
             },
         });
         return updatedCharts;
+    }
+
+    async createPreviewWithExplores(
+        projectUuid: string,
+        accountId: string,
+        runId: string,
+    ): Promise<string> {
+        // create preview project permissions are checked in `createWithoutCompile`
+        const project = await this.projectModel.getWithSensitiveFields(
+            projectUuid,
+        );
+
+        if (!project.warehouseConnection) {
+            throw new ParameterError(
+                `Missing warehouse connection for project ${projectUuid}`,
+            );
+        }
+
+        if (project.dbtConnection.type !== DbtProjectType.DBT_CLOUD_IDE) {
+            throw new ParameterError(
+                `Project ${projectUuid} is not a dbt Cloud IDE project`,
+            );
+        }
+
+        // todo: fix this
+        if (!project.createdByUserUuid) {
+            throw new ParameterError(
+                `Didn't find user for project ${projectUuid}`,
+            );
+        }
+
+        // todo: fix this
+        const user = await this.userModel.findSessionUserByUUID(
+            project.createdByUserUuid,
+        );
+
+        const response = await fetch(
+            `https://cloud.getdbt.com/api/v2/accounts/${accountId}/runs/${runId}/artifacts/manifest.json`,
+            {
+                headers: {
+                    Authorization: `Bearer ${project.dbtConnection.api_key}`,
+                },
+            },
+        );
+        const manifest = await response.json();
+
+        const prId = manifest.metadata.env.DBT_CLOUD_PR_ID;
+        const jobId = manifest.metadata.env.DBT_CLOUD_JOB_ID;
+
+        const nodes = Object.values(manifest.nodes);
+        Logger.info(`Manifest models ${nodes.length}`);
+        // todo: does it error if they use a selector in the job? check logic in dbtBaseProjectAdapter.compileAllExplores
+        const models = nodes.filter(
+            (node: AnyType) => node.resource_type === 'model' && node.meta, // check that node.meta exists
+        ) as DbtRawModelNode[];
+
+        const { warehouseClient } = await this._getWarehouseClient(
+            projectUuid,
+            project.warehouseConnection,
+        );
+
+        const [dbtModelNode, exploreErrors] =
+            DbtBaseProjectAdapter._validateDbtModel(
+                warehouseClient.getAdapterType(),
+                models,
+                DbtManifestVersion.V12,
+            );
+        const convertedExplores = await convertExplores(
+            dbtModelNode,
+            false,
+            warehouseClient.getAdapterType(),
+            [],
+            warehouseClient,
+            {
+                spotlight: {
+                    default_visibility: 'hide', // todo: pass correct config
+                },
+            },
+        );
+        Logger.info(`Explore count: ${convertedExplores.length}`);
+        const previewName = `preview_${jobId}_${prId}`;
+        Logger.info(`Preview name: ${previewName}`);
+        Logger.info(`Find all project for: ${project.organizationUuid}`);
+        const allProjects = await this.projectModel.getAllByOrganizationUuid(
+            project.organizationUuid,
+        );
+        const previewExists = allProjects.find(
+            (p) => p.name === previewName && p.type === ProjectType.PREVIEW,
+        );
+        let projectToSetExplores: string;
+        Logger.info(`Preview exists: ${previewExists}`);
+        if (previewExists) {
+            projectToSetExplores = previewExists.projectUuid;
+        } else {
+            const previewData: CreateProject = {
+                name: previewName,
+                type: ProjectType.PREVIEW,
+                warehouseConnection: maybeOverrideWarehouseConnection(
+                    project.warehouseConnection,
+                    {
+                        schema: `dbt_cloud_pr_${jobId}_${prId}`,
+                    },
+                ),
+                dbtConnection: {
+                    type: DbtProjectType.NONE,
+                },
+                upstreamProjectUuid: projectUuid,
+                dbtVersion: project.dbtVersion,
+            };
+
+            const newPreview = await this.createWithoutCompile(
+                user,
+                previewData,
+                RequestMethod.WEB_APP, // TODO: fix context
+            );
+            projectToSetExplores = newPreview.project.projectUuid;
+        }
+
+        Logger.info(`Set explores for: ${projectToSetExplores}`);
+        await this.saveExploresToCacheAndIndexCatalog(
+            user.userUuid,
+            projectToSetExplores,
+            [...convertedExplores, ...exploreErrors],
+        );
+
+        Logger.info(`Schedule validation:`, {
+            userUuid: user.userUuid,
+            projectUuid: projectToSetExplores,
+            context: 'cli', // todo: fix me
+            organizationUuid: project.organizationUuid,
+        });
+        await this.schedulerClient.generateValidation({
+            userUuid: user.userUuid,
+            projectUuid: projectToSetExplores,
+            context: 'cli', // todo: fix me
+            organizationUuid: project.organizationUuid,
+        });
+        return projectToSetExplores;
     }
 }

@@ -3,6 +3,7 @@ import {
     DbtProjectType,
     FeatureFlags,
     getItemId,
+    isCustomSqlDimension,
     type AdditionalMetric,
     type CompiledTable,
     type CustomDimension,
@@ -16,9 +17,10 @@ import {
     Tooltip,
 } from '@mantine/core';
 import { IconAlertTriangle, IconCode, IconPlus } from '@tabler/icons-react';
-import { useMemo, type FC } from 'react';
+import { useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
+
 import { useGitIntegration } from '../../../../hooks/gitIntegration/useGitIntegration';
 import { useFeatureFlagEnabled } from '../../../../hooks/useFeatureFlagEnabled';
 import { useProject } from '../../../../hooks/useProject';
@@ -71,13 +73,17 @@ const TableTreeSections: FC<Props> = ({
     const toggleCustomDimensionModal = useExplorerContext(
         (context) => context.actions.toggleCustomDimensionModal,
     );
-    const toggleAdditionalMetricWriteBackModal = useExplorerContext(
-        (context) => context.actions.toggleAdditionalMetricWriteBackModal,
+    const toggleWriteBackModal = useExplorerContext(
+        (context) => context.actions.toggleWriteBackModal,
     );
 
     const allAdditionalMetrics = useExplorerContext(
         (context) =>
             context.state.unsavedChartVersion.metricQuery.additionalMetrics,
+    );
+    const allCustomDimensions = useExplorerContext(
+        (context) =>
+            context.state.unsavedChartVersion.metricQuery.customDimensions,
     );
 
     const dimensions = useMemo(() => {
@@ -130,9 +136,15 @@ const TableTreeSections: FC<Props> = ({
     const isGithubProject =
         project?.dbtConnection.type === DbtProjectType.GITHUB;
     const { data: gitIntegration } = useGitIntegration();
-    const isCustomSqlEnabled = useFeatureFlagEnabled(
-        FeatureFlags.CustomSQLEnabled,
+
+    const isWriteBackCustomBinDimensionsEnabled = useFeatureFlagEnabled(
+        FeatureFlags.WriteBackCustomBinDimensions,
     );
+    const customDimensionsToWriteBack = isWriteBackCustomBinDimensionsEnabled
+        ? allCustomDimensions
+        : allCustomDimensions?.filter(isCustomSqlDimension);
+    const hasCustomDimensionsToWriteBack =
+        customDimensionsToWriteBack && customDimensionsToWriteBack.length > 0;
 
     const customMetricsIssues: {
         [id: string]: {
@@ -148,13 +160,93 @@ const TableTreeSections: FC<Props> = ({
                 [getItemId(item)]: {
                     errors: foundDuplicateId
                         ? [
-                              `A metric with this ID already exists in the table. Rename your custom metric to prevent conflicts.`,
+                              t(
+                                  'components_explorer_tree.metric_id_already_exists',
+                              ),
                           ]
                         : undefined,
                 },
             };
         }, {});
-    }, [metrics, additionalMetrics]);
+    }, [metrics, additionalMetrics, t]);
+
+    const searchResults = useMemo(
+        () => getSearchResults(dimensions, searchQuery),
+        [dimensions, searchQuery],
+    );
+
+    const handleItemClickDimension = useCallback(
+        (key: string) => onSelectedNodeChange(key, true),
+        [onSelectedNodeChange],
+    );
+
+    const handleItemClickMetric = useCallback(
+        (key: string) => onSelectedNodeChange(key, false),
+        [onSelectedNodeChange],
+    );
+
+    const handleAddCustomDimension = useCallback(() => {
+        toggleCustomDimensionModal({
+            isEditing: false,
+            table: table.name,
+            item: undefined,
+        });
+    }, [toggleCustomDimensionModal, table.name]);
+
+    const handleWriteBackCustomMetrics = useCallback(() => {
+        if (projectUuid && user.data?.organizationUuid) {
+            track({
+                name: EventName.WRITE_BACK_FROM_CUSTOM_METRIC_HEADER_CLICKED,
+                properties: {
+                    userId: user.data.userUuid,
+                    projectId: projectUuid,
+                    organizationId: user.data.organizationUuid,
+                    customMetricsCount: allAdditionalMetrics?.length || 0,
+                    customDimensionsCount: 0,
+                },
+            });
+        }
+        toggleWriteBackModal({ items: allAdditionalMetrics });
+    }, [
+        projectUuid,
+        user.data,
+        allAdditionalMetrics,
+        toggleWriteBackModal,
+        track,
+    ]);
+
+    const handleWriteBackCustomDimensions = useCallback(() => {
+        if (projectUuid && user.data?.organizationUuid) {
+            track({
+                name: EventName.WRITE_BACK_FROM_CUSTOM_DIMENSION_HEADER_CLICKED,
+                properties: {
+                    userId: user.data.userUuid,
+                    projectId: projectUuid,
+                    organizationId: user.data.organizationUuid,
+                    customMetricsCount: 0,
+                    customDimensionsCount:
+                        customDimensionsToWriteBack?.length || 0,
+                },
+            });
+        }
+        toggleWriteBackModal({
+            items: customDimensionsToWriteBack || [],
+        });
+    }, [
+        projectUuid,
+        user.data,
+        customDimensionsToWriteBack,
+        toggleWriteBackModal,
+        track,
+    ]);
+
+    const getMissingFieldClickHandler = useCallback(
+        (field: string) => () => {
+            const isDimension = !!selectedDimensions?.includes(field);
+            onSelectedNodeChange(field, isDimension);
+        },
+        [onSelectedNodeChange, selectedDimensions],
+    );
 
     return (
         <>
@@ -184,16 +276,9 @@ const TableTreeSections: FC<Props> = ({
                                 maw={700}
                             >
                                 <Group
-                                    onClick={() => {
-                                        const isDimension =
-                                            !!selectedDimensions?.includes(
-                                                missingField,
-                                            );
-                                        onSelectedNodeChange(
-                                            missingField,
-                                            isDimension,
-                                        );
-                                    }}
+                                    onClick={getMissingFieldClickHandler(
+                                        missingField,
+                                    )}
                                     ml={12}
                                     my="xs"
                                     sx={{ cursor: 'pointer' }}
@@ -214,8 +299,7 @@ const TableTreeSections: FC<Props> = ({
                 </>
             )}
 
-            {isSearching &&
-            getSearchResults(dimensions, searchQuery).size === 0 ? null : (
+            {isSearching && searchResults.length === 0 ? null : (
                 <Group mt="sm" mb="xs" position={'apart'}>
                     <Text fw={600} color="blue.9">
                         {t('components_explorer_tree.tooltip_dimensions.title')}
@@ -233,13 +317,7 @@ const TableTreeSections: FC<Props> = ({
                                 variant={'subtle'}
                                 compact
                                 leftIcon={<MantineIcon icon={IconPlus} />}
-                                onClick={() =>
-                                    toggleCustomDimensionModal({
-                                        isEditing: false,
-                                        table: table.name,
-                                        item: undefined,
-                                    })
-                                }
+                                onClick={handleAddCustomDimension}
                             >
                                 {t(
                                     'components_explorer_tree.tooltip_dimensions.add',
@@ -257,7 +335,7 @@ const TableTreeSections: FC<Props> = ({
                     itemsMap={dimensions}
                     selectedItems={selectedItems}
                     groupDetails={table.groupDetails}
-                    onItemClick={(key) => onSelectedNodeChange(key, true)}
+                    onItemClick={handleItemClickDimension}
                 >
                     <TreeRoot />
                 </TreeProvider>
@@ -269,8 +347,7 @@ const TableTreeSections: FC<Props> = ({
                 </Center>
             )}
 
-            {isSearching &&
-            getSearchResults(metrics, searchQuery).size === 0 ? null : (
+            {isSearching && searchResults.length === 0 ? null : (
                 <Group position="apart" mt="sm" mb="xs" pr="sm">
                     <Text fw={600} color="yellow.9">
                         {t('components_explorer_tree.tooltip_metrics.title')}
@@ -313,17 +390,14 @@ const TableTreeSections: FC<Props> = ({
                     itemsMap={metrics}
                     selectedItems={selectedItems}
                     groupDetails={table.groupDetails}
-                    onItemClick={(key) => onSelectedNodeChange(key, false)}
+                    onItemClick={handleItemClickMetric}
                 >
                     <TreeRoot />
                 </TreeProvider>
             ) : null}
 
             {hasCustomMetrics &&
-            !(
-                isSearching &&
-                getSearchResults(customMetrics, searchQuery).size === 0
-            ) ? (
+            !(isSearching && searchResults.length === 0) ? (
                 <Group position="apart" mt="sm" mb="xs" pr="sm">
                     <Group>
                         <Text fw={600} color="yellow.9">
@@ -350,37 +424,13 @@ const TableTreeSections: FC<Props> = ({
                             }}
                         />
                     </Group>
-                    {isCustomSqlEnabled && (
+                    {hasCustomMetrics && (
                         <Tooltip
                             label={t(
                                 'components_explorer_tree.tooltip_custom_metrics.label.part_3',
                             )}
                         >
-                            <ActionIcon
-                                onClick={() => {
-                                    if (
-                                        projectUuid &&
-                                        user.data?.organizationUuid
-                                    ) {
-                                        track({
-                                            name: EventName.WRITE_BACK_FROM_CUSTOM_METRIC_HEADER_CLICKED,
-                                            properties: {
-                                                userId: user.data.userUuid,
-                                                projectId: projectUuid,
-                                                organizationId:
-                                                    user.data.organizationUuid,
-                                                customMetricsCount:
-                                                    allAdditionalMetrics?.length ||
-                                                    0,
-                                            },
-                                        });
-                                    }
-                                    toggleAdditionalMetricWriteBackModal({
-                                        items: allAdditionalMetrics || [],
-                                        multiple: true,
-                                    });
-                                }}
-                            >
+                            <ActionIcon onClick={handleWriteBackCustomMetrics}>
                                 <MantineIcon icon={IconCode} />
                             </ActionIcon>
                         </Tooltip>
@@ -397,10 +447,8 @@ const TableTreeSections: FC<Props> = ({
                     missingCustomMetrics={missingFields?.customMetrics}
                     itemsAlerts={customMetricsIssues}
                     groupDetails={table.groupDetails}
-                    onItemClick={(key) => onSelectedNodeChange(key, false)}
-                    isGithubIntegrationEnabled={
-                        isGithubProject && isCustomSqlEnabled
-                    }
+                    onItemClick={handleItemClickMetric}
+                    isGithubIntegrationEnabled={isGithubProject}
                     gitIntegration={gitIntegration}
                 >
                     <TreeRoot />
@@ -409,35 +457,47 @@ const TableTreeSections: FC<Props> = ({
 
             {hasCustomDimensions &&
             customDimensionsMap &&
-            !(
-                isSearching &&
-                getSearchResults(customDimensionsMap, searchQuery).size === 0
-            ) ? (
+            !(isSearching && searchResults.length === 0) ? (
                 <Group position="apart" mt="sm" mb="xs" pr="sm">
-                    <Text fw={600} color="blue.9">
-                        {t(
-                            'components_explorer_tree.tooltip_custom_dimensions.title',
-                        )}
-                    </Text>
+                    <Group>
+                        <Text fw={600} color="blue.9">
+                            {t(
+                                'components_explorer_tree.tooltip_custom_dimensions.title',
+                            )}
+                        </Text>
 
-                    <DocumentationHelpButton
-                        href="https://docs.lightdash.com/guides/how-to-create-metrics#-adding-custom-metrics-in-the-explore-view"
-                        tooltipProps={{
-                            label: (
-                                <>
-                                    {t(
-                                        'components_explorer_tree.tooltip_custom_dimensions.label.part_1',
-                                    )}{' '}
-                                    <Text component="span" fw={600}>
+                        <DocumentationHelpButton
+                            href="https://docs.lightdash.com/guides/how-to-create-metrics#-adding-custom-metrics-in-the-explore-view"
+                            tooltipProps={{
+                                label: (
+                                    <>
                                         {t(
-                                            'components_explorer_tree.tooltip_custom_dimensions.label.part_2',
-                                        )}
-                                    </Text>
-                                </>
-                            ),
-                            multiline: true,
-                        }}
-                    />
+                                            'components_explorer_tree.tooltip_custom_dimensions.label.part_1',
+                                        )}{' '}
+                                        <Text component="span" fw={600}>
+                                            {t(
+                                                'components_explorer_tree.tooltip_custom_dimensions.label.part_2',
+                                            )}
+                                        </Text>
+                                    </>
+                                ),
+                                multiline: true,
+                            }}
+                        />
+                    </Group>
+                    {hasCustomDimensionsToWriteBack && (
+                        <Tooltip
+                            label={t(
+                                'components_explorer_tree.tooltip_custom_dimensions.label.part_3',
+                            )}
+                        >
+                            <ActionIcon
+                                onClick={handleWriteBackCustomDimensions}
+                            >
+                                <MantineIcon icon={IconCode} />
+                            </ActionIcon>
+                        </Tooltip>
+                    )}
                 </Group>
             ) : null}
 
@@ -449,7 +509,7 @@ const TableTreeSections: FC<Props> = ({
                     missingCustomDimensions={missingFields?.customDimensions}
                     selectedItems={selectedItems}
                     groupDetails={table.groupDetails}
-                    onItemClick={(key) => onSelectedNodeChange(key, true)}
+                    onItemClick={handleItemClickDimension}
                 >
                     <TreeRoot />
                 </TreeProvider>

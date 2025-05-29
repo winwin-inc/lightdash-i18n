@@ -1,28 +1,25 @@
 import { DbtProjectType } from '@lightdash/common';
 import { Anchor, PasswordInput, TextInput } from '@mantine/core';
 import { type FC } from 'react';
-import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
-import {
-    hasNoWhiteSpaces,
-    isGitRepository,
-    startWithSlash,
-} from '../../../utils/fieldValidators';
+import { useFormContext } from '../formContext';
+import DbtVersionSelect from '../Inputs/DbtVersion';
 import { useProjectFormContext } from '../useProjectFormContext';
-import DbtVersionSelect from '../WarehouseForms/Inputs/DbtVersion';
+import { gitlabDefaultValues } from './defaultValues';
 
 const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
     const { savedProject } = useProjectFormContext();
+    const { t } = useTranslation();
+
     const requireSecrets: boolean =
         savedProject?.dbtConnection.type !== DbtProjectType.GITLAB;
-    const { register } = useFormContext();
-    const { t } = useTranslation();
+    const form = useFormContext();
 
     return (
         <>
             <PasswordInput
-                {...register('dbt.personal_access_token')}
+                {...form.getInputProps('dbt.personal_access_token')}
                 label={t(
                     'components_project_connection_dbt_form.gitlab.access_token.label',
                 )}
@@ -81,12 +78,7 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     </p>
                 }
                 required
-                {...register('dbt.repository', {
-                    validate: {
-                        hasNoWhiteSpaces: hasNoWhiteSpaces('Repository'),
-                        isGitRepository: isGitRepository('Repository'),
-                    },
-                })}
+                {...form.getInputProps('dbt.repository')}
                 disabled={disabled}
                 placeholder={t(
                     'components_project_connection_dbt_form.gitlab.repository.placeholder',
@@ -140,13 +132,9 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     </>
                 }
                 required
-                {...register('dbt.branch', {
-                    validate: {
-                        hasNoWhiteSpaces: hasNoWhiteSpaces('Branch'),
-                    },
-                })}
+                {...form.getInputProps('dbt.branch')}
                 disabled={disabled}
-                defaultValue="main"
+                defaultValue={gitlabDefaultValues.branch}
             />
             <TextInput
                 label={t(
@@ -213,18 +201,9 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     </>
                 }
                 required
-                {...register('dbt.project_sub_path', {
-                    validate: {
-                        hasNoWhiteSpaces: hasNoWhiteSpaces(
-                            'Project directory path',
-                        ),
-                        startWithSlash: startWithSlash(
-                            'Project directory path',
-                        ),
-                    },
-                })}
+                {...form.getInputProps('dbt.project_sub_path')}
                 disabled={disabled}
-                defaultValue="/"
+                defaultValue={gitlabDefaultValues.project_sub_path}
             />
             <TextInput
                 label={t(
@@ -249,12 +228,8 @@ const GitlabForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     </p>
                 }
                 disabled={disabled}
-                defaultValue="gitlab.com"
-                {...register('dbt.host_domain', {
-                    validate: {
-                        hasNoWhiteSpaces: hasNoWhiteSpaces('Host domain'),
-                    },
-                })}
+                {...form.getInputProps('dbt.host_domain')}
+                defaultValue={gitlabDefaultValues.host_domain}
             />
         </>
     );

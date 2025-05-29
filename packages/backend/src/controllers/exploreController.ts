@@ -115,9 +115,12 @@ export class ExploreController extends BaseController {
         this.setStatus(200);
 
         const results = (
-            await this.services
-                .getProjectService()
-                .compileQuery(req.user!, body, projectUuid, exploreId)
+            await this.services.getProjectService().compileQuery({
+                user: req.user!,
+                metricQuery: body,
+                projectUuid,
+                exploreName: exploreId,
+            })
         ).query;
 
         return {
@@ -143,7 +146,7 @@ export class ExploreController extends BaseController {
             columnOrder: string[];
             hiddenFields?: string[];
             chartName?: string;
-            pivotColumns?: string[];
+            pivotConfig?: PivotConfig;
         },
     ): Promise<{ status: 'ok'; results: { jobId: string } }> {
         this.setStatus(200);
@@ -154,6 +157,7 @@ export class ExploreController extends BaseController {
             customLabels,
             columnOrder,
             hiddenFields,
+            pivotConfig,
         } = body;
         const metricQuery: MetricQuery = {
             exploreName: body.exploreName,
@@ -168,16 +172,6 @@ export class ExploreController extends BaseController {
             metricOverrides: body.metricOverrides,
         };
 
-        const csvPivotConfig: PivotConfig | undefined =
-            body.pivotColumns !== undefined
-                ? {
-                      pivotDimensions: body.pivotColumns,
-                      metricsAsRows: false,
-                      hiddenMetricFieldIds: body.hiddenFields,
-                      columnOrder: body.columnOrder,
-                  }
-                : undefined;
-
         const { jobId } = await req.services
             .getCsvService()
             .scheduleDownloadCsv(req.user!, {
@@ -189,11 +183,11 @@ export class ExploreController extends BaseController {
                 csvLimit,
                 showTableNames,
                 customLabels,
-                columnOrder,
-                hiddenFields,
                 chartName: body.chartName,
                 fromSavedChart: false,
-                pivotConfig: csvPivotConfig,
+                columnOrder,
+                hiddenFields,
+                pivotConfig,
             });
 
         return {

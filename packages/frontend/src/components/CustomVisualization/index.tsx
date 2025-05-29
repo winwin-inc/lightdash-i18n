@@ -1,8 +1,13 @@
-import { Center, Loader, Text } from '@mantine/core';
-import { Suspense, lazy, type FC } from 'react';
+import { Anchor, Center, Text } from '@mantine/core';
+import { IconChartBarOff } from '@tabler/icons-react';
+import { Suspense, lazy, useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { type CustomVisualizationConfigAndData } from '../../hooks/useCustomVisualizationConfig';
 import { isCustomVisualizationConfig } from '../LightdashVisualization/types';
 import { useVisualizationContext } from '../LightdashVisualization/useVisualizationContext';
+import { LoadingChart } from '../SimpleChart';
+import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
 
 const VegaLite = lazy(() =>
     import('react-vega').then((module) => ({ default: module.VegaLite })),
@@ -14,10 +19,17 @@ type Props = {
 };
 
 const CustomVisualization: FC<Props> = (props) => {
-    const { isLoading, visualizationConfig } = useVisualizationContext();
+    const { isLoading, visualizationConfig, resultsData } =
+        useVisualizationContext();
+    const { t } = useTranslation();
+
+    useEffect(() => {
+        // Load all the rows
+        resultsData?.setFetchAll(true);
+    }, [resultsData]);
 
     if (isLoading) {
-        return <Text>Loading...</Text>;
+        return <LoadingChart />;
     }
 
     if (!isCustomVisualizationConfig(visualizationConfig)) return null;
@@ -28,7 +40,34 @@ const CustomVisualization: FC<Props> = (props) => {
         !isCustomVisualizationConfig(visualizationConfig) ||
         !spec
     ) {
-        return null;
+        return (
+            <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
+                <SuboptimalState
+                    title={t(
+                        'components_custom_visualization.no_visualization_loaded',
+                    )}
+                    description={
+                        <Text>
+                            {t(
+                                'components_custom_visualization.tooltip.part_1',
+                            )}{' '}
+                            <Anchor
+                                href="https://vega.github.io/vega-lite/examples/"
+                                target="_blank"
+                            >
+                                {t(
+                                    'components_custom_visualization.tooltip.part_2',
+                                )}
+                            </Anchor>{' '}
+                            {t(
+                                'components_custom_visualization.tooltip.part_3',
+                            )}
+                        </Text>
+                    }
+                    icon={IconChartBarOff}
+                />
+            </div>
+        );
     }
 
     // TODO: 'chartConfig' is more props than config. It has data and
@@ -51,7 +90,7 @@ const CustomVisualization: FC<Props> = (props) => {
             <Suspense
                 fallback={
                     <Center>
-                        <Loader color="gray" />
+                        <LoadingChart />
                     </Center>
                 }
             >

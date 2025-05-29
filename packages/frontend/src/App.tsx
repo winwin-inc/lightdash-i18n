@@ -1,3 +1,5 @@
+import { ModalsProvider } from '@mantine/modals';
+import { wrapCreateBrowserRouterV7 } from '@sentry/react';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { createBrowserRouter, Outlet, RouterProvider } from 'react-router';
 import VersionAutoUpdater from './components/VersionAutoUpdater/VersionAutoUpdater';
@@ -20,6 +22,9 @@ import Routes from './Routes';
 
 import './plugins/i18n';
 
+// Mantine v8 styles
+import '@mantine-8/core/styles.css';
+
 // const isMobile =
 //     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
 //         navigator.userAgent,
@@ -29,7 +34,11 @@ const isMobile = window.innerWidth < 768;
 
 const isMinimalPage = window.location.pathname.startsWith('/minimal');
 
-const router = createBrowserRouter([
+// Sentry wrapper for createBrowserRouter
+const sentryCreateBrowserRouter =
+    wrapCreateBrowserRouterV7(createBrowserRouter);
+
+const router = sentryCreateBrowserRouter([
     {
         path: '/',
         element: (
@@ -65,7 +74,9 @@ const App = () => (
 
         <ReactQueryProvider>
             <MantineProvider withGlobalStyles withNormalizeCSS withCSSVariables>
-                <RouterProvider router={router} />
+                <ModalsProvider>
+                    <RouterProvider router={router} />
+                </ModalsProvider>
             </MantineProvider>
             <ReactQueryDevtools initialIsOpen={false} />
         </ReactQueryProvider>

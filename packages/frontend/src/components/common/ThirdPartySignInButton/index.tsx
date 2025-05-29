@@ -5,6 +5,8 @@ import {
 import { Button, Image, type ButtonProps } from '@mantine/core';
 import { IconLock } from '@tabler/icons-react';
 import { type FC, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import useApp from '../../../providers/App/useApp';
 import MantineIcon from '../MantineIcon';
 
@@ -33,6 +35,8 @@ const ThirdPartySignInButtonBase: FC<
     redirect,
     ...props
 }) => {
+    const { t } = useTranslation();
+
     return (
         <Button
             variant="default"
@@ -59,9 +63,16 @@ const ThirdPartySignInButtonBase: FC<
             sx={{ ':hover': { textDecoration: 'underline' } }}
             {...props}
         >
-            {intent === 'signup' && `Sign up with ${providerName}`}
-            {intent === 'signin' && `Sign in with ${providerName}`}
-            {intent === 'add' && 'Add +'}
+            {intent === 'signup' &&
+                t('components_common_third_party_sign_in_button.sign_up', {
+                    providerName,
+                })}
+            {intent === 'signin' &&
+                t('components_common_third_party_sign_in_button.sign_in', {
+                    providerName,
+                })}
+            {intent === 'add' &&
+                t('components_common_third_party_sign_in_button.add')}
         </Button>
     );
 };

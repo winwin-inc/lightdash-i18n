@@ -1,26 +1,23 @@
 import { subject } from '@casl/ability';
 import {
+    assertUnreachable,
     ChartSourceType,
     ResourceViewItemType,
-    assertUnreachable,
     type ResourceViewItem,
 } from '@lightdash/common';
 import { ActionIcon, Box, Menu, Tooltip } from '@mantine/core';
 import {
-    IconCheck,
-    IconChevronRight,
     IconCopy,
     IconDatabaseExport,
     IconDots,
     IconEdit,
-    IconFolders,
+    IconFolderSymlink,
     IconLayoutGridAdd,
     IconPin,
     IconPinnedOff,
-    IconPlus,
     IconTrash,
 } from '@tabler/icons-react';
-import { Fragment, useMemo, type FC } from 'react';
+import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useParams } from 'react-router';
 
@@ -35,7 +32,6 @@ import {
 } from '../../../features/promotion/hooks/usePromoteDashboard';
 import { useProject } from '../../../hooks/useProject';
 import { useSpaceSummaries } from '../../../hooks/useSpaces';
-import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import MantineIcon from '../MantineIcon';
 import {
@@ -49,6 +45,7 @@ export interface ResourceViewActionMenuCommonProps {
 
 interface ResourceViewActionMenuProps
     extends ResourceViewActionMenuCommonProps {
+    disabled?: boolean;
     item: ResourceViewItem;
     allowDelete?: boolean;
     isOpen?: boolean;
@@ -56,12 +53,8 @@ interface ResourceViewActionMenuProps
     onClose?: () => void;
 }
 
-enum SpaceType {
-    SharedWithMe,
-    AdminContentView,
-}
-
 const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
+    disabled = false,
     item,
     allowDelete = true,
     isOpen,
@@ -75,14 +68,6 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
     const { data: project } = useProject(projectUuid);
     const { t } = useTranslation();
 
-    const SpaceTypeLabels = {
-        [SpaceType.SharedWithMe]: t(
-            'components_common_resource_view_action_menu.space_type_labels.shared_with_me',
-        ),
-        [SpaceType.AdminContentView]: t(
-            'components_common_resource_view_action_menu.space_type_labels.admin_content_view',
-        ),
-    };
     const ResourceViewLabels = {
         [ResourceViewItemType.CHART]: t(
             'components_common_resource_view_action_menu.resource_view_labels.chart',
@@ -99,31 +84,6 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
     const { data: spaces = [] } = useSpaceSummaries(projectUuid, true, {});
     const isPinned = !!item.data.pinnedListUuid;
     const isDashboardPage = location.pathname.includes('/dashboards');
-
-    const spacesByType = useMemo(() => {
-        const spacesUserCanCreateIn = spaces.filter((space) => {
-            return user.data?.ability?.can(
-                'create',
-                subject('SavedChart', {
-                    ...space,
-                    access: space.userAccess ? [space.userAccess] : [],
-                }),
-            );
-        });
-        const spacesSharedWithMe = spacesUserCanCreateIn.filter((space) => {
-            return user.data && space.userAccess?.hasDirectAccess;
-        });
-        const spacesAdminsCanSee = spacesUserCanCreateIn.filter((space) => {
-            return (
-                spacesSharedWithMe.find((s) => s.uuid === space.uuid) ===
-                undefined
-            );
-        });
-        return {
-            [SpaceType.SharedWithMe]: spacesSharedWithMe,
-            [SpaceType.AdminContentView]: spacesAdminsCanSee,
-        };
-    }, [spaces, user.data]);
 
     const { mutate: promoteChart } = usePromoteMutation();
     const { mutate: promoteDashboard } = usePromoteDashboardMutation();
@@ -225,6 +185,7 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
     return (
         <>
             <Menu
+                disabled={disabled}
                 withinPortal
                 opened={isOpen}
                 position="bottom-start"
@@ -239,7 +200,9 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                 <Menu.Target>
                     <Box onClick={isOpen ? onClose : onOpen}>
                         <ActionIcon
+                            disabled={disabled}
                             aria-label="Menu"
+                            data-testid={`ResourceViewActionMenu/${item.data.name}`}
                             sx={(theme) => ({
                                 ':hover': {
                                     backgroundColor: theme.colors.gray[1],
@@ -311,7 +274,9 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                         !isSqlChart &&
                         item.type !== ResourceViewItemType.SPACE && (
                             <Tooltip
-                                label="You must enable first an upstream project in settings > Data ops"
+                                label={t(
+                                    'components_common_resource_view_action_menu.menus.promote.tooltip_can_prompote',
+                                )}
                                 disabled={
                                     project?.upstreamProjectUuid !== undefined
                                 }
@@ -393,157 +358,21 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                         </Menu.Item>
                     ) : null}
 
-                    {item.type === ResourceViewItemType.CHART ||
-                    item.type === ResourceViewItemType.DASHBOARD ? (
-                        <>
-                            <Menu.Divider
-                                display={isSqlChart ? 'none' : 'block'}
-                            />
+                    <Menu.Divider display={isSqlChart ? 'none' : 'block'} />
 
-                            <Menu
-                                withinPortal
-                                trigger="hover"
-                                offset={0}
-                                position="right"
-                                shadow="md"
-                                closeOnItemClick
-                            >
-                                <Menu.Target>
-                                    <Menu.Item
-                                        component="button"
-                                        role="menuitem"
-                                        icon={<IconFolders size={18} />}
-                                        rightSection={
-                                            <Box w={18} h={18} ml="lg">
-                                                <IconChevronRight size={18} />
-                                            </Box>
-                                        }
-                                    >
-                                        {t(
-                                            'components_common_resource_view_action_menu.menus.move.title',
-                                        )}
-                                    </Menu.Item>
-                                </Menu.Target>
-
-                                <Menu.Dropdown
-                                    maw={320}
-                                    mah={400}
-                                    style={{
-                                        overflowY: 'auto',
-                                    }}
-                                >
-                                    {[
-                                        SpaceType.SharedWithMe,
-                                        SpaceType.AdminContentView,
-                                    ].map((spaceType) => (
-                                        <Fragment key={spaceType}>
-                                            {spacesByType[spaceType].length >
-                                            0 ? (
-                                                <>
-                                                    {spaceType ===
-                                                        SpaceType.AdminContentView &&
-                                                    spacesByType[
-                                                        SpaceType.SharedWithMe
-                                                    ].length > 0 ? (
-                                                        <Menu.Divider />
-                                                    ) : null}
-
-                                                    <Menu.Label>
-                                                        {
-                                                            SpaceTypeLabels[
-                                                                spaceType
-                                                            ]
-                                                        }
-                                                    </Menu.Label>
-                                                </>
-                                            ) : null}
-
-                                            {spacesByType[spaceType].map(
-                                                (space) => (
-                                                    <Menu.Item
-                                                        key={space.uuid}
-                                                        role="menuitem"
-                                                        disabled={
-                                                            item.data
-                                                                .spaceUuid ===
-                                                            space.uuid
-                                                        }
-                                                        icon={
-                                                            item.data
-                                                                .spaceUuid ===
-                                                            space.uuid ? (
-                                                                <IconCheck
-                                                                    size={18}
-                                                                />
-                                                            ) : (
-                                                                <Box
-                                                                    w={18}
-                                                                    h={18}
-                                                                />
-                                                            )
-                                                        }
-                                                        component="button"
-                                                        onClick={() => {
-                                                            if (
-                                                                item.data
-                                                                    .spaceUuid !==
-                                                                space.uuid
-                                                            ) {
-                                                                onAction({
-                                                                    type: ResourceViewItemAction.MOVE_TO_SPACE,
-                                                                    item,
-                                                                    data: {
-                                                                        ...item.data,
-                                                                        spaceUuid:
-                                                                            space.uuid,
-                                                                    },
-                                                                });
-                                                            }
-                                                        }}
-                                                    >
-                                                        {space.name}
-                                                    </Menu.Item>
-                                                ),
-                                            )}
-                                        </Fragment>
-                                    ))}
-
-                                    <Can
-                                        I="create"
-                                        this={subject('Space', {
-                                            organizationUuid:
-                                                user.data?.organizationUuid,
-                                            projectUuid,
-                                        })}
-                                    >
-                                        {spaces.length > 0 ? (
-                                            <Menu.Divider />
-                                        ) : null}
-                                        <Menu.Item
-                                            component="button"
-                                            role="menuitem"
-                                            icon={
-                                                <MantineIcon
-                                                    icon={IconPlus}
-                                                    size={18}
-                                                />
-                                            }
-                                            onClick={() => {
-                                                onAction({
-                                                    type: ResourceViewItemAction.CREATE_SPACE,
-                                                    item,
-                                                });
-                                            }}
-                                        >
-                                            {t(
-                                                'components_common_resource_view_action_menu.menus.create.title',
-                                            )}
-                                        </Menu.Item>
-                                    </Can>
-                                </Menu.Dropdown>
-                            </Menu>
-                        </>
-                    ) : null}
+                    <Menu.Item
+                        component="button"
+                        role="menuitem"
+                        icon={<IconFolderSymlink size={18} />}
+                        onClick={() => {
+                            onAction({
+                                type: ResourceViewItemAction.TRANSFER_TO_SPACE,
+                                item,
+                            });
+                        }}
+                    >
+                        Move
+                    </Menu.Item>
 
                     {allowDelete && (
                         <>

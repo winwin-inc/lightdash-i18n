@@ -11,9 +11,9 @@ import {
 import { IconArrowRight } from '@tabler/icons-react';
 import {
     useMutation,
+    type UseMutationOptions,
     useQuery,
     useQueryClient,
-    type UseMutationOptions,
     type UseQueryOptions,
 } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -336,59 +336,6 @@ export const useUpdateMutation = (
             },
         },
     );
-};
-
-export const useMoveChartMutation = (
-    options?: UseMutationOptions<
-        SavedChart,
-        ApiError,
-        Pick<SavedChart, 'uuid' | 'spaceUuid'>
-    >,
-) => {
-    const navigate = useNavigate();
-    const queryClient = useQueryClient();
-    const { projectUuid } = useParams<{ projectUuid: string }>();
-    const { showToastSuccess, showToastApiError } = useToaster();
-    const { t } = useTranslation();
-
-    return useMutation<
-        SavedChart,
-        ApiError,
-        Pick<SavedChart, 'uuid' | 'spaceUuid'>
-    >(({ uuid, spaceUuid }) => updateSavedQuery(uuid, { spaceUuid }), {
-        mutationKey: ['saved_query_move'],
-        ...options,
-        onSuccess: async (data, _, __) => {
-            await queryClient.invalidateQueries(['spaces']);
-            await queryClient.invalidateQueries(['space', projectUuid]);
-            await queryClient.invalidateQueries([
-                'most-popular-and-recently-updated',
-            ]);
-            await queryClient.invalidateQueries(['content']);
-
-            queryClient.setQueryData(['saved_query', data.uuid], data);
-            showToastSuccess({
-                title: t('hooks_saved_query.move_success', {
-                    spaceName: data.spaceName,
-                }),
-                action: {
-                    children: t('hooks_saved_query.to_space'),
-                    icon: IconArrowRight,
-                    onClick: () =>
-                        navigate(
-                            `/projects/${projectUuid}/spaces/${data.spaceUuid}`,
-                        ),
-                },
-            });
-            options?.onSuccess?.(data, _, __);
-        },
-        onError: ({ error }) => {
-            showToastApiError({
-                title: t('hooks_saved_query.move_error'),
-                apiError: error,
-            });
-        },
-    });
 };
 
 export const useCreateMutation = () => {

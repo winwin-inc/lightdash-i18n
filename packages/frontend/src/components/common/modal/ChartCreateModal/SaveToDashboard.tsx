@@ -131,7 +131,9 @@ export const SaveToDashboard: FC<Props> = ({
 
             clearIsEditingDashboardChart();
             void navigate(
-                `/projects/${projectUuid}/dashboards/${dashboardUuid}/edit`,
+                activeTabUuid
+                    ? `/projects/${projectUuid}/dashboards/${dashboardUuid}/edit/tabs/${activeTabUuid}`
+                    : `/projects/${projectUuid}/dashboards/${dashboardUuid}/edit`,
             );
             showToastSuccess({
                 title: t('components_common_modal_chart_create.add.success', {

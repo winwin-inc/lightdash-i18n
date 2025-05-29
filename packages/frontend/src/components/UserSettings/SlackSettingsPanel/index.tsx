@@ -31,9 +31,9 @@ import {
 import { debounce } from 'lodash';
 import { useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import { z } from 'zod';
 
-import ChannelProjectMappings from '../../../ee/features/aiCopilot/components/ChannelProjectMappings';
 import {
     useDeleteSlack,
     useGetSlack,
@@ -41,7 +41,6 @@ import {
     useUpdateSlackAppCustomSettingsMutation,
 } from '../../../hooks/slack/useSlack';
 import { useFeatureFlag } from '../../../hooks/useFeatureFlagEnabled';
-import { useProjects } from '../../../hooks/useProjects';
 import slackSvg from '../../../svgs/slack.svg';
 import MantineIcon from '../../common/MantineIcon';
 import { SettingsGridCard } from '../../common/Settings/SettingsCard';
@@ -49,24 +48,6 @@ import { hasRequiredScopes } from './utils';
 
 const SLACK_INSTALL_URL = `/api/v1/slack/install/`;
 const MAX_SLACK_CHANNELS = 100000;
-
-const formSchema = z.object({
-    notificationChannel: z.string().min(1).nullable(),
-    appProfilePhotoUrl: z.string().url().nullable(),
-    slackChannelProjectMappings: z.array(
-        z.object({
-            projectUuid: z
-                .string({ message: 'You must select a project' })
-                .uuid({ message: 'Invalid project' }),
-            slackChannelId: z
-                .string({
-                    message: 'You must select a Slack channel',
-                })
-                .min(1),
-            availableTags: z.array(z.string().min(1)).nullable(),
-        }),
-    ),
-});
 
 const SlackSettingsPanel: FC = () => {
     const { t } = useTranslation();
@@ -85,6 +66,34 @@ const SlackSettingsPanel: FC = () => {
         useSlackChannels(search, true, {
             enabled: organizationHasSlack,
         });
+
+    const formSchema = z.object({
+        notificationChannel: z.string().min(1).nullable(),
+        appProfilePhotoUrl: z.string().url().nullable(),
+        slackChannelProjectMappings: z.array(
+            z.object({
+                projectUuid: z
+                    .string({
+                        message: t(
+                            'components_user_settings_slack_settings_panel.validation.project',
+                        ),
+                    })
+                    .uuid({
+                        message: t(
+                            'components_user_settings_slack_settings_panel.validation.invalid_project',
+                        ),
+                    }),
+                slackChannelId: z
+                    .string({
+                        message: t(
+                            'components_user_settings_slack_settings_panel.validation.slack_channel',
+                        ),
+                    })
+                    .min(1),
+                availableTags: z.array(z.string().min(1)).nullable(),
+            }),
+        ),
+    });
 
     const { mutate: deleteSlack } = useDeleteSlack();
     const { mutate: updateCustomSettings } =
@@ -128,17 +137,6 @@ const SlackSettingsPanel: FC = () => {
             })) ?? []
         );
     }, [slackChannels]);
-
-    const { data: projects } = useProjects();
-
-    const projectOptions = useMemo(() => {
-        return (
-            projects?.map((project) => ({
-                value: project.projectUuid,
-                label: project.name,
-            })) ?? []
-        );
-    }, [projects]);
 
     let responsiveChannelsSearchEnabled =
         slackChannelOptions.length >= MAX_SLACK_CHANNELS || search.length > 0; // enable responvive channels search if there are more than MAX_SLACK_CHANNELS defined channels
@@ -280,11 +278,26 @@ const SlackSettingsPanel: FC = () => {
                                 />
                             </Group>
                             {aiCopilotFlag?.enabled && (
-                                <ChannelProjectMappings
-                                    form={form}
-                                    channelOptions={slackChannelOptions}
-                                    projectOptions={projectOptions}
-                                />
+                                <Alert
+                                    color="blue"
+                                    fz="xs"
+                                    icon={<MantineIcon icon={IconHelpCircle} />}
+                                >
+                                    {t(
+                                        'components_user_settings_slack_settings_panel.from.alert.part_1',
+                                    )}{' '}
+                                    <Anchor
+                                        component={Link}
+                                        to="/generalSettings/aiAgents"
+                                    >
+                                        {t(
+                                            'components_user_settings_slack_settings_panel.from.alert.part_2',
+                                        )}
+                                    </Anchor>
+                                    {t(
+                                        'components_user_settings_slack_settings_panel.from.alert.part_3',
+                                    )}
+                                </Alert>
                             )}
                         </Stack>
                         <Stack align="end" mt="xl">

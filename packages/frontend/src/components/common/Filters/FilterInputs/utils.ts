@@ -124,6 +124,7 @@ export const useFilterOperatorOptions = () => {
                     FilterOperator.NULL,
                     FilterOperator.NOT_NULL,
                     FilterOperator.EQUALS,
+                    FilterOperator.NOT_EQUALS,
                 ]);
             default:
                 return assertUnreachable(
@@ -149,7 +150,13 @@ const useValueAsString = () => {
         switch (filterType) {
             case FilterType.STRING:
             case FilterType.NUMBER:
-                return values?.join(', ');
+                switch (operator) {
+                    case FilterOperator.IN_BETWEEN:
+                    case FilterOperator.NOT_IN_BETWEEN:
+                        return `${firstValue || 0}, ${secondValue || 0}`;
+                    default:
+                        return values?.join(', ');
+                }
             case FilterType.BOOLEAN:
                 return values?.map(formatBoolean).join(', ');
             case FilterType.DATE:
@@ -168,6 +175,20 @@ const useValueAsString = () => {
                                 : ''
                         } ${rule.settings?.unitOfTime}`;
                     case FilterOperator.IN_BETWEEN:
+                        if (
+                            isDimension(field) &&
+                            isMomentInput(firstValue) &&
+                            isMomentInput(secondValue) &&
+                            field.type === DimensionType.DATE
+                        ) {
+                            return `${formatDate(
+                                firstValue as MomentInput,
+                                field.timeInterval,
+                            )} and ${formatDate(
+                                secondValue as MomentInput,
+                                field.timeInterval,
+                            )}`;
+                        }
                         return `${getLocalTimeDisplay(
                             firstValue as MomentInput,
                             false,
@@ -232,7 +253,7 @@ const useValueAsString = () => {
     };
 };
 
-export const useConditionalRuleLabel = () => {
+export const useConditionalRuleLabelFromItem = () => {
     const { filterOperatorLabel } = useFilterOperatorLabel();
 
     const getFilterOperatorOptions = useFilterOperatorOptions();

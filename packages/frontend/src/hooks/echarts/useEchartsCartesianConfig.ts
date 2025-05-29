@@ -30,7 +30,6 @@ import {
     timeFrameConfigs,
     TimeFrames,
     XAxisSortType,
-    type ApiQueryResults,
     type CartesianChart,
     type CustomDimension,
     type Field,
@@ -43,6 +42,7 @@ import {
 } from '@lightdash/common';
 import { useMantineTheme } from '@mantine/core';
 import dayjs from 'dayjs';
+import DOMPurify from 'dompurify';
 import {
     type DefaultLabelFormatterCallbackParams,
     type LineSeriesOption,
@@ -54,9 +54,14 @@ import toNumber from 'lodash/toNumber';
 import { useMemo } from 'react';
 import { isCartesianVisualizationConfig } from '../../components/LightdashVisualization/types';
 import { useVisualizationContext } from '../../components/LightdashVisualization/useVisualizationContext';
-import { defaultGrid } from '../../components/VisualizationConfigs/ChartConfigPanel/Grid/constants';
+import {
+    defaultAxisLabelGap,
+    defaultGrid,
+} from '../../components/VisualizationConfigs/ChartConfigPanel/Grid/constants';
 import { EMPTY_X_AXIS } from '../cartesianChartConfig/useCartesianChartConfig';
 import getPlottedData from '../plottedData/getPlottedData';
+import { type InfiniteQueryResults } from '../useQueryResults';
+import { useLegendDoubleClickTooltip } from './useLegendDoubleClickTooltip';
 
 // NOTE: CallbackDataParams type doesn't have axisValue, axisValueLabel properties: https://github.com/apache/echarts/issues/17561
 type TooltipFormatterParams = DefaultLabelFormatterCallbackParams & {
@@ -421,11 +426,11 @@ const getMinAndMaxReferenceLines = (
     leftAxisFieldYIds: string[] | undefined,
     rightAxisYFieldIds: string[] | undefined,
     bottomAxisXFieldIds: string[] | undefined,
-    resultsData: ApiQueryResults | undefined,
+    rows: ResultRow[] | undefined,
     series: Series[] | undefined,
     items: ItemsMap,
 ) => {
-    if (resultsData === undefined || series === undefined) return {};
+    if (rows === undefined || series === undefined) return {};
     // Skip method if there are no reference lines
     const hasReferenceLines =
         series.find((serie) => {
@@ -535,15 +540,15 @@ const getMinAndMaxReferenceLines = (
 
     const [minValueLeftY, maxValueLeftY] = getMinAndMaxValues(
         leftAxisFieldYIds,
-        resultsData.rows,
+        rows,
     );
     const [minValueRightY, maxValueRightY] = getMinAndMaxValues(
         rightAxisYFieldIds,
-        resultsData.rows,
+        rows,
     );
     const [minValueX, maxValueX] = getMinAndMaxValues(
         bottomAxisXFieldIds,
-        resultsData.rows,
+        rows,
     );
 
     const [minReferenceLineX, maxReferenceLineX] =
@@ -819,15 +824,15 @@ const calculateWidthText = (text: string | undefined): number => {
 };
 
 const getLongestLabel = ({
-    resultsData,
+    rows = [],
     axisId,
 }: {
-    resultsData?: ApiQueryResults;
+    rows?: ResultRow[];
     axisId?: string;
 }): string | undefined => {
     return (
         axisId &&
-        resultsData?.rows
+        rows
             .map((row) => row[axisId]?.value.formatted)
             .reduce<string>(
                 (acc, p) => (p && acc.length > p.length ? acc : p),
@@ -873,7 +878,7 @@ const getEchartAxes = ({
     validCartesianConfig: CartesianChart;
     itemsMap: ItemsMap;
     series: EChartSeries[];
-    resultsData: ApiQueryResults | undefined;
+    resultsData: InfiniteQueryResults | undefined;
     minsAndMaxes: ReturnType<typeof getResultValueArray>['minsAndMaxes'];
 }) => {
     const xAxisItemId = validCartesianConfig.layout.flipAxes
@@ -1070,12 +1075,12 @@ const getEchartAxes = ({
     const bottomAxisXId = bottomAxisXFieldIds?.[0] || xAxisItemId;
 
     const longestValueXAxisTop: string | undefined = getLongestLabel({
-        resultsData,
+        rows: resultsData?.rows,
         axisId: topAxisXId,
     });
 
     const longestValueXAxisBottom: string | undefined = getLongestLabel({
-        resultsData,
+        rows: resultsData?.rows,
         axisId: bottomAxisXId,
     });
 
@@ -1098,13 +1103,13 @@ const getEchartAxes = ({
         rightAxisYFieldIds?.[0] || validCartesianConfig.layout?.yField?.[1];
 
     const longestValueYAxisLeft: string | undefined = getLongestLabel({
-        resultsData,
+        rows: resultsData?.rows,
         axisId: leftAxisYId,
     });
     const leftYaxisGap = calculateWidthText(longestValueYAxisLeft);
 
     const longestValueYAxisRight: string | undefined = getLongestLabel({
-        resultsData,
+        rows: resultsData?.rows,
         axisId: rightAxisYId,
     });
     const rightYaxisGap = calculateWidthText(longestValueYAxisRight);
@@ -1137,7 +1142,7 @@ const getEchartAxes = ({
         leftAxisYFieldIds,
         rightAxisYFieldIds,
         bottomAxisXFieldIds,
-        resultsData,
+        resultsData?.rows,
         validCartesianConfig.eChartsConfig.series,
         itemsMap,
     );
@@ -1261,6 +1266,20 @@ const getEchartAxes = ({
         bottomAxisMaxValue,
     );
 
+    const maxYAxisValue =
+        leftAxisType === 'value'
+            ? yAxisConfiguration?.[0]?.max ||
+              referenceLineMaxLeftY ||
+              maybeGetAxisDefaultMaxValue(allowFirstAxisDefaultRange)
+            : undefined;
+
+    const minYAxisValue =
+        leftAxisType === 'value'
+            ? yAxisConfiguration?.[0]?.min ||
+              referenceLineMinLeftY ||
+              maybeGetAxisDefaultMinValue(allowFirstAxisDefaultRange)
+            : undefined;
+
     return {
         xAxis: [
             {
@@ -1361,22 +1380,8 @@ const getEchartAxes = ({
                           itemsMap,
                           series: validCartesianConfig.eChartsConfig.series,
                       }),
-                min:
-                    leftAxisType === 'value'
-                        ? yAxisConfiguration?.[0]?.min ||
-                          referenceLineMinLeftY ||
-                          maybeGetAxisDefaultMinValue(
-                              allowFirstAxisDefaultRange,
-                          )
-                        : undefined,
-                max:
-                    leftAxisType === 'value'
-                        ? yAxisConfiguration?.[0]?.max ||
-                          referenceLineMaxLeftY ||
-                          maybeGetAxisDefaultMaxValue(
-                              allowFirstAxisDefaultRange,
-                          )
-                        : undefined,
+                min: minYAxisValue,
+                max: maxYAxisValue,
                 nameTextStyle: {
                     fontWeight: 'bold',
                     align: 'center',
@@ -1384,7 +1389,7 @@ const getEchartAxes = ({
                 nameLocation: 'center',
                 ...getAxisFormatter({
                     axisItem: leftAxisYField,
-                    defaultNameGap: leftYaxisGap + 20,
+                    defaultNameGap: leftYaxisGap + defaultAxisLabelGap,
                 }),
                 splitLine: {
                     show: validCartesianConfig.layout.flipAxes
@@ -1429,9 +1434,8 @@ const getEchartAxes = ({
                 },
                 ...getAxisFormatter({
                     axisItem: rightAxisYField,
-                    defaultNameGap: rightYaxisGap + 20,
+                    defaultNameGap: rightYaxisGap + defaultAxisLabelGap,
                 }),
-
                 nameLocation: 'center',
                 nameRotate: -90,
                 splitLine: {
@@ -1584,6 +1588,11 @@ const useEchartsCartesianConfig = (
         return visualizationConfig.chartConfig.validConfig;
     }, [visualizationConfig]);
 
+    const tooltipConfig = useMemo(() => {
+        if (!isCartesianVisualizationConfig(visualizationConfig)) return;
+        return visualizationConfig.chartConfig.tooltip;
+    }, [visualizationConfig]);
+
     const [pivotedKeys, nonPivotedKeys] = useMemo(() => {
         if (
             itemsMap &&
@@ -1684,7 +1693,6 @@ const useEchartsCartesianConfig = (
         validCartesianConfigLegend,
         getSeriesColor,
     ]);
-
     const sortedResults = useMemo(() => {
         const results =
             validCartesianConfig?.layout?.xField === EMPTY_X_AXIS
@@ -1722,7 +1730,7 @@ const useEchartsCartesianConfig = (
                 : results;
 
             const alreadySorted =
-                resultsData?.metricQuery.sorts?.[0]?.fieldId === xFieldId;
+                resultsData?.metricQuery?.sorts?.[0]?.fieldId === xFieldId;
             if (alreadySorted) return resultsInRange;
 
             const xField = itemsMap[xFieldId];
@@ -1785,7 +1793,7 @@ const useEchartsCartesianConfig = (
         resultsAndMinsAndMaxes.results,
         itemsMap,
         axes.xAxis,
-        resultsData?.metricQuery.sorts,
+        resultsData?.metricQuery?.sorts,
     ]);
 
     const tooltip = useMemo<TooltipOption>(
@@ -1813,7 +1821,6 @@ const useEchartsCartesianConfig = (
                     return params[0].axisValueLabel;
                 };
                 // When flipping axes, we get all series in the chart
-
                 const tooltipRows = params
                     .map((param) => {
                         const {
@@ -1843,8 +1850,7 @@ const useEchartsCartesianConfig = (
                                 typeof value === 'object' &&
                                 dim in value
                             ) {
-                                return `
-                            <tr>
+                                return `<tr>
                                 <td>${marker}</td>
                                 <td>${seriesName}</td>
                                 <td style="text-align: right;"><b>${getFormattedValue(
@@ -1859,6 +1865,38 @@ const useEchartsCartesianConfig = (
                         return '';
                     })
                     .join('');
+
+                // At the moment, we only correctly filter fields that are
+                // part of the chart config when no pivot is used
+                // TODO In order to show other fields,
+                // we will have to filter resultData using the xAxis value and groups
+                let tooltipHtml = tooltipConfig ?? '';
+                if (tooltipHtml) {
+                    // Sanitize HTML code to avoid XSS
+                    tooltipHtml = DOMPurify.sanitize(tooltipHtml);
+                    const firstValue = params[0].value as Record<
+                        string,
+                        unknown
+                    >;
+                    const fields = tooltipHtml.match(/\${(.*?)}/g);
+                    fields?.forEach((field) => {
+                        const fieldValueReference = field
+                            .replace('${', '')
+                            .replace('}', '');
+
+                        const fieldValue = firstValue[fieldValueReference];
+
+                        const formattedValue = getFormattedValue(
+                            fieldValue,
+                            fieldValueReference.split('.')[0],
+                            itemsMap,
+                        );
+                        tooltipHtml = tooltipHtml.replace(
+                            field,
+                            formattedValue,
+                        );
+                    });
+                }
 
                 const dimensionId = params[0].dimensionNames?.[0];
                 if (dimensionId !== undefined) {
@@ -1883,13 +1921,13 @@ const useEchartsCartesianConfig = (
                             itemsMap,
                         );
 
-                        return `${tooltipHeader}<br/><table>${tooltipRows}</table>`;
+                        return `${tooltipHeader}<br/>${tooltipHtml}<table>${tooltipRows}</table>`;
                     }
                 }
-                return `${getTooltipHeader()}<br/><table>${tooltipRows}</table>`;
+                return `${getTooltipHeader()}<br/>${tooltipHtml}<table>${tooltipRows}</table>`;
             },
         }),
-        [itemsMap, validCartesianConfig?.layout.flipAxes],
+        [itemsMap, validCartesianConfig?.layout.flipAxes, tooltipConfig],
     );
 
     const sortedResultsByTotals = useMemo(() => {
@@ -1959,6 +1997,53 @@ const useEchartsCartesianConfig = (
         validCartesianConfigLegend,
     ]);
 
+    const currentGrid = useMemo(() => {
+        const grid = {
+            ...defaultGrid,
+            ...removeEmptyProperties(validCartesianConfig?.eChartsConfig.grid),
+        };
+
+        const gridLeft = grid.left;
+        const gridRight = grid.right;
+
+        // Adds extra gap to grid to make room for axis labels -> there is an open ticket in echarts to fix this: https://github.com/apache/echarts/issues/9265
+        // Only works for px values, percentage values are not supported because it cannot use calc()
+        return {
+            ...grid,
+            left: gridLeft.includes('px')
+                ? `${
+                      parseInt(gridLeft.replace('px', '')) + defaultAxisLabelGap
+                  }px`
+                : grid.left,
+            right: gridRight.includes('px')
+                ? `${
+                      parseInt(gridRight.replace('px', '')) +
+                      defaultAxisLabelGap
+                  }px`
+                : grid.right,
+        };
+    }, [validCartesianConfig?.eChartsConfig.grid]);
+
+    const { tooltip: legendDoubleClickTooltip } = useLegendDoubleClickTooltip();
+
+    const legendConfigWithInstructionsTooltip = useMemo(() => {
+        const mergedLegendConfig = mergeLegendSettings(
+            validCartesianConfig?.eChartsConfig.legend,
+            validCartesianConfigLegend,
+            series,
+        );
+
+        return {
+            ...mergedLegendConfig,
+            tooltip: legendDoubleClickTooltip,
+        };
+    }, [
+        legendDoubleClickTooltip,
+        validCartesianConfig?.eChartsConfig.legend,
+        validCartesianConfigLegend,
+        series,
+    ]);
+
     const eChartsOptions = useMemo(
         () => ({
             xAxis: axes.xAxis,
@@ -1966,22 +2051,13 @@ const useEchartsCartesianConfig = (
             useUTC: true,
             series: stackedSeriesWithColorAssignments,
             animation: !(isInDashboard || minimal),
-            legend: mergeLegendSettings(
-                validCartesianConfig?.eChartsConfig.legend,
-                validCartesianConfigLegend,
-                series,
-            ),
+            legend: legendConfigWithInstructionsTooltip,
             dataset: {
                 id: 'lightdashResults',
                 source: sortedResultsByTotals,
             },
             tooltip,
-            grid: {
-                ...defaultGrid,
-                ...removeEmptyProperties(
-                    validCartesianConfig?.eChartsConfig.grid,
-                ),
-            },
+            grid: currentGrid,
             textStyle: {
                 fontFamily: theme?.other.chartFont as string | undefined,
             },
@@ -1994,13 +2070,11 @@ const useEchartsCartesianConfig = (
             stackedSeriesWithColorAssignments,
             isInDashboard,
             minimal,
-            validCartesianConfig?.eChartsConfig.legend,
-            validCartesianConfig?.eChartsConfig.grid,
-            validCartesianConfigLegend,
-            series,
+            legendConfigWithInstructionsTooltip,
             sortedResultsByTotals,
             tooltip,
-            theme?.other?.chartFont,
+            theme?.other.chartFont,
+            currentGrid,
         ],
     );
 

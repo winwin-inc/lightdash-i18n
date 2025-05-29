@@ -2,7 +2,13 @@ import isNumber from 'lodash/isNumber';
 import last from 'lodash/last';
 import { type Entries } from 'type-fest';
 import { UnexpectedIndexError, UnexpectedServerError } from '../types/errors';
-import { FieldType, isField, isSummable, type ItemsMap } from '../types/field';
+import {
+    FieldType,
+    isDimension,
+    isField,
+    isSummable,
+    type ItemsMap,
+} from '../types/field';
 import { type MetricQuery } from '../types/metricQuery';
 import {
     type PivotColumn,
@@ -29,6 +35,7 @@ type PivotQueryResultsArgs = {
         | 'customDimensions'
     >;
     rows: ResultRow[];
+    groupedSubtotals?: Record<string, Record<string, number>[]>;
     options: {
         maxColumns: number;
     };
@@ -375,13 +382,23 @@ export const pivotQueryResults = ({
     options,
     getField,
     getFieldLabel,
+    groupedSubtotals,
 }: PivotQueryResultsArgs): PivotData => {
     if (rows.length === 0) {
         throw new Error('Cannot pivot results with no rows');
     }
 
     const hiddenMetricFieldIds = pivotConfig.hiddenMetricFieldIds || [];
-    const summableMetricFieldIds = pivotConfig.summableMetricFieldIds || [];
+
+    const summableMetricFieldIds = metricQuery.metrics.filter((metricId) => {
+        const field = getField(metricId);
+
+        // Skip if field is not found or is a dimension or is hidden
+        if (!field || isDimension(field)) return false;
+        if (hiddenMetricFieldIds.includes(metricId)) return false;
+
+        return isSummable(field);
+    });
 
     const columnOrder = (pivotConfig.columnOrder || []).filter(
         (id) => !hiddenMetricFieldIds.includes(id),
@@ -782,6 +799,7 @@ export const pivotQueryResults = ({
             allCombinedData: [],
             pivotColumnInfo: [],
         },
+        groupedSubtotals,
     };
     return combinedRetrofit(pivotData, getField, getFieldLabel);
 };
@@ -834,7 +852,15 @@ export const pivotResultsAsCsv = ({
                 field ? getFieldLabel(field.fieldId) : undefinedCharacter,
             );
 
-            acc[i] = [...fieldLabels, ...values];
+            // Row totals
+            const rowTotalLabels =
+                pivotedResults.rowTotalFields?.[i]?.map((totalField) =>
+                    totalField?.fieldId
+                        ? `Total ${getFieldLabel(totalField.fieldId)}`
+                        : 'Total',
+                ) || [];
+
+            acc[i] = [...fieldLabels, ...values, ...rowTotalLabels];
             return acc;
         },
         [[]],

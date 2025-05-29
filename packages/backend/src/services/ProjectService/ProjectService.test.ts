@@ -7,10 +7,11 @@ import {
     SessionUser,
 } from '@lightdash/common';
 import { analyticsMock } from '../../analytics/LightdashAnalytics.mock';
-import { S3Client } from '../../clients/Aws/s3';
 import { S3CacheClient } from '../../clients/Aws/S3CacheClient';
+import { S3Client } from '../../clients/Aws/S3Client';
 import EmailClient from '../../clients/EmailClient/EmailClient';
 import { lightdashConfigMock } from '../../config/lightdashConfig.mock';
+import { type LightdashConfig } from '../../config/parseConfig';
 import { AnalyticsModel } from '../../models/AnalyticsModel';
 import type { CatalogModel } from '../../models/CatalogModel/CatalogModel';
 import { ContentModel } from '../../models/ContentModel/ContentModel';
@@ -26,6 +27,7 @@ import { SpaceModel } from '../../models/SpaceModel';
 import { SshKeyPairModel } from '../../models/SshKeyPairModel';
 import type { TagsModel } from '../../models/TagsModel';
 import { UserAttributesModel } from '../../models/UserAttributesModel';
+import { UserModel } from '../../models/UserModel';
 import { UserWarehouseCredentialsModel } from '../../models/UserWarehouseCredentials/UserWarehouseCredentialsModel';
 import { WarehouseAvailableTablesModel } from '../../models/WarehouseAvailableTablesModel/WarehouseAvailableTablesModel';
 import { METRIC_QUERY, warehouseClientMock } from '../../queryBuilder.mock';
@@ -102,10 +104,9 @@ const userAttributesModel = {
     getAttributeValuesForOrgMember: jest.fn(async () => ({})),
 };
 
-describe('ProjectService', () => {
-    const { projectUuid } = defaultProject;
-    const service = new ProjectService({
-        lightdashConfig: lightdashConfigMock,
+const getMockedProjectService = (lightdashConfig: LightdashConfig) =>
+    new ProjectService({
+        lightdashConfig,
         analytics: analyticsMock,
         projectModel: projectModel as unknown as ProjectModel,
         onboardingModel: onboardingModel as unknown as OnboardingModel,
@@ -136,7 +137,13 @@ describe('ProjectService', () => {
         catalogModel: {} as CatalogModel,
         contentModel: {} as ContentModel,
         encryptionUtil: {} as EncryptionUtil,
+        userModel: {} as UserModel,
     });
+
+describe('ProjectService', () => {
+    const { projectUuid } = defaultProject;
+    const service = getMockedProjectService(lightdashConfigMock);
+
     afterEach(() => {
         jest.clearAllMocks();
     });

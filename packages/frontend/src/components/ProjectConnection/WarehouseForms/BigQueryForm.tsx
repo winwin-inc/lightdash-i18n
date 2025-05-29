@@ -7,30 +7,32 @@ import {
     Stack,
     TextInput,
 } from '@mantine/core';
-import { useState, type FC } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
+import { useState, type ChangeEvent, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
 
-import { hasNoWhiteSpaces } from '../../../utils/fieldValidators';
-import FormSection from '../../ReactHookForm/FormSection';
-import Input from '../../ReactHookForm/Input';
+import DocumentationHelpButton from '../../DocumentationHelpButton';
 import FormCollapseButton from '../FormCollapseButton';
+import { useFormContext } from '../formContext';
+import FormSection from '../Inputs/FormSection';
+import StartOfWeekSelect from '../Inputs/StartOfWeekSelect';
 import { useProjectFormContext } from '../useProjectFormContext';
-import StartOfWeekSelect from './Inputs/StartOfWeekSelect';
+import { BigQueryDefaultValues } from './defaultValues';
 
 export const BigQuerySchemaInput: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
+    const form = useFormContext();
     const { t } = useTranslation();
 
     return (
-        <Input
+        <TextInput
             name="warehouse.dataset"
+            {...form.getInputProps('warehouse.dataset')}
             label={t(
                 'components_project_connection_warehouse_form.big_query.dataset.label',
             )}
-            labelHelp={
+            description={
                 <p>
                     {t(
                         'components_project_connection_warehouse_form.big_query.dataset.label_help.part_1',
@@ -61,34 +63,41 @@ export const BigQuerySchemaInput: FC<{
                         )}
                     </Anchor>
                     .
+                    <DocumentationHelpButton href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#data-set" />
                 </p>
             }
-            documentationUrl="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#data-set"
-            rules={{
-                required: 'Required field',
-                validate: {
-                    hasNoWhiteSpaces: hasNoWhiteSpaces('Data set'),
-                },
-            }}
+            required
             disabled={disabled}
         />
     );
 };
+
 const BigQueryForm: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
     const { t } = useTranslation();
     const [isOpen, toggleOpen] = useToggle(false);
-    const { register } = useFormContext();
-    const [temporaryFile, setTemporaryFile] = useState<File>();
+    const form = useFormContext();
+    const [temporaryFile, setTemporaryFile] = useState<File | null>(null);
     const { savedProject } = useProjectFormContext();
     const requireSecrets: boolean =
         savedProject?.warehouseConnection?.type !== WarehouseTypes.BIGQUERY;
+
+    const locationField = form.getInputProps('warehouse.location');
+    const executionProjectField = form.getInputProps(
+        'warehouse.executionProject',
+    );
+    const onChangeFactory =
+        (onChange: (value: string | undefined) => void) =>
+        (e: ChangeEvent<HTMLInputElement>) => {
+            onChange(e.target.value === '' ? undefined : e.target.value);
+        };
 
     return (
         <>
             <Stack style={{ marginTop: '8px' }}>
                 <TextInput
+                    name="warehouse.project"
                     label={t(
                         'components_project_connection_warehouse_form.big_query.project.label',
                     )}
@@ -96,16 +105,13 @@ const BigQueryForm: FC<{
                         'components_project_connection_warehouse_form.big_query.project.description',
                     )}
                     required
-                    {...register('warehouse.project', {
-                        validate: {
-                            hasNoWhiteSpaces: hasNoWhiteSpaces('Project'),
-                        },
-                    })}
+                    {...form.getInputProps('warehouse.project')}
                     disabled={disabled}
                     labelProps={{ style: { marginTop: '8px' } }}
                 />
 
                 <TextInput
+                    name="warehouse.location"
                     label={t(
                         'components_project_connection_warehouse_form.big_query.location.label',
                     )}
@@ -128,256 +134,267 @@ const BigQueryForm: FC<{
                             )}
                         </p>
                     }
-                    {...register('warehouse.location', {
-                        validate: {
-                            hasNoWhiteSpaces: hasNoWhiteSpaces('Location'),
-                        },
-                        setValueAs: (value) =>
-                            value === '' ? undefined : value,
-                    })}
+                    {...locationField}
+                    onChange={onChangeFactory(locationField.onChange)}
                     disabled={disabled}
                 />
 
-                <Controller
+                <FileInput
                     name="warehouse.keyfileContents"
-                    render={({ field }) => (
-                        <FileInput
-                            {...field}
-                            label={t(
-                                'components_project_connection_warehouse_form.big_query.file.label',
-                            )}
-                            // FIXME: until mantine 7.4: https://github.com/mantinedev/mantine/issues/5401#issuecomment-1874906064
-                            // @ts-ignore
-                            placeholder={
-                                !requireSecrets
-                                    ? '**************'
-                                    : t(
-                                          'components_project_connection_warehouse_form.big_query.file.placeholder',
-                                      )
-                            }
-                            description={
-                                <p>
-                                    {t(
-                                        'components_project_connection_warehouse_form.big_query.file.description.part_1',
-                                    )}{' '}
-                                    <Anchor
-                                        target="_blank"
-                                        href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#key-file"
-                                        rel="noreferrer"
-                                    >
-                                        {t(
-                                            'components_project_connection_warehouse_form.big_query.file.description.part_2',
-                                        )}
-                                    </Anchor>
-                                    {t(
-                                        'components_project_connection_warehouse_form.big_query.file.description.part_3',
-                                    )}
-                                </p>
-                            }
-                            {...register('warehouse.keyfileContents')}
-                            required={requireSecrets}
-                            accept="application/json"
-                            value={temporaryFile}
-                            onChange={(file) => {
-                                if (file) {
-                                    const fileReader = new FileReader();
-                                    fileReader.onload = function (event) {
-                                        const contents = event.target?.result;
-                                        if (typeof contents === 'string') {
-                                            setTemporaryFile(file);
-                                            field.onChange(
-                                                JSON.parse(contents),
-                                            );
-                                        } else {
-                                            field.onChange(null);
-                                        }
-                                    };
-                                    fileReader.readAsText(file);
-                                }
-                                field.onChange(null);
-                            }}
-                            disabled={disabled}
-                        />
+                    {...form.getInputProps('warehouse.keyfileContents', {
+                        withError: true,
+                    })}
+                    label={t(
+                        'components_project_connection_warehouse_form.big_query.file.label',
                     )}
+                    // FIXME: until mantine 7.4: https://github.com/mantinedev/mantine/issues/5401#issuecomment-1874906064
+                    // @ts-ignore
+                    placeholder={
+                        !requireSecrets
+                            ? '**************'
+                            : t(
+                                  'components_project_connection_warehouse_form.big_query.file.placeholder',
+                              )
+                    }
+                    description={
+                        <p>
+                            {t(
+                                'components_project_connection_warehouse_form.big_query.file.description.part_1',
+                            )}{' '}
+                            <Anchor
+                                target="_blank"
+                                href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#key-file"
+                                rel="noreferrer"
+                            >
+                                {t(
+                                    'components_project_connection_warehouse_form.big_query.file.description.part_2',
+                                )}
+                            </Anchor>
+                            {t(
+                                'components_project_connection_warehouse_form.big_query.file.description.part_3',
+                            )}
+                        </p>
+                    }
+                    required={requireSecrets}
+                    accept="application/json"
+                    value={temporaryFile}
+                    onChange={(file) => {
+                        if (!file) {
+                            form.setFieldValue(
+                                'warehouse.keyfileContents',
+                                null,
+                            );
+                            return;
+                        }
+
+                        const fileReader = new FileReader();
+                        fileReader.onload = function (event) {
+                            const contents = event.target?.result;
+
+                            if (typeof contents === 'string') {
+                                try {
+                                    setTemporaryFile(file);
+                                    form.setFieldValue(
+                                        'warehouse.keyfileContents',
+                                        JSON.parse(contents),
+                                    );
+                                } catch (error) {
+                                    // 🤷‍♂️
+                                    setTimeout(() => {
+                                        form.setFieldError(
+                                            'warehouse.keyfileContents',
+                                            'Invalid JSON file',
+                                        );
+                                    });
+
+                                    form.setFieldValue(
+                                        'warehouse.keyfileContents',
+                                        null,
+                                    );
+                                }
+                            } else {
+                                form.setFieldValue(
+                                    'warehouse.keyfileContents',
+                                    null,
+                                );
+                                setTemporaryFile(null);
+                            }
+                        };
+                        fileReader.readAsText(file);
+                    }}
+                    disabled={disabled}
                 />
 
                 <FormSection isOpen={isOpen} name="advanced">
                     <Stack style={{ marginTop: '8px' }}>
                         <TextInput
-                            label="Execution project"
+                            name="warehouse.executionProject"
+                            label={t(
+                                'components_project_connection_warehouse_form.big_query.execution_project.label',
+                            )}
                             description={
                                 <p>
-                                    You may specify a project to bill for query
-                                    execution, instead of the project/database
-                                    where you materialize most resources. You
-                                    can see more details in{' '}
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.execution_project.description.part_1',
+                                    )}{' '}
                                     <Anchor
                                         target="_blank"
                                         href="https://docs.getdbt.com/docs/core/connect-data-platform/bigquery-setup#execution-project"
                                         rel="noreferrer"
                                     >
-                                        dbt documentation
+                                        {t(
+                                            'components_project_connection_warehouse_form.big_query.execution_project.description.part_2',
+                                        )}
                                     </Anchor>
-                                    .
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.execution_project.description.part_3',
+                                    )}
                                 </p>
                             }
-                            {...register('warehouse.executionProject', {
-                                validate: {
-                                    hasNoWhiteSpaces:
-                                        hasNoWhiteSpaces('Execution project'),
-                                },
-                                setValueAs: (value) =>
-                                    value === '' ? undefined : value,
-                            })}
+                            {...executionProjectField}
+                            onChange={onChangeFactory(
+                                executionProjectField.onChange,
+                            )}
                             disabled={disabled}
                         />
 
-                        <Controller
+                        <NumberInput
                             name="warehouse.timeoutSeconds"
-                            defaultValue={300}
-                            render={({ field }) => (
-                                <NumberInput
-                                    {...field}
-                                    label={t(
-                                        'components_project_connection_warehouse_form.big_query.timeout.label',
-                                    )}
-                                    description={
-                                        <p>
-                                            {t(
-                                                'components_project_connection_warehouse_form.big_query.timeout.description.part_1',
-                                            )}{' '}
-                                            <Anchor
-                                                target="_blank"
-                                                href="https://docs.getdbt.com/reference/warehouse-profiles/bigquery-profile#timeouts"
-                                                rel="noreferrer"
-                                            >
-                                                {t(
-                                                    'components_project_connection_warehouse_form.big_query.timeout.description.part_2',
-                                                )}
-                                            </Anchor>
-                                            {t(
-                                                'components_project_connection_warehouse_form.big_query.timeout.description.part_3',
-                                            )}
-                                        </p>
-                                    }
-                                    required
-                                    disabled={disabled}
-                                />
+                            {...form.getInputProps('warehouse.timeoutSeconds')}
+                            label={t(
+                                'components_project_connection_warehouse_form.big_query.timeout.label',
                             )}
+                            defaultValue={BigQueryDefaultValues.timeoutSeconds}
+                            description={
+                                <p>
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.timeout.description.part_1',
+                                    )}{' '}
+                                    <Anchor
+                                        target="_blank"
+                                        href="https://docs.getdbt.com/reference/warehouse-profiles/bigquery-profile#timeouts"
+                                        rel="noreferrer"
+                                    >
+                                        {t(
+                                            'components_project_connection_warehouse_form.big_query.timeout.description.part_2',
+                                        )}
+                                    </Anchor>
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.timeout.description.part_3',
+                                    )}
+                                </p>
+                            }
+                            required
+                            disabled={disabled}
                         />
-                        <Controller
+
+                        <Select
                             name="warehouse.priority"
-                            defaultValue="interactive"
-                            render={({ field }) => (
-                                <Select
-                                    label={t(
-                                        'components_project_connection_warehouse_form.big_query.priority.label',
-                                    )}
-                                    description={
-                                        <p>
-                                            {t(
-                                                'components_project_connection_warehouse_form.big_query.priority.description.part_1',
-                                            )}{' '}
-                                            <Anchor
-                                                target="_blank"
-                                                href="https://docs.getdbt.com/reference/warehouse-profiles/bigquery-profile#priority"
-                                                rel="noreferrer"
-                                            >
-                                                {t(
-                                                    'components_project_connection_warehouse_form.big_query.priority.description.part_2',
-                                                )}
-                                            </Anchor>
-                                            {t(
-                                                'components_project_connection_warehouse_form.big_query.priority.description.part_3',
-                                            )}
-                                        </p>
-                                    }
-                                    data={[
-                                        {
-                                            value: 'interactive',
-                                            label: t(
-                                                'components_project_connection_warehouse_form.big_query.priority.data.interactive',
-                                            ),
-                                        },
-                                        {
-                                            value: 'batch',
-                                            label: t(
-                                                'components_project_connection_warehouse_form.big_query.priority.data.batch',
-                                            ),
-                                        },
-                                    ]}
-                                    required
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    disabled={disabled}
-                                />
+                            {...form.getInputProps('warehouse.priority')}
+                            defaultValue={BigQueryDefaultValues.priority}
+                            label={t(
+                                'components_project_connection_warehouse_form.big_query.priority.label',
                             )}
+                            description={
+                                <p>
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.priority.description.part_1',
+                                    )}{' '}
+                                    <Anchor
+                                        target="_blank"
+                                        href="https://docs.getdbt.com/reference/warehouse-profiles/bigquery-profile#priority"
+                                        rel="noreferrer"
+                                    >
+                                        {t(
+                                            'components_project_connection_warehouse_form.big_query.priority.description.part_2',
+                                        )}
+                                    </Anchor>
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.priority.description.part_3',
+                                    )}
+                                </p>
+                            }
+                            data={[
+                                {
+                                    value: 'interactive',
+                                    label: t(
+                                        'components_project_connection_warehouse_form.big_query.priority.data.interactive',
+                                    ),
+                                },
+                                {
+                                    value: 'batch',
+                                    label: t(
+                                        'components_project_connection_warehouse_form.big_query.priority.data.batch',
+                                    ),
+                                },
+                            ]}
+                            required
+                            disabled={disabled}
                         />
-                        <Controller
+
+                        <NumberInput
                             name="warehouse.retries"
-                            defaultValue={3}
-                            render={({ field }) => (
-                                <NumberInput
-                                    {...field}
-                                    label={t(
-                                        'components_project_connection_warehouse_form.big_query.retries.label',
-                                    )}
-                                    description={
-                                        <p>
-                                            {t(
-                                                'components_project_connection_warehouse_form.big_query.retries.description.part_1',
-                                            )}{' '}
-                                            <Anchor
-                                                target="_blank"
-                                                href="https://docs.getdbt.com/reference/warehouse-profiles/bigquery-profile#retries"
-                                                rel="noreferrer"
-                                            >
-                                                {t(
-                                                    'components_project_connection_warehouse_form.big_query.retries.description.part_2',
-                                                )}
-                                            </Anchor>
-                                            {t(
-                                                'components_project_connection_warehouse_form.big_query.retries.description.part_3',
-                                            )}
-                                        </p>
-                                    }
-                                    required
-                                />
+                            {...form.getInputProps('warehouse.retries')}
+                            defaultValue={BigQueryDefaultValues.retries}
+                            label={t(
+                                'components_project_connection_warehouse_form.big_query.retries.label',
                             )}
+                            description={
+                                <p>
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.retries.description.part_1',
+                                    )}{' '}
+                                    <Anchor
+                                        target="_blank"
+                                        href="https://docs.getdbt.com/reference/warehouse-profiles/bigquery-profile#retries"
+                                        rel="noreferrer"
+                                    >
+                                        {t(
+                                            'components_project_connection_warehouse_form.big_query.retries.description.part_2',
+                                        )}
+                                    </Anchor>
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.retries.description.part_3',
+                                    )}
+                                </p>
+                            }
+                            required
                         />
-                        <Controller
+
+                        <NumberInput
                             name="warehouse.maximumBytesBilled"
-                            defaultValue={1000000000}
-                            render={({ field }) => (
-                                <NumberInput
-                                    {...field}
-                                    label={t(
-                                        'components_project_connection_warehouse_form.big_query.maximun_bytes_billed.label',
-                                    )}
-                                    description={
-                                        <p>
-                                            {t(
-                                                'components_project_connection_warehouse_form.big_query.maximun_bytes_billed.description.part_1',
-                                            )}{' '}
-                                            <Anchor
-                                                target="_blank"
-                                                href="https://docs.getdbt.com/reference/warehouse-profiles/bigquery-profile#maximum-bytes-billed"
-                                                rel="noreferrer"
-                                            >
-                                                {t(
-                                                    'components_project_connection_warehouse_form.big_query.maximun_bytes_billed.description.part_2',
-                                                )}
-                                            </Anchor>
-                                            {t(
-                                                'components_project_connection_warehouse_form.big_query.maximun_bytes_billed.description.part_3',
-                                            )}
-                                        </p>
-                                    }
-                                    required
-                                    disabled={disabled}
-                                />
+                            {...form.getInputProps(
+                                'warehouse.maximumBytesBilled',
                             )}
+                            defaultValue={
+                                BigQueryDefaultValues.maximumBytesBilled
+                            }
+                            label={t(
+                                'components_project_connection_warehouse_form.big_query.maximum_bytes_billed.label',
+                            )}
+                            description={
+                                <p>
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.maximum_bytes_billed.description.part_1',
+                                    )}{' '}
+                                    <Anchor
+                                        target="_blank"
+                                        href="https://docs.getdbt.com/reference/warehouse-profiles/bigquery-profile#maximum-bytes-billed"
+                                        rel="noreferrer"
+                                    >
+                                        {t(
+                                            'components_project_connection_warehouse_form.big_query.maximum_bytes_billed.description.part_2',
+                                        )}
+                                    </Anchor>
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.maximum_bytes_billed.description.part_3',
+                                    )}
+                                </p>
+                            }
+                            required
+                            disabled={disabled}
                         />
+
                         <StartOfWeekSelect disabled={disabled} />
                     </Stack>
                 </FormSection>

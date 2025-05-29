@@ -14,9 +14,9 @@ export const BaseResponse: HealthState = {
     localDbtEnabled: true,
     siteUrl: 'https://test.lightdash.cloud',
     staticIp: '',
-    customVisualizationsEnabled: false,
     hasEmailClient: false,
     hasExtendedUsageAnalytics: false,
+    hasMicrosoftTeams: false,
     hasGithub: false,
     hasHeadlessBrowser: false,
     hasSlack: false,
@@ -66,6 +66,7 @@ export const BaseResponse: HealthState = {
     query: {
         csvCellsLimit: 100000,
         maxLimit: 5000,
+        maxPageSize: 2500,
         defaultLimit: 500,
     },
     rudder: {
@@ -82,6 +83,10 @@ export const BaseResponse: HealthState = {
         profilesSampleRate: 0,
     },
     hasCacheAutocompleResults: false,
+    appearance: {
+        overrideColorPalette: undefined,
+        overrideColorPaletteName: undefined,
+    },
 };
 
 export const userMock = {

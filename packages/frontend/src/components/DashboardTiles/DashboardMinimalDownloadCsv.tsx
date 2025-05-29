@@ -6,6 +6,9 @@ import {
     isTableChartConfig,
     pivotQueryResults,
     type ApiChartAndResults,
+    type ApiExploreResults,
+    type ItemsMap,
+    type SavedChart,
 } from '@lightdash/common';
 import { Menu } from '@mantine/core';
 import { IconTableExport } from '@tabler/icons-react';
@@ -13,6 +16,7 @@ import { stringify } from 'csv-stringify/browser/esm';
 import { useCallback, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { InfiniteQueryResults } from '../../hooks/useQueryResults';
 import useApp from '../../providers/App/useApp';
 import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
@@ -98,15 +102,16 @@ const pivotResultsAsCsv = (
     return [...headers, ...pivotedRows];
 };
 export const DashboardMinimalDownloadCsv: FC<{
-    chartAndResults: ApiChartAndResults;
-}> = ({ chartAndResults: { chart, fields, rows, explore } }) => {
-    const { t } = useTranslation();
-
+    explore: ApiExploreResults;
+    resultsData: InfiniteQueryResults & { fields?: ItemsMap };
+    chart: SavedChart;
+}> = ({ explore, resultsData, chart }) => {
     const { track } = useTracking();
     const { health } = useApp();
+    const { t } = useTranslation();
 
     const handleDownload = useCallback(async () => {
-        if (!rows || !fields) {
+        if (!resultsData.rows || !resultsData.fields) {
             console.warn('No rows to download');
             return;
         }
@@ -118,15 +123,15 @@ export const DashboardMinimalDownloadCsv: FC<{
             health.data
         ) {
             csvRows = pivotResultsAsCsv(
-                { chart, rows, explore },
+                { chart, rows: resultsData.rows, explore },
                 health.data.pivotTable.maxColumnLimit,
             );
         } else {
-            const fieldIds = Object.keys(fields);
-            const csvHeader = Object.values(fields).map((field) =>
+            const fieldIds = Object.keys(resultsData.fields);
+            const csvHeader = Object.values(resultsData.fields).map((field) =>
                 isField(field) ? field.label : field.name,
             );
-            const csvBody = rows.map((row) =>
+            const csvBody = resultsData.rows.map((row) =>
                 fieldIds.map(
                     (reference) => row[reference].value.formatted || '-',
                 ),
@@ -164,7 +169,7 @@ export const DashboardMinimalDownloadCsv: FC<{
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    }, [chart, fields, rows, explore, health.data]);
+    }, [chart, resultsData, explore, health.data]);
 
     return (
         <Menu.Item

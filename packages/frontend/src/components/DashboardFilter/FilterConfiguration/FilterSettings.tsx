@@ -1,14 +1,16 @@
 import {
     FilterOperator,
     FilterType,
-    getFilterRuleWithDefaultValue,
+    getFilterRuleFromFieldWithDefaultValue,
     getFilterTypeFromItem,
+    supportsSingleValue,
     type DashboardFilterRule,
     type FilterRule,
     type FilterableDimension,
 } from '@lightdash/common';
 import {
     Box,
+    Button,
     Checkbox,
     Select,
     Stack,
@@ -18,12 +20,14 @@ import {
     Tooltip,
     type PopoverProps,
 } from '@mantine/core';
+import { IconHelpCircle } from '@tabler/icons-react';
 import { useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import FilterInputComponent from '../../common/Filters/FilterInputs';
 import { useFilterOperatorOptions } from '../../common/Filters/FilterInputs/utils';
-import { getPlaceholderByFilterTypeAndOperator } from '../../common/Filters/utils/getPlaceholderByFilterTypeAndOperator';
+import { usePlaceholderByFilterTypeAndOperator } from '../../common/Filters/utils/getPlaceholderByFilterTypeAndOperator';
+import MantineIcon from '../../common/MantineIcon';
 
 interface FilterSettingsProps {
     isEditMode: boolean;
@@ -64,7 +68,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
 
     const handleChangeFilterOperator = (operator: FilterRule['operator']) => {
         onChangeFilterRule(
-            getFilterRuleWithDefaultValue(field, {
+            getFilterRuleFromFieldWithDefaultValue(field, {
                 ...filterRule,
                 operator,
             }),
@@ -94,6 +98,9 @@ const FilterSettings: FC<FilterSettingsProps> = ({
             )
         );
     }, [filterRule.operator, isFilterDisabled, isEditMode]);
+
+    const getPlaceholderByFilterTypeAndOperator =
+        usePlaceholderByFilterTypeAndOperator();
 
     return (
         <Stack>
@@ -126,6 +133,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                         {t('components_dashboard_filter.configuration.value')}
                     </Text>
                 )}
+
                 <Select
                     size="xs"
                     data={filterOperatorOptions}
@@ -134,6 +142,56 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                     onDropdownClose={popoverProps?.onClose}
                     onChange={handleChangeFilterOperator}
                     value={filterRule.operator}
+                    rightSectionWidth={140}
+                    rightSectionProps={{
+                        style: {
+                            justifyContent: 'flex-end',
+                            marginRight: '8px',
+                        },
+                    }}
+                    rightSection={
+                        supportsSingleValue(filterType, filterRule.operator) &&
+                        isEditMode && (
+                            <Button
+                                compact
+                                size="xs"
+                                variant={'light'}
+                                rightIcon={
+                                    <Tooltip
+                                        variant="xs"
+                                        label={
+                                            filterRule.singleValue
+                                                ? t(
+                                                      'components_dashboard_filter.configuration.edit_filter_operator.prevent_multiple_values',
+                                                  )
+                                                : t(
+                                                      'components_dashboard_filter.configuration.edit_filter_operator.allow_multiple_values',
+                                                  )
+                                        }
+                                    >
+                                        <MantineIcon
+                                            size="sm"
+                                            icon={IconHelpCircle}
+                                        />
+                                    </Tooltip>
+                                }
+                                onClick={() => {
+                                    onChangeFilterRule({
+                                        ...filterRule,
+                                        singleValue: !filterRule.singleValue,
+                                    });
+                                }}
+                            >
+                                {filterRule.singleValue
+                                    ? t(
+                                          'components_dashboard_filter.configuration.edit_filter_operator.single_value',
+                                      )
+                                    : t(
+                                          'components_dashboard_filter.configuration.edit_filter_operator.multi_values',
+                                      )}
+                            </Button>
+                        )
+                    }
                 />
                 {showAnyValueDisabledInput && !filterRule.required && (
                     <TextInput
@@ -146,6 +204,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                         })}
                     />
                 )}
+
                 {(showValueInput || filterRule.required) && (
                     <FilterInputComponent
                         popoverProps={popoverProps}
@@ -214,7 +273,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                             onChangeFilterRule(
                                                 e.currentTarget.checked
                                                     ? newFilter
-                                                    : getFilterRuleWithDefaultValue(
+                                                    : getFilterRuleFromFieldWithDefaultValue(
                                                           field,
                                                           newFilter,
                                                           null,
@@ -238,7 +297,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 onChangeFilterRule(
                                     e.currentTarget.checked
                                         ? newFilter
-                                        : getFilterRuleWithDefaultValue(
+                                        : getFilterRuleFromFieldWithDefaultValue(
                                               field,
                                               newFilter,
                                               null,

@@ -8,26 +8,27 @@ import {
     TextInput,
 } from '@mantine/core';
 import React, { type FC } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
 
 import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
-import { hasNoWhiteSpaces } from '../../../utils/fieldValidators';
-import BooleanSwitch from '../../ReactHookForm/BooleanSwitch';
-import FormSection from '../../ReactHookForm/FormSection';
 import FormCollapseButton from '../FormCollapseButton';
+import { useFormContext } from '../formContext';
+import BooleanSwitch from '../Inputs/BooleanSwitch';
+import FormSection from '../Inputs/FormSection';
+import StartOfWeekSelect from '../Inputs/StartOfWeekSelect';
 import { useProjectFormContext } from '../useProjectFormContext';
-import StartOfWeekSelect from './Inputs/StartOfWeekSelect';
+import { TrinoDefaultValues } from './defaultValues';
 
 export const TrinoSchemaInput: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
-    const { register } = useFormContext();
+    const form = useFormContext();
     const { t } = useTranslation();
 
     return (
         <TextInput
+            name="warehouse.schema"
             label={t(
                 'components_project_connection_warehouse_form.trino.schema.label',
             )}
@@ -35,11 +36,7 @@ export const TrinoSchemaInput: FC<{
                 'components_project_connection_warehouse_form.trino.schema.description',
             )}
             required
-            {...register('warehouse.schema', {
-                validate: {
-                    hasNoWhiteSpaces: hasNoWhiteSpaces('Schema'),
-                },
-            })}
+            {...form.getInputProps('warehouse.schema')}
             disabled={disabled}
         />
     );
@@ -53,7 +50,7 @@ const TrinoForm: FC<{
     const { savedProject } = useProjectFormContext();
     const requireSecrets: boolean =
         savedProject?.warehouseConnection?.type !== WarehouseTypes.TRINO;
-    const { register } = useFormContext();
+    const form = useFormContext();
     const isPassthroughLoginFeatureEnabled = useFeatureFlagEnabled(
         FeatureFlags.PassthroughLogin,
     );
@@ -62,6 +59,7 @@ const TrinoForm: FC<{
         <>
             <Stack style={{ marginTop: '8px' }}>
                 <TextInput
+                    name="warehouse.host"
                     label={t(
                         'components_project_connection_warehouse_form.trino.host.label',
                     )}
@@ -69,15 +67,12 @@ const TrinoForm: FC<{
                         'components_project_connection_warehouse_form.trino.host.description',
                     )}
                     required
-                    {...register('warehouse.host', {
-                        validate: {
-                            hasNoWhiteSpaces: hasNoWhiteSpaces('Host'),
-                        },
-                    })}
+                    {...form.getInputProps('warehouse.host')}
                     disabled={disabled}
                     labelProps={{ style: { marginTop: '8px' } }}
                 />
                 <TextInput
+                    name="warehouse.user"
                     label={t(
                         'components_project_connection_warehouse_form.trino.user.label',
                     )}
@@ -85,11 +80,7 @@ const TrinoForm: FC<{
                         'components_project_connection_warehouse_form.trino.user.description',
                     )}
                     required={requireSecrets}
-                    {...register('warehouse.user', {
-                        validate: {
-                            hasNoWhiteSpaces: hasNoWhiteSpaces('User'),
-                        },
-                    })}
+                    {...form.getInputProps('warehouse.user')}
                     placeholder={
                         disabled || !requireSecrets
                             ? '**************'
@@ -98,6 +89,7 @@ const TrinoForm: FC<{
                     disabled={disabled}
                 />
                 <PasswordInput
+                    name="warehouse.password"
                     label={t(
                         'components_project_connection_warehouse_form.trino.password.label',
                     )}
@@ -110,10 +102,11 @@ const TrinoForm: FC<{
                             ? '**************'
                             : undefined
                     }
-                    {...register('warehouse.password')}
+                    {...form.getInputProps('warehouse.password')}
                     disabled={disabled}
                 />
                 <TextInput
+                    name="warehouse.dbname"
                     label={t(
                         'components_project_connection_warehouse_form.trino.db_name.label',
                     )}
@@ -121,11 +114,7 @@ const TrinoForm: FC<{
                         'components_project_connection_warehouse_form.trino.db_name.description',
                     )}
                     required
-                    {...register('warehouse.dbname', {
-                        validate: {
-                            hasNoWhiteSpaces: hasNoWhiteSpaces('DB name'),
-                        },
-                    })}
+                    {...form.getInputProps('warehouse.dbname')}
                     disabled={disabled}
                 />
 
@@ -135,64 +124,64 @@ const TrinoForm: FC<{
                             <BooleanSwitch
                                 name="warehouse.requireUserCredentials"
                                 label={t(
-                                    'components_project_connection_warehouse_form.trino.switch.label',
+                                    'components_project_connection_warehouse_form.trino.require_user_credentials.label',
                                 )}
+                                {...form.getInputProps(
+                                    'warehouse.requireUserCredentials',
+                                    { type: 'checkbox' },
+                                )}
+                                defaultChecked={
+                                    TrinoDefaultValues.requireUserCredentials
+                                }
                                 disabled={disabled}
                             />
                         )}
-                        <Controller
+
+                        <NumberInput
                             name="warehouse.port"
-                            defaultValue={443}
-                            render={({ field }) => (
-                                <NumberInput
-                                    {...field}
-                                    label={t(
-                                        'components_project_connection_warehouse_form.trino.port.label',
-                                    )}
-                                    description={t(
-                                        'components_project_connection_warehouse_form.trino.port.description',
-                                    )}
-                                    required
-                                    disabled={disabled}
-                                />
+                            {...form.getInputProps('warehouse.port')}
+                            defaultValue={TrinoDefaultValues.port}
+                            label={t(
+                                'components_project_connection_warehouse_form.trino.port.label',
                             )}
+                            description={t(
+                                'components_project_connection_warehouse_form.trino.port.description',
+                            )}
+                            required
+                            disabled={disabled}
                         />
-                        <Controller
+
+                        <Select
                             name="warehouse.http_scheme"
-                            defaultValue="https"
-                            render={({ field }) => (
-                                <Select
-                                    label={t(
-                                        'components_project_connection_warehouse_form.trino.ssh_mode.label',
-                                    )}
-                                    description={
-                                        <p>
-                                            {t(
-                                                'components_project_connection_warehouse_form.trino.ssh_mode.description.part_1',
-                                            )}
-                                            <Anchor
-                                                target="_blank"
-                                                href="https://docs.getdbt.com/reference/warehouse-setups/trino-setup#configuration"
-                                                rel="noreferrer"
-                                            >
-                                                {t(
-                                                    'components_project_connection_warehouse_form.trino.ssh_mode.description.part_2',
-                                                )}
-                                            </Anchor>
-                                            {t(
-                                                'components_project_connection_warehouse_form.trino.ssh_mode.description.part_3',
-                                            )}
-                                        </p>
-                                    }
-                                    data={['http', 'https'].map((x) => ({
-                                        value: x,
-                                        label: x,
-                                    }))}
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    disabled={disabled}
-                                />
+                            {...form.getInputProps('warehouse.http_scheme')}
+                            defaultValue={TrinoDefaultValues.http_scheme}
+                            label={t(
+                                'components_project_connection_warehouse_form.trino.http_scheme.label',
                             )}
+                            description={
+                                <p>
+                                    {t(
+                                        'components_project_connection_warehouse_form.trino.http_scheme.description.part_1',
+                                    )}{' '}
+                                    <Anchor
+                                        target="_blank"
+                                        href="https://docs.getdbt.com/reference/warehouse-setups/trino-setup#configuration"
+                                        rel="noreferrer"
+                                    >
+                                        {t(
+                                            'components_project_connection_warehouse_form.trino.http_scheme.description.part_2',
+                                        )}
+                                    </Anchor>
+                                    {t(
+                                        'components_project_connection_warehouse_form.trino.http_scheme.description.part_3',
+                                    )}
+                                </p>
+                            }
+                            data={['http', 'https'].map((x) => ({
+                                value: x,
+                                label: x,
+                            }))}
+                            disabled={disabled}
                         />
 
                         <StartOfWeekSelect disabled={disabled} />

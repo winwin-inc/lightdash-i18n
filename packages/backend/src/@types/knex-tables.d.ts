@@ -170,6 +170,14 @@ import {
     ProjectGroupAccessTableName,
 } from '../database/entities/projectGroupAccess';
 import {
+    QueryHistoryTable,
+    QueryHistoryTableName,
+} from '../database/entities/queryHistory';
+import {
+    ResultsCacheTable,
+    ResultsCacheTableName,
+} from '../database/entities/resultsFile';
+import {
     SavedSemanticViewerChartsTable,
     SavedSemanticViewerChartsTableName,
     SavedSemanticViewerChartVersionsTable,
@@ -186,6 +194,8 @@ import {
     SchedulerEmailTargetTableName,
     SchedulerLogTable,
     SchedulerLogTableName,
+    SchedulerMsTeamsTargetTable,
+    SchedulerMsTeamsTargetTableName,
     SchedulerSlackTargetTable,
     SchedulerSlackTargetTableName,
     SchedulerTable,
@@ -232,6 +242,13 @@ import {
     AiThreadTable,
     AiThreadTableName,
 } from '../ee/database/entities/ai';
+import {
+    AiAgentIntegrationTableName,
+    AiAgentSlackIntegrationTable,
+    AiAgentSlackIntegrationTableName,
+    AiAgentTable,
+    AiAgentTableName,
+} from '../ee/database/entities/aiAgent';
 import {
     DashboardSummariesTable,
     DashboardSummariesTableName,
@@ -300,6 +317,7 @@ declare module 'knex/types/tables' {
         [SchedulerTableName]: SchedulerTable;
         [SchedulerSlackTargetTableName]: SchedulerSlackTargetTable;
         [SchedulerEmailTargetTableName]: SchedulerEmailTargetTable;
+        [SchedulerMsTeamsTargetTableName]: SchedulerMsTeamsTargetTable;
         [EmailOneTimePasscodesTableName]: EmailOneTimePasscodeTable;
         [SchedulerLogTableName]: SchedulerLogTable;
         [OrganizationAllowedEmailDomainsTableName]: OrganizationAllowedEmailDomainsTable;
@@ -320,6 +338,9 @@ declare module 'knex/types/tables' {
         [AiSlackThreadTableName]: AiSlackThreadTable;
         [AiPromptTableName]: AiPromptTable;
         [AiSlackPromptTableName]: AiSlackPromptTable;
+        [AiAgentTableName]: AiAgentTable;
+        [AiAgentIntegrationTableName]: AiAgentIntegrationTable;
+        [AiAgentSlackIntegrationTableName]: AiAgentSlackIntegrationTable;
         [DashboardTabsTableName]: DashboardTabsTable;
         [NotificationsTableName]: NotificationsTable;
         [DashboardSummariesTableName]: DashboardSummariesTable;
@@ -332,5 +353,7 @@ declare module 'knex/types/tables' {
         [MetricsTreeEdgesTableName]: MetricsTreeEdgesTable;
         [SpotlightTableConfigTableName]: SpotlightTableConfigTable;
         [OrganizationColorPaletteTableName]: OrganizationColorPaletteTable;
+        [QueryHistoryTableName]: QueryHistoryTable;
+        [ResultsCacheTableName]: ResultsCacheTable;
     }
 }

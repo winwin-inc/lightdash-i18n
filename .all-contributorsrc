@@ -1605,6 +1605,53 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "virendrapatil24",
+      "name": "Virendra Patil",
+      "avatar_url": "https://avatars.githubusercontent.com/u/70162563?v=4",
+      "profile": "https://github.com/virendrapatil24",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "hhhonzik",
+      "name": "Honza Stepanovsky",
+      "avatar_url": "https://avatars.githubusercontent.com/u/854103?v=4",
+      "profile": "http://janstepanovsky.cz",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "pimmey",
+      "name": "Yegor Borisenco",
+      "avatar_url": "https://avatars.githubusercontent.com/u/5588929?v=4",
+      "profile": "https://pimmey.com",
+      "contributions": [
+        "code",
+        "bug"
+      ]
+    },
+    {
+      "login": "lakshz",
+      "name": "Lakshya Satpal",
+      "avatar_url": "https://avatars.githubusercontent.com/u/81241551?v=4",
+      "profile": "https://github.com/lakshz",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "tatianainama",
+      "name": "Tatiana Inama",
+      "avatar_url": "https://avatars.githubusercontent.com/u/8246284?v=4",
+      "profile": "http://tatiana.inama.dev",
+      "contributions": [
+        "code",
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,

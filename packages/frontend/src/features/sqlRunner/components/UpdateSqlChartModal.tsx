@@ -9,23 +9,26 @@ import {
     type ModalProps,
 } from '@mantine/core';
 import { useForm, zodResolver } from '@mantine/form';
-import { IconChartBar } from '@tabler/icons-react';
-import { useEffect } from 'react';
+import { IconChartBar, IconPlus } from '@tabler/icons-react';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
 import MantineIcon from '../../../components/common/MantineIcon';
 import SaveToSpaceForm from '../../../components/common/modal/ChartCreateModal/SaveToSpaceForm';
 import { saveToSpaceSchema } from '../../../components/common/modal/ChartCreateModal/types';
-
-import {
-    useCreateMutation as useSpaceCreateMutation,
-    useSpaceSummaries,
-} from '../../../hooks/useSpaces';
+import { useModalSteps } from '../../../hooks/useModalSteps';
+import { useSpaceManagement } from '../../../hooks/useSpaceManagement';
+import { useSpaceSummaries } from '../../../hooks/useSpaces';
 import {
     useSavedSqlChart,
     useUpdateSqlChartMutation,
 } from '../hooks/useSavedSqlCharts';
+
+enum ModalStep {
+    InitialInfo = 'initialInfo',
+    SelectDestination = 'selectDestination',
+}
 
 const updateSqlChartSchema = z
     .object({
@@ -66,11 +69,13 @@ export const UpdateSqlChartModal = ({
         projectUuid,
         true,
     );
-    const { mutateAsync: createSpace, isLoading: isCreatingSpace } =
-        useSpaceCreateMutation(projectUuid);
 
-    const { mutateAsync: updateChart, isLoading: isSavingChart } =
-        useUpdateSqlChartMutation(projectUuid, savedSqlUuid, slug);
+    const spaceManagement = useSpaceManagement({
+        projectUuid,
+        defaultSpaceUuid: data?.space.uuid,
+    });
+
+    const { isCreatingNewSpace, openCreateSpaceForm } = spaceManagement;
 
     const form = useForm<FormValues>({
         initialValues: {
@@ -81,6 +86,15 @@ export const UpdateSqlChartModal = ({
         },
         validate: zodResolver(updateSqlChartSchema),
     });
+
+    const modalSteps = useModalSteps<ModalStep>(ModalStep.InitialInfo, {
+        validators: {
+            [ModalStep.InitialInfo]: () => !!form.values.name,
+        },
+    });
+
+    const { mutateAsync: updateChart, isLoading: isSavingChart } =
+        useUpdateSqlChartMutation(projectUuid, savedSqlUuid, slug);
 
     useEffect(() => {
         if (isChartSuccess && data) {
@@ -101,9 +115,7 @@ export const UpdateSqlChartModal = ({
     const handleOnSubmit = form.onSubmit(
         async ({ name, description, spaceUuid, newSpaceName }) => {
             let newSpace = newSpaceName
-                ? await createSpace({
-                      name: newSpaceName,
-                      access: [],
+                ? await spaceManagement.handleCreateNewSpace({
                       isPrivate: true,
                   })
                 : undefined;
@@ -112,7 +124,7 @@ export const UpdateSqlChartModal = ({
                 unversionedData: {
                     name,
                     description: description ?? null,
-                    spaceUuid: newSpace?.uuid || spaceUuid || spaces[0].uuid,
+                    spaceUuid: newSpace?.uuid || spaceUuid || spaces[0]?.uuid,
                 },
             });
 
@@ -120,8 +132,39 @@ export const UpdateSqlChartModal = ({
         },
     );
 
+    const handleNextStep = () => {
+        modalSteps.goToStep(ModalStep.SelectDestination);
+    };
+
+    const handleBack = () => {
+        modalSteps.goToStep(ModalStep.InitialInfo);
+    };
+
+    const shouldShowNewSpaceButton = useMemo(
+        () =>
+            modalSteps.currentStep === ModalStep.SelectDestination &&
+            !isCreatingNewSpace,
+        [modalSteps.currentStep, isCreatingNewSpace],
+    );
+
+    const isFormReadyToSave = useMemo(
+        () =>
+            modalSteps.currentStep === ModalStep.SelectDestination &&
+            form.values.name &&
+            (form.values.newSpaceName || form.values.spaceUuid),
+        [
+            modalSteps.currentStep,
+            form.values.name,
+            form.values.newSpaceName,
+            form.values.spaceUuid,
+        ],
+    );
+
     const isLoading =
-        isSavingChart || isChartLoading || isSpacesLoading || isCreatingSpace;
+        isSavingChart ||
+        isChartLoading ||
+        isSpacesLoading ||
+        spaceManagement.createSpaceMutation.isLoading;
 
     return (
         <Modal
@@ -142,33 +185,46 @@ export const UpdateSqlChartModal = ({
             })}
         >
             <form onSubmit={handleOnSubmit}>
-                <Stack p="md">
-                    <Stack spacing="xs">
-                        <TextInput
-                            label={t(
-                                'features_sql_runner_update_sql_chart_modal.name.label',
-                            )}
-                            placeholder={t(
-                                'features_sql_runner_update_sql_chart_modal.name.placeholder',
-                            )}
-                            required
-                            {...form.getInputProps('name')}
-                        />
-                        <Textarea
-                            label={t(
-                                'features_sql_runner_update_sql_chart_modal.name.description',
-                            )}
-                            {...form.getInputProps('description')}
+                {modalSteps.currentStep === ModalStep.InitialInfo && (
+                    <Stack p="md">
+                        <Stack spacing="xs">
+                            <TextInput
+                                label={t(
+                                    'features_sql_runner_update_sql_chart_modal.name.label',
+                                )}
+                                placeholder={t(
+                                    'features_sql_runner_update_sql_chart_modal.name.placeholder',
+                                )}
+                                required
+                                {...form.getInputProps('name')}
+                            />
+                            <Textarea
+                                label={t(
+                                    'features_sql_runner_update_sql_chart_modal.name.description',
+                                )}
+                                {...form.getInputProps('description')}
+                            />
+                        </Stack>
+                    </Stack>
+                )}
+
+                {modalSteps.currentStep === ModalStep.SelectDestination && (
+                    <Stack p="md">
+                        <SaveToSpaceForm
+                            form={form}
+                            spaces={spaces}
+                            projectUuid={projectUuid}
+                            isLoading={isLoading}
+                            spaceManagement={spaceManagement}
+                            selectedSpaceName={
+                                spaces.find(
+                                    (space) =>
+                                        space.uuid === form.values.spaceUuid,
+                                )?.name
+                            }
                         />
                     </Stack>
-
-                    <SaveToSpaceForm
-                        form={form}
-                        spaces={spaces}
-                        projectUuid={projectUuid}
-                        isLoading={isLoading}
-                    />
-                </Stack>
+                )}
 
                 <Group
                     position="right"
@@ -179,20 +235,47 @@ export const UpdateSqlChartModal = ({
                         padding: theme.spacing.md,
                     })}
                 >
-                    <Button
-                        onClick={onClose}
-                        variant="outline"
-                        disabled={isLoading}
-                    >
-                        {t('features_sql_runner_update_sql_chart_modal.cancel')}
-                    </Button>
-                    <Button
-                        type="submit"
-                        disabled={!form.values.name}
-                        loading={isLoading}
-                    >
-                        {t('features_sql_runner_update_sql_chart_modal.save')}
-                    </Button>
+                    {shouldShowNewSpaceButton && (
+                        <Button
+                            variant="subtle"
+                            size="xs"
+                            leftIcon={<MantineIcon icon={IconPlus} />}
+                            onClick={openCreateSpaceForm}
+                            mr="auto"
+                        >
+                            {t(
+                                'features_sql_runner_update_sql_chart_modal.new_space',
+                            )}
+                        </Button>
+                    )}
+
+                    {modalSteps.currentStep === ModalStep.InitialInfo ? (
+                        <Button
+                            onClick={handleNextStep}
+                            disabled={!form.values.name}
+                        >
+                            {t(
+                                'features_sql_runner_update_sql_chart_modal.next',
+                            )}
+                        </Button>
+                    ) : (
+                        <>
+                            <Button onClick={handleBack} variant="outline">
+                                {t(
+                                    'features_sql_runner_update_sql_chart_modal.back',
+                                )}
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={!isFormReadyToSave}
+                                loading={isLoading}
+                            >
+                                {t(
+                                    'features_sql_runner_update_sql_chart_modal.save',
+                                )}
+                            </Button>
+                        </>
+                    )}
                 </Group>
             </form>
         </Modal>

@@ -28,6 +28,9 @@ export const vizAggregationOptions = [
 
 export const VIZ_DEFAULT_AGGREGATION = VizAggregationOptions.COUNT;
 
+/**
+ * @deprecated Use type ResultColumn
+ */
 export type VizColumn = {
     reference: string;
     type?: DimensionType;
@@ -112,6 +115,7 @@ export type PivotChartData = {
     indexColumn: PivotIndexColum;
     valuesColumns: PivotValuesColumn[];
     columns: VizColumn[];
+    columnCount: number | undefined;
 };
 
 // TODO: This type is used by both the cartesian and pie chart data models,

@@ -1,13 +1,10 @@
 import {
+    isHexCodeColor,
     type ConditionalFormattingColorRange,
     type ConditionalFormattingMinMax,
 } from '@lightdash/common';
 import Color from 'colorjs.io';
 
-const IS_HEX_CODE_COLOR_REGEX = /^#([a-fA-F0-9]{3}|[a-fA-F0-9]{6})$/;
-export const isHexCodeColor = (color: string): boolean => {
-    return IS_HEX_CODE_COLOR_REGEX.test(color);
-};
 export const readableColor = (backgroundColor: string) => {
     if (!isHexCodeColor(backgroundColor)) {
         return 'black';
@@ -17,9 +14,7 @@ export const readableColor = (backgroundColor: string) => {
     return onWhite > onBlack ? 'white' : 'black';
 };
 
-const getColorRange = (
-    colorConfig: ConditionalFormattingColorRange,
-): string[] | undefined => {
+const getColorRange = (colorConfig: ConditionalFormattingColorRange) => {
     if (
         !isHexCodeColor(colorConfig.start) ||
         !isHexCodeColor(colorConfig.end)
@@ -27,16 +22,13 @@ const getColorRange = (
         return undefined;
     }
 
-    const colors = Color.steps(
+    return Color.range(
         new Color(colorConfig.start),
         new Color(colorConfig.end),
         {
-            steps: colorConfig.steps,
             space: 'srgb',
         },
     );
-
-    return colors.map((c) => new Color(c).toString({ format: 'hex' }));
 };
 
 export const getColorFromRange = (
@@ -44,14 +36,27 @@ export const getColorFromRange = (
     colorRange: ConditionalFormattingColorRange,
     minMaxRange: ConditionalFormattingMinMax,
 ): string | undefined => {
-    const colors = getColorRange(colorRange);
-    if (!colors) return undefined;
+    const interpolateColor = getColorRange(colorRange);
+
+    if (!interpolateColor) return undefined;
 
     const min = minMaxRange.min;
-    const inclusiveMax = minMaxRange.max + 1;
+    const max = minMaxRange.max;
 
-    const step = (inclusiveMax - min) / colorRange.steps;
-    const index = Math.floor((value - min) / step);
+    if (min > max || value < min || value > max) {
+        console.error(
+            new Error(
+                `invalid minMaxRange: [${min},${max}] or value: ${value}`,
+            ),
+        );
+        return undefined;
+    }
 
-    return colors[index];
+    if (min === max) {
+        return interpolateColor(1).toString({ format: 'hex' });
+    }
+
+    const percentage = (value - min) / (max - min);
+
+    return interpolateColor(percentage).toString({ format: 'hex' });
 };

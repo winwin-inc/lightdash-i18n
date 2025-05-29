@@ -8,8 +8,10 @@ import {
     WarehouseCatalog,
     WarehouseResults,
     WeekDay,
+    type WarehouseExecuteAsyncQuery,
+    type WarehouseExecuteAsyncQueryArgs,
 } from '@lightdash/common';
-import { WarehouseClient } from '../types';
+import { type WarehouseClient } from '../types';
 import { getDefaultMetricSql } from '../utils/sql';
 
 export default class WarehouseBaseClient<T extends CreateWarehouseCredentials>
@@ -52,6 +54,38 @@ export default class WarehouseBaseClient<T extends CreateWarehouseCredentials>
         },
     ): Promise<void> {
         throw new Error('Warehouse method not implemented.');
+    }
+
+    async executeAsyncQuery(
+        { sql, values, tags, timezone }: WarehouseExecuteAsyncQueryArgs,
+        resultsStreamCallback: (
+            rows: WarehouseResults['rows'],
+            fields: WarehouseResults['fields'],
+        ) => void,
+    ): Promise<WarehouseExecuteAsyncQuery> {
+        let rowCount = 0;
+
+        const startTime = performance.now();
+        await this.streamQuery(
+            sql,
+            ({ rows, fields }) => {
+                rowCount = (rowCount ?? 0) + rows.length;
+                resultsStreamCallback(rows, fields);
+            },
+            {
+                values,
+                tags,
+                timezone,
+            },
+        );
+
+        // we could have this return further down but types are a bit messy with this union and count updating on a callback
+        return {
+            queryId: null,
+            queryMetadata: null,
+            durationMs: performance.now() - startTime,
+            totalRows: rowCount,
+        };
     }
 
     async runQuery(

@@ -25,14 +25,10 @@ const SaveToDashboardForm = <T extends SaveToDashboardFormType>({
 
     return (
         <Select
-            description={t(
-                'components_common_modal_chart_create.save_dashboard.form.dashboard.description',
-            )}
             id="select-dashboard"
             label={t(
                 'components_common_modal_chart_create.save_dashboard.form.dashboard.label',
             )}
-            size="xs"
             data={dashboards.map((d) => ({
                 value: d.uuid,
                 label: d.name,

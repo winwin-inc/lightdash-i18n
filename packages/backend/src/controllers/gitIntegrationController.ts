@@ -1,12 +1,13 @@
 import {
     AdditionalMetric,
     ApiErrorPayload,
-    CustomSqlDimension,
+    CustomDimension,
     PullRequestCreated,
 } from '@lightdash/common';
 import {
     Body,
     Get,
+    Hidden,
     Middlewares,
     OperationId,
     Path,
@@ -80,7 +81,7 @@ export class GitIntegrationController extends BaseController {
         @Path() projectUuid: string,
         @Body()
         body: {
-            customDimensions: CustomSqlDimension[];
+            customDimensions: CustomDimension[];
             quoteChar?: `"` | `'`; // to be used in the yml dump options
         },
         @Request() req: express.Request,
@@ -99,6 +100,28 @@ export class GitIntegrationController extends BaseController {
                         fields: body.customDimensions,
                     },
                 ),
+        };
+    }
+
+    @Middlewares([isAuthenticated, unauthorisedInDemo])
+    @SuccessResponse('200')
+    @Get('/branches')
+    @Hidden()
+    @OperationId('listBranches')
+    async listBranches(
+        @Request() req: express.Request,
+        @Path() projectUuid: string,
+    ): Promise<{
+        status: 'ok';
+        results: Array<string>;
+    }> {
+        this.setStatus(200);
+
+        return {
+            status: 'ok',
+            results: await this.services
+                .getGitIntegrationService()
+                .getBranches(req.user!, projectUuid),
         };
     }
 }

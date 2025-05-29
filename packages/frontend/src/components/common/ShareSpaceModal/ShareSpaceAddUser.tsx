@@ -46,11 +46,13 @@ import { getInitials, getUserNameOrEmail } from './Utils';
 interface ShareSpaceAddUserProps {
     space: Space;
     projectUuid: string;
+    disabled?: boolean;
 }
 
 export const ShareSpaceAddUser: FC<ShareSpaceAddUserProps> = ({
     space,
     projectUuid,
+    disabled = false,
 }) => {
     const { t } = useTranslation();
     const UserAccessOptions = useUserAccessOptions();
@@ -299,6 +301,7 @@ export const ShareSpaceAddUser: FC<ShareSpaceAddUserProps> = ({
                 data={data}
                 itemComponent={UserItemComponent}
                 maxDropdownHeight={300}
+                disabled={disabled}
                 dropdownComponent={({ children, ...rest }: ScrollAreaProps) => (
                     <ScrollArea {...rest} viewportRef={selectScrollRef}>
                         {isUsersFetching || isGroupsFetching ? (
@@ -319,7 +322,9 @@ export const ShareSpaceAddUser: FC<ShareSpaceAddUserProps> = ({
                                             ]);
                                         }}
                                         disabled={
-                                            isUsersFetching || isGroupsFetching
+                                            disabled ||
+                                            isUsersFetching ||
+                                            isGroupsFetching
                                         }
                                     >
                                         <Text>
@@ -345,7 +350,7 @@ export const ShareSpaceAddUser: FC<ShareSpaceAddUserProps> = ({
             />
 
             <Button
-                disabled={usersSelected.length === 0}
+                disabled={disabled || usersSelected.length === 0}
                 onClick={async () => {
                     for (const uuid of usersSelected) {
                         const selectedValue = data.find(

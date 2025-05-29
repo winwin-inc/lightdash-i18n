@@ -63,7 +63,7 @@ export const useExportToGoogleSheet = ({
         ApiDownloadCsv | undefined,
         ApiError
     >({
-        queryKey: [`google-sheets`],
+        queryKey: [`google-sheets`, startGoogleSheetExportData?.jobId],
         queryFn: () =>
             startGoogleSheetExportData
                 ? getCsvFileUrl(startGoogleSheetExportData)

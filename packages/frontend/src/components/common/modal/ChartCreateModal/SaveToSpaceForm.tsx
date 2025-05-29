@@ -1,14 +1,9 @@
-import { subject } from '@casl/ability';
-import { type SpaceSummary } from '@lightdash/common';
-import { Button, Select, Stack, TextInput } from '@mantine/core';
+import { ResourceViewItemType, type SpaceSummary } from '@lightdash/common';
 import { type UseFormReturnType } from '@mantine/form';
-import { IconArrowLeft, IconPlus } from '@tabler/icons-react';
-import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 
-import { Can } from '../../../../providers/Ability';
-import useApp from '../../../../providers/App/useApp';
-import MantineIcon from '../../MantineIcon';
+import { type useSpaceManagement } from '../../../../hooks/useSpaceManagement';
+import SpaceCreationForm from '../../SpaceSelector/SpaceCreationForm';
+import SpaceSelector from '../../SpaceSelector/SpaceSelector';
 import { type SaveToSpaceFormType } from './types';
 
 type Props<T extends SaveToSpaceFormType> = {
@@ -16,6 +11,8 @@ type Props<T extends SaveToSpaceFormType> = {
     isLoading: boolean;
     spaces: SpaceSummary[] | undefined;
     projectUuid?: string;
+    spaceManagement: ReturnType<typeof useSpaceManagement>;
+    selectedSpaceName?: string;
 };
 
 const SaveToSpaceForm = <T extends SaveToSpaceFormType>({
@@ -23,92 +20,51 @@ const SaveToSpaceForm = <T extends SaveToSpaceFormType>({
     isLoading,
     spaces = [],
     projectUuid,
+    spaceManagement,
+    selectedSpaceName,
 }: Props<T>) => {
-    const { t } = useTranslation();
-    const { user } = useApp();
-    const [shouldCreateNewSpace, setShouldCreateNewSpace] = useState(false);
-    const isCreatingNewSpace =
-        shouldCreateNewSpace || (spaces && spaces.length === 0);
+    const {
+        isCreatingNewSpace,
+        newSpaceName,
+        setNewSpaceName,
+        selectedSpaceUuid,
+        setSelectedSpaceUuid,
+        closeCreateSpaceForm,
+    } = spaceManagement;
 
     if (isCreatingNewSpace) {
         return (
-            <Stack spacing="xs">
-                <TextInput
-                    size="xs"
-                    label={t(
-                        'components_common_modal_chart_create.save_space.form.space_create.label',
-                    )}
-                    description={t(
-                        'components_common_modal_chart_create.save_space.form.space_create.description',
-                    )}
-                    placeholder={t(
-                        'components_common_modal_chart_create.save_space.form.space_create.placeholder',
-                    )}
-                    {...form.getInputProps('newSpaceName')}
-                    value={form.values.newSpaceName ?? ''}
-                />
-                <Button
-                    disabled={isLoading}
-                    size="xs"
-                    variant="default"
-                    mr="auto"
-                    compact
-                    onClick={() => {
-                        setShouldCreateNewSpace(false);
-                        // @ts-ignore, mantine form is not well typed to support generic + null value setting
-                        form.setFieldValue('newSpaceName', null);
-                    }}
-                    leftIcon={<MantineIcon icon={IconArrowLeft} />}
-                >
-                    {t(
-                        'components_common_modal_chart_create.save_space.form.save',
-                    )}
-                </Button>
-            </Stack>
+            <SpaceCreationForm
+                spaceName={newSpaceName}
+                onSpaceNameChange={(value) => {
+                    setNewSpaceName(value);
+                    // @ts-ignore - form types are complex with generics
+                    form.setFieldValue('newSpaceName', value);
+                }}
+                onCancel={() => {
+                    closeCreateSpaceForm();
+                    // @ts-ignore - form types are complex with generics
+                    form.setFieldValue('newSpaceName', null);
+                }}
+                isLoading={isLoading}
+                parentSpaceName={selectedSpaceName}
+            />
         );
     }
 
     return (
-        <Stack spacing="xs">
-            <Select
-                size="xs"
-                searchable
-                label={t(
-                    'components_common_modal_chart_create.save_space.form.space_select.label',
-                )}
-                description={t(
-                    'components_common_modal_chart_create.save_space.form.space_select.description',
-                )}
-                withinPortal
-                data={spaces.map((space) => ({
-                    value: space.uuid,
-                    label: space.name,
-                }))}
-                {...form.getInputProps('spaceUuid')}
-                required
-            />
-            <Can
-                I="create"
-                this={subject('Space', {
-                    organizationUuid: user.data?.organizationUuid,
-                    projectUuid,
-                })}
-            >
-                <Button
-                    disabled={isLoading}
-                    size="xs"
-                    variant="default"
-                    mr="auto"
-                    compact
-                    leftIcon={<MantineIcon icon={IconPlus} />}
-                    onClick={() => setShouldCreateNewSpace(true)}
-                >
-                    {t(
-                        'components_common_modal_chart_create.save_space.form.create',
-                    )}
-                </Button>
-            </Can>
-        </Stack>
+        <SpaceSelector
+            projectUuid={projectUuid}
+            itemType={ResourceViewItemType.CHART}
+            spaces={spaces}
+            selectedSpaceUuid={selectedSpaceUuid}
+            onSelectSpace={(spaceUuid: string | null) => {
+                setSelectedSpaceUuid(spaceUuid);
+                // @ts-ignore, mantine form is not well typed to support generic + null value setting
+                form.setFieldValue('spaceUuid', spaceUuid);
+            }}
+            isLoading={isLoading}
+        />
     );
 };
 

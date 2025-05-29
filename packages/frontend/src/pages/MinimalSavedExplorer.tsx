@@ -1,10 +1,9 @@
 import { Box, MantineProvider, type MantineThemeOverride } from '@mantine/core';
-import { type FC } from 'react';
+import { type FC, useMemo } from 'react';
 import { useParams } from 'react-router';
 import LightdashVisualization from '../components/LightdashVisualization';
 import VisualizationProvider from '../components/LightdashVisualization/VisualizationProvider';
 import { useDateZoomGranularitySearch } from '../hooks/useExplorerRoute';
-import { useQueryResults } from '../hooks/useQueryResults';
 import { useSavedQuery } from '../hooks/useSavedQuery';
 import useSearchParams from '../hooks/useSearchParams';
 import useApp from '../providers/App/useApp';
@@ -21,9 +20,16 @@ const themeOverride: MantineThemeOverride = {
 };
 const MinimalExplorer: FC = () => {
     const { health } = useApp();
+    const queryResults = useExplorerContext((context) => context.queryResults);
+    const query = useExplorerContext((context) => context.query);
 
-    const queryResults = useExplorerContext(
-        (context) => context.queryResults.data,
+    const resultsData = useMemo(
+        () => ({
+            ...queryResults,
+            metricQuery: query.data?.metricQuery,
+            fields: query.data?.fields,
+        }),
+        [queryResults, query.data],
     );
 
     const savedChart = useExplorerContext(
@@ -31,7 +37,8 @@ const MinimalExplorer: FC = () => {
     );
 
     const isLoadingQueryResults = useExplorerContext(
-        (context) => context.queryResults.isLoading,
+        (context) =>
+            context.query.isFetching || context.queryResults.isFetchingRows,
     );
 
     if (!savedChart || health.isInitialLoading || !health.data) {
@@ -43,7 +50,7 @@ const MinimalExplorer: FC = () => {
             minimal
             chartConfig={savedChart.chartConfig}
             initialPivotDimensions={savedChart.pivotConfig?.columns}
-            resultsData={queryResults}
+            resultsData={resultsData}
             isLoading={isLoadingQueryResults}
             columnOrder={savedChart.tableConfig.columnOrder}
             pivotTableMaxColumnLimit={health.data.pivotTable.maxColumnLimit}
@@ -76,13 +83,6 @@ const MinimalSavedExplorer: FC = () => {
 
     const dateZoomGranularity = useDateZoomGranularitySearch();
 
-    const queryResults = useQueryResults({
-        chartUuid: savedQueryUuid,
-        isViewOnly: true,
-        dateZoomGranularity,
-        context,
-    });
-
     if (isInitialLoading) {
         return null;
     }
@@ -93,7 +93,12 @@ const MinimalSavedExplorer: FC = () => {
 
     return (
         <ExplorerProvider
-            queryResults={queryResults}
+            viewModeQueryArgs={
+                savedQueryUuid
+                    ? { chartUuid: savedQueryUuid, context }
+                    : undefined
+            }
+            dateZoomGranularity={dateZoomGranularity}
             savedChart={data}
             initialState={
                 data
@@ -117,7 +122,7 @@ const MinimalSavedExplorer: FC = () => {
                               customDimension: {
                                   isOpen: false,
                               },
-                              additionalMetricWriteBack: {
+                              writeBack: {
                                   isOpen: false,
                               },
                           },

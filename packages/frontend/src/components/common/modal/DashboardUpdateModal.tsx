@@ -2,14 +2,13 @@ import { type Dashboard } from '@lightdash/common';
 import {
     Button,
     Group,
-    Modal,
     Stack,
     TextInput,
     Textarea,
-    Title,
     type ModalProps,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { IconLayoutDashboard } from '@tabler/icons-react';
 import { useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -17,8 +16,11 @@ import {
     useDashboardQuery,
     useUpdateDashboard,
 } from '../../../hooks/dashboard/useDashboard';
+import MantineModal from '../MantineModal';
 
-interface DashboardUpdateModalProps extends ModalProps {
+interface DashboardUpdateModalProps {
+    opened: ModalProps['opened'];
+    onClose: ModalProps['onClose'];
     uuid: string;
     onConfirm?: () => void;
 }
@@ -65,25 +67,39 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
     });
 
     return (
-        <Modal
-            title={
-                <Title order={4}>
-                    {t(
-                        'components_common_modal_dashboard_update.update_dashboard',
-                    )}
-                </Title>
-            }
+        <MantineModal
+            title={t(
+                'components_common_modal_dashboard_update.update_dashboard',
+            )}
             {...modalProps}
+            icon={IconLayoutDashboard}
+            actions={
+                <Group position="right">
+                    <Button variant="outline" onClick={modalProps.onClose}>
+                        {t('components_common_modal_dashboard_update.cancel')}
+                    </Button>
+
+                    <Button
+                        disabled={!form.isValid()}
+                        loading={isUpdating}
+                        type="submit"
+                        form="update-dashboard"
+                    >
+                        {t('components_common_modal_dashboard_update.save')}
+                    </Button>
+                </Group>
+            }
         >
             <form
-                title={t('components_common_modal_dashboard_update.form.title')}
+                id="update-dashboard"
+                title={t(
+                    'components_common_modal_dashboard_update.update_dashboard',
+                )}
                 onSubmit={handleConfirm}
             >
-                <Stack spacing="lg" pt="sm">
+                <Stack spacing="lg">
                     <TextInput
-                        label={t(
-                            'components_common_modal_dashboard_update.form.dashboards.label',
-                        )}
+                        label="Name"
                         required
                         placeholder={t(
                             'components_common_modal_dashboard_update.form.dashboards.placeholder',
@@ -104,27 +120,9 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
                         maxRows={3}
                         {...form.getInputProps('description')}
                     />
-
-                    <Group position="right" mt="sm">
-                        <Button variant="outline" onClick={modalProps.onClose}>
-                            {t(
-                                'components_common_modal_dashboard_update.form.cancel',
-                            )}
-                        </Button>
-
-                        <Button
-                            disabled={!form.isValid()}
-                            loading={isUpdating}
-                            type="submit"
-                        >
-                            {t(
-                                'components_common_modal_dashboard_update.form.save',
-                            )}
-                        </Button>
-                    </Group>
                 </Stack>
             </form>
-        </Modal>
+        </MantineModal>
     );
 };
 

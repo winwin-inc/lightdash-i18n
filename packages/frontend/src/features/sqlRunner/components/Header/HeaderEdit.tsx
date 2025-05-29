@@ -21,7 +21,7 @@ import { isEqual } from 'lodash';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import MantineIcon from '../../../../components/common/MantineIcon';
+import { default as MantineIcon } from '../../../../components/common/MantineIcon';
 import { UpdatedInfo } from '../../../../components/common/PageHeader/UpdatedInfo';
 import { ResourceInfoPopup } from '../../../../components/common/ResourceInfoPopup/ResourceInfoPopup';
 import {
@@ -29,6 +29,7 @@ import {
     selectCompleteConfigByKind,
 } from '../../../../components/DataViz/store/selectors';
 import { TitleBreadCrumbs } from '../../../../components/Explorer/SavedChartsHeader/TitleBreadcrumbs';
+import { DEFAULT_SQL_LIMIT } from '../../constants';
 import { useUpdateSqlChartMutation } from '../../hooks/useSavedSqlCharts';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
@@ -91,11 +92,11 @@ export const HeaderEdit: FC = () => {
                 versionedData: {
                     config,
                     sql,
-                    limit,
+                    limit: limit ?? DEFAULT_SQL_LIMIT,
                 },
             });
             setInitialChartConfig(config);
-            setInitialSavedSqlChart({ sql, limit });
+            setInitialSavedSqlChart({ sql, limit: limit ?? DEFAULT_SQL_LIMIT });
         }
     }, [config, sql, mutate, limit]);
 

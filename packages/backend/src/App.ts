@@ -11,6 +11,7 @@ import {
     LightdashVersionHeader,
     SessionUser,
     UnexpectedServerError,
+    InvalidUser,
 } from '@lightdash/common';
 import * as Sentry from '@sentry/node';
 import flash from 'connect-flash';
@@ -26,6 +27,7 @@ import path from 'path';
 import reDoc from 'redoc-express';
 import { URL } from 'url';
 import cors from 'cors';
+import { produce } from 'immer';
 import { LightdashAnalytics } from './analytics/LightdashAnalytics';
 import {
     ClientProviderMap,
@@ -38,6 +40,7 @@ import {
     createAzureAdPassportStrategy,
     createGenericOidcPassportStrategy,
     googlePassportStrategy,
+    invalidUserErrorHandler,
     isAzureAdPassportStrategyAvailableToUse,
     isGenericOidcPassportStrategyAvailableToUse,
     isOktaPassportStrategyAvailableToUse,
@@ -65,7 +68,6 @@ import {
 import { UtilProviderMap, UtilRepository } from './utils/UtilRepository';
 import { VERSION } from './version';
 import PrometheusMetrics from './prometheus';
-
 // We need to override this interface to have our user typing
 declare global {
     namespace Express {
@@ -110,10 +112,12 @@ const schedulerWorkerFactory = (context: {
         s3Client: context.clients.getS3Client(),
         schedulerClient: context.clients.getSchedulerClient(),
         slackClient: context.clients.getSlackClient(),
+        msTeamsClient: context.clients.getMsTeamsClient(),
         semanticLayerService:
             context.serviceRepository.getSemanticLayerService(),
         catalogService: context.serviceRepository.getCatalogService(),
         encryptionUtil: context.utils.getEncryptionUtil(),
+        renameService: context.serviceRepository.getRenameService(),
     });
 
 const slackBotFactory = (context: {
@@ -238,6 +242,7 @@ export default class App {
 
     async start() {
         this.prometheusMetrics.start();
+        this.prometheusMetrics.monitorDatabase(this.database);
         // @ts-ignore
         // eslint-disable-next-line no-extend-native, func-names
         BigInt.prototype.toJSON = function () {
@@ -268,6 +273,10 @@ export default class App {
                 this.clients.getSchedulerClient(),
             );
         }
+
+        await this.serviceRepository
+            .getOrganizationService()
+            .initializeInstance();
     }
 
     private async initExpress(expressApp: Express) {
@@ -374,67 +383,77 @@ export default class App {
                 .allowedDomains,
         ];
 
-        expressApp.use(
-            helmet({
-                contentSecurityPolicy: {
-                    directives: {
-                        'default-src': [
-                            "'self'",
-                            ...contentSecurityPolicyAllowedDomains,
-                        ],
-                        'img-src': ["'self'", 'data:', 'https://*'],
-                        'frame-src': ["'self'", 'https://*'],
-                        'frame-ancestors': [
-                            "'self'",
-                            ...this.lightdashConfig.security
-                                .contentSecurityPolicy.frameAncestors,
-                        ],
-                        'worker-src': [
-                            "'self'",
-                            'blob:',
-                            ...contentSecurityPolicyAllowedDomains,
-                        ],
-                        'child-src': [
-                            // Fallback of worker-src for safari older than 15.5
-                            "'self'",
-                            'blob:',
-                            ...contentSecurityPolicyAllowedDomains,
-                        ],
-                        'script-src': [
-                            "'self'",
-                            "'unsafe-eval'",
-                            ...contentSecurityPolicyAllowedDomains,
-                        ],
-                        'script-src-elem': [
-                            "'self'",
-                            "'unsafe-inline'",
-                            ...contentSecurityPolicyAllowedDomains,
-                        ],
-                        'report-uri': reportUris.map((uri) => uri.href),
-                    },
-                    reportOnly:
-                        this.lightdashConfig.security.contentSecurityPolicy
-                            .reportOnly,
+        const helmetConfig = {
+            contentSecurityPolicy: {
+                directives: {
+                    'default-src': [
+                        "'self'",
+                        ...contentSecurityPolicyAllowedDomains,
+                    ],
+                    'img-src': ["'self'", 'data:', 'https://*'],
+                    'frame-src': ["'self'", 'https://*'],
+                    'frame-ancestors': [
+                        "'self'",
+                        ...this.lightdashConfig.security.contentSecurityPolicy
+                            .frameAncestors,
+                    ],
+                    'worker-src': [
+                        "'self'",
+                        'blob:',
+                        ...contentSecurityPolicyAllowedDomains,
+                    ],
+                    'child-src': [
+                        // Fallback of worker-src for safari older than 15.5
+                        "'self'",
+                        'blob:',
+                        ...contentSecurityPolicyAllowedDomains,
+                    ],
+                    'script-src': [
+                        "'self'",
+                        "'unsafe-eval'",
+                        ...contentSecurityPolicyAllowedDomains,
+                    ],
+                    'script-src-elem': [
+                        "'self'",
+                        "'unsafe-inline'",
+                        ...contentSecurityPolicyAllowedDomains,
+                    ],
+                    'report-uri': reportUris.map((uri) => uri.href),
                 },
-                strictTransportSecurity: {
-                    maxAge: 31536000,
-                    includeSubDomains: true,
-                    preload: true,
-                },
-                referrerPolicy: {
-                    policy: 'strict-origin-when-cross-origin',
-                },
-                noSniff: true,
-                xFrameOptions: false,
-                crossOriginOpenerPolicy: {
-                    policy: [LightdashMode.DEMO, LightdashMode.PR].includes(
-                        this.lightdashConfig.mode,
-                    )
-                        ? 'unsafe-none'
-                        : 'same-origin',
-                },
-            }),
-        );
+                reportOnly:
+                    this.lightdashConfig.security.contentSecurityPolicy
+                        .reportOnly,
+            },
+            strictTransportSecurity: {
+                maxAge: 31536000,
+                includeSubDomains: true,
+                preload: true,
+            },
+            referrerPolicy: {
+                policy: 'strict-origin-when-cross-origin',
+            },
+            noSniff: true,
+            xFrameOptions: false,
+            crossOriginOpenerPolicy: {
+                policy: [LightdashMode.DEMO, LightdashMode.PR].includes(
+                    this.lightdashConfig.mode,
+                )
+                    ? 'unsafe-none'
+                    : 'same-origin',
+            },
+        } as const;
+
+        expressApp.use(helmet(helmetConfig));
+
+        const helmetConfigForEmbeds = produce(helmetConfig, (draft) => {
+            // eslint-disable-next-line no-param-reassign
+            draft.contentSecurityPolicy.directives['frame-ancestors'] = [
+                "'self'",
+                'https://*',
+            ];
+        });
+
+        expressApp.use('/embed/*', helmet(helmetConfigForEmbeds));
 
         expressApp.use((req, res, next) => {
             // Permissions-Policy header that is not yet supported by helmet. More details here: https://github.com/helmetjs/helmet/issues/234
@@ -491,6 +510,18 @@ export default class App {
         expressApp.use((req, res, next) => {
             req.services = this.serviceRepository;
             req.clients = this.clients;
+            next();
+        });
+
+        expressApp.use((req, res, next) => {
+            if (req.user) {
+                Sentry.setUser({
+                    id: req.user.userUuid,
+                    organization: req.user.organizationUuid,
+                    email: req.user.email,
+                    username: req.user.email,
+                });
+            }
             next();
         });
 
@@ -562,6 +593,7 @@ export default class App {
         // Errors
         Sentry.setupExpressErrorHandler(expressApp);
         expressApp.use(scimErrorHandler); // SCIM error check before general error handler
+        expressApp.use(invalidUserErrorHandler);
         expressApp.use(
             (error: Error, req: Request, res: Response, _: NextFunction) => {
                 const errorResponse = errorHandler(error);
@@ -608,6 +640,7 @@ export default class App {
                                 : undefined,
                     },
                 };
+
                 res.status(errorResponse.statusCode).send(apiErrorResponse);
             },
         );
@@ -652,8 +685,6 @@ export default class App {
                 passportUser: { id: string; organization: string },
                 done,
             ) => {
-                // Set the organization tag so we can filter by it in Sentry
-                Sentry.setTag('organization', passportUser.organization);
                 // Convert to a full user profile
                 try {
                     done(null, await userService.findSessionUser(passportUser));

@@ -2,22 +2,16 @@ import { type PivotReference } from '@lightdash/common';
 import { IconChartBarOff } from '@tabler/icons-react';
 import EChartsReact from 'echarts-for-react';
 import { type EChartsReactProps, type Opts } from 'echarts-for-react/lib/types';
-import {
-    memo,
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-    type FC,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import useEchartsCartesianConfig, {
     getFormattedValue,
     isLineSeriesOption,
 } from '../../hooks/echarts/useEchartsCartesianConfig';
-import { useVisualizationContext } from '../LightdashVisualization/useVisualizationContext';
+import { useLegendDoubleClickSelection } from '../../hooks/echarts/useLegendDoubleClickSelection';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
+import { useVisualizationContext } from '../LightdashVisualization/useVisualizationContext';
 
 type EchartBaseClickEvent = {
     // The component name clicked,
@@ -56,12 +50,6 @@ export type EchartSeriesClickEvent = EchartBaseClickEvent & {
 };
 
 type EchartClickEvent = EchartSeriesClickEvent | EchartBaseClickEvent;
-
-type LegendClickEvent = {
-    selected: {
-        [name: string]: boolean;
-    };
-};
 
 export const EmptyChart = () => {
     const { t } = useTranslation();
@@ -102,24 +90,19 @@ type SimpleChartProps = Omit<EChartsReactProps, 'option'> & {
 };
 
 const SimpleChart: FC<SimpleChartProps> = memo((props) => {
-    const { chartRef, isLoading, onSeriesContextMenu, itemsMap } =
+    const { chartRef, isLoading, onSeriesContextMenu, itemsMap, resultsData } =
         useVisualizationContext();
 
-    const [selectedLegends, setSelectedLegends] = useState({});
-    const [selectedLegendsUpdated, setSelectedLegendsUpdated] = useState({});
-
-    const onLegendChange = useCallback((params: LegendClickEvent) => {
-        setSelectedLegends(params.selected);
-    }, []);
-
-    useEffect(() => {
-        setSelectedLegendsUpdated(selectedLegends);
-    }, [selectedLegends]);
-
+    const { selectedLegends, onLegendChange } = useLegendDoubleClickSelection();
     const eChartsOptions = useEchartsCartesianConfig(
-        selectedLegendsUpdated,
+        selectedLegends,
         props.isInDashboard,
     );
+
+    useEffect(() => {
+        // Load all the rows
+        resultsData?.setFetchAll(true);
+    }, [resultsData]);
 
     useEffect(() => {
         const listener = () => {
@@ -258,6 +241,7 @@ const SimpleChart: FC<SimpleChartProps> = memo((props) => {
         }
     }, [chartRef, eChartsOptions?.tooltip]);
 
+    if (resultsData?.error) return <EmptyChart />;
     if (isLoading) return <LoadingChart />;
     if (!eChartsOptions) return <EmptyChart />;
 

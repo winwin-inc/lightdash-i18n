@@ -34,6 +34,16 @@ export type UserActivity = {
     chartViews: ActivityViews[];
 };
 
+export type ApiUserActivity = {
+    status: 'ok';
+    results: UserActivity;
+};
+
+export type ApiUserActivityDownloadCsv = {
+    results: string; // CSV file URL to download
+    status: 'ok';
+};
+
 export type ViewStatistics = {
     views: number;
     firstViewedAt: Date | string | null;
@@ -45,6 +55,7 @@ export enum QueryExecutionContext {
     EXPLORE = 'exploreView',
     FILTER_AUTOCOMPLETE = 'filterAutocomplete',
     CHART = 'chartView',
+    CHART_HISTORY = 'chartHistory',
     SQL_CHART = 'sqlChartView',
     SQL_RUNNER = 'sqlRunner',
     VIEW_UNDERLYING_DATA = 'viewUnderlyingData',
@@ -57,6 +68,7 @@ export enum QueryExecutionContext {
     SCHEDULED_CHART = 'scheduledChart',
     SCHEDULED_DASHBOARD = 'scheduledDashboard',
     CALCULATE_TOTAL = 'calculateTotal',
+    CALCULATE_SUBTOTAL = 'calculateSubtotal',
     EMBED = 'embed',
     AI = 'ai',
     API = 'api',

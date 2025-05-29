@@ -6,7 +6,7 @@ import {
     friendlyName,
     getDefaultMetricTreeNodeDateRange,
     MetricTotalComparisonType,
-    type TimeFrames,
+    TimeFrames,
 } from '@lightdash/common';
 import {
     Badge,
@@ -90,6 +90,7 @@ const ExpandedNode: React.FC<NodeProps<ExpandedNodeData>> = ({
         exploreName: data.tableName,
         metricName: data.metricName,
         timeFrame: data.timeFrame,
+        granularity: TimeFrames.DAY, // TODO: this should be dynamic
         comparisonType: MetricTotalComparisonType.PREVIOUS_PERIOD,
         dateRange,
         options: {

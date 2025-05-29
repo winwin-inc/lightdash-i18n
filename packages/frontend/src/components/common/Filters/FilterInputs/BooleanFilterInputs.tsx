@@ -7,7 +7,7 @@ import { Select } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 
 import { type FilterInputsProps } from '.';
-import { getPlaceholderByFilterTypeAndOperator } from '../utils/getPlaceholderByFilterTypeAndOperator';
+import { usePlaceholderByFilterTypeAndOperator } from '../utils/getPlaceholderByFilterTypeAndOperator';
 import DefaultFilterInputs from './DefaultFilterInputs';
 
 const BooleanFilterInputs = <T extends ConditionalRule>(
@@ -18,6 +18,8 @@ const BooleanFilterInputs = <T extends ConditionalRule>(
 
     const isFilterRuleDisabled = isFilterRule(rule) && rule.disabled;
 
+    const getPlaceholderByFilterTypeAndOperator =
+        usePlaceholderByFilterTypeAndOperator();
     const placeholder = getPlaceholderByFilterTypeAndOperator({
         type: filterType,
         operator: rule.operator,
@@ -25,7 +27,8 @@ const BooleanFilterInputs = <T extends ConditionalRule>(
     });
 
     switch (rule.operator) {
-        case FilterOperator.EQUALS: {
+        case FilterOperator.EQUALS:
+        case FilterOperator.NOT_EQUALS:
             const currentValue = rule.values?.[0]?.toString() ?? null;
 
             return (
@@ -62,11 +65,9 @@ const BooleanFilterInputs = <T extends ConditionalRule>(
                     }
                 />
             );
-        }
 
-        default: {
+        default:
             return <DefaultFilterInputs {...props} />;
-        }
     }
 };
 

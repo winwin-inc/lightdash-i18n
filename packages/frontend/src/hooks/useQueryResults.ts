@@ -1,364 +1,449 @@
 import {
-    type ApiChartAndResults,
     type ApiError,
-    type ApiQueryResults,
-    type DashboardFilters,
+    type ApiExecuteAsyncMetricQueryResults,
+    type ApiGetAsyncQueryResults,
+    type ApiSuccessEmpty,
+    assertUnreachable,
     type DateGranularity,
+    DEFAULT_RESULTS_PAGE_SIZE,
+    type ExecuteAsyncMetricQueryRequestParams,
+    type ExecuteAsyncSavedChartRequestParams,
     type MetricQuery,
-    type SortField,
+    ParameterError,
+    QueryExecutionContext,
+    QueryHistoryStatus,
+    type ReadyQueryResultsPage,
+    type ResultRow,
+    sleep,
 } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo } from 'react';
-import { useParams } from 'react-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { lightdashApi } from '../api';
-import useDashboardContext from '../providers/Dashboard/useDashboardContext';
-import {
-    convertDateDashboardFilters,
-    convertDateFilters,
-} from '../utils/dateFilter';
-import useToaster from './toaster/useToaster';
+import { convertDateFilters } from '../utils/dateFilter';
 import useQueryError from './useQueryError';
 
-type QueryResultsProps = {
+export type QueryResultsProps = {
     projectUuid: string;
     tableId: string;
     query?: MetricQuery;
     csvLimit?: number | null; //giving null returns all results (no limit)
     chartUuid?: string;
+    chartVersionUuid?: string;
     dateZoomGranularity?: DateGranularity;
     context?: string;
 };
 
-const getChartResults = async ({
-    chartUuid,
-    invalidateCache,
-    context,
-}: {
-    chartUuid?: string;
-    invalidateCache?: boolean;
-    dashboardSorts?: SortField[];
-    context?: string;
-}) => {
-    return lightdashApi<ApiQueryResults>({
-        url: `/saved/${chartUuid}/results${
-            context ? `?context=${context}` : ''
-        }`,
-        method: 'POST',
-        body: JSON.stringify({
-            ...(invalidateCache && { invalidateCache: true }),
-        }),
-    });
-};
+/**
+ * Run query & get first results page
+ */
 
-const getChartAndResults = async ({
-    chartUuid,
-    dashboardUuid,
-    dashboardFilters,
-    invalidateCache,
-    dashboardSorts,
-    granularity,
-    autoRefresh,
-    context,
-}: {
-    chartUuid?: string;
-    dashboardUuid: string;
-    dashboardFilters: DashboardFilters;
-    invalidateCache?: boolean;
-    dashboardSorts: SortField[];
-    granularity?: DateGranularity;
-    autoRefresh?: boolean;
-    context?: string;
-}) => {
-    return lightdashApi<ApiChartAndResults>({
-        url: `/saved/${chartUuid}/chart-and-results${
-            context ? `?context=${context}` : ''
-        }`,
-        method: 'POST',
-        body: JSON.stringify({
-            dashboardUuid,
-            dashboardFilters,
-            dashboardSorts,
-            granularity,
-            ...(invalidateCache && { invalidateCache: true }),
-            autoRefresh,
-        }),
-    });
-};
-const getQueryResults = async ({
-    projectUuid,
-    tableId,
-    query,
-    csvLimit,
-    dateZoomGranularity,
-    context,
-}: QueryResultsProps) => {
-    const timezoneFixQuery = query && {
-        ...query,
-        filters: convertDateFilters(query.filters),
-        timezone: query.timezone ?? undefined,
+export type ReadyQueryResultsPageWithClientFetchTimeMs =
+    ReadyQueryResultsPage & {
+        clientFetchTimeMs: number;
     };
 
-    return lightdashApi<ApiQueryResults>({
-        url: `/projects/${projectUuid}/explores/${tableId}/runQuery`,
+const executeAsyncMetricQuery = async (
+    projectUuid: string,
+    data: ExecuteAsyncMetricQueryRequestParams,
+    options: { signal?: AbortSignal } = {},
+): Promise<ApiExecuteAsyncMetricQueryResults> =>
+    lightdashApi<ApiExecuteAsyncMetricQueryResults>({
+        url: `/projects/${projectUuid}/query/metric-query`,
+        version: 'v2',
         method: 'POST',
-        body: JSON.stringify({
-            ...timezoneFixQuery,
-            granularity: dateZoomGranularity,
-            csvLimit,
-            context,
-        }),
+        body: JSON.stringify(data),
+        signal: options.signal,
     });
-};
 
-export const useQueryResults = (props?: {
-    chartUuid?: string;
-    isViewOnly?: boolean;
-    dateZoomGranularity?: DateGranularity;
-    context?: string;
-}) => {
-    const { projectUuid } = useParams<{ projectUuid: string }>();
+const executeAsyncSavedChartQuery = async (
+    projectUuid: string,
+    data: ExecuteAsyncSavedChartRequestParams,
+    options: { signal?: AbortSignal } = {},
+): Promise<ApiExecuteAsyncMetricQueryResults> =>
+    lightdashApi<ApiExecuteAsyncMetricQueryResults>({
+        url: `/projects/${projectUuid}/query/chart`,
+        version: 'v2',
+        method: 'POST',
+        body: JSON.stringify(data),
+        signal: options.signal,
+    });
+
+export const useGetReadyQueryResults = (data: QueryResultsProps | null) => {
     const setErrorResponse = useQueryError({
         forceToastOnForbidden: true,
         forbiddenToastTitle: 'Error running query',
     });
 
-    const fetchQuery =
-        props?.isViewOnly === true ? getChartResults : getQueryResults;
-    const mutation = useMutation<ApiQueryResults, ApiError, QueryResultsProps>(
-        fetchQuery,
-        {
-            mutationKey: ['queryResults'],
-            onError: (error) => {
-                setErrorResponse(error);
-            },
-        },
-    );
-
-    const { mutateAsync } = mutation;
-
-    const mutateAsyncOverride = useCallback(
-        async (tableName: string, metricQuery: MetricQuery) => {
-            const fields = new Set([
-                ...metricQuery.dimensions,
-                ...metricQuery.metrics,
-                ...metricQuery.tableCalculations.map(({ name }) => name),
-            ]);
-            const isValidQuery = fields.size > 0;
-            if (!!tableName && isValidQuery && projectUuid) {
-                await mutateAsync({
-                    projectUuid,
-                    tableId: tableName,
-                    query: metricQuery,
-                    chartUuid: props?.chartUuid,
-                    dateZoomGranularity: props?.dateZoomGranularity,
-                    context: props?.context,
-                });
-            } else {
-                console.warn(
-                    `Can't make SQL request, invalid state`,
-                    tableName,
-                    isValidQuery,
-                    metricQuery,
+    const result = useQuery<ApiExecuteAsyncMetricQueryResults, ApiError>({
+        enabled: !!data,
+        queryKey: ['create-query', data],
+        queryFn: ({ signal }) => {
+            if (data?.chartUuid && data?.chartVersionUuid) {
+                return executeAsyncSavedChartQuery(
+                    data.projectUuid,
+                    {
+                        context: QueryExecutionContext.CHART_HISTORY,
+                        chartUuid: data.chartUuid,
+                        versionUuid: data.chartVersionUuid,
+                    },
+                    { signal },
                 );
-                return Promise.reject();
+            } else if (data?.chartUuid) {
+                return executeAsyncSavedChartQuery(
+                    data.projectUuid,
+                    {
+                        context: QueryExecutionContext.CHART,
+                        chartUuid: data.chartUuid,
+                    },
+                    { signal },
+                );
+            } else if (data?.query) {
+                return executeAsyncMetricQuery(
+                    data.projectUuid,
+                    {
+                        context: QueryExecutionContext.EXPLORE,
+                        query: {
+                            ...data.query,
+                            filters: convertDateFilters(data.query.filters),
+                            timezone: data.query.timezone ?? undefined,
+                            exploreName: data.tableId,
+                            dateZoom: data.dateZoomGranularity
+                                ? {
+                                      granularity: data.dateZoomGranularity,
+                                  }
+                                : undefined,
+                        },
+                        invalidateCache: true, // Note: do not cache explore queries
+                    },
+                    { signal },
+                );
             }
+            return Promise.reject(
+                new ParameterError('Missing QueryResultsProps'),
+            );
         },
-        [
-            mutateAsync,
-            projectUuid,
-            props?.chartUuid,
-            props?.dateZoomGranularity,
-            props?.context,
-        ],
-    );
-
-    return useMemo(
-        () => ({ ...mutation, mutateAsync: mutateAsyncOverride }),
-        [mutation, mutateAsyncOverride],
-    );
-};
-
-const getUnderlyingDataResults = async ({
-    projectUuid,
-    tableId,
-    query,
-}: {
-    projectUuid: string;
-    tableId: string;
-    query: MetricQuery;
-}) => {
-    const timezoneFixQuery = {
-        ...query,
-        filters: convertDateFilters(query.filters),
-    };
-
-    return lightdashApi<ApiQueryResults>({
-        url: `/projects/${projectUuid}/explores/${tableId}/runUnderlyingDataQuery`,
-        method: 'POST',
-        body: JSON.stringify(timezoneFixQuery),
     });
-};
 
-export const useUnderlyingDataResults = (
-    tableId: string,
-    query: MetricQuery,
-) => {
-    const { projectUuid } = useParams<{ projectUuid: string }>();
-    const queryKey = [
-        'underlyingDataResults',
-        projectUuid,
-        JSON.stringify(query),
-    ];
-    return useQuery<ApiQueryResults, ApiError>({
-        queryKey,
-        queryFn: () =>
-            getUnderlyingDataResults({
-                projectUuid: projectUuid!,
-                tableId,
-                query,
-            }),
-        retry: false,
-    });
-};
-
-export const useChartAndResults = (
-    chartUuid: string | null,
-    dashboardUuid: string | null,
-    dashboardFilters: DashboardFilters,
-    dashboardSorts: SortField[],
-    invalidateCache?: boolean,
-    granularity?: DateGranularity,
-    autoRefresh?: boolean,
-    context?: string,
-) => {
-    const setChartsWithDateZoomApplied = useDashboardContext(
-        (c) => c.setChartsWithDateZoomApplied,
-    );
-    const queryClient = useQueryClient();
-
-    const sortKey =
-        dashboardSorts
-            ?.map((ds) => `${ds.fieldId}.${ds.descending}`)
-            ?.join(',') || '';
-    const queryKey = useMemo(
-        () => [
-            'savedChartResults',
-            chartUuid,
-            dashboardUuid,
-            dashboardFilters,
-            invalidateCache,
-            sortKey,
-            autoRefresh,
-        ],
-        [
-            chartUuid,
-            dashboardUuid,
-            dashboardFilters,
-            invalidateCache,
-            sortKey,
-            autoRefresh,
-        ],
-    );
-    const apiChartAndResults =
-        queryClient.getQueryData<ApiChartAndResults>(queryKey);
-
-    const timezoneFixFilters =
-        dashboardFilters && convertDateDashboardFilters(dashboardFilters);
-    const hasADateDimension =
-        !!apiChartAndResults?.metricQuery?.metadata?.hasADateDimension;
-
-    const fetchChartAndResults = useCallback(
-        () =>
-            getChartAndResults({
-                chartUuid: chartUuid!,
-                dashboardUuid: dashboardUuid!,
-                dashboardFilters: timezoneFixFilters,
-                invalidateCache,
-                dashboardSorts,
-                granularity,
-                autoRefresh,
-                context,
-            }),
-        [
-            chartUuid,
-            dashboardUuid,
-            timezoneFixFilters,
-            invalidateCache,
-            dashboardSorts,
-            granularity,
-            autoRefresh,
-            context,
-        ],
-    );
-
-    setChartsWithDateZoomApplied((prev) => {
-        if (hasADateDimension) {
-            if (granularity) {
-                return (prev ?? new Set()).add(chartUuid!);
-            }
-            prev?.clear();
-            return prev;
+    // On Error
+    useEffect(() => {
+        if (result.error) {
+            setErrorResponse(result.error);
         }
-        return prev;
-    });
+    }, [result.error, setErrorResponse]);
 
-    return useQuery<ApiChartAndResults, ApiError>({
-        queryKey:
-            hasADateDimension && granularity
-                ? queryKey.concat([granularity])
-                : queryKey,
-        queryFn: fetchChartAndResults,
-        enabled: !!chartUuid && !!dashboardUuid,
-        retry: false,
-        refetchOnMount: false,
-    });
+    return result;
 };
 
-const getChartVersionResults = async (
-    chartUuid: string,
-    versionUuid: string,
-) => {
-    return lightdashApi<ApiQueryResults>({
-        url: `/saved/${chartUuid}/version/${versionUuid}/results`,
-        method: 'POST',
+/**
+ * Get single results page
+ */
+const getResultsPage = async (
+    projectUuid: string,
+    queryUuid: string,
+    page: number = 1,
+    pageSize: number | null = null,
+): Promise<ApiGetAsyncQueryResults> => {
+    const searchParams = new URLSearchParams();
+    if (page) {
+        searchParams.set('page', page.toString());
+    }
+    if (pageSize) {
+        searchParams.set('pageSize', pageSize.toString());
+    }
+
+    const urlQueryParams = searchParams.toString();
+    return lightdashApi<ApiGetAsyncQueryResults>({
+        url: `/projects/${projectUuid}/query/${queryUuid}${
+            urlQueryParams ? `?${urlQueryParams}` : ''
+        }`,
+        version: 'v2',
+        method: 'GET',
         body: undefined,
     });
 };
 
-export const useChartVersionResultsMutation = (
-    chartUuid: string | undefined,
-    versionUuid?: string,
-) => {
-    const { showToastApiError } = useToaster();
-    const mutation = useMutation<ApiQueryResults, ApiError>(
-        () =>
-            chartUuid && versionUuid
-                ? getChartVersionResults(chartUuid, versionUuid)
-                : Promise.reject(),
-        {
-            mutationKey: ['chartVersionResults', chartUuid, versionUuid],
-            onError: ({ error }) => {
-                showToastApiError({
-                    title: 'Error running query',
-                    apiError: error,
-                });
-            },
+export type InfiniteQueryResults = Partial<
+    Pick<
+        ReadyQueryResultsPage,
+        'queryUuid' | 'totalResults' | 'initialQueryExecutionMs'
+    >
+> & {
+    projectUuid?: string;
+    queryStatus?: QueryHistoryStatus;
+    rows: ResultRow[];
+    isInitialLoading: boolean;
+    isFetchingFirstPage: boolean;
+    isFetchingRows: boolean;
+    isFetchingAllPages: boolean;
+    fetchMoreRows: () => void;
+    setFetchAll: (value: boolean) => void;
+    fetchAll: boolean;
+    hasFetchedAllRows: boolean;
+    totalClientFetchTimeMs: number | undefined;
+    error: ApiError | null;
+};
+
+// This hook lazy load results has they are needed in the UI
+export const useInfiniteQueryResults = (
+    projectUuid?: string,
+    queryUuid?: string,
+): InfiniteQueryResults => {
+    const setErrorResponse = useQueryError({
+        forceToastOnForbidden: true,
+        forbiddenToastTitle: 'Error running query',
+    });
+    const [fetchArgs, setFetchArgs] = useState<{
+        queryUuid?: string;
+        projectUuid?: string;
+        page: number;
+        pageSize: number;
+    }>({
+        queryUuid: undefined,
+        projectUuid: undefined,
+        page: 1,
+        pageSize: DEFAULT_RESULTS_PAGE_SIZE,
+    });
+    const [fetchedPages, setFetchedPages] = useState<
+        (ReadyQueryResultsPage & { clientFetchTimeMs: number })[]
+    >([]);
+    const [fetchAll, setFetchAll] = useState(false);
+
+    const fetchMoreRows = useCallback(() => {
+        const lastPage = fetchedPages[fetchedPages.length - 1];
+        const nextPageToFetch = lastPage?.nextPage;
+        if (nextPageToFetch && queryUuid === lastPage.queryUuid) {
+            setFetchArgs((prev) => ({ ...prev, page: nextPageToFetch }));
+        }
+    }, [fetchedPages, queryUuid]);
+
+    // Aggregate rows from all fetched pages
+    const fetchedRows = useMemo(() => {
+        const rows: ResultRow[] = [];
+        for (const page of fetchedPages) {
+            rows.push(...page.rows);
+        }
+        return rows;
+    }, [fetchedPages]);
+
+    const hasFetchedAllRows = useMemo(() => {
+        if (fetchedPages.length === 0) {
+            return false;
+        }
+
+        return fetchedRows.length >= fetchedPages[0].totalResults;
+    }, [fetchedRows, fetchedPages]);
+
+    const isFetchingRows = useMemo(() => {
+        const isFetchingPage = fetchArgs.page > fetchedPages.length;
+
+        return (
+            !!projectUuid &&
+            !!queryUuid &&
+            (isFetchingPage || (fetchAll && !hasFetchedAllRows))
+        );
+    }, [
+        fetchedPages,
+        fetchArgs.page,
+        projectUuid,
+        queryUuid,
+        fetchAll,
+        hasFetchedAllRows,
+    ]);
+
+    const queryClient = useQueryClient();
+
+    // Initial backoff time in ms
+    const backoffRef = useRef(250);
+
+    const nextPage = useQuery<
+        ApiGetAsyncQueryResults & { clientFetchTimeMs: number },
+        ApiError
+    >({
+        enabled: !!fetchArgs.projectUuid && !!fetchArgs.queryUuid,
+        queryKey: ['query-page', fetchArgs],
+        queryFn: async () => {
+            const startTime = performance.now();
+            const results = await getResultsPage(
+                fetchArgs.projectUuid!,
+                fetchArgs.queryUuid!,
+                fetchArgs.page,
+                fetchArgs.pageSize,
+            );
+
+            const { status } = results;
+
+            const clientFetchTimeMs = performance.now() - startTime;
+
+            switch (status) {
+                case QueryHistoryStatus.ERROR: {
+                    backoffRef.current = 250;
+                    throw <ApiError>{
+                        status: 'error',
+                        error: {
+                            name: 'Error',
+                            statusCode: 500,
+                            message: results.error ?? 'Query failed',
+                            data: {},
+                        },
+                    };
+                }
+                case QueryHistoryStatus.CANCELLED: {
+                    backoffRef.current = 250;
+                    throw <ApiError>{
+                        status: 'error',
+                        error: {
+                            name: 'Error',
+                            statusCode: 500,
+                            message: 'Query cancelled',
+                            data: {},
+                        },
+                    };
+                }
+                case QueryHistoryStatus.PENDING: {
+                    // Invalidate page. Note we can't use refetch as it bypasses the "enabled" check: https://github.com/TanStack/query/issues/1965
+                    void sleep(backoffRef.current).then(() =>
+                        queryClient.invalidateQueries([
+                            'query-page',
+                            fetchArgs,
+                        ]),
+                    );
+                    // Implement backoff: 250ms -> 500ms -> 1000ms (then stay at 1000ms)
+                    if (backoffRef.current < 1000) {
+                        backoffRef.current = Math.min(
+                            backoffRef.current * 2,
+                            1000,
+                        );
+                    }
+                    return {
+                        ...results,
+                        clientFetchTimeMs,
+                    };
+                }
+                case QueryHistoryStatus.READY: {
+                    backoffRef.current = 250;
+                    return {
+                        ...results,
+                        clientFetchTimeMs,
+                    };
+                }
+                default:
+                    return assertUnreachable(status, 'Unknown query status');
+            }
         },
-    );
-    const { mutateAsync } = mutation;
-    // needs these args to work with ExplorerProvider
-    const mutateAsyncOverride = useCallback(
-        async (_tableName: string, _metricQuery: MetricQuery) => {
-            await mutateAsync();
-        },
-        [mutateAsync],
-    );
+        staleTime: Infinity, // the data will never be considered stale
+    });
+    const { data: nextPageData } = nextPage;
+
+    // On error
+    useEffect(() => {
+        if (nextPage.error) {
+            setErrorResponse(nextPage.error);
+        }
+    }, [nextPage.error, setErrorResponse]);
+
+    useEffect(() => {
+        const pageData = nextPage.data;
+        if (pageData?.status === QueryHistoryStatus.READY) {
+            setFetchedPages((prevState) => [...prevState, pageData]);
+        }
+    }, [nextPage.data]);
+
+    useEffect(() => {
+        // Reset fetched pages before updating the fetch args
+        setFetchedPages([]);
+        // Reset fetchAll before updating the fetch args
+        setFetchAll(false);
+        setFetchArgs({
+            queryUuid,
+            projectUuid,
+            page: 1,
+            pageSize: DEFAULT_RESULTS_PAGE_SIZE,
+        });
+    }, [projectUuid, queryUuid]);
+
+    useEffect(() => {
+        if (fetchAll) {
+            // keep fetching the next page
+            fetchMoreRows();
+        }
+    }, [fetchAll, fetchMoreRows]);
+
+    const totalClientFetchTimeMs = useMemo(() => {
+        if (fetchedPages.length === 0) {
+            return undefined;
+        }
+
+        const totalPagesFetchTime = fetchAll
+            ? Math.round(
+                  fetchedPages.reduce((acc, page) => {
+                      return acc + page.clientFetchTimeMs;
+                  }, 0),
+              )
+            : Math.round(fetchedPages[0]?.clientFetchTimeMs ?? 0); // If we're not fetching all pages, only return the time for the first page (enough to render the viz)
+
+        return (
+            totalPagesFetchTime +
+            (fetchedPages[0]?.initialQueryExecutionMs ?? 0) // Add the time it took to execute the initial query
+        );
+    }, [fetchAll, fetchedPages]);
+
+    const isInitialLoading = useMemo(() => {
+        return fetchAll ? !hasFetchedAllRows : fetchedPages.length < 1;
+    }, [fetchedPages, fetchAll, hasFetchedAllRows]);
 
     return useMemo(
         () => ({
-            ...mutation,
-            mutateAsync: mutateAsyncOverride,
+            projectUuid,
+            queryUuid,
+            queryStatus: nextPageData?.status, // show latest status
+            totalResults: fetchedPages[0]?.totalResults,
+            initialQueryExecutionMs: fetchedPages[0]?.initialQueryExecutionMs,
+            hasFetchedAllRows,
+            rows: fetchedRows,
+            isFetchingRows,
+            fetchMoreRows,
+            setFetchAll,
+            totalClientFetchTimeMs,
+            isInitialLoading,
+            isFetchingFirstPage:
+                !!queryUuid &&
+                (fetchedPages[0]?.totalResults === undefined ||
+                    (fetchedPages[0]?.totalResults > 0 &&
+                        fetchedRows.length === 0)),
+            isFetchingAllPages: !!queryUuid && fetchAll && !hasFetchedAllRows,
+            fetchAll,
+            error: nextPage.error,
         }),
-        [mutation, mutateAsyncOverride],
+        [
+            projectUuid,
+            queryUuid,
+            fetchedPages,
+            hasFetchedAllRows,
+            fetchedRows,
+            isFetchingRows,
+            fetchMoreRows,
+            totalClientFetchTimeMs,
+            isInitialLoading,
+            fetchAll,
+            nextPageData,
+            nextPage.error,
+        ],
     );
+};
+
+export const useCancelQuery = (projectUuid?: string, queryUuid?: string) => {
+    return useMutation({
+        mutationKey: ['cancel-query', projectUuid, queryUuid],
+        mutationFn: () => {
+            if (!projectUuid || !queryUuid) {
+                throw new Error('Project UUID or Query UUID is undefined');
+            }
+            return lightdashApi<ApiSuccessEmpty>({
+                method: 'POST',
+                url: `/projects/${projectUuid}/query/${queryUuid}/cancel`,
+                version: 'v2',
+                body: JSON.stringify({}),
+            });
+        },
+    });
 };

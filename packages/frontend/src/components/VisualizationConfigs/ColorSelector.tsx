@@ -1,3 +1,4 @@
+import { isHexCodeColor } from '@lightdash/common';
 import {
     ColorSwatch,
     ColorPicker as MantineColorPicker,
@@ -10,7 +11,6 @@ import { IconHash } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { isHexCodeColor } from '../../utils/colorUtils';
 import MantineIcon from '../common/MantineIcon';
 
 interface Props {
@@ -19,6 +19,7 @@ interface Props {
     swatches: string[];
     onColorChange?: (newColor: string) => void;
     colorSwatchProps?: Omit<ColorSwatchProps, 'color'>;
+    withAlpha?: boolean;
 }
 
 const ColorSelector: FC<Props> = ({
@@ -27,6 +28,7 @@ const ColorSelector: FC<Props> = ({
     swatches,
     onColorChange,
     colorSwatchProps,
+    withAlpha = false,
 }) => {
     const { t } = useTranslation();
     const isValidHexColor = color && isHexCodeColor(color);
@@ -51,12 +53,17 @@ const ColorSelector: FC<Props> = ({
                 <Stack spacing="xs">
                     <MantineColorPicker
                         size="sm"
-                        format="hex"
+                        format={withAlpha ? 'hexa' : 'hex'}
                         swatches={swatches}
                         swatchesPerRow={8}
                         value={color ?? defaultColor}
                         onChange={(newColor) => {
-                            if (onColorChange) {
+                            if (!onColorChange) return;
+
+                            // Only append alpha if the color has <1 opacity
+                            if (withAlpha && newColor.endsWith('ff')) {
+                                onColorChange(newColor.slice(0, 7));
+                            } else {
                                 onColorChange(newColor);
                             }
                         }}
@@ -66,12 +73,18 @@ const ColorSelector: FC<Props> = ({
                         size="xs"
                         icon={<MantineIcon icon={IconHash} />}
                         placeholder={t(
-                            'components_visualization_configs_common.errors.custom_hex',
+                            'components_visualization_configs_color_selector.type_in_custom_hex',
+                            {
+                                color: withAlpha ? 'HEXA' : 'HEX',
+                            },
                         )}
                         error={
                             color && !isValidHexColor
                                 ? t(
-                                      'components_visualization_configs_common.errors.invalid_hex',
+                                      'components_visualization_configs_color_selector.invalid_hex',
+                                      {
+                                          color: withAlpha ? 'HEXA' : 'HEX',
+                                      },
                                   )
                                 : undefined
                         }

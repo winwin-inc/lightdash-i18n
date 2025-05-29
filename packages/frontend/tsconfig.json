@@ -19,18 +19,20 @@
         "moduleResolution": "node",
         "resolveJsonModule": true,
         "isolatedModules": true,
-        "declarationDir": "./build/types",
         "importHelpers": true,
         "jsx": "react-jsx",
+        "jsxImportSource": "react",
         "types": [
             "node",
             "vite/client",
-            "vite-plugin-svgr/client"
+            "vite-plugin-svgr/client",
+            "@testing-library/jest-dom"
         ],
         "noUncheckedIndexedAccess": false, // TODO fix errors ,then enable
     },
     "include": [
-        "src",
-        "vite-env.d.ts",
+        "./src",
+        "./sdk/index.tsx",
+        "./vite-env.d.ts",
     ],
 }

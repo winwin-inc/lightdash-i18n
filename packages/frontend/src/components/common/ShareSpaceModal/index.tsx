@@ -1,22 +1,18 @@
 import { type Space } from '@lightdash/common';
+import { Alert, Anchor, Box, Button, Stack, Text } from '@mantine/core';
 import {
-    Anchor,
-    Box,
-    Button,
-    Group,
-    Modal,
-    Stack,
-    Text,
-    Title,
-    useMantineTheme,
-} from '@mantine/core';
-import { IconFolderShare, IconLock, IconUsers } from '@tabler/icons-react';
-import { useState, type FC } from 'react';
+    IconAlertCircle,
+    IconFolderShare,
+    IconLock,
+    IconUsers,
+} from '@tabler/icons-react';
+import { useEffect, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
+import useSearchParams from '../../../hooks/useSearchParams';
 import useApp from '../../../providers/App/useApp';
-import MantineIcon from '../MantineIcon';
+import MantineModal from '../MantineModal';
 import { ShareSpaceAccessType } from './ShareSpaceAccessType';
 import { ShareSpaceAddUser } from './ShareSpaceAddUser';
 import {
@@ -32,8 +28,9 @@ export interface ShareSpaceProps {
 }
 
 const ShareSpaceModal: FC<ShareSpaceProps> = ({ space, projectUuid }) => {
-    const theme = useMantineTheme();
     const SpaceAccessOptions = useSpaceAccessOptions();
+    const navigate = useNavigate();
+    const shareSpaceModalSearchParam = useSearchParams('shareSpaceModal');
     const [selectedAccess, setSelectedAccess] = useState<AccessOption>(
         space.isPrivate ? SpaceAccessOptions[0] : SpaceAccessOptions[1],
     );
@@ -41,50 +38,133 @@ const ShareSpaceModal: FC<ShareSpaceProps> = ({ space, projectUuid }) => {
     const { t } = useTranslation();
 
     const [isOpen, setIsOpen] = useState<boolean>(false);
+    const isNestedSpace = !!space.parentSpaceUuid;
+    const rootSpaceBreadcrumb = space.breadcrumbs?.[0] ?? null;
+
+    useEffect(() => {
+        if (shareSpaceModalSearchParam === 'true') {
+            setIsOpen(true);
+            //clear the search param after opening the modal
+            void navigate(`/projects/${projectUuid}/spaces/${space.uuid}`);
+        }
+    }, [navigate, projectUuid, shareSpaceModalSearchParam, space.uuid]);
 
     return (
         <>
-            <Button
-                leftIcon={
-                    selectedAccess.value === SpaceAccessType.PRIVATE ? (
-                        <IconLock size={18} />
-                    ) : (
-                        <IconUsers size={18} />
-                    )
-                }
-                onClick={() => {
-                    setIsOpen(true);
-                }}
-                variant="default"
-            >
-                {t('components_common_share_space_modal.share')}
-            </Button>
+            <Box>
+                <Button
+                    leftIcon={
+                        selectedAccess.value === SpaceAccessType.PRIVATE ? (
+                            <IconLock size={18} />
+                        ) : (
+                            <IconUsers size={18} />
+                        )
+                    }
+                    onClick={() => {
+                        setIsOpen(true);
+                    }}
+                    variant="default"
+                >
+                    {t('components_common_share_space_modal.share')}
+                </Button>
+            </Box>
 
-            <Modal
+            <MantineModal
                 size="xl"
-                title={
-                    <Group spacing="xs">
-                        <MantineIcon size="lg" icon={IconFolderShare} />
-                        <Title order={4}>
-                            {t('components_common_share_space_modal.share', {
-                                name: space.name,
-                            })}
-                        </Title>
-                    </Group>
-                }
+                icon={IconFolderShare}
+                title={t('components_common_share_space_modal.share_space', {
+                    name: space.name,
+                })}
                 opened={isOpen}
                 onClose={() => setIsOpen(false)}
-                styles={{
-                    body: {
-                        padding: 0,
-                    },
+                actions={
+                    !isNestedSpace ? (
+                        <Box bg="gray.0">
+                            <Text color="gray.7" fz="xs">
+                                {selectedAccess.value ===
+                                    SpaceAccessType.PRIVATE &&
+                                sessionUser.data?.ability?.can(
+                                    'create',
+                                    'InviteLink',
+                                ) ? (
+                                    <>
+                                        {t(
+                                            'components_common_share_space_modal.private.part_1',
+                                        )}{' '}
+                                        <Anchor
+                                            component={Link}
+                                            to={`/generalSettings/projectManagement/${projectUuid}/projectAccess`}
+                                        >
+                                            {t(
+                                                'components_common_share_space_modal.private.part_2',
+                                            )}
+                                        </Anchor>
+                                        {t(
+                                            'components_common_share_space_modal.private.part_3',
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        {t(
+                                            'components_common_share_space_modal.private.part_4',
+                                        )}{' '}
+                                        <Anchor
+                                            href="https://docs.lightdash.com/references/roles"
+                                            target="_blank"
+                                            rel="noreferrer"
+                                        >
+                                            {t(
+                                                'components_common_share_space_modal.private.part_5',
+                                            )}
+                                        </Anchor>
+                                        {t(
+                                            'components_common_share_space_modal.private.part_6',
+                                        )}
+                                    </>
+                                )}
+                            </Text>
+                        </Box>
+                    ) : null
+                }
+                modalActionsProps={{
+                    bg: 'gray.0',
                 }}
             >
                 <>
-                    <Stack p="md" pt={0}>
+                    <Stack>
+                        {isNestedSpace && (
+                            <Alert
+                                color="blue"
+                                icon={<IconAlertCircle size="1rem" />}
+                            >
+                                <Text color="blue.9">
+                                    <Text span weight={600}>
+                                        "{space.name}"
+                                    </Text>{' '}
+                                    {t(
+                                        'components_common_share_space_modal.nested_space.part_1',
+                                    )}{' '}
+                                    <Text span weight={600}>
+                                        "
+                                        <Anchor
+                                            component={Link}
+                                            onClick={() => {
+                                                setIsOpen(false);
+                                            }}
+                                            to={`/projects/${projectUuid}/spaces/${rootSpaceBreadcrumb?.uuid}?shareSpaceModal=true`}
+                                        >
+                                            {rootSpaceBreadcrumb?.name}
+                                        </Anchor>
+                                        "
+                                    </Text>
+                                </Text>
+                            </Alert>
+                        )}
+
                         <ShareSpaceAddUser
                             space={space}
                             projectUuid={projectUuid}
+                            disabled={isNestedSpace}
                         />
 
                         <ShareSpaceAccessType
@@ -92,68 +172,18 @@ const ShareSpaceModal: FC<ShareSpaceProps> = ({ space, projectUuid }) => {
                             space={space}
                             selectedAccess={selectedAccess}
                             setSelectedAccess={setSelectedAccess}
+                            disabled={isNestedSpace}
                         />
 
                         <ShareSpaceUserList
                             projectUuid={projectUuid}
                             space={space}
                             sessionUser={sessionUser.data}
+                            disabled={isNestedSpace}
                         />
                     </Stack>
-
-                    <Box
-                        bg="gray.0"
-                        p="md"
-                        sx={{
-                            borderTop: `1px solid ${theme.colors.gray[2]}`,
-                            padding: 'md',
-                        }}
-                    >
-                        <Text color="gray.7" fz="xs">
-                            {selectedAccess.value === SpaceAccessType.PRIVATE &&
-                            sessionUser.data?.ability?.can(
-                                'create',
-                                'InviteLink',
-                            ) ? (
-                                <>
-                                    {t(
-                                        'components_common_share_space_modal.private.part_1',
-                                    )}{' '}
-                                    <Anchor
-                                        component={Link}
-                                        to={`/generalSettings/projectManagement/${projectUuid}/projectAccess`}
-                                    >
-                                        {t(
-                                            'components_common_share_space_modal.private.part_2',
-                                        )}
-                                    </Anchor>
-                                    {t(
-                                        'components_common_share_space_modal.private.part_3',
-                                    )}
-                                </>
-                            ) : (
-                                <>
-                                    {t(
-                                        'components_common_share_space_modal.private.part_4',
-                                    )}{' '}
-                                    <Anchor
-                                        href="https://docs.lightdash.com/references/roles"
-                                        target="_blank"
-                                        rel="noreferrer"
-                                    >
-                                        {t(
-                                            'components_common_share_space_modal.private.part_5',
-                                        )}
-                                    </Anchor>
-                                    {t(
-                                        'components_common_share_space_modal.private.part_6',
-                                    )}
-                                </>
-                            )}
-                        </Text>
-                    </Box>
                 </>
-            </Modal>
+            </MantineModal>
         </>
     );
 };
