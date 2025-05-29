@@ -73,7 +73,7 @@ export const ItemDetailPreview: FC<{
     };
 }> = ({ description, onViewDescription, metricInfo }) => {
     const { t } = useTranslation();
-    const filterOperatorLabel = useFilterOperatorLabel();
+    const { filterOperatorLabel } = useFilterOperatorLabel();
 
     /**
      * This value is pretty arbitrary - it's an amount of characters that will exceed

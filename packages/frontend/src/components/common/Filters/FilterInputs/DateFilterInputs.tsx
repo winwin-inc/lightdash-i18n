@@ -47,6 +47,7 @@ const DateFilterInputs = <T extends ConditionalRule = DateFilterRule>(
 
     const getPlaceholderByFilterTypeAndOperator =
         usePlaceholderByFilterTypeAndOperator();
+
     const placeholder = getPlaceholderByFilterTypeAndOperator({
         type: filterType,
         operator: rule.operator,

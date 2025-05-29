@@ -262,6 +262,8 @@ const GithubPersonalAccessTokenForm: FC<{ disabled: boolean }> = ({
     const requireSecrets: boolean =
         savedProject?.dbtConnection.type !== DbtProjectType.GITHUB;
 
+    const { t } = useTranslation();
+
     return (
         <>
             <PasswordInput

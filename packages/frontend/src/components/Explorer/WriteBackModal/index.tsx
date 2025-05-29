@@ -317,6 +317,29 @@ const MultipleItemsModalContent = ({
         () => 'customMetric' as const,
     );
 
+    const parseError = useCallback(
+        (
+            error: unknown,
+            errorType: 'customDimension' | 'customMetric',
+        ): string => {
+            const errorName =
+                error instanceof Error ? error.name : 'unknown error';
+            const errorTitle =
+                error instanceof NotImplementedError
+                    ? t(
+                          'components_explorer_custom_metric_write_back_modal.unsupported_definition_error',
+                          {
+                              type: texts[errorType].baseName,
+                          },
+                      )
+                    : errorName;
+            return `${t(
+                'components_explorer_custom_metric_write_back_modal.error',
+            )}: ${errorTitle}\n${getErrorMessage(error)}`;
+        },
+        [texts, t],
+    );
+
     const {
         mutate: writeBackCustomDimension,
         data: writeBackCustomDimensionData,
@@ -370,7 +393,7 @@ const MultipleItemsModalContent = ({
             setError(parseError(e, type));
             return '';
         }
-    }, [selectedItems, type]);
+    }, [selectedItems, type, parseError]);
 
     if (data) {
         // Return a simple confirmation modal with the PR URL
@@ -588,6 +611,8 @@ const MultipleItemsModalContent = ({
 };
 
 export const WriteBackModal = () => {
+    const { t } = useTranslation();
+
     const { isOpen, items } = useExplorerContext(
         (context) => context.state.modals.writeBack,
     );

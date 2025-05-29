@@ -69,32 +69,38 @@ const DeleteSpaceModalContent: FC<Pick<DeleteSpaceModalBody, 'data'>> = ({
                 <ul style={{ paddingLeft: '1rem' }}>
                     {data.queries.length > 0 ? (
                         <li>
+                            {data?.queries?.length}{' '}
                             {t(
                                 'components_common_space_action_modal.delete.part_4',
                                 {
-                                    count: data.queries.length === 1 ? '' : 's',
+                                    suffix:
+                                        data?.queries?.length === 1 ? '' : 's',
                                 },
                             )}
                         </li>
                     ) : null}
                     {data.dashboards.length > 0 && (
                         <li>
+                            {data?.dashboards?.length}{' '}
                             {t(
                                 'components_common_space_action_modal.delete.part_5',
                                 {
-                                    count:
-                                        data.dashboards.length === 1 ? '' : 's',
+                                    suffix:
+                                        data?.dashboards?.length === 1
+                                            ? ''
+                                            : 's',
                                 },
                             )}
                         </li>
                     )}
                     {data.childSpaces.length > 0 && (
                         <li>
+                            {data?.childSpaces?.length}{' '}
                             {t(
                                 'components_common_space_action_modal.delete.part_6',
                                 {
-                                    count:
-                                        data.childSpaces.length === 1
+                                    suffix:
+                                        data?.childSpaces?.length === 1
                                             ? ''
                                             : 's',
                                 },

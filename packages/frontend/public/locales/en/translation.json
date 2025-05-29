@@ -1671,16 +1671,16 @@
         "view_all": "View all public and private spaces in your organization",
         "admin_content_view": "Admin Content View"
     },
-    "commpnents_common_space_action_modal": {
+    "components_common_space_action_modal": {
         "type_to_delete": "Type the space name to confirm",
         "space_name": "Space name",
         "delete": {
             "part_1": "Are you sure you want to delete space",
             "part_2": "?",
             "part_3": "This will permanently delete:",
-            "part_4": "chart {{count}}",
-            "part_5": "dashboard {{count}}",
-            "part_6": "{{count}} nested space{{suffix}}",
+            "part_4": "chart{{suffix}}",
+            "part_5": "dashboard{{suffix}}",
+            "part_6": "nested space{{suffix}}",
             "part_7": "and all its contents?"
         },
         "cancel": "Cancel",
@@ -3120,9 +3120,9 @@
         "to": " to "
     },
     "components_common_third_party_sign_in_button": {
-      "sign_up": "Sign up with {{providerName}}",
-      "sign_in": "Sign in with {{providerName}}",
-      "add": "Add +"
+        "sign_up": "Sign up with {{providerName}}",
+        "sign_in": "Sign in with {{providerName}}",
+        "add": "Add +"
     },
 
     "components_space_action_modal_common": {
@@ -4240,7 +4240,7 @@
         "error": "Failed to generate custom visualization"
     },
     "components_visualization_configs_panel": {
-      "custom_tooltip": "Custom Tooltip",
+        "custom_tooltip": "Custom Tooltip",
         "tooltip": {
             "label": "Use this input to enhance chart tooltips with additional content. You can incorporate HTML code and include dynamic values using the format ${variable_name}. Click here to read more about this on our docs.",
             "total_orders": "Total orders"

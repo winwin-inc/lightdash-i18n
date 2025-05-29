@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useExportDashboard } from '../../../hooks/dashboard/useDashboard';
 import { PreviewAndCustomizeScreenshot } from '../../preview';
+import { CUSTOM_WIDTH_OPTIONS } from '../constants';
 
 type Props = {
     dashboard: Dashboard;
@@ -29,8 +30,8 @@ export const SchedulerPreview: FC<Props> = ({
     const { t } = useTranslation();
 
     const [previewChoice, setPreviewChoice] = useState<
-        typeof customWidthOptions[number]['value'] | undefined
-    >(customViewportWidth?.toString() ?? customWidthOptions[1].value);
+        typeof CUSTOM_WIDTH_OPTIONS[number]['value'] | undefined
+    >(customViewportWidth?.toString() ?? CUSTOM_WIDTH_OPTIONS[1].value);
     const exportDashboardMutation = useExportDashboard();
 
     const getSchedulerFilterOverridesQueryString = useCallback(() => {
@@ -85,7 +86,9 @@ export const SchedulerPreview: FC<Props> = ({
                 setPreviewChoice={(pc: string | undefined) => {
                     setPreviewChoice(() => {
                         onChange(
-                            pc === customWidthOptions[1].value ? undefined : pc,
+                            pc === CUSTOM_WIDTH_OPTIONS[1].value
+                                ? undefined
+                                : pc,
                         );
                         return pc;
                     });

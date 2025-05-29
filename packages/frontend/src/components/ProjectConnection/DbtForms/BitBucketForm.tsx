@@ -1,6 +1,7 @@
 import { DbtProjectType } from '@lightdash/common';
 import { Anchor, PasswordInput, TextInput } from '@mantine/core';
 import React, { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useFormContext } from '../formContext';
 import DbtVersionSelect from '../Inputs/DbtVersion';

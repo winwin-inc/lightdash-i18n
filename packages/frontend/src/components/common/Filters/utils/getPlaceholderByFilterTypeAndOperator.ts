@@ -9,12 +9,17 @@ import { useTranslation } from 'react-i18next';
 export const usePlaceholderByFilterTypeAndOperator = () => {
     const { t } = useTranslation();
 
-    return (
-        type: FilterType,
-        operator: FilterOperator,
-        disabled?: boolean,
-        singleValue?: boolean,
-    ) => {
+    return ({
+        type,
+        operator,
+        disabled,
+        singleValue,
+    }: {
+        type: FilterType;
+        operator: FilterOperator;
+        disabled?: boolean;
+        singleValue?: boolean;
+    }) => {
         if (disabled)
             return t(
                 'components_common_filters_inputs.filter_placeholder.any_value',

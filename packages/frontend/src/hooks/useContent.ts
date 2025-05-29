@@ -220,6 +220,7 @@ export const useContentBulkAction = (
     const { showToastSuccess, showToastApiError } = useToaster();
     const queryClient = useQueryClient();
     const navigate = useNavigate();
+    const { t } = useTranslation();
 
     return useMutation<ApiSuccessEmpty, ApiError, ApiContentBulkActionBody>({
         mutationFn: (body) => {

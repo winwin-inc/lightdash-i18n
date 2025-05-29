@@ -1,6 +1,5 @@
 import { ContentType } from '@lightdash/common';
 import { Center, SegmentedControl, Text } from '@mantine/core';
-import { IconChartBar, IconLayoutDashboard } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -39,7 +38,6 @@ const ContentTypeFilter: FC<ContentTypeFilterProps> = ({
                         'components_common_resource_view_content_type.dashboards',
                     )}
                     color={'green.8'}
-                    icon={IconLayoutDashboard}
                 />
             ),
         },
@@ -51,7 +49,6 @@ const ContentTypeFilter: FC<ContentTypeFilterProps> = ({
                         'components_common_resource_view_content_type.charts',
                     )}
                     color={'blue.8'}
-                    icon={IconChartBar}
                 />
             ),
         },

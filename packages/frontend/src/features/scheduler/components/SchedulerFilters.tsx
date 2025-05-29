@@ -45,7 +45,7 @@ import useDashboardContext from '../../../providers/Dashboard/useDashboardContex
 
 const FilterSummaryLabel: FC<
     {
-        filterSummary: ReturnType<typeof getConditionalRuleLabelFromItem>;
+        filterSummary: ReturnType<any>;
     } & Record<'isDisabled', boolean>
 > = ({ filterSummary, isDisabled }) => {
     const { t } = useTranslation();

@@ -1675,7 +1675,7 @@
         "view_all": "查看您组织中的所有公共和私有空间",
         "admin_content_view": "管理员内容视图"
     },
-    "commpnents_common_space_action_modal": {
+    "components_common_space_action_modal": {
         "type_to_delete": "输入空间名称以确认",
         "space_name": "空间名称",
         "delete": {
@@ -1684,7 +1684,7 @@
             "part_3": "这将永久删除:",
             "part_4": "图表",
             "part_5": "看板",
-            "part_6": "{{count}} 个嵌套空间{{suffix}}",
+            "part_6": "个嵌套空间{{suffix}}",
             "part_7": "及其所有内容?"
         },
         "cancel": "取消",
@@ -3123,9 +3123,9 @@
         "to": "到"
     },
     "components_common_third_party_sign_in_button": {
-      "sign_up": "使用 {{providerName}} 注册",
-      "sign_in": "使用 {{providerName}} 登录",
-      "add": "添加 +"
+        "sign_up": "使用 {{providerName}} 注册",
+        "sign_in": "使用 {{providerName}} 登录",
+        "add": "添加 +"
     },
 
     "components_space_action_modal_common": {

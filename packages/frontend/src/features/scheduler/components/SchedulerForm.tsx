@@ -285,6 +285,8 @@ const MicrosoftTeamsDestination: FC<MicrosoftTeamsDestinationProps> = ({
     onChange,
     msTeamTargets,
 }) => {
+    const { t } = useTranslation();
+
     return (
         <Group noWrap mb="sm">
             <MsTeamsSvg

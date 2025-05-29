@@ -208,12 +208,14 @@ const Schedulers: FC<SchedulersProps> = ({
                               currentTargets.map((target) => {
                                   if (isSlackTarget(target)) {
                                       return slackChannels.push(
-                                          getSlackChannelName(_.channel),
+                                          getSlackChannelName(target.channel),
                                       );
-                                  } else if (isMsTeamsTarget(t)) {
-                                      return msTeamsTargets.push(t.webhook);
+                                  } else if (isMsTeamsTarget(target)) {
+                                      return msTeamsTargets.push(
+                                          target.webhook,
+                                      );
                                   } else {
-                                      return emails.push(_.recipient);
+                                      return emails.push(target.recipient);
                                   }
                               });
                               return (
