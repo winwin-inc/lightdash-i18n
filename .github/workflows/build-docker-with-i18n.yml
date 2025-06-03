@@ -38,7 +38,6 @@ jobs:
                   tags: |
                       type=semver,pattern={{version}}
                       type=semver,pattern={{major}}.{{minor}}
-                      type=raw,value=latest,enable={{is_default_branch}}
 
             # We need this to perform cross-platform Docker builds
             - name: Set up QEMU
@@ -68,7 +67,7 @@ jobs:
                   outputs: type=image,name=${{ env.REGISTRY_IMAGE }}
                   provenance: false
                   cache-from: type=registry,ref=${{ env.REGISTRY_IMAGE }}
-                  cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,mode=min,ref={0}', env.REGISTRY_IMAGE) || '' }}
+                  cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,mode=min,ref={0}:buildcache', env.REGISTRY_IMAGE) || '' }}
 
             - name: Export digest
               run: |
