@@ -66,8 +66,9 @@ jobs:
                   tags: ${{ steps.meta.outputs.tags }}
                   outputs: type=image,name=${{ env.REGISTRY_IMAGE }}
                   provenance: false
-                  cache-from: type=registry,ref=${{ env.REGISTRY_IMAGE }}
-                  cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,mode=min,ref={0}:buildcache', env.REGISTRY_IMAGE) || '' }}
+                  # 暂时移除缓存配置
+                  # cache-from: type=registry,ref=${{ env.REGISTRY_IMAGE }}
+                  # cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,mode=min,ref={0}:buildcache', env.REGISTRY_IMAGE) || '' }}
 
             - name: Export digest
               run: |
