@@ -4995,6 +4995,7 @@
                 "unpin": "从主页取消固定"
             },
             "move": {
+                "move": "移动",
                 "title": "移动到空间"
             },
             "create": {
@@ -5943,6 +5944,7 @@
         }
     },
     "components_project_connection_warehouse_form": {
+       "type": "类型",
         "dbt_version": "dbt 版本",
         "latest": "最新版本",
         "days_of_week": {
@@ -5994,7 +5996,8 @@
             },
             "project": {
                 "label": "项目",
-                "description": "这是 GCP 项目 ID。"
+                "description": "这是 GCP 项目 ID。",
+                "tooltip": "您有权访问此项目"
             },
             "location": {
                 "label": "位置",
@@ -6004,7 +6007,7 @@
                     "part_3": "中了解更多详细信息。"
                 }
             },
-            "file": {
+            "key_file": {
                 "label": "密钥文件",
                 "placeholder": "选择文件...",
                 "description": {
@@ -6014,6 +6017,7 @@
                 }
             },
             "execution_project": {
+                "switch": "要求用户提供自己的凭证",
                 "label": "执行项目",
                 "description": {
                     "part_1": "您可以指定一个项目来为查询执行计费,而不是您最常存储资源的项目/数据库。您可以在",

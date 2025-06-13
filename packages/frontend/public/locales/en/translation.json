@@ -4996,6 +4996,7 @@
                 "unpin": "Unpin from homepage"
             },
             "move": {
+                "move": "Move",
                 "title": "Move to Space"
             },
             "create": {
@@ -5934,6 +5935,7 @@
         }
     },
     "components_project_connection_warehouse_form": {
+        "type": "Type",
         "dbt_version": "dbt version",
         "latest": "latest",
         "days_of_week": {
@@ -5985,7 +5987,8 @@
             },
             "project": {
                 "label": "Project",
-                "description": "This is the GCP project ID."
+                "description": "This is the GCP project ID.",
+                "tooltip": "You have access to this project"
             },
             "location": {
                 "label": "Location",
@@ -5995,7 +5998,7 @@
                     "part_3": "."
                 }
             },
-            "file": {
+            "key_file": {
                 "label": "key file",
                 "placeholder": "Choose file...",
                 "description": {
@@ -6005,6 +6008,7 @@
                 }
             },
             "execution_project": {
+                "switch": "Require users to provide their own credentials",
                 "label": "Execution project",
                 "description": {
                     "part_1": "You may specify a project to bill for query execution, instead of the project/database where you materialize most resources. You can see more details in",

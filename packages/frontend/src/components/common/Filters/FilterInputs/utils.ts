@@ -253,6 +253,30 @@ const useValueAsString = () => {
     };
 };
 
+export const useConditionalRuleLabel = () => {
+  const { filterOperatorLabel } = useFilterOperatorLabel();
+
+  const getFilterOperatorOptions = useFilterOperatorOptions();
+  const getValueAsString = useValueAsString();
+
+  return (
+    rule: ConditionalRule,
+    filterType: FilterType,
+    label: string,
+  ): ConditionalRuleLabels => {
+    const operatorOptions = getFilterOperatorOptions(filterType);
+    const operationLabel =
+        operatorOptions.find((o) => o.value === rule.operator)?.label ||
+        filterOperatorLabel[rule.operator];
+  
+    return {
+        field: label,
+        operator: operationLabel,
+        value: getValueAsString(filterType, rule),
+    };
+  };
+}
+
 export const useConditionalRuleLabelFromItem = () => {
     const { filterOperatorLabel } = useFilterOperatorLabel();
 

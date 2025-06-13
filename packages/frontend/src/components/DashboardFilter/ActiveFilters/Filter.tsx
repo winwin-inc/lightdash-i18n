@@ -22,8 +22,8 @@ import { useTranslation } from 'react-i18next';
 
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import {
-    getConditionalRuleLabel,
-    getConditionalRuleLabelFromItem,
+    useConditionalRuleLabel,
+    useConditionalRuleLabelFromItem,
     getFilterRuleTables,
 } from '../../common/Filters/FilterInputs/utils';
 import MantineIcon from '../../common/MantineIcon';
@@ -74,6 +74,9 @@ const Filter: FC<Props> = ({
     onRemove,
 }) => {
     const { t } = useTranslation();
+
+    const getConditionalRuleLabel = useConditionalRuleLabel();
+    const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
     const { classes } = useDashboardFilterStyles();
     const popoverId = useId();

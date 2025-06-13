@@ -1,6 +1,8 @@
 import { WarehouseTypes } from '@lightdash/common';
 import { Select } from '@mantine/core';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { useFormContext } from './formContext';
 import BigQueryForm from './WarehouseForms/BigQueryForm';
 import DatabricksForm from './WarehouseForms/DatabricksForm';
@@ -37,6 +39,7 @@ const WarehouseSettingsForm: FC<WarehouseSettingsFormProps> = ({
     disabled,
     isProjectUpdate,
 }) => {
+    const { t } = useTranslation();
     const form = useFormContext();
 
     const warehouseType: WarehouseTypes =
@@ -51,7 +54,9 @@ const WarehouseSettingsForm: FC<WarehouseSettingsFormProps> = ({
             {isProjectUpdate && (
                 <Select
                     defaultValue={WarehouseTypes.BIGQUERY}
-                    label="Type"
+                    label={t(
+                        'components_project_connection_warehouse_form.type',
+                    )}
                     data={Object.entries(WarehouseTypeLabels).map(
                         ([value, label]) => ({
                             value,

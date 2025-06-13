@@ -40,6 +40,8 @@ import {
     type MRT_TableOptions,
     type MRT_Virtualizer,
 } from 'mantine-react-table';
+import { MRT_Localization_ZH_HANS } from 'mantine-react-table/locales/zh-Hans';
+import { MRT_Localization_EN } from 'mantine-react-table/locales/en';
 import {
     useCallback,
     useDeferredValue,
@@ -101,7 +103,9 @@ const InfiniteResourceTable = ({
     initialAdminContentViewValue = 'shared',
     ...mrtProps
 }: ResourceView2Props) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+
+    const isZh = i18n.language === 'zh';
 
     const [selectedAdminContentType, setSelectedAdminContentType] = useState<
         'all' | 'shared'
@@ -408,6 +412,7 @@ const InfiniteResourceTable = ({
         onSortingChange: setSorting,
         enableTopToolbar: true,
         positionGlobalFilter: 'left',
+        localization: isZh ? MRT_Localization_ZH_HANS : MRT_Localization_EN,
         mantinePaperProps: {
             shadow: undefined,
             sx: {

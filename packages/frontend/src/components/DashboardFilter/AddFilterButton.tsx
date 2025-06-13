@@ -98,15 +98,15 @@ const AddFilterButton: FC<Props> = ({
                         label={
                             <Text fz="xs">
                                 {t(
-                                    'components_dashboard_filter.tooltip_creating_new.label.part_1',
+                                    'components_dashboard_filter.filter.tooltip_creating_new.label.part_1',
                                 )}{' '}
                                 <Text span fw={600}>
                                     {t(
-                                        'components_dashboard_filter.tooltip_creating_new.label.part_2',
+                                        'components_dashboard_filter.filter.tooltip_creating_new.label.part_2',
                                     )}
                                 </Text>{' '}
                                 {t(
-                                    'components_dashboard_filter.tooltip_creating_new.label.part_3',
+                                    'components_dashboard_filter.filter.tooltip_creating_new.label.part_3',
                                 )}
                             </Text>
                         }
@@ -129,7 +129,7 @@ const AddFilterButton: FC<Props> = ({
                             }
                         >
                             {t(
-                                'components_dashboard_filter.tooltip_creating_new.content',
+                                'components_dashboard_filter.filter.tooltip_creating_new.content',
                             )}
                         </Button>
                     </Tooltip>

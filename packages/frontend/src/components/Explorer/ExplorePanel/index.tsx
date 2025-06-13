@@ -209,7 +209,7 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
         if (!explore) return [];
         const items = onBack
             ? [
-                  { title: 'Tables', onClick: onBack },
+                  { title: t('components_explorer_panel.tables'), onClick: onBack },
                   { title: explore.label, active: true },
               ]
             : [{ title: explore.label, active: true }];

@@ -248,7 +248,9 @@ const BigQueryForm: FC<{
                             w={isAuthenticated ? '90%' : '100%'}
                         />
                         {isAuthenticated && (
-                            <Tooltip label="You are connected to BigQuery">
+                            <Tooltip label={t(
+                              'components_project_connection_warehouse_form.big_query.authentication_type.tooltip',
+                            )}>
                                 <Group mt="40px">
                                     <MantineIcon
                                         icon={IconCheck}
@@ -271,7 +273,9 @@ const BigQueryForm: FC<{
                 <Group spacing="sm">
                     <TextInput
                         name="warehouse.project"
-                        label="Project"
+                        label={t(
+                            'components_project_connection_warehouse_form.big_query.project.label',
+                        )}
                         description={
                             <p>
                                 <Anchor
@@ -279,7 +283,9 @@ const BigQueryForm: FC<{
                                     href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#project"
                                     rel="noreferrer"
                                 >
-                                    This is the GCP project ID
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.project.description',
+                                    )}
                                 </Anchor>
                                 .
                             </p>
@@ -298,7 +304,9 @@ const BigQueryForm: FC<{
                         }
                     />
                     {hasDatasets && (
-                        <Tooltip label="You have access to this project">
+                        <Tooltip label={t(
+                            'components_project_connection_warehouse_form.big_query.project.tooltip',
+                        )}>
                             <Group mt="50px">
                                 <MantineIcon icon={IconCheck} color="green" />
                             </Group>
@@ -383,25 +391,35 @@ const BigQueryForm: FC<{
                                     withError: true,
                                 },
                             )}
-                            label="Key File"
+                            label={t(
+                              'components_project_connection_warehouse_form.big_query.key_file.label',
+                            )}
                             // FIXME: until mantine 7.4: https://github.com/mantinedev/mantine/issues/5401#issuecomment-1874906064
                             // @ts-ignore
                             placeholder={
                                 !requireSecrets
                                     ? '**************'
-                                    : 'Choose file...'
+                                    : t(
+                                        'components_project_connection_warehouse_form.big_query.key_file.placeholder',
+                                      )
                             }
                             description={
                                 <p>
-                                    This is the JSON key file. You can see{' '}
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.key_file.description.part_1',
+                                    )}{' '}
                                     <Anchor
                                         target="_blank"
                                         href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#key-file"
                                         rel="noreferrer"
                                     >
-                                        how to create a key here
+                                        {t(
+                                            'components_project_connection_warehouse_form.big_query.key_file.description.part_2',
+                                        )}
                                     </Anchor>
-                                    .
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.key_file.description.part_3',
+                                    )}
                                 </p>
                             }
                             required={requireSecrets}
@@ -466,7 +484,9 @@ const BigQueryForm: FC<{
                                         type: 'checkbox',
                                     },
                                 )}
-                                label="Require users to provide their own credentials"
+                                label={t(
+                                    'components_project_connection_warehouse_form.big_query.execution_project.switch',
+                                )}
                                 disabled={disabled}
                                 defaultChecked={
                                     BigQueryDefaultValues.requireUserCredentials
