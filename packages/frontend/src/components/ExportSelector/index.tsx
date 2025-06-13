@@ -3,6 +3,7 @@ import {
     type ApiDownloadCsv,
     type ApiError,
     type ApiScheduledDownloadCsv,
+    type PivotConfig,
 } from '@lightdash/common';
 import { Button, Stack } from '@mantine/core';
 import { IconArrowLeft, IconFileTypeCsv } from '@tabler/icons-react';
@@ -12,74 +13,104 @@ import { useTranslation } from 'react-i18next';
 
 import { ExportToGoogleSheet } from '../../features/export';
 import useHealth from '../../hooks/health/useHealth';
-import ExportCSV, { type ExportCSVProps } from '../ExportCSV';
+import ExportResults, { type ExportResultsProps } from '../ExportResults';
 import MantineIcon from '../common/MantineIcon';
 
 const ExportSelector: FC<
-    ExportCSVProps & {
+    ExportResultsProps & {
         getGsheetLink?: () => Promise<ApiScheduledDownloadCsv>;
+        pivotConfig?: PivotConfig;
     }
-> = memo(({ projectUuid, totalResults, getCsvLink, getGsheetLink }) => {
-    const health = useHealth();
-    const { t } = useTranslation();
-    const hasGoogleDrive =
-        health.data?.auth.google.oauth2ClientId !== undefined &&
-        health.data?.auth.google.googleDriveApiKey !== undefined;
+> = memo(
+    ({
+        projectUuid,
+        totalResults,
+        getDownloadQueryUuid,
+        getGsheetLink,
+        columnOrder,
+        customLabels,
+        hiddenFields,
+        showTableNames,
+        chartName,
+        pivotConfig,
+    }) => {
+        const { t } = useTranslation();
 
-    const [exportType, setExportType] = useState<string | undefined>();
+        const health = useHealth();
+        const hasGoogleDrive =
+            health.data?.auth.google.oauth2ClientId !== undefined &&
+            health.data?.auth.google.googleDriveApiKey !== undefined;
 
-    const { data } = useQuery<ApiDownloadCsv | undefined, ApiError>({
-        queryKey: [`google-sheets`],
-        enabled: false,
-    });
+        const [exportType, setExportType] = useState<string | undefined>();
 
-    const isExportingGoogleSheets = data?.status === SchedulerJobStatus.STARTED;
+        const { data } = useQuery<ApiDownloadCsv | undefined, ApiError>({
+            queryKey: [`google-sheets`],
+            enabled: false,
+        });
 
-    if (exportType === 'csv') {
+        const isExportingGoogleSheets =
+            data?.status === SchedulerJobStatus.STARTED;
+
+        if (exportType === 'csv') {
+            return (
+                <>
+                    <Button
+                        color="gray.6"
+                        size="xs"
+                        mb="xs"
+                        leftIcon={<IconArrowLeft size="16" />}
+                        variant="subtle"
+                        onClick={() => setExportType(undefined)}
+                    >
+                        {t(
+                            'components_export_selector.back_to_export_selector',
+                        )}
+                    </Button>
+                    <ExportResults
+                        totalResults={totalResults}
+                        getDownloadQueryUuid={getDownloadQueryUuid}
+                        projectUuid={projectUuid}
+                        columnOrder={columnOrder}
+                        customLabels={customLabels}
+                        hiddenFields={hiddenFields}
+                        showTableNames={showTableNames}
+                        chartName={chartName}
+                        pivotConfig={pivotConfig}
+                    />
+                </>
+            );
+        } else if (hasGoogleDrive && getGsheetLink) {
+            return (
+                <Stack spacing="xs">
+                    <Button
+                        size="xs"
+                        variant="default"
+                        onClick={() => setExportType('csv')}
+                        leftIcon={<MantineIcon icon={IconFileTypeCsv} />}
+                        disabled={isExportingGoogleSheets}
+                        data-testid="chart-export-csv-button"
+                    >
+                        {t('components_export_selector.download_data')}
+                    </Button>
+                    <ExportToGoogleSheet getGsheetLink={getGsheetLink} />
+                </Stack>
+            );
+        }
+
         return (
-            <>
-                <Button
-                    color="gray.6"
-                    size="xs"
-                    mb="xs"
-                    leftIcon={<IconArrowLeft size="16" />}
-                    variant="subtle"
-                    onClick={() => setExportType(undefined)}
-                >
-                    {t('components_export_selector.export_selector')}
-                </Button>
-                <ExportCSV
-                    totalResults={totalResults}
-                    getCsvLink={getCsvLink}
-                    projectUuid={projectUuid}
-                />
-            </>
+            <ExportResults
+                totalResults={totalResults}
+                getDownloadQueryUuid={getDownloadQueryUuid}
+                projectUuid={projectUuid}
+                columnOrder={columnOrder}
+                customLabels={customLabels}
+                hiddenFields={hiddenFields}
+                showTableNames={showTableNames}
+                chartName={chartName}
+                pivotConfig={pivotConfig}
+            />
         );
-    } else if (hasGoogleDrive && getGsheetLink) {
-        return (
-            <Stack spacing="xs">
-                <Button
-                    size="xs"
-                    variant="default"
-                    onClick={() => setExportType('csv')}
-                    leftIcon={<MantineIcon icon={IconFileTypeCsv} />}
-                    disabled={isExportingGoogleSheets}
-                    data-testid="chart-export-csv-button"
-                >
-                    {t('components_export_selector.csv')}
-                </Button>
-                <ExportToGoogleSheet getGsheetLink={getGsheetLink} />
-            </Stack>
-        );
-    }
-
-    return (
-        <ExportCSV
-            totalResults={totalResults}
-            getCsvLink={getCsvLink}
-            projectUuid={projectUuid}
-        />
-    );
-});
+    },
+);
 
 export default ExportSelector;

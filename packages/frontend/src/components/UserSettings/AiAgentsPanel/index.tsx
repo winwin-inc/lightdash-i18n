@@ -11,7 +11,7 @@ import {
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { AiAgents } from '../../../ee/features/aiCopilot/components/AiAgents';
+import { OrganizationAiAgents } from '../../../ee/features/aiCopilot/components/OrganizationAiAgents';
 import { useFeatureFlag } from '../../../hooks/useFeatureFlagEnabled';
 import { SettingsGridCard } from '../../common/Settings/SettingsCard';
 
@@ -63,7 +63,7 @@ const AiAgentsPanel: FC = () => {
                     </Text>
                 </Stack>
 
-                <AiAgents />
+                <OrganizationAiAgents />
             </Card>
         </MantineProvider>
     );

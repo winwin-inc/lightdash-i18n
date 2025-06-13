@@ -99,7 +99,9 @@ const DraggableTab: FC<DraggableTabProps> = ({
                                                 color="red"
                                                 icon={<IconTrash size={14} />}
                                             >
-                                                Remove Tab
+                                                {t(
+                                                    'components_dashboard_tabs.tab_menus.remove_tab',
+                                                )}
                                             </Menu.Item>
                                         ) : (
                                             <Menu.Item
@@ -110,7 +112,7 @@ const DraggableTab: FC<DraggableTabProps> = ({
                                                 icon={<IconTrash size={14} />}
                                             >
                                                 {t(
-                                                    'components_dashboard_tabs.tab_menus.remove_tab',
+                                                    'components_dashboard_tabs.tab_menus.safely_remove_tab',
                                                 )}
                                             </Menu.Item>
                                         )}

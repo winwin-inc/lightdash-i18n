@@ -4,7 +4,6 @@ import {
     convertDashboardFiltersParamToDashboardFilters,
     DashboardTileTypes,
     DateGranularity,
-    FeatureFlags,
     getItemId,
     isDashboardChartTileType,
     type CacheMetadata,
@@ -30,7 +29,6 @@ import {
     useDashboardQuery,
     useDashboardsAvailableFilters,
 } from '../../hooks/dashboard/useDashboard';
-import { useFeatureFlagEnabled } from '../../hooks/useFeatureFlagEnabled';
 import {
     hasSavedFiltersOverrides,
     useSavedDashboardFiltersOverrides,
@@ -424,18 +422,15 @@ const DashboardProvider: React.FC<
         resetSavedFilterOverrides,
     ]);
 
-    const canUseSqlChartFilters = useFeatureFlagEnabled(
-        FeatureFlags.SqlChartDashboardFilters,
-    );
-
     const hasTilesThatSupportFilters = useMemo(() => {
-        const tileTypesThatSupportFilters = canUseSqlChartFilters
-            ? [DashboardTileTypes.SQL_CHART, DashboardTileTypes.SAVED_CHART]
-            : [DashboardTileTypes.SAVED_CHART];
+        const tileTypesThatSupportFilters = [
+            DashboardTileTypes.SQL_CHART,
+            DashboardTileTypes.SAVED_CHART,
+        ];
         return !!dashboardTiles?.some(({ type }) =>
             tileTypesThatSupportFilters.includes(type),
         );
-    }, [dashboardTiles, canUseSqlChartFilters]);
+    }, [dashboardTiles]);
 
     const addDimensionDashboardFilter = useCallback(
         (filter: DashboardFilterRule, isTemporary: boolean) => {

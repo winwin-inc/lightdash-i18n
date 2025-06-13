@@ -112,6 +112,7 @@ export class SlackAuthenticationModel {
 
     async getInstallationFromOrganizationUuid(
         organizationUuid: string,
+        includeAiThreadAccessConsent = false,
     ): Promise<SlackSettings | undefined> {
         const [row] = await this.database(SlackAuthTokensTableName)
             .leftJoin(
@@ -132,7 +133,28 @@ export class SlackAuthenticationModel {
             scopes: row.installation?.bot?.scopes || [],
             notificationChannel: row.notification_channel ?? undefined,
             appProfilePhotoUrl: row.app_profile_photo_url ?? undefined,
+            ...(includeAiThreadAccessConsent
+                ? {
+                      aiThreadAccessConsent:
+                          row.ai_thread_access_consent ?? false,
+                  }
+                : {}),
         };
+    }
+
+    async getRawInstallationFromOrganizationUuid(
+        organizationUuid: string,
+    ): Promise<Installation<'v1' | 'v2', boolean> | undefined> {
+        const [row] = await this.database(SlackAuthTokensTableName)
+            .leftJoin(
+                'organizations',
+                'slack_auth_tokens.organization_id',
+                'organizations.organization_id',
+            )
+            .select('*')
+            .where('organization_uuid', organizationUuid);
+
+        return row?.installation;
     }
 
     async deleteInstallation(installQuery: AnyType) {

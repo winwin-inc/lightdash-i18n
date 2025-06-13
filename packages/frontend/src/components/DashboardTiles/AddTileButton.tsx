@@ -1,8 +1,4 @@
-import {
-    DashboardTileTypes,
-    FeatureFlags,
-    type Dashboard,
-} from '@lightdash/common';
+import { DashboardTileTypes, type Dashboard } from '@lightdash/common';
 import {
     Button,
     Group,
@@ -24,7 +20,6 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
-import { useFeatureFlagEnabled } from '../../hooks/useFeatureFlagEnabled';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../common/MantineIcon';
 import AddChartTilesModal from './TileForms/AddChartTilesModal';
@@ -50,9 +45,6 @@ const AddTileButton: FC<Props> = ({
     const [addTileType, setAddTileType] = useState<DashboardTileTypes>();
     const [isAddChartTilesModalOpen, setIsAddChartTilesModalOpen] =
         useState<boolean>(false);
-    const isDashboardTabsEnabled = useFeatureFlagEnabled(
-        FeatureFlags.DashboardTabs,
-    );
     const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
     const dashboardFilters = useDashboardContext((c) => c.dashboardFilters);
     const haveTilesChanged = useDashboardContext((c) => c.haveTilesChanged);
@@ -161,16 +153,15 @@ const AddTileButton: FC<Props> = ({
                             'components_dashboard_tiles_add_tile_button.loom_video',
                         )}
                     </Menu.Item>
-                    {isDashboardTabsEnabled && (
-                        <Menu.Item
-                            onClick={() => setAddingTab(true)}
-                            icon={<MantineIcon icon={IconNewSection} />}
-                        >
-                            {t(
-                                'components_dashboard_tiles_add_tile_button.add_tab',
-                            )}
-                        </Menu.Item>
-                    )}
+
+                    <Menu.Item
+                        onClick={() => setAddingTab(true)}
+                        icon={<MantineIcon icon={IconNewSection} />}
+                    >
+                        {t(
+                            'components_dashboard_tiles_add_tile_button.add_tab',
+                        )}
+                    </Menu.Item>
                 </Menu.Dropdown>
             </Menu>
 

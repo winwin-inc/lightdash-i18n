@@ -15,6 +15,7 @@ import {
     Loader,
     Select,
     Stack,
+    Switch,
     Text,
     TextInput,
     Title,
@@ -63,9 +64,15 @@ const SlackSettingsPanel: FC = () => {
     const debounceSetSearch = debounce((val) => setSearch(val), 1500);
 
     const { data: slackChannels, isInitialLoading: isLoadingSlackChannels } =
-        useSlackChannels(search, true, {
-            enabled: organizationHasSlack,
-        });
+        useSlackChannels(
+            search,
+            {
+                excludeArchived: true,
+                excludeDms: true,
+                excludeGroups: true,
+            },
+            { enabled: organizationHasSlack },
+        );
 
     const formSchema = z.object({
         notificationChannel: z.string().min(1).nullable(),
@@ -118,6 +125,8 @@ const SlackSettingsPanel: FC = () => {
             appProfilePhotoUrl: slackInstallation.appProfilePhotoUrl ?? null,
             slackChannelProjectMappings:
                 slackInstallation.slackChannelProjectMappings ?? [],
+            aiThreadAccessConsent:
+                slackInstallation.aiThreadAccessConsent ?? false,
         };
 
         if (form.initialized) {
@@ -278,26 +287,74 @@ const SlackSettingsPanel: FC = () => {
                                 />
                             </Group>
                             {aiCopilotFlag?.enabled && (
-                                <Alert
-                                    color="blue"
-                                    fz="xs"
-                                    icon={<MantineIcon icon={IconHelpCircle} />}
-                                >
-                                    {t(
-                                        'components_user_settings_slack_settings_panel.from.alert.part_1',
-                                    )}{' '}
-                                    <Anchor
-                                        component={Link}
-                                        to="/generalSettings/aiAgents"
+                                <Stack spacing="sm">
+                                    <Group spacing="two">
+                                        <Title order={6} fw={500}>
+                                            {t(
+                                                'components_user_settings_slack_settings_panel.ai_copilot_flag.title',
+                                            )}
+                                        </Title>
+
+                                        <Tooltip
+                                            multiline
+                                            variant="xs"
+                                            maw={250}
+                                            label={t(
+                                                'components_user_settings_slack_settings_panel.ai_copilot_flag.description',
+                                            )}
+                                        >
+                                            <MantineIcon
+                                                icon={IconHelpCircle}
+                                            />
+                                        </Tooltip>
+                                    </Group>
+
+                                    <Text c="dimmed" fz="xs">
+                                        {t(
+                                            'components_user_settings_slack_settings_panel.ai_copilot_flag.allow_thread_messages',
+                                        )}
+                                    </Text>
+
+                                    <Switch
+                                        label={t(
+                                            'components_user_settings_slack_settings_panel.ai_copilot_flag.allow_thread_messages',
+                                        )}
+                                        checked={
+                                            form.values.aiThreadAccessConsent ??
+                                            false
+                                        }
+                                        onChange={(event) => {
+                                            setFieldValue(
+                                                'aiThreadAccessConsent',
+                                                event.currentTarget.checked,
+                                            );
+                                        }}
+                                    />
+                                    <Alert
+                                        color="blue"
+                                        fz="xs"
+                                        icon={
+                                            <MantineIcon
+                                                icon={IconHelpCircle}
+                                            />
+                                        }
                                     >
                                         {t(
-                                            'components_user_settings_slack_settings_panel.from.alert.part_2',
+                                            'components_user_settings_slack_settings_panel.ai_copilot_flag.configure.part_1',
+                                        )}{' '}
+                                        <Anchor
+                                            component={Link}
+                                            to="/generalSettings/aiAgents"
+                                        >
+                                            {t(
+                                                'components_user_settings_slack_settings_panel.ai_copilot_flag.configure.part_2',
+                                            )}
+                                        </Anchor>
+                                        {t(
+                                            'components_user_settings_slack_settings_panel.ai_copilot_flag.configure.part_3',
                                         )}
-                                    </Anchor>
-                                    {t(
-                                        'components_user_settings_slack_settings_panel.from.alert.part_3',
-                                    )}
-                                </Alert>
+                                    </Alert>
+                                </Stack>
                             )}
                         </Stack>
                         <Stack align="end" mt="xl">

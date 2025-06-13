@@ -1,40 +1,42 @@
 import {
+    AiAgentNotFoundError,
+    AiDuplicateSlackPromptError,
+} from '@lightdash/common';
+import {
     AllMiddlewareArgs,
     App,
     Block,
     KnownBlock,
     SlackEventMiddlewareArgs,
 } from '@slack/bolt';
+import { WebClient } from '@slack/web-api';
+import { type MessageElement } from '@slack/web-api/dist/response/ConversationsHistoryResponse';
 import { SlackBot, SlackBotArguments } from '../../../clients/Slack/Slackbot';
 import Logger from '../../../logging/logger';
 import { AiAgentModel } from '../../models/AiAgentModel';
-import { AiModel } from '../../models/AiModel';
 import { CommercialSlackAuthenticationModel } from '../../models/CommercialSlackAuthenticationModel';
 import { CommercialSchedulerClient } from '../../scheduler/SchedulerClient';
-import { AiService } from '../../services/AiService/AiService';
 import {
     FollowUpTools,
     followUpToolsText,
-} from '../../services/AiService/utils/aiCopilot/followUpTools';
-import {
-    AiAgentNotFoundError,
-    AiDuplicateSlackPromptError,
-} from '../../services/AiService/utils/errors';
+} from '../../services/ai/types/followUpTools';
+import { AiAgentService } from '../../services/AiAgentService';
 
 type CommercialSlackBotArguments = SlackBotArguments & {
     schedulerClient: CommercialSchedulerClient;
-    aiService: AiService;
-    aiModel: AiModel;
+    aiAgentService: AiAgentService;
     aiAgentModel: AiAgentModel;
     slackAuthenticationModel: CommercialSlackAuthenticationModel;
 };
 
+type ThreadMessageContext = Array<
+    Required<Pick<MessageElement, 'text' | 'user' | 'ts'>>
+>;
+
 export class CommercialSlackBot extends SlackBot {
     private readonly schedulerClient: CommercialSchedulerClient;
 
-    private readonly aiService: AiService;
-
-    private readonly aiModel: AiModel;
+    private readonly aiAgentService: AiAgentService;
 
     private readonly aiAgentModel: AiAgentModel;
 
@@ -43,8 +45,7 @@ export class CommercialSlackBot extends SlackBot {
     constructor(args: CommercialSlackBotArguments) {
         super(args);
         this.schedulerClient = args.schedulerClient;
-        this.aiService = args.aiService;
-        this.aiModel = args.aiModel;
+        this.aiAgentService = args.aiAgentService;
         this.aiAgentModel = args.aiAgentModel;
         this.slackAuthenticationModel = args.slackAuthenticationModel;
     }
@@ -110,7 +111,7 @@ export class CommercialSlackBot extends SlackBot {
                         if (!promptUuid) {
                             return;
                         }
-                        await this.aiService.updateHumanScoreForPrompt(
+                        await this.aiAgentService.updateHumanScoreForPrompt(
                             promptUuid,
                             1,
                         );
@@ -155,7 +156,7 @@ export class CommercialSlackBot extends SlackBot {
                         if (!promptUuid) {
                             return;
                         }
-                        await this.aiService.updateHumanScoreForPrompt(
+                        await this.aiAgentService.updateHumanScoreForPrompt(
                             promptUuid,
                             -1,
                         );
@@ -200,7 +201,7 @@ export class CommercialSlackBot extends SlackBot {
                                 return;
                             }
                             const prevSlackPrompt =
-                                await this.aiModel.findSlackPrompt(
+                                await this.aiAgentModel.findSlackPrompt(
                                     prevSlackPromptUuid,
                                 );
                             if (!prevSlackPrompt) return;
@@ -231,18 +232,21 @@ export class CommercialSlackBot extends SlackBot {
 
                             try {
                                 [slackPromptUuid] =
-                                    await this.aiService.createSlackPrompt({
-                                        userUuid,
-                                        projectUuid:
-                                            prevSlackPrompt.projectUuid,
-                                        slackUserId: context.botUserId,
-                                        slackChannelId: channel.id,
-                                        slackThreadTs:
-                                            prevSlackPrompt.slackThreadTs,
-                                        prompt: response.message.text,
-                                        promptSlackTs: response.ts,
-                                        agentUuid: prevSlackPrompt.agentUuid,
-                                    });
+                                    await this.aiAgentService.createSlackPrompt(
+                                        {
+                                            userUuid,
+                                            projectUuid:
+                                                prevSlackPrompt.projectUuid,
+                                            slackUserId: context.botUserId,
+                                            slackChannelId: channel.id,
+                                            slackThreadTs:
+                                                prevSlackPrompt.slackThreadTs,
+                                            prompt: response.message.text,
+                                            promptSlackTs: response.ts,
+                                            agentUuid:
+                                                prevSlackPrompt.agentUuid,
+                                        },
+                                    );
                             } catch (e) {
                                 if (e instanceof AiDuplicateSlackPromptError) {
                                     Logger.debug(
@@ -256,7 +260,7 @@ export class CommercialSlackBot extends SlackBot {
                             }
 
                             if (response.ts) {
-                                await this.aiModel.updateSlackResponseTs({
+                                await this.aiAgentModel.updateSlackResponseTs({
                                     promptUuid: slackPromptUuid,
                                     responseSlackTs: response.ts,
                                 });
@@ -276,10 +280,12 @@ export class CommercialSlackBot extends SlackBot {
         });
     }
 
+    // WARNING: Needs - channels:history scope for all slack apps
     private async handleAppMention({
         event,
         context,
         say,
+        client,
     }: SlackEventMiddlewareArgs<'app_mention'> & AllMiddlewareArgs) {
         Logger.info(`Got app_mention event ${event.text}`);
 
@@ -298,6 +304,8 @@ export class CommercialSlackBot extends SlackBot {
 
         let slackPromptUuid: string;
         let createdThread: boolean;
+        let name: string | undefined;
+        let threadMessages: ThreadMessageContext | undefined;
 
         try {
             const agentConfig =
@@ -306,8 +314,32 @@ export class CommercialSlackBot extends SlackBot {
                     slackChannelId: event.channel,
                 });
 
+            name = agentConfig.name;
+
+            if (event.thread_ts) {
+                const slackSettings =
+                    await this.slackAuthenticationModel.getInstallationFromOrganizationUuid(
+                        organizationUuid,
+                    );
+
+                const aiThreadAccessConsent =
+                    slackSettings?.aiThreadAccessConsent;
+
+                // Consent is granted - fetch thread messages
+                if (aiThreadAccessConsent === true && context.botId) {
+                    threadMessages =
+                        await CommercialSlackBot.fetchThreadMessages({
+                            client,
+                            channelId: event.channel,
+                            threadTs: event.thread_ts,
+                            excludeMessageTs: event.ts,
+                            botId: context.botId,
+                        });
+                }
+            }
+
             [slackPromptUuid, createdThread] =
-                await this.aiService.createSlackPrompt({
+                await this.aiAgentService.createSlackPrompt({
                     userUuid,
                     projectUuid: agentConfig.projectUuid,
                     slackUserId: event.user,
@@ -316,6 +348,7 @@ export class CommercialSlackBot extends SlackBot {
                     prompt: event.text,
                     promptSlackTs: event.ts,
                     agentUuid: agentConfig.uuid ?? null,
+                    threadMessages,
                 });
         } catch (e) {
             if (e instanceof AiDuplicateSlackPromptError) {
@@ -332,6 +365,7 @@ export class CommercialSlackBot extends SlackBot {
         }
 
         const postedMessage = await say({
+            username: name,
             thread_ts: event.ts,
             blocks: [
                 {
@@ -363,7 +397,7 @@ export class CommercialSlackBot extends SlackBot {
         });
 
         if (postedMessage.ts) {
-            await this.aiModel.updateSlackResponseTs({
+            await this.aiAgentModel.updateSlackResponseTs({
                 promptUuid: slackPromptUuid,
                 responseSlackTs: postedMessage.ts,
             });
@@ -375,5 +409,79 @@ export class CommercialSlackBot extends SlackBot {
             projectUuid: '', // TODO: add project uuid
             organizationUuid,
         });
+    }
+
+    private static processThreadMessages(
+        messages: MessageElement[] | undefined,
+        excludeMessageTs: string,
+        botId: string,
+    ): ThreadMessageContext | undefined {
+        if (!messages || messages.length === 0) {
+            return undefined;
+        }
+
+        const threadMessages = messages
+            .filter((msg) => {
+                // Exclude the current message
+                if (msg.ts === excludeMessageTs) {
+                    return false;
+                }
+
+                // Exclude bot messages and messages from the bot itself
+                if (msg.subtype === 'bot_message' || msg.bot_id === botId) {
+                    return false;
+                }
+
+                return true;
+            })
+            .map((msg) => ({
+                text: msg.text || '[message]',
+                user: msg.user || 'unknown',
+                ts: msg.ts || '',
+            }));
+
+        return threadMessages;
+    }
+
+    /**
+     * Fetches thread messages from Slack if consent is granted
+     */
+    private static async fetchThreadMessages({
+        client,
+        channelId,
+        threadTs,
+        excludeMessageTs,
+        botId,
+    }: {
+        client: WebClient;
+        channelId: string;
+        threadTs: string;
+        excludeMessageTs: string;
+        botId: string;
+    }): Promise<ThreadMessageContext | undefined> {
+        if (!threadTs) {
+            return undefined;
+        }
+
+        try {
+            const threadHistory = await client.conversations.replies({
+                channel: channelId,
+                ts: threadTs,
+                limit: 100, // TODO: What should be the limit?
+            });
+
+            return CommercialSlackBot.processThreadMessages(
+                threadHistory.messages,
+                excludeMessageTs,
+                botId,
+            );
+        } catch (error) {
+            Logger.warn(
+                'Failed to fetch thread history, using original message only:',
+                error,
+            );
+        }
+
+        return undefined;
     }
 }

@@ -3,6 +3,7 @@ import {
     GroupByColumn,
     ItemsMap,
     MetricQuery,
+    PivotConfig,
     SortBy,
     ValuesColumn,
     type CacheMetadata,
@@ -38,6 +39,12 @@ export type DownloadAsyncQueryResultsArgs = Omit<
 > & {
     queryUuid: string;
     type?: DownloadFileType;
+    onlyRaw?: boolean;
+    showTableNames?: boolean;
+    customLabels?: Record<string, string>;
+    columnOrder?: string[];
+    hiddenFields?: string[];
+    pivotConfig?: PivotConfig;
 };
 
 export type ExecuteAsyncMetricQueryArgs = CommonAsyncQueryArgs & {
@@ -48,6 +55,7 @@ export type ExecuteAsyncMetricQueryArgs = CommonAsyncQueryArgs & {
 export type ExecuteAsyncSavedChartQueryArgs = CommonAsyncQueryArgs & {
     chartUuid: string;
     versionUuid?: string;
+    limit?: number | null | undefined;
 };
 
 export type ExecuteAsyncDashboardChartQueryArgs = CommonAsyncQueryArgs & {

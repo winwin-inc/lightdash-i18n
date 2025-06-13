@@ -551,7 +551,7 @@ export type ConditionalFormattingRuleSavedEvent = BaseTrack & {
     };
 };
 
-type ProjectEvent = BaseTrack & {
+export type ProjectEvent = BaseTrack & {
     event: 'project.updated' | 'project.created';
     userId: string;
     properties: {
@@ -564,6 +564,8 @@ type ProjectEvent = BaseTrack & {
         isPreview: boolean;
         method: RequestMethod;
         copiedFromProjectUuid?: string;
+        authenticationType?: string;
+        requireUserCredentials?: boolean;
     };
 };
 
@@ -658,6 +660,7 @@ export type CreateDashboardOrVersionEvent = BaseTrack & {
         markdownTilesCount: number;
         loomTilesCount: number;
         duplicated?: boolean;
+        tabsCount?: number;
     };
 };
 

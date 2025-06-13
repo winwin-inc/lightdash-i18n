@@ -18,7 +18,7 @@ const getJaffleDashboard = () =>
     );
 
 describe('Embedded dashboard', () => {
-    before(() => {
+    beforeEach(() => {
         cy.login();
     });
     it('I can view embedded dashboard and all interactivity options', () => {
@@ -68,7 +68,7 @@ describe('Embedded dashboard', () => {
                     'mouseenter',
                 );
                 cy.findByTestId('tile-icon-more').click();
-                cy.contains('Export CSV');
+                cy.contains('Download data');
                 cy.contains('Export image');
 
                 // Check date zoom

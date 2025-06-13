@@ -42,6 +42,7 @@ import { useNavigate, useParams } from 'react-router';
 
 import useDefaultSortField from '../../hooks/useDefaultSortField';
 import {
+    executeQueryAndWaitForResults,
     useCancelQuery,
     useGetReadyQueryResults,
     useInfiniteQueryResults,
@@ -1296,11 +1297,36 @@ const ExplorerProvider: FC<
             setQueryUuidHistory((prev) => [...prev, query.data.queryUuid]);
         }
     }, [query.data]);
-
     const queryResults = useInfiniteQueryResults(
         validQueryArgs?.projectUuid,
         // get last value from queryUuidHistory
         queryUuidHistory[queryUuidHistory.length - 1],
+    );
+    const getDownloadQueryUuid = useCallback(
+        async (limit: number | null) => {
+            let queryUuid = queryResults.queryUuid;
+            // Always execute a new query if:
+            // 1. limit is null (meaning "all results" - should ignore existing query limits)
+            // 2. limit is different from current totalResults
+            if (limit === null || limit !== queryResults.totalResults) {
+                // Create query args with the specified limit
+                const queryArgsWithLimit = validQueryArgs
+                    ? {
+                          ...validQueryArgs,
+                          csvLimit: limit,
+                      }
+                    : null;
+                const downloadQuery = await executeQueryAndWaitForResults(
+                    queryArgsWithLimit,
+                );
+                queryUuid = downloadQuery.queryUuid;
+            }
+            if (!queryUuid) {
+                throw new Error(`Missing query uuid`);
+            }
+            return queryUuid;
+        },
+        [queryResults.queryUuid, queryResults.totalResults, validQueryArgs],
     );
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { remove: clearQueryResults } = query;
@@ -1477,6 +1503,7 @@ const ExplorerProvider: FC<
             toggleFormatModal,
             updateMetricFormat,
             replaceFields,
+            getDownloadQueryUuid,
         }),
         [
             clearExplore,
@@ -1515,6 +1542,7 @@ const ExplorerProvider: FC<
             updateMetricFormat,
             toggleWriteBackModal,
             replaceFields,
+            getDownloadQueryUuid,
         ],
     );
 

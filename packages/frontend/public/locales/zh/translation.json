@@ -1457,6 +1457,11 @@
                 "label": "代理名称",
                 "placeholder": "输入代理名称"
             },
+            "image_url": {
+                "label": "图片 URL",
+                "tooltip": "请提供一个图片 URL 像 https://example.com/avatar.jpg。如果未提供，将使用默认头像。",
+                "placeholder": "https://example.com/avatar.jpg"
+            },
             "project": {
                 "label": "项目",
                 "placeholder": "选择项目"
@@ -1465,7 +1470,17 @@
                 "label": "标签",
                 "placeholder": "选择标签"
             },
-            "integrations": "集成",
+            "integrations": {
+                "label": "集成",
+                "description": "集成设置代理的整体行为和任务。这定义了它应该如何响应以及它的目的是什么。",
+                "placeholder": "您是一个擅长销售数据分析的助手。"
+            },
+            "channels": {
+                "label": "频道",
+                "description": "您需要在集成设置中先连接 Slack，才能配置 AI 代理。",
+                "placeholder": "选择频道",
+                "refresh": "刷新 Slack 频道"
+            },
             "refresh_channels": "刷新频道",
             "slack": {
                 "description": "您需要在集成设置中先连接 Slack，才能配置 AI 代理。",
@@ -1486,7 +1501,8 @@
         "no_agents_found": "没有找到代理。请添加一个代理开始。",
         "name": "名称",
         "last_modified": "最后修改",
-        "something_went_wrong": "发生意外错误"
+        "something_went_wrong": "发生意外错误",
+        "ai_agent": "AI 代理"
     },
     "features_ai_copilot_agents_list": {
         "no_conversations_found": "没有找到此代理的对话。",
@@ -1514,6 +1530,52 @@
         "failed_to_delete_agent": "删除AI代理失败",
         "failed_to_fetch_threads": "获取AI代理对话失败",
         "failed_to_fetch_thread": "获取AI代理对话详情失败"
+    },
+    "features_ai_copilot_slack_integration_steps": {
+        "allow_integration_access": "允许集成访问",
+        "connect_slack": "连接您的 Slack 账户到 Lightdash",
+        "select_channels": {
+            "label": "选择频道",
+            "description": "选择您想要连接到此代理的频道"
+        },
+        "start_using_agent": {
+            "label": "开始使用代理",
+            "description": {
+                "part_1": "前往连接的频道并标记 Slack 应用",
+                "part_2": "与您的代理互动"
+            }
+        }
+    },
+    "features_ai_copilot_chat_elements": {
+        "processing": "正在处理您的请求，这可能需要一段时间",
+        "something_went_wrong": "生成可视化时出现问题，请重试",
+        "feedback_sent": "反馈已发送",
+        "open_in_explore": "在探索中打开",
+        "continue_exploring": "继续探索"
+    },
+    "features_ai_copilot_chat_input": {
+        "placeholder": "问任何关于您数据的问题...",
+        "agent_can_make_mistakes": "AI 代理可能会犯错。请仔细检查响应。"
+    },
+    "features_ai_copilot_hooks": {
+        "failed_to_fetch_agents": "获取AI代理失败",
+        "failed_to_fetch_agent": "获取AI代理详情失败",
+        "created_agent": "AI代理创建成功",
+        "failed_to_create_agent": "创建AI代理失败",
+        "updated_agent": "AI代理更新成功",
+        "failed_to_update_agent": "更新AI代理失败",
+        "deleted_agent": "AI代理删除成功",
+        "failed_to_delete_agent": "删除AI代理失败",
+        "failed_to_fetch_threads": "获取AI代理对话失败",
+        "failed_to_fetch_thread": "获取AI代理对话详情失败",
+        "thinking": "思考中...",
+        "failed_to_generate_response": "生成AI代理对话响应失败",
+        "failed_to_fetch_viz": "获取可视化失败",
+        "failed_to_submit_feedback": "提交反馈失败"
+    },
+    "features_ai_copilot_project_hooks": {
+        "failed_to_fetch_agents": "获取AI代理失败",
+        "failed_to_fetch_project_agent": "获取项目AI代理失败"
     },
 
     "components_common_paginate": {
@@ -1905,7 +1967,10 @@
                 "label": "选择要应用筛选器的图块,以及按哪个字段进行筛选",
                 "content": "图表图块"
             },
-            "select": "选择一个维度进行筛选",
+            "select_dimension": "选择一个维度进行筛选",
+            "select_column": "选择一个列进行筛选",
+            "select_column_placeholder": "搜索列...",
+            "select_column_sql": "SQL 列",
             "tooltip_reset": {
                 "label": "重置为原始值"
             },
@@ -1937,6 +2002,10 @@
                 },
                 "content": "添加筛选器"
             },
+            "inactive_filter": {
+                "part_1": "此筛选器仅适用于标签",
+                "part_2": "此筛选器当前未应用于任何标签"
+            },
             "tooltip_set": {
                 "label": "设置值以运行此看板",
                 "content": "必须"
@@ -1954,6 +2023,9 @@
         "filter_invalid": {
             "unknown": "试图引用具有未知 ID 的字段:",
             "invalid_filter": "无效的筛选器"
+        },
+        "filter_active_filters": {
+            "reset_all_filters": "重置所有筛选器"
         }
     },
 
@@ -2016,7 +2088,8 @@
         "tab_menus": {
             "rename_tab": "重命名标签页",
             "remove_tabs_component": "移除标签页组件",
-            "remove_tab": "移除标签页"
+            "remove_tab": "移除标签页",
+            "safely_remove_tab": "安全移除标签页"
         }
     },
 
@@ -2237,7 +2310,8 @@
         "remove_tile": "移除图块"
     },
     "components_dashboard_tiles_download_csv": {
-        "export_csv": "导出 CSV"
+        "export_csv": "导出 CSV",
+        "download_data": "下载数据"
     },
     "components_dashboard_tiles_export_image": {
         "export_image": "导出图片"
@@ -2335,6 +2409,7 @@
         "tooltip_custom_dimensions": "此图表包含自定义维度,您将无法在\"探索\"中运行自定义 SQL。",
         "menus": {
             "explore_from_here": "从这里探索",
+            "download_data": "下载数据",
             "export_csv": "导出 CSV",
             "move_to_space": "移动到空间",
             "duplicate_chart": "复制图表",
@@ -2840,6 +2915,9 @@
         "creating_preview": "正在创建预览",
         "create_preview": "创建预览"
     },
+    "components_navbar_ai_agents_button": {
+        "ask_ai": "问AI"
+    },
 
     "components_about_footer": {
         "new_version": "新版本已发布！",
@@ -3069,7 +3147,11 @@
         "select_tabs": "选择要包含的选项卡",
         "no_tiles_in_selected_tabs": "所选选项卡中没有图块",
         "cancel": "取消",
-        "export_dashboard": "导出看板"
+        "export_dashboard": "导出看板",
+        "tabs": {
+            "image": "图片",
+            "csv": ".csv"
+        }
     },
     "components_common_modal_dashboard_update": {
         "update_dashboard": "更新看板",
@@ -3092,7 +3174,7 @@
         "part_2": "此看板在未设置所需的筛选值的情况下无法运行"
     },
     "components_common_space_selector": {
-        "back": "返回",
+        "back": "返回空间选择",
         "create_tip": {
             "part_1": "您正在创建一个新空间",
             "part_2": "在",
@@ -3542,6 +3624,17 @@
                 "part_1": "配置Slack频道项目映射",
                 "part_2": "这里",
                 "part_3": "了解更多。"
+            },
+            "ai_copilot_flag": {
+                "title": " AI Agents 线程访问同意",
+                "description": "允许 AI Agents 访问线程消息,当用户在对话中提及机器人时。",
+                "tooltip": "线程越长, AI Agents 拥有的上下文越多。",
+                "allow_thread_messages": "允许 AI 访问线程消息",
+                "configure": {
+                    "part_1": "配置 Slack 频道项目映射",
+                    "part_2": "这里",
+                    "part_3": "。"
+                }
             }
         },
         "tip": "您的Slack集成已过期,您应该重新安装Slack集成以确保最佳用户体验。",
@@ -5136,7 +5229,33 @@
     },
     "components_export_selector": {
         "export_selector": "返回导出选择器",
-        "csv": "CSV"
+        "csv": "CSV",
+        "download_data": "下载数据"
+    },
+    "components_export_results": {
+        "exporting": {
+            "title": "导出结果",
+            "subtitle": "这可能需要几分钟的时间..."
+        },
+        "warning": {
+            "title": "导出结果被限制",
+            "subtitle": "导出结果被截断,因为大小限制。"
+        },
+        "error": {
+            "title": "无法下载 CSV"
+        },
+        "no_data_to_export": "没有可导出的数据",
+        "radio_groups_values": {
+            "part_1": "格式化",
+            "part_2": "原始"
+        },
+        "radio_groups_limit": {
+            "part_1": "表格结果",
+            "part_2": "所有结果",
+            "custom": "自定义..."
+        },
+        "limit": "Excel 导出限制为 1,000,000 行。",
+        "download": "下载"
     },
 
     "components_funnel_chart": {
@@ -5849,6 +5968,19 @@
             }
         },
         "big_query": {
+            "authentication_type": {
+                "label": "认证类型",
+                "description": {
+                    "part_1": "您已连接到 BigQuery,",
+                    "part_2": "点击这里重新认证。",
+                    "part_3": "选择使用服务账户还是用户账户认证"
+                },
+                "data": {
+                    "service_account": "服务账户 (JSON 密钥文件)",
+                    "user_account": "用户账户 (使用 Google 登录)"
+                },
+                "tooltip": "您已连接到 BigQuery"
+            },
             "dataset": {
                 "label": "数据集",
                 "label_help": {
@@ -6152,6 +6284,15 @@
             "schema": {
                 "label": "Schema",
                 "description": "这是 schema 的名称。"
+            },
+            "authentication_type": {
+                "label": "认证类型",
+                "description": {
+                    "part_1": "您已连接到 Snowflake,",
+                    "part_2": "点击这里重新认证。",
+                    "part_3": "选择如何认证您的数据仓库。"
+                },
+                "tooltip": "您已连接到 Snowflake"
             },
             "account": {
                 "label": "账户",
@@ -6905,6 +7046,11 @@
         "no_response_yet": "还没有响应",
         "suboptimal_state": {
             "description": "选择一个对话以查看其消息"
+        },
+        "debug_data_with_labels": {
+            "filtersOutput": "过滤器",
+            "vizConfigOutput": "可视化配置",
+            "metricQuery": "指标查询"
         }
     },
     "ai_embed_dashboard": {
@@ -6918,5 +7064,36 @@
         "empty_dashboard_description": "此看板没有图表",
         "dashboard_tile_type_not_recognised": "看板图表类型未识别",
         "embed_link_not_valid": "此嵌入链接无效"
+    },
+    "ai_agents_page": {
+        "threads_created": "Slack 中创建的线程是只读的",
+        "all_agents": "所有代理",
+        "last_updated": "最后更新",
+        "new_thread": "新线程",
+        "settings": "设置",
+        "instructions": "指令",
+        "lightdash_data_sources": "Lightdash 数据源",
+        "threads": "线程",
+        "view_more": "查看更多"
+    },
+    "ai_agents_list_page": {
+        "last_modified": "最后修改",
+        "settings": "设置",
+        "start_chat": "开始聊天",
+        "tooltip": {
+            "part_1": "此功能处于 alpha 阶段。我们正在积极测试和改进它。",
+            "part_2": "Alpha",
+            "part_3": "用自然语言提问并从您的数据中获取见解。"
+        },
+        "new_agent": "新代理",
+        "learn_more": "了解更多",
+        "no_agents_found": "没有找到代理。开始添加代理。"
+    },
+    "ai_agents_thread_page": {
+        "thread_created_in_slack": "此线程是只读的。要继续对话，请在 Slack 中回复。",
+        "ask_agent_anything": "向 {{agentName}} 询问任何关于您数据的问题..."
+    },
+    "ai_agents_new_thread_page": {
+        "ask_agent_anything": "向 {{agentName}} 询问任何关于您数据的问题..."
     }
 }

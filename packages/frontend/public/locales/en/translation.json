@@ -1454,6 +1454,11 @@
                 "label": "Agent Name",
                 "placeholder": "Enter a name for this agent"
             },
+            "image_url": {
+                "label": "Image URL",
+                "tooltip": "Please provide an image url like https://example.com/avatar.jpg. If not provided, a default avatar will be used.",
+                "placeholder": "https://example.com/avatar.jpg"
+            },
             "project": {
                 "label": "Project",
                 "placeholder": "Select a project"
@@ -1462,7 +1467,17 @@
                 "label": "Tags",
                 "placeholder": "Select tags"
             },
-            "integrations": "Integrations",
+            "integrations": {
+                "label": "Integrations",
+                "description": "Integrations set the overall behavior and task for the agent. This defines how it should respond and what its purpose is.",
+                "placeholder": "You are a helpful assistant that specializes in sales data analytics."
+            },
+            "channels": {
+                "label": "Channels",
+                "description": "You need to connect Slack first in the Integrations settings before you can configure AI agents.",
+                "placeholder": "Pick a channel",
+                "refresh": "Refresh Slack Channels"
+            },
             "refresh_channels": "Refresh channels",
             "slack": {
                 "description": "You need to connect Slack first in the Integrations settings before you can configure AI agents.",
@@ -1483,7 +1498,8 @@
         "no_agents_found": "No agents found. Get started by adding an agent.",
         "name": "Name",
         "last_modified": "Last modified",
-        "something_went_wrong": "Something went wrong"
+        "something_went_wrong": "Something went wrong",
+        "ai_agent": "AI Agent"
     },
     "features_ai_copilot_agents_list": {
         "no_conversations_found": "No conversations found for this agent.",
@@ -1511,6 +1527,52 @@
         "failed_to_delete_agent": "Failed to delete AI agent",
         "failed_to_fetch_threads": "Failed to fetch AI agent threads",
         "failed_to_fetch_thread": "Failed to fetch AI agent thread details"
+    },
+    "features_ai_copilot_slack_integration_steps": {
+        "allow_integration_access": "Allow integration access",
+        "connect_slack": " Connect your Slack account to Lightdash",
+        "select_channels": {
+            "label": "Select channels",
+            "description": "Select the channels you want to connect to this agent"
+        },
+        "start_using_agent": {
+            "label": "Start using agent",
+            "description": {
+                "part_1": "Go to the connected channels and tag the Slack app",
+                "part_2": "to interact with your agent"
+            }
+        }
+    },
+    "features_ai_copilot_chat_elements": {
+        "processing": "Processing your request, this may take a moment",
+        "something_went_wrong": "Something went wrong generating the visualization, please try again",
+        "feedback_sent": "Feedback sent",
+        "open_in_explore": "Open in explore",
+        "continue_exploring": "Continue exploring"
+    },
+    "features_ai_copilot_chat_input": {
+        "placeholder": "Ask anything about your data...",
+        "agent_can_make_mistakes": "Agent can make mistakes. Please double-check responses."
+    },
+    "features_ai_copilot_hooks": {
+        "failed_to_fetch_agents": "Failed to fetch AI agents",
+        "failed_to_fetch_agent": "Failed to fetch AI agent",
+        "created_agent": "AI agent created successfully",
+        "failed_to_create_agent": "Failed to create AI agent",
+        "updated_agent": "AI agent updated successfully",
+        "failed_to_update_agent": "Failed to update AI agent",
+        "deleted_agent": "AI agent deleted successfully",
+        "failed_to_delete_agent": "Failed to delete AI agent",
+        "failed_to_fetch_threads": "Failed to fetch AI agent threads",
+        "failed_to_fetch_thread": "Failed to fetch AI agent thread",
+        "thinking": "Thinking...",
+        "failed_to_generate_response": "Failed to generate AI agent thread response",
+        "failed_to_fetch_viz": "Failed to fetch visualization",
+        "failed_to_submit_feedback": "Failed to submit feedback"
+    },
+    "features_ai_copilot_project_hooks": {
+        "failed_to_fetch_agents": "Failed to fetch AI agents",
+        "failed_to_fetch_project_agent": "Failed to fetch project AI agent"
     },
 
     "components_common_paginate": {
@@ -1901,7 +1963,10 @@
                 "label": "Select tiles to apply filter to and which field to filter by",
                 "content": "Chart tiles"
             },
-            "select": "Select a dimension to filter",
+            "select_dimension": "Select a dimension to filter",
+            "select_column": "Select a column to filter",
+            "select_column_placeholder": "Search column...",
+            "select_column_sql": "SQL column",
             "tooltip_reset": {
                 "label": "Reset to original value"
             },
@@ -1933,6 +1998,10 @@
                 },
                 "content": "Add filter"
             },
+            "inactive_filter": {
+                "part_1": "This filter only applies to tab {{suffix}}",
+                "part_2": "This filter is not currently applied to any tabs"
+            },
             "tooltip_set": {
                 "label": "Set a value to run this dashboard",
                 "content": "Required"
@@ -1950,6 +2019,9 @@
         "filter_invalid": {
             "unknown": "Tried to reference field with unknown id:",
             "invalid_filter": "Invalid filter"
+        },
+        "filter_active_filters": {
+            "reset_all_filters": "Reset all filters"
         }
     },
 
@@ -2012,7 +2084,8 @@
         "tab_menus": {
             "rename_tab": "Rename tab",
             "remove_tabs_component": "Remove tabs component",
-            "remove_tab": "Remove tab"
+            "remove_tab": "Remove tab",
+            "safely_remove_tab": "Safely remove tab"
         }
     },
 
@@ -2233,7 +2306,8 @@
         "remove_tile": "Remove tile"
     },
     "components_dashboard_tiles_download_csv": {
-        "export_csv": "Export CSV"
+        "export_csv": "Export CSV",
+        "download_data": "Download data"
     },
     "components_dashboard_tiles_export_image": {
         "export_image": "Export image"
@@ -2331,6 +2405,7 @@
         "tooltip_custom_dimensions": "This chart contains custom dimensions, you will not be able to run custom SQL on explore.",
         "menus": {
             "explore_from_here": "Explore from here",
+            "download_data": "Download data",
             "export_csv": "Export CSV",
             "move_to_space": "Move to space",
             "duplicate_chart": "Duplicate chart",
@@ -2837,6 +2912,9 @@
         "creating_preview": "Creating preview",
         "create_preview": "Create Preview"
     },
+    "components_navbar_ai_agents_button": {
+        "ask_ai": "Ask AI"
+    },
 
     "components_about_footer": {
         "new_version": "New version available!",
@@ -3066,7 +3144,11 @@
         "select_tabs": "Select tabs to include in the export",
         "no_tiles_in_selected_tabs": "There are no tiles in the selected tab(s)",
         "cancel": "Cancel",
-        "export_dashboard": "Export dashboard"
+        "export_dashboard": "Export dashboard",
+        "tabs": {
+            "image": "Image",
+            "csv": ".csv"
+        }
     },
     "components_common_modal_dashboard_update": {
         "update_dashboard": "Update dashboard",
@@ -3089,7 +3171,7 @@
         "part_2": "This dashboard cannot be run without setting the filter values that are required"
     },
     "components_common_space_selector": {
-        "back": "Back",
+        "back": "Back to Space selection",
         "create_tip": {
             "part_1": "You are creating a new space",
             "part_2": "in",
@@ -3539,6 +3621,17 @@
                 "part_1": "Configure Slack channel project mappings",
                 "part_2": "here",
                 "part_3": "."
+            },
+            "ai_copilot_flag": {
+                "title": " AI Agents thread access consent",
+                "description": "Allow the AI Agents to access thread messages when a user mentions the bot in a thread.",
+                "tooltip": "The longer the thread, the more context the AI Agents will have to work with.",
+                "allow_thread_messages": "Allow AI to access thread messages",
+                "configure": {
+                    "part_1": "Configure Slack channel project mappings",
+                    "part_2": "here",
+                    "part_3": "."
+                }
             }
         },
         "tip": "Your Slack integration is not up to date, you should reinstall the Slack integration to guarantee the best user experience.",
@@ -5135,7 +5228,33 @@
     },
     "components_export_selector": {
         "export_selector": "Back to export selector",
-        "csv": "csv"
+        "csv": "csv",
+        "download_data": "Download data"
+    },
+    "components_export_results": {
+        "exporting": {
+            "title": "Exporting results",
+            "subtitle": "This may take a few minutes..."
+        },
+        "warning": {
+            "title": "The results in this export have been limited.",
+            "subtitle": "The export was truncated due to size constraints."
+        },
+        "error": {
+            "title": "Unable to download CSV"
+        },
+        "no_data_to_export": "No data to export",
+        "radio_groups_values": {
+            "part_1": "Formatted",
+            "part_2": "Raw"
+        },
+        "radio_groups_limit": {
+            "part_1": "Results in Table",
+            "part_2": "All Results",
+            "custom": "Custom..."
+        },
+        "limit": "Excel exports are limited to 1,000,000 rows.",
+        "download": "Download"
     },
 
     "components_funnel_chart": {
@@ -5840,6 +5959,19 @@
             }
         },
         "big_query": {
+            "authentication_type": {
+                "label": "Authentication Type",
+                "description": {
+                    "part_1": "You are connected to BigQuery,",
+                    "part_2": "Click here to reauthenticate.",
+                    "part_3": "Choose whether to authenticate with a service account or a user account"
+                },
+                "data": {
+                    "service_account": "Service Account (JSON key file)",
+                    "user_account": "User Account (Sign in with Google)"
+                },
+                "tooltip": "You are connected to BigQuery"
+            },
             "dataset": {
                 "label": "Data set",
                 "label_help": {
@@ -6141,6 +6273,15 @@
             "schema": {
                 "label": "Schema",
                 "description": "This is the schema name."
+            },
+            "authentication_type": {
+                "label": "Authentication Type",
+                "description": {
+                    "part_1": "You are connected to Snowflake,",
+                    "part_2": "Click here to reauthenticate.",
+                    "part_3": "Choose how to authenticate with your data warehouse."
+                },
+                "tooltip": "You are connected to Snowflake"
             },
             "account": {
                 "label": "Account",
@@ -6903,6 +7044,11 @@
         "no_response_yet": "No response yet",
         "suboptimal_state": {
             "description": "Select a conversation to view it's messages"
+        },
+        "debug_data_with_labels": {
+            "filtersOutput": "Filters",
+            "vizConfigOutput": "Visualization Config",
+            "metricQuery": "Metric Query"
         }
     },
     "ai_embed_dashboard": {
@@ -6916,5 +7062,36 @@
         "empty_dashboard_description": "This dashboard has no tiles",
         "dashboard_tile_type_not_recognised": "Dashboard tile type is not recognised",
         "embed_link_not_valid": "This embed link is not valid"
+    },
+    "ai_agents_page": {
+        "threads_created": "Threads created in slack are read only",
+        "all_agents": "All agents",
+        "last_updated": "Last updated",
+        "new_thread": "New thread",
+        "settings": "Settings",
+        "instructions": "Instructions",
+        "lightdash_data_sources": "Lightdash Data Sources",
+        "threads": "Threads",
+        "view_more": "View more"
+    },
+    "ai_agents_list_page": {
+        "last_modified": "Last modified",
+        "settings": "Settings",
+        "start_chat": "Start a chat",
+        "tooltip": {
+            "part_1": "This feature is in alpha. We're actively testing and improving it.",
+            "part_2": "Alpha",
+            "part_3": "Ask questions in natural language and get insights from your data."
+        },
+        "new_agent": "New Agent",
+        "learn_more": "Learn more",
+        "no_agents_found": " No agents found. Get started by adding an agent."
+    },
+    "ai_agents_thread_page": {
+        "thread_created_in_slack": "This thread is read-only. To continue the conversation, reply in Slack.",
+        "ask_agent_anything": "Ask {{agentName}} anything about your data..."
+    },
+    "ai_agents_new_thread_page": {
+        "ask_agent_anything": "Ask {{agentName}} anything about your data..."
     }
 }

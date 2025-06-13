@@ -23,7 +23,6 @@ import {
     type ApiError,
     type Dashboard,
     type DashboardFilterRule,
-    type DashboardFilters,
     type Field,
     type FilterDashboardToRule,
     type DashboardChartTile as IDashboardChartTile,
@@ -40,6 +39,7 @@ import {
     Group,
     HoverCard,
     Menu,
+    Modal,
     Portal,
     Stack,
     Text,
@@ -71,7 +71,6 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { v4 as uuid4 } from 'uuid';
 
-import { downloadCsvFromSavedChart } from '../../api/csv';
 import { DashboardTileComments } from '../../features/comments';
 import { DateZoomInfoOnTile } from '../../features/dateZoom';
 import { ExportToGoogleSheet } from '../../features/export';
@@ -106,7 +105,7 @@ import { default as MantineIcon } from '../common/MantineIcon';
 import { default as MoveChartThatBelongsToDashboardModal } from '../common/modal/MoveChartThatBelongsToDashboardModal';
 import { default as SuboptimalState } from '../common/SuboptimalState/SuboptimalState';
 import { FilterDashboardTo } from '../DashboardFilter/FilterDashboardTo';
-import ExportCSVModal from '../ExportCSV/ExportCSVModal';
+import ExportResults from '../ExportResults';
 import LightdashVisualization from '../LightdashVisualization';
 import VisualizationProvider from '../LightdashVisualization/VisualizationProvider';
 import DrillDownMenuItem from '../MetricQueryData/DrillDownMenuItem';
@@ -121,49 +120,12 @@ import { DashboardMinimalDownloadCsv } from './DashboardMinimalDownloadCsv';
 import EditChartMenuItem from './EditChartMenuItem';
 import TileBase from './TileBase/index';
 
-interface ExportResultAsCSVModalProps {
-    projectUuid: string;
-    chartUuid: string;
-    dashboardFilters?: DashboardFilters;
-    tileUuid?: string;
-    // Csv properties
-    rows: ApiChartAndResults['rows'];
-    onClose: () => void;
-    onConfirm: () => void;
+interface ExportGoogleSheetProps {
+    savedChart: SavedChart;
+    disabled?: boolean;
 }
 
-const ExportResultAsCSVModal: FC<ExportResultAsCSVModalProps> = ({
-    projectUuid,
-    chartUuid,
-    dashboardFilters,
-    tileUuid,
-    rows,
-    onClose,
-    onConfirm,
-}) => {
-    const getCsvLink = async (csvLimit: number | null, onlyRaw: boolean) => {
-        return downloadCsvFromSavedChart({
-            chartUuid,
-            dashboardFilters,
-            tileUuid,
-            onlyRaw,
-            csvLimit,
-        });
-    };
-
-    return (
-        <ExportCSVModal
-            projectUuid={projectUuid}
-            opened
-            totalResults={rows.length}
-            getCsvLink={getCsvLink}
-            onClose={onClose}
-            onConfirm={onConfirm}
-        />
-    );
-};
-
-const ExportGoogleSheet: FC<{ savedChart: SavedChart; disabled?: boolean }> = ({
+const ExportGoogleSheet: FC<ExportGoogleSheetProps> = ({
     savedChart,
     disabled,
 }) => {
@@ -710,7 +672,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
     const [dashboardTileFilterOptions, setDashboardTileFilterOptions] =
         useState<FilterDashboardToRule[]>([]);
 
-    const [isCSVExportModalOpen, setIsCSVExportModalOpen] = useState(false);
+    const [isDataExportModalOpen, setIsDataExportModalOpen] = useState(false);
 
     const onSeriesContextMenu = useCallback(
         (e: EchartSeriesClickEvent, series: EChartSeries[]) => {
@@ -881,6 +843,10 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
         user.data?.ability,
         t,
     ]);
+
+    const getDownloadQueryUuid = useCallback(async () => {
+        return dashboardChartReadyQuery.executeQueryResponse.queryUuid;
+    }, [dashboardChartReadyQuery.executeQueryResponse.queryUuid]);
 
     return (
         <>
@@ -1144,13 +1110,13 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                                 }
                                                 disabled={isEditMode}
                                                 onClick={() =>
-                                                    setIsCSVExportModalOpen(
+                                                    setIsDataExportModalOpen(
                                                         true,
                                                     )
                                                 }
                                             >
                                                 {t(
-                                                    'components_dashboard_tiles_chart_title.menus.export_csv',
+                                                    'components_dashboard_tiles_chart_title.menus.download_data',
                                                 )}
                                             </Menu.Item>
                                         </>
@@ -1353,16 +1319,30 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                 />
             )}
 
-            {isCSVExportModalOpen ? (
-                <ExportResultAsCSVModal
-                    projectUuid={chart.projectUuid}
-                    chartUuid={chart.uuid}
-                    tileUuid={tileUuid}
-                    dashboardFilters={appliedDashboardFilters ?? undefined}
-                    rows={rows}
-                    onClose={() => setIsCSVExportModalOpen(false)}
-                    onConfirm={() => setIsCSVExportModalOpen(false)}
-                />
+            {isDataExportModalOpen ? (
+                <Modal
+                    opened
+                    onClose={() => setIsDataExportModalOpen(false)}
+                    title={t(
+                        'components_dashboard_tiles_chart_title.menus.download_data',
+                    )}
+                    size="md"
+                >
+                    <ExportResults
+                        projectUuid={projectUuid!}
+                        totalResults={rows.length}
+                        getDownloadQueryUuid={getDownloadQueryUuid}
+                        showTableNames
+                        chartName={title || chart.name}
+                        columnOrder={chart.tableConfig.columnOrder}
+                        customLabels={getCustomLabelsFromTableConfig(
+                            chart.chartConfig.config,
+                        )}
+                        hiddenFields={getHiddenTableFields(chart.chartConfig)}
+                        pivotConfig={getPivotConfig(chart)}
+                        hideLimitSelection
+                    />
+                </Modal>
             ) : null}
         </>
     );

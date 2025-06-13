@@ -10,7 +10,6 @@ import LicenseClient from './clients/License/LicenseClient';
 import OpenAi from './clients/OpenAi';
 import { CommercialSlackBot } from './clients/Slack/SlackBot';
 import { AiAgentModel } from './models/AiAgentModel';
-import { AiModel } from './models/AiModel';
 import { CommercialCatalogModel } from './models/CommercialCatalogModel';
 import { CommercialFeatureFlagModel } from './models/CommercialFeatureFlagModel';
 import { CommercialSlackAuthenticationModel } from './models/CommercialSlackAuthenticationModel';
@@ -73,6 +72,7 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                     userModel: models.getUserModel(),
                     userAttributesModel: models.getUserAttributesModel(),
                     featureFlagModel: models.getFeatureFlagModel(),
+                    organizationModel: models.getOrganizationModel(),
                 }),
             catalogService: ({ context, models }) =>
                 new CommercialCatalogService({
@@ -88,28 +88,26 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                 }),
             aiService: ({ repository, context, models, clients }) =>
                 new AiService({
+                    lightdashConfig: context.lightdashConfig,
                     analytics: context.lightdashAnalytics,
                     dashboardModel: models.getDashboardModel(),
                     dashboardSummaryModel: models.getDashboardSummaryModel(),
                     projectService: repository.getProjectService(),
+                    openAi: new OpenAi(), // TODO This should go in client repository as soon as it is available
+                }),
+            aiAgentService: ({ models, repository, clients, context }) =>
+                new AiAgentService({
+                    lightdashConfig: context.lightdashConfig,
+                    analytics: context.lightdashAnalytics,
+                    userModel: models.getUserModel(),
+                    aiAgentModel: models.getAiAgentModel(),
+                    featureFlagService: repository.getFeatureFlagService(),
+                    slackClient: clients.getSlackClient(),
+                    schedulerClient:
+                        clients.getSchedulerClient() as CommercialSchedulerClient,
+                    projectService: repository.getProjectService(),
                     catalogService:
                         repository.getCatalogService() as CommercialCatalogService,
-                    userModel: models.getUserModel(),
-                    aiModel: models.getAiModel(),
-                    aiAgentModel: models.getAiAgentModel(),
-                    projectModel: models.getProjectModel(),
-                    openAi: new OpenAi(), // TODO This should go in client repository as soon as it is available
-                    slackClient: clients.getSlackClient(),
-                    lightdashConfig: context.lightdashConfig,
-                    organizationModel: models.getOrganizationModel(),
-                    featureFlagService: repository.getFeatureFlagService(),
-                }),
-            aiAgentService: ({ models, repository }) =>
-                new AiAgentService({
-                    aiAgentModel: models.getAiAgentModel(),
-                    slackAuthenticationModel:
-                        models.getSlackAuthenticationModel() as CommercialSlackAuthenticationModel,
-                    featureFlagService: repository.getFeatureFlagService(),
                 }),
             scimService: ({ models, context }) =>
                 new ScimService({
@@ -125,11 +123,12 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                     commercialFeatureFlagModel:
                         models.getFeatureFlagModel() as CommercialFeatureFlagModel,
                 }),
-            slackIntegrationService: ({ models, context }) =>
+            slackIntegrationService: ({ models, context, clients }) =>
                 new CommercialSlackIntegrationService({
                     slackAuthenticationModel:
                         models.getSlackAuthenticationModel() as CommercialSlackAuthenticationModel,
                     analytics: context.lightdashAnalytics,
+                    slackClient: clients.getSlackClient(),
                     aiAgentModel: models.getAiAgentModel(),
                 }),
             supportService: ({ models, context, repository, clients }) =>
@@ -213,18 +212,17 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                     queryHistoryModel: models.getQueryHistoryModel(),
                     cacheService: repository.getCacheService(),
                     savedSqlModel: models.getSavedSqlModel(),
-                    resultsFileModel: models.getResultsFileModel(),
                     storageClient: clients.getResultsFileStorageClient(),
+                    csvService: repository.getCsvService(),
                 }),
             cacheService: ({ models, context, clients }) =>
                 new CommercialCacheService({
-                    resultsFileModel: models.getResultsFileModel(),
+                    queryHistoryModel: models.getQueryHistoryModel(),
                     lightdashConfig: context.lightdashConfig,
                     storageClient: clients.getResultsFileStorageClient(),
                 }),
         },
         modelProviders: {
-            aiModel: ({ database }) => new AiModel({ database }),
             aiAgentModel: ({ database }) => new AiAgentModel({ database }),
             embedModel: ({ database }) => new EmbedModel({ database }),
             dashboardSummaryModel: ({ database }) =>
@@ -271,7 +269,7 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                 s3Client: context.clients.getS3Client(),
                 schedulerClient: context.clients.getSchedulerClient(),
                 slackClient: context.clients.getSlackClient(),
-                aiService: context.serviceRepository.getAiService(),
+                aiAgentService: context.serviceRepository.getAiAgentService(),
                 semanticLayerService:
                     context.serviceRepository.getSemanticLayerService(),
                 catalogService: context.serviceRepository.getCatalogService(),
@@ -286,10 +284,9 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                 slackAuthenticationModel:
                     context.models.getSlackAuthenticationModel() as CommercialSlackAuthenticationModel,
                 unfurlService: context.serviceRepository.getUnfurlService(),
-                aiService: context.serviceRepository.getAiService(),
+                aiAgentService: context.serviceRepository.getAiAgentService(),
                 schedulerClient:
                     context.clients.getSchedulerClient() as CommercialSchedulerClient,
-                aiModel: context.models.getAiModel(),
                 aiAgentModel: context.models.getAiAgentModel(),
             }),
         clientProviders: {

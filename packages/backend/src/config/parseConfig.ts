@@ -387,14 +387,22 @@ export const parseResultsS3Config = (): LightdashConfig['results']['s3'] => {
         forcePathStyle: baseForcePathStyle,
     } = baseS3Config;
 
-    // TODO: rename to RESULTS_S3_BUCKET
-    const bucket = process.env.RESULTS_CACHE_S3_BUCKET || baseBucket;
-    // TODO: rename to RESULTS_S3_REGION
-    const region = process.env.RESULTS_CACHE_S3_REGION || baseRegion;
-    // TODO: rename to RESULTS_S3_ACCESS_KEY
-    const accessKey = process.env.RESULTS_CACHE_S3_ACCESS_KEY || baseAccessKey;
-    // TODO: rename to RESULTS_S3_SECRET_KEY
-    const secretKey = process.env.RESULTS_CACHE_S3_SECRET_KEY || baseSecretKey;
+    const bucket =
+        process.env.RESULTS_S3_BUCKET ||
+        process.env.RESULTS_CACHE_S3_BUCKET || // Deprecated
+        baseBucket;
+    const region =
+        process.env.RESULTS_S3_REGION ||
+        process.env.RESULTS_CACHE_S3_REGION || // Deprecated
+        baseRegion;
+    const accessKey =
+        process.env.RESULTS_S3_ACCESS_KEY ||
+        process.env.RESULTS_CACHE_S3_ACCESS_KEY || // Deprecated
+        baseAccessKey;
+    const secretKey =
+        process.env.RESULTS_S3_SECRET_KEY ||
+        process.env.RESULTS_CACHE_S3_SECRET_KEY || // Deprecated
+        baseSecretKey;
 
     return {
         endpoint: baseEndpoint, // ! For now we keep reusing the S3_ENDPOINT like we have been so far, we are just going to enforce it
@@ -518,6 +526,11 @@ export type LightdashConfig = {
             enabled: boolean;
             requiresFeatureFlag: boolean;
             embeddingSearchEnabled?: boolean;
+            providers?: {
+                openai?: {
+                    apiKey: string;
+                };
+            };
         };
     };
     embedding: {
@@ -577,6 +590,7 @@ export type HeadlessBrowserConfig = {
     host?: string;
     port?: string;
     internalLightdashHost: string;
+    browserEndpoint: string;
 };
 export type S3Config = {
     region: string;
@@ -680,6 +694,15 @@ type AuthOidcConfig = {
     scopes: string | undefined;
 } & JwtKeySetConfig;
 
+type AuthSnowflakeConfig = {
+    clientId: string | undefined;
+    clientSecret: string | undefined;
+    authorizationEndpoint: string | undefined;
+    tokenEndpoint: string | undefined;
+    callbackPath: string;
+    loginPath: string;
+};
+
 export type AuthConfig = {
     disablePasswordAuthentication: boolean;
     /**
@@ -693,6 +716,7 @@ export type AuthConfig = {
     oneLogin: AuthOneLoginConfig;
     azuread: AuthAzureADConfig;
     oidc: AuthOidcConfig;
+    snowflake: AuthSnowflakeConfig;
     pat: {
         enabled: boolean;
         allowedOrgRoles: OrganizationMemberRole[];
@@ -758,6 +782,11 @@ export const parseConfig = (): LightdashConfig => {
     const iframeEmbeddingEnabled = iframeAllowedDomains.length > 0;
     const corsEnabled = process.env.LIGHTDASH_CORS_ENABLED === 'true';
     const secureCookies = process.env.SECURE_COOKIES === 'true';
+    const useSecureBrowser = process.env.USE_SECURE_BROWSER === 'true';
+    const browserProtocol = useSecureBrowser ? 'wss' : 'ws';
+    const browserEndpoint = useSecureBrowser
+        ? `${browserProtocol}://${process.env.HEADLESS_BROWSER_HOST}`
+        : `${browserProtocol}://${process.env.HEADLESS_BROWSER_HOST}:${process.env.HEADLESS_BROWSER_PORT}`;
 
     if (iframeEmbeddingEnabled && !secureCookies) {
         throw new ParameterError(
@@ -959,6 +988,15 @@ export const parseConfig = (): LightdashConfig => {
                     'client_secret_basic',
                 scopes: process.env.AUTH_OIDC_SCOPES,
             },
+            snowflake: {
+                clientId: process.env.SNOWFLAKE_OAUTH_CLIENT_ID,
+                clientSecret: process.env.SNOWFLAKE_OAUTH_CLIENT_SECRET,
+                authorizationEndpoint:
+                    process.env.SNOWFLAKE_OAUTH_AUTHORIZATION_ENDPOINT,
+                tokenEndpoint: process.env.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT,
+                loginPath: '/login/snowflake',
+                callbackPath: '/oauth/redirect/snowflake',
+            },
         },
         intercom: {
             appId:
@@ -1039,6 +1077,7 @@ export const parseConfig = (): LightdashConfig => {
             host: process.env.HEADLESS_BROWSER_HOST,
             internalLightdashHost:
                 process.env.INTERNAL_LIGHTDASH_HOST || siteUrl,
+            browserEndpoint,
         },
         s3: parseBaseS3Config(),
         results: {
@@ -1120,6 +1159,16 @@ export const parseConfig = (): LightdashConfig => {
         ai: {
             copilot: {
                 enabled: process.env.AI_COPILOT_ENABLED === 'true',
+
+                ...(process.env.OPENAI_API_KEY
+                    ? {
+                          providers: {
+                              openai: {
+                                  apiKey: process.env.OPENAI_API_KEY,
+                              },
+                          },
+                      }
+                    : {}),
                 requiresFeatureFlag:
                     process.env.AI_COPILOT_REQUIRES_FEATURE_FLAG === 'true',
                 embeddingSearchEnabled:
