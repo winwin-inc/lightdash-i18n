@@ -1,12 +1,10 @@
 import { subject } from '@casl/ability';
 import {
     ChartKind,
-    getDashboardFilterRulesForTile,
     isVizCartesianChartConfig,
     isVizPieChartConfig,
     isVizTableConfig,
     type DashboardSqlChartTile,
-    type ResultColumn,
 } from '@lightdash/common';
 import { Box } from '@mantine/core';
 import { IconAlertCircle, IconFilePencil } from '@tabler/icons-react';
@@ -15,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
 import { useSavedSqlChartResults } from '../../features/sqlRunner/hooks/useSavedSqlChartResults';
+import useDashboardFiltersForTile from '../../hooks/dashboard/useDashboardFiltersForTile';
 import useSearchParams from '../../hooks/useSearchParams';
 import useApp from '../../providers/App/useApp';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
@@ -83,27 +82,7 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
     const updateSqlChartTilesMetadata = useDashboardContext(
         (c) => c.updateSqlChartTilesMetadata,
     );
-    const dashboardFilters = useDashboardContext((c) => c.dashboardFilters);
-
-    const dashboardFiltersForThisTile = useMemo(() => {
-        return {
-            dimensions: getDashboardFilterRulesForTile(
-                tile.uuid,
-                dashboardFilters.dimensions,
-                true,
-            ),
-            metrics: getDashboardFilterRulesForTile(
-                tile.uuid,
-                dashboardFilters.metrics,
-                true,
-            ),
-            tableCalculations: getDashboardFilterRulesForTile(
-                tile.uuid,
-                dashboardFilters.tableCalculations,
-                true,
-            ),
-        };
-    }, [tile.uuid, dashboardFilters]);
+    const dashboardFilters = useDashboardFiltersForTile(tile.uuid);
 
     const {
         chartQuery: {
@@ -123,7 +102,7 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
         context,
         dashboardUuid,
         tileUuid: tile.uuid,
-        dashboardFilters: dashboardFiltersForThisTile,
+        dashboardFilters,
         dashboardSorts: [],
     });
 
@@ -138,17 +117,13 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
 
     // Update SQL chart columns in the dashboard context
     useEffect(() => {
-        if (chartResultsData?.resultsRunner) {
-            const columns = chartResultsData.resultsRunner
-                .getPivotQueryDimensions()
-                .map<ResultColumn>(({ reference, dimensionType }) => ({
-                    reference,
-                    type: dimensionType,
-                }));
-            updateSqlChartTilesMetadata(tile.uuid, { columns });
+        if (chartResultsData?.originalColumns) {
+            updateSqlChartTilesMetadata(tile.uuid, {
+                columns: Object.values(chartResultsData.originalColumns),
+            });
         }
     }, [
-        chartResultsData?.resultsRunner,
+        chartResultsData?.originalColumns,
         tile.uuid,
         updateSqlChartTilesMetadata,
     ]);

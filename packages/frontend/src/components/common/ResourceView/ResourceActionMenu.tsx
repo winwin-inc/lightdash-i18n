@@ -371,7 +371,9 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                             });
                         }}
                     >
-                        Move
+                        {t(
+                            'components_common_resource_view_action_menu.menus.move.move',
+                        )}
                     </Menu.Item>
 
                     {allowDelete && (

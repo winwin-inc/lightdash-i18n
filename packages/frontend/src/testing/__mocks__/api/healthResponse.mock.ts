@@ -74,6 +74,9 @@ export default function mockHealthResponse(
             pat: {
                 maxExpirationTimeInDays: undefined,
             },
+            snowflake: {
+                enabled: false,
+            },
         },
         hasEmailClient: false,
         hasHeadlessBrowser: false,

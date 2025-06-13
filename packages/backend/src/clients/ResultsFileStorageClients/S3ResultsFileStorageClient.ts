@@ -2,7 +2,7 @@ import { GetObjectCommand, NotFound } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getErrorMessage, WarehouseResults } from '@lightdash/common';
-import { once, PassThrough, Readable, Writable } from 'stream';
+import { PassThrough, Readable, Writable } from 'stream';
 import Logger from '../../logging/logger';
 import {
     S3CacheClient,
@@ -17,6 +17,16 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
 
         const { lightdashConfig } = args;
         this.s3ExpiresIn = lightdashConfig.s3.expirationTime;
+    }
+
+    static sanitizeFileExtension(
+        fileName: string,
+        fileExtension: string = 'jsonl',
+    ) {
+        const hasExtension = fileName
+            .toLowerCase()
+            .endsWith(`.${fileExtension.toLowerCase()}`);
+        return hasExtension ? fileName : `${fileName}.${fileExtension}`;
     }
 
     createUploadStream(
@@ -100,11 +110,10 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
     }
 
     async getFileUrl(cacheKey: string, fileExtension = 'jsonl') {
-        // Check if the cacheKey already has the specified file extension
-        const hasExtension = cacheKey
-            .toLowerCase()
-            .endsWith(`.${fileExtension.toLowerCase()}`);
-        const key = hasExtension ? cacheKey : `${cacheKey}.${fileExtension}`;
+        const key = S3ResultsFileStorageClient.sanitizeFileExtension(
+            cacheKey,
+            fileExtension,
+        );
 
         // Get the S3 URL
         const url = await getSignedUrl(
@@ -129,13 +138,29 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
             writeStream: Writable,
         ) => Promise<{ truncated: boolean }>,
     ): Promise<{ fileUrl: string; truncated: boolean }> {
-        // Determine content type based on file extension
-        const isCsv = sinkFileName.toLowerCase().endsWith('.csv');
-        const contentType = isCsv ? 'text/csv' : 'application/jsonl';
+        // File format configuration map
+        const formatConfig = new Map([
+            ['csv', { contentType: 'text/csv', extension: 'csv' }],
+            [
+                'xlsx',
+                {
+                    contentType:
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    extension: 'xlsx',
+                },
+            ],
+            ['jsonl', { contentType: 'application/jsonl', extension: 'jsonl' }],
+        ]);
+
+        // Determine file format from extension
+        const fileExtension =
+            sinkFileName.toLowerCase().split('.').pop() || 'jsonl';
+        const config =
+            formatConfig.get(fileExtension) || formatConfig.get('jsonl')!;
 
         // Create upload stream
         const { writeStream, close } = this.createUploadStream(sinkFileName, {
-            contentType,
+            contentType: config.contentType,
         });
 
         // Get the results stream
@@ -148,9 +173,7 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
 
         await close();
 
-        // Extract extension from filename to ensure correct URL generation
-        const extension = isCsv ? 'csv' : 'jsonl';
-        const url = await this.getFileUrl(sinkFileName, extension);
+        const url = await this.getFileUrl(sinkFileName, config.extension);
 
         return {
             fileUrl: url,

@@ -1,24 +1,41 @@
-import { FeatureFlags, WarehouseTypes } from '@lightdash/common';
+import {
+    FeatureFlags,
+    SnowflakeAuthenticationType,
+    WarehouseTypes,
+} from '@lightdash/common';
 import {
     Anchor,
+    Button,
     FileInput,
+    Group,
     PasswordInput,
     Select,
     Stack,
+    Text,
     TextInput,
+    Tooltip,
 } from '@mantine/core';
+import { IconCheck } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
 
 import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
+import {
+    useIsSnowflakeAuthenticated,
+    useSnowflakeDatasets,
+    useSnowflakeLoginPopup,
+} from '../../../hooks/useSnowflake';
+import MantineIcon from '../../common/MantineIcon';
 import FormCollapseButton from '../FormCollapseButton';
 import { useFormContext } from '../formContext';
 import BooleanSwitch from '../Inputs/BooleanSwitch';
 import FormSection from '../Inputs/FormSection';
 import StartOfWeekSelect from '../Inputs/StartOfWeekSelect';
+import { getWarehouseIcon } from '../ProjectConnectFlow/utils';
 import { useProjectFormContext } from '../useProjectFormContext';
 import { SnowflakeDefaultValues } from './defaultValues';
+import { getSsoLabel, PASSWORD_LABEL, PRIVATE_KEY_LABEL } from './util';
 
 export const SnowflakeSchemaInput: FC<{
     disabled: boolean;
@@ -42,6 +59,29 @@ export const SnowflakeSchemaInput: FC<{
     );
 };
 
+export const SnowflakeSSOInput: FC<{
+    isAuthenticated: boolean;
+    disabled: boolean;
+    openLoginPopup: () => void;
+}> = ({ isAuthenticated, disabled, openLoginPopup }) => {
+    if (isAuthenticated) return null;
+
+    return (
+        <Button
+            onClick={() => {
+                openLoginPopup();
+            }}
+            variant="default"
+            color="gray"
+            disabled={disabled}
+            leftIcon={getWarehouseIcon(WarehouseTypes.SNOWFLAKE, 'sm')}
+            sx={{ ':hover': { textDecoration: 'underline' } }}
+        >
+            Sign in with Snowflake
+        </Button>
+    );
+};
+
 const SnowflakeForm: FC<{
     disabled: boolean;
 }> = ({ disabled }) => {
@@ -49,6 +89,26 @@ const SnowflakeForm: FC<{
     const { savedProject } = useProjectFormContext();
     const form = useFormContext();
     const { t } = useTranslation();
+
+    const {
+        data,
+        isLoading: isLoadingAuth,
+        error: snowflakeAuthError,
+        refetch: refetchAuth,
+    } = useIsSnowflakeAuthenticated();
+    const isSso =
+        form.values.warehouse?.type === WarehouseTypes.SNOWFLAKE &&
+        form.values.warehouse.authenticationType ===
+            SnowflakeAuthenticationType.SSO;
+    const isAuthenticated =
+        data !== undefined && snowflakeAuthError === null && isSso;
+    const { refetch: refetchDatasets } = useSnowflakeDatasets();
+    const { mutate: openLoginPopup, isSsoEnabled } = useSnowflakeLoginPopup({
+        onLogin: async () => {
+            await refetchAuth();
+            await refetchDatasets();
+        },
+    });
 
     const requireSecrets: boolean =
         savedProject?.warehouseConnection?.type !== WarehouseTypes.SNOWFLAKE;
@@ -59,19 +119,56 @@ const SnowflakeForm: FC<{
     if (form.values.warehouse?.type !== WarehouseTypes.SNOWFLAKE) {
         throw new Error('Snowflake form is not used for this warehouse type');
     }
+
+    const savedAuthType =
+        savedProject?.warehouseConnection?.type === WarehouseTypes.SNOWFLAKE
+            ? savedProject?.warehouseConnection?.authenticationType
+            : undefined;
     const hasPrivateKey =
         savedProject !== undefined
-            ? savedProject?.warehouseConnection?.type ===
-                  WarehouseTypes.SNOWFLAKE &&
-              savedProject?.warehouseConnection?.authenticationType ===
-                  'private_key'
+            ? savedAuthType === SnowflakeAuthenticationType.PRIVATE_KEY
             : true;
+    const defaultAuthType = savedAuthType
+        ? savedAuthType
+        : isSsoEnabled
+        ? SnowflakeAuthenticationType.SSO
+        : hasPrivateKey
+        ? SnowflakeAuthenticationType.PRIVATE_KEY
+        : SnowflakeAuthenticationType.PASSWORD;
 
-    const authenticationType: string =
-        form.values.warehouse.authenticationType ??
-        (hasPrivateKey ? 'private_key' : 'password');
+    if (!form.isTouched()) {
+        form.setFieldValue('warehouse.authenticationType', defaultAuthType);
+    }
+    const authenticationType: SnowflakeAuthenticationType =
+        form.values.warehouse.authenticationType ?? defaultAuthType;
 
     const [temporaryFile, setTemporaryFile] = useState<File>();
+
+    const authOptions = isSsoEnabled
+        ? [
+              {
+                  value: SnowflakeAuthenticationType.SSO,
+                  label: getSsoLabel(WarehouseTypes.SNOWFLAKE),
+              },
+              {
+                  value: SnowflakeAuthenticationType.PRIVATE_KEY,
+                  label: PRIVATE_KEY_LABEL,
+              },
+              {
+                  value: SnowflakeAuthenticationType.PASSWORD,
+                  label: PASSWORD_LABEL,
+              },
+          ]
+        : [
+              {
+                  value: SnowflakeAuthenticationType.PRIVATE_KEY,
+                  label: PRIVATE_KEY_LABEL,
+              },
+              {
+                  value: SnowflakeAuthenticationType.PASSWORD,
+                  label: PASSWORD_LABEL,
+              },
+          ];
 
     return (
         <>
@@ -89,53 +186,90 @@ const SnowflakeForm: FC<{
                     disabled={disabled}
                     labelProps={{ style: { marginTop: '8px' } }}
                 />
-                <TextInput
-                    name="warehouse.user"
-                    label={t(
-                        'components_project_connection_warehouse_form.snowflake.user.label',
-                    )}
-                    description={t(
-                        'components_project_connection_warehouse_form.snowflake.user.description',
-                    )}
-                    required={requireSecrets}
-                    {...form.getInputProps('warehouse.user')}
-                    placeholder={
-                        disabled || !requireSecrets
-                            ? '**************'
-                            : undefined
-                    }
-                    disabled={disabled}
-                />
 
-                <Select
-                    name="warehouse.authenticationType"
-                    {...form.getInputProps('warehouse.authenticationType')}
-                    defaultValue={hasPrivateKey ? 'private_key' : 'password'}
-                    label={t(
-                        'components_project_connection_warehouse_form.snowflake.private_key.label',
+                <Group spacing="sm">
+                    <Select
+                        name="warehouse.authenticationType"
+                        {...form.getInputProps('warehouse.authenticationType')}
+                        // TODO: default value is not being recognized. private key is always being selected
+                        defaultValue={defaultAuthType}
+                        label="Authentication Type"
+                        description={
+                            isSsoEnabled &&
+                            isLoadingAuth ? null : isAuthenticated ? (
+                                <Text mt="0" color="gray" fs="xs">
+                                    {t(
+                                        'components_project_connection_warehouse_form.snowflake.authentication_type.description.part_1',
+                                    )}{' '}
+                                    <Anchor
+                                        href="#"
+                                        onClick={() => {
+                                            openLoginPopup();
+                                        }}
+                                    >
+                                        {t(
+                                            'components_project_connection_warehouse_form.snowflake.authentication_type.description.part_2',
+                                        )}
+                                    </Anchor>
+                                </Text>
+                            ) : (
+                                t(
+                                    'components_project_connection_warehouse_form.snowflake.authentication_type.description.part_3',
+                                )
+                            )
+                        }
+                        data={authOptions}
+                        required
+                        disabled={disabled}
+                        w={isAuthenticated ? '90%' : '100%'}
+                    />
+                    {isAuthenticated && (
+                        <Tooltip
+                            label={t(
+                                'components_project_connection_warehouse_form.snowflake.authentication_type.tooltip',
+                            )}
+                        >
+                            <Group mt="40px">
+                                <MantineIcon icon={IconCheck} color="green" />
+                            </Group>
+                        </Tooltip>
                     )}
-                    description={t(
-                        'components_project_connection_warehouse_form.snowflake.private_key.description',
-                    )}
-                    data={[
-                        {
-                            value: 'private_key',
-                            label: t(
-                                'components_project_connection_warehouse_form.snowflake.private_key.private_key',
-                            ),
-                        },
-                        {
-                            value: 'password',
-                            label: t(
-                                'components_project_connection_warehouse_form.snowflake.private_key.password',
-                            ),
-                        },
-                    ]}
-                    required
-                    disabled={disabled}
-                />
+                </Group>
+                {authenticationType !== SnowflakeAuthenticationType.SSO && (
+                    <>
+                        <TextInput
+                            name="warehouse.user"
+                            label={t(
+                                'components_project_connection_warehouse_form.snowflake.user.label',
+                            )}
+                            description={t(
+                                'components_project_connection_warehouse_form.snowflake.user.description',
+                            )}
+                            required={requireSecrets}
+                            {...form.getInputProps('warehouse.user')}
+                            placeholder={
+                                disabled || !requireSecrets
+                                    ? '**************'
+                                    : undefined
+                            }
+                            disabled={disabled}
+                        />
+                        <TextInput
+                            name="warehouse.role"
+                            label={t(
+                                'components_project_connection_warehouse_form.snowflake.role.label',
+                            )}
+                            description={t(
+                                'components_project_connection_warehouse_form.snowflake.role.description',
+                            )}
+                            {...form.getInputProps('warehouse.role')}
+                            disabled={disabled}
+                        />
+                    </>
+                )}
 
-                {authenticationType === 'private_key' ? (
+                {authenticationType ===
+                SnowflakeAuthenticationType.PRIVATE_KEY ? (
                     <>
                         <FileInput
                             name="warehouse.privateKey"
@@ -222,36 +356,36 @@ const SnowflakeForm: FC<{
                             disabled={disabled}
                         />
                     </>
+                ) : authenticationType === SnowflakeAuthenticationType.SSO ? (
+                    !isLoadingAuth && (
+                        <SnowflakeSSOInput
+                            isAuthenticated={isAuthenticated}
+                            disabled={disabled}
+                            openLoginPopup={openLoginPopup}
+                        />
+                    )
                 ) : (
-                    <PasswordInput
-                        name="warehouse.password"
-                        label={t(
-                            'components_project_connection_warehouse_form.snowflake.password.label',
-                        )}
-                        description={t(
-                            'components_project_connection_warehouse_form.snowflake.password.description',
-                        )}
-                        required={requireSecrets}
-                        placeholder={
-                            disabled || !requireSecrets
-                                ? '**************'
-                                : undefined
-                        }
-                        {...form.getInputProps('warehouse.password')}
-                        disabled={disabled}
-                    />
+                    <>
+                        <PasswordInput
+                            name="warehouse.password"
+                            label={t(
+                                'components_project_connection_warehouse_form.snowflake.password.label',
+                            )}
+                            description={t(
+                                'components_project_connection_warehouse_form.snowflake.password.description',
+                            )}
+                            required={requireSecrets}
+                            placeholder={
+                                disabled || !requireSecrets
+                                    ? '**************'
+                                    : undefined
+                            }
+                            {...form.getInputProps('warehouse.password')}
+                            disabled={disabled}
+                        />
+                    </>
                 )}
-                <TextInput
-                    name="warehouse.role"
-                    label={t(
-                        'components_project_connection_warehouse_form.snowflake.role.label',
-                    )}
-                    description={t(
-                        'components_project_connection_warehouse_form.snowflake.role.description',
-                    )}
-                    {...form.getInputProps('warehouse.role')}
-                    disabled={disabled}
-                />
+
                 <TextInput
                     name="warehouse.database"
                     label={t(

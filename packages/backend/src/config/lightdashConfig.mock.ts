@@ -65,6 +65,14 @@ export const lightdashConfigMock: LightdashConfig = {
             x509PublicKeyCert: undefined,
             x509PublicKeyCertPath: undefined,
         },
+        snowflake: {
+            loginPath: '/login/snowflake',
+            callbackPath: '/oauth/redirect/snowflake',
+            authorizationEndpoint: undefined,
+            tokenEndpoint: undefined,
+            clientId: undefined,
+            clientSecret: undefined,
+        },
     },
     lightdashCloudInstance: 'test-instance',
     k8s: {
@@ -192,6 +200,7 @@ export const lightdashConfigMock: LightdashConfig = {
     },
     headlessBrowser: {
         internalLightdashHost: 'https://test.lightdash.cloud',
+        browserEndpoint: 'ws://headless-browser:3000',
     },
     contentAsCode: {
         maxDownloads: 100,

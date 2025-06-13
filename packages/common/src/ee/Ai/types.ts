@@ -37,7 +37,7 @@ export type AiPrompt = {
     createdByUserUuid: string;
     prompt: string;
     createdAt: Date;
-    response: string;
+    response: string | null;
     filtersOutput: object | null;
     vizConfigOutput: object | null;
     humanScore: number | null;
@@ -101,14 +101,10 @@ export type SlackPromptJobPayload = TraceTaskBase & {
     slackPromptUuid: string;
 };
 
-export enum AiChatAgents {
-    HUMAN = 'human',
-    AI = 'ai',
-}
-
-export type AiChatMessage = {
-    agent: AiChatAgents;
-    message: string;
+export type AiAgentThreadGenerateJobPayload = TraceTaskBase & {
+    agentUuid: string;
+    threadUuid: string;
+    promptUuid: string;
 };
 
 export type AiConversation = {
