@@ -22,9 +22,9 @@ import { useTranslation } from 'react-i18next';
 
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import {
+    getFilterRuleTables,
     useConditionalRuleLabel,
     useConditionalRuleLabelFromItem,
-    getFilterRuleTables,
 } from '../../common/Filters/FilterInputs/utils';
 import MantineIcon from '../../common/MantineIcon';
 import FilterConfiguration from '../FilterConfiguration';
@@ -150,7 +150,13 @@ const Filter: FC<Props> = ({
                 filterRule.target.fieldId,
             );
         }
-    }, [filterRule, field, sqlChartTilesMetadata]);
+    }, [
+        filterRule,
+        field,
+        sqlChartTilesMetadata,
+        getConditionalRuleLabel,
+        getConditionalRuleLabelFromItem,
+    ]);
 
     const filterRuleTables = useMemo(() => {
         if (!field || !allFilterableFields) return;

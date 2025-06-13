@@ -141,7 +141,7 @@ const useValueAsString = () => {
     return (
         filterType: FilterType,
         rule: ConditionalRule,
-        field: Field | TableCalculation | CustomSqlDimension,
+        field?: Field | TableCalculation | CustomSqlDimension,
     ) => {
         const { operator, values } = rule;
         const firstValue = values?.[0];
@@ -215,9 +215,11 @@ const useValueAsString = () => {
                     case FilterOperator.GREATER_THAN_OR_EQUAL:
                         return values
                             ?.map((value) => {
-                                const type = isCustomSqlDimension(field)
-                                    ? field.dimensionType
-                                    : field.type;
+                                const type = field
+                                    ? isCustomSqlDimension(field)
+                                        ? field.dimensionType
+                                        : field.type
+                                    : DimensionType.TIMESTAMP;
                                 if (
                                     isDimension(field) &&
                                     isMomentInput(value) &&
@@ -254,28 +256,28 @@ const useValueAsString = () => {
 };
 
 export const useConditionalRuleLabel = () => {
-  const { filterOperatorLabel } = useFilterOperatorLabel();
+    const { filterOperatorLabel } = useFilterOperatorLabel();
 
-  const getFilterOperatorOptions = useFilterOperatorOptions();
-  const getValueAsString = useValueAsString();
+    const getFilterOperatorOptions = useFilterOperatorOptions();
+    const getValueAsString = useValueAsString();
 
-  return (
-    rule: ConditionalRule,
-    filterType: FilterType,
-    label: string,
-  ): ConditionalRuleLabels => {
-    const operatorOptions = getFilterOperatorOptions(filterType);
-    const operationLabel =
-        operatorOptions.find((o) => o.value === rule.operator)?.label ||
-        filterOperatorLabel[rule.operator];
-  
-    return {
-        field: label,
-        operator: operationLabel,
-        value: getValueAsString(filterType, rule),
+    return (
+        rule: ConditionalRule,
+        filterType: FilterType,
+        label: string,
+    ): ConditionalRuleLabels => {
+        const operatorOptions = getFilterOperatorOptions(filterType);
+        const operationLabel =
+            operatorOptions.find((o) => o.value === rule.operator)?.label ||
+            filterOperatorLabel[rule.operator];
+
+        return {
+            field: label,
+            operator: operationLabel,
+            value: getValueAsString(filterType, rule),
+        };
     };
-  };
-}
+};
 
 export const useConditionalRuleLabelFromItem = () => {
     const { filterOperatorLabel } = useFilterOperatorLabel();

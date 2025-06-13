@@ -253,15 +253,15 @@ export const useAiAgentThread = (
     });
 };
 
-const createOptimisticMessages = (
-    threadUuid: string,
-    prompt: string,
-    user: UserWithAbility,
-    agent: AiAgent,
-) => {
+const useOptimisticMessages = () => {
     const { t } = useTranslation();
 
-    return [
+    return (
+        threadUuid: string,
+        prompt: string,
+        user: UserWithAbility,
+        agent: AiAgent,
+    ) => [
         {
             role: 'user' as const,
             uuid: Math.random().toString(36),
@@ -307,6 +307,8 @@ export const useStartAgentThreadMutation = (
     const { user } = useApp();
     const { data: agent } = useProjectAiAgent(projectUuid, agentUuid);
     const { t } = useTranslation();
+
+    const createOptimisticMessages = useOptimisticMessages();
 
     return useMutation<
         ApiAiAgentStartThreadResponse['results'],
@@ -395,6 +397,8 @@ export const useGenerateAgentThreadResponseMutation = (
     const { user } = useApp();
     const { data: agent } = useProjectAiAgent(projectUuid, agentUuid);
     const { t } = useTranslation();
+
+    const createOptimisticMessages = useOptimisticMessages();
 
     return useMutation<
         ApiAiAgentThreadGenerateResponse['results'],
