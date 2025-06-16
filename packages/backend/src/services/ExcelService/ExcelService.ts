@@ -33,10 +33,6 @@ export class ExcelService {
         });
     }
 
-    static safeToLocalDate(value: string): Date {
-        return moment.utc(value).local().toDate();
-    }
-
     static convertRowToExcel(
         row: Record<string, AnyType>,
         itemMap: ItemsMap,
@@ -54,12 +50,10 @@ export class ExcelService {
             // If we have item metadata and it's a date/timestamp field, convert for Excel
             if (item && 'type' in item) {
                 if (item.type === DimensionType.TIMESTAMP) {
-                    // return moment(rawValue).toDate();
-                    return ExcelService.safeToLocalDate(rawValue);
+                    return moment(rawValue).format('YYYY-MM-DD HH:mm:ss.SSS');
                 }
                 if (item.type === DimensionType.DATE) {
-                    // return moment(rawValue).toDate();
-                    return ExcelService.safeToLocalDate(rawValue);
+                    return moment(rawValue).format('YYYY-MM-DD');
                 }
             }
 
@@ -198,8 +192,7 @@ export class ExcelService {
                     // Check if it looks like a date/timestamp
                     const dateValue = moment(value, moment.ISO_8601, true);
                     if (dateValue.isValid()) {
-                        // return dateValue.toDate();
-                        return ExcelService.safeToLocalDate(value);
+                        return moment(value).format('YYYY-MM-DD HH:mm:ss.SSS');
                     }
                 }
                 return value;
