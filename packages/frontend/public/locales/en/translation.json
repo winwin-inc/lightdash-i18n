@@ -5245,6 +5245,10 @@
             "title": "Unable to download CSV"
         },
         "no_data_to_export": "No data to export",
+        "tabs": {
+            "values": "Values",
+            "limit": "Limit"
+        },
         "radio_groups_values": {
             "part_1": "Formatted",
             "part_2": "Raw"
@@ -5252,7 +5256,7 @@
         "radio_groups_limit": {
             "part_1": "Results in Table",
             "part_2": "All Results",
-            "custom": "Custom..."
+            "part_3": "Custom..."
         },
         "limit": "Excel exports are limited to 1,000,000 rows.",
         "download": "Download"

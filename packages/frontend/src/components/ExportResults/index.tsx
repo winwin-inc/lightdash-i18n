@@ -174,7 +174,7 @@ const ExportResults: FC<ExportResultsProps> = memo(
                     />
 
                     <Stack spacing="xs">
-                        <Box>Values</Box>
+                        <Box>{t('components_export_results.tabs.values')}</Box>
                         <SegmentedControl
                             size={'xs'}
                             value={format}
@@ -205,7 +205,9 @@ const ExportResults: FC<ExportResultsProps> = memo(
                     >
                         {!hideLimitSelection ? (
                             <Stack spacing="xs">
-                                <Box>Limit</Box>
+                                <Box>
+                                    {t('components_export_results.tabs.limit')}
+                                </Box>
                                 <SegmentedControl
                                     size={'xs'}
                                     value={limit}
@@ -251,7 +253,7 @@ const ExportResults: FC<ExportResultsProps> = memo(
                         (limit === Limit.ALL || limit === Limit.CUSTOM) && (
                             <Alert color="gray.9" p="xs">
                                 <Text size="xs">
-                                    {t('components_export_results.alert_limit')}
+                                    {t('components_export_results.limit')}
                                 </Text>
                             </Alert>
                         )}

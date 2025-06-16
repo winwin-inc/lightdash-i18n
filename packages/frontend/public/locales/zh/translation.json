@@ -5250,10 +5250,14 @@
             "part_1": "格式化",
             "part_2": "原始"
         },
+        "tabs": {
+            "values": "值",
+            "limit": "限制"
+        },
         "radio_groups_limit": {
             "part_1": "表格结果",
             "part_2": "所有结果",
-            "custom": "自定义..."
+            "part_3": "自定义..."
         },
         "limit": "Excel 导出限制为 1,000,000 行。",
         "download": "下载"

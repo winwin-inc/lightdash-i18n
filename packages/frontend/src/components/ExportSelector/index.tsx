@@ -62,9 +62,7 @@ const ExportSelector: FC<
                         variant="subtle"
                         onClick={() => setExportType(undefined)}
                     >
-                        {t(
-                            'components_export_selector.back_to_export_selector',
-                        )}
+                        {t('components_export_selector.export_selector')}
                     </Button>
                     <ExportResults
                         totalResults={totalResults}
