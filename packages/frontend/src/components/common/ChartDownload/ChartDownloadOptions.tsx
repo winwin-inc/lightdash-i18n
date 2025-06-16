@@ -215,7 +215,7 @@ const ChartDownloadOptions: React.FC<DownloadOptions> = ({
 
     return (
         <Stack>
-            <Text fw={500}>Options</Text>
+            <Text fw={500}>{t('components_chart_download.options')}</Text>
             <Select
                 size="xs"
                 id="download-type"
