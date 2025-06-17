@@ -1746,7 +1746,7 @@
             "part_3": "这将永久删除:",
             "part_4": "图表",
             "part_5": "看板",
-            "part_6": "个嵌套空间{{suffix}}",
+            "part_6": "个嵌套空间",
             "part_7": "及其所有内容?"
         },
         "cancel": "取消",
@@ -2402,7 +2402,7 @@
     "components_dashboard_tiles_chart_title": {
         "copied": "已复制到剪贴板!",
         "duplicated_and_added": "图表已复制并添加到此看板的底部",
-        "dashboard_filter": "已应用看板过滤器{{suffix}}:",
+        "dashboard_filter": "已应用看板过滤器:",
         "tried_to_reference": "尝试引用未知 ID 为 {{fieldId}} 的字段",
         "is_any_value": "是任何值",
         "tooltip_editing_actions": "请完成看板编辑以使用这些操作",
@@ -3352,7 +3352,7 @@
         "expired_tip": {
             "part_1": "您的一次性密码已过期。请重新发送一封验证电子邮件。",
             "part_2": "该代码与我们发送给你的不符。你还有",
-            "part_3": "次尝试{{suffix}}",
+            "part_3": "次尝试",
             "part_4": "嗯,这个代码与我们发送给你的不符。你已经尝试了5次,请重新发送一封验证电子邮件并再试一次。"
         },
         "form": {
@@ -5948,7 +5948,7 @@
         }
     },
     "components_project_connection_warehouse_form": {
-       "type": "类型",
+        "type": "类型",
         "dbt_version": "dbt 版本",
         "latest": "最新版本",
         "days_of_week": {
