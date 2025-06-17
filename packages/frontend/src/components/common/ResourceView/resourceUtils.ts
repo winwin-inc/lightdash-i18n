@@ -20,60 +20,60 @@ export const useResourceTypeName = () => {
                 );
             case ResourceViewItemType.SPACE:
                 return t(
-                    'components_common_resource_view_utils.resource_type_names.dashboard',
+                    'components_common_resource_view_utils.resource_type_names.space',
                 );
             case ResourceViewItemType.CHART:
                 switch (item.data.chartKind) {
                     case undefined:
                     case ChartKind.VERTICAL_BAR:
                         return t(
-                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                            'components_common_resource_view_utils.resource_type_names.bar_chart',
                         );
                     case ChartKind.HORIZONTAL_BAR:
                         return t(
-                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                            'components_common_resource_view_utils.resource_type_names.horizontal_bar_chart',
                         );
                     case ChartKind.LINE:
                         return t(
-                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                            'components_common_resource_view_utils.resource_type_names.line_chart',
                         );
                     case ChartKind.SCATTER:
                         return t(
-                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                            'components_common_resource_view_utils.resource_type_names.scatter_chart',
                         );
                     case ChartKind.AREA:
                         return t(
-                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                            'components_common_resource_view_utils.resource_type_names.area_chart',
                         );
                     case ChartKind.MIXED:
                         return t(
-                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                            'components_common_resource_view_utils.resource_type_names.mixed_chart',
                         );
                     case ChartKind.PIE:
                         return t(
-                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                            'components_common_resource_view_utils.resource_type_names.pie_chart',
                         );
                     case ChartKind.FUNNEL:
                         return t(
-                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                            'components_common_resource_view_utils.resource_type_names.funnel_chart',
                         );
                     case ChartKind.TABLE:
                         return t(
-                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                            'components_common_resource_view_utils.resource_type_names.table',
                         );
                     case ChartKind.BIG_NUMBER:
                         return t(
-                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                            'components_common_resource_view_utils.resource_type_names.bid_number',
                         );
                     case ChartKind.CUSTOM:
                         return t(
-                            'components_common_resource_view_utils.resource_type_names.dashboard',
+                            'components_common_resource_view_utils.resource_type_names.custom_visualization',
                         );
                     default:
                         return assertUnreachable(
                             item.data.chartKind,
                             t(
-                                'components_common_resource_view_utils.resource_type_names.dashboard',
+                                'components_common_resource_view_utils.resource_type_names.not_supported',
                                 {
                                     chartKind: item.data.chartKind,
                                 },
