@@ -1,5 +1,8 @@
 {
-    "welcome": "欢迎您",
+    "welcome": {
+        "part_1": "欢迎",
+        "part_2": " 来到 Lightdash"
+    },
 
     "hooks_pinning": {
         "toast_chart_pinned": {

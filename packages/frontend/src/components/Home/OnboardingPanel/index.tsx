@@ -42,9 +42,9 @@ const OnboardingPanel: FC<Props> = ({ projectUuid, userName }) => {
     return (
         <Stack justify="flex-start" spacing="xs" mt="4xl">
             <Title order={3}>
-                {`${t('welcome')}${
-                    userName ? ', ' + userName : ' to Lightdash'
-                }! 👋`}
+                {`${t('welcome.part_1')}${userName ? ', ' + userName : ''}${t(
+                    'welcome.part_2',
+                )}! 👋`}
             </Title>
             <Text color="gray.7">
                 {t('components_onboarding_panel.exploring')}
