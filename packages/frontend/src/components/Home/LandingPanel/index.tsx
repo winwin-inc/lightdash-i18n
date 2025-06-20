@@ -21,9 +21,9 @@ const LandingPanel: FC<Props> = ({ userName, projectUuid }) => {
         <Group position="apart" my="xl">
             <Stack justify="flex-start" spacing="xs">
                 <Title order={3}>
-                    {`${t('welcome')}${
-                        userName ? ', ' + userName : ' to Lightdash'
-                    }!`}{' '}
+                    {`${t('welcome.part_1')}${
+                        userName ? ', ' + userName : ''
+                    }${t('welcome.part_2')}!`}{' '}
                     ⚡️
                 </Title>
                 <Text color="gray.7">

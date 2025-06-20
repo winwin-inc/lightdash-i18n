@@ -1,5 +1,8 @@
 {
-    "welcome": "Welcome",
+    "welcome": {
+      "part_1": "Welcome",
+      "part_2": " to Lightdash"
+    },
 
     "hooks_pinning": {
         "toast_chart_pinned": {
