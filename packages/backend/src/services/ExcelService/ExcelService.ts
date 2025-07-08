@@ -41,7 +41,8 @@ export class ExcelService {
     ): (string | number | Date | null)[] {
         return sortedFieldIds.map((fieldId) => {
             const item = itemMap[fieldId];
-            const rawValue = row[fieldId];
+            
+            let rawValue = row[fieldId];
 
             if (rawValue === null || rawValue === undefined) {
                 return rawValue;
@@ -50,10 +51,10 @@ export class ExcelService {
             // If we have item metadata and it's a date/timestamp field, convert for Excel
             if (item && 'type' in item) {
                 if (item.type === DimensionType.TIMESTAMP) {
-                    return moment(rawValue).format('YYYY-MM-DD HH:mm:ss.SSS');
+                    rawValue = moment(rawValue).format('YYYY-MM-DD HH:mm:ss.SSS');
                 }
                 if (item.type === DimensionType.DATE) {
-                    return moment(rawValue).format('YYYY-MM-DD');
+                    rawValue = moment(rawValue).format('YYYY-MM-DD');
                 }
             }
 
