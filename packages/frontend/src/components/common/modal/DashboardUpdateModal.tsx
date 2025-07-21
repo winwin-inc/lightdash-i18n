@@ -76,7 +76,9 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
             actions={
                 <Group position="right">
                     <Button variant="outline" onClick={modalProps.onClose}>
-                        {t('components_common_modal_dashboard_update.cancel')}
+                        {t(
+                            'components_common_modal_dashboard_update.form.cancel',
+                        )}
                     </Button>
 
                     <Button
@@ -85,7 +87,9 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
                         type="submit"
                         form="update-dashboard"
                     >
-                        {t('components_common_modal_dashboard_update.save')}
+                        {t(
+                            'components_common_modal_dashboard_update.form.save',
+                        )}
                     </Button>
                 </Group>
             }
@@ -99,7 +103,9 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
             >
                 <Stack spacing="lg">
                     <TextInput
-                        label="Name"
+                        label={t(
+                            'components_common_modal_dashboard_update.form.dashboards.label',
+                        )}
                         required
                         placeholder={t(
                             'components_common_modal_dashboard_update.form.dashboards.placeholder',

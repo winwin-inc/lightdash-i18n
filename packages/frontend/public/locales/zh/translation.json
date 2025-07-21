@@ -3161,7 +3161,7 @@
         "form": {
             "title": "更新看板",
             "dashboards": {
-                "label": "为您的看板输入一个容易记住的名称",
+                "label": "名称",
                 "placeholder": "例如: KPI 看板"
             },
             "description": {

@@ -3158,7 +3158,7 @@
         "form": {
             "title": "Update Dashboard",
             "dashboards": {
-                "label": "Enter a memorable name for your dashboard",
+                "label": "Name",
                 "placeholder": "eg. KPI Dashboards"
             },
             "description": {

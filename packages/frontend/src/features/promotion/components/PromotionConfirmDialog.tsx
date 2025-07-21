@@ -231,7 +231,7 @@ export const PromotionConfirmDialog: FC<Props> = ({
                                     />{' '}
                                     <Text fw={600}>
                                         {t(
-                                            'feature_promotion.modal.goups.spaces',
+                                            'feature_promotion.modal.groups.spaces',
                                         )}
                                         :{' '}
                                     </Text>{' '}
@@ -252,7 +252,7 @@ export const PromotionConfirmDialog: FC<Props> = ({
                                     />{' '}
                                     <Text ml={10} fw={600}>
                                         {t(
-                                            'feature_promotion.modal.goups.dashboards',
+                                            'feature_promotion.modal.groups.dashboards',
                                         )}
                                         :{' '}
                                     </Text>{' '}
@@ -272,7 +272,7 @@ export const PromotionConfirmDialog: FC<Props> = ({
                                     />{' '}
                                     <Text ml={10} fw={600}>
                                         {t(
-                                            'feature_promotion.modal.goups.charts',
+                                            'feature_promotion.modal.groups.charts',
                                         )}
                                         :{' '}
                                     </Text>{' '}
