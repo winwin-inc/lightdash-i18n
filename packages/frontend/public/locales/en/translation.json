@@ -1,7 +1,7 @@
 {
     "welcome": {
-      "part_1": "Welcome",
-      "part_2": " to Lightdash"
+        "part_1": "Welcome",
+        "part_2": " to Lightdash"
     },
 
     "hooks_pinning": {
@@ -4975,7 +4975,7 @@
             "mixed": "Mixed chart",
             "pie": "Pie chart",
             "table": "Table",
-            "bid_number": "Bid number",
+            "big_number": "Big number",
             "custom": "Custom visualization"
         },
         "menus": {
@@ -5040,7 +5040,7 @@
             "pie_chart": "Pie chart",
             "funnel_chart": "Funnel chart",
             "table": "Table",
-            "bid_number": "Bid number",
+            "big_number": "Big number",
             "custom_visualization": "Custom visualization",
             "not_supported": "Chart type {{chartKind}} not supported"
         }

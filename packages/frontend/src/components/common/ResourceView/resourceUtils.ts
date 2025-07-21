@@ -63,7 +63,7 @@ export const useResourceTypeName = () => {
                         );
                     case ChartKind.BIG_NUMBER:
                         return t(
-                            'components_common_resource_view_utils.resource_type_names.bid_number',
+                            'components_common_resource_view_utils.resource_type_names.big_number',
                         );
                     case ChartKind.CUSTOM:
                         return t(

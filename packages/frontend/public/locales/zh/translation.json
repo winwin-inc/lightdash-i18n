@@ -4974,7 +4974,7 @@
             "mixed": "混合图",
             "pie": "饼图",
             "table": "表格",
-            "bid_number": "大数",
+            "big_number": "大数值",
             "custom": "自定义可视化"
         },
         "menus": {
@@ -5039,7 +5039,7 @@
             "pie_chart": "饼图",
             "funnel_chart": "漏斗图",
             "table": "表格",
-            "bid_number": "投标号码",
+            "big_number": "大数值",
             "custom_visualization": "自定义可视化",
             "not_supported": "不支持 {{chartKind}} 图表类型"
         }
