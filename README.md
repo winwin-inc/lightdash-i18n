@@ -23,10 +23,7 @@ Lightdash 使用 [i18next](https://www.i18next.com/) 进行国际化。
 
 ## Docker 镜像
 
-使用 Git Actions 自动构建 Docker 镜像，并推送到 Docker Hub。
-
-- 镜像地址：[yzqzy/lightdash-i18n](https://hub.docker.com/r/yzqzy/lightdash-i18n)
-- 镜像版本：[yzqzy/lightdash-i18n:latest](https://hub.docker.com/r/yzqzy/lightdash-i18n/tags)
+使用 Git Actions 自动构建 Docker 镜像，并推送到阿里 Docker 镜像仓库。
 
 ## 如何使用 Docker 镜像？
 

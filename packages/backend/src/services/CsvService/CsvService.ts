@@ -210,8 +210,9 @@ export class CsvService extends BaseService {
         sortedFieldIds: string[],
     ) {
         return sortedFieldIds.map((id: string) => {
-            const data = row[id];
             const item = itemMap[id];
+
+            let data = row[id];
 
             if (data === null || data === undefined) {
                 return data;
@@ -219,10 +220,10 @@ export class CsvService extends BaseService {
 
             const itemIsField = isField(item);
             if (itemIsField && item.type === DimensionType.TIMESTAMP) {
-                return moment(data).format('YYYY-MM-DD HH:mm:ss.SSS');
+                data = moment(data).format('YYYY-MM-DD HH:mm:ss.SSS');
             }
             if (itemIsField && item.type === DimensionType.DATE) {
-                return moment(data).format('YYYY-MM-DD');
+                data = moment(data).format('YYYY-MM-DD');
             }
 
             // Return raw value and let csv-stringify handle the rest
