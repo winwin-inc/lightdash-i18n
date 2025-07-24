@@ -91,6 +91,27 @@
         "updated_group_success": "Success! Space group access updated!",
         "updated_group_error": "Failed to update space group access"
     },
+    "hooks_dashboard": {
+      "generate_preview_for": "Generating preview for {{name}}",
+      "is_being_exported": "{{name}} is being exported. This might take a few seconds.",
+      "success": "Success!",
+      "success_export": "Success! {{name}} was exported.",
+      "failed_export": "Failed to export {{name}}",
+      "failed_preview": "Failed to generate preview for {{name}}",
+      "missing_file_url": "Missing file url for {{name}}",
+      "something_went_wrong": "Something went wrong",
+      "failed_to_export": "Failed to export {{name}}",
+      "dashboard_not_found": "Dashboard not found",
+      "success_update": "Success! Dashboard {{name}} was updated.",
+      "open_dashboard": "Open dashboard",
+      "failed_to_update": "Failed to update dashboard",
+      "success_create": "Success! Dashboard was created.",
+      "failed_to_create": "Failed to create dashboard",
+      "success_duplicate": "Success! Dashboard was duplicated.",
+      "failed_to_duplicate": "Failed to duplicate dashboard",
+      "success_delete": "Deleted! Dashboard was deleted.",
+      "failed_to_delete": "Failed to delete dashboard"
+    },
     "hooks_dashboards": {
         "success": "Success! Dashboards were updated.",
         "error": "Failed to update dashboard"
@@ -284,6 +305,13 @@
         }
     },
     "features_table_calculation_modal": {
+        "type_labels": {
+          "number": "number",
+          "string": "string",
+          "date": "date",
+          "timestamp": "timestamp",
+          "boolean": "boolean"
+        },
         "tips": {
             "invalid": "Table calculation/Dimension with this label already exists",
             "error": "Error saving",
@@ -1779,7 +1807,10 @@
         "last_edited": "Last edited",
         "by": "by",
         "views_slice": "views since",
-        "views": "views"
+        "views": "views",
+        "slug": "Slug",
+        "copy_slug": "Copy slug",
+        "space": "Space"
     },
     "components_common_share_space_modal": {
         "share": "Share",
@@ -1789,7 +1820,7 @@
             "part_2": "existing project members",
             "part_3": ".",
             "part_4": "Learn more about permissions in our",
-            "part_5": "docs",
+            "part_5": " docs",
             "part_6": "."
         },
         "nested_space": {
@@ -4558,7 +4589,15 @@
         }
     },
     "components_visualization_configs_custom_vis": {
-        "placeholder": "Start by entering your Vega-Lite JSON code or choose from our pre-built templates to create your chart."
+        "placeholder": "Start by entering your Vega-Lite JSON code or choose from our pre-built templates to create your chart.",
+        "templates": {
+            "bar_chart": "Bar chart",
+            "heatmap": "Heatmap",
+            "bubble_plots": "Bubble plots",
+            "funnel_chart": "Funnel chart",
+            "waterfall_chart": "Waterfall chart",
+            "map": "Map"
+        }
     },
     "components_visualization_configs_custom_vis_ai": {
         "placeholder": "Create a heatmap with detailed tooltips and clear values for fast insights",
@@ -4859,6 +4898,18 @@
         "query_warnings": "Query warnings"
     },
     "components_explorer_format_form": {
+        "type_labels": {
+            "id": "ID",
+            "date": "Date",
+            "timestamp": "Timestamp",
+            "default": "Default",
+            "percent": "Percent",
+            "currency": "Currency",
+            "number": "Number",
+            "bytes_si": "Bytes (SI)",
+            "bytes_iec": "Bytes (IEC)",
+            "custom": "Custom"
+        },
         "type": {
             "label": "Type",
             "data": {
@@ -4870,6 +4921,7 @@
             }
         },
         "format": {
+            "format": "Format",
             "label": "Format expression",
             "placeholder": "E.g. #.#0",
             "description":{
@@ -4903,14 +4955,18 @@
         "suffix": {
             "label": "Suffix",
             "placeholder": "E.g. km/h"
-        }
+        },
+        "default_separator": "Default separator"
     },
     "components_explorer_format_modal": {
+       "format_metric": "Format metric",
         "reset": "Reset",
         "save_changes": "Save changes"
     },
     "components_explorer_results_card": {
-        "title": "Results"
+        "title": "Results",
+        "format": "Format",
+        "edit_format": "Edit format"
     },
     "components_explorer_results_card_column_context_menu": {
         "filter": "Filter by",
@@ -5373,6 +5429,12 @@
     "components_sql_runner_results_table": {
         "description": "Click run query to see your results"
     },
+    "components_sql_runner_actions": {
+      "disable_editor_soft_wrap": "Disable editor soft-wrap",
+      "enable_editor_soft_wrap": "Enable editor soft-wrap",
+      "copied_to_clipboard": "Copied to clipboard!",
+      "copy": "Copy"
+    },
     "pages_sql_runner_new": {
         "error": {
             "unable_load_sql": "Unable to load shared SQL runner state",
@@ -5514,7 +5576,6 @@
         },
         "no_data_to_export": "No data to export",
         "file_format": "File format",
-        "values": "Values",
         "tabs": {
             "values": "Values",
             "limit": "Limit"

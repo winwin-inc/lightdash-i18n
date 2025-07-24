@@ -44,28 +44,22 @@ const formatTypeOptions = [
     CustomFormatType.CUSTOM,
 ];
 
-const formatSeparatorOptions = [
-    {
-        value: NumberSeparator.DEFAULT,
-        label: 'Default separator',
-    },
-    {
-        value: NumberSeparator.COMMA_PERIOD,
-        label: '100,000.00',
-    },
-    {
-        value: NumberSeparator.SPACE_PERIOD,
-        label: '100 000.00',
-    },
-    {
-        value: NumberSeparator.PERIOD_COMMA,
-        label: '100.000,00',
-    },
-    {
-        value: NumberSeparator.NO_SEPARATOR_PERIOD,
-        label: '100000.00',
-    },
-];
+const useFormatTypeLabels = () => {
+  const { t } = useTranslation();
+
+  return {
+    [CustomFormatType.ID]: t("components_explorer_format_form.type_labels.id"),
+    [CustomFormatType.DATE]: t("components_explorer_format_form.type_labels.date"),
+    [CustomFormatType.TIMESTAMP]: t("components_explorer_format_form.type_labels.timestamp"),
+    [CustomFormatType.DEFAULT]: t("components_explorer_format_form.type_labels.default"),
+    [CustomFormatType.PERCENT]: t("components_explorer_format_form.type_labels.percent"),
+    [CustomFormatType.CURRENCY]: t("components_explorer_format_form.type_labels.currency"),
+    [CustomFormatType.NUMBER]: t("components_explorer_format_form.type_labels.number"),
+    [CustomFormatType.BYTES_SI]: t("components_explorer_format_form.type_labels.bytes_si"),
+    [CustomFormatType.BYTES_IEC]: t("components_explorer_format_form.type_labels.bytes_iec"),
+    [CustomFormatType.CUSTOM]: t("components_explorer_format_form.type_labels.custom"),
+  } as const;
+}
 
 const formatCurrencyOptions = currencies.map((c) => {
     const currencyFormat = Intl.NumberFormat(undefined, {
@@ -101,13 +95,39 @@ export const FormatForm: FC<Props> = ({
             : null;
     }, [format.compact, formatType]);
 
+    const formatSeparatorOptions = [
+      {
+          value: NumberSeparator.DEFAULT,
+          label: t("components_explorer_format_form.default_separator"),
+      },
+      {
+          value: NumberSeparator.COMMA_PERIOD,
+          label: '100,000.00',
+      },
+      {
+          value: NumberSeparator.SPACE_PERIOD,
+          label: '100 000.00',
+      },
+      {
+          value: NumberSeparator.PERIOD_COMMA,
+          label: '100.000,00',
+      },
+      {
+          value: NumberSeparator.NO_SEPARATOR_PERIOD,
+          label: '100000.00',
+      },
+    ];
+
+
+    const formatTypeLabels = useFormatTypeLabels();
+
     return (
         <Stack>
             <Flex>
                 <Select
                     withinPortal
                     w={200}
-                    label="Type"
+                    label={t("components_explorer_format_form.type.label")}
                     data={formatTypeOptions.map((type) => ({
                         value: type,
                         label:
@@ -115,7 +135,7 @@ export const FormatForm: FC<Props> = ({
                                 ? t("components_explorer_format_form.type.data.bytes_si")
                                 : type === CustomFormatType.BYTES_IEC
                                 ? t("components_explorer_format_form.type.data.bytes_iec")
-                                : type,
+                                : formatTypeLabels[type],
                     }))}
                     {...{
                         ...formatInputProps('type'),
@@ -149,7 +169,7 @@ export const FormatForm: FC<Props> = ({
                     CustomFormatType.BYTES_IEC,
                 ].includes(formatType) && (
                     <Text ml="md" mt={30} w={200} color="gray.6">
-                        {'Format: '}
+                        {t("components_explorer_format_form.format.format")}:{' '}
                         {convertCustomFormatToFormatExpression(format)}
                     </Text>
                 )}

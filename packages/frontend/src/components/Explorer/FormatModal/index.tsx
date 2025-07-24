@@ -98,7 +98,7 @@ export const FormatModal = () => {
             onClick={(e) => e.stopPropagation()}
             opened={isOpen}
             onClose={handleClose}
-            title={<Title order={4}>Format metric</Title>}
+            title={<Title order={4}>{t("components_explorer_format_modal.format_metric")}</Title>}
         >
             <form onSubmit={handleOnSubmit}>
                 <Stack>

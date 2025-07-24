@@ -110,7 +110,7 @@ const AddTileButton: FC<Props> = ({
                         icon={<MantineIcon icon={IconPlus} />}
                     >
                         <Group spacing="xxs">
-                            <Text>New chart</Text>
+                            <Text>{t('components_dashboard_tiles_add_tile_button.new_chart')}</Text>
                             <Tooltip
                                 label={t(
                                     'components_dashboard_tiles_add_tile_button.tooltip_new_chart',

@@ -91,6 +91,27 @@
         "updated_group_success": "成功！空间组访问权限已更新！",
         "updated_group_error": "更新空间组访问权限失败"
     },
+    "hooks_dashboard": {
+      "generate_preview_for": "正在生成 {{name}} 的预览",
+      "is_being_exported": "{{name}} 正在导出。这可能需要几秒钟。",
+      "success": "成功！",
+      "success_export": "成功！{{name}} 已导出。",
+      "failed_export": "导出 {{name}} 失败",
+      "failed_preview": "生成 {{name}} 预览失败",
+      "missing_file_url": "{{name}} 缺少文件 URL",
+      "something_went_wrong": "Something went wrong",
+      "failed_to_export": "导出 {{name}} 失败",
+      "dashboard_not_found": "看板未找到",
+      "success_update": "成功！看板 {{name}} 已更新。",
+      "open_dashboard": "打开看板",
+      "failed_to_update": "更新看板失败",
+      "success_create": "成功！看板已创建。",
+      "failed_to_create": "创建看板失败",
+      "success_duplicate": "成功！看板已复制。",
+      "failed_to_duplicate": "复制看板失败",
+      "success_delete": "成功！看板已删除。",
+      "failed_to_delete": "删除看板失败"
+    },
     "hooks_dashboards": {
         "success": "成功！看板已更新。",
         "error": "更新看板失败"
@@ -285,6 +306,13 @@
         }
     },
     "features_table_calculation_modal": {
+        "type_labels": {
+          "number": "数字",
+          "string": "字符串",
+          "date": "日期",
+          "timestamp": "时间戳",
+          "boolean": "布尔值"
+        },
         "tips": {
             "invalid": "具有此标签的表计算/维度已存在",
             "error": "保存时出错",
@@ -1781,7 +1809,10 @@
         "last_edited": "最近编辑",
         "by": "由",
         "views_slice": "次查看 (自)",
-        "views": "次查看"
+        "views": "次查看",
+        "slug": "Slug",
+        "copy_slug": "复制 Slug",
+        "space": "空间"
     },
     "components_common_share_space_modal": {
         "share": "共享",
@@ -1791,7 +1822,7 @@
             "part_2": "现有的项目成员",
             "part_3": "共享空间。",
             "part_4": "在我们的",
-            "part_5": "文档",
+            "part_5": " 文档 ",
             "part_6": "中了解更多关于权限的信息。"
         },
         "nested_space": {
@@ -4558,7 +4589,15 @@
         }
     },
     "components_visualization_configs_custom_vis": {
-        "placeholder": "开始输入您的 Vega-Lite JSON代码或从我们的预构建模板中选择以创建您的图表。"
+        "placeholder": "开始输入您的 Vega-Lite JSON代码或从我们的预构建模板中选择以创建您的图表。",
+        "templates": {
+            "bar_chart": "条形图",
+            "heatmap": "热图",
+            "bubble_plots": "气泡图",
+            "funnel_chart": "漏斗图",
+            "waterfall_chart": "瀑布图",
+            "map": "地图"
+        }
     },
     "components_visualization_configs_custom_vis_ai": {
         "placeholder": "创建一个带有详细工具提示和清晰值的热图，用于快速洞察",
@@ -4859,6 +4898,18 @@
         "query_warnings": "查询警告"
     },
     "components_explorer_format_form": {
+        "type_labels": {
+          "id": "ID",
+          "date": "日期",
+          "timestamp": "时间戳",
+          "default": "默认",
+          "percent": "百分比",
+          "currency": "货币",
+          "number": "数字",
+          "bytes_si": "字节 (SI)",
+          "bytes_iec": "字节 (IEC)",
+          "custom": "自定义"
+        },
         "type": {
             "label": "类型",
             "data": {
@@ -4870,6 +4921,7 @@
             }
         },
         "format": {
+          "format": "格式",
           "label": "格式表达式",
           "placeholder": "例如: #.#0",
           "description":{
@@ -4903,14 +4955,18 @@
         "suffix": {
             "label": "后缀",
             "placeholder": "例如 km/h"
-        }
+        },
+        "default_separator": "默认分隔符"
     },
     "components_explorer_format_modal": {
+        "format_metric": "格式化指标",
         "reset": "重置",
         "save_changes": "保存更改"
     },
     "components_explorer_results_card": {
-        "title": "结果"
+        "title": "结果",
+        "format": "格式",
+        "edit_format": "编辑格式"
     },
     "components_explorer_results_card_column_context_menu": {
         "filter": "过滤",
@@ -5113,7 +5169,8 @@
             "big_value": "大数值",
             "pie_chart": "饼图",
             "funnel_chart": "漏斗图",
-            "custom": "自定义"
+            "custom": "自定义",
+            "unknown": "未知图表类型"
         },
         "menus": {
             "bar_chart": "条形图",
@@ -5371,6 +5428,12 @@
     "components_sql_runner_results_table": {
         "description": "单击运行查询以查看结果"
     },
+    "components_sql_runner_actions": {
+      "disable_editor_soft_wrap": "禁用编辑器软换行",
+      "enable_editor_soft_wrap": "启用编辑器软换行",
+      "copied_to_clipboard": "已复制到剪贴板！",
+      "copy": "复制"
+    },
     "pages_sql_runner_new": {
         "error": {
             "unable_load_sql": "无法加载共享的 SQL 运行器状态",
@@ -5496,7 +5559,7 @@
         "export": "导出 CSV"
     },
     "components_export_selector": {
-        "export_selector": "返回导出选择器",
+        "export_selector": "返回导出筛选器",
         "csv": "CSV",
         "download_data": "下载数据"
     },
@@ -5514,7 +5577,6 @@
         },
         "no_data_to_export": "没有可导出的数据",
         "file_format": "文件格式",
-        "values": "值",
         "radio_groups_values": {
             "part_1": "格式化",
             "part_2": "原始"
@@ -5802,10 +5864,10 @@
         },
         "advanced": {
             "title": "高级",
-            "selector": "dbt 选择器",
-            "invalid": "dbt 选择器无效",
+            "selector": "dbt 筛选器",
+            "invalid": "dbt 筛选器无效",
             "content": {
-                "part_1": "添加 dbt 选择器以过滤掉您的 dbt 项目中的模型。您可以在",
+                "part_1": "添加 dbt 筛选器以过滤掉您的 dbt 项目中的模型。您可以在",
                 "part_2": "我们的文档",
                 "part_3": "中了解更多信息。"
             }

@@ -423,7 +423,7 @@ const SnowflakeForm: FC<{
                         <BooleanSwitch
                             name="warehouse.requireUserCredentials"
                             label={t(
-                                'components_project_connection_warehouse_form.snowflake.swicth.label',
+                                'components_project_connection_warehouse_form.snowflake.switch.label',
                             )}
                             defaultChecked={
                                 SnowflakeDefaultValues.requireUserCredentials

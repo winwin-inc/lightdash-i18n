@@ -439,7 +439,7 @@ const Settings: FC = () => {
                                 )}
 
                                 <RouterNavLink
-                                    label="My warehouse connections"
+                                    label={t('pages_settings.scroll_area_box.navs.warehouse_connections')}
                                     exact
                                     to="/generalSettings/myWarehouseConnections"
                                     icon={

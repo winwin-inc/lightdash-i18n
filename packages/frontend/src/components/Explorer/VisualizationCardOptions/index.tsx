@@ -451,7 +451,9 @@ const VisualizationCardOptions: FC = memo(() => {
                         setChartType(ChartType.CUSTOM);
                     }}
                 >
-                    Custom
+                    {t(
+                        'components_explorer_visualization_card_options.menus.custom',
+                    )}
                 </Menu.Item>
             </Menu.Dropdown>
         </Menu>

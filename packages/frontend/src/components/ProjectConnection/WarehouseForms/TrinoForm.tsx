@@ -117,7 +117,7 @@ const TrinoForm: FC<{
                         <BooleanSwitch
                             name="warehouse.requireUserCredentials"
                             label={t(
-                                'components_project_connection_warehouse_form.trino.swicth.label',
+                                'components_project_connection_warehouse_form.trino.switch.label',
                             )}
                             {...form.getInputProps(
                                 'warehouse.requireUserCredentials',
