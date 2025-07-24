@@ -1,7 +1,9 @@
+import { MissingConfigError } from '@lightdash/common';
 import { LightdashAnalytics } from '../analytics/LightdashAnalytics';
 import { ClientRepository } from '../clients/ClientRepository';
 import { LightdashConfig } from '../config/parseConfig';
 import { ModelRepository } from '../models/ModelRepository';
+import PrometheusMetrics from '../prometheus';
 import type { UtilRepository } from '../utils/UtilRepository';
 import { AnalyticsService } from './AnalyticsService/AnalyticsService';
 import { AsyncQueryService } from './AsyncQueryService/AsyncQueryService';
@@ -22,18 +24,19 @@ import { HealthService } from './HealthService/HealthService';
 import { LightdashAnalyticsService } from './LightdashAnalyticsService/LightdashAnalyticsService';
 import { MetricsExplorerService } from './MetricsExplorerService/MetricsExplorerService';
 import { NotificationsService } from './NotificationsService/NotificationsService';
+import { OAuthService } from './OAuthService/OAuthService';
 import { OrganizationService } from './OrganizationService/OrganizationService';
 import { PersonalAccessTokenService } from './PersonalAccessTokenService';
 import { PinningService } from './PinningService/PinningService';
+import { PivotTableService } from './PivotTableService/PivotTableService';
+import { ProjectParametersService } from './ProjectParametersService';
 import { ProjectService } from './ProjectService/ProjectService';
 import { PromoteService } from './PromoteService/PromoteService';
 import { RenameService } from './RenameService/RenameService';
 import { SavedChartService } from './SavedChartsService/SavedChartService';
-import { SavedSemanticViewerChartService } from './SavedSemanticViewerChartService/SavedSemanticViewerChartService';
 import { SavedSqlService } from './SavedSqlService/SavedSqlService';
 import { SchedulerService } from './SchedulerService/SchedulerService';
 import { SearchService } from './SearchService/SearchService';
-import { SemanticLayerService } from './SemanticLayerService/SemanticLayerService';
 import { ShareService } from './ShareService/ShareService';
 import { SlackIntegrationService } from './SlackIntegrationService/SlackIntegrationService';
 import { SpaceService } from './SpaceService/SpaceService';
@@ -60,9 +63,12 @@ interface ServiceManifest {
     groupService: GroupsService;
     healthService: HealthService;
     notificationService: NotificationsService;
+    oauthService: OAuthService;
+
     organizationService: OrganizationService;
     personalAccessTokenService: PersonalAccessTokenService;
     pinningService: PinningService;
+    pivotTableService: PivotTableService;
     projectService: ProjectService;
     savedChartService: SavedChartService;
     schedulerService: SchedulerService;
@@ -80,14 +86,13 @@ interface ServiceManifest {
     promoteService: PromoteService;
     savedSqlService: SavedSqlService;
     contentService: ContentService;
-    semanticLayerService: SemanticLayerService;
-    savedSemanticViewerChartService: SavedSemanticViewerChartService;
     coderService: CoderService;
     featureFlagService: FeatureFlagService;
     spotlightService: SpotlightService;
     lightdashAnalyticsService: LightdashAnalyticsService;
     asyncQueryService: AsyncQueryService;
     renameService: RenameService;
+    projectParametersService: ProjectParametersService;
     /** An implementation signature for these services are not available at this stage */
     embedService: unknown;
     aiService: unknown;
@@ -95,6 +100,8 @@ interface ServiceManifest {
     scimService: unknown;
     supportService: unknown;
     cacheService: unknown;
+    serviceAccountService: unknown;
+    instanceConfigurationService: unknown;
 }
 
 /**
@@ -110,6 +117,7 @@ type ServiceProvider<T extends ServiceManifest> = (providerArgs: {
     models: ModelRepository;
     utils: UtilRepository;
     clients: ClientRepository;
+    prometheusMetrics?: PrometheusMetrics;
 }) => T[keyof T];
 
 /**
@@ -191,24 +199,29 @@ abstract class ServiceRepositoryBase {
 
     protected readonly utils: UtilRepository;
 
+    protected readonly prometheusMetrics?: PrometheusMetrics;
+
     constructor({
         serviceProviders,
         context,
         clients,
         models,
         utils,
+        prometheusMetrics,
     }: {
         serviceProviders?: ServiceProviderMap<ServiceManifest>;
         context: OperationContext;
         clients: ClientRepository;
         models: ModelRepository;
         utils: UtilRepository;
+        prometheusMetrics?: PrometheusMetrics;
     }) {
         this.providers = serviceProviders ?? {};
         this.context = context;
         this.clients = clients;
         this.models = models;
         this.utils = utils;
+        this.prometheusMetrics = prometheusMetrics;
     }
 }
 
@@ -274,6 +287,7 @@ export class ServiceRepository
                     downloadFileModel: this.models.getDownloadFileModel(),
                     schedulerClient: this.clients.getSchedulerClient(),
                     projectModel: this.models.getProjectModel(),
+                    pivotTableService: this.getPivotTableService(),
                 }),
         );
     }
@@ -363,6 +377,7 @@ export class ServiceRepository
                     analytics: this.context.lightdashAnalytics,
                     groupsModel: this.models.getGroupsModel(),
                     projectModel: this.models.getProjectModel(),
+                    featureFlagService: this.getFeatureFlagService(),
                 }),
         );
     }
@@ -389,6 +404,18 @@ export class ServiceRepository
         );
     }
 
+    public getOauthService(): OAuthService {
+        return this.getService(
+            'oauthService',
+            () =>
+                new OAuthService({
+                    userModel: this.models.getUserModel(),
+                    oauthModel: this.models.getOauthModel(),
+                    lightdashConfig: this.context.lightdashConfig,
+                }),
+        );
+    }
+
     public getOrganizationService(): OrganizationService {
         return this.getService(
             'organizationService',
@@ -399,17 +426,12 @@ export class ServiceRepository
                     organizationModel: this.models.getOrganizationModel(),
                     projectModel: this.models.getProjectModel(),
                     onboardingModel: this.models.getOnboardingModel(),
-                    inviteLinkModel: this.models.getInviteLinkModel(),
                     organizationMemberProfileModel:
                         this.models.getOrganizationMemberProfileModel(),
                     userModel: this.models.getUserModel(),
                     organizationAllowedEmailDomainsModel:
                         this.models.getOrganizationAllowedEmailDomainsModel(),
                     groupsModel: this.models.getGroupsModel(),
-                    personalAccessTokenModel:
-                        this.models.getPersonalAccessTokenModel(),
-                    emailModel: this.models.getEmailModel(),
-                    projectService: this.getProjectService(),
                 }),
         );
     }
@@ -439,6 +461,18 @@ export class ServiceRepository
                     resourceViewItemModel:
                         this.models.getResourceViewItemModel(),
                     projectModel: this.models.getProjectModel(),
+                }),
+        );
+    }
+
+    public getPivotTableService(): PivotTableService {
+        return this.getService(
+            'pivotTableService',
+            () =>
+                new PivotTableService({
+                    lightdashConfig: this.context.lightdashConfig,
+                    s3Client: this.clients.getS3Client(),
+                    downloadFileModel: this.models.getDownloadFileModel(),
                 }),
         );
     }
@@ -475,6 +509,9 @@ export class ServiceRepository
                     contentModel: this.models.getContentModel(),
                     encryptionUtil: this.utils.getEncryptionUtil(),
                     userModel: this.models.getUserModel(),
+                    featureFlagModel: this.models.getFeatureFlagModel(),
+                    projectParametersModel:
+                        this.models.getProjectParametersModel(),
                 }),
         );
     }
@@ -514,7 +551,11 @@ export class ServiceRepository
                     queryHistoryModel: this.models.getQueryHistoryModel(),
                     savedSqlModel: this.models.getSavedSqlModel(),
                     storageClient: this.clients.getResultsFileStorageClient(),
-                    csvService: this.getCsvService(),
+                    featureFlagModel: this.models.getFeatureFlagModel(),
+                    projectParametersModel:
+                        this.models.getProjectParametersModel(),
+                    pivotTableService: this.getPivotTableService(),
+                    prometheusMetrics: this.prometheusMetrics,
                 }),
         );
     }
@@ -802,42 +843,6 @@ export class ServiceRepository
                     dashboardService: this.getDashboardService(),
                     savedChartService: this.getSavedChartService(),
                     savedSqlService: this.getSavedSqlService(),
-                    savedSemanticViewerChartService:
-                        this.getSavedSemanticViewerChartService(),
-                }),
-        );
-    }
-
-    public getSemanticLayerService(): SemanticLayerService {
-        return this.getService(
-            'semanticLayerService',
-            () =>
-                new SemanticLayerService({
-                    lightdashConfig: this.context.lightdashConfig,
-                    analytics: this.context.lightdashAnalytics,
-
-                    schedulerClient: this.clients.getSchedulerClient(),
-                    s3Client: this.clients.getS3Client(),
-
-                    savedSemanticViewerChartService:
-                        this.getSavedSemanticViewerChartService(),
-
-                    projectModel: this.models.getProjectModel(),
-                    downloadFileModel: this.models.getDownloadFileModel(),
-                }),
-        );
-    }
-
-    public getSavedSemanticViewerChartService(): SavedSemanticViewerChartService {
-        return this.getService(
-            'savedSemanticViewerChartService',
-            () =>
-                new SavedSemanticViewerChartService({
-                    analytics: this.context.lightdashAnalytics,
-                    projectModel: this.models.getProjectModel(),
-                    savedSemanticViewerChartModel:
-                        this.models.getSavedSemanticViewerChartModel(),
-                    spaceModel: this.models.getSpaceModel(),
                 }),
         );
     }
@@ -902,6 +907,31 @@ export class ServiceRepository
         return this.getService('cacheService');
     }
 
+    public getServiceAccountService<
+        ServiceAccountServiceImplT,
+    >(): ServiceAccountServiceImplT {
+        return this.getService('serviceAccountService');
+    }
+
+    public getInstanceConfigurationService<
+        InstanceConfigurationServiceImplT,
+    >(): InstanceConfigurationServiceImplT {
+        return this.getService('instanceConfigurationService');
+    }
+
+    public getProjectParametersService(): ProjectParametersService {
+        return this.getService(
+            'projectParametersService',
+            () =>
+                new ProjectParametersService({
+                    lightdashConfig: this.context.lightdashConfig,
+                    analytics: this.context.lightdashAnalytics,
+                    projectParametersModel:
+                        this.models.getProjectParametersModel(),
+                }),
+        );
+    }
+
     /**
      * Handles initializing a service, and taking into account service
      * providers + memoization.
@@ -923,11 +953,12 @@ export class ServiceRepository
                     models: this.models,
                     clients: this.clients,
                     utils: this.utils,
+                    prometheusMetrics: this.prometheusMetrics,
                 }) as T;
             } else if (factory != null) {
                 serviceInstance = factory();
             } else {
-                throw new Error(
+                throw new MissingConfigError(
                     `Unable to initialize service '${serviceName}' - no factory or provider.`,
                 );
             }

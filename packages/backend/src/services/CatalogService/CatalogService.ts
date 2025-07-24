@@ -258,6 +258,7 @@ export class CatalogService<
                             userAttributes,
                             sortArgs,
                             context,
+                            yamlTags: null,
                         }),
                 ),
         );
@@ -339,7 +340,6 @@ export class CatalogService<
             cachedExploresMap,
             projectYamlTags,
             userUuid,
-            embedderFn,
         );
 
         if (
@@ -1252,6 +1252,7 @@ export class CatalogService<
             tablesConfiguration: await this.projectModel.getTablesConfiguration(
                 projectUuid,
             ),
+            yamlTags: null,
         });
 
         const filteredMetrics = allCatalogMetrics.data.filter(
@@ -1314,6 +1315,7 @@ export class CatalogService<
             tablesConfiguration: await this.projectModel.getTablesConfiguration(
                 projectUuid,
             ),
+            yamlTags: null,
         });
 
         const allDimensions = catalogDimensions.data

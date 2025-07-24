@@ -115,7 +115,7 @@ const FilterRuleForm: FC<Props> = ({
             />
             <Select
                 size="xs"
-                w="150px"
+                w="175px"
                 sx={{ flexShrink: 0 }}
                 withinPortal={popoverProps?.withinPortal}
                 onDropdownOpen={popoverProps?.onOpen}

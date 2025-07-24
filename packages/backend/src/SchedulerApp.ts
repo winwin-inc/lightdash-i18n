@@ -3,12 +3,15 @@ import * as Sentry from '@sentry/node';
 import express from 'express';
 import http from 'http';
 import knex, { Knex } from 'knex';
+import refresh from 'passport-oauth2-refresh';
 import { LightdashAnalytics } from './analytics/LightdashAnalytics';
 import {
     ClientProviderMap,
     ClientRepository,
 } from './clients/ClientRepository';
 import { LightdashConfig } from './config/parseConfig';
+import { googlePassportStrategy } from './controllers/authentication';
+import { snowflakePassportStrategy } from './controllers/authentication/strategies/snowflakeStrategy';
 import Logger from './logging/logger';
 import { ModelProviderMap, ModelRepository } from './models/ModelRepository';
 import PrometheusMetrics from './prometheus';
@@ -60,12 +63,11 @@ const schedulerWorkerFactory = (context: {
         s3Client: context.clients.getS3Client(),
         schedulerClient: context.clients.getSchedulerClient(),
         slackClient: context.clients.getSlackClient(),
-        semanticLayerService:
-            context.serviceRepository.getSemanticLayerService(),
         catalogService: context.serviceRepository.getCatalogService(),
         encryptionUtil: context.utils.getEncryptionUtil(),
         msTeamsClient: context.clients.getMsTeamsClient(),
         renameService: context.serviceRepository.getRenameService(),
+        asyncQueryService: context.serviceRepository.getAsyncQueryService(),
     });
 
 export default class SchedulerApp {
@@ -134,6 +136,9 @@ export default class SchedulerApp {
             }),
             models: this.models,
         });
+        this.prometheusMetrics = new PrometheusMetrics(
+            this.lightdashConfig.prometheus,
+        );
         this.serviceRepository = new ServiceRepository({
             serviceProviders: args.serviceProviders,
             context: new OperationContext({
@@ -144,16 +149,22 @@ export default class SchedulerApp {
             clients: this.clients,
             models: this.models,
             utils,
+            prometheusMetrics: this.prometheusMetrics,
         });
-        this.prometheusMetrics = new PrometheusMetrics(
-            this.lightdashConfig.prometheus,
-        );
         this.schedulerWorkerFactory =
             args.schedulerWorkerFactory || schedulerWorkerFactory;
         this.utils = utils;
     }
 
     public async start() {
+        // Load refresh strategies, required when running scheduler in production mode
+        if (googlePassportStrategy) {
+            refresh.use(googlePassportStrategy);
+        }
+        if (snowflakePassportStrategy) {
+            refresh.use('snowflake', snowflakePassportStrategy);
+        }
+
         this.prometheusMetrics.start();
         this.prometheusMetrics.monitorDatabase(this.database);
         // @ts-ignore

@@ -16,6 +16,7 @@ import { InviteLinkModel } from './InviteLinkModel';
 import { JobModel } from './JobModel/JobModel';
 import { MigrationModel } from './MigrationModel/MigrationModel';
 import { NotificationsModel } from './NotificationsModel/NotificationsModel';
+import { OAuth2Model } from './OAuth2Model';
 import { OnboardingModel } from './OnboardingModel/OnboardingModel';
 import { OpenIdIdentityModel } from './OpenIdIdentitiesModel';
 import { OrganizationAllowedEmailDomainsModel } from './OrganizationAllowedEmailDomainsModel';
@@ -24,10 +25,10 @@ import { OrganizationModel } from './OrganizationModel';
 import { PasswordResetLinkModel } from './PasswordResetLinkModel';
 import { PinnedListModel } from './PinnedListModel';
 import { ProjectModel } from './ProjectModel/ProjectModel';
+import { ProjectParametersModel } from './ProjectParametersModel';
 import { QueryHistoryModel } from './QueryHistoryModel/QueryHistoryModel';
 import { ResourceViewItemModel } from './ResourceViewItemModel';
 import { SavedChartModel } from './SavedChartModel';
-import { SavedSemanticViewerChartModel } from './SavedSemanticViewerChartModel';
 import { SavedSqlModel } from './SavedSqlModel';
 import { SchedulerModel } from './SchedulerModel';
 import { SearchModel } from './SearchModel';
@@ -60,6 +61,7 @@ export type ModelManifest = {
     jobModel: JobModel;
     migrationModel: MigrationModel;
     notificationsModel: NotificationsModel;
+    oauthModel: OAuth2Model;
     onboardingModel: OnboardingModel;
     openIdIdentityModel: OpenIdIdentityModel;
     organizationAllowedEmailDomainsModel: OrganizationAllowedEmailDomainsModel;
@@ -85,17 +87,17 @@ export type ModelManifest = {
     validationModel: ValidationModel;
     catalogModel: CatalogModel;
     savedSqlModel: SavedSqlModel;
-    SavedSemanticViewerChartModel: SavedSemanticViewerChartModel;
     contentModel: ContentModel;
     tagsModel: TagsModel;
     featureFlagModel: FeatureFlagModel;
     spotlightTableConfigModel: SpotlightTableConfigModel;
     queryHistoryModel: QueryHistoryModel;
+    projectParametersModel: ProjectParametersModel;
     /** An implementation signature for these models are not available at this stage */
     aiAgentModel: unknown;
     embedModel: unknown;
     dashboardSummaryModel: unknown;
-    scimOrganizationAccessTokenModel: unknown;
+    serviceAccountModel: unknown;
 };
 
 /**
@@ -274,6 +276,13 @@ export class ModelRepository
         return this.getModel(
             'notificationsModel',
             () => new NotificationsModel({ database: this.database }),
+        );
+    }
+
+    public getOauthModel(): OAuth2Model {
+        return this.getModel(
+            'oauthModel',
+            () => new OAuth2Model(this.database),
         );
     }
 
@@ -487,16 +496,6 @@ export class ModelRepository
         );
     }
 
-    public getSavedSemanticViewerChartModel(): SavedSemanticViewerChartModel {
-        return this.getModel(
-            'SavedSemanticViewerChartModel',
-            () =>
-                new SavedSemanticViewerChartModel({
-                    database: this.database,
-                }),
-        );
-    }
-
     public getContentModel(): ContentModel {
         return this.getModel(
             'contentModel',
@@ -534,8 +533,8 @@ export class ModelRepository
         );
     }
 
-    public getScimOrganizationAccessTokenModel<ModelImplT>(): ModelImplT {
-        return this.getModel('scimOrganizationAccessTokenModel');
+    public getServiceAccountModel<ModelImplT>(): ModelImplT {
+        return this.getModel('serviceAccountModel');
     }
 
     public getSpotlightTableConfigModel(): SpotlightTableConfigModel {
@@ -553,6 +552,13 @@ export class ModelRepository
         return this.getModel(
             'queryHistoryModel',
             () => new QueryHistoryModel({ database: this.database }),
+        );
+    }
+
+    public getProjectParametersModel(): ProjectParametersModel {
+        return this.getModel(
+            'projectParametersModel',
+            () => new ProjectParametersModel({ database: this.database }),
         );
     }
 

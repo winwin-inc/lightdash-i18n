@@ -28,7 +28,6 @@ import { IconChartAreaLine } from '@tabler/icons-react';
 import { uniqBy } from 'lodash';
 import React, {
     forwardRef,
-    useCallback,
     useEffect,
     useMemo,
     useRef,
@@ -149,67 +148,6 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
         },
     });
 
-    const currentChartTypes = useMemo(() => {
-        const dashboardTileTypes =
-            dashboard?.tiles.map((item) => item.type) ?? [];
-        const selectedChartTypes =
-            form.values.savedChartsUuids.map<DashboardTileTypes>((uuid) => {
-                const chart = savedQueries?.find((c) => c.uuid === uuid);
-                const chartSourceType = chart?.source;
-
-                switch (chartSourceType) {
-                    case ChartSourceType.DBT_EXPLORE:
-                        return DashboardTileTypes.SAVED_CHART;
-                    case ChartSourceType.SEMANTIC_LAYER:
-                        return DashboardTileTypes.SEMANTIC_VIEWER_CHART;
-                    case ChartSourceType.SQL:
-                        return DashboardTileTypes.SQL_CHART;
-                    case undefined:
-                        throw new Error('Chart does not exist');
-                    default:
-                        return assertUnreachable(
-                            chartSourceType,
-                            `Unknown chart source type: ${chartSourceType}`,
-                        );
-                }
-            });
-
-        return Array.from(
-            new Set([...dashboardTileTypes, ...selectedChartTypes]),
-        );
-    }, [dashboard?.tiles, form.values.savedChartsUuids, savedQueries]);
-
-    const isChartItemDisabled = useCallback(
-        (chart: ChartContent) => {
-            const chartSourceType = chart.source;
-
-            if (currentChartTypes.length === 0) {
-                return false;
-            }
-
-            switch (chartSourceType) {
-                case ChartSourceType.DBT_EXPLORE:
-                case ChartSourceType.SQL:
-                    return currentChartTypes.includes(
-                        DashboardTileTypes.SEMANTIC_VIEWER_CHART,
-                    );
-                case ChartSourceType.SEMANTIC_LAYER:
-                    return (
-                        currentChartTypes.includes(
-                            DashboardTileTypes.SAVED_CHART,
-                        ) ||
-                        currentChartTypes.includes(DashboardTileTypes.SQL_CHART)
-                    );
-                default:
-                    return assertUnreachable(
-                        chartSourceType,
-                        `Unknown chart source type: ${chartSourceType}`,
-                    );
-            }
-        },
-        [currentChartTypes],
-    );
-
     const allSavedCharts = useMemo(() => {
         const reorderedCharts = savedQueries?.sort((chartA, chartB) => {
             if (
@@ -234,36 +172,23 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
                     (tile.type === DashboardTileTypes.SAVED_CHART &&
                         tile.properties.savedChartUuid === uuid) ||
                     (tile.type === DashboardTileTypes.SQL_CHART &&
-                        tile.properties.savedSqlUuid === uuid) ||
-                    (tile.type === DashboardTileTypes.SEMANTIC_VIEWER_CHART &&
-                        tile.properties.savedSemanticViewerChartUuid === uuid)
+                        tile.properties.savedSqlUuid === uuid)
                 );
             });
-
-            const disabled = isChartItemDisabled(chart);
 
             return {
                 value: uuid,
                 label: name,
                 group: space.name,
-                tooltipLabel: disabled
-                    ? t('components_dashboard_tiles_forms_add_chart.disabled')
-                    : isAlreadyAdded
+                tooltipLabel: isAlreadyAdded
                     ? t(
-                          'components_dashboard_tiles_forms_add_chart.already_added',
+                          'components_dashboard_tiles_forms_add_chart.already_added_chart',
                       )
                     : undefined,
                 chartKind,
-                disabled,
             };
         });
-    }, [
-        savedQueries,
-        dashboard?.spaceUuid,
-        dashboardTiles,
-        isChartItemDisabled,
-        t,
-    ]);
+    }, [savedQueries, dashboard?.spaceUuid, dashboardTiles, t]);
 
     const handleSubmit = form.onSubmit(({ savedChartsUuids }) => {
         onAddTiles(
@@ -272,18 +197,6 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
                 const sourceType = chart?.source;
 
                 switch (sourceType) {
-                    case ChartSourceType.SEMANTIC_LAYER:
-                        return {
-                            uuid: uuid4(),
-                            type: DashboardTileTypes.SEMANTIC_VIEWER_CHART,
-                            properties: {
-                                savedSemanticViewerChartUuid: uuid,
-                                chartName: chart?.name ?? '',
-                            },
-                            tabUuid: undefined,
-                            ...defaultTileSize,
-                        };
-
                     case ChartSourceType.SQL:
                         return {
                             uuid: uuid4(),
@@ -311,7 +224,7 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
 
                     default:
                         return assertUnreachable(
-                            sourceType,
+                            sourceType as never,
                             `Unknown chart source type: ${sourceType}`,
                         );
                 }
@@ -410,7 +323,11 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
                                             }}
                                             disabled={isFetching}
                                         >
-                                            <Text>Load more</Text>
+                                            <Text>
+                                                {t(
+                                                    'components_dashboard_tiles_forms_add_chart.form.load_more',
+                                                )}
+                                            </Text>
                                         </Button>
                                     )}
                                 </>

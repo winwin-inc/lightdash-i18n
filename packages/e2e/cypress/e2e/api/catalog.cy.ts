@@ -1,4 +1,4 @@
-import { SEED_PROJECT } from '@lightdash/common';
+import { AnyType, SEED_PROJECT } from '@lightdash/common';
 import { chartMock } from '../../support/mocks';
 import { createChartAndUpdateDashboard, createDashboard } from './dashboard.cy';
 
@@ -14,7 +14,7 @@ describe('Lightdash catalog all tables and fields', () => {
             `${apiUrl}/projects/${projectUuid}/dataCatalog?type=table`,
         ).then((resp) => {
             expect(resp.status).to.eq(200);
-            expect(resp.body.results).to.have.length(11);
+            expect(resp.body.results).to.have.length(21);
             const userTable = resp.body.results.find(
                 (table) => table.name === 'users',
             );
@@ -131,11 +131,17 @@ describe('Lightdash catalog search', () => {
             `${apiUrl}/projects/${projectUuid}/dataCatalog?search=revenue`,
         ).then((resp) => {
             expect(resp.status).to.eq(200);
-            expect(resp.body.results).to.have.length(1);
+            expect(resp.body.results).to.have.length(9);
 
-            const field = resp.body.results[0];
+            const field1 = resp.body.results[0];
 
-            expect(field).to.have.property('name', 'total_revenue');
+            expect(field1).to.have.property('name', 'total_revenue');
+
+            const field2 = resp.body.results[1];
+
+            expect(field2)
+                .to.have.property('description')
+                .that.match(/revenue/i);
         });
     });
 
@@ -210,7 +216,25 @@ describe('Lightdash catalog search', () => {
             `${apiUrl}/projects/${projectUuid}/dataCatalog?search=plan`,
         ).then((resp) => {
             expect(resp.status).to.eq(200);
-            expect(resp.body.results).to.have.length(0);
+
+            expect(resp.body.results).to.have.length(7);
+            cy.log('find the one under fanouts');
+            const planResult = resp.body.results.find(
+                (r: AnyType) =>
+                    r.name === 'plan' && r.tableGroupLabel === 'fanouts',
+            );
+            expect(planResult).to.have.property('name', 'plan');
+            expect(planResult).to.have.property('tableGroupLabel', 'fanouts');
+            cy.log('find the one under subscriptions');
+            const planNameResult = resp.body.results.find(
+                (r: AnyType) =>
+                    r.name === 'plan_name' && r.tableName === 'subscriptions',
+            );
+            expect(planNameResult).to.have.property('name', 'plan_name');
+            expect(planNameResult).to.have.property(
+                'tableName',
+                'subscriptions',
+            );
         });
     });
 });

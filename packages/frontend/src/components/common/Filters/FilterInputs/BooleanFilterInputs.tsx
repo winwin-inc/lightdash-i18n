@@ -1,7 +1,7 @@
 import {
     FilterOperator,
     isFilterRule,
-    type ConditionalRule,
+    type BaseFilterRule,
 } from '@lightdash/common';
 import { Select } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,7 @@ import { type FilterInputsProps } from '.';
 import { usePlaceholderByFilterTypeAndOperator } from '../utils/getPlaceholderByFilterTypeAndOperator';
 import DefaultFilterInputs from './DefaultFilterInputs';
 
-const BooleanFilterInputs = <T extends ConditionalRule>(
+const BooleanFilterInputs = <T extends BaseFilterRule>(
     props: FilterInputsProps<T>,
 ) => {
     const { t } = useTranslation();

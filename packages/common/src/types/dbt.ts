@@ -12,6 +12,7 @@ import {
     type ParsedMetric,
 } from './dbtFromSchema';
 import { DbtError, ParseError } from './errors';
+import { type JoinRelationship } from './explore';
 import {
     FieldType,
     friendlyName,
@@ -60,8 +61,11 @@ export type DbtModelNode = DbtRawModelNode & {
     };
 };
 export type DbtModelColumn = ColumnInfo & {
-    meta: DbtColumnMetadata;
+    meta?: DbtColumnMetadata;
     data_type?: DimensionType;
+    config?: {
+        meta?: DbtColumnMetadata;
+    };
 };
 
 type DbtLightdashFieldTags = {
@@ -70,9 +74,14 @@ type DbtLightdashFieldTags = {
 
 export type DbtModelMetadata = DbtModelLightdashConfig & {};
 
-type DbtModelLightdashConfig = {
+type ExploreConfig = {
     label?: string;
+    description?: string;
+    group_label?: string;
     joins?: DbtModelJoin[];
+};
+
+type DbtModelLightdashConfig = ExploreConfig & {
     metrics?: Record<string, DbtModelLightdashMetric>;
     order_fields_by?: OrderFieldsByStrategy;
     group_label?: string;
@@ -93,6 +102,8 @@ type DbtModelLightdashConfig = {
         >['default_visibility'];
         categories?: string[]; // yaml_reference
     };
+    explores?: Record<string, ExploreConfig>;
+    ai_hint?: string | string[];
 };
 
 export type DbtModelGroup = {
@@ -111,6 +122,8 @@ type DbtModelJoin = {
     hidden?: boolean;
     fields?: string[];
     always?: boolean;
+    relationship?: JoinRelationship;
+    primary_key?: string | string[];
 };
 export type DbtColumnMetadata = DbtColumnLightdashConfig & {};
 type DbtColumnLightdashConfig = {
@@ -139,6 +152,7 @@ export type DbtColumnLightdashDimension = {
     colors?: Record<string, string>;
     urls?: FieldUrl[];
     required_attributes?: Record<string, string | string[]>;
+    ai_hint?: string | string[];
 } & DbtLightdashFieldTags;
 
 export type DbtColumnLightdashAdditionalDimension = Omit<
@@ -170,6 +184,7 @@ export type DbtColumnLightdashMetric = {
         >['default_visibility'];
         categories?: string[]; // yaml_reference
     };
+    ai_hint?: string | string[];
 } & DbtLightdashFieldTags;
 
 export type DbtModelLightdashMetric = DbtColumnLightdashMetric &
@@ -419,6 +434,18 @@ export const convertToGroups = (
     return groups;
 };
 
+export const convertToAiHints = (
+    aiHint: string | string[] | undefined,
+): string[] | undefined => {
+    if (!aiHint) {
+        return undefined;
+    }
+    if (typeof aiHint === 'string') {
+        return [aiHint];
+    }
+    return aiHint;
+};
+
 export const isDbtRpcRunSqlResults = (
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     results: Record<string, any>,
@@ -514,6 +541,7 @@ export const convertModelMetric = ({
             spotlightVisibility,
             spotlightCategories,
         ),
+        ...(metric.ai_hint ? { aiHint: convertToAiHints(metric.ai_hint) } : {}),
     };
 };
 

@@ -17,6 +17,7 @@ import useDashboardFiltersForTile from '../../hooks/dashboard/useDashboardFilter
 import useSearchParams from '../../hooks/useSearchParams';
 import useApp from '../../providers/App/useApp';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
+import { formatChartErrorMessage } from '../../utils/chartErrorUtils';
 import ChartView from '../DataViz/visualizations/ChartView';
 import { Table } from '../DataViz/visualizations/Table';
 import LinkMenuItem from '../common/LinkMenuItem';
@@ -82,6 +83,7 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
     const updateSqlChartTilesMetadata = useDashboardContext(
         (c) => c.updateSqlChartTilesMetadata,
     );
+    const parameters = useDashboardContext((c) => c.parameters);
     const dashboardFilters = useDashboardFiltersForTile(tile.uuid);
 
     const {
@@ -104,6 +106,7 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
         tileUuid: tile.uuid,
         dashboardFilters,
         dashboardSorts: [],
+        parameters,
     });
 
     // Charts in Dashboard shouldn't have animation
@@ -142,9 +145,11 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
                 {!isChartLoading && (
                     <SuboptimalState
                         icon={IconAlertCircle}
-                        title={
-                            chartError?.error?.message || 'Error fetching chart'
-                        }
+                        title={formatChartErrorMessage(
+                            tile.properties.chartName,
+                            chartError?.error?.message ||
+                                t('components_dashboard_tiles_sql_chart.error_fetching_chart'),
+                        )}
                     />
                 )}
             </TileBase>
@@ -177,12 +182,13 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
                 {chartResultsError && (
                     <SuboptimalState
                         icon={IconAlertCircle}
-                        title={
+                        title={formatChartErrorMessage(
+                            tile.properties.chartName,
                             chartResultsError?.error?.message ||
-                            t(
-                                'components_dashboard_tiles_sql_chart.no_data_available',
-                            )
-                        }
+                                t(
+                                    'components_dashboard_tiles_sql_chart.no_data_available',
+                                ),
+                        )}
                     />
                 )}
             </TileBase>

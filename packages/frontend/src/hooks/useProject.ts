@@ -4,11 +4,12 @@ import {
     type CreateProject,
     type MostPopularAndRecentlyUpdated,
     type Project,
-    type SemanticLayerConnectionUpdate,
     type UpdateProject,
     type UpdateSchedulerSettings,
 } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+
 import { lightdashApi } from '../api';
 import useActiveJob from '../providers/ActiveJob/useActiveJob';
 import useToaster from './toaster/useToaster';
@@ -35,16 +36,6 @@ const getProject = async (uuid: string) =>
         body: undefined,
     });
 
-const updateProjectSemanticLayerConnection = async (
-    uuid: string,
-    data: SemanticLayerConnectionUpdate,
-) =>
-    lightdashApi<undefined>({
-        url: `/projects/${uuid}/semantic-layer-connection`,
-        method: 'PATCH',
-        body: JSON.stringify(data),
-    });
-
 const updateProjectSchedulerSettings = async (
     uuid: string,
     data: UpdateSchedulerSettings,
@@ -53,13 +44,6 @@ const updateProjectSchedulerSettings = async (
         url: `/projects/${uuid}/schedulerSettings`,
         method: 'PATCH',
         body: JSON.stringify(data),
-    });
-
-const deleteProjectSemanticLayerConnection = async (uuid: string) =>
-    lightdashApi<undefined>({
-        url: `/projects/${uuid}/semantic-layer-connection`,
-        method: 'DELETE',
-        body: undefined,
     });
 
 export const useProject = (id: string | undefined) => {
@@ -77,6 +61,8 @@ export const useUpdateMutation = (uuid: string) => {
     const queryClient = useQueryClient();
     const { setActiveJobId } = useActiveJob();
     const { showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<ApiJobStartedResults, ApiError, UpdateProject>(
         (data) => updateProject(uuid, data),
         {
@@ -94,7 +80,7 @@ export const useUpdateMutation = (uuid: string) => {
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to update project`,
+                    title: t('hooks_project.update_error'),
                     apiError: error,
                 });
             },
@@ -105,6 +91,8 @@ export const useUpdateMutation = (uuid: string) => {
 export const useCreateMutation = () => {
     const { setActiveJobId } = useActiveJob();
     const { showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<ApiJobStartedResults, ApiError, CreateProject>(
         (data) => createProject(data),
         {
@@ -115,7 +103,7 @@ export const useCreateMutation = () => {
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to create project`,
+                    title: t('hooks_project.create_error'),
                     apiError: error,
                 });
             },
@@ -138,32 +126,6 @@ export const useMostPopularAndRecentlyUpdated = (
         queryFn: () => getMostPopularAndRecentlyUpdated(projectUuid!),
         enabled: !!projectUuid,
     });
-
-export const useProjectSemanticLayerUpdateMutation = (uuid: string) => {
-    const queryClient = useQueryClient();
-    return useMutation<undefined, ApiError, SemanticLayerConnectionUpdate>(
-        (data) => updateProjectSemanticLayerConnection(uuid, data),
-        {
-            mutationKey: ['project_semantic_layer_update', uuid],
-            onSuccess: async () => {
-                await queryClient.invalidateQueries(['project', uuid]);
-            },
-        },
-    );
-};
-
-export const useProjectSemanticLayerDeleteMutation = (uuid: string) => {
-    const queryClient = useQueryClient();
-    return useMutation<undefined, ApiError>(
-        () => deleteProjectSemanticLayerConnection(uuid),
-        {
-            mutationKey: ['project_semantic_layer_delete', uuid],
-            onSuccess: async () => {
-                await queryClient.invalidateQueries(['project', uuid]);
-            },
-        },
-    );
-};
 
 export const useProjectUpdateSchedulerSettings = (uuid: string) => {
     const queryClient = useQueryClient();

@@ -57,7 +57,7 @@ export const RenderedSql = () => {
 
     return (
         <Prism m="sm" language="sql" withLineNumbers>
-            {data || ''}
+            {data?.query || ''}
         </Prism>
     );
 };

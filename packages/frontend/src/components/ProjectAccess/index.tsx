@@ -19,7 +19,7 @@ interface ProjectUserAccessProps {
 const ProjectUserAccess: FC<ProjectUserAccessProps> = ({ projectUuid }) => {
     const { t } = useTranslation();
     const { user } = useApp();
-    const { data: UserGroupsFeatureFlag } = useFeatureFlag(
+    const userGroupsFeatureFlagQuery = useFeatureFlag(
         FeatureFlags.UserGroupsEnabled,
     );
 
@@ -27,9 +27,16 @@ const ProjectUserAccess: FC<ProjectUserAccessProps> = ({ projectUuid }) => {
     const [showProjectGroupAccessAdd, setShowProjectGroupAccessAdd] =
         useState(false);
 
-    if (!user.data || !UserGroupsFeatureFlag) return null;
+    if (!user.data) return null;
 
-    const isGroupManagementEnabled = UserGroupsFeatureFlag?.enabled;
+    if (userGroupsFeatureFlagQuery.isError) {
+        console.error(userGroupsFeatureFlagQuery.error);
+        throw new Error('Error fetching user groups feature flag');
+    }
+
+    const isGroupManagementEnabled =
+        userGroupsFeatureFlagQuery.isSuccess &&
+        userGroupsFeatureFlagQuery.data.enabled;
 
     return (
         <Stack>

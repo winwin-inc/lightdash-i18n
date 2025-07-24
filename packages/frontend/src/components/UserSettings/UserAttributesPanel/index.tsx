@@ -160,7 +160,7 @@ const UserListItem: FC<{
 const UserAttributesPanel: FC = () => {
     const { classes } = useTableStyles();
     const { user } = useApp();
-    const { data: UserGroupsFeatureFlag } = useFeatureFlag(
+    const userGroupsFeatureFlagQuery = useFeatureFlag(
         FeatureFlags.UserGroupsEnabled,
     );
     const [showAddAttributeModal, addAttributeModal] = useDisclosure(false);
@@ -183,16 +183,24 @@ const UserAttributesPanel: FC = () => {
         return <ForbiddenPanel />;
     }
 
-    if (isInitialLoading)
-        return (
-            <LoadingState
-                title={t('components_user_settings_attributes_panel.loading')}
-            />
-        );
+    if (isInitialLoading) {
+        return <LoadingState title={t(
+            'components_user_settings_attributes_panel.loading',
+        )} />;
+    }
 
-    if (!user.data || !UserGroupsFeatureFlag) return null;
+    if (userGroupsFeatureFlagQuery.isError) {
+        console.error(userGroupsFeatureFlagQuery.error);
+        throw new Error(t(
+            'components_user_settings_attributes_panel.error',
+        ));
+    }
 
-    const isGroupManagementEnabled = UserGroupsFeatureFlag?.enabled;
+    if (!user.data) return null;
+
+    const isGroupManagementEnabled =
+        userGroupsFeatureFlagQuery.isSuccess &&
+        userGroupsFeatureFlagQuery.data.enabled;
 
     return (
         <Stack>

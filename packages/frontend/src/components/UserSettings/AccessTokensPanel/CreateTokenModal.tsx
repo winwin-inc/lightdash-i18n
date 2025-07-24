@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import useHealth from '../../../hooks/health/useHealth';
 import { useCreateAccessToken } from '../../../hooks/useAccessToken';
 import MantineIcon from '../../common/MantineIcon';
+import { useExpireOptions } from './useExpireOptions';
 
 export const CreateTokenModal: FC<{
     onBackClick: () => void;
@@ -33,45 +34,7 @@ export const CreateTokenModal: FC<{
         isSuccess,
     } = useCreateAccessToken();
 
-    const expireOptions = [
-        {
-            label: t(
-                'components_user_settings_access_tokens_panel_create_token.expire_options.no_expiration',
-            ),
-            value: '',
-        },
-        {
-            label: t(
-                'components_user_settings_access_tokens_panel_create_token.expire_options.days_7',
-            ),
-            value: '7',
-        },
-        {
-            label: t(
-                'components_user_settings_access_tokens_panel_create_token.expire_options.days_30',
-            ),
-            value: '30',
-        },
-        {
-            label: t(
-                'components_user_settings_access_tokens_panel_create_token.expire_options.days_60',
-            ),
-            value: '60',
-        },
-        {
-            label: t(
-                'components_user_settings_access_tokens_panel_create_token.expire_options.days_90',
-            ),
-            value: '90',
-        },
-    ].filter((option) => {
-        const maxExpirationTimeInDays =
-            health.data?.auth.pat.maxExpirationTimeInDays;
-        return (
-            !maxExpirationTimeInDays ||
-            (option.value && Number(option.value) <= maxExpirationTimeInDays)
-        );
-    });
+    const expireOptions = useExpireOptions(true);
 
     const form = useForm({
         initialValues: {

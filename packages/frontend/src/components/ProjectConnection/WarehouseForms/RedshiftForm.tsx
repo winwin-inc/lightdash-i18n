@@ -1,4 +1,4 @@
-import { FeatureFlags, WarehouseTypes } from '@lightdash/common';
+import { WarehouseTypes } from '@lightdash/common';
 import {
     ActionIcon,
     Anchor,
@@ -15,8 +15,6 @@ import { IconCheck, IconCopy } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
-
-import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
 import MantineIcon from '../../common/MantineIcon';
 import FormCollapseButton from '../FormCollapseButton';
 import BooleanSwitch from '../Inputs/BooleanSwitch';
@@ -84,10 +82,6 @@ const RedshiftForm: FC<{
         },
     });
 
-    const isPassthroughLoginFeatureEnabled = useFeatureFlagEnabled(
-        FeatureFlags.PassthroughLogin,
-    );
-
     return (
         <>
             <Stack style={{ marginTop: '8px' }}>
@@ -152,22 +146,20 @@ const RedshiftForm: FC<{
                 />
                 <FormSection isOpen={isOpen} name="advanced">
                     <Stack style={{ marginTop: '8px' }}>
-                        {isPassthroughLoginFeatureEnabled && (
-                            <BooleanSwitch
-                                name="warehouse.requireUserCredentials"
-                                label={t(
-                                    'components_project_connection_warehouse_form.redshift.require_user_credentials.label',
-                                )}
-                                {...form.getInputProps(
-                                    'warehouse.requireUserCredentials',
-                                    { type: 'checkbox' },
-                                )}
-                                defaultChecked={
-                                    RedshiftDefaultValues.requireUserCredentials
-                                }
-                                disabled={disabled}
-                            />
-                        )}
+                        <BooleanSwitch
+                            name="warehouse.requireUserCredentials"
+                            label={t(
+                                'components_project_connection_warehouse_form.redshift.require_user_credentials.label',
+                            )}
+                            {...form.getInputProps(
+                                'warehouse.requireUserCredentials',
+                                { type: 'checkbox' },
+                            )}
+                            defaultChecked={
+                                RedshiftDefaultValues.requireUserCredentials
+                            }
+                            disabled={disabled}
+                        />
 
                         <NumberInput
                             name="warehouse.port"

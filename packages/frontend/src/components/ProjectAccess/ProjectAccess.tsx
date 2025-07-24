@@ -1,5 +1,6 @@
 import { subject } from '@casl/ability';
 import {
+    FeatureFlags,
     ProjectMemberRole,
     convertOrganizationRoleToProjectRole,
     convertProjectRoleToOrganizationRole,
@@ -16,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useProjectGroupAccessList } from '../../features/projectGroupAccess/hooks/useProjectGroupAccess';
 import { useTableStyles } from '../../hooks/styles/useTableStyles';
+import { useFeatureFlag } from '../../hooks/useFeatureFlagEnabled';
 import { useOrganizationGroups } from '../../hooks/useOrganizationGroups';
 import { useOrganizationUsers } from '../../hooks/useOrganizationUsers';
 import { useProjectAccess } from '../../hooks/useProjectAccess';
@@ -39,6 +41,10 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
     onAddProjectAccessClose,
 }) => {
     const { user } = useApp();
+
+    const userGroupsFeatureFlagQuery = useFeatureFlag(
+        FeatureFlags.UserGroupsEnabled,
+    );
     const ability = useAbilityContext();
     const { t } = useTranslation();
 
@@ -51,7 +57,14 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
         isInitialLoading: isOrganizationUsersLoading,
     } = useOrganizationUsers();
 
-    const { data: groups } = useOrganizationGroups({ includeMembers: 5 });
+    const { data: groups } = useOrganizationGroups(
+        { includeMembers: 5 },
+        {
+            enabled:
+                userGroupsFeatureFlagQuery.isSuccess &&
+                userGroupsFeatureFlagQuery.data.enabled,
+        },
+    );
 
     const { data: projectAccess, isInitialLoading: isProjectAccessLoading } =
         useProjectAccess(projectUuid);

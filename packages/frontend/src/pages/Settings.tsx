@@ -2,7 +2,6 @@ import { subject } from '@casl/ability';
 import { CommercialFeatureFlags, FeatureFlags } from '@lightdash/common';
 import { Box, ScrollArea, Stack, Text, Title } from '@mantine/core';
 import {
-    IconBrain,
     IconBrowser,
     IconBuildingSkyscraper,
     IconCalendarStats,
@@ -11,13 +10,13 @@ import {
     IconDatabaseCog,
     IconDatabaseExport,
     IconKey,
-    IconLayersLinked,
     IconLock,
     IconPalette,
     IconPlug,
     IconReportAnalytics,
     IconTableOptions,
     IconUserCircle,
+    IconUserCode,
     IconUserPlus,
     IconUsers,
     IconUserShield,
@@ -27,7 +26,6 @@ import { useTranslation } from 'react-i18next';
 import { Navigate, useRoutes, type RouteObject } from 'react-router';
 import PageSpinner from '../components/PageSpinner';
 import AccessTokensPanel from '../components/UserSettings/AccessTokensPanel';
-import AiAgentsPanel from '../components/UserSettings/AiAgentsPanel';
 import AllowedDomainsPanel from '../components/UserSettings/AllowedDomainsPanel';
 import AppearanceSettingsPanel from '../components/UserSettings/AppearanceSettingsPanel';
 import DefaultProjectPanel from '../components/UserSettings/DefaultProjectPanel';
@@ -48,8 +46,8 @@ import Page from '../components/common/Page/Page';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import RouterNavLink from '../components/common/RouterNavLink';
 import { SettingsGridCard } from '../components/common/Settings/SettingsCard';
-import { OrganizationAiAgent } from '../ee/features/aiCopilot/components/OrganizationAiAgent';
 import ScimAccessTokensPanel from '../ee/features/scim/components/ScimAccessTokensPanel';
+import { ServiceAccountsPage } from '../ee/features/serviceAccounts';
 import { useOrganization } from '../hooks/organization/useOrganization';
 import { useActiveProjectUuid } from '../hooks/useActiveProject';
 import {
@@ -69,20 +67,13 @@ const Settings: FC = () => {
     const { data: embeddingEnabled } = useFeatureFlag(
         CommercialFeatureFlags.Embedding,
     );
-    const isPassthroughLoginFeatureEnabled = useFeatureFlagEnabled(
-        FeatureFlags.PassthroughLogin,
-    );
-
-    const isSemanticLayerEnabled = useFeatureFlagEnabled(
-        FeatureFlags.SemanticLayerEnabled,
-    );
 
     const { data: isScimTokenManagementEnabled } = useFeatureFlag(
         CommercialFeatureFlags.Scim,
     );
 
-    const { data: aiCopilotFlag } = useFeatureFlag(
-        CommercialFeatureFlags.AiCopilot,
+    const isServiceAccountFeatureFlagEnabled = useFeatureFlagEnabled(
+        CommercialFeatureFlags.ServiceAccounts,
     );
 
     const {
@@ -93,9 +84,11 @@ const Settings: FC = () => {
         },
         user: { data: user, isInitialLoading: isUserLoading, error: userError },
     } = useApp();
-    const { data: UserGroupFeatureFlag } = useFeatureFlag(
+
+    const userGroupsFeatureFlagQuery = useFeatureFlag(
         FeatureFlags.UserGroupsEnabled,
     );
+
     const { track } = useTracking();
     const {
         data: organization,
@@ -120,7 +113,18 @@ const Settings: FC = () => {
         health?.auth.azuread.enabled ||
         health?.auth.oidc.enabled;
 
-    const isGroupManagementEnabled = UserGroupFeatureFlag?.enabled;
+    if (userGroupsFeatureFlagQuery.isError) {
+        console.error(userGroupsFeatureFlagQuery.error);
+        throw new Error('Error fetching user groups feature flag');
+    }
+
+    const isGroupManagementEnabled =
+        userGroupsFeatureFlagQuery.isSuccess &&
+        userGroupsFeatureFlagQuery.data.enabled;
+
+    // This allows us to enable service accounts in the UI for on-premise installations
+    const isServiceAccountsEnabled =
+        health?.isServiceAccountEnabled || isServiceAccountFeatureFlagEnabled;
 
     const routes = useMemo<RouteObject[]>(() => {
         const allowedRoutes: RouteObject[] = [
@@ -169,16 +173,14 @@ const Settings: FC = () => {
                 ),
             });
         }
-        if (isPassthroughLoginFeatureEnabled) {
-            allowedRoutes.push({
-                path: '/myWarehouseConnections',
-                element: (
-                    <Stack spacing="xl">
-                        <MyWarehouseConnectionsPanel />
-                    </Stack>
-                ),
-            });
-        }
+        allowedRoutes.push({
+            path: '/myWarehouseConnections',
+            element: (
+                <Stack spacing="xl">
+                    <MyWarehouseConnectionsPanel />
+                </Stack>
+            ),
+        });
         if (user?.ability.can('manage', 'PersonalAccessToken')) {
             allowedRoutes.push({
                 path: '/organization',
@@ -337,29 +339,26 @@ const Settings: FC = () => {
             });
         }
 
-        if (user?.ability.can('manage', 'AiAgent') && aiCopilotFlag?.enabled) {
+        if (
+            user?.ability.can('manage', 'Organization') &&
+            isServiceAccountsEnabled
+        ) {
             allowedRoutes.push({
-                path: '/aiAgents',
-                element: <AiAgentsPanel />,
-            });
-            allowedRoutes.push({
-                path: '/aiAgents/:agentId',
-                element: <OrganizationAiAgent />,
+                path: '/serviceAccounts',
+                element: <ServiceAccountsPage />,
             });
         }
 
         return allowedRoutes;
     }, [
+        isServiceAccountsEnabled,
         isScimTokenManagementEnabled?.enabled,
-        isPassthroughLoginFeatureEnabled,
         allowPasswordAuthentication,
         hasSocialLogin,
         user,
         organization,
         project,
         health,
-        t,
-        aiCopilotFlag?.enabled,
     ]);
     const routeElements = useRoutes(routes);
 
@@ -439,20 +438,14 @@ const Settings: FC = () => {
                                     />
                                 )}
 
-                                {isPassthroughLoginFeatureEnabled && (
-                                    <RouterNavLink
-                                        label={t(
-                                            'pages_settings.scroll_area_box.navs.warehouse_connections',
-                                        )}
-                                        exact
-                                        to="/generalSettings/myWarehouseConnections"
-                                        icon={
-                                            <MantineIcon
-                                                icon={IconDatabaseCog}
-                                            />
-                                        }
-                                    />
-                                )}
+                                <RouterNavLink
+                                    label="My warehouse connections"
+                                    exact
+                                    to="/generalSettings/myWarehouseConnections"
+                                    icon={
+                                        <MantineIcon icon={IconDatabaseCog} />
+                                    }
+                                />
                                 {user.ability.can(
                                     'manage',
                                     'PersonalAccessToken',
@@ -562,18 +555,6 @@ const Settings: FC = () => {
                                     />
                                 )}
 
-                                {user.ability.can('manage', 'Organization') &&
-                                    aiCopilotFlag?.enabled && (
-                                        <RouterNavLink
-                                            label="AI Agents"
-                                            exact
-                                            to="/generalSettings/aiAgents"
-                                            icon={
-                                                <MantineIcon icon={IconBrain} />
-                                            }
-                                        />
-                                    )}
-
                                 {organization &&
                                     !organization.needsProject &&
                                     user.ability.can('view', 'Project') && (
@@ -599,6 +580,19 @@ const Settings: FC = () => {
                                             to="/generalSettings/scimAccessTokens"
                                             icon={
                                                 <MantineIcon icon={IconKey} />
+                                            }
+                                        />
+                                    )}
+                                {user.ability.can('manage', 'Organization') &&
+                                    isServiceAccountsEnabled && (
+                                        <RouterNavLink
+                                            label="Service Accounts"
+                                            exact
+                                            to="/generalSettings/serviceAccounts"
+                                            icon={
+                                                <MantineIcon
+                                                    icon={IconUserCode}
+                                                />
                                             }
                                         />
                                     )}
@@ -637,28 +631,6 @@ const Settings: FC = () => {
                                             />
                                         }
                                     />
-
-                                    {user.ability?.can(
-                                        'manage',
-                                        subject('Project', {
-                                            organizationUuid:
-                                                project.organizationUuid,
-                                            projectUuid: project.projectUuid,
-                                        }),
-                                    ) && isSemanticLayerEnabled ? (
-                                        <RouterNavLink
-                                            label={t(
-                                                'pages_settings.scroll_area_box_update.navs.semantic_layer_integration',
-                                            )}
-                                            exact
-                                            to={`/generalSettings/projectManagement/${project.projectUuid}/semanticLayer`}
-                                            icon={
-                                                <MantineIcon
-                                                    icon={IconLayersLinked}
-                                                />
-                                            }
-                                        />
-                                    ) : null}
 
                                     <RouterNavLink
                                         label={t(

@@ -1,20 +1,21 @@
 import { z } from 'zod';
-import type { AnyType, CacheMetadata, ItemsMap, MetricQuery } from '../..';
+import type {
+    AnyType,
+    ApiExecuteAsyncMetricQueryResults,
+    ApiSuccess,
+    ApiSuccessEmpty,
+    CacheMetadata,
+    ItemsMap,
+} from '../..';
+import { type AiMetricQuery, type AiResultType } from './types';
 
-/**
- * Supported AI visualization chart types
- */
-// TODO: Think better naming for this or sharing similar names with explorer
-export enum AiChartType {
-    TIME_SERIES_CHART = 'time_series_chart',
-    VERTICAL_BAR_CHART = 'vertical_bar_chart',
-    CSV = 'csv', // TABLE -  this is also table
-}
-
-export type AiMetricQuery = Pick<
-    MetricQuery,
-    'metrics' | 'dimensions' | 'sorts' | 'limit' | 'exploreName' | 'filters'
->;
+export * from './constants';
+export * from './filterExploreByTags';
+export * from './followUpTools';
+export * from './requestTypes';
+export * from './schemas';
+export * from './types';
+export * from './utils';
 
 export const baseAgentSchema = z.object({
     uuid: z.string(),
@@ -43,12 +44,13 @@ export const baseAgentSchema = z.object({
     instruction: z
         .string()
         .max(
-            4096,
-            'Custom instruction is too long. Maximum allowed is 4,000 characters.',
+            8192, // 8kb
+            'Custom instruction is too long. Maximum allowed is 8,100 characters.',
         )
         .nullable(),
     provider: z.string(),
     model: z.string(),
+    groupAccess: z.array(z.string()),
 });
 
 export type BaseAiAgent = z.infer<typeof baseAgentSchema>;
@@ -65,6 +67,7 @@ export type AiAgent = Pick<
     | 'updatedAt'
     | 'instruction'
     | 'imageUrl'
+    | 'groupAccess'
 >;
 
 export type AiAgentSummary = Pick<
@@ -79,6 +82,7 @@ export type AiAgentSummary = Pick<
     | 'updatedAt'
     | 'instruction'
     | 'imageUrl'
+    | 'groupAccess'
 >;
 
 export type AiAgentUser = {
@@ -100,13 +104,20 @@ export type AiAgentMessageAssistant = {
     role: 'assistant';
     uuid: string;
     threadUuid: string;
-    message: string; // ai_prompt.response
-    createdAt: string; // ai_prompt.responded_at
 
-    vizConfigOutput?: object;
-    filtersOutput?: object;
-    metricQuery?: object;
-    humanScore?: number;
+    // ai_prompt.response
+    message: string | null;
+    // ai_prompt.responded_at but this can not be null because
+    // we check for null before creating the agent message
+    createdAt: string;
+
+    vizConfigOutput: object | null;
+    filtersOutput: object | null;
+    metricQuery: object | null;
+    humanScore: number | null;
+
+    toolCalls: AiAgentToolCall[];
+    savedQueryUuid: string | null;
 };
 
 export type AiAgentMessage<TUser extends AiAgentUser = AiAgentUser> =
@@ -118,7 +129,10 @@ export type AiAgentThreadSummary<TUser extends AiAgentUser = AiAgentUser> = {
     agentUuid: string;
     createdAt: string;
     createdFrom: string;
-    firstMessage: string;
+    firstMessage: {
+        uuid: string;
+        message: string;
+    };
     user: TUser;
 };
 
@@ -145,6 +159,7 @@ export type ApiCreateAiAgent = Pick<
     | 'name'
     | 'instruction'
     | 'imageUrl'
+    | 'groupAccess'
 >;
 
 export type ApiUpdateAiAgent = Partial<
@@ -156,6 +171,7 @@ export type ApiUpdateAiAgent = Partial<
         | 'name'
         | 'instruction'
         | 'imageUrl'
+        | 'groupAccess'
     >
 > & {
     uuid: string;
@@ -176,16 +192,19 @@ export type ApiAiAgentThreadResponse = {
     results: AiAgentThread;
 };
 
-export type ApiAiAgentThreadGenerateRequest = {
+export type ApiAiAgentThreadCreateRequest = {
+    prompt?: string;
+};
+
+export type ApiAiAgentThreadCreateResponse = ApiSuccess<AiAgentThreadSummary>;
+
+export type ApiAiAgentThreadMessageCreateRequest = {
     prompt: string;
 };
 
-export type ApiAiAgentThreadGenerateResponse = {
-    status: 'ok';
-    results: {
-        jobId: string;
-    };
-};
+export type ApiAiAgentThreadMessageCreateResponse = ApiSuccess<
+    AiAgentMessageUser<AiAgentUser>
+>;
 
 export type ApiAiAgentStartThreadResponse = {
     status: 'ok';
@@ -196,7 +215,7 @@ export type ApiAiAgentStartThreadResponse = {
 };
 
 export type ApiAiAgentThreadMessageViz = {
-    type: AiChartType;
+    type: AiResultType;
     metricQuery: AiMetricQuery;
     chartOptions?: object;
     results: {
@@ -211,4 +230,40 @@ export type ApiAiAgentThreadMessageVizResponse = {
     results: ApiAiAgentThreadMessageViz;
 };
 
-export * from './filterExploreByTags';
+export type AiVizMetadata = {
+    title: string | null;
+    description: string | null;
+};
+
+export type ApiAiAgentThreadMessageVizQuery = {
+    type: AiResultType;
+    query: ApiExecuteAsyncMetricQueryResults;
+    metadata: AiVizMetadata;
+};
+
+export type ApiAiAgentThreadMessageVizQueryResponse = {
+    status: 'ok';
+    results: ApiAiAgentThreadMessageVizQuery;
+};
+
+export type AiAgentUserPreferences = {
+    defaultAgentUuid: AiAgent['uuid'];
+};
+
+export type ApiGetUserAgentPreferencesResponse =
+    | ApiSuccess<AiAgentUserPreferences>
+    | ApiSuccessEmpty;
+
+export type ApiUpdateUserAgentPreferences = AiAgentUserPreferences;
+
+export type ApiUpdateUserAgentPreferencesResponse = ApiSuccessEmpty;
+
+export type AiAgentToolCall = {
+    uuid: string;
+    promptUuid: string;
+    toolCallId: string;
+    createdAt: Date;
+    // TODO: tsoa does not support zod infer schemas - https://github.com/lukeautry/tsoa/issues/1256
+    toolName: string; // ToolName zod enum
+    toolArgs: object;
+};

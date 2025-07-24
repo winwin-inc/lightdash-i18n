@@ -38,6 +38,13 @@ const deleteAccessToken = async (tokenUuid: string) =>
         body: undefined,
     });
 
+const rotateAccessToken = async (tokenUuid: string, expiresAt: string) =>
+    lightdashApi<ApiCreateUserTokenResults>({
+        url: `/user/me/personal-access-tokens/${tokenUuid}/rotate`,
+        method: 'PATCH',
+        body: JSON.stringify({ expiresAt }),
+    });
+
 export const useAccessToken = (
     useQueryOptions?: UseQueryOptions<PersonalAccessToken[], ApiError>,
 ) => {
@@ -91,6 +98,32 @@ export const useDeleteAccessToken = () => {
         onError: ({ error }) => {
             showToastApiError({
                 title: t('hooks_access_token.toast_deleted_error'),
+                apiError: error,
+            });
+        },
+    });
+};
+
+export const useRotateAccessToken = () => {
+    const queryClient = useQueryClient();
+    const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
+    return useMutation<
+        ApiCreateUserTokenResults,
+        ApiError,
+        { tokenUuid: string; expiresAt: string }
+    >(({ tokenUuid, expiresAt }) => rotateAccessToken(tokenUuid, expiresAt), {
+        mutationKey: ['personal_access_tokens'],
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(['personal_access_tokens']);
+            showToastSuccess({
+                title: t('hooks_access_token.toast_rotated'),
+            });
+        },
+        onError: ({ error }) => {
+            showToastApiError({
+                title: t('hooks_access_token.toast_rotated_error'),
                 apiError: error,
             });
         },

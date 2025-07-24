@@ -4,7 +4,7 @@ import { IconSparkles } from '@tabler/icons-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
-
+import MantineIcon from '../../../../common/MantineIcon';
 import { useCustomVis } from '../hooks/useCustomVisAi';
 
 export const GenerateVizWithAi = ({
@@ -54,10 +54,16 @@ export const GenerateVizWithAi = ({
     return (
         <Popover width="400px" position="bottom" withArrow shadow="md">
             <Popover.Target>
-                <Button variant="outline" color="blue">
-                    AI <IconSparkles size={16} />
+                <Button
+                    compact
+                    variant="default"
+                    fz="xs"
+                    leftIcon={<MantineIcon icon={IconSparkles} />}
+                >
+                    AI
                 </Button>
             </Popover.Target>
+
             <Popover.Dropdown>
                 <Textarea
                     placeholder={t(

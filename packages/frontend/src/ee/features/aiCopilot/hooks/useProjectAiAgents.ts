@@ -1,15 +1,24 @@
 import type {
     ApiAiAgentResponse,
     ApiAiAgentSummaryResponse,
+    ApiCreateAiAgent,
+    ApiCreateAiAgentResponse,
     ApiError,
+    ApiUpdateAiAgent,
 } from '@lightdash/common';
-import { useQuery } from '@tanstack/react-query';
+import {
+    useMutation,
+    useQuery,
+    useQueryClient,
+    type UseQueryOptions,
+} from '@tanstack/react-query';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 
 import { lightdashApi } from '../../../../api';
 import useToaster from '../../../../hooks/toaster/useToaster';
 
-const PROJECT_AI_AGENTS_KEY = 'projectAiAgents';
+export const PROJECT_AI_AGENTS_KEY = 'projectAiAgents';
 
 const listProjectAgents = (projectUuid: string) =>
     lightdashApi<ApiAiAgentSummaryResponse['results']>({
@@ -30,22 +39,38 @@ const getProjectAgent = async (
         body: undefined,
     });
 
-export const useProjectAiAgents = (projectUuid: string | undefined) => {
+type UseProjectAiAgentsProps = {
+    projectUuid?: string | null;
+    options?: UseQueryOptions<ApiAiAgentSummaryResponse['results'], ApiError>;
+    redirectOnUnauthorized: boolean;
+};
+
+export const useProjectAiAgents = ({
+    projectUuid,
+    options,
+    redirectOnUnauthorized,
+}: UseProjectAiAgentsProps) => {
+    const navigate = useNavigate();
     const { showToastApiError } = useToaster();
     const { t } = useTranslation();
 
     return useQuery<ApiAiAgentSummaryResponse['results'], ApiError>({
         queryKey: [PROJECT_AI_AGENTS_KEY, projectUuid],
         queryFn: () => listProjectAgents(projectUuid!),
+        ...options,
         onError: (error) => {
-            showToastApiError({
-                title: t(
-                    'features_ai_copilot_project_hooks.failed_to_fetch_agents',
-                ),
-                apiError: error.error,
-            });
+            if (error.error?.statusCode !== 403) {
+                showToastApiError({
+                    title: t(
+                        'features_ai_copilot_project_hooks.failed_to_fetch_agents',
+                    ),
+                    apiError: error.error,
+                });
+            } else if (redirectOnUnauthorized) {
+                void navigate(`/projects/${projectUuid}/home`);
+            }
         },
-        enabled: !!projectUuid,
+        enabled: !!projectUuid && options?.enabled !== false,
     });
 };
 
@@ -53,6 +78,7 @@ export const useProjectAiAgent = (
     projectUuid: string | undefined,
     agentUuid: string | undefined,
 ) => {
+    const navigate = useNavigate();
     const { showToastApiError } = useToaster();
     const { t } = useTranslation();
 
@@ -60,13 +86,109 @@ export const useProjectAiAgent = (
         queryKey: [PROJECT_AI_AGENTS_KEY, projectUuid, agentUuid],
         queryFn: () => getProjectAgent(projectUuid!, agentUuid!),
         onError: (error) => {
-            showToastApiError({
-                title: t(
-                    'features_ai_copilot_project_hooks.failed_to_fetch_project_agent',
-                ),
-                apiError: error.error,
-            });
+            if (error.error?.statusCode === 403) {
+                void navigate(`/projects/${projectUuid}/home`);
+            } else {
+                showToastApiError({
+                    title: t(
+                        'features_ai_copilot_project_hooks.failed_to_fetch_project_agent',
+                    ),
+                    apiError: error.error,
+                });
+            }
         },
         enabled: !!projectUuid && !!agentUuid,
+        retry: (failureCount, error) => {
+            // Don't retry permission errors
+            if (error.error?.statusCode === 403) {
+                return false;
+            }
+            return failureCount < 3;
+        },
+    });
+};
+
+const createProjectAgent = (projectUuid: string, data: ApiCreateAiAgent) =>
+    lightdashApi<ApiCreateAiAgentResponse['results']>({
+        version: 'v1',
+        url: `/projects/${projectUuid}/aiAgents`,
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+
+export const useProjectCreateAiAgentMutation = (projectUuid: string) => {
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const { showToastApiError, showToastSuccess } = useToaster();
+    const { t } = useTranslation();
+
+    return useMutation<
+        ApiCreateAiAgentResponse['results'],
+        ApiError,
+        ApiCreateAiAgent
+    >({
+        mutationFn: (data) => createProjectAgent(projectUuid, data),
+        onSuccess: (result) => {
+            showToastSuccess({
+                title: t(
+                    'features_ai_copilot_project_hooks.agent_created_successfully',
+                ),
+            });
+            void queryClient.invalidateQueries({
+                queryKey: [PROJECT_AI_AGENTS_KEY, projectUuid],
+            });
+            void navigate(`/projects/${projectUuid}/ai-agents/${result.uuid}`);
+        },
+        onError: ({ error }) => {
+            showToastApiError({
+                title: t(
+                    'features_ai_copilot_project_hooks.failed_to_create_agent',
+                ),
+                apiError: error,
+            });
+        },
+    });
+};
+
+const updateProjectAgent = (projectUuid: string, data: ApiUpdateAiAgent) =>
+    lightdashApi<ApiAiAgentResponse['results']>({
+        version: 'v1',
+        url: `/projects/${projectUuid}/aiAgents/${data.uuid}`,
+        method: 'PATCH',
+        body: JSON.stringify(data),
+    });
+
+export const useProjectUpdateAiAgentMutation = (projectUuid: string) => {
+    const queryClient = useQueryClient();
+    const { showToastApiError, showToastSuccess } = useToaster();
+    const { t } = useTranslation();
+
+    return useMutation<
+        ApiAiAgentResponse['results'],
+        ApiError,
+        ApiUpdateAiAgent
+    >({
+        mutationFn: (data) => updateProjectAgent(projectUuid, data),
+        onSuccess: async (data) => {
+            showToastSuccess({
+                title: t(
+                    'features_ai_copilot_project_hooks.agent_updated_successfully',
+                ),
+            });
+            await queryClient.invalidateQueries({
+                queryKey: [PROJECT_AI_AGENTS_KEY, projectUuid, data.uuid],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: [PROJECT_AI_AGENTS_KEY, projectUuid],
+            });
+        },
+        onError: ({ error }) => {
+            showToastApiError({
+                title: t(
+                    'features_ai_copilot_project_hooks.failed_to_update_agent',
+                ),
+                apiError: error,
+            });
+        },
     });
 };

@@ -16,8 +16,6 @@ import { useTableStyles } from '../../hooks/styles/useTableStyles';
 import { useProject } from '../../hooks/useProject';
 import SchedulersViewActionMenu from './SchedulersViewActionMenu';
 import {
-    formatTime,
-    getLogStatusIcon,
     getSchedulerIcon,
     getSchedulerLink,
     type SchedulerColumnName,
@@ -41,16 +39,9 @@ type Column = {
     };
 };
 
-const Schedulers: FC<SchedulersProps> = ({
-    projectUuid,
-    schedulers,
-    logs,
-    users,
-    charts,
-    dashboards,
-}) => {
-    const { t } = useTranslation();
+const Schedulers: FC<SchedulersProps> = ({ projectUuid, schedulers }) => {
     const { classes, theme } = useTableStyles();
+    const { t } = useTranslation();
 
     const { data: slackInstallation } = useGetSlack();
     const organizationHasSlack = !!slackInstallation?.organizationUuid;
@@ -85,25 +76,15 @@ const Schedulers: FC<SchedulersProps> = ({
                               'components_schedulers_view_table.name.label',
                           ),
                           cell: (item) => {
-                              const user = users.find(
-                                  (u) => u.userUuid === item.createdBy,
-                              );
-                              const chartOrDashboard = item.savedChartUuid
-                                  ? charts.find(
-                                        (chart) =>
-                                            chart.savedChartUuid ===
-                                            item.savedChartUuid,
-                                    )
-                                  : dashboards.find(
-                                        (dashboard) =>
-                                            dashboard.dashboardUuid ===
-                                            item.dashboardUuid,
-                                    );
                               const format = () => {
                                   switch (item.format) {
                                       case SchedulerFormat.CSV:
                                           return t(
                                               'components_schedulers_view_table.name.groups.csv',
+                                          );
+                                      case SchedulerFormat.XLSX:
+                                          return t(
+                                              'components_schedulers_view_table.name.groups.xlsx',
                                           );
                                       case SchedulerFormat.IMAGE:
                                           return t(
@@ -153,12 +134,8 @@ const Schedulers: FC<SchedulersProps> = ({
                                                                   color="white"
                                                                   span
                                                               >
-                                                                  {
-                                                                      user?.firstName
-                                                                  }{' '}
-                                                                  {
-                                                                      user?.lastName
-                                                                  }
+                                                                  {item.createdByName ||
+                                                                      'n/a'}
                                                               </Text>
                                                           </Text>
                                                       </Stack>
@@ -181,7 +158,9 @@ const Schedulers: FC<SchedulersProps> = ({
                                               </Tooltip>
                                           </Anchor>
                                           <Text fz="xs" color="gray.6">
-                                              {chartOrDashboard?.name}
+                                              {item.savedChartName ||
+                                                  item.dashboardName ||
+                                                  'n/a'}
                                           </Text>
                                       </Stack>
                                   </Group>
@@ -331,33 +310,6 @@ const Schedulers: FC<SchedulersProps> = ({
                           meta: { style: { width: 200 } },
                       },
                       {
-                          id: 'lastDelivery',
-                          label: t(
-                              'components_schedulers_view_table.last_deliver_start.label',
-                          ),
-                          cell: (item) => {
-                              const currentLogs = logs.filter(
-                                  (log) =>
-                                      log.schedulerUuid === item.schedulerUuid,
-                              );
-                              return currentLogs.length > 0 ? (
-                                  <Group spacing="xs">
-                                      <Text fz="xs" color="gray.6">
-                                          {formatTime(currentLogs[0].createdAt)}
-                                      </Text>
-                                      {getLogStatusIcon(currentLogs[0], theme)}
-                                  </Group>
-                              ) : (
-                                  <Text fz="xs" color="gray.6">
-                                      {t(
-                                          'components_schedulers_view_table.last_deliver_start.no_deliveries_started',
-                                      )}
-                                  </Text>
-                              );
-                          },
-                          meta: { style: { width: 200 } },
-                      },
-                      {
                           id: 'actions',
                           cell: (item) => {
                               return (
@@ -383,17 +335,7 @@ const Schedulers: FC<SchedulersProps> = ({
                       },
                   ]
                 : [],
-        [
-            project,
-            users,
-            charts,
-            dashboards,
-            theme,
-            projectUuid,
-            getSlackChannelName,
-            logs,
-            t,
-        ],
+        [project, theme, projectUuid, getSlackChannelName],
     );
 
     return (

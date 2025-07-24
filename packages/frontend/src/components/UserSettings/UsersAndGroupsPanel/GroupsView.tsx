@@ -1,4 +1,8 @@
-import { isGroupWithMembers, type GroupWithMembers } from '@lightdash/common';
+import {
+    FeatureFlags,
+    isGroupWithMembers,
+    type GroupWithMembers,
+} from '@lightdash/common';
 import {
     ActionIcon,
     Badge,
@@ -24,6 +28,7 @@ import { useCallback, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useTableStyles } from '../../../hooks/styles/useTableStyles';
+import { useFeatureFlag } from '../../../hooks/useFeatureFlagEnabled';
 import {
     useGroupDeleteMutation,
     useOrganizationGroups,
@@ -178,6 +183,10 @@ const GroupsView: FC = () => {
     const { user } = useApp();
     const { t } = useTranslation();
 
+    const userGroupsFeatureFlagQuery = useFeatureFlag(
+        FeatureFlags.UserGroupsEnabled,
+    );
+
     const [showCreateAndEditModal, setShowCreateAndEditModal] = useState(false);
 
     const [groupToEdit, setGroupToEdit] = useState<
@@ -193,11 +202,18 @@ const GroupsView: FC = () => {
 
     const [search, setSearch] = useState('');
 
+    const isGroupManagementEnabled =
+        userGroupsFeatureFlagQuery.isSuccess &&
+        userGroupsFeatureFlagQuery.data.enabled;
+
     const { data: groups, isInitialLoading: isLoadingGroups } =
-        useOrganizationGroups({
-            searchInput: search,
-            includeMembers: GROUP_MEMBERS_PER_PAGE, // TODO: pagination
-        });
+        useOrganizationGroups(
+            {
+                searchInput: search,
+                includeMembers: GROUP_MEMBERS_PER_PAGE, // TODO: pagination
+            },
+            { enabled: isGroupManagementEnabled },
+        );
 
     const handleDelete = useCallback(() => {
         if (groupToDelete) {
@@ -206,12 +222,16 @@ const GroupsView: FC = () => {
         }
     }, [groupToDelete, mutate]);
 
+    if (userGroupsFeatureFlagQuery.isError) {
+        console.error(userGroupsFeatureFlagQuery.error);
+        throw new Error(t(
+            'components_user_settings_groups_panel_view.error_fetching_groups',
+        ));
+    }
     if (isLoadingGroups) {
-        <LoadingState
-            title={t(
-                'components_user_settings_groups_panel_view.loding_groups',
-            )}
-        />;
+        return <LoadingState title={t(
+            'components_user_settings_groups_panel_view.loding_groups',
+        )} />;
     }
 
     return (

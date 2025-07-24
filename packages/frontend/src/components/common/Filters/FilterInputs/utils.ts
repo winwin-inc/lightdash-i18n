@@ -15,8 +15,8 @@ import {
     isFilterableItem,
     isFilterRule,
     isMomentInput,
-    type ConditionalRule,
-    type ConditionalRuleLabels,
+    type BaseFilterRule,
+    type ConditionalRuleLabel,
     type CustomSqlDimension,
     type Field,
     type FilterableDimension,
@@ -140,7 +140,7 @@ const useValueAsString = () => {
 
     return (
         filterType: FilterType,
-        rule: ConditionalRule,
+        rule: BaseFilterRule,
         field?: Field | TableCalculation | CustomSqlDimension,
     ) => {
         const { operator, values } = rule;
@@ -262,10 +262,10 @@ export const useConditionalRuleLabel = () => {
     const getValueAsString = useValueAsString();
 
     return (
-        rule: ConditionalRule,
+        rule: BaseFilterRule,
         filterType: FilterType,
         label: string,
-    ): ConditionalRuleLabels => {
+    ): ConditionalRuleLabel => {
         const operatorOptions = getFilterOperatorOptions(filterType);
         const operationLabel =
             operatorOptions.find((o) => o.value === rule.operator)?.label ||
@@ -286,9 +286,9 @@ export const useConditionalRuleLabelFromItem = () => {
     const getValueAsString = useValueAsString();
 
     return (
-        rule: ConditionalRule,
+        rule: BaseFilterRule,
         item: FilterableItem,
-    ): ConditionalRuleLabels => {
+    ): ConditionalRuleLabel => {
         const filterType = isFilterableItem(item)
             ? getFilterTypeFromItem(item)
             : FilterType.STRING;
@@ -306,7 +306,7 @@ export const useConditionalRuleLabelFromItem = () => {
 };
 
 export const getFilterRuleTables = (
-    filterRule: ConditionalRule,
+    filterRule: BaseFilterRule,
     field: FilterableDimension,
     filterableFields: FilterableDimension[],
 ): string[] => {

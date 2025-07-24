@@ -27,8 +27,9 @@ export const ProjectForm: FC<Props> = ({
 }) => {
     const { health } = useApp();
     const form = useFormContext();
-    const warehouse = form.values.warehouse?.type;
     const { t } = useTranslation();
+    
+    const warehouse = form.values.warehouse?.type;
 
     return (
         <Stack spacing="xl">

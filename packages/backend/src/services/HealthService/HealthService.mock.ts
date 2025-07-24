@@ -27,6 +27,7 @@ export const BaseResponse: HealthState = {
             loginPath: '',
             oauth2ClientId: undefined,
             googleDriveApiKey: undefined,
+            enableGCloudADC: false,
         },
         okta: {
             enabled: false,
@@ -90,6 +91,7 @@ export const BaseResponse: HealthState = {
         overrideColorPalette: undefined,
         overrideColorPaletteName: undefined,
     },
+    isServiceAccountEnabled: false,
 };
 
 export const userMock = {

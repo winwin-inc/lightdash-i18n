@@ -9,6 +9,7 @@ import {
     IconChartBubble,
     IconFilter,
     IconFlame,
+    IconPlus,
     IconStairs,
     IconWorld,
 } from '@tabler/icons-react';
@@ -90,14 +91,10 @@ export const SelectTemplate = ({
             <Menu.Target>
                 <Button
                     size="sm"
-                    variant="subtle"
+                    variant="default"
                     compact
-                    leftIcon="+"
-                    styles={{
-                        leftIcon: {
-                            marginRight: 2,
-                        },
-                    }}
+                    fz="xs"
+                    leftIcon={<MantineIcon icon={IconPlus} />}
                 >
                     {t(
                         'components_visualization_configs_custom_vis_template.insert_template',

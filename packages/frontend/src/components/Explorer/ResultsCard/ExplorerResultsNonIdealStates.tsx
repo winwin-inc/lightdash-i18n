@@ -1,11 +1,13 @@
-import { createStyles, keyframes, Loader, Text } from '@mantine/core';
-import { type FC } from 'react';
+import { type ApiErrorDetail } from '@lightdash/common';
+import { Anchor, createStyles, keyframes, Loader, Text } from '@mantine/core';
+import { IconTableOff } from '@tabler/icons-react';
+import { Fragment, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import { TrackSection } from '../../../providers/Tracking/TrackingProvider';
 import NoTableIcon from '../../../svgs/emptystate-no-table.svg?react';
 import { SectionName } from '../../../types/Events';
 import { EmptyState } from '../../common/EmptyState';
+import MantineIcon from '../../common/MantineIcon';
 import DocumentationHelpButton from '../../DocumentationHelpButton';
 import { RefreshButton } from '../../RefreshButton';
 
@@ -301,17 +303,41 @@ export const ExploreLoadingState = () => {
     );
 };
 
-export const ExploreErrorState = () => {
+export const ExploreErrorState = ({
+    errorDetail,
+}: {
+    errorDetail?: ApiErrorDetail | null;
+}) => {
     const { t } = useTranslation();
 
     return (
         <EmptyState
+            icon={<MantineIcon icon={IconTableOff} />}
             title={t(
                 'components_explorer_results_card_non_ideal_state.explore_error_state.title',
             )}
-            description={t(
-                'components_explorer_results_card_non_ideal_state.explore_error_state.description',
-            )}
-        ></EmptyState>
+            description={
+                <Fragment>
+                    {errorDetail?.message ||
+                        t(
+                            'components_explorer_results_card_non_ideal_state.explore_error_state.description',
+                        )}
+                    {errorDetail?.data.documentationUrl && (
+                        <Fragment>
+                            <br />
+                            <Anchor
+                                href={errorDetail.data.documentationUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                {t(
+                                    'components_explorer_results_card_non_ideal_state.explore_error_state.detail',
+                                )}
+                            </Anchor>
+                        </Fragment>
+                    )}
+                </Fragment>
+            }
+        />
     );
 };
