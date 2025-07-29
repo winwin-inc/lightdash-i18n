@@ -1,9 +1,9 @@
 import {
+    DashboardFilters,
     type DashboardFieldTarget,
     type DashboardFilterRule,
     type FilterableDimension,
     type FilterOperator,
-    DashboardFilters,
 } from '@lightdash/common';
 import { Flex } from '@mantine/core';
 import { useCallback, useState, type FC } from 'react';
@@ -22,13 +22,21 @@ interface Props {
     dashboardFilters: DashboardFilters;
 }
 
-const DashboardFilter: FC<Props> = ({ isEditMode, activeTabUuid, dashboardFilters }) => {
+const DashboardFilter: FC<Props> = ({
+    isEditMode,
+    activeTabUuid,
+    dashboardFilters,
+}) => {
     const { track } = useTracking();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const [openPopoverId, setPopoverId] = useState<string>();
 
     const project = useProject(projectUuid);
 
+    console.log('dashboardFilters', dashboardFilters);
+    console.log('activeTabUuid', activeTabUuid);
+
+    // global filters
     const allFilters = useDashboardContext((c) => c.allFilters);
     const resetDashboardFilters = useDashboardContext(
         (c) => c.resetDashboardFilters,
@@ -39,6 +47,9 @@ const DashboardFilter: FC<Props> = ({ isEditMode, activeTabUuid, dashboardFilter
     const addDimensionDashboardFilter = useDashboardContext(
         (c) => c.addDimensionDashboardFilter,
     );
+
+    // tab filters
+    // TODO: implement tab filters
 
     const handleSaveNew = useCallback(
         (

@@ -249,7 +249,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
             >
-                {dashboardFilters.dimensions.map((item, index) => {
+                {dashboardFilters?.dimensions?.map((item, index) => {
                     const field = allFilterableFieldsMap[item.target.fieldId];
                     const appliesToTabs = getTabsUsingFilter(item.id);
                     return (

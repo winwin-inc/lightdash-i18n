@@ -373,19 +373,20 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                             ) {
                                                 return (
                                                     <div key={tile.uuid}>
-                                                        {hasTilesThatSupportFilters && (
-                                                            <DashboardFilter
-                                                                isEditMode={
-                                                                    isEditMode
-                                                                }
-                                                                activeTabUuid={
-                                                                    activeTab?.uuid
-                                                                }
-                                                                dashboardFilters={
-                                                                    activeTab?.filters as DashboardFilters
-                                                                }
-                                                            />
-                                                        )}
+                                                        {hasTilesThatSupportFilters &&
+                                                            activeTab?.uuid && (
+                                                                <DashboardFilter
+                                                                    isEditMode={
+                                                                        isEditMode
+                                                                    }
+                                                                    activeTabUuid={
+                                                                        activeTab?.uuid
+                                                                    }
+                                                                    dashboardFilters={
+                                                                        activeTab?.filters as DashboardFilters
+                                                                    }
+                                                                />
+                                                            )}
 
                                                         <TrackSection
                                                             name={
