@@ -3,6 +3,7 @@ import {
     type DashboardFilterRule,
     type FilterableDimension,
     type FilterOperator,
+    DashboardFilters,
 } from '@lightdash/common';
 import { Flex } from '@mantine/core';
 import { useCallback, useState, type FC } from 'react';
@@ -18,9 +19,10 @@ import AddFilterButton from './AddFilterButton';
 interface Props {
     isEditMode: boolean;
     activeTabUuid: string | undefined;
+    dashboardFilters: DashboardFilters;
 }
 
-const DashboardFilter: FC<Props> = ({ isEditMode, activeTabUuid }) => {
+const DashboardFilter: FC<Props> = ({ isEditMode, activeTabUuid, dashboardFilters }) => {
     const { track } = useTracking();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const [openPopoverId, setPopoverId] = useState<string>();
@@ -86,6 +88,7 @@ const DashboardFilter: FC<Props> = ({ isEditMode, activeTabUuid }) => {
                 />
 
                 <ActiveFilters
+                    dashboardFilters={dashboardFilters}
                     isEditMode={isEditMode}
                     activeTabUuid={activeTabUuid}
                     openPopoverId={openPopoverId}

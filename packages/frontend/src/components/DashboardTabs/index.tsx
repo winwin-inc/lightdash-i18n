@@ -1,10 +1,11 @@
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import {
+    DashboardFilters,
     type DashboardTab,
     type DashboardTile,
     type Dashboard as IDashboard,
 } from '@lightdash/common';
-import { ActionIcon, Group, ScrollArea, Tabs } from '@mantine/core';
+import { ActionIcon, Group, ScrollArea, Stack, Tabs } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import cloneDeep from 'lodash/cloneDeep';
 import { useMemo, useState, type FC } from 'react';
@@ -15,6 +16,7 @@ import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import { TrackSection } from '../../providers/Tracking/TrackingProvider';
 import '../../styles/droppable.css';
 import { SectionName } from '../../types/Events';
+import DashboardFilter from '../DashboardFilter';
 import EmptyStateNoTiles from '../DashboardTiles/EmptyStateNoTiles';
 import MantineIcon from '../common/MantineIcon';
 import { LockedDashboardModal } from '../common/modal/LockedDashboardModal';
@@ -32,6 +34,7 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 
 type DashboardTabsProps = {
     isEditMode: boolean;
+    hasTilesThatSupportFilters: boolean;
     hasRequiredDashboardFiltersToSet: boolean;
     addingTab: boolean;
     dashboardTiles: DashboardTile[] | undefined;
@@ -50,6 +53,7 @@ type DashboardTabsProps = {
 
 const DashboardTabs: FC<DashboardTabsProps> = ({
     isEditMode,
+    hasTilesThatSupportFilters,
     hasRequiredDashboardFiltersToSet,
     addingTab,
     dashboardTiles,
@@ -144,6 +148,11 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                 uuid: uuid4(),
                 isDefault: false,
                 order: lastOrd + 1,
+                filters: {
+                    dimensions: [],
+                    metrics: [],
+                    tableCalculations: [],
+                },
             };
             newTabs.push(newTab);
             setDashboardTabs(newTabs);
@@ -336,6 +345,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         )}
                                     </Tabs.List>
                                 )}
+
                                 <Group
                                     grow
                                     pt={tabsEnabled ? 'sm' : undefined}
@@ -363,6 +373,20 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                             ) {
                                                 return (
                                                     <div key={tile.uuid}>
+                                                        {hasTilesThatSupportFilters && (
+                                                            <DashboardFilter
+                                                                isEditMode={
+                                                                    isEditMode
+                                                                }
+                                                                activeTabUuid={
+                                                                    activeTab?.uuid
+                                                                }
+                                                                dashboardFilters={
+                                                                    activeTab?.filters as DashboardFilters
+                                                                }
+                                                            />
+                                                        )}
+
                                                         <TrackSection
                                                             name={
                                                                 SectionName.DASHBOARD_TILE

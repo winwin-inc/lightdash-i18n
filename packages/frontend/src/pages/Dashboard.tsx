@@ -665,6 +665,7 @@ const Dashboard: FC = () => {
                             <DashboardFilter
                                 isEditMode={isEditMode}
                                 activeTabUuid={activeTab?.uuid}
+                                dashboardFilters={dashboardFilters}
                             />
                         )}
                     </Group>
@@ -688,6 +689,7 @@ const Dashboard: FC = () => {
                 <Flex style={{ flexGrow: 1, flexDirection: 'column' }}>
                     <DashboardTabs
                         isEditMode={isEditMode}
+                        hasTilesThatSupportFilters={hasTilesThatSupportFilters}
                         hasRequiredDashboardFiltersToSet={
                             hasRequiredDashboardFiltersToSet
                         }

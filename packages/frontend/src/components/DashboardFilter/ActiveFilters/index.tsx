@@ -11,7 +11,7 @@ import {
     type DragStartEvent,
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
-import { getTabUuidsForFilterRules } from '@lightdash/common';
+import { DashboardFilters, getTabUuidsForFilterRules } from '@lightdash/common';
 import {
     Button,
     Group,
@@ -30,6 +30,7 @@ interface ActiveFiltersProps {
     isEditMode: boolean;
     activeTabUuid: string | undefined;
     openPopoverId: string | undefined;
+    dashboardFilters: DashboardFilters;
     onPopoverOpen: (popoverId: string) => void;
     onPopoverClose: () => void;
     onResetDashboardFilters: () => void;
@@ -96,12 +97,12 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
     isEditMode,
     activeTabUuid,
     openPopoverId,
+    dashboardFilters,
     onPopoverOpen,
     onPopoverClose,
     onResetDashboardFilters,
 }) => {
     const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
-    const dashboardFilters = useDashboardContext((c) => c.dashboardFilters);
     const dashboardTemporaryFilters = useDashboardContext(
         (c) => c.dashboardTemporaryFilters,
     );
