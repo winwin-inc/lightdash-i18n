@@ -29,7 +29,6 @@ const useDashboardFilter = ({ dashboard }: DashboardFilterProps) => {
         useState<boolean>(false);
 
     const {
-        overridesForSavedDashboardFilters,
         addSavedFilterOverride,
         removeSavedFilterOverride,
         resetSavedFilterOverrides,

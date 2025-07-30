@@ -1,4 +1,6 @@
 import {
+    DashboardFilters,
+    DashboardFiltersFromSearchParam,
     DashboardTileTypes,
     DateGranularity,
     applyDimensionOverrides,
@@ -28,7 +30,7 @@ import {
     useDashboardsAvailableFilters,
 } from '../../hooks/dashboard/useDashboard';
 import useDashboardFilter, { emptyFilters } from '../../hooks/dashboard/useDashboardFilters';
-import useDashboardFilterForTab from '../../hooks/dashboard/useDashboardTabFilters';
+import useDashboardFilterForTab, { isEmptyTabFilters } from '../../hooks/dashboard/useDashboardTabFilters';
 import {
     hasSavedFiltersOverrides,
     useSavedDashboardFiltersOverrides,
@@ -288,6 +290,7 @@ const DashboardProvider: React.FC<
 
     useEffect(() => {
         if (dashboard) {
+            // global filters
             if (dashboardFilters === emptyFilters) {
                 let updatedDashboardFilters;
 
@@ -303,16 +306,27 @@ const DashboardProvider: React.FC<
                     };
                     setHaveFiltersChanged(true);
                 } else {
+                    console.log('dashboard.filters', dashboard.filters);
+
                     updatedDashboardFilters = dashboard.filters;
                     setHaveFiltersChanged(false);
                 }
 
                 setDashboardFilters(updatedDashboardFilters);
             }
-
             setOriginalDashboardFilters(dashboard.filters);
+
+            // tab filters
+            if (isEmptyTabFilters(tabFilters)) {
+                const updatedTabFilters = dashboard.tabs.reduce((acc, tab) => {
+                    acc[tab.uuid] = tab.filters || emptyFilters;
+                    return acc;
+                }, {} as Record<string, DashboardFilters>);
+
+                setTabFilters(updatedTabFilters);
+            }
         }
-    }, [dashboard, dashboardFilters, overridesForSavedDashboardFilters]);
+    }, [dashboard, dashboardFilters, overridesForSavedDashboardFilters, tabFilters]);
 
     // Updates url with temp and overridden filters and deep compare to avoid unnecessary re-renders for dashboardTemporaryFilters
     useDeepCompareEffect(() => {
@@ -348,7 +362,17 @@ const DashboardProvider: React.FC<
         }
 
         // tab filters
-        // TODO: implement tab filters
+        if (isEmptyTabFilters(tabTemporaryFilters)) {
+            newParams.delete('tempTabFilters');
+        } else {
+            newParams.set(
+                'tempTabFilters',
+                JSON.stringify(Object.entries(tabTemporaryFilters).reduce((acc, [tabUuid, tabFilter]) => {
+                    acc[tabUuid] = compressDashboardFiltersToParam(tabFilter);
+                    return acc;
+                }, {} as Record<string, DashboardFiltersFromSearchParam>)),
+            );
+        }
 
         void navigate(
             {
@@ -360,6 +384,8 @@ const DashboardProvider: React.FC<
     }, [
         dashboardFilters,
         dashboardTemporaryFilters,
+        tabFilters,
+        tabTemporaryFilters,
         navigate,
         pathname,
         overridesForSavedDashboardFilters,
@@ -416,6 +442,19 @@ const DashboardProvider: React.FC<
                 convertDashboardFiltersParamToDashboardFilters(
                     JSON.parse(tempFilterSearchParam),
                 ),
+            );
+        }
+
+        // Tab filters
+        const tempTabFilterSearchParam = searchParams.get('tempTabFilters');
+        if (tempTabFilterSearchParam) {
+            const filters = JSON.parse(tempTabFilterSearchParam);
+
+            setTabTemporaryFilters(
+                Object.entries(filters).reduce((acc, [tabUuid, tabFilter]) => {
+                    acc[tabUuid] = convertDashboardFiltersParamToDashboardFilters(tabFilter as DashboardFiltersFromSearchParam);
+                    return acc;
+                }, {} as Record<string, DashboardFilters>),
             );
         }
     });

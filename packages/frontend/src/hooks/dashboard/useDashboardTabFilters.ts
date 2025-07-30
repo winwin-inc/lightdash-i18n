@@ -13,6 +13,11 @@ interface DashboardTabFilterProps {
     dashboardTemporaryFilters: DashboardFilters; 
 }
 
+export const isEmptyTabFilters = (tabFilters: Record<string, DashboardFilters>) => {
+    if (Object.keys(tabFilters).length === 0)  return true;
+    return Object.values(tabFilters).every((tabFilter) => tabFilter === emptyFilters);  
+}
+
 const useDashboardFilterForTab = ({
     dashboard,
     dashboardFilters,
