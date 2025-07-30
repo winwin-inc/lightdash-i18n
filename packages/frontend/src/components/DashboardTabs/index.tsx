@@ -1,6 +1,5 @@
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import {
-    DashboardFilters,
     type DashboardTab,
     type DashboardTile,
     type Dashboard as IDashboard,
@@ -382,9 +381,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                                                     activeTabUuid={
                                                                         activeTab?.uuid
                                                                     }
-                                                                    dashboardFilters={
-                                                                        activeTab?.filters as DashboardFilters
-                                                                    }
+                                                                    filterType="tab"
                                                                 />
                                                             )}
 

@@ -5,16 +5,18 @@ import {
 } from '@lightdash/common';
 import { useCallback, useState } from 'react';
 
-import { emptyFilters } from './useDashboardFilter';
+import { emptyFilters } from './useDashboardFilters';
 
 interface DashboardTabFilterProps {
     dashboard?: Dashboard;
-    allFilters: DashboardFilters;
+    dashboardFilters: DashboardFilters;  
+    dashboardTemporaryFilters: DashboardFilters; 
 }
 
 const useDashboardFilterForTab = ({
     dashboard,
-    allFilters,
+    dashboardFilters,
+    dashboardTemporaryFilters,
 }: DashboardTabFilterProps) => {
     const [tabFilters, setTabFilters] = useState<
         Record<string, DashboardFilters>
@@ -40,25 +42,38 @@ const useDashboardFilterForTab = ({
     );
 
     const getMergedFiltersForTab = (tabUuid: string) => {
-        const globalFilters = allFilters;
+        const globalFilters = {
+            dimensions: [
+                ...dashboardFilters.dimensions,
+                ...dashboardTemporaryFilters?.dimensions,
+            ],
+            metrics: [
+                ...dashboardFilters.metrics,
+                ...dashboardTemporaryFilters?.metrics,
+            ],
+            tableCalculations: [
+                ...dashboardFilters.tableCalculations,
+                ...dashboardTemporaryFilters?.tableCalculations,
+            ],
+        };
         const tabSpecificFilters = getActiveTabFilters(tabUuid);
-        const tabTemporaryFilters = getActiveTabTemporaryFilters(tabUuid);
+        const tabSpecificTemporaryFilters = getActiveTabTemporaryFilters(tabUuid);
 
         return {
             dimensions: [
                 ...globalFilters.dimensions,
                 ...tabSpecificFilters.dimensions,
-                ...tabTemporaryFilters.dimensions,
+                ...tabSpecificTemporaryFilters.dimensions,
             ],
             metrics: [
                 ...globalFilters.metrics,
                 ...tabSpecificFilters.metrics,
-                ...tabTemporaryFilters.metrics,
+                ...tabSpecificTemporaryFilters.metrics,
             ],
             tableCalculations: [
                 ...globalFilters.tableCalculations,
                 ...tabSpecificFilters.tableCalculations,
-                ...tabTemporaryFilters.tableCalculations,
+                ...tabSpecificTemporaryFilters.tableCalculations,
             ],
         };
     };

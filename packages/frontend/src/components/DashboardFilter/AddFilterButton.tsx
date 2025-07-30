@@ -8,6 +8,7 @@ import MantineIcon from '../common/MantineIcon';
 import FilterConfiguration from './FilterConfiguration';
 
 type Props = {
+    filterType: 'global' | 'tab';
     isEditMode: boolean;
     openPopoverId: string | undefined;
     activeTabUuid: string | undefined;
@@ -17,6 +18,7 @@ type Props = {
 };
 
 const AddFilterButton: FC<Props> = ({
+    filterType,
     isEditMode,
     openPopoverId,
     activeTabUuid,
@@ -66,6 +68,13 @@ const AddFilterButton: FC<Props> = ({
         },
         [onSave, handleClose],
     );
+
+    const buttonText = useMemo(() => {
+        if (filterType === 'global') {
+            return 'Add global filter';
+        }
+        return 'Add tab filter';
+    }, [filterType]);
 
     return (
         <>
@@ -118,7 +127,7 @@ const AddFilterButton: FC<Props> = ({
                                     : onPopoverOpen(popoverId)
                             }
                         >
-                            Add filter
+                            {buttonText}
                         </Button>
                     </Tooltip>
                 </Popover.Target>

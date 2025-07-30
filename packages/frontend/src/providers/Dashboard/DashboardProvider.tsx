@@ -27,10 +27,8 @@ import {
     useDashboardQuery,
     useDashboardsAvailableFilters,
 } from '../../hooks/dashboard/useDashboard';
-import useDashboardFilter, {
-    emptyFilters,
-} from '../../hooks/dashboard/useDashboardFilter';
-import useDashboardFilterForTab from '../../hooks/dashboard/useDashboardFilterForTab';
+import useDashboardFilter, { emptyFilters } from '../../hooks/dashboard/useDashboardFilters';
+import useDashboardFilterForTab from '../../hooks/dashboard/useDashboardTabFilters';
 import {
     hasSavedFiltersOverrides,
     useSavedDashboardFiltersOverrides,
@@ -140,7 +138,22 @@ const DashboardProvider: React.FC<
         setTabFilters,
         tabTemporaryFilters,
         setTabTemporaryFilters,
-    } = useDashboardFilterForTab({ dashboard, allFilters });
+        haveTabFiltersChanged,
+        setHaveTabFiltersChanged,
+
+        getActiveTabFilters,
+        getActiveTabTemporaryFilters,
+        getMergedFiltersForTab,
+
+        addTabDimensionFilter,
+        updateTabDimensionFilter,
+        removeTabDimensionFilter,
+        resetTabFilters,
+    } = useDashboardFilterForTab({ 
+        dashboard, 
+        dashboardFilters, 
+        dashboardTemporaryFilters 
+    });
 
     const [resultsCacheTimes, setResultsCacheTimes] = useState<Date[]>([]);
     const [invalidateCache, setInvalidateCache] = useState<boolean>(
@@ -605,6 +618,19 @@ const DashboardProvider: React.FC<
         dashboardParameterReferences,
         addParameterReferences,
         areAllChartsLoaded,
+        tabFilters,
+        setTabFilters,
+        tabTemporaryFilters,
+        setTabTemporaryFilters,
+        haveTabFiltersChanged,
+        setHaveTabFiltersChanged,
+        getActiveTabFilters,
+        getActiveTabTemporaryFilters,
+        getMergedFiltersForTab,
+        addTabDimensionFilter,
+        updateTabDimensionFilter,
+        removeTabDimensionFilter,
+        resetTabFilters,
     };
     return (
         <DashboardContext.Provider value={value}>

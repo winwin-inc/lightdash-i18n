@@ -242,6 +242,7 @@ const Dashboard: FC = () => {
 
     const [gridWidth, setGridWidth] = useState(0);
 
+
     useEffect(() => {
         if (isSuccess) {
             setHaveTilesChanged(false);
@@ -665,7 +666,7 @@ const Dashboard: FC = () => {
                             <DashboardFilter
                                 isEditMode={isEditMode}
                                 activeTabUuid={activeTab?.uuid}
-                                dashboardFilters={dashboardFilters}
+                                filterType="global"
                             />
                         )}
                     </Group>
