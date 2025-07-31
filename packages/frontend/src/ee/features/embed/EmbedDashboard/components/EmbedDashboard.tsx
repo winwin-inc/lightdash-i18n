@@ -342,7 +342,7 @@ const EmbedDashboard: FC<{
                 <Tabs
                     value={activeTab?.uuid}
                     onTabChange={(e) => {
-                        const tab = sortedTabs.find((t) => t.uuid === e);
+                        const tab = sortedTabs.find((item) => item.uuid === e);
                         if (tab) {
                             setActiveTab(tab);
                         }

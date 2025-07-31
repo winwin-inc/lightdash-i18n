@@ -1,7 +1,7 @@
 import {
-    Dashboard,
-    DashboardFilterRule,
-    DashboardFilters,
+    type Dashboard,
+    type DashboardFilterRule,
+    type DashboardFilters,
 } from '@lightdash/common';
 import { useCallback, useState } from 'react';
 
@@ -19,7 +19,6 @@ export const isEmptyTabFilters = (tabFilters: Record<string, DashboardFilters>) 
 }
 
 const useDashboardFilterForTab = ({
-    dashboard,
     dashboardFilters,
     dashboardTemporaryFilters,
 }: DashboardTabFilterProps) => {

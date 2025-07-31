@@ -268,7 +268,7 @@ const ParameterStringAutoComplete: FC<ParameterStringAutoCompleteProps> = ({
                 </Tooltip>
             </Stack>
         ),
-        [searchedMaxResults, search, refreshedAt],
+        [searchedMaxResults, search, refreshedAt, t],
     );
 
     return (

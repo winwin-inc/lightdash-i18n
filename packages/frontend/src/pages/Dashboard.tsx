@@ -1,7 +1,7 @@
 import {
     ContentType,
-    DashboardFilterRule,
-    DashboardFilters,
+    type DashboardFilterRule,
+    type DashboardFilters,
     type DashboardTab,
     type DashboardTile,
     type Dashboard as IDashboard,
@@ -455,8 +455,10 @@ const Dashboard: FC = () => {
     }, [
         dashboard,
         dashboardUuid,
-        navigate,
         projectUuid,
+        dashboardTabs,
+        activeTab,
+        navigate,
         setDashboardTiles,
         setHaveFiltersChanged,
         setDashboardFilters,
@@ -464,8 +466,7 @@ const Dashboard: FC = () => {
         setHaveTilesChanged,
         setHaveTabsChanged,
         setDashboardTabs,
-        dashboardTabs,
-        activeTab,
+        setHaveTabFiltersChanged,
     ]);
 
     const handleMoveDashboardToSpace = useCallback(

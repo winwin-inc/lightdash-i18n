@@ -1,6 +1,4 @@
 import {
-    DashboardFilters,
-    DashboardFiltersFromSearchParam,
     DashboardTileTypes,
     DateGranularity,
     applyDimensionOverrides,
@@ -8,6 +6,8 @@ import {
     convertDashboardFiltersParamToDashboardFilters,
     getItemId,
     isDashboardChartTileType,
+    type DashboardFilters,
+    type DashboardFiltersFromSearchParam,
     type CacheMetadata,
     type Dashboard,
     type DashboardFilterRule,
@@ -328,7 +328,16 @@ const DashboardProvider: React.FC<
                 setTabFilters(updatedTabFilters);
             }
         }
-    }, [dashboard, dashboardFilters, overridesForSavedDashboardFilters, tabFilters]);
+    }, [
+        dashboard, 
+        dashboardFilters, 
+        overridesForSavedDashboardFilters,
+        tabFilters, 
+        setDashboardFilters,
+        setHaveFiltersChanged,
+        setOriginalDashboardFilters,
+        setTabFilters,
+    ]);
 
     // Updates url with temp and overridden filters and deep compare to avoid unnecessary re-renders for dashboardTemporaryFilters
     useDeepCompareEffect(() => {
@@ -407,7 +416,7 @@ const DashboardProvider: React.FC<
                 ),
             }));
         }
-    }, [dashboard?.filters, overridesForSavedDashboardFilters]);
+    }, [dashboard?.filters, overridesForSavedDashboardFilters, setDashboardFilters]);
 
     // Gets filters and dateZoom from URL and storage after redirect
     useMount(() => {

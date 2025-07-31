@@ -359,6 +359,7 @@ const Settings: FC = () => {
         organization,
         project,
         health,
+        t
     ]);
     const routeElements = useRoutes(routes);
 

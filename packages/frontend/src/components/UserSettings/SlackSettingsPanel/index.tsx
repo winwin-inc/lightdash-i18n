@@ -50,26 +50,6 @@ import { SettingsGridCard } from '../../common/Settings/SettingsCard';
 const SLACK_INSTALL_URL = `/api/v1/slack/install/`;
 const MAX_SLACK_CHANNELS = 100000;
 
-const formSchema = z.object({
-    notificationChannel: z.string().min(1).nullable(),
-    appProfilePhotoUrl: z.string().url().nullable(),
-    slackChannelProjectMappings: z.array(
-        z.object({
-            projectUuid: z
-                .string({ message: 'You must select a project' })
-                .uuid({ message: 'Invalid project' }),
-            slackChannelId: z
-                .string({
-                    message: 'You must select a Slack channel',
-                })
-                .min(1),
-            availableTags: z.array(z.string().min(1)).nullable(),
-        }),
-    ),
-    aiThreadAccessConsent: z.boolean().optional(),
-    aiRequireOAuth: z.boolean().optional(),
-});
-
 const SlackSettingsPanel: FC = () => {
   const { t } = useTranslation();
   

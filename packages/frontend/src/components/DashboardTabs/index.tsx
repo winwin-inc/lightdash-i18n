@@ -4,7 +4,7 @@ import {
     type DashboardTile,
     type Dashboard as IDashboard,
 } from '@lightdash/common';
-import { ActionIcon, Group, ScrollArea, Stack, Tabs } from '@mantine/core';
+import { ActionIcon, Group, ScrollArea, Tabs } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import cloneDeep from 'lodash/cloneDeep';
 import { useMemo, useState, type FC } from 'react';

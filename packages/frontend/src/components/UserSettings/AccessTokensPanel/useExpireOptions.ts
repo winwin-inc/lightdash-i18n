@@ -40,5 +40,5 @@ export const useExpireOptions = (includeNoExpiration = false) => {
             if (!maxExpirationTimeInDays) return true;
             return parseFloat(option.value) <= maxExpirationTimeInDays;
         });
-    }, [health.data?.auth.pat.maxExpirationTimeInDays, includeNoExpiration]);
+    }, [health.data?.auth.pat.maxExpirationTimeInDays, includeNoExpiration, t]);
 };

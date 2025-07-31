@@ -385,7 +385,7 @@ const Schedulers: FC<SchedulersProps> = ({ projectUuid }) => {
                       },
                   ]
                 : [],
-        [project, theme, projectUuid, getSlackChannelName],
+        [project, theme, projectUuid, getSlackChannelName, t],
     );
 
     return (
