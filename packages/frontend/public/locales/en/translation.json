@@ -2738,7 +2738,12 @@
         "last_deliver_start": {
             "label": "Last delivery start",
             "no_deliveries_started": "No deliveries started"
-        }
+        },
+        "search": {
+            "label": "Search schedulers by name"
+        },
+        "loading": "Loading schedulers",
+        "no_schedulers": "No schedulers found"
     },
     "components_schedulers_view_action_menu": {
         "edit_schedule": "Edit schedule",

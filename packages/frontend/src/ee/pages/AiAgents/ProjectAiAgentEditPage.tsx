@@ -1,4 +1,4 @@
-import { type BaseAiAgent } from '@lightdash/common';
+import { FeatureFlags, type BaseAiAgent } from '@lightdash/common';
 import {
     ActionIcon,
     Anchor,
@@ -40,6 +40,7 @@ import MantineIcon from '../../../components/common/MantineIcon';
 import MantineModal from '../../../components/common/MantineModal';
 import Page from '../../../components/common/Page/Page';
 import { useGetSlack, useSlackChannels } from '../../../hooks/slack/useSlack';
+import { useFeatureFlag } from '../../../hooks/useFeatureFlagEnabled';
 import { useOrganizationGroups } from '../../../hooks/useOrganizationGroups';
 import { useProject } from '../../../hooks/useProject';
 import useApp from '../../../providers/App/useApp';
@@ -124,9 +125,22 @@ const ProjectAiAgentEditPage: FC<Props> = ({ isCreateMode = false }) => {
         redirectOnUnauthorized: true,
     });
 
-    const { data: groups, isLoading: isLoadingGroups } = useOrganizationGroups({
-        includeMembers: 5,
-    });
+    const userGroupsFeatureFlagQuery = useFeatureFlag(
+        FeatureFlags.UserGroupsEnabled,
+    );
+
+    const isGroupsEnabled =
+        userGroupsFeatureFlagQuery.isSuccess &&
+        userGroupsFeatureFlagQuery.data.enabled;
+
+    const { data: groups, isLoading: isLoadingGroups } = useOrganizationGroups(
+        {
+            includeMembers: 5,
+        },
+        {
+            enabled: isGroupsEnabled,
+        },
+    );
 
     const {
         data: slackChannels,
@@ -443,62 +457,68 @@ const ProjectAiAgentEditPage: FC<Props> = ({ isCreateMode = false }) => {
                                             }}
                                         />
 
-                                        <Stack gap="xs">
-                                            <MultiSelect
-                                                variant="subtle"
-                                                label={
-                                                    <Group gap="xs">
-                                                        <Text fz="sm" fw={500}>
-                                                            {t('pages_ai_agents_edit_page.form.group_access.label')}
-                                                        </Text>
-                                                        <Tooltip
-                                                            label={t('pages_ai_agents_edit_page.form.group_access.description')}
-                                                            withArrow
-                                                            withinPortal
-                                                            multiline
-                                                            maw="250px"
-                                                        >
-                                                            <MantineIcon
-                                                                icon={
-                                                                    IconInfoCircle
-                                                                }
-                                                            />
-                                                        </Tooltip>
-                                                    </Group>
-                                                }
-                                                placeholder={
-                                                    isLoadingGroups
-                                                        ? t('pages_ai_agents_edit_page.form.group_access.placeholder.loading')
-                                                        : groupOptions.length ===
-                                                          0
-                                                        ? t('pages_ai_agents_edit_page.form.group_access.placeholder.no_groups')
-                                                        : t('pages_ai_agents_edit_page.form.group_access.placeholder.select_groups')
-                                                }
-                                                data={groupOptions}
-                                                disabled={
-                                                    isLoadingGroups ||
-                                                    groupOptions.length === 0
-                                                }
-                                                clearable
-                                                {...form.getInputProps(
-                                                    'groupAccess',
-                                                )}
-                                                value={
-                                                    form.getInputProps(
+                                        {isGroupsEnabled && (
+                                            <Stack gap="xs">
+                                                <MultiSelect
+                                                    variant="subtle"
+                                                    label={
+                                                        <Group gap="xs">
+                                                            <Text
+                                                                fz="sm"
+                                                                fw={500}
+                                                            >
+                                                                {t('pages_ai_agents_edit_page.form.group_access.label')}
+                                                            </Text>
+                                                            <Tooltip
+                                                                label={t('pages_ai_agents_edit_page.form.group_access.description')}
+                                                                withArrow
+                                                                withinPortal
+                                                                multiline
+                                                                maw="250px"
+                                                            >
+                                                                <MantineIcon
+                                                                    icon={
+                                                                        IconInfoCircle
+                                                                    }
+                                                                />
+                                                            </Tooltip>
+                                                        </Group>
+                                                    }
+                                                    placeholder={
+                                                        isLoadingGroups
+                                                            ? t('pages_ai_agents_edit_page.form.group_access.placeholder.loading')
+                                                            : groupOptions.length ===
+                                                              0
+                                                            ? t('pages_ai_agents_edit_page.form.group_access.placeholder.no_groups')
+                                                            : t('pages_ai_agents_edit_page.form.group_access.placeholder.select_groups')
+                                                    }
+                                                    data={groupOptions}
+                                                    disabled={
+                                                        isLoadingGroups ||
+                                                        groupOptions.length ===
+                                                            0
+                                                    }
+                                                    clearable
+                                                    {...form.getInputProps(
                                                         'groupAccess',
-                                                    ).value ?? []
-                                                }
-                                                onChange={(value) => {
-                                                    form.setFieldValue(
-                                                        'groupAccess',
-                                                        value.length > 0
-                                                            ? value
-                                                            : [],
-                                                    );
-                                                }}
-                                            />
-                                            {/*  Add message + link to orgfanization settings if no groups are available and if this is enabled */}
-                                        </Stack>
+                                                    )}
+                                                    value={
+                                                        form.getInputProps(
+                                                            'groupAccess',
+                                                        ).value ?? []
+                                                    }
+                                                    onChange={(value) => {
+                                                        form.setFieldValue(
+                                                            'groupAccess',
+                                                            value.length > 0
+                                                                ? value
+                                                                : [],
+                                                        );
+                                                    }}
+                                                />
+                                                {/*  Add message + link to orgfanization settings if no groups are available and if this is enabled */}
+                                            </Stack>
+                                        )}
                                     </Stack>
                                 </Paper>
 
@@ -539,9 +559,9 @@ const ProjectAiAgentEditPage: FC<Props> = ({ isCreateMode = false }) => {
                                                 )}
                                             />
                                             <Text size="xs" c="dimmed">
-                                                {form.values.instruction
-                                                    ?.length ?? 0}{' '}
-                                                characters
+                                                {t('pages_ai_agents_edit_page.form.instructions.character_count', {
+                                                    count: form.values.instruction?.length ?? 0,
+                                                })}
                                             </Text>
                                         </Stack>
 

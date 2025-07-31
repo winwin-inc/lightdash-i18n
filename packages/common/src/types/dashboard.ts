@@ -126,6 +126,7 @@ export type DashboardTab = {
     uuid: string;
     name: string;
     order: number;
+    filters?: DashboardFilters;
 };
 
 export type DashboardTabWithUrls = DashboardTab & {

@@ -85,14 +85,7 @@ const SchedulersView: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                         p={0}
                         shadow="none"
                     >
-                        {data && data.schedulers.length > 0 ? (
-                            <Schedulers {...data} projectUuid={projectUuid} />
-                        ) : (
-                            <ResourceEmptyState
-                                title={t('components_schedulers_view.tabs.no_schedulers_deliver.title')}
-                                description={t('components_schedulers_view.tabs.no_schedulers_deliver.description')}
-                            />
-                        )}
+                        <Schedulers projectUuid={projectUuid} />
                     </SettingsCard>
                 </Tabs.Panel>
                 <Tabs.Panel value="run-history">

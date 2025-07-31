@@ -2740,7 +2740,12 @@
         "last_deliver_start": {
             "label": "上次交付开始",
             "no_deliveries_started": "尚未开始任何交付"
-        }
+        },
+        "search": {
+            "label": "通过名称搜索调度程序"
+        },
+        "loading": "正在加载调度程序",
+        "no_schedulers": "未找到调度程序"
     },
     "components_schedulers_view_action_menu": {
         "edit_schedule": "编辑计划",

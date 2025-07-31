@@ -1610,6 +1610,7 @@ export const GenericDashboardChartTile: FC<
 
 const DashboardChartTile: FC<DashboardChartTileProps> = (props) => {
     const readyQuery = useDashboardChartReadyQuery(
+        props.tile.tabUuid ?? "",
         props.tile.uuid,
         props.tile.properties?.savedChartUuid,
     );

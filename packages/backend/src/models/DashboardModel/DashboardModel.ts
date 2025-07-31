@@ -155,6 +155,11 @@ export class DashboardModel {
                     uuid: tab.uuid,
                     dashboard_id: dashboardId,
                     order: tab.order,
+                    filters: tab.filters || {
+                        dimensions: [],
+                        metrics: [],
+                        tableCalculations: [],
+                    },
                 })),
             );
         }
@@ -855,6 +860,7 @@ export class DashboardModel {
                 `${DashboardTabsTableName}.name`,
                 `${DashboardTabsTableName}.uuid`,
                 `${DashboardTabsTableName}.order`,
+                `${DashboardTabsTableName}.filters`,
             )
             .where(
                 `${DashboardTabsTableName}.dashboard_version_id`,

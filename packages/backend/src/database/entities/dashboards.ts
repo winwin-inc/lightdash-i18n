@@ -125,6 +125,7 @@ export type DbDashboardTabs = {
     uuid: string;
     dashboard_id: number;
     dashboard_version_id: number;
+    filters: DashboardFilters;
     order: number;
     created_at: Date;
     updated_at: Date;
