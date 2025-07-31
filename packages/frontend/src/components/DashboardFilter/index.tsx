@@ -32,9 +32,6 @@ const DashboardFilter: FC<Props> = ({
 
     const project = useProject(projectUuid);
 
-    console.log('filterType', filterType);
-    console.log('activeTabUuid', activeTabUuid);
-
     const allFilterableFieldsMap = useDashboardContext((c) => c.allFilterableFieldsMap);
 
     // global filters

@@ -2224,7 +2224,10 @@
                     "part_2": "edit",
                     "part_3": "mode will be saved"
                 },
-                "content": "Add filter"
+                "content": {
+                    "global": "Add global filter",
+                    "tab": "Add tab filter"
+                }
             },
             "inactive_filter": {
                 "part_1": "This filter only applies to tab {{suffix}}",
