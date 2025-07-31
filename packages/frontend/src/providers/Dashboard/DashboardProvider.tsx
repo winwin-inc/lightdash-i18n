@@ -306,8 +306,6 @@ const DashboardProvider: React.FC<
                     };
                     setHaveFiltersChanged(true);
                 } else {
-                    console.log('dashboard.filters', dashboard.filters);
-
                     updatedDashboardFilters = dashboard.filters;
                     setHaveFiltersChanged(false);
                 }
