@@ -16,7 +16,7 @@ services:
     lightdash-dev:
         build:
             context: ..
-            dockerfile: dockerfile
+            dockerfile: dockerfile-dev
             target: dev
         depends_on:
             - minio

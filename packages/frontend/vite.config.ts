@@ -110,9 +110,11 @@ export default defineConfig({
             overlay: true,
         },
         // TODO: 临时处理
-        // watch: {
-        //   usePolling: true, // 修复HMR热更新失效
-        // },
+        watch: {
+            ignored: ['!**/node_modules/@lightdash/common/**'],
+            usePolling: true, // fix HMR hot update failure
+            interval: 1000 // polling interval
+        },
         allowedHosts: [
             'lightdash-dev', // for local development with docker
             '.lightdash.dev', // for cloudflared tunnels
