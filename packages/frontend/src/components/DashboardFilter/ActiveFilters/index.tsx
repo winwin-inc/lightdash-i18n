@@ -11,7 +11,7 @@ import {
     type DragStartEvent,
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
-import { DashboardFilterRule, DashboardFilters, getTabUuidsForFilterRules } from '@lightdash/common';
+import { getTabUuidsForFilterRules, type DashboardFilterRule, type DashboardFilters } from '@lightdash/common';
 import {
     Button,
     Group,
@@ -165,7 +165,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
             return haveFiltersChanged;
         }
         return haveTabFiltersChanged || false;
-    }, [filterType, activeTabUuid, haveFiltersChanged, haveTabFiltersChanged]);
+    }, [filterType, haveFiltersChanged, haveTabFiltersChanged]);
 
     const handleRemoveDimensionFilter = useCallback((index: number, isTemporary: boolean) => {
         if (filterType === 'global') {
@@ -179,25 +179,24 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
         value: DashboardFilterRule,
         index: number,
         isTemporary: boolean,
-        isEditMode: boolean,
     ) => {
         if (filterType === 'global') {
             updateDimensionDashboardFilter(value, index, isTemporary, isEditMode);
         } else {
             updateTabDimensionFilter(activeTabUuid || '', value, index, isTemporary);
         }
-    }, [filterType, updateDimensionDashboardFilter, updateTabDimensionFilter, activeTabUuid, isEditMode]);
+    }, [filterType, activeTabUuid, isEditMode, updateDimensionDashboardFilter, updateTabDimensionFilter]);
 
-    const handleChangeFilters = useCallback((filters: DashboardFilters) => {
+    const handleChangeFilters = useCallback((currentFilters: DashboardFilters) => {
         if (filterType === 'global') {
-            setDashboardFilters(filters);
+            setDashboardFilters(currentFilters);
         } else {
             setTabFilters({
                 ...tabFilters,
-                [activeTabUuid || '']: filters,
+                [activeTabUuid || '']: currentFilters,
             });
         }
-    }, [filterType, setDashboardFilters, setTabFilters, activeTabUuid]);
+    }, [filterType, activeTabUuid, tabFilters, setDashboardFilters, setTabFilters]);
 
     const handleFilterChanged = useCallback((isTemporary: boolean) => {
         if (filterType === 'global') {
@@ -354,7 +353,6 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                                                 value,
                                                 index,
                                                 false,
-                                                isEditMode,
                                             )
                                         }
                                     />
@@ -397,7 +395,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                             handleRemoveDimensionFilter(index, true)
                         }
                         onUpdate={(value) =>
-                            handleUpdateDimensionFilter(value, index, true, isEditMode)
+                            handleUpdateDimensionFilter(value, index, true)
                         }
                     />
                 ) : (

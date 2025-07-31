@@ -54,13 +54,6 @@ const DashboardFilter: FC<Props> = ({
         }
         return getMergedFiltersForTab(activeTabUuid || '');
     }, [filterType, activeTabUuid, getMergedFiltersForTab, allFilters]);
-    
-    const tabFilters = useMemo(() => {
-        if (filterType === 'tab' && activeTabUuid) {
-            return getMergedFiltersForTab(activeTabUuid);
-        }
-        return allFilters;
-    }, [filterType, activeTabUuid, getMergedFiltersForTab, allFilters]);
 
     const handleResetDashboardFilters = useCallback(() => {
         if (filterType === 'global') {

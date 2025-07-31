@@ -1,7 +1,7 @@
 import {
-    Dashboard,
-    DashboardFilterRule,
-    DashboardFilters,
+    type Dashboard,
+    type DashboardFilterRule,
+    type DashboardFilters,
 } from '@lightdash/common';
 import { useCallback, useMemo, useState } from 'react';
 
