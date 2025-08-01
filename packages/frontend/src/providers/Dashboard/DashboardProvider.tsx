@@ -20,7 +20,7 @@ import min from 'lodash/min';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useDeepCompareEffect, useMount } from 'react-use';
-import { getConditionalRuleLabelFromItem } from '../../components/common/Filters/FilterInputs/utils';
+
 import {
     useGetComments,
     type useDashboardCommentsCheck,
@@ -29,6 +29,7 @@ import {
     useDashboardQuery,
     useDashboardsAvailableFilters,
 } from '../../hooks/dashboard/useDashboard';
+import { useConditionalRuleLabelFromItem } from '../../components/common/Filters/FilterInputs/utils';
 import useDashboardFilter, { emptyFilters } from '../../hooks/dashboard/useDashboardFilters';
 import useDashboardFilterForTab, { isEmptyTabFilters } from '../../hooks/dashboard/useDashboardTabFilters';
 import {
@@ -58,6 +59,8 @@ const DashboardProvider: React.FC<
 }) => {
     const { search, pathname } = useLocation();
     const navigate = useNavigate();
+
+    const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
     const { dashboardUuid } = useParams<{
         dashboardUuid: string;

@@ -107,7 +107,9 @@ export const useFilterOperatorOptions = () => {
                     FilterOperator.EQUALS,
                     FilterOperator.NOT_EQUALS,
                     FilterOperator.LESS_THAN,
+                    FilterOperator.LESS_THAN_OR_EQUAL,
                     FilterOperator.GREATER_THAN,
+                    FilterOperator.GREATER_THAN_OR_EQUAL,
                     FilterOperator.IN_BETWEEN,
                     FilterOperator.NOT_IN_BETWEEN,
                 ]);
@@ -116,6 +118,7 @@ export const useFilterOperatorOptions = () => {
                     FilterOperator.NULL,
                     FilterOperator.NOT_NULL,
                     FilterOperator.EQUALS,
+                    FilterOperator.NOT_EQUALS,
                 ]);
             case FilterType.DATE:
                 return timeFilterOptions;
