@@ -8,6 +8,7 @@ import {
     DashboardDAO,
     DashboardLoomTile,
     DashboardMarkdownTile,
+    DashboardParameterValue,
     DashboardSqlChartTile,
     DashboardTab,
     DashboardTileTypes,
@@ -28,6 +29,7 @@ import {
     sanitizeHtml,
     type DashboardBasicDetailsWithTileTypes,
     type DashboardFilters,
+    type DashboardParameters,
 } from '@lightdash/common';
 import { Knex } from 'knex';
 import { v4 as uuidv4 } from 'uuid';
@@ -145,6 +147,7 @@ export class DashboardModel {
                 metrics: [],
                 tableCalculations: [],
             },
+            parameters: version.parameters || null,
         });
 
         if (version.tabs.length > 0) {
@@ -279,32 +282,42 @@ export class DashboardModel {
                     {},
                 );
 
+        const updateData: {
+            filters: DashboardFilters;
+            parameters?: DashboardParameters;
+        } = {
+            filters: {
+                dimensions:
+                    version.filters?.dimensions.map((filter) => ({
+                        ...filter,
+                        tileTargets: filter.tileTargets
+                            ? pick(filter.tileTargets, tileUuids)
+                            : undefined,
+                    })) ?? [],
+                metrics:
+                    version.filters?.metrics.map((filter) => ({
+                        ...filter,
+                        tileTargets: filter.tileTargets
+                            ? pick(filter.tileTargets, tileUuids)
+                            : undefined,
+                    })) ?? [],
+                tableCalculations:
+                    version.filters?.tableCalculations.map((filter) => ({
+                        ...filter,
+                        tileTargets: filter.tileTargets
+                            ? pick(filter.tileTargets, tileUuids)
+                            : undefined,
+                    })) ?? [],
+            },
+        };
+
+        // Only update parameters if they were provided in the version
+        if (version.parameters !== undefined) {
+            updateData.parameters = version.parameters;
+        }
+
         await trx(DashboardViewsTableName)
-            .update({
-                filters: {
-                    dimensions:
-                        version.filters?.dimensions.map((filter) => ({
-                            ...filter,
-                            tileTargets: filter.tileTargets
-                                ? pick(filter.tileTargets, tileUuids)
-                                : undefined,
-                        })) ?? [],
-                    metrics:
-                        version.filters?.metrics.map((filter) => ({
-                            ...filter,
-                            tileTargets: filter.tileTargets
-                                ? pick(filter.tileTargets, tileUuids)
-                                : undefined,
-                        })) ?? [],
-                    tableCalculations:
-                        version.filters?.tableCalculations.map((filter) => ({
-                            ...filter,
-                            tileTargets: filter.tileTargets
-                                ? pick(filter.tileTargets, tileUuids)
-                                : undefined,
-                        })) ?? [],
-                },
-            })
+            .update(updateData)
             .where({ dashboard_version_id: versionId.dashboard_version_id });
     }
 
@@ -504,6 +517,7 @@ export class DashboardModel {
             dashboardUuid: string;
             name: string;
             filters: DashboardFilters;
+            parameters: DashboardParameters | null;
             chartUuids: string[];
         }>
     > {
@@ -546,6 +560,7 @@ export class DashboardModel {
                     dashboardUuid: `${cteName}.dashboard_uuid`,
                     name: `${cteName}.name`,
                     filters: `${DashboardViewsTableName}.filters`,
+                    parameters: `${DashboardViewsTableName}.parameters`,
                     chartUuids: this.database.raw(
                         "COALESCE(ARRAY_AGG(DISTINCT saved_queries.saved_query_uuid) FILTER (WHERE saved_queries.saved_query_uuid IS NOT NULL), '{}')",
                     ),
@@ -566,7 +581,7 @@ export class DashboardModel {
                     `${DashboardTileChartTableName}.saved_chart_id`,
                     `${SavedChartsTableName}.saved_query_id`,
                 )
-                .groupBy(1, 2, 3)
+                .groupBy(1, 2, 3, 4)
         );
     }
 
@@ -981,6 +996,7 @@ export class DashboardModel {
                 metrics: [],
                 tableCalculations: [],
             },
+            parameters: view?.parameters || undefined,
             spaceUuid: dashboard.space_uuid,
             spaceName: dashboard.space_name,
             views: dashboard.views_count,

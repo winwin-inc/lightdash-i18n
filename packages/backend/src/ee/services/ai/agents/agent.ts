@@ -57,12 +57,13 @@ const getAgentTools = (
             `[AiAgent][Agent Tools] Getting agent tools for agent: ${args.agentSettings.name}`,
         );
     }
+
     const findExplores = getFindExplores({
-        getExplores: dependencies.getExplores,
+        findExplores: dependencies.findExplores,
     });
 
     const findFields = getFindFields({
-        getExplore: dependencies.getExplore,
+        findFields: dependencies.findFields,
     });
 
     const generateBarVizConfig = getGenerateBarVizConfig({
@@ -124,6 +125,7 @@ const getAgentMessages = (args: AiAgentArgs) => {
         }),
         ...args.messageHistory,
     ];
+
     if (args.debugLoggingEnabled) {
         Logger.debug(
             `[AiAgent][Agent Messages] Retrieved ${messages.length} messages.`,
@@ -381,7 +383,6 @@ export const streamAgentResponse = async ({
             model: args.model,
             tools,
             messages,
-
             experimental_repairToolCall: async ({
                 messages: conversationHistory,
                 error,

@@ -324,6 +324,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                 {filters?.dimensions?.map((item, index) => {
                     const field = allFilterableFieldsMap[item.target.fieldId];
                     const appliesToTabs = getTabsUsingFilter(item.id);
+
                     return (
                         <DroppableArea key={item.id} id={item.id} filterType={filterType} activeTabUuid={activeTabUuid}>
                             <DraggableItem
@@ -379,6 +380,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
             {temporaryFilters?.dimensions.map((item, index) => {
                 const field = allFilterableFieldsMap[item.target.fieldId];
                 const appliesToTabs = getTabsUsingTemporaryFilter(item.id);
+
                 return field || item.target.isSqlColumn ? (
                     <Filter
                         key={item.id}
