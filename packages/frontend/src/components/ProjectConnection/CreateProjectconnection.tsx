@@ -25,6 +25,7 @@ import { type ProjectConnectionForm } from './types';
 import { useOnProjectError } from './useOnProjectError';
 import { warehouseDefaultValues } from './WarehouseForms/defaultValues';
 import { warehouseValueValidators } from './WarehouseForms/validators';
+
 interface CreateProjectConnectionProps {
     isCreatingFirstProject: boolean;
     selectedWarehouse?: WarehouseTypes | undefined;
@@ -80,7 +81,7 @@ const CreateProjectConnection: FC<CreateProjectConnectionProps> = ({
                 dbtConnection,
                 dbtVersion,
                 warehouseConnection: {
-                    ...warehouseConnection!,
+                    ...warehouseConnection,
                     type: selectedWarehouse,
                 } as CreateWarehouseCredentials,
             });

@@ -3,7 +3,8 @@ import { Button } from '@mantine/core';
 import { IconMessageCircleStar } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-
+import { useAiAgentPermission } from '../../ee/features/aiCopilot/hooks/useAiAgentPermission';
+import { useProjectAiAgents } from '../../ee/features/aiCopilot/hooks/useProjectAiAgents';
 import { useActiveProject } from '../../hooks/useActiveProject';
 import { useFeatureFlag } from '../../hooks/useFeatureFlagEnabled';
 import useApp from '../../providers/App/useApp';
@@ -14,11 +15,33 @@ export const AiAgentsButton = () => {
 
     // Using `navigate` instead of the `Link` component to ensure round corners within a button group
     const navigate = useNavigate();
-
-    const { data: project } = useActiveProject();
+    const { data: projectUuid } = useActiveProject();
+    const canViewAiAgents = useAiAgentPermission({
+        action: 'view',
+        projectUuid: projectUuid ?? undefined,
+    });
     const appQuery = useApp();
+    const canManageAiAgents = useAiAgentPermission({
+        action: 'manage',
+        projectUuid: projectUuid ?? undefined,
+    });
     const aiCopilotFlagQuery = useFeatureFlag(CommercialFeatureFlags.AiCopilot);
     const aiAgentFlagQuery = useFeatureFlag(CommercialFeatureFlags.AiAgent);
+    const agents = useProjectAiAgents({
+        projectUuid,
+        options: {
+            enabled:
+                aiAgentFlagQuery.isSuccess && aiAgentFlagQuery.data.enabled,
+        },
+        redirectOnUnauthorized: false,
+    });
+
+    const canViewButton =
+        (canViewAiAgents &&
+            agents.isSuccess &&
+            agents.data?.length &&
+            agents.data.length > 0) ||
+        canManageAiAgents;
 
     if (
         !appQuery.user.isSuccess ||
@@ -28,15 +51,15 @@ export const AiAgentsButton = () => {
         return null;
     }
 
-    const canViewAiAgents = appQuery.user.data.ability.can('view', 'AiAgent');
     const isAiCopilotEnabled = aiCopilotFlagQuery.data.enabled;
     const isAiAgentEnabled = aiAgentFlagQuery.data.enabled;
 
     if (
+        !canViewButton ||
         !canViewAiAgents ||
         !isAiCopilotEnabled ||
         !isAiAgentEnabled ||
-        !project
+        !projectUuid
     ) {
         return null;
     }
@@ -49,7 +72,7 @@ export const AiAgentsButton = () => {
             leftIcon={
                 <MantineIcon icon={IconMessageCircleStar} color="#adb5bd" />
             }
-            onClick={() => navigate(`/projects/${project}/ai-agents`)}
+            onClick={() => navigate(`/projects/${projectUuid}/ai-agents`)}
         >
             {t('components_navbar_ai_agents_button.ask_ai')}
         </Button>

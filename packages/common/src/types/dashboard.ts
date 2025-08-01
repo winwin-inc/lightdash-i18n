@@ -1,5 +1,6 @@
 import { type FilterableDimension } from './field';
 import { type DashboardFilters } from './filter';
+import { type DashboardParameters } from './parameters';
 import { type ChartKind, type SavedChartType } from './savedCharts';
 import { type SpaceShare } from './space';
 import { type UpdatedByUser } from './user';
@@ -8,7 +9,6 @@ import { type ValidationSummary } from './validation';
 export enum DashboardTileTypes {
     SAVED_CHART = 'saved_chart',
     SQL_CHART = 'sql_chart',
-    SEMANTIC_VIEWER_CHART = 'semantic_viewer_chart',
     MARKDOWN = 'markdown',
     LOOM = 'loom',
 }
@@ -66,17 +66,6 @@ export type DashboardSqlChartTileProperties = {
     };
 };
 
-export type DashboardSemanticViewerChartTileProperties = {
-    type: DashboardTileTypes.SEMANTIC_VIEWER_CHART;
-    properties: {
-        title?: string;
-        savedSemanticViewerChartUuid: string | null;
-        chartName: string;
-        hideTitle?: boolean;
-        chartSlug?: string;
-    };
-};
-
 export type CreateDashboardMarkdownTile = CreateDashboardTileBase &
     DashboardMarkdownTileProperties;
 export type DashboardMarkdownTile = DashboardTileBase &
@@ -96,11 +85,6 @@ export type CreateDashboardSqlChartTile = CreateDashboardTileBase &
 export type DashboardSqlChartTile = DashboardTileBase &
     DashboardSqlChartTileProperties;
 
-export type CreateDashboardSemanticViewerChartTile = CreateDashboardTileBase &
-    DashboardSemanticViewerChartTileProperties;
-export type DashboardSemanticViewerChartTile = DashboardTileBase &
-    DashboardSemanticViewerChartTileProperties;
-
 export type CreateDashboard = {
     name: string;
     description?: string;
@@ -109,9 +93,9 @@ export type CreateDashboard = {
         | CreateDashboardMarkdownTile
         | CreateDashboardLoomTile
         | CreateDashboardSqlChartTile
-        | CreateDashboardSemanticViewerChartTile
     >;
     filters?: DashboardFilters;
+    parameters?: DashboardParameters;
     updatedByUser?: Pick<UpdatedByUser, 'userUuid'>;
     spaceUuid?: string;
     tabs: DashboardTab[];
@@ -122,8 +106,7 @@ export type DashboardTile =
     | DashboardChartTile
     | DashboardMarkdownTile
     | DashboardLoomTile
-    | DashboardSqlChartTile
-    | DashboardSemanticViewerChartTile;
+    | DashboardSqlChartTile;
 
 export const isDashboardChartTileType = (
     tile: DashboardTile,
@@ -141,15 +124,11 @@ export const isDashboardSqlChartTile = (
     tile: DashboardTileBase,
 ): tile is DashboardSqlChartTile => tile.type === DashboardTileTypes.SQL_CHART;
 
-export const isDashboardSemanticViewerChartTile = (
-    tile: DashboardTileBase,
-): tile is DashboardSemanticViewerChartTile =>
-    tile.type === DashboardTileTypes.SEMANTIC_VIEWER_CHART;
-
 export type DashboardTab = {
     uuid: string;
     name: string;
     order: number;
+    filters?: DashboardFilters;
 };
 
 export type DashboardTabWithUrls = DashboardTab & {
@@ -174,6 +153,7 @@ export type Dashboard = {
     updatedAt: Date;
     tiles: Array<DashboardTile>;
     filters: DashboardFilters;
+    parameters?: DashboardParameters;
     updatedByUser?: UpdatedByUser;
     spaceUuid: string;
     spaceName: string;
@@ -235,7 +215,7 @@ export type DashboardUnversionedFields = Pick<
 
 export type DashboardVersionedFields = Pick<
     CreateDashboard,
-    'tiles' | 'filters' | 'updatedByUser' | 'tabs' | 'config'
+    'tiles' | 'filters' | 'parameters' | 'updatedByUser' | 'tabs' | 'config'
 >;
 
 export type UpdateDashboardDetails = Pick<Dashboard, 'name' | 'description'>;

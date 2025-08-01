@@ -31,6 +31,15 @@ export const warehouseClientMock: WarehouseClient = {
             },
         },
     }),
+    getAsyncQueryResults: async () => ({
+        queryId: null,
+        queryMetadata: null,
+        totalRows: 0,
+        durationMs: 0,
+        fields: {},
+        pageCount: 0,
+        rows: [],
+    }),
     streamQuery: (_query, streamCallback) => {
         streamCallback({
             fields: {},
@@ -51,6 +60,7 @@ export const warehouseClientMock: WarehouseClient = {
         }),
     test: () => Promise.resolve(),
     getStartOfWeek: () => undefined,
+    getFieldQuoteChar: () => '"',
     getStringQuoteChar: () => "'",
     getEscapeStringQuoteChar: () => "'",
     getAdapterType: () => SupportedDbtAdapter.POSTGRES,
@@ -79,6 +89,7 @@ export const warehouseClientMock: WarehouseClient = {
     parseError(): Error {
         throw new Error('Function not implemented.');
     },
+    escapeString: (value) => value,
 };
 
 const sourceMock: Source = {
@@ -735,6 +746,8 @@ export const compiledSimpleJoinedExplore: Explore = {
             table: 'b',
             sqlOn: '${a.dim1} = ${b.dim1}',
             compiledSqlOn: '("a".dim1) = ("b".dim1)',
+            tablesReferences: ['a', 'b'],
+            relationship: undefined,
             type: undefined,
             hidden: undefined,
             always: undefined,
@@ -865,9 +878,11 @@ export const compiledExploreWithJoinWithFieldsAndGroups: Explore = {
             table: 'b',
             sqlOn: '${a.dim1} = ${b.dim1}',
             compiledSqlOn: '("a".dim1) = ("b".dim1)',
+            tablesReferences: ['a', 'b'],
             type: undefined,
             hidden: undefined,
             always: undefined,
+            relationship: undefined,
         },
     ],
     tables: {
@@ -1090,9 +1105,11 @@ export const compiledJoinedExploreOverridingJoinAlias: Explore = {
             table: 'custom_alias',
             sqlOn: '${a.dim1} = ${custom_alias.dim1}',
             compiledSqlOn: '("a".dim1) = ("custom_alias".dim1)',
+            tablesReferences: ['a', 'custom_alias'],
             type: undefined,
             hidden: undefined,
             always: undefined,
+            relationship: undefined,
         },
     ],
     tables: {
@@ -1134,9 +1151,11 @@ export const compiledJoinedExploreOverridingAliasAndLabel: Explore = {
             table: 'custom_alias',
             sqlOn: '${a.dim1} = ${custom_alias.dim1}',
             compiledSqlOn: '("a".dim1) = ("custom_alias".dim1)',
+            tablesReferences: ['a', 'custom_alias'],
             type: undefined,
             hidden: undefined,
             always: undefined,
+            relationship: undefined,
         },
     ],
     tables: {
@@ -1202,17 +1221,21 @@ export const compiledJoinedExploreWithTwoJoinsToTheSameTable: Explore = {
             table: 'b',
             sqlOn: '${a.dim1} = ${b.dim1}',
             compiledSqlOn: '("a".dim1) = ("b".dim1)',
+            tablesReferences: ['a', 'b'],
             type: undefined,
             hidden: undefined,
             always: undefined,
+            relationship: undefined,
         },
         {
             table: 'custom_alias',
             sqlOn: '${a.dim1} = ${custom_alias.dim1}',
             compiledSqlOn: '("a".dim1) = ("custom_alias".dim1)',
+            tablesReferences: ['a', 'custom_alias'],
             type: undefined,
             hidden: undefined,
             always: undefined,
+            relationship: undefined,
         },
     ],
     tables: {
@@ -1271,9 +1294,11 @@ export const compiledExploreWithHiddenJoin: Explore = {
             table: 'b',
             sqlOn: '${a.dim1} = ${b.dim1}',
             compiledSqlOn: '("a".dim1) = ("b".dim1)',
+            tablesReferences: ['a', 'b'],
             type: undefined,
             hidden: true,
             always: undefined,
+            relationship: undefined,
         },
     ],
     tables: {
@@ -1378,9 +1403,11 @@ export const compiledJoinedExploreWithJoinAliasAndSubsetOfFieldsThatDontIncludeS
                 table: 'custom_alias',
                 sqlOn: '${a.dim1} = ${custom_alias.dim1}',
                 compiledSqlOn: '("a".dim1) = ("custom_alias".dim1)',
+                tablesReferences: ['a', 'custom_alias'],
                 type: undefined,
                 hidden: undefined,
                 always: undefined,
+                relationship: undefined,
             },
         ],
         tables: {
@@ -1777,11 +1804,13 @@ export const exploreWithRequiredAttributesCompiled: Explore = {
     joinedTables: [
         {
             compiledSqlOn: '',
+            tablesReferences: [],
             sqlOn: '',
             table: 'b',
             type: undefined,
             hidden: undefined,
             always: undefined,
+            relationship: undefined,
         },
     ],
     tables: {
@@ -1916,9 +1945,11 @@ export const compiledSimpleJoinedExploreWithAlwaysTrue: Explore = {
             table: 'b',
             sqlOn: '${a.dim1} = ${b.dim1}',
             compiledSqlOn: '("a".dim1) = ("b".dim1)',
+            tablesReferences: ['a', 'b'],
             type: undefined,
             hidden: undefined,
             always: true,
+            relationship: undefined,
         },
     ],
 };

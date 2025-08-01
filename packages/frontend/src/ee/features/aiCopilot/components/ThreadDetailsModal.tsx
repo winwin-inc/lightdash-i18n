@@ -1,18 +1,24 @@
 import {
     Badge,
+    Box,
+    Button,
     Group,
+    LoadingOverlay,
     Modal,
     Paper,
-    ScrollArea,
     Stack,
-    Text,
     Title,
+    Tooltip,
 } from '@mantine-8/core';
+import { IconExternalLink, IconHelpCircle } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { Link, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 
-import { LightdashUserAvatar } from '../../../../components/Avatar';
+import MantineIcon from '../../../../components/common/MantineIcon';
+import useApp from '../../../../providers/App/useApp';
 import { useAiAgentThread } from '../hooks/useOrganizationAiAgents';
+import { AgentChatDisplay } from './ChatElements/AgentChatDisplay';
 
 type ThreadDetailsModalProps = {
     agentName: string;
@@ -28,7 +34,8 @@ export const ThreadDetailsModal: FC<ThreadDetailsModalProps> = ({
     onClose,
 }) => {
     const { t } = useTranslation();
-
+    const { user } = useApp();
+    const { projectUuid } = useParams();
     const { data: thread, isLoading } = useAiAgentThread(agentUuid, threadUuid);
 
     // Format date function since date-fns is not available
@@ -37,112 +44,92 @@ export const ThreadDetailsModal: FC<ThreadDetailsModalProps> = ({
         return date.toLocaleString();
     };
 
+    const isThreadFromCurrentUser = thread?.user.uuid === user?.data?.userUuid;
+
+    const chatUrl =
+        projectUuid && agentUuid && threadUuid
+            ? `/projects/${projectUuid}/ai-agents/${agentUuid}/threads/${threadUuid}`
+            : null;
+
     return (
         <Modal
             opened={!!threadUuid}
             onClose={onClose}
             title={
-                <Title order={4}>
-                    {t(
-                        'features_ai_copilot_agents_details.conversation_details',
+                <Group justify="space-between">
+                    <Title order={4}>{t(
+                        'features_ai_copilot_agents_details.conversation_preview',
+                    )}</Title>
+                    {thread && (
+                        <Group justify="space-between">
+                            <Group gap="xs">
+                                <Badge
+                                    color={
+                                        thread.createdFrom === 'slack'
+                                            ? 'indigo'
+                                            : 'blue'
+                                    }
+                                    variant="light"
+                                >
+                                    {thread.createdFrom === 'slack'
+                                        ? 'Slack'
+                                        : 'Web'}
+                                </Badge>
+                                <Tooltip
+                                    position="right"
+                                    label={t(
+                                        'features_ai_copilot_agents_details.started_by',
+                                        {
+                                            user: thread.user.name,
+                                            date: formatDate(thread.createdAt),
+                                        },
+                                    )}
+                                >
+                                    <MantineIcon icon={IconHelpCircle} />
+                                </Tooltip>
+                            </Group>
+                        </Group>
                     )}
-                </Title>
+                </Group>
             }
             size="xl"
         >
-            {isLoading ? (
-                <Text>
-                    {t(
-                        'features_ai_copilot_agents_details.loading_conversation',
-                    )}
-                </Text>
-            ) : thread ? (
+            {isLoading && (
+                <Box h={300}>
+                    <LoadingOverlay visible={isLoading} />
+                </Box>
+            )}
+            {!!thread && !isLoading && (
                 <Stack gap="md">
-                    <Group gap="xs">
-                        <Badge
-                            color={
-                                thread.createdFrom === 'slack'
-                                    ? 'indigo'
-                                    : 'blue'
-                            }
-                            variant="light"
-                        >
-                            {thread.createdFrom === 'slack' ? 'Slack' : 'Web'}
-                        </Badge>
-                        <Text size="sm" c="dimmed">
-                            {t(
-                                'features_ai_copilot_agents_details.started_by',
-                                {
-                                    user: thread.user.name,
-                                    date: formatDate(thread.createdAt),
-                                },
-                            )}
-                        </Text>
-                    </Group>
-
-                    <ScrollArea h={400}>
-                        <Stack gap="md">
-                            {thread.messages.map((message) => {
-                                const name =
-                                    message.role === 'assistant'
-                                        ? agentName ||
-                                          t(
-                                              'features_ai_copilot_agents_details.ai_assistant',
-                                          )
-                                        : message.user.name;
-
-                                return (
-                                    <Paper
-                                        key={message.uuid}
-                                        withBorder
-                                        p="md"
-                                        radius="md"
-                                        style={{
-                                            backgroundColor:
-                                                message.role === 'assistant'
-                                                    ? '#E6F7FF'
-                                                    : 'transparent',
-                                            alignSelf:
-                                                message.role === 'assistant'
-                                                    ? 'flex-start'
-                                                    : 'flex-end',
-                                            maxWidth: '80%',
-                                        }}
-                                    >
-                                        <Stack gap="xs">
-                                            <Group gap="xs">
-                                                <LightdashUserAvatar
-                                                    name={name}
-                                                    variant="filled"
-                                                />
-
-                                                <Text fw={500} size="sm">
-                                                    {name}
-                                                </Text>
-                                                <Text size="xs" c="dimmed">
-                                                    {formatDate(
-                                                        message.createdAt,
-                                                    )}
-                                                </Text>
-                                            </Group>
-                                            <Text
-                                                style={{
-                                                    whiteSpace: 'pre-wrap',
-                                                }}
-                                            >
-                                                {message.message}
-                                            </Text>
-                                        </Stack>
-                                    </Paper>
-                                );
-                            })}
-                        </Stack>
-                    </ScrollArea>
+                    <Paper py="md" shadow="subtle">
+                        <AgentChatDisplay
+                            thread={thread}
+                            agentName={agentName}
+                            height={400}
+                            enableAutoScroll={false}
+                            mode="preview"
+                        />
+                    </Paper>
+                    {chatUrl && isThreadFromCurrentUser && (
+                        <Group justify="flex-end">
+                            <Button
+                                variant="light"
+                                size="xs"
+                                component={Link}
+                                target="_blank"
+                                to={chatUrl}
+                                leftSection={
+                                    <MantineIcon icon={IconExternalLink} />
+                                }
+                                onClick={onClose}
+                            >
+                                {t(
+                                    'features_ai_copilot_agents_details.open_chat_in_new_tab',
+                                )}
+                            </Button>
+                        </Group>
+                    )}
                 </Stack>
-            ) : (
-                <Text>
-                    {t('features_ai_copilot_agents_details.thread_not_found')}
-                </Text>
             )}
         </Modal>
     );

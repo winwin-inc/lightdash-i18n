@@ -1,4 +1,4 @@
-import { ActionIcon, Group, Tabs, Title, Tooltip } from '@mantine/core';
+import { ActionIcon, Group, Stack, Tabs, Title, Tooltip } from '@mantine/core';
 import { IconClock, IconRefresh, IconSend } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { type FC } from 'react';
@@ -33,110 +33,86 @@ const SchedulersView: FC<{ projectUuid: string }> = ({ projectUuid }) => {
         return <LoadingState title={t('components_schedulers_view.loading')} />;
     }
     return (
-        <SettingsCard style={{ overflow: 'visible' }} p={0} shadow="none">
+        <Stack spacing="sm">
+            <Group spacing="xs" align="center" pr="md">
+                <Title order={5}>{t('components_schedulers_view.scheduled_deliveries')}</Title>
+                <Tooltip label={t('components_schedulers_view.click_to_refresh')}>
+                    <ActionIcon onClick={handleRefresh}>
+                        <MantineIcon
+                            icon={IconRefresh}
+                            size="lg"
+                            color="gray.6"
+                            stroke={2}
+                        />
+                    </ActionIcon>
+                </Tooltip>
+            </Group>
+
             <Tabs
                 classNames={tableTabStyles.classes}
                 keepMounted={false}
                 defaultValue="scheduled-deliveries"
             >
-                <Group
-                    align="center"
-                    pr="md"
-                    spacing="xs"
-                    sx={{
-                        flexGrow: 1,
-                    }}
-                >
-                    <Tabs.List>
-                        <Tabs.Tab
-                            value="scheduled-deliveries"
-                            icon={
-                                <MantineIcon
-                                    icon={IconSend}
-                                    size="md"
-                                    color="gray.7"
-                                />
-                            }
-                        >
-                            <Title order={6} fw={500} color="gray.7">
-                                {t(
-                                    'components_schedulers_view.tabs.all_schedulers',
-                                )}
-                            </Title>
-                        </Tabs.Tab>
-                        <Tabs.Tab
-                            value="run-history"
-                            icon={
-                                <MantineIcon
-                                    icon={IconClock}
-                                    size="md"
-                                    color="gray.7"
-                                />
-                            }
-                        >
-                            <Title order={6} fw={500} color="gray.7">
-                                {t(
-                                    'components_schedulers_view.tabs.run_history',
-                                )}
-                            </Title>
-                        </Tabs.Tab>
-                    </Tabs.List>
-                    <Tooltip
-                        label={t(
-                            'components_schedulers_view.tabs.tooltip_refresh.label',
-                        )}
-                    >
-                        <ActionIcon ml="auto" onClick={handleRefresh}>
+                <Tabs.List>
+                    <Tabs.Tab
+                        value="scheduled-deliveries"
+                        icon={
                             <MantineIcon
-                                icon={IconRefresh}
-                                size="lg"
-                                color="gray.6"
-                                stroke={2}
+                                icon={IconSend}
+                                size="md"
+                                color="gray.7"
                             />
-                        </ActionIcon>
-                    </Tooltip>
-                </Group>
+                        }
+                    >
+                        {t('components_schedulers_view.tabs.all_schedulers')}
+                    </Tabs.Tab>
+                    <Tabs.Tab
+                        value="run-history"
+                        icon={
+                            <MantineIcon
+                                icon={IconClock}
+                                size="md"
+                                color="gray.7"
+                            />
+                        }
+                    >
+                        {t('components_schedulers_view.tabs.run_history')}
+                    </Tabs.Tab>
+                </Tabs.List>
                 <Tabs.Panel value="scheduled-deliveries">
-                    {data && data.schedulers.length > 0 ? (
-                        <Schedulers {...data} projectUuid={projectUuid} />
-                    ) : (
-                        <ResourceEmptyState
-                            title={t(
-                                'components_schedulers_view.tabs.no_schedulers_deliver.title',
-                            )}
-                            description={t(
-                                'components_schedulers_view.tabs.no_schedulers_deliver.description',
-                            )}
-                        />
-                    )}
+                    <SettingsCard
+                        style={{ overflow: 'visible' }}
+                        p={0}
+                        shadow="none"
+                    >
+                        <Schedulers projectUuid={projectUuid} />
+                    </SettingsCard>
                 </Tabs.Panel>
                 <Tabs.Panel value="run-history">
-                    {data && data.schedulers.length > 0 ? (
-                        data.logs.length > 0 ? (
-                            <Logs {...data} projectUuid={projectUuid} />
+                    <SettingsCard
+                        style={{ overflow: 'visible' }}
+                        p={0}
+                        shadow="none"
+                    >
+                        {data && data.schedulers.length > 0 ? (
+                            data.logs.length > 0 ? (
+                                <Logs {...data} projectUuid={projectUuid} />
+                            ) : (
+                                <ResourceEmptyState
+                                    title={t('components_schedulers_view.tabs.no_schedulers_jobs.title')}
+                                    description={t('components_schedulers_view.tabs.no_schedulers_jobs.description')}
+                                />
+                            )
                         ) : (
                             <ResourceEmptyState
-                                title={t(
-                                    'components_schedulers_view.tabs.no_schedulers_jobs.title',
-                                )}
-                                description={t(
-                                    'components_schedulers_view.tabs.no_schedulers_jobs.description',
-                                )}
+                                title={t('components_schedulers_view.tabs.no_schedulers_deliver.title')}
+                                description={t('components_schedulers_view.tabs.no_schedulers_deliver.description')}
                             />
-                        )
-                    ) : (
-                        <ResourceEmptyState
-                            title={t(
-                                'components_schedulers_view.tabs.no_schedulers_deliver.title',
-                            )}
-                            description={t(
-                                'components_schedulers_view.tabs.no_schedulers_deliver.description',
-                            )}
-                        />
-                    )}
+                        )}
+                    </SettingsCard>
                 </Tabs.Panel>
             </Tabs>
-        </SettingsCard>
+        </Stack>
     );
 };
 

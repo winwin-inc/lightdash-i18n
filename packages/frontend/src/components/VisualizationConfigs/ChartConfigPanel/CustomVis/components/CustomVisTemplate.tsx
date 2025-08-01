@@ -9,6 +9,7 @@ import {
     IconChartBubble,
     IconFilter,
     IconFlame,
+    IconPlus,
     IconStairs,
     IconWorld,
 } from '@tabler/icons-react';
@@ -18,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { COLLAPSABLE_CARD_POPOVER_PROPS } from '../../../../common/CollapsableCard/constants';
 import MantineIcon from '../../../../common/MantineIcon';
 import { generateVegaTemplate } from '../utils/templates';
-import { TemplateType } from '../utils/vegaTemplates';
+import { TemplateType, useTemplateNames } from '../utils/vegaTemplates';
 
 const getTemplateIcon = (template: TemplateType) => {
     switch (template) {
@@ -68,6 +69,8 @@ export const SelectTemplate = ({
         [isCustomConfig, itemsMap, setEditorConfig],
     );
 
+    const templateNames = useTemplateNames();
+
     return (
         <Menu {...COLLAPSABLE_CARD_POPOVER_PROPS} width={183} closeOnItemClick>
             <Menu.Dropdown>
@@ -77,7 +80,7 @@ export const SelectTemplate = ({
                         onClick={() => loadTemplate(template)}
                         icon={<MantineIcon icon={getTemplateIcon(template)} />}
                     >
-                        {template}
+                        {templateNames[template]}
                     </Menu.Item>
                 ))}
                 <Menu.Divider />
@@ -90,14 +93,10 @@ export const SelectTemplate = ({
             <Menu.Target>
                 <Button
                     size="sm"
-                    variant="subtle"
+                    variant="default"
                     compact
-                    leftIcon="+"
-                    styles={{
-                        leftIcon: {
-                            marginRight: 2,
-                        },
-                    }}
+                    fz="xs"
+                    leftIcon={<MantineIcon icon={IconPlus} />}
                 >
                     {t(
                         'components_visualization_configs_custom_vis_template.insert_template',

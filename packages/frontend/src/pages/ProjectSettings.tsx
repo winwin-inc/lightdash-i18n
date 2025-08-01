@@ -10,7 +10,6 @@ import ProjectUserAccess from '../components/ProjectAccess';
 import { UpdateProjectConnection } from '../components/ProjectConnection';
 import ProjectTablesConfiguration from '../components/ProjectTablesConfiguration/ProjectTablesConfiguration';
 import SettingsScheduler from '../components/SettingsScheduler';
-import SettingsSemanticLayer from '../components/SettingsSemanticLayer';
 import SettingsUsageAnalytics from '../components/SettingsUsageAnalytics';
 import { SettingsValidator } from '../components/SettingsValidator';
 import SettingsEmbed from '../ee/features/embed/SettingsEmbed';
@@ -42,10 +41,6 @@ const ProjectSettings: FC = () => {
             {
                 path: `/projectAccess`,
                 element: <ProjectUserAccess projectUuid={projectUuid} />,
-            },
-            {
-                path: `/semanticLayer`,
-                element: <SettingsSemanticLayer projectUuid={projectUuid} />,
             },
             {
                 path: `/usageAnalytics`,

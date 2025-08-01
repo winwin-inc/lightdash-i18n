@@ -62,6 +62,9 @@ export const ExplorerResults = memo(() => {
             return context.query.status;
         }
     });
+
+    const apiError = useExplorerContext((context) => context.query.error);
+
     const setColumnOrder = useExplorerContext(
         (context) => context.actions.setColumnOrder,
     );
@@ -183,6 +186,7 @@ export const ExplorerResults = memo(() => {
             <Box px="xs" py="lg">
                 <Table
                     status={status}
+                    errorDetail={apiError?.error}
                     data={rows || []}
                     totalRowsCount={totalRows || 0}
                     isFetchingRows={isFetchingRows}

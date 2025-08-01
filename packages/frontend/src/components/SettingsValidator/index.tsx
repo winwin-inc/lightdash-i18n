@@ -398,9 +398,9 @@ export const SettingsValidator: FC<{ projectUuid: string }> = ({
                 >
                     <Text fw={500} fz="xs" c="gray.6">
                         {!!data?.length
-                            ? `Last validated at: ${formatTime(
-                                  data[0].createdAt,
-                              )}`
+                            ? t('components_settings_validator.last_validated_at', {
+                                date: formatTime(data[0].createdAt),
+                            })
                             : null}
                     </Text>
                     <Button
@@ -432,8 +432,7 @@ export const SettingsValidator: FC<{ projectUuid: string }> = ({
                     ) : !!data?.length ? (
                         <>
                             <ValidatorTable
-                                // Hard limit to 100 rows, otherwise it breaks the UI
-                                data={data.slice(0, 100)} // TODO add pagination
+                                data={data}
                                 projectUuid={projectUuid}
                                 onSelectValidationError={(validationError) => {
                                     if (
@@ -445,12 +444,6 @@ export const SettingsValidator: FC<{ projectUuid: string }> = ({
                                     }
                                 }}
                             />
-                            {data.length > 100 && (
-                                <Text p="md" c="gray.7">
-                                    Showing only 100 of {data.length} validation
-                                    errors.
-                                </Text>
-                            )}
                         </>
                     ) : (
                         <Group position="center" spacing="xs" p="md">

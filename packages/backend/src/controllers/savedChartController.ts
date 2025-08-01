@@ -4,14 +4,13 @@ import {
     ApiErrorPayload,
     ApiGetChartHistoryResponse,
     ApiGetChartVersionResponse,
-    ApiJobScheduledResponse,
     ApiPromoteChartResponse,
     ApiPromotionChangesResponse,
     ApiSuccessEmpty,
-    DateGranularity,
     DateZoom,
     QueryExecutionContext,
     SortField,
+    type ParametersValuesMap,
 } from '@lightdash/common';
 import {
     Body,
@@ -32,6 +31,7 @@ import {
     getContextFromHeader,
     getContextFromQueryOrHeader,
 } from '../analytics/LightdashAnalytics';
+import { deprecatedDownloadCsvRoute } from '../middlewares/deprecation';
 import {
     allowApiKeyAuthentication,
     deprecatedResultsRoute,
@@ -92,7 +92,7 @@ export class SavedChartController extends BaseController {
         return {
             status: 'ok',
             results: await this.services.getProjectService().runViewChartQuery({
-                user: req.user!,
+                account: req.account!,
                 chartUuid,
                 versionUuid: undefined,
                 invalidateCache: body.invalidateCache,
@@ -125,7 +125,7 @@ export class SavedChartController extends BaseController {
             results: await this.services
                 .getProjectService()
                 .getChartAndResults({
-                    user: req.user!,
+                    account: req.account!,
                     chartUuid,
                     dashboardFilters: body.dashboardFilters,
                     invalidateCache: body.invalidateCache,
@@ -226,7 +226,7 @@ export class SavedChartController extends BaseController {
         return {
             status: 'ok',
             results: await this.services.getProjectService().runViewChartQuery({
-                user: req.user!,
+                account: req.account!,
                 chartUuid,
                 versionUuid,
                 context,
@@ -278,6 +278,7 @@ export class SavedChartController extends BaseController {
         body: {
             dashboardFilters?: AnyType; // DashboardFilters; temp disable validation
             invalidateCache?: boolean;
+            parameters?: ParametersValuesMap;
         },
         @Request() req: express.Request,
     ): Promise<ApiCalculateTotalResponse> {
@@ -285,10 +286,11 @@ export class SavedChartController extends BaseController {
         const totalResult = await this.services
             .getProjectService()
             .calculateTotalFromSavedChart(
-                req.user!,
+                req.account!,
                 chartUuid,
                 body.dashboardFilters,
                 body.invalidateCache,
+                body.parameters,
             );
         return {
             status: 'ok',
@@ -348,7 +350,11 @@ export class SavedChartController extends BaseController {
      * Download a CSV from a saved chart uuid
      * @param req express request
      */
-    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        deprecatedDownloadCsvRoute,
+    ])
     @SuccessResponse('200', 'Success')
     @Post('/downloadCsv')
     @OperationId('DownloadCsvFromSavedChart')

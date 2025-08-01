@@ -41,18 +41,19 @@ import {
     useSlackChannels,
     useUpdateSlackAppCustomSettingsMutation,
 } from '../../../hooks/slack/useSlack';
+import { useActiveProjectUuid } from '../../../hooks/useActiveProject';
 import { useFeatureFlag } from '../../../hooks/useFeatureFlagEnabled';
 import slackSvg from '../../../svgs/slack.svg';
 import MantineIcon from '../../common/MantineIcon';
 import { SettingsGridCard } from '../../common/Settings/SettingsCard';
-import { hasRequiredScopes } from './utils';
 
 const SLACK_INSTALL_URL = `/api/v1/slack/install/`;
 const MAX_SLACK_CHANNELS = 100000;
 
 const SlackSettingsPanel: FC = () => {
-    const { t } = useTranslation();
-
+  const { t } = useTranslation();
+  
+    const { activeProjectUuid } = useActiveProjectUuid();
     const { data: aiCopilotFlag } = useFeatureFlag(
         CommercialFeatureFlags.AiCopilot,
     );
@@ -111,6 +112,8 @@ const SlackSettingsPanel: FC = () => {
             notificationChannel: null,
             appProfilePhotoUrl: null,
             slackChannelProjectMappings: [],
+            aiThreadAccessConsent: false,
+            aiRequireOAuth: false,
         },
         validate: zodResolver(formSchema),
     });
@@ -127,6 +130,7 @@ const SlackSettingsPanel: FC = () => {
                 slackInstallation.slackChannelProjectMappings ?? [],
             aiThreadAccessConsent:
                 slackInstallation.aiThreadAccessConsent ?? false,
+            aiRequireOAuth: slackInstallation.aiRequireOAuth ?? false,
         };
 
         if (form.initialized) {
@@ -330,30 +334,56 @@ const SlackSettingsPanel: FC = () => {
                                             );
                                         }}
                                     />
-                                    <Alert
-                                        color="blue"
-                                        fz="xs"
-                                        icon={
-                                            <MantineIcon
-                                                icon={IconHelpCircle}
-                                            />
-                                        }
-                                    >
+                                    <Text fz="xs" c="dimmed">
                                         {t(
                                             'components_user_settings_slack_settings_panel.ai_copilot_flag.configure.part_1',
                                         )}{' '}
                                         <Anchor
                                             component={Link}
-                                            to="/generalSettings/aiAgents"
+                                            to={`/projects/${activeProjectUuid}/ai-agents`}
                                         >
                                             {t(
                                                 'components_user_settings_slack_settings_panel.ai_copilot_flag.configure.part_2',
                                             )}
                                         </Anchor>
-                                        {t(
-                                            'components_user_settings_slack_settings_panel.ai_copilot_flag.configure.part_3',
-                                        )}
-                                    </Alert>
+                                        .
+                                    </Text>
+
+                                    <Stack spacing="sm">
+                                        <Group spacing="two">
+                                            <Title order={6} fw={500}>
+                                                {t(
+                                                    'components_user_settings_slack_settings_panel.ai_copilot_flag.ai_agents_oauth_requirement.title',
+                                                )}
+                                            </Title>
+
+                                            <Tooltip
+                                                multiline
+                                                variant="xs"
+                                                maw={250}
+                                                label={t(
+                                                    'components_user_settings_slack_settings_panel.ai_copilot_flag.ai_agents_oauth_requirement.description',
+                                                )}
+                                            >
+                                                <MantineIcon
+                                                    icon={IconHelpCircle}
+                                                />
+                                            </Tooltip>
+                                        </Group>
+
+                                        <Switch
+                                            label={t(
+                                                'components_user_settings_slack_settings_panel.ai_copilot_flag.require_oauth_for_ai_agent',
+                                            )}
+                                            checked={form.values.aiRequireOAuth}
+                                            onChange={(event) => {
+                                                setFieldValue(
+                                                    'aiRequireOAuth',
+                                                    event.currentTarget.checked,
+                                                );
+                                            }}
+                                        />
+                                    </Stack>
                                 </Stack>
                             )}
                         </Stack>
@@ -399,9 +429,9 @@ const SlackSettingsPanel: FC = () => {
                             </Group>
 
                             {organizationHasSlack &&
-                                !hasRequiredScopes(slackInstallation) && (
+                                !slackInstallation.hasRequiredScopes && (
                                     <Alert
-                                        color="blue"
+                                        color="yellow"
                                         icon={
                                             <MantineIcon
                                                 icon={IconAlertCircle}

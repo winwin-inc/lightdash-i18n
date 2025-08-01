@@ -3,6 +3,7 @@ import {
     FeatureFlags,
     WarehouseTypes,
 } from '@lightdash/common';
+import type { SelectItem } from '@mantine/core';
 import {
     Anchor,
     Button,
@@ -22,6 +23,7 @@ import { useState, type ChangeEvent, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
 import { useGoogleLoginPopup } from '../../../hooks/gdrive/useGdrive';
+import useHealth from '../../../hooks/health/useHealth';
 import {
     useBigqueryDatasets,
     useIsBigQueryAuthenticated,
@@ -138,6 +140,8 @@ const BigQueryForm: FC<{
     const form = useFormContext();
     const project = form.getInputProps('warehouse.project');
     const [debouncedProject] = useDebouncedValue(project.value, 300);
+    const health = useHealth();
+    const isAdcEnabled = health.data?.auth.google?.enableGCloudADC;
 
     const isSsoEnabled = useFeatureFlagEnabled(FeatureFlags.BigquerySSO);
     // Fetching databases can only happen if user is authenticated
@@ -158,8 +162,11 @@ const BigQueryForm: FC<{
     const [isOpen, toggleOpen] = useToggle(false);
     const [temporaryFile, setTemporaryFile] = useState<File | null>(null);
     const { savedProject } = useProjectFormContext();
-    const requireSecrets: boolean =
-        savedProject?.warehouseConnection?.type !== WarehouseTypes.BIGQUERY;
+    const requireSecrets: boolean = !(
+        savedProject?.warehouseConnection?.type === WarehouseTypes.BIGQUERY &&
+        savedProject?.warehouseConnection?.authenticationType ===
+            BigqueryAuthenticationType.PRIVATE_KEY
+    );
     const hasDatasets = datasets && datasets.length > 0;
     const executionProjectField = form.getInputProps(
         'warehouse.executionProject',
@@ -189,13 +196,24 @@ const BigQueryForm: FC<{
         (e: ChangeEvent<HTMLInputElement>) => {
             onChange(e.target.value === '' ? undefined : e.target.value);
         };
-    const isPassthroughLoginFeatureEnabled = useFeatureFlagEnabled(
-        FeatureFlags.PassthroughLogin,
-    );
+    const authenticationTypes = [
+        {
+            value: BigqueryAuthenticationType.PRIVATE_KEY,
+            label: t('components_project_connection_warehouse_form.big_query.authentication_type.data.service_account'),
+        },
+        isSsoEnabled && {
+            value: BigqueryAuthenticationType.SSO,
+            label: t('components_project_connection_warehouse_form.big_query.authentication_type.data.user_account'),
+        },
+        isAdcEnabled && {
+            value: BigqueryAuthenticationType.ADC,
+            label: t('components_project_connection_warehouse_form.big_query.authentication_type.data.application_default_credentials'),
+        },
+    ].filter(Boolean) as SelectItem[];
     return (
         <>
             <Stack style={{ marginTop: '8px' }}>
-                {isSsoEnabled && (
+                {(isSsoEnabled || isAdcEnabled) && (
                     <Group spacing="sm">
                         <Select
                             name="warehouse.authenticationType"
@@ -229,20 +247,7 @@ const BigQueryForm: FC<{
                                     )
                                 )
                             }
-                            data={[
-                                {
-                                    value: BigqueryAuthenticationType.PRIVATE_KEY,
-                                    label: t(
-                                        'components_project_connection_warehouse_form.big_query.authentication_type.data.service_account',
-                                    ),
-                                },
-                                {
-                                    value: BigqueryAuthenticationType.SSO,
-                                    label: t(
-                                        'components_project_connection_warehouse_form.big_query.authentication_type.data.user_account',
-                                    ),
-                                },
-                            ]}
+                            data={authenticationTypes}
                             required
                             disabled={disabled}
                             w={isAuthenticated ? '90%' : '100%'}
@@ -381,7 +386,8 @@ const BigQueryForm: FC<{
                         }}
                 />         */}
                     </>
-                ) : (
+                ) : authenticationType ===
+                  BigqueryAuthenticationType.PRIVATE_KEY ? (
                     <>
                         <FileInput
                             name="warehouse.keyfileContents"
@@ -472,10 +478,13 @@ const BigQueryForm: FC<{
                             disabled={disabled}
                         />
                     </>
+                ) : (
+                    /* BigqueryAuthenticationType.ADC */
+                    <></>
                 )}
                 <FormSection isOpen={isOpen} name="advanced">
                     <Stack style={{ marginTop: '8px' }}>
-                        {isSsoEnabled && isPassthroughLoginFeatureEnabled && (
+                        {isSsoEnabled && (
                             <BooleanSwitch
                                 name="warehouse.requireUserCredentials"
                                 {...form.getInputProps(

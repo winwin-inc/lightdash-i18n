@@ -2,6 +2,7 @@ import {
     DashboardConfig,
     DashboardFilters,
     DashboardTileTypes,
+    type DashboardParameters,
 } from '@lightdash/common';
 import { Knex } from 'knex';
 
@@ -12,8 +13,6 @@ export const DashboardTilesTableName = 'dashboard_tiles';
 export const DashboardTileTypesTableName = 'dashboard_tile_types';
 export const DashboardTileChartTableName = 'dashboard_tile_charts';
 export const DashboardTileSqlChartTableName = 'dashboard_tile_sql_charts';
-export const DashboardTileSemanticViewerChartTableName =
-    'dashboard_tile_semantic_viewer_charts';
 export const DashboardTileMarkdownsTableName = 'dashboard_tile_markdowns';
 export const DashboardTileLoomsTableName = 'dashboard_tile_looms';
 export const DashboardTabsTableName = 'dashboard_tabs';
@@ -45,6 +44,7 @@ type DbDashboardView = {
     created_at: Date;
     name: string;
     filters: DashboardFilters;
+    parameters: DashboardParameters | null;
 };
 
 type DbCreateDashboardTile = {
@@ -91,7 +91,10 @@ export type DashboardVersionTable = Knex.CompositeTableType<
 
 export type DashboardViewTable = Knex.CompositeTableType<
     DbDashboardView,
-    Pick<DbDashboardView, 'dashboard_version_id' | 'name' | 'filters'>
+    Pick<
+        DbDashboardView,
+        'dashboard_version_id' | 'name' | 'filters' | 'parameters'
+    >
 >;
 
 export type DashboardTileTable = Knex.CompositeTableType<
@@ -127,6 +130,7 @@ export type DbDashboardTabs = {
     uuid: string;
     dashboard_id: number;
     dashboard_version_id: number;
+    filters: DashboardFilters;
     order: number;
     created_at: Date;
     updated_at: Date;

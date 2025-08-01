@@ -56,6 +56,7 @@ const MinimalExplorer: FC = () => {
             pivotTableMaxColumnLimit={health.data.pivotTable.maxColumnLimit}
             savedChartUuid={savedChart.uuid}
             colorPalette={savedChart.colorPalette}
+            parameters={query.data?.usedParametersValues}
         >
             <MantineProvider inherit theme={themeOverride}>
                 <Box mih="inherit" h="100%">
@@ -93,6 +94,7 @@ const MinimalSavedExplorer: FC = () => {
 
     return (
         <ExplorerProvider
+            minimal={true}
             viewModeQueryArgs={
                 savedQueryUuid
                     ? { chartUuid: savedQueryUuid, context }
@@ -111,6 +113,7 @@ const MinimalSavedExplorer: FC = () => {
                               metricQuery: data.metricQuery,
                               tableConfig: data.tableConfig,
                               pivotConfig: data.pivotConfig,
+                              parameters: data.parameters,
                           },
                           modals: {
                               format: {

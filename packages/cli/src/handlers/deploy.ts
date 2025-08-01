@@ -34,6 +34,7 @@ type DeployHandlerOptions = DbtCompileOptions & {
     verbose: boolean;
     ignoreErrors: boolean;
     startOfWeek?: number;
+    warehouseCredentials?: boolean;
 };
 
 type DeployArgs = DeployHandlerOptions & {
@@ -58,6 +59,17 @@ const replaceProjectYamlTags = async (
         method: 'PUT',
         url: `/api/v1/projects/${projectUuid}/tags/yaml`,
         body: JSON.stringify(yamlTags),
+    });
+};
+
+const replaceProjectParameters = async (
+    projectUuid: string,
+    lightdashProjectConfig: LightdashProjectConfig,
+) => {
+    await lightdashApi<null>({
+        method: 'PUT',
+        url: `/api/v2/projects/${projectUuid}/parameters`,
+        body: JSON.stringify(lightdashProjectConfig.parameters ?? {}),
     });
 };
 
@@ -94,6 +106,7 @@ export const deploy = async (
     );
 
     await replaceProjectYamlTags(options.projectUuid, lightdashProjectConfig);
+    await replaceProjectParameters(options.projectUuid, lightdashProjectConfig);
 
     await lightdashApi<null>({
         method: 'PUT',
@@ -159,6 +172,7 @@ const createNewProject = async (
             ...options,
             name: projectName,
             type: ProjectType.DEFAULT,
+            warehouseCredentials: options.warehouseCredentials,
         });
 
         const project = results?.project;
@@ -193,8 +207,17 @@ const createNewProject = async (
     }
 };
 
-export const deployHandler = async (options: DeployHandlerOptions) => {
+export const deployHandler = async (originalOptions: DeployHandlerOptions) => {
+    const options = {
+        ...originalOptions,
+    };
     GlobalState.setVerbose(options.verbose);
+
+    // No warehouse credentials assumes we skip dbt compile and warehouse catalog
+    if (options.warehouseCredentials === false) {
+        options.skipDbtCompile = true;
+        options.skipWarehouseCatalog = true;
+    }
     const dbtVersion = await getDbtVersion();
     await checkLightdashVersion();
     const executionId = uuidv4();

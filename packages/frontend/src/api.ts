@@ -1,4 +1,5 @@
 import {
+    JWT_HEADER_NAME,
     LightdashRequestMethodHeader,
     LightdashVersionHeader,
     RequestMethod,
@@ -8,6 +9,8 @@ import {
 } from '@lightdash/common';
 import { spanToTraceHeader, startSpan } from '@sentry/react';
 import fetch from 'isomorphic-fetch';
+import { EMBED_KEY, type InMemoryEmbed } from './ee/providers/Embed/types';
+import { getFromInMemoryStorage } from './utils/inMemoryStorage';
 
 // TODO: import from common or fix the instantiation of the request module
 const LIGHTDASH_SDK_INSTANCE_URL_LOCAL_STORAGE_KEY =
@@ -23,6 +26,47 @@ const defaultHeaders = {
     [LightdashRequestMethodHeader]: RequestMethod.WEB_APP,
     [LightdashVersionHeader]: __APP_VERSION__,
 };
+
+const isSafeToAddEmbedHeader = (
+    headers: Record<string, string> | undefined,
+) => {
+    if (!headers) return true;
+
+    const isEmbedHeader = (header: string) =>
+        header.toLowerCase() === JWT_HEADER_NAME.toLowerCase();
+    return !Object.keys(headers).some(isEmbedHeader);
+};
+
+const finalizeHeaders = (
+    headers: Record<string, string> | undefined,
+    embed: InMemoryEmbed | undefined,
+    sentryTrace: string | undefined,
+): Record<string, string> => {
+    const requestHeaders: Record<string, string> = {
+        ...defaultHeaders,
+        ...headers,
+    };
+
+    if (embed?.token && isSafeToAddEmbedHeader(headers)) {
+        requestHeaders[JWT_HEADER_NAME] = embed.token;
+    }
+
+    if (sentryTrace) {
+        requestHeaders['sentry-trace'] = sentryTrace;
+    }
+
+    return requestHeaders;
+};
+
+function finalizeUrl(url: string, embed: InMemoryEmbed | undefined): string {
+    if (embed?.projectUuid && !url.includes('projectUuid')) {
+        const separator = url.includes('?') ? '&' : '?';
+        url += `${separator}projectUuid=${encodeURIComponent(
+            embed.projectUuid,
+        )}`;
+    }
+    return url;
+}
 
 const handleError = (err: any): ApiError => {
     if (err.error?.statusCode && err.error?.name) {
@@ -47,14 +91,24 @@ const handleError = (err: any): ApiError => {
     };
 };
 
-type LightdashApiProps = {
-    method: 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT';
+type LightdashApiPropsBase = {
     url: string;
-    body: BodyInit | null | undefined;
     headers?: Record<string, string> | undefined;
     version?: 'v1' | 'v2';
     signal?: AbortSignal;
 };
+
+type LightdashApiPropsGetOrDelete = LightdashApiPropsBase & {
+    method: 'GET' | 'DELETE';
+    body?: BodyInit | null | undefined;
+};
+
+type LightdashApiPropsWrite = LightdashApiPropsBase & {
+    method: 'POST' | 'PATCH' | 'PUT';
+    body: BodyInit | null | undefined;
+};
+
+type LightdashApiProps = LightdashApiPropsGetOrDelete | LightdashApiPropsWrite;
 
 const MAX_NETWORK_HISTORY = 10;
 export let networkHistory: AnyType[] = [];
@@ -91,13 +145,10 @@ export const lightdashApi = async <T extends ApiResponse['results']>({
         },
     );
 
-    return fetch(`${apiPrefix}${url}`, {
+    const embed = getFromInMemoryStorage<InMemoryEmbed>(EMBED_KEY);
+    return fetch(finalizeUrl(`${apiPrefix}${url}`, embed), {
         method,
-        headers: {
-            ...defaultHeaders,
-            ...headers,
-            ...(sentryTrace ? { 'sentry-trace': sentryTrace } : {}),
-        },
+        headers: finalizeHeaders(headers, embed, sentryTrace),
         body,
         signal,
     })
@@ -144,6 +195,59 @@ export const lightdashApi = async <T extends ApiResponse['results']>({
             // only store last MAX_NETWORK_HISTORY requests
             if (networkHistory.length > MAX_NETWORK_HISTORY)
                 networkHistory.shift();
+            throw handleError(err);
+        });
+};
+
+export const lightdashApiStream = ({
+    method,
+    url,
+    body,
+    headers,
+    version = 'v1',
+    signal,
+}: LightdashApiProps) => {
+    const baseUrl = sessionStorage.getItem(
+        LIGHTDASH_SDK_INSTANCE_URL_LOCAL_STORAGE_KEY,
+    );
+    const apiPrefix = `${baseUrl ?? BASE_API_URL}api/${version}`;
+
+    let sentryTrace: string | undefined;
+    // Manually create a span for the fetch request to be able to trace it in Sentry. This also enables Distributed Tracing.
+    startSpan(
+        {
+            op: 'http.client',
+            name: `API Streaming Request: ${method} ${url}`,
+            attributes: {
+                'http.method': method,
+                'http.url': url,
+                type: 'fetch',
+                url,
+                method,
+            },
+        },
+        (s) => {
+            sentryTrace = spanToTraceHeader(s);
+        },
+    );
+
+    return fetch(`${apiPrefix}${url}`, {
+        method,
+        headers: {
+            ...defaultHeaders,
+            ...headers,
+            ...(sentryTrace ? { 'sentry-trace': sentryTrace } : {}),
+        },
+        body,
+        signal,
+    })
+        .then((r) => {
+            if (!r.ok) {
+                throw r;
+            }
+            return r;
+        })
+        .catch((err) => {
             throw handleError(err);
         });
 };

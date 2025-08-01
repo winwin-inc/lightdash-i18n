@@ -22,10 +22,6 @@ export const useSearchItemLabel = () => {
                 return t('features_omnibar_labels.items.page');
             case SearchItemType.SQL_CHART:
                 return t('features_omnibar_labels.items.sql_chart');
-            case SearchItemType.SEMANTIC_VIEWER_CHART:
-                return t(
-                    'features_omnibar_labels.items.semantic_viewer_charts',
-                );
             default:
                 return assertUnreachable(
                     itemType as never,

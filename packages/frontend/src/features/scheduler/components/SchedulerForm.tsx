@@ -57,6 +57,7 @@ import MDEditor, { commands } from '@uiw/react-md-editor';
 import { debounce, intersection, isEqual } from 'lodash';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
+
 import FieldSelect from '../../../components/common/FieldSelect';
 import FilterNumberInput from '../../../components/common/Filters/FilterInputs/FilterNumberInput';
 import MantineIcon from '../../../components/common/MantineIcon';
@@ -64,7 +65,6 @@ import { DefaultValue } from '../../../components/common/TagInput/DefaultValue/D
 import { TagInput } from '../../../components/common/TagInput/TagInput';
 import TimeZonePicker from '../../../components/common/TimeZonePicker';
 import { CronInternalInputs } from '../../../components/ReactHookForm/CronInput';
-import { hasRequiredScopes } from '../../../components/UserSettings/SlackSettingsPanel/utils';
 import { useDashboardQuery } from '../../../hooks/dashboard/useDashboard';
 import useHealth from '../../../hooks/health/useHealth';
 import { useGetSlack, useSlackChannels } from '../../../hooks/slack/useSlack';
@@ -414,7 +414,11 @@ const SchedulerForm: FC<Props> = ({
 
         transformValues: (values): CreateSchedulerAndTargetsWithoutIds => {
             let options = {};
-            if (values.format === SchedulerFormat.CSV) {
+            if (
+                [SchedulerFormat.CSV, SchedulerFormat.XLSX].includes(
+                    values.format,
+                )
+            ) {
                 options = {
                     formatted: values.options.formatted,
                     limit:
@@ -508,7 +512,7 @@ const SchedulerForm: FC<Props> = ({
     const slackState = useMemo(() => {
         if (isInitialLoading) return SlackStates.LOADING;
         if (!organizationHasSlack) return SlackStates.NO_SLACK;
-        if (!hasRequiredScopes(slackInstallation))
+        if (!slackInstallation.hasRequiredScopes)
             return SlackStates.MISSING_SCOPES;
         return SlackStates.SUCCESS;
     }, [isInitialLoading, organizationHasSlack, slackInstallation]);
@@ -837,6 +841,10 @@ const SchedulerForm: FC<Props> = ({
                                             {
                                                 label: '.csv',
                                                 value: SchedulerFormat.CSV,
+                                            },
+                                            {
+                                                label: '.xlsx',
+                                                value: SchedulerFormat.XLSX,
                                             },
                                             {
                                                 label: 'Image',

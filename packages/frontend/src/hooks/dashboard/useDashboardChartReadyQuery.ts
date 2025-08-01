@@ -10,7 +10,7 @@ import {
     type SavedChart,
 } from '@lightdash/common';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { lightdashApi } from '../../api';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import { convertDateDashboardFilters } from '../../utils/dateFilter';
@@ -18,6 +18,7 @@ import { useExplore } from '../useExplore';
 import { useSavedQuery } from '../useSavedQuery';
 import useSearchParams from '../useSearchParams';
 import useDashboardFiltersForTile from './useDashboardFiltersForTile';
+import useDashboardTabFiltersForTile from './useDashboardTabFiltersForTile';
 
 const executeAsyncDashboardChartQuery = async (
     projectUuid: string,
@@ -37,13 +38,17 @@ export type DashboardChartReadyQuery = {
 };
 
 export const useDashboardChartReadyQuery = (
+    tabUuid: string,
     tileUuid: string,
     chartUuid: string | null,
 ) => {
     const dashboardUuid = useDashboardContext((c) => c.dashboard?.uuid);
     const invalidateCache = useDashboardContext((c) => c.invalidateCache);
-    const dashboardFilters = useDashboardFiltersForTile(tileUuid);
     const chartSort = useDashboardContext((c) => c.chartSort);
+    const parameters = useDashboardContext((c) => c.parameters);
+    const addParameterReferences = useDashboardContext(
+        (c) => c.addParameterReferences,
+    );
     const dashboardSorts = useMemo(
         () => chartSort[tileUuid] || [],
         [chartSort, tileUuid],
@@ -55,6 +60,9 @@ export const useDashboardChartReadyQuery = (
     const setChartsWithDateZoomApplied = useDashboardContext(
         (c) => c.setChartsWithDateZoomApplied,
     );
+
+    const dashboardFilters = useDashboardFiltersForTile(tileUuid);
+    const tabFilters = useDashboardTabFiltersForTile(tabUuid, tileUuid);
 
     const sortKey =
         dashboardSorts
@@ -71,8 +79,17 @@ export const useDashboardChartReadyQuery = (
         chartQuery.data?.metricQuery?.exploreName,
     );
 
-    const timezoneFixFilters =
+    const timezoneFixDashboardFilters =
         dashboardFilters && convertDateDashboardFilters(dashboardFilters);
+    const timezoneFixTabFilters =
+        tabFilters && convertDateDashboardFilters(tabFilters);
+
+    const timezoneFixFilters = useMemo(() => {
+        if (tabUuid) {
+            return timezoneFixTabFilters;
+        }
+        return timezoneFixDashboardFilters;
+    }, [tabUuid, timezoneFixTabFilters, timezoneFixDashboardFilters]);
 
     const hasADateDimension = useMemo(() => {
         const metricQueryDimensions = [
@@ -106,6 +123,7 @@ export const useDashboardChartReadyQuery = (
         () => [
             'dashboard_chart_ready_query',
             chartQuery.data?.projectUuid,
+            tabUuid,
             chartUuid,
             dashboardUuid,
             timezoneFixFilters,
@@ -115,9 +133,11 @@ export const useDashboardChartReadyQuery = (
             autoRefresh,
             hasADateDimension ? granularity : null,
             invalidateCache,
+            parameters,
         ],
         [
             chartQuery.data?.projectUuid,
+            tabUuid,
             chartUuid,
             dashboardUuid,
             timezoneFixFilters,
@@ -128,6 +148,7 @@ export const useDashboardChartReadyQuery = (
             hasADateDimension,
             granularity,
             invalidateCache,
+            parameters,
         ],
     );
 
@@ -152,6 +173,7 @@ export const useDashboardChartReadyQuery = (
                         granularity,
                     },
                     invalidateCache,
+                    parameters,
                 },
             );
 
@@ -167,6 +189,23 @@ export const useDashboardChartReadyQuery = (
         retry: false,
         refetchOnMount: false,
     });
+
+    useEffect(() => {
+        if (queryResult.data?.executeQueryResponse?.parameterReferences) {
+            addParameterReferences(
+                tileUuid,
+                queryResult.data.executeQueryResponse.parameterReferences,
+            );
+        } else if (queryResult.error) {
+            // On error, there are no references, but we count the tile as loaded
+            addParameterReferences(tileUuid, []);
+        }
+    }, [
+        queryResult.data?.executeQueryResponse?.parameterReferences,
+        addParameterReferences,
+        tileUuid,
+        queryResult.error,
+    ]);
 
     return { ...queryResult, error: error || queryResult.error };
 };

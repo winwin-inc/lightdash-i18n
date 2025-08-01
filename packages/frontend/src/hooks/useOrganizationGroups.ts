@@ -15,6 +15,8 @@ import {
     type UseInfiniteQueryOptions,
     type UseQueryOptions,
 } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+
 import { lightdashApi } from '../api';
 import useToaster from './toaster/useToaster';
 import useQueryError from './useQueryError';
@@ -42,18 +44,19 @@ const getOrganizationGroupsQuery = async (
     });
 };
 
-export const useOrganizationGroups = ({
-    searchInput,
-    includeMembers,
-    queryOptions,
-}: {
-    searchInput?: string;
-    includeMembers?: number;
+export const useOrganizationGroups = (
+    {
+        searchInput,
+        includeMembers,
+    }: {
+        searchInput?: string;
+        includeMembers?: number;
+    },
     queryOptions?: UseQueryOptions<
         ApiGroupListResponse['results']['data'],
         ApiError
-    >;
-}) => {
+    >,
+) => {
     const setErrorResponse = useQueryError();
     return useQuery<ApiGroupListResponse['results']['data'], ApiError>({
         queryKey: ['organization_groups', includeMembers, searchInput],
@@ -119,6 +122,8 @@ const createGroupQuery = async (data: CreateGroup) =>
 export const useGroupCreateMutation = () => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<GroupWithMembers, ApiError, CreateGroup>(
         (data) => createGroupQuery(data),
         {
@@ -128,12 +133,12 @@ export const useGroupCreateMutation = () => {
                 await queryClient.invalidateQueries(['organization_users']);
 
                 showToastSuccess({
-                    title: `Success! Group was created.`,
+                    title: t('hooks_organization_groups.create_success'),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to create group`,
+                    title: t('hooks_organization_groups.create_error'),
                     apiError: error,
                 });
             },
@@ -156,6 +161,8 @@ const updateGroupQuery = async (
 export const useGroupUpdateMutation = () => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<
         Group,
         ApiError,
@@ -166,12 +173,14 @@ export const useGroupUpdateMutation = () => {
             await queryClient.invalidateQueries(['organization_groups']);
             await queryClient.invalidateQueries(['organization_users']);
             showToastSuccess({
-                title: `Success! Group '${group.name}' was updated.`,
+                title: t('hooks_organization_groups.update_success', {
+                    name: group.name,
+                }),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to update group`,
+                title: t('hooks_organization_groups.update_error'),
                 apiError: error,
             });
         },
@@ -188,6 +197,8 @@ const deleteGroupQuery = async (data: Group) =>
 export const useGroupDeleteMutation = () => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<Group, ApiError, Group>(
         (data) => deleteGroupQuery(data),
         {
@@ -197,12 +208,14 @@ export const useGroupDeleteMutation = () => {
                 await queryClient.invalidateQueries(['organization_users']);
 
                 showToastSuccess({
-                    title: `Success! Group '${deletedGroup.name}' was deleted.`,
+                    title: t('hooks_organization_groups.delete_success', {
+                        name: deletedGroup.name,
+                    }),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to delete group`,
+                    title: t('hooks_organization_groups.delete_error'),
                     apiError: error,
                 });
             },

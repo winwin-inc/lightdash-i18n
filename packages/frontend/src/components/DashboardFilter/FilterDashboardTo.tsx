@@ -1,6 +1,7 @@
 import {
     FilterOperator,
     friendlyName,
+    getItemId,
     type FilterDashboardToRule,
 } from '@lightdash/common';
 import { Menu, Text } from '@mantine/core';
@@ -18,11 +19,13 @@ type Props = {
 };
 
 export const FilterDashboardTo: FC<Props> = ({ filters, onAddFilter }) => {
-    const { t, i18n } = useTranslation();
-    const isZh = i18n.language && i18n.language.includes('zh');
+    const { t } = useTranslation();
 
     const addDimensionDashboardFilter = useDashboardContext(
         (c) => c.addDimensionDashboardFilter,
+    );
+    const allFilterableFieldsMap = useDashboardContext(
+        (c) => c.allFilterableFieldsMap,
     );
     const addFilterCallback = onAddFilter ?? addDimensionDashboardFilter;
     return (
@@ -38,14 +41,10 @@ export const FilterDashboardTo: FC<Props> = ({ filters, onAddFilter }) => {
                     icon={<MantineIcon icon={IconFilter} />}
                     onClick={() => addFilterCallback(filter, true)}
                 >
-                    {isZh
-                        ? (filter.target as any).tableLabel
-                        : friendlyName(filter.target.tableName)}
-                    -{' '}
-                    {isZh
-                        ? (filter.target as any).fieldLabel
-                        : friendlyName(filter.target.fieldName)}{' '}
-                    is{' '}
+                    {Object.values(allFilterableFieldsMap).find(
+                        (field) => getItemId(field) === filter.target.fieldId,
+                    )?.tableLabel || friendlyName(filter.target.tableName)}{' '}
+                    - {friendlyName(filter.target.fieldName)} is{' '}
                     {filter.operator === FilterOperator.NULL && (
                         <Text span fw={500}>
                             {t(

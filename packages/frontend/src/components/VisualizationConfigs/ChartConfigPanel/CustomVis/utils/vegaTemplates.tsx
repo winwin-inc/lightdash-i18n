@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 export enum TemplateType {
     BAR_CHART = 'Bar chart',
     HEATMAP = 'Heatmap',
@@ -5,6 +7,19 @@ export enum TemplateType {
     FUNNEL_CHART = 'Funnel chart',
     WATERFALL_CHART = 'Waterfall chart',
     MAP = 'World map',
+}
+
+export const useTemplateNames = () => {
+  const { t } = useTranslation();
+
+  return {
+    [TemplateType.BAR_CHART]: t('components_visualization_configs_custom_vis.templates.bar_chart'),
+    [TemplateType.HEATMAP]: t('components_visualization_configs_custom_vis.templates.heatmap'),
+    [TemplateType.BUBBLE_PLOTS]: t('components_visualization_configs_custom_vis.templates.bubble_plots'),
+    [TemplateType.FUNNEL_CHART]: t('components_visualization_configs_custom_vis.templates.funnel_chart'),
+    [TemplateType.WATERFALL_CHART]: t('components_visualization_configs_custom_vis.templates.waterfall_chart'),
+    [TemplateType.MAP]: t('components_visualization_configs_custom_vis.templates.map'),
+  }
 }
 
 const echartsAxisColor = '#6e7079';

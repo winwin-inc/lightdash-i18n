@@ -1,4 +1,4 @@
-import { FeatureFlags, WarehouseTypes } from '@lightdash/common';
+import { WarehouseTypes } from '@lightdash/common';
 import {
     Anchor,
     NumberInput,
@@ -10,8 +10,6 @@ import {
 import React, { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
-
-import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
 import FormCollapseButton from '../FormCollapseButton';
 import { useFormContext } from '../formContext';
 import BooleanSwitch from '../Inputs/BooleanSwitch';
@@ -51,10 +49,6 @@ const TrinoForm: FC<{
     const requireSecrets: boolean =
         savedProject?.warehouseConnection?.type !== WarehouseTypes.TRINO;
     const form = useFormContext();
-    const isPassthroughLoginFeatureEnabled = useFeatureFlagEnabled(
-        FeatureFlags.PassthroughLogin,
-    );
-
     return (
         <>
             <Stack style={{ marginTop: '8px' }}>
@@ -120,22 +114,20 @@ const TrinoForm: FC<{
 
                 <FormSection isOpen={isOpen} name="advanced">
                     <Stack style={{ marginTop: '8px' }}>
-                        {isPassthroughLoginFeatureEnabled && (
-                            <BooleanSwitch
-                                name="warehouse.requireUserCredentials"
-                                label={t(
-                                    'components_project_connection_warehouse_form.trino.require_user_credentials.label',
-                                )}
-                                {...form.getInputProps(
-                                    'warehouse.requireUserCredentials',
-                                    { type: 'checkbox' },
-                                )}
-                                defaultChecked={
-                                    TrinoDefaultValues.requireUserCredentials
-                                }
-                                disabled={disabled}
-                            />
-                        )}
+                        <BooleanSwitch
+                            name="warehouse.requireUserCredentials"
+                            label={t(
+                                'components_project_connection_warehouse_form.trino.switch.label',
+                            )}
+                            {...form.getInputProps(
+                                'warehouse.requireUserCredentials',
+                                { type: 'checkbox' },
+                            )}
+                            defaultChecked={
+                                TrinoDefaultValues.requireUserCredentials
+                            }
+                            disabled={disabled}
+                        />
 
                         <NumberInput
                             name="warehouse.port"

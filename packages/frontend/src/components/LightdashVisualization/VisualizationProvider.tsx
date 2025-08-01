@@ -3,10 +3,12 @@ import {
     ChartType,
     FeatureFlags,
     isDimension,
+    type ApiErrorDetail,
     type ChartConfig,
     type DashboardFilters,
     type ItemsMap,
     type MetricQuery,
+    type ParametersValuesMap,
     type PivotValue,
     type Series,
     type TableCalculationMetadata,
@@ -39,6 +41,7 @@ import VisualizationCartesianConfig from './VisualizationConfigCartesian';
 import VisualizationConfigFunnel from './VisualizationConfigFunnel';
 import VisualizationPieConfig from './VisualizationConfigPie';
 import VisualizationTableConfig from './VisualizationConfigTable';
+import VisualizationTreemapConfig from './VisualizationConfigTreemap';
 import VisualizationCustomConfig from './VisualizationCustomConfig';
 import Context from './context';
 import { type useVisualizationContext } from './useVisualizationContext';
@@ -51,6 +54,7 @@ export type VisualizationProviderProps = {
         metricQuery?: MetricQuery;
         fields?: ItemsMap;
     };
+    parameters?: ParametersValuesMap;
     isLoading: boolean;
     columnOrder: string[];
     onSeriesContextMenu?: (
@@ -68,6 +72,7 @@ export type VisualizationProviderProps = {
     tableCalculationsMetadata?: TableCalculationMetadata[];
     setEchartsRef?: (ref: RefObject<EChartsReact | null>) => void;
     computedSeries?: Series[];
+    apiErrorDetail?: ApiErrorDetail | null;
 };
 
 const VisualizationProvider: FC<
@@ -92,6 +97,8 @@ const VisualizationProvider: FC<
     tableCalculationsMetadata,
     setEchartsRef,
     computedSeries,
+    apiErrorDetail,
+    parameters,
 }) => {
     const itemsMap = useMemo(() => {
         return resultsData?.fields;
@@ -287,6 +294,7 @@ const VisualizationProvider: FC<
         chartRef,
         resultsData: lastValidResultsData,
         isLoading,
+        apiErrorDetail,
         columnOrder,
         itemsMap,
         setStacking,
@@ -297,6 +305,7 @@ const VisualizationProvider: FC<
         colorPalette,
         getGroupColor,
         getSeriesColor,
+        chartConfig,
     };
 
     switch (chartConfig.type) {
@@ -380,6 +389,24 @@ const VisualizationProvider: FC<
                     )}
                 </VisualizationBigNumberConfig>
             );
+        case ChartType.TREEMAP:
+            return (
+                <VisualizationTreemapConfig
+                    itemsMap={itemsMap}
+                    resultsData={lastValidResultsData}
+                    initialChartConfig={chartConfig.config}
+                    onChartConfigChange={handleChartConfigChange}
+                    parameters={parameters}
+                >
+                    {({ visualizationConfig }) => (
+                        <Context.Provider
+                            value={{ ...value, visualizationConfig }}
+                        >
+                            {children}
+                        </Context.Provider>
+                    )}
+                </VisualizationTreemapConfig>
+            );
         case ChartType.TABLE:
             return (
                 <VisualizationTableConfig
@@ -393,6 +420,7 @@ const VisualizationProvider: FC<
                     savedChartUuid={savedChartUuid}
                     dashboardFilters={dashboardFilters}
                     invalidateCache={invalidateCache}
+                    parameters={parameters}
                 >
                     {({ visualizationConfig }) => (
                         <Context.Provider

@@ -42,6 +42,7 @@ const ActiveJobProvider: FC<React.PropsWithChildren<{}>> = ({ children }) => {
                             'defaultProject',
                         ]);
                     }
+                    await queryClient.invalidateQueries(['parameters']);
                     showToastSuccess({
                         key: TOAST_KEY_FOR_REFRESH_JOB,
                         title: toastTitle,

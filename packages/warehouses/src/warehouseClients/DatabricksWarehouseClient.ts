@@ -17,9 +17,16 @@ import {
     WarehouseConnectionError,
     WarehouseQueryError,
     WarehouseResults,
+    WarehouseTypes,
 } from '@lightdash/common';
 import { WarehouseCatalog } from '../types';
+import {
+    DEFAULT_BATCH_SIZE,
+    processPromisesInBatches,
+} from '../utils/processPromisesInBatches';
+import { normalizeUnicode } from '../utils/sql';
 import WarehouseBaseClient from './WarehouseBaseClient';
+import WarehouseBaseSqlBuilder from './WarehouseBaseSqlBuilder';
 
 type SchemaResult = {
     TABLE_CAT: string;
@@ -124,27 +131,6 @@ const normaliseDatabricksType = (type: string): DatabricksTypes => {
     return match[0] as DatabricksTypes;
 };
 
-const DATABRICKS_QUERIES_BATCH_SIZE = 100;
-
-async function processPromisesInBatches<T, R>(
-    items: Array<T>,
-    batchSize: number,
-    fn: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-    let results: R[] = [];
-    /* eslint-disable no-await-in-loop */
-    for (let start = 0; start < items.length; start += batchSize) {
-        const end =
-            start + batchSize > items.length ? items.length : start + batchSize;
-        const slicedResults = await Promise.all(
-            items.slice(start, end).map(fn),
-        );
-        results = [...results, ...slicedResults];
-    }
-    /* eslint-enable no-await-in-loop */
-    return results;
-}
-
 const mapFieldType = (type: string): DimensionType => {
     const normalizedType = normaliseDatabricksType(type);
 
@@ -184,6 +170,49 @@ const mapFieldType = (type: string): DimensionType => {
     }
 };
 
+export class DatabricksSqlBuilder extends WarehouseBaseSqlBuilder {
+    readonly type = WarehouseTypes.DATABRICKS;
+
+    getAdapterType(): SupportedDbtAdapter {
+        return SupportedDbtAdapter.DATABRICKS;
+    }
+
+    getMetricSql(sql: string, metric: Metric): string {
+        switch (metric.type) {
+            case MetricType.PERCENTILE:
+                return `PERCENTILE(${sql}, ${(metric.percentile ?? 50) / 100})`;
+            case MetricType.MEDIAN:
+                return `PERCENTILE(${sql}, 0.5)`;
+            default:
+                return super.getMetricSql(sql, metric);
+        }
+    }
+
+    getFieldQuoteChar(): string {
+        return '`';
+    }
+
+    escapeString(value: string): string {
+        if (typeof value !== 'string') {
+            return value;
+        }
+
+        return (
+            normalizeUnicode(value)
+                // Databricks/Spark uses backslash escaping like BigQuery
+                .replaceAll('\\', '\\\\')
+                .replaceAll("'", "\\'")
+                .replaceAll('"', '\\"')
+                // Remove SQL comments (Spark SQL supports --, /* */, and # comments)
+                .replace(/--.*$/gm, '')
+                .replace(/\/\*[\s\S]*?\*\//g, '')
+                .replace(/#.*$/gm, '') // Spark SQL also supports # comments
+                // Remove null bytes
+                .replaceAll('\0', '')
+        );
+    }
+}
+
 export class DatabricksWarehouseClient extends WarehouseBaseClient<CreateDatabricksCredentials> {
     schema: string;
 
@@ -192,7 +221,7 @@ export class DatabricksWarehouseClient extends WarehouseBaseClient<CreateDatabri
     connectionOptions: ConnectionOptions;
 
     constructor(credentials: CreateDatabricksCredentials) {
-        super(credentials);
+        super(credentials, new DatabricksSqlBuilder(credentials.startOfWeek));
         this.schema = credentials.database;
         this.catalog = credentials.catalog;
         this.connectionOptions = {
@@ -316,7 +345,7 @@ export class DatabricksWarehouseClient extends WarehouseBaseClient<CreateDatabri
         try {
             results = await processPromisesInBatches(
                 requests,
-                DATABRICKS_QUERIES_BATCH_SIZE,
+                DEFAULT_BATCH_SIZE,
                 async (request) => {
                     let query: IOperation | null = null;
                     try {
@@ -373,29 +402,6 @@ export class DatabricksWarehouseClient extends WarehouseBaseClient<CreateDatabri
             },
             { [catalog]: {} } as WarehouseCatalog,
         );
-    }
-
-    getStringQuoteChar() {
-        return "'";
-    }
-
-    getAdapterType(): SupportedDbtAdapter {
-        return SupportedDbtAdapter.DATABRICKS;
-    }
-
-    getEscapeStringQuoteChar() {
-        return '\\';
-    }
-
-    getMetricSql(sql: string, metric: Metric) {
-        switch (metric.type) {
-            case MetricType.PERCENTILE:
-                return `PERCENTILE(${sql}, ${(metric.percentile ?? 50) / 100})`;
-            case MetricType.MEDIAN:
-                return `PERCENTILE(${sql}, 0.5)`;
-            default:
-                return super.getMetricSql(sql, metric);
-        }
     }
 
     async getAllTables() {

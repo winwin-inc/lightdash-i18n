@@ -1,11 +1,18 @@
 import { assertUnreachable, ChartType } from '@lightdash/common';
-import { memo, type FC } from 'react';
+import { Anchor } from '@mantine/core';
+import { IconChartBarOff } from '@tabler/icons-react';
+import { Fragment, memo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { EmptyState } from '../common/EmptyState';
+import MantineIcon from '../common/MantineIcon';
 import CustomVisualization from '../CustomVisualization';
 import FunnelChart from '../FunnelChart';
 import SimpleChart from '../SimpleChart';
 import SimplePieChart from '../SimplePieChart';
 import SimpleStatistic from '../SimpleStatistic';
 import SimpleTable from '../SimpleTable';
+import SimpleTreemap from '../SimpleTreemap';
 import { useVisualizationContext } from './useVisualizationContext';
 
 interface LightdashVisualizationProps {
@@ -24,10 +31,40 @@ const LightdashVisualization: FC<LightdashVisualizationProps> = memo(
         className,
         ...props
     }) => {
-        const { visualizationConfig, minimal } = useVisualizationContext();
+        const { t } = useTranslation();
+        const { visualizationConfig, minimal, apiErrorDetail } =
+            useVisualizationContext();
 
         if (!visualizationConfig) {
             return null;
+        }
+
+        if (apiErrorDetail) {
+            return (
+                <EmptyState
+                    icon={<MantineIcon icon={IconChartBarOff} />}
+                    title={t("components_lightdash_visualization.unable_to_load_visualization")}
+                    description={
+                        <Fragment>
+                            {apiErrorDetail.message}
+                            {apiErrorDetail.data.documentationUrl && (
+                                <Fragment>
+                                    <br />
+                                    <Anchor
+                                        href={
+                                            apiErrorDetail.data.documentationUrl
+                                        }
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
+                                        {t("components_lightdash_visualization.learn_how_to_resolve_this_in_our_documentation")}
+                                    </Anchor>
+                                </Fragment>
+                            )}
+                        </Fragment>
+                    }
+                ></EmptyState>
+            );
         }
 
         switch (visualizationConfig.chartType) {
@@ -77,6 +114,16 @@ const LightdashVisualization: FC<LightdashVisualizationProps> = memo(
             case ChartType.FUNNEL:
                 return (
                     <FunnelChart
+                        className={className}
+                        isInDashboard={!!isDashboard}
+                        $shouldExpand
+                        data-testid={props['data-testid']}
+                        {...props}
+                    />
+                );
+            case ChartType.TREEMAP:
+                return (
+                    <SimpleTreemap
                         className={className}
                         isInDashboard={!!isDashboard}
                         $shouldExpand

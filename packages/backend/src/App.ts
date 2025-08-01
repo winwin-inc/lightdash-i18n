@@ -1,17 +1,20 @@
 // organize-imports-ignore
 // eslint-disable-next-line import/order
 import './sentry'; // Sentry has to be initialized before anything else
-
 import {
+    Account,
     AnyType,
     ApiError,
+    getErrorMessage,
     LightdashError,
     LightdashMode,
-    SessionServiceAccount,
     LightdashVersionHeader,
+    MissingConfigError,
+    OauthAuthenticationError,
+    Project,
+    ServiceAccount,
     SessionUser,
     UnexpectedServerError,
-    InvalidUser,
 } from '@lightdash/common';
 import * as Sentry from '@sentry/node';
 import flash from 'connect-flash';
@@ -33,7 +36,6 @@ import {
     ClientProviderMap,
     ClientRepository,
 } from './clients/ClientRepository';
-import { SlackBot } from './clients/Slack/Slackbot';
 import { LightdashConfig } from './config/parseConfig';
 import {
     apiKeyPassportStrategy,
@@ -69,6 +71,12 @@ import { UtilProviderMap, UtilRepository } from './utils/UtilRepository';
 import { VERSION } from './version';
 import PrometheusMetrics from './prometheus';
 import { snowflakePassportStrategy } from './controllers/authentication/strategies/snowflakeStrategy';
+import { jwtAuthMiddleware } from './middlewares/jwtAuthMiddleware';
+import { InstanceConfigurationService } from './services/InstanceConfigurationService/InstanceConfigurationService';
+import { slackPassportStrategy } from './controllers/authentication/strategies/slackStrategy';
+import { SlackClient } from './clients/Slack/SlackClient';
+import { sessionAccountMiddleware } from './middlewares/accountMiddleware';
+
 // We need to override this interface to have our user typing
 declare global {
     namespace Express {
@@ -79,11 +87,14 @@ declare global {
          */
         interface Request {
             services: ServiceRepository;
-            serviceAccount?: SessionServiceAccount;
+            serviceAccount?: Pick<ServiceAccount, 'organizationUuid'>;
+            // The project associated with this request
+            project?: Pick<Project, 'projectUuid'>;
             /**
              * @deprecated Clients should be used inside services. This will be removed soon.
              */
             clients: ClientRepository;
+            account?: Account;
         }
 
         interface User extends SessionUser {}
@@ -114,25 +125,23 @@ const schedulerWorkerFactory = (context: {
         schedulerClient: context.clients.getSchedulerClient(),
         slackClient: context.clients.getSlackClient(),
         msTeamsClient: context.clients.getMsTeamsClient(),
-        semanticLayerService:
-            context.serviceRepository.getSemanticLayerService(),
         catalogService: context.serviceRepository.getCatalogService(),
         encryptionUtil: context.utils.getEncryptionUtil(),
         renameService: context.serviceRepository.getRenameService(),
+        asyncQueryService: context.serviceRepository.getAsyncQueryService(),
     });
 
-const slackBotFactory = (context: {
+const slackClientFactory = (context: {
     lightdashConfig: LightdashConfig;
     analytics: LightdashAnalytics;
     serviceRepository: ServiceRepository;
     models: ModelRepository;
     clients: ClientRepository;
 }) =>
-    new SlackBot({
+    new SlackClient({
         lightdashConfig: context.lightdashConfig,
-        analytics: context.analytics,
         slackAuthenticationModel: context.models.getSlackAuthenticationModel(),
-        unfurlService: context.serviceRepository.getUnfurlService(),
+        analytics: context.analytics,
     });
 
 export type AppArguments = {
@@ -147,7 +156,7 @@ export type AppArguments = {
     clientProviders?: ClientProviderMap;
     modelProviders?: ModelProviderMap;
     utilProviders?: UtilProviderMap;
-    slackBotFactory?: typeof slackBotFactory;
+    slackClientFactory?: typeof slackClientFactory;
     schedulerWorkerFactory?: typeof schedulerWorkerFactory;
     customExpressMiddlewares?: Array<(app: Express) => void>; // Array of custom middleware functions
 };
@@ -173,7 +182,7 @@ export default class App {
 
     private readonly database: Knex;
 
-    private readonly slackBotFactory: typeof slackBotFactory;
+    private readonly slackClientFactory: typeof slackClientFactory;
 
     private readonly schedulerWorkerFactory: typeof schedulerWorkerFactory;
 
@@ -221,6 +230,9 @@ export default class App {
             }),
             models: this.models,
         });
+        this.prometheusMetrics = new PrometheusMetrics(
+            this.lightdashConfig.prometheus,
+        );
         this.serviceRepository = new ServiceRepository({
             serviceProviders: args.serviceProviders,
             context: new OperationContext({
@@ -231,13 +243,11 @@ export default class App {
             clients: this.clients,
             models: this.models,
             utils: this.utils,
+            prometheusMetrics: this.prometheusMetrics,
         });
-        this.slackBotFactory = args.slackBotFactory || slackBotFactory;
+        this.slackClientFactory = args.slackClientFactory || slackClientFactory;
         this.schedulerWorkerFactory =
             args.schedulerWorkerFactory || schedulerWorkerFactory;
-        this.prometheusMetrics = new PrometheusMetrics(
-            this.lightdashConfig.prometheus,
-        );
         this.customExpressMiddlewares = args.customExpressMiddlewares || [];
     }
 
@@ -275,9 +285,22 @@ export default class App {
             );
         }
 
-        await this.serviceRepository
-            .getOrganizationService()
-            .initializeInstance();
+        try {
+            const instanceConfigurationService =
+                this.serviceRepository.getInstanceConfigurationService<InstanceConfigurationService>();
+            await instanceConfigurationService.initializeInstance();
+            await instanceConfigurationService.updateInstanceConfiguration();
+        } catch (e) {
+            if (e instanceof MissingConfigError) {
+                Logger.debug(
+                    `No instance configuration service found: ${getErrorMessage(
+                        e,
+                    )}`,
+                );
+            } else {
+                throw e;
+            }
+        }
     }
 
     private async initExpress(expressApp: Express) {
@@ -510,9 +533,13 @@ export default class App {
          */
         expressApp.use((req, res, next) => {
             req.services = this.serviceRepository;
-            req.clients = this.clients;
             next();
         });
+
+        // Add JWT parsing here so we can get services off the request
+        // We'll also be able to add the user to Sentry for embedded users.
+        expressApp.use(jwtAuthMiddleware);
+        expressApp.use(sessionAccountMiddleware);
 
         expressApp.use((req, res, next) => {
             if (req.user) {
@@ -602,12 +629,18 @@ export default class App {
                     error instanceof UnexpectedServerError ||
                     !(error instanceof LightdashError)
                 ) {
-                    console.error(error); // Log original error for debug purposes
+                    // This intentionally uses console vs. winston because of problems from some error/JSON payloads.
+                    console.error(error);
                 }
                 Logger.error(
                     `Handled error of type ${errorResponse.name} on [${req.method}] ${req.path}`,
                     errorResponse,
                 );
+
+                if (process.env.NODE_ENV === 'development') {
+                    Logger.error(error.stack);
+                }
+
                 this.analytics.track({
                     event: 'api.error',
                     userId: req.user?.userUuid,
@@ -621,6 +654,18 @@ export default class App {
                         method: req.method,
                     },
                 });
+
+                // Check if this is an OAuth endpoint and return OAuth2-compliant error response
+                if (error instanceof OauthAuthenticationError) {
+                    const oauthErrorResponse = {
+                        error: errorResponse.data?.error || 'server_error',
+                        error_description: errorResponse.message,
+                    };
+                    res.status(errorResponse.statusCode).send(
+                        oauthErrorResponse,
+                    );
+                    return;
+                }
 
                 const apiErrorResponse: ApiError = {
                     status: 'error',
@@ -655,6 +700,8 @@ export default class App {
                 userService,
             }),
         );
+
+        // Refresh strategies also need to be registered on SchedulerApp
         if (googlePassportStrategy) {
             passport.use(googlePassportStrategy);
             refresh.use(googlePassportStrategy);
@@ -674,6 +721,9 @@ export default class App {
         if (snowflakePassportStrategy) {
             passport.use('snowflake', snowflakePassportStrategy);
             refresh.use('snowflake', snowflakePassportStrategy);
+        }
+        if (slackPassportStrategy) {
+            passport.use('slack', slackPassportStrategy);
         }
 
         passport.serializeUser((user, done) => {
@@ -703,14 +753,18 @@ export default class App {
     }
 
     private async initSlack(expressApp: Express) {
-        const slackBot = this.slackBotFactory({
+        const slackClient = this.slackClientFactory({
             lightdashConfig: this.lightdashConfig,
             analytics: this.analytics,
             serviceRepository: this.serviceRepository,
             models: this.models,
             clients: this.clients,
         });
-        await slackBot.start(expressApp);
+        await slackClient.start(
+            expressApp,
+            this.serviceRepository.getUnfurlService(),
+            this.serviceRepository.getAiAgentService(),
+        );
     }
 
     private initSchedulerWorker() {
@@ -754,6 +808,10 @@ export default class App {
 
     getModels() {
         return this.models;
+    }
+
+    getClients() {
+        return this.clients;
     }
 
     getDatabase() {

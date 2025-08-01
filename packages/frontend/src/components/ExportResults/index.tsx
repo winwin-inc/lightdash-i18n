@@ -16,14 +16,20 @@ import {
 import { notifications } from '@mantine/notifications';
 import { IconTableExport } from '@tabler/icons-react';
 import { useMutation } from '@tanstack/react-query';
-import { memo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
+import { memo, useState, type FC, type ReactNode } from 'react';
 
+import useHealth from '../../hooks/health/useHealth';
 import useToaster from '../../hooks/toaster/useToaster';
 import { downloadQuery } from '../../hooks/useQueryResults';
 import useUser from '../../hooks/user/useUser';
 import { Can } from '../../providers/Ability';
 import MantineIcon from '../common/MantineIcon';
+
+type ExportCsvRenderProps = {
+    onExport: () => Promise<unknown>;
+    isExporting: boolean;
+};
 
 enum Limit {
     TABLE = 'table',
@@ -47,6 +53,7 @@ export type ExportResultsProps = {
     chartName?: string;
     pivotConfig?: PivotConfig;
     hideLimitSelection?: boolean;
+    renderDialogActions?: (renderProps: ExportCsvRenderProps) => ReactNode;
 };
 
 const TOAST_KEY = 'exporting-results';
@@ -63,6 +70,7 @@ const ExportResults: FC<ExportResultsProps> = memo(
         chartName,
         pivotConfig,
         hideLimitSelection = false,
+        renderDialogActions,
     }) => {
         const { t } = useTranslation();
 
@@ -70,6 +78,7 @@ const ExportResults: FC<ExportResultsProps> = memo(
             useToaster();
 
         const user = useUser(true);
+        const health = useHealth();
         const [limit, setLimit] = useState<string>(Limit.TABLE);
         const [customLimit, setCustomLimit] = useState<number>(1);
         const [format, setFormat] = useState<string>(Values.FORMATTED);
@@ -96,6 +105,9 @@ const ExportResults: FC<ExportResultsProps> = memo(
                         hiddenFields,
                         showTableNames,
                         pivotConfig,
+                        attachmentDownloadName: chartName
+                            ? `${chartName}_${formatDate(new Date())}`
+                            : undefined,
                     });
                 },
                 {
@@ -158,118 +170,150 @@ const ExportResults: FC<ExportResultsProps> = memo(
             );
         }
 
+        // Calculate pivot table specific limits
+        const csvCellsLimit = health.data?.query?.csvCellsLimit || 100000;
+        const maxColumnLimit = health.data?.pivotTable?.maxColumnLimit || 60;
+
+        // For pivot tables, calculate conservative row limits
+        const isPivotTable = !!pivotConfig;
+
         return (
             <Box>
-                <Stack spacing="xs" miw={300}>
-                    <SegmentedControl
-                        size={'xs'}
-                        value={fileType}
-                        onChange={(value) =>
-                            setFileType(value as DownloadFileType)
-                        }
-                        data={[
-                            { label: 'CSV', value: DownloadFileType.CSV },
-                            { label: 'XLSX', value: DownloadFileType.XLSX },
-                        ]}
-                    />
+                <Stack spacing={0} miw={300}>
+                    <Stack p={renderDialogActions ? 'md' : 0}>
+                        <Stack spacing="xs">
+                            <Text fw={500}>{t('components_export_results.file_format')}</Text>
+                            <SegmentedControl
+                                size={'xs'}
+                                value={fileType}
+                                onChange={(value) =>
+                                    setFileType(value as DownloadFileType)
+                                }
+                                data={[
+                                    {
+                                        label: 'CSV',
+                                        value: DownloadFileType.CSV,
+                                    },
+                                    {
+                                        label: 'XLSX',
+                                        value: DownloadFileType.XLSX,
+                                    },
+                                ]}
+                            />
+                        </Stack>
 
-                    <Stack spacing="xs">
-                        <Box>{t('components_export_results.tabs.values')}</Box>
-                        <SegmentedControl
-                            size={'xs'}
-                            value={format}
-                            onChange={(value) => setFormat(value)}
-                            data={[
-                                {
-                                    label: t(
-                                        'components_export_results.radio_groups_values.part_1',
-                                    ),
-                                    value: Values.FORMATTED,
-                                },
-                                {
-                                    label: t(
-                                        'components_export_results.radio_groups_values.part_2',
-                                    ),
-                                    value: Values.RAW,
-                                },
-                            ]}
-                        />
+                        <Stack spacing="xs">
+                            <Text fw={500}>{t('components_export_results.tabs.values')}</Text>
+                            <SegmentedControl
+                                size={'xs'}
+                                value={format}
+                                onChange={(value) => setFormat(value)}
+                                data={[
+                                    {
+                                        label: t('components_export_results.radio_groups_values.part_1'),
+                                        value: Values.FORMATTED,
+                                    },
+                                    { label: t('components_export_results.radio_groups_values.part_2'), value: Values.RAW },
+                                ]}
+                            />
+                        </Stack>
+                        <Stack spacing="xs">
+                            <Can
+                                I="manage"
+                                this={subject('ChangeCsvResults', {
+                                    organizationUuid:
+                                        user.data?.organizationUuid,
+                                    projectUuid: projectUuid,
+                                })}
+                            >
+                                {!hideLimitSelection ? (
+                                    <Stack spacing="xs">
+                                        <Text fw={500}>{t('components_export_results.tabs.limit')}</Text>
+                                        <SegmentedControl
+                                            size={'xs'}
+                                            value={limit}
+                                            onChange={(value) =>
+                                                setLimit(value)
+                                            }
+                                            data={[
+                                                {
+                                                    label: t('components_export_results.radio_groups_limit.part_1'),
+                                                    value: Limit.TABLE,
+                                                },
+                                                {
+                                                    label: t('components_export_results.radio_groups_limit.part_2'),
+                                                    value: Limit.ALL,
+                                                },
+                                                {
+                                                    label: t('components_export_results.radio_groups_limit.part_3'),
+                                                    value: Limit.CUSTOM,
+                                                },
+                                            ]}
+                                        />
+                                    </Stack>
+                                ) : null}
+                            </Can>
+
+                            {limit === Limit.CUSTOM && (
+                                <NumberInput
+                                    w="100%"
+                                    size="xs"
+                                    min={1}
+                                    precision={0}
+                                    required
+                                    value={customLimit}
+                                    onChange={(value) =>
+                                        setCustomLimit(Number(value))
+                                    }
+                                />
+                            )}
+                            {/* Pivot table specific warnings */}
+                            {isPivotTable && (
+                                <Alert color="gray" p="xs">
+                                    <Text size="xs">
+                                        {t('components_export_results.prvot_tables_warning', {
+                                            csvCellsLimit: csvCellsLimit.toLocaleString(),
+                                            maxColumnLimit,
+                                        })}
+                                    </Text>
+                                </Alert>
+                            )}
+
+                            {/* Excel row limit warning */}
+                            {fileType === DownloadFileType.XLSX &&
+                                (limit === Limit.ALL ||
+                                    limit === Limit.CUSTOM) &&
+                                !isPivotTable && (
+                                    <Alert color="gray.9" p="xs">
+                                        <Text size="xs">
+                                            {t('components_export_results.limit')}
+                                        </Text>
+                                    </Alert>
+                                )}
+                        </Stack>
                     </Stack>
 
-                    <Can
-                        I="manage"
-                        this={subject('ChangeCsvResults', {
-                            organizationUuid: user.data?.organizationUuid,
-                            projectUuid: projectUuid,
-                        })}
-                    >
-                        {!hideLimitSelection ? (
-                            <Stack spacing="xs">
-                                <Box>
-                                    {t('components_export_results.tabs.limit')}
-                                </Box>
-                                <SegmentedControl
-                                    size={'xs'}
-                                    value={limit}
-                                    onChange={(value) => setLimit(value)}
-                                    data={[
-                                        {
-                                            label: t(
-                                                'components_export_results.radio_groups_limit.part_1',
-                                            ),
-                                            value: Limit.TABLE,
-                                        },
-                                        {
-                                            label: t(
-                                                'components_export_results.radio_groups_limit.part_2',
-                                            ),
-                                            value: Limit.ALL,
-                                        },
-                                        {
-                                            label: t(
-                                                'components_export_results.radio_groups_limit.part_3',
-                                            ),
-                                            value: Limit.CUSTOM,
-                                        },
-                                    ]}
-                                />
-                            </Stack>
-                        ) : null}
-                    </Can>
-
-                    {limit === Limit.CUSTOM && (
-                        <NumberInput
-                            w="100%"
-                            size="xs"
-                            min={1}
-                            precision={0}
-                            required
-                            value={customLimit}
-                            onChange={(value) => setCustomLimit(Number(value))}
-                        />
+                    {!renderDialogActions ? (
+                        <Button
+                            loading={isExporting}
+                            compact
+                            sx={{
+                                alignSelf: 'end',
+                            }}
+                            mt="sm"
+                            size="md"
+                            leftIcon={<MantineIcon icon={IconTableExport} />}
+                            onClick={exportMutation}
+                            data-testid="chart-export-results-button"
+                        >
+                            {t('components_export_results.download')}
+                        </Button>
+                    ) : (
+                        renderDialogActions({
+                            onExport: exportMutation,
+                            isExporting,
+                        })
                     )}
-
-                    {fileType === DownloadFileType.XLSX &&
-                        (limit === Limit.ALL || limit === Limit.CUSTOM) && (
-                            <Alert color="gray.9" p="xs">
-                                <Text size="xs">
-                                    {t('components_export_results.limit')}
-                                </Text>
-                            </Alert>
-                        )}
-
-                    <Button
-                        loading={isExporting}
-                        compact
-                        sx={{
-                            alignSelf: 'end',
-                        }}
-                        leftIcon={<MantineIcon icon={IconTableExport} />}
-                        onClick={exportMutation}
-                        data-testid="chart-export-results-button"
-                    >
-                        {t('components_export_results.download')}
-                    </Button>
                 </Stack>
             </Box>
         );

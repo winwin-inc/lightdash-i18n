@@ -14,6 +14,7 @@ import {
     MAX_SAFE_INTEGER,
     type MetricQuery,
     ParameterError,
+    type ParametersValuesMap,
     QueryExecutionContext,
     QueryHistoryStatus,
     type ReadyQueryResultsPage,
@@ -36,6 +37,8 @@ export type QueryResultsProps = {
     chartVersionUuid?: string;
     dateZoomGranularity?: DateGranularity;
     context?: string;
+    invalidateCache?: boolean;
+    parameters?: ParametersValuesMap;
 };
 
 /**
@@ -50,28 +53,30 @@ export type ReadyQueryResultsPageWithClientFetchTimeMs =
 const executeAsyncMetricQuery = async (
     projectUuid: string,
     data: ExecuteAsyncMetricQueryRequestParams,
-    options: { signal?: AbortSignal } = {},
-): Promise<ApiExecuteAsyncMetricQueryResults> =>
-    lightdashApi<ApiExecuteAsyncMetricQueryResults>({
+    options: { signal?: AbortSignal },
+): Promise<ApiExecuteAsyncMetricQueryResults> => {
+    return lightdashApi<ApiExecuteAsyncMetricQueryResults>({
         url: `/projects/${projectUuid}/query/metric-query`,
         version: 'v2',
         method: 'POST',
         body: JSON.stringify(data),
         signal: options.signal,
     });
+};
 
 const executeAsyncSavedChartQuery = async (
     projectUuid: string,
     data: ExecuteAsyncSavedChartRequestParams,
-    options: { signal?: AbortSignal } = {},
-): Promise<ApiExecuteAsyncMetricQueryResults> =>
-    lightdashApi<ApiExecuteAsyncMetricQueryResults>({
+    options: { signal?: AbortSignal },
+): Promise<ApiExecuteAsyncMetricQueryResults> => {
+    return lightdashApi<ApiExecuteAsyncMetricQueryResults>({
         url: `/projects/${projectUuid}/query/chart`,
         version: 'v2',
         method: 'POST',
         body: JSON.stringify(data),
         signal: options.signal,
     });
+};
 
 export const downloadQuery = async (
     projectUuid: string,
@@ -89,6 +94,7 @@ export const downloadQuery = async (
             columnOrder: options.columnOrder,
             hiddenFields: options.hiddenFields,
             pivotConfig: options.pivotConfig,
+            attachmentDownloadName: options.attachmentDownloadName,
         }),
         version: 'v2',
     });
@@ -105,6 +111,8 @@ const executeAsyncQuery = (
                 chartUuid: data.chartUuid,
                 versionUuid: data.chartVersionUuid,
                 limit: data.csvLimit,
+                invalidateCache: data.invalidateCache,
+                parameters: data.parameters,
             },
             { signal },
         );
@@ -115,6 +123,8 @@ const executeAsyncQuery = (
                 context: QueryExecutionContext.CHART,
                 chartUuid: data.chartUuid,
                 limit: data.csvLimit,
+                invalidateCache: data.invalidateCache,
+                parameters: data.parameters,
             },
             { signal },
         );
@@ -146,6 +156,7 @@ const executeAsyncQuery = (
                         : undefined,
                 },
                 invalidateCache: true, // Note: do not cache explore queries
+                parameters: data.parameters,
             },
             { signal },
         );
@@ -174,14 +185,12 @@ export const executeQueryAndWaitForResults = async (
 };
 
 export const useGetReadyQueryResults = (data: QueryResultsProps | null) => {
-    const setErrorResponse = useQueryError({
-        forceToastOnForbidden: true,
-        forbiddenToastTitle: 'Error running query',
-    });
+    const setErrorResponse = useQueryError();
 
     const result = useQuery<ApiExecuteAsyncMetricQueryResults, ApiError>({
         enabled: !!data,
         queryKey: ['create-query', data],
+        keepPreviousData: true, // needed to keep the last metric query which could break cartesian chart config
         queryFn: ({ signal }) => {
             return executeAsyncQuery(data, signal);
         },
@@ -221,7 +230,6 @@ const getResultsPage = async (
         }`,
         version: 'v2',
         method: 'GET',
-        body: undefined,
     });
 };
 
@@ -250,10 +258,14 @@ export type InfiniteQueryResults = Partial<
 export const useInfiniteQueryResults = (
     projectUuid?: string,
     queryUuid?: string,
+    chartName?: string,
 ): InfiniteQueryResults => {
     const setErrorResponse = useQueryError({
         forceToastOnForbidden: true,
-        forbiddenToastTitle: 'Error running query',
+        forbiddenToastTitle: chartName
+            ? `Error running query for chart '${chartName}'`
+            : 'Error running query',
+        chartName,
     });
     const [fetchArgs, setFetchArgs] = useState<{
         queryUuid?: string;
@@ -270,6 +282,9 @@ export const useInfiniteQueryResults = (
         (ReadyQueryResultsPage & { clientFetchTimeMs: number })[]
     >([]);
     const [fetchAll, setFetchAll] = useState(false);
+
+    const prevQueryUuidRef = useRef<string | undefined>(null);
+    const prevProjectUuidRef = useRef<string | undefined>(null);
 
     const fetchMoreRows = useCallback(() => {
         const lastPage = fetchedPages[fetchedPages.length - 1];
@@ -412,16 +427,26 @@ export const useInfiniteQueryResults = (
     }, [nextPage.data]);
 
     useEffect(() => {
-        // Reset fetched pages before updating the fetch args
-        setFetchedPages([]);
-        // Reset fetchAll before updating the fetch args
-        setFetchAll(false);
-        setFetchArgs({
-            queryUuid,
-            projectUuid,
-            page: 1,
-            pageSize: DEFAULT_RESULTS_PAGE_SIZE,
-        });
+        const hasQueryUuidChanged = queryUuid !== prevQueryUuidRef.current;
+        const hasProjectUuidChanged =
+            projectUuid !== prevProjectUuidRef.current;
+
+        if (hasQueryUuidChanged || hasProjectUuidChanged) {
+            // Reset fetched pages before updating the fetch args
+            setFetchedPages([]);
+            // Reset fetchAll before updating the fetch args
+            setFetchAll(false);
+            setFetchArgs({
+                queryUuid,
+                projectUuid,
+                page: 1,
+                pageSize: DEFAULT_RESULTS_PAGE_SIZE,
+            });
+
+            // Update refs
+            prevQueryUuidRef.current = queryUuid;
+            prevProjectUuidRef.current = projectUuid;
+        }
     }, [projectUuid, queryUuid]);
 
     useEffect(() => {

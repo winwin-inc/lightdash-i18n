@@ -15,6 +15,7 @@ import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import { TrackSection } from '../../providers/Tracking/TrackingProvider';
 import '../../styles/droppable.css';
 import { SectionName } from '../../types/Events';
+import DashboardFilter from '../DashboardFilter';
 import EmptyStateNoTiles from '../DashboardTiles/EmptyStateNoTiles';
 import MantineIcon from '../common/MantineIcon';
 import { LockedDashboardModal } from '../common/modal/LockedDashboardModal';
@@ -32,6 +33,7 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 
 type DashboardTabsProps = {
     isEditMode: boolean;
+    hasTilesThatSupportFilters: boolean;
     hasRequiredDashboardFiltersToSet: boolean;
     addingTab: boolean;
     dashboardTiles: DashboardTile[] | undefined;
@@ -50,6 +52,7 @@ type DashboardTabsProps = {
 
 const DashboardTabs: FC<DashboardTabsProps> = ({
     isEditMode,
+    hasTilesThatSupportFilters,
     hasRequiredDashboardFiltersToSet,
     addingTab,
     dashboardTiles,
@@ -144,6 +147,11 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                 uuid: uuid4(),
                 isDefault: false,
                 order: lastOrd + 1,
+                filters: {
+                    dimensions: [],
+                    metrics: [],
+                    tableCalculations: [],
+                },
             };
             newTabs.push(newTab);
             setDashboardTabs(newTabs);
@@ -336,6 +344,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         )}
                                     </Tabs.List>
                                 )}
+
                                 <Group
                                     grow
                                     pt={tabsEnabled ? 'sm' : undefined}
@@ -363,6 +372,19 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                             ) {
                                                 return (
                                                     <div key={tile.uuid}>
+                                                        {hasTilesThatSupportFilters &&
+                                                            activeTab?.uuid && (
+                                                                <DashboardFilter
+                                                                    isEditMode={
+                                                                        isEditMode
+                                                                    }
+                                                                    activeTabUuid={
+                                                                        activeTab?.uuid
+                                                                    }
+                                                                    filterType="tab"
+                                                                />
+                                                            )}
+
                                                         <TrackSection
                                                             name={
                                                                 SectionName.DASHBOARD_TILE

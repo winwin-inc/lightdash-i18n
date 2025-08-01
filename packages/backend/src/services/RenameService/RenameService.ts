@@ -12,6 +12,7 @@ import {
     getItemId,
     isExploreError,
     NameChanges,
+    NotExistsError,
     NotFoundError,
     NotImplementedError,
     ParameterError,
@@ -25,6 +26,7 @@ import {
     UnexpectedServerError,
 } from '@lightdash/common';
 
+import { attempt, isError } from 'lodash';
 import { LightdashAnalytics } from '../../analytics/LightdashAnalytics';
 import { LightdashConfig } from '../../config/parseConfig';
 import { DashboardModel } from '../../models/DashboardModel/DashboardModel';
@@ -188,14 +190,23 @@ export class RenameService extends BaseService {
 
         switch (type) {
             case RenameType.MODEL:
-                // Verify the model we want to assign to really exists
-                // This will throw an error if the model does not exist
-                await this.projectModel.getExploreFromCache(projectUuid, to);
+                // Verify the model we want to assign to really exists, or the one we are renaming from
+                const toExists = attempt(() =>
+                    this.projectModel.getExploreFromCache(projectUuid, to),
+                );
+                const fromExists = attempt(() =>
+                    this.projectModel.getExploreFromCache(projectUuid, from),
+                );
+                if (isError(toExists) && isError(fromExists)) {
+                    throw new NotExistsError(
+                        `Neither "${from}" nor "${to}" explores exist in the project.`,
+                    );
+                }
                 break;
             case RenameType.FIELD:
-                // When updating  from a chart (UI) we want to make sure the field exists in the current explore  or custom fields in chart
-                // From the UI, these should be already selected from a field, using getFieldsForChart
-                // Note: this option is not currently available on the UI, since we only display metrics and dimensions from explore on getFieldsForChart
+                // When renaming a field from a chart, we validate that the target field exists
+                // and ensure we're not trying to rename to a custom field (table calculation, custom metric, or custom dimension)
+                // The UI uses getFieldsForChart to display available fields for selection so it should be safe to assume this should not happen. The next check is to validate requests coming from other than the UI
                 const fieldsInChart = [
                     ...chart.metricQuery.tableCalculations.map((tc) => tc.name),
                     ...(chart.metricQuery.additionalMetrics?.map(
@@ -207,15 +218,15 @@ export class RenameService extends BaseService {
                 ];
 
                 if (fieldsInChart.includes(to)) {
-                    // It could be a table calculation / dimension / custom metric
+                    // The target field is a custom field (table calculation, custom metric, or custom dimension)
                     this.logger.info(
-                        `Replacing field "${to}" with "${from}" from the chart "${chart.name}"`,
+                        `Replacing field "${from}" with "${to}" from the chart "${chart.name}"`,
                     );
                     throw new NotImplementedError(
-                        `Replacing fields on custom chart fields is not currently supported`,
+                        `Renaming to a custom field (table calculation, custom metric, or custom dimension) is not currently supported. You can rename FROM a custom field, but not TO one.`,
                     );
                 } else {
-                    // Otherwise, it will keep failing
+                    // The target field should be a standard field from the explore
                     // This method will throw an error if the field does not exist on explore
                     const explore = await this.findExploreForField({
                         projectUuid,
@@ -433,6 +444,7 @@ export class RenameService extends BaseService {
                         // When filtering explores, we need to check if the explore exists on from, or to
                         // since people might be running this rename method before or after dbt is updated
 
+                        let useFromExplore = true;
                         try {
                             await this.projectModel.getExploreFromCache(
                                 projectUuid,
@@ -444,13 +456,14 @@ export class RenameService extends BaseService {
                                     projectUuid,
                                     to,
                                 );
+                                useFromExplore = false;
                             } catch (err) {
                                 throw new NotFoundError(
                                     `Neither "${from}" nor "${to}" explores exist in the project.`,
                                 );
                             }
                         }
-                        exploreName = from;
+                        exploreName = useFromExplore ? from : to;
 
                         nameChanges = {
                             from, // this is just the  table prefix
@@ -464,7 +477,6 @@ export class RenameService extends BaseService {
                     case RenameType.FIELD:
                         let explore: Explore;
                         let fieldInExplore = from;
-
                         // Find the field we want to replace in the explore, and filter charts by that explore
                         // When filtering explores, we need to check if the explore exists on from, or to
                         // since people might be running this rename method before or after dbt is updated

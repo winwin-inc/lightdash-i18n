@@ -1,7 +1,7 @@
 import {
     formatDate,
     formatTimestamp,
-    type ScimOrganizationAccessToken,
+    type ServiceAccount,
 } from '@lightdash/common';
 import {
     ActionIcon,
@@ -40,15 +40,12 @@ import {
 } from '../../hooks/useScimAccessToken';
 
 const TokenItem: FC<{
-    token: ScimOrganizationAccessToken;
-    setTokenToDelete: Dispatch<
-        SetStateAction<ScimOrganizationAccessToken | undefined>
-    >;
+    token: ServiceAccount;
+    setTokenToDelete: Dispatch<SetStateAction<ServiceAccount | undefined>>;
 }> = ({ token, setTokenToDelete }) => {
     const { t } = useTranslation();
 
     const { description, expiresAt, rotatedAt, lastUsedAt, uuid } = token;
-
     return (
         <>
             <tr>
@@ -158,7 +155,7 @@ export const TokensTable = () => {
     const { cx, classes } = useTableStyles();
 
     const [tokenToDelete, setTokenToDelete] = useState<
-        ScimOrganizationAccessToken | undefined
+        ServiceAccount | undefined
     >();
     const { mutate, isLoading: isDeleting, isSuccess } = useDeleteScimToken();
 

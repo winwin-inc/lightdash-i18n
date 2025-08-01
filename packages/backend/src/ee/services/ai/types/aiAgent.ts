@@ -1,30 +1,45 @@
-import { CoreMessage } from 'ai';
+import { AiAgent } from '@lightdash/common';
+import { CoreMessage, LanguageModelV1 } from 'ai';
 import {
+    FindExploresFn,
+    FindFieldFn,
     GetExploreFn,
     GetPromptFn,
     RunMiniMetricQueryFn,
-    SearchFieldsFn,
     SendFileFn,
+    StoreToolCallFn,
+    StoreToolResultsFn,
+    TrackEventFn,
     UpdateProgressFn,
     UpdatePromptFn,
 } from './aiAgentDependencies';
-import { AiAgentExploreSummary } from './aiAgentExploreSummary';
 
 export type AiAgentArgs = {
-    openaiApiKey: string;
-    promptUuid: string;
-    agentName: string;
-    instruction: string | null;
+    model: LanguageModelV1;
+    agentSettings: AiAgent;
     messageHistory: CoreMessage[];
-    aiAgentExploreSummaries: AiAgentExploreSummary[];
+    promptUuid: string;
+    threadUuid: string;
     maxLimit: number;
+    organizationId: string;
+    userId: string;
+    debugLoggingEnabled: boolean;
 };
+
 export type AiAgentDependencies = {
+    findExplores: FindExploresFn;
+    findFields: FindFieldFn;
     getExplore: GetExploreFn;
-    searchFields: SearchFieldsFn | undefined;
     runMiniMetricQuery: RunMiniMetricQueryFn;
     getPrompt: GetPromptFn;
     sendFile: SendFileFn;
     updatePrompt: UpdatePromptFn;
     updateProgress: UpdateProgressFn;
+    storeToolCall: StoreToolCallFn;
+    storeToolResults: StoreToolResultsFn;
+    trackEvent: TrackEventFn;
 };
+
+export type AiGenerateAgentResponseArgs = AiAgentArgs;
+
+export type AiStreamAgentResponseArgs = AiAgentArgs;

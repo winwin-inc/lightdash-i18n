@@ -2,6 +2,7 @@ import { Anchor } from '@mantine/core';
 import { IconFolder } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { Link } from 'react-router';
+import { useTranslation } from 'react-i18next';
 
 import InfoContainer from './InfoContainer';
 
@@ -20,9 +21,11 @@ const SpaceAndDashboardInfo: FC<Props> = ({
     space: { link, name },
     dashboard,
 }) => {
+    const { t } = useTranslation();
+
     return (
         <InfoContainer icon={IconFolder}>
-            Space:{' '}
+            {t('components_common_page_header.space')}:{' '}
             <Anchor component={Link} to={link}>
                 {name}
             </Anchor>

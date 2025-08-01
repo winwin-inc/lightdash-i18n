@@ -57,6 +57,7 @@ export enum CatalogSearchContext {
     SPOTLIGHT = 'spotlight',
     CATALOG = 'catalog',
     METRICS_EXPLORER = 'metricsExplorer',
+    AI_AGENT = 'aiAgent',
 }
 
 export type CatalogModelArguments = {
@@ -79,12 +80,6 @@ export class CatalogModel {
         cachedExploreMap: { [exploreUuid: string]: Explore | ExploreError },
         projectYamlTags: DbTag[],
         userUuid: string | undefined,
-        embedderFn?: (
-            documents: {
-                name: string;
-                description: string;
-            }[],
-        ) => Promise<Array<Array<number>>>,
     ): Promise<{
         catalogInserts: DbCatalog[];
         catalogFieldMap: CatalogFieldMap;
@@ -141,6 +136,7 @@ export class CatalogModel {
                                     .delete();
 
                                 const BATCH_SIZE = 3000;
+
                                 const results = await trx
                                     .batchInsert<DbCatalog>(
                                         CatalogTableName,
@@ -239,11 +235,11 @@ export class CatalogModel {
         projectUuid,
         exploreName,
         catalogSearch: { catalogTags, filter, searchQuery = '', type },
-        limit = 50,
         excludeUnmatched = true,
-        searchRankFunction = getFullTextSearchRankCalcSql,
         tablesConfiguration,
         userAttributes,
+        yamlTags,
+        tables,
         paginateArgs,
         sortArgs,
         context,
@@ -251,26 +247,15 @@ export class CatalogModel {
         projectUuid: string;
         exploreName?: string;
         catalogSearch: ApiCatalogSearch;
-        limit?: number;
         excludeUnmatched?: boolean;
-        searchRankFunction?: (args: {
-            database: Knex;
-            variables: Record<string, string>;
-        }) => Knex.Raw;
         tablesConfiguration: TablesConfiguration;
         userAttributes: UserAttributeValueMap;
+        yamlTags: string[] | null;
+        tables: string[] | null;
         paginateArgs?: KnexPaginateArgs;
         sortArgs?: ApiSort;
         context: CatalogSearchContext;
     }): Promise<KnexPaginatedData<CatalogItem[]>> {
-        const searchRankRawSql = searchRankFunction({
-            database: this.database,
-            variables: {
-                searchVectorColumn: `${CatalogTableName}.search_vector`,
-                searchQuery,
-            },
-        });
-
         let catalogItemsQuery = this.database(CatalogTableName)
             .column(
                 `${CatalogTableName}.catalog_search_uuid`,
@@ -281,10 +266,16 @@ export class CatalogModel {
                 `${CachedExploreTableName}.explore`,
                 `required_attributes`,
                 `chart_usage`,
+                `${CatalogTableName}.joined_tables`,
                 `icon`,
-                // Add tags as an aggregated JSON array
                 {
-                    search_rank: searchRankRawSql,
+                    search_rank: getFullTextSearchRankCalcSql({
+                        database: this.database,
+                        variables: {
+                            searchVectorColumn: `${CatalogTableName}.search_vector`,
+                            searchQuery,
+                        },
+                    }),
                 },
             )
             .leftJoin(
@@ -466,6 +457,107 @@ export class CatalogModel {
             );
         }
 
+        if (yamlTags) {
+            catalogItemsQuery = catalogItemsQuery.andWhere(
+                function yamlTagsFiltering() {
+                    void this
+                        // Condition 1: The item itself has a matching tag.
+                        // This is the highest priority rule. It includes any
+                        // field or table that is explicitly tagged.
+                        .whereRaw(
+                            `${CatalogTableName}.yaml_tags && ?::text[]`,
+                            [yamlTags],
+                        )
+
+                        // Condition 2: The item is part of an explore where ONLY the explore's
+                        // base table is tagged, making all items in that explore visible.
+                        // This handles the "show all fields" scenario.
+                        .orWhere(function exploreTaggedButFieldsAreNot() {
+                            void this
+                                // Check that the explore's base table has a matching tag.
+                                .whereExists(function exploreIsTagged() {
+                                    void this.select('name')
+                                        .from(
+                                            `${CatalogTableName} as explore_table`,
+                                        )
+                                        .whereRaw(
+                                            `explore_table.cached_explore_uuid = ${CatalogTableName}.cached_explore_uuid`,
+                                        )
+                                        .andWhere('explore_table.type', 'table')
+                                        .andWhereRaw(
+                                            `explore_table.yaml_tags && ?::text[]`,
+                                            [yamlTags],
+                                        );
+                                })
+                                // AND crucially, check that NO fields within that same explore have any tags.
+                                // This enforces the precedence rule.
+                                .whereNotExists(function anyFieldIsTagged() {
+                                    void this.select('name')
+                                        .from(
+                                            `${CatalogTableName} as any_field_in_explore`,
+                                        )
+                                        .whereRaw(
+                                            `any_field_in_explore.cached_explore_uuid = ${CatalogTableName}.cached_explore_uuid`,
+                                        )
+                                        .andWhereNot(
+                                            'any_field_in_explore.type',
+                                            'table',
+                                        )
+                                        .andWhereRaw(
+                                            `any_field_in_explore.yaml_tags && ?::text[]`,
+                                            [yamlTags],
+                                        );
+                                });
+                        })
+
+                        // Condition 3: The item is a table, and at least one of its
+                        // child fields has a matching tag. This ensures the parent table is
+                        // always included if any of its fields are visible.
+                        .orWhere(function isTableWithTaggedChildren() {
+                            void this.where(
+                                `${CatalogTableName}.type`,
+                                'table',
+                            ).whereExists(function hasTaggedChild() {
+                                void this.select('name')
+                                    .from(`${CatalogTableName} as child_field`)
+                                    .whereRaw(
+                                        `child_field.cached_explore_uuid = ${CatalogTableName}.cached_explore_uuid`,
+                                    )
+                                    .andWhereNot('child_field.type', 'table')
+                                    .andWhereRaw(
+                                        `child_field.yaml_tags && ?::text[]`,
+                                        [yamlTags],
+                                    );
+                            });
+                        });
+                },
+            );
+        }
+
+        if (tables) {
+            catalogItemsQuery = catalogItemsQuery.andWhere(
+                function joinedTablesFiltering() {
+                    // Condition 1: The item's own table is in the list.
+                    // This includes the table itself, and any fields belonging to it.
+                    void this.whereIn(`${CatalogTableName}.table_name`, tables);
+
+                    // Condition 2: The item belongs to a table whose joined_tables array
+                    // contains any of the specified tables
+                    void this.orWhereExists(function tableJoinsToSelected() {
+                        void this.select('name')
+                            .from(`${CatalogTableName} as parent_table`)
+                            .whereRaw(
+                                `parent_table.table_name = ANY(?::text[])`,
+                                [tables],
+                            )
+                            .andWhereRaw(
+                                `parent_table.joined_tables @> ARRAY[${CatalogTableName}.table_name]::text[]`,
+                            );
+                    });
+                },
+            );
+        }
+
         if (excludeUnmatched && searchQuery) {
             catalogItemsQuery = catalogItemsQuery.andWhereRaw(
                 `"${CatalogTableName}".search_vector @@ to_tsquery('lightdash_english_config', ?)`,
@@ -473,9 +565,7 @@ export class CatalogModel {
             );
         }
 
-        catalogItemsQuery = catalogItemsQuery
-            .orderBy('search_rank', 'desc')
-            .limit(limit ?? 50);
+        catalogItemsQuery = catalogItemsQuery.orderBy('search_rank', 'desc');
 
         if (sortArgs) {
             const { sort, order } = sortArgs;
@@ -489,11 +579,12 @@ export class CatalogModel {
 
         const paginatedCatalogItems = await KnexPaginate.paginate(
             catalogItemsQuery.select<
-                (DbCatalog & {
-                    explore: Explore;
-                })[]
+                (DbCatalog & { explore: Explore; search_rank: number })[]
             >(),
-            paginateArgs,
+            {
+                page: paginateArgs?.page ?? 1,
+                pageSize: paginateArgs?.pageSize ?? 50,
+            },
         );
 
         const tagsPerItem = await this.getTagsPerItem(

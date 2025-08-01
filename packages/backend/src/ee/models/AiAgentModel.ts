@@ -6,6 +6,7 @@ import {
     AiAgentSummary,
     AiAgentThreadSummary,
     AiAgentUser,
+    AiAgentUserPreferences,
     AiThread,
     AiWebAppPrompt,
     ApiCreateAiAgent,
@@ -15,7 +16,9 @@ import {
     CreateSlackThread,
     CreateWebAppPrompt,
     CreateWebAppThread,
+    isToolName,
     SlackPrompt,
+    ToolName,
     UpdateSlackResponse,
     UpdateSlackResponseTs,
     UpdateWebAppResponse,
@@ -24,17 +27,24 @@ import {
 import { Knex } from 'knex';
 import { DbUser, UserTableName } from '../../database/entities/users';
 import {
+    AiAgentToolCallTableName,
+    AiAgentToolResultTableName,
     AiPromptTableName,
     AiSlackPromptTableName,
     AiSlackThreadTableName,
     AiThreadTableName,
     AiWebAppPromptTableName,
     AiWebAppThreadTableName,
+    DbAiAgentToolCall,
+    DbAiAgentToolResult,
     DbAiPrompt,
+    DbAiSlackPrompt,
     DbAiSlackThread,
     DbAiThread,
+    DbAiWebAppPrompt,
 } from '../database/entities/ai';
 import {
+    AiAgentGroupAccessTableName,
     AiAgentInstructionVersionsTableName,
     AiAgentIntegrationTableName,
     AiAgentSlackIntegrationTableName,
@@ -42,6 +52,7 @@ import {
     DbAiAgentIntegration,
     DbAiAgentSlackIntegration,
 } from '../database/entities/aiAgent';
+import { AiAgentUserPreferencesTableName } from '../database/entities/aiAgentUserPreferences';
 
 type Dependencies = {
     database: Knex;
@@ -63,7 +74,41 @@ export class AiAgentModel {
         agentUuid: string;
         projectUuid?: string;
     }): Promise<AiAgentSummary> {
-        const query = this.database(AiAgentTableName)
+        const integrations = this.database
+            .from(AiAgentIntegrationTableName)
+            .leftJoin(
+                AiAgentSlackIntegrationTableName,
+                `${AiAgentIntegrationTableName}.ai_agent_integration_uuid`,
+                `${AiAgentSlackIntegrationTableName}.ai_agent_integration_uuid`,
+            )
+            .select(
+                `${AiAgentIntegrationTableName}.ai_agent_uuid`,
+                `${AiAgentIntegrationTableName}.integration_type`,
+                `${AiAgentSlackIntegrationTableName}.slack_channel_id`,
+            )
+            .whereNotNull(`${AiAgentIntegrationTableName}.integration_type`)
+            .where(`${AiAgentIntegrationTableName}.ai_agent_uuid`, agentUuid);
+
+        const groupAccess = this.database
+            .from(AiAgentGroupAccessTableName)
+            .select('ai_agent_uuid', 'group_uuid')
+            .where(`${AiAgentGroupAccessTableName}.ai_agent_uuid`, agentUuid);
+
+        const latestInstruction = this.database
+            .from(AiAgentInstructionVersionsTableName)
+            .select(
+                'ai_agent_uuid',
+                this.database.raw('instruction'),
+                this.database.raw(
+                    'ROW_NUMBER() OVER (PARTITION BY ai_agent_uuid ORDER BY created_at DESC) as rn',
+                ),
+            );
+
+        const query = this.database
+            .with('integrations', integrations)
+            .with('latest_instruction', latestInstruction)
+            .with('group_access', groupAccess)
+            .from(AiAgentTableName)
             .select({
                 uuid: `${AiAgentTableName}.ai_agent_uuid`,
                 organizationUuid: `${AiAgentTableName}.organization_uuid`,
@@ -72,40 +117,34 @@ export class AiAgentModel {
                 tags: `${AiAgentTableName}.tags`,
                 integrations: this.database.raw(`
                     COALESCE(
-                        json_agg(
-                            CASE WHEN ${AiAgentIntegrationTableName}.integration_type IS NOT NULL
-                            THEN json_build_object(
-                                'type', ${AiAgentIntegrationTableName}.integration_type,
-                                'channelId', ${AiAgentSlackIntegrationTableName}.slack_channel_id
+                        (SELECT json_agg(
+                            json_build_object(
+                                'type', integration_type,
+                                'channelId', slack_channel_id
                             )
-                            ELSE NULL
-                            END
-                        ) FILTER (WHERE ${AiAgentIntegrationTableName}.integration_type IS NOT NULL),
+                        ) FROM integrations
+                         WHERE ai_agent_uuid = ${AiAgentTableName}.ai_agent_uuid),
                         '[]'::json
                     )
                 `),
                 updatedAt: `${AiAgentTableName}.updated_at`,
                 createdAt: `${AiAgentTableName}.created_at`,
                 instruction: this.database.raw(`
-                    (SELECT instruction FROM ${AiAgentInstructionVersionsTableName}
-                     WHERE ${AiAgentInstructionVersionsTableName}.ai_agent_uuid = ${AiAgentTableName}.ai_agent_uuid
-                     ORDER BY created_at DESC LIMIT 1)
-                    `),
+                    (SELECT instruction FROM latest_instruction
+                     WHERE ai_agent_uuid = ${AiAgentTableName}.ai_agent_uuid AND rn = 1)
+                `),
                 imageUrl: `${AiAgentTableName}.image_url`,
+                groupAccess: this.database.raw(`
+                    COALESCE(
+                        (SELECT json_agg(group_uuid)
+                         FROM group_access
+                         WHERE ai_agent_uuid = ${AiAgentTableName}.ai_agent_uuid),
+                        '[]'::json
+                    )
+                `),
             } satisfies Record<keyof AiAgent, unknown>)
-            .leftJoin(
-                AiAgentIntegrationTableName,
-                `${AiAgentTableName}.ai_agent_uuid`,
-                `${AiAgentIntegrationTableName}.ai_agent_uuid`,
-            )
-            .leftJoin(
-                AiAgentSlackIntegrationTableName,
-                `${AiAgentIntegrationTableName}.ai_agent_integration_uuid`,
-                `${AiAgentSlackIntegrationTableName}.ai_agent_integration_uuid`,
-            )
             .where(`${AiAgentTableName}.organization_uuid`, organizationUuid)
             .where(`${AiAgentTableName}.ai_agent_uuid`, agentUuid)
-            .groupBy(`${AiAgentTableName}.ai_agent_uuid`)
             .first<AiAgent | undefined>();
 
         if (projectUuid) {
@@ -130,7 +169,39 @@ export class AiAgentModel {
         organizationUuid: string;
         projectUuid?: string;
     }): Promise<AiAgentSummary[]> {
-        const query = this.database(AiAgentTableName)
+        const integrations = this.database
+            .from(AiAgentIntegrationTableName)
+            .leftJoin(
+                AiAgentSlackIntegrationTableName,
+                `${AiAgentIntegrationTableName}.ai_agent_integration_uuid`,
+                `${AiAgentSlackIntegrationTableName}.ai_agent_integration_uuid`,
+            )
+            .select(
+                `${AiAgentIntegrationTableName}.ai_agent_uuid`,
+                `${AiAgentIntegrationTableName}.integration_type`,
+                `${AiAgentSlackIntegrationTableName}.slack_channel_id`,
+            )
+            .whereNotNull(`${AiAgentIntegrationTableName}.integration_type`);
+
+        const groupAccess = this.database
+            .from(AiAgentGroupAccessTableName)
+            .select('ai_agent_uuid', 'group_uuid');
+
+        const latestInstruction = this.database
+            .from(AiAgentInstructionVersionsTableName)
+            .select(
+                'ai_agent_uuid',
+                this.database.raw('instruction'),
+                this.database.raw(
+                    'ROW_NUMBER() OVER (PARTITION BY ai_agent_uuid ORDER BY created_at DESC) as rn',
+                ),
+            );
+
+        const query = this.database
+            .with('integrations', integrations)
+            .with('latest_instruction', latestInstruction)
+            .with('group_access', groupAccess)
+            .from(AiAgentTableName)
             .select({
                 uuid: `${AiAgentTableName}.ai_agent_uuid`,
                 organizationUuid: `${AiAgentTableName}.organization_uuid`,
@@ -138,38 +209,33 @@ export class AiAgentModel {
                 name: `${AiAgentTableName}.name`,
                 tags: `${AiAgentTableName}.tags`,
                 integrations: this.database.raw(`
-                        COALESCE(
-                            json_agg(
-                                CASE WHEN ${AiAgentIntegrationTableName}.integration_type IS NOT NULL
-                                THEN json_build_object(
-                                    'type', ${AiAgentIntegrationTableName}.integration_type,
-                                    'channelId', ${AiAgentSlackIntegrationTableName}.slack_channel_id
-                                )
-                                ELSE NULL
-                                END
-                            ) FILTER (WHERE ${AiAgentIntegrationTableName}.integration_type IS NOT NULL),
-                            '[]'::json
-                        )
+                    COALESCE(
+                        (SELECT json_agg(
+                            json_build_object(
+                                'type', integration_type,
+                                'channelId', slack_channel_id
+                            )
+                        ) FROM integrations
+                         WHERE ai_agent_uuid = ${AiAgentTableName}.ai_agent_uuid),
+                        '[]'::json
+                    )
                 `),
                 updatedAt: `${AiAgentTableName}.updated_at`,
                 createdAt: `${AiAgentTableName}.created_at`,
                 instruction: this.database.raw(`
-                    (SELECT instruction FROM ${AiAgentInstructionVersionsTableName}
-                     WHERE ${AiAgentInstructionVersionsTableName}.ai_agent_uuid = ${AiAgentTableName}.ai_agent_uuid
-                     ORDER BY created_at DESC LIMIT 1)
-                    `),
+                    (SELECT instruction FROM latest_instruction
+                     WHERE ai_agent_uuid = ${AiAgentTableName}.ai_agent_uuid AND rn = 1)
+                `),
                 imageUrl: `${AiAgentTableName}.image_url`,
+                groupAccess: this.database.raw(`
+                    COALESCE(
+                        (SELECT json_agg(group_uuid)
+                         FROM group_access
+                         WHERE ai_agent_uuid = ${AiAgentTableName}.ai_agent_uuid),
+                        '[]'::json
+                    )
+                `),
             } satisfies Record<keyof AiAgentSummary, unknown>)
-            .leftJoin(
-                AiAgentIntegrationTableName,
-                `${AiAgentTableName}.ai_agent_uuid`,
-                `${AiAgentIntegrationTableName}.ai_agent_uuid`,
-            )
-            .leftJoin(
-                AiAgentSlackIntegrationTableName,
-                `${AiAgentIntegrationTableName}.ai_agent_integration_uuid`,
-                `${AiAgentSlackIntegrationTableName}.ai_agent_integration_uuid`,
-            )
             .where(`${AiAgentTableName}.organization_uuid`, organizationUuid)
             .groupBy(`${AiAgentTableName}.ai_agent_uuid`);
 
@@ -225,13 +291,17 @@ export class AiAgentModel {
     async createAgent(
         args: Pick<
             ApiCreateAiAgent,
-            'name' | 'projectUuid' | 'tags' | 'integrations' | 'instruction'
+            | 'name'
+            | 'projectUuid'
+            | 'tags'
+            | 'integrations'
+            | 'instruction'
+            | 'groupAccess'
         > & {
             organizationUuid: string;
         },
     ): Promise<AiAgent> {
         return this.database.transaction(async (trx) => {
-            const createdAt = new Date();
             const [agent] = await trx(AiAgentTableName)
                 .insert({
                     name: args.name,
@@ -280,10 +350,15 @@ export class AiAgentModel {
             if (args.instruction) {
                 await trx(AiAgentInstructionVersionsTableName).insert({
                     ai_agent_uuid: agent.ai_agent_uuid,
-                    created_at: createdAt,
                     instruction: args.instruction,
                 });
             }
+
+            const groupAccess = await this.setAndGetGroupAccess(
+                agent.ai_agent_uuid,
+                args.groupAccess ?? undefined,
+                { trx },
+            );
 
             return {
                 uuid: agent.ai_agent_uuid,
@@ -296,6 +371,7 @@ export class AiAgentModel {
                 updatedAt: agent.updated_at,
                 instruction: args.instruction,
                 imageUrl: agent.image_url,
+                groupAccess,
             };
         });
     }
@@ -307,19 +383,21 @@ export class AiAgentModel {
         },
     ): Promise<AiAgent> {
         return this.database.transaction(async (trx) => {
-            const updatedAt = new Date();
-
             const [agent] = await trx(AiAgentTableName)
                 .where({
                     ai_agent_uuid: args.agentUuid,
                     organization_uuid: args.organizationUuid,
                 })
                 .update({
-                    name: args.name,
-                    project_uuid: args.projectUuid,
-                    tags: args.tags,
-                    updated_at: updatedAt,
-                    image_url: args.imageUrl,
+                    updated_at: trx.fn.now(),
+                    ...(args.tags !== undefined ? { tags: args.tags } : {}),
+                    ...(args.name !== undefined ? { name: args.name } : {}),
+                    ...(args.imageUrl !== undefined
+                        ? { image_url: args.imageUrl }
+                        : {}),
+                    ...(args.projectUuid !== undefined
+                        ? { project_uuid: args.projectUuid }
+                        : {}),
                 })
                 .returning('*');
 
@@ -372,13 +450,18 @@ export class AiAgentModel {
                 const [result] = await trx(AiAgentInstructionVersionsTableName)
                     .insert({
                         ai_agent_uuid: agent.ai_agent_uuid,
-                        created_at: updatedAt,
                         // We need to represent removing an instruction, so we backfill with an empty string
                         instruction: args.instruction ?? '',
                     })
                     .returning('instruction');
                 instruction = result.instruction;
             }
+
+            const groupAccess = await this.setAndGetGroupAccess(
+                agent.ai_agent_uuid,
+                args.groupAccess ?? undefined,
+                { trx },
+            );
 
             return {
                 uuid: agent.ai_agent_uuid,
@@ -391,8 +474,55 @@ export class AiAgentModel {
                 updatedAt: agent.updated_at,
                 instruction,
                 imageUrl: agent.image_url,
+                groupAccess,
             };
         });
+    }
+
+    private async getGroupAccess(
+        agentUuid: AiAgent['uuid'],
+        { trx = this.database }: { trx?: Knex } = {},
+    ): Promise<NonNullable<AiAgent['groupAccess']>> {
+        const rows = await trx(AiAgentGroupAccessTableName)
+            .select('group_uuid')
+            .where('ai_agent_uuid', agentUuid);
+
+        return rows.map((row) => row.group_uuid);
+    }
+
+    private async setGroupAccess(
+        agentUuid: AiAgent['uuid'],
+        groupAccess: NonNullable<AiAgent['groupAccess']>,
+        { trx = this.database }: { trx?: Knex } = {},
+    ): Promise<NonNullable<AiAgent['groupAccess']>> {
+        // Delete existing group access
+        await trx(AiAgentGroupAccessTableName)
+            .where('ai_agent_uuid', agentUuid)
+            .delete();
+
+        if (groupAccess.length === 0) {
+            return [];
+        }
+
+        await trx(AiAgentGroupAccessTableName).insert(
+            groupAccess.map((groupUuid) => ({
+                ai_agent_uuid: agentUuid,
+                group_uuid: groupUuid,
+            })),
+        );
+
+        return groupAccess;
+    }
+
+    private async setAndGetGroupAccess(
+        agentUuid: AiAgent['uuid'],
+        groupAccess: NonNullable<AiAgent['groupAccess']> | undefined,
+        { trx = this.database }: { trx?: Knex } = {},
+    ): Promise<NonNullable<AiAgent['groupAccess']>> {
+        if (groupAccess !== undefined) {
+            await this.setGroupAccess(agentUuid, groupAccess, { trx });
+        }
+        return this.getGroupAccess(agentUuid, { trx });
     }
 
     async getAgentLastInstruction(
@@ -475,7 +605,7 @@ export class AiAgentModel {
                     | 'created_at'
                     | 'created_from'
                 > &
-                    Pick<DbAiPrompt, 'prompt'> &
+                    Pick<DbAiPrompt, 'prompt' | 'ai_prompt_uuid'> &
                     Pick<DbUser, 'user_uuid'> &
                     Pick<DbAiSlackThread, 'slack_user_id'> & {
                         user_name: string;
@@ -486,6 +616,7 @@ export class AiAgentModel {
                 `${AiThreadTableName}.created_at`,
                 `${AiThreadTableName}.created_from`,
                 `${AiPromptTableName}.prompt`,
+                `${AiPromptTableName}.ai_prompt_uuid`,
                 `${UserTableName}.user_uuid`,
                 this.database.raw(
                     `CONCAT(${UserTableName}.first_name, ' ', ${UserTableName}.last_name) as user_name`,
@@ -513,7 +644,10 @@ export class AiAgentModel {
             agentUuid: row.agent_uuid!,
             createdAt: row.created_at as unknown as string,
             createdFrom: row.created_from,
-            firstMessage: row.prompt,
+            firstMessage: {
+                uuid: row.ai_prompt_uuid,
+                message: row.prompt,
+            },
             user: {
                 uuid: row.user_uuid,
                 name: row.user_name,
@@ -572,27 +706,45 @@ export class AiAgentModel {
                 `${AiPromptTableName}.ai_thread_uuid`,
                 `${AiThreadTableName}.ai_thread_uuid`,
             )
-            .select(
+            .select<
+                (Pick<
+                    DbAiPrompt,
+                    | 'ai_prompt_uuid'
+                    | 'prompt'
+                    | 'created_at'
+                    | 'response'
+                    | 'responded_at'
+                    | 'filters_output'
+                    | 'viz_config_output'
+                    | 'metric_query'
+                    | 'human_score'
+                    | 'saved_query_uuid'
+                > &
+                    Pick<DbUser, 'user_uuid'> &
+                    Pick<DbAiThread, 'ai_thread_uuid'> &
+                    Pick<DbAiSlackPrompt, 'slack_user_id'> &
+                    Pick<DbAiWebAppPrompt, 'user_uuid'> & {
+                        user_name: string;
+                    })[]
+            >(
                 `${AiPromptTableName}.ai_prompt_uuid`,
-                'prompt',
-                'response',
-                'responded_at',
-                'filters_output',
-                'viz_config_output',
-                'metric_query',
-                'human_score',
+                `${AiPromptTableName}.prompt`,
+                `${AiPromptTableName}.created_at`,
+                `${AiPromptTableName}.response`,
+                `${AiPromptTableName}.responded_at`,
+                `${AiPromptTableName}.filters_output`,
+                `${AiPromptTableName}.viz_config_output`,
+                `${AiPromptTableName}.metric_query`,
+                `${AiPromptTableName}.human_score`,
+                `${AiPromptTableName}.saved_query_uuid`,
                 `${UserTableName}.user_uuid`,
                 `${AiThreadTableName}.ai_thread_uuid`,
                 `${AiSlackPromptTableName}.slack_user_id`,
                 `${AiWebAppPromptTableName}.user_uuid`,
-            )
-            .select({
-                uuid: `${AiPromptTableName}.ai_prompt_uuid`,
-                created_at: `${AiPromptTableName}.created_at`,
-                user_name: this.database.raw(
-                    `CONCAT(${UserTableName}.first_name, ' ', ${UserTableName}.last_name)`,
+                this.database.raw(
+                    `CONCAT(${UserTableName}.first_name, ' ', ${UserTableName}.last_name) as user_name`,
                 ),
-            })
+            )
             .leftJoin(
                 AiSlackPromptTableName,
                 `${AiPromptTableName}.ai_prompt_uuid`,
@@ -610,25 +762,29 @@ export class AiAgentModel {
             )
             .orderBy(`${AiPromptTableName}.created_at`, 'asc');
 
-        return rows.flatMap((row) => {
+        const messagesPromises = rows.map(async (row) => {
             const messages: AiAgentMessage<{
                 uuid: string;
                 name: string;
                 slackUserId: string | null;
-            }>[] = [
-                {
-                    role: 'user',
-                    uuid: row.ai_prompt_uuid,
-                    threadUuid: row.ai_thread_uuid,
-                    message: row.prompt,
-                    createdAt: row.created_at,
-                    user: {
-                        uuid: row.user_uuid,
-                        name: row.user_name,
-                        slackUserId: row.slack_user_id,
-                    },
+            }>[] = [];
+
+            messages.push({
+                role: 'user',
+                uuid: row.ai_prompt_uuid,
+                threadUuid: row.ai_thread_uuid,
+                message: row.prompt,
+                createdAt: row.created_at.toISOString(),
+                user: {
+                    uuid: row.user_uuid,
+                    name: row.user_name,
+                    slackUserId: row.slack_user_id,
                 },
-            ];
+            });
+
+            const toolCalls = await this.getToolCallsForPrompt(
+                row.ai_prompt_uuid,
+            );
 
             if (row.responded_at != null) {
                 messages.push({
@@ -636,18 +792,61 @@ export class AiAgentModel {
                     uuid: row.ai_prompt_uuid,
                     threadUuid: row.ai_thread_uuid,
                     message: row.response,
-                    createdAt: row.responded_at,
+                    createdAt: row.responded_at.toISOString(),
                     vizConfigOutput: row.viz_config_output,
                     filtersOutput: row.filters_output,
                     metricQuery: row.metric_query,
                     humanScore: row.human_score,
+                    toolCalls: toolCalls
+                        .filter(
+                            (
+                                tc,
+                            ): tc is DbAiAgentToolCall & {
+                                tool_name: ToolName;
+                            } => isToolName(tc.tool_name),
+                        )
+                        .map((tc) => ({
+                            uuid: tc.ai_agent_tool_call_uuid,
+                            promptUuid: tc.ai_prompt_uuid,
+                            toolCallId: tc.tool_call_id,
+                            createdAt: tc.created_at,
+                            toolName: tc.tool_name,
+                            toolArgs: tc.tool_args,
+                        })),
+                    savedQueryUuid: row.saved_query_uuid,
                 });
             }
 
             return messages;
         });
+
+        return (await Promise.all(messagesPromises)).flat();
     }
 
+    async findThreadMessage(
+        role: 'user',
+        {
+            organizationUuid,
+            threadUuid,
+            messageUuid,
+        }: {
+            organizationUuid: string;
+            threadUuid: string;
+            messageUuid: string;
+        },
+    ): Promise<AiAgentMessageUser<AiAgentUser>>;
+    async findThreadMessage(
+        role: 'assistant',
+        {
+            organizationUuid,
+            threadUuid,
+            messageUuid,
+        }: {
+            organizationUuid: string;
+            threadUuid: string;
+            messageUuid: string;
+        },
+    ): Promise<AiAgentMessageAssistant>;
     async findThreadMessage(
         role: 'user' | 'assistant',
         {
@@ -661,6 +860,45 @@ export class AiAgentModel {
         },
     ): Promise<AiAgentMessage> {
         const row = await this.database(AiPromptTableName)
+            .select<
+                (Pick<
+                    DbAiPrompt,
+                    | 'ai_prompt_uuid'
+                    | 'prompt'
+                    | 'response'
+                    | 'created_at'
+                    | 'responded_at'
+                    | 'filters_output'
+                    | 'viz_config_output'
+                    | 'metric_query'
+                    | 'human_score'
+                    | 'saved_query_uuid'
+                > &
+                    Pick<DbUser, 'user_uuid'> &
+                    Pick<DbAiThread, 'ai_thread_uuid'> &
+                    Pick<DbAiSlackPrompt, 'slack_user_id'> &
+                    Pick<DbAiWebAppPrompt, 'user_uuid'> & {
+                        user_name: string;
+                    })[]
+            >(
+                `${AiPromptTableName}.ai_prompt_uuid`,
+                `${AiPromptTableName}.prompt`,
+                `${AiPromptTableName}.response`,
+                `${AiPromptTableName}.created_at`,
+                `${AiPromptTableName}.responded_at`,
+                `${AiPromptTableName}.filters_output`,
+                `${AiPromptTableName}.viz_config_output`,
+                `${AiPromptTableName}.metric_query`,
+                `${AiPromptTableName}.human_score`,
+                `${AiPromptTableName}.saved_query_uuid`,
+                `${UserTableName}.user_uuid`,
+                `${AiThreadTableName}.ai_thread_uuid`,
+                `${AiSlackPromptTableName}.slack_user_id`,
+                `${AiWebAppPromptTableName}.user_uuid`,
+                this.database.raw(
+                    `CONCAT(${UserTableName}.first_name, ' ', ${UserTableName}.last_name) as user_name`,
+                ),
+            )
             .join(
                 UserTableName,
                 `${AiPromptTableName}.created_by_user_uuid`,
@@ -671,27 +909,6 @@ export class AiAgentModel {
                 `${AiPromptTableName}.ai_thread_uuid`,
                 `${AiThreadTableName}.ai_thread_uuid`,
             )
-            .select(
-                `${AiPromptTableName}.ai_prompt_uuid`,
-                'prompt',
-                'response',
-                'responded_at',
-                'filters_output',
-                'viz_config_output',
-                'metric_query',
-                'human_score',
-                `${UserTableName}.user_uuid`,
-                `${AiThreadTableName}.ai_thread_uuid`,
-                `${AiSlackPromptTableName}.slack_user_id`,
-                `${AiWebAppPromptTableName}.user_uuid`,
-            )
-            .select({
-                uuid: `${AiPromptTableName}.ai_prompt_uuid`,
-                created_at: `${AiPromptTableName}.created_at`,
-                user_name: this.database.raw(
-                    `CONCAT(${UserTableName}.first_name, ' ', ${UserTableName}.last_name)`,
-                ),
-            })
             .leftJoin(
                 AiSlackPromptTableName,
                 `${AiPromptTableName}.ai_prompt_uuid`,
@@ -724,23 +941,46 @@ export class AiAgentModel {
                     uuid: row.ai_prompt_uuid,
                     threadUuid: row.ai_thread_uuid,
                     message: row.prompt,
-                    createdAt: row.created_at,
+                    createdAt: row.created_at.toString(),
                     user: {
                         uuid: row.user_uuid,
                         name: row.user_name,
                     },
                 } satisfies AiAgentMessageUser;
             case 'assistant':
+                const toolCalls = await this.getToolCallsForPrompt(
+                    row.ai_prompt_uuid,
+                );
                 return {
                     role: 'assistant',
                     uuid: row.ai_prompt_uuid,
                     threadUuid: row.ai_thread_uuid,
-                    message: row.response,
-                    createdAt: row.responded_at,
+
+                    // TODO: handle null response
+                    message: row.response ?? '',
+                    createdAt: row.responded_at?.toString() ?? '',
+
                     vizConfigOutput: row.viz_config_output,
                     filtersOutput: row.filters_output,
                     metricQuery: row.metric_query,
                     humanScore: row.human_score,
+                    toolCalls: toolCalls
+                        .filter(
+                            (
+                                tc,
+                            ): tc is DbAiAgentToolCall & {
+                                tool_name: ToolName;
+                            } => isToolName(tc.tool_name),
+                        )
+                        .map((tc) => ({
+                            uuid: tc.ai_agent_tool_call_uuid,
+                            promptUuid: tc.ai_prompt_uuid,
+                            toolCallId: tc.tool_call_id,
+                            createdAt: tc.created_at,
+                            toolName: tc.tool_name,
+                            toolArgs: tc.tool_args,
+                        })),
+                    savedQueryUuid: row.saved_query_uuid,
                 } satisfies AiAgentMessageAssistant;
             default:
                 return assertUnreachable(role, `Unknown role ${role}`);
@@ -833,7 +1073,7 @@ export class AiAgentModel {
                         | 'created_from'
                         | 'agent_uuid'
                     > &
-                        Pick<DbAiPrompt, 'prompt'> &
+                        Pick<DbAiPrompt, 'prompt' | 'ai_prompt_uuid'> &
                         Pick<DbUser, 'user_uuid'> & { user_name: string }
                 >
             >(
@@ -842,6 +1082,7 @@ export class AiAgentModel {
                 `${AiThreadTableName}.created_at`,
                 `${AiThreadTableName}.created_from`,
                 `${AiPromptTableName}.prompt`,
+                `${AiPromptTableName}.ai_prompt_uuid`,
                 `${UserTableName}.user_uuid`,
                 this.database.raw(
                     `CONCAT(${UserTableName}.first_name, ' ', ${UserTableName}.last_name) as user_name`,
@@ -995,19 +1236,17 @@ export class AiAgentModel {
         });
     }
 
-    async updateModelResponse(data: UpdateSlackResponse) {
+    async updateModelResponse(
+        data: UpdateSlackResponse | UpdateWebAppResponse,
+    ) {
         await this.database(AiPromptTableName)
             .update({
-                responded_at: new Date(),
+                responded_at: this.database.fn.now(),
                 ...(data.response ? { response: data.response } : {}),
-                ...(data.filtersOutput
-                    ? { filters_output: data.filtersOutput }
-                    : {}),
                 ...(data.vizConfigOutput
                     ? { viz_config_output: data.vizConfigOutput }
                     : {}),
                 ...(data.humanScore ? { human_score: data.humanScore } : {}),
-                ...(data.metricQuery ? { metric_query: data.metricQuery } : {}),
             })
             .where({
                 ai_prompt_uuid: data.promptUuid,
@@ -1025,6 +1264,19 @@ export class AiAgentModel {
             })
             .where({
                 ai_prompt_uuid: data.promptUuid,
+            });
+    }
+
+    async updateMessageSavedQuery(data: {
+        messageUuid: string;
+        savedQueryUuid: string | null;
+    }): Promise<void> {
+        await this.database(AiPromptTableName)
+            .update({
+                saved_query_uuid: data.savedQueryUuid,
+            })
+            .where({
+                ai_prompt_uuid: data.messageUuid,
             });
     }
 
@@ -1121,26 +1373,6 @@ export class AiAgentModel {
         });
     }
 
-    async updateWebAppResponse(data: UpdateWebAppResponse) {
-        await this.database(AiPromptTableName)
-            .update({
-                responded_at: new Date(),
-                ...(data.response ? { response: data.response } : {}),
-                ...(data.filtersOutput
-                    ? { filters_output: data.filtersOutput }
-                    : {}),
-                ...(data.vizConfigOutput
-                    ? { viz_config_output: data.vizConfigOutput }
-                    : {}),
-                ...(data.humanScore ? { human_score: data.humanScore } : {}),
-                ...(data.metricQuery ? { metric_query: data.metricQuery } : {}),
-            })
-            .where({
-                ai_prompt_uuid: data.promptUuid,
-            })
-            .returning('ai_prompt_uuid');
-    }
-
     async existsSlackPromptsByChannelAndTimestamps(
         slackChannelId: string,
         timestamps: string[],
@@ -1199,5 +1431,158 @@ export class AiAgentModel {
 
             return promptRows.map((row) => row.ai_prompt_uuid);
         });
+    }
+
+    async getUserAgentPreferences({
+        userUuid,
+        projectUuid,
+    }: {
+        userUuid: string;
+        projectUuid: string;
+    }): Promise<AiAgentUserPreferences | null> {
+        const preferences = await this.database(AiAgentUserPreferencesTableName)
+            .select({ defaultAgentUuid: 'default_agent_uuid' })
+            .where({ user_uuid: userUuid, project_uuid: projectUuid })
+            .first();
+
+        return preferences ?? null;
+    }
+
+    async updateUserAgentPreferences({
+        userUuid,
+        projectUuid,
+        defaultAgentUuid,
+    }: {
+        userUuid: string;
+        projectUuid: string;
+        defaultAgentUuid: string;
+    }): Promise<void> {
+        await this.database(AiAgentUserPreferencesTableName)
+            .insert({
+                user_uuid: userUuid,
+                project_uuid: projectUuid,
+                default_agent_uuid: defaultAgentUuid,
+            })
+            .onConflict(['user_uuid', 'project_uuid'])
+            .merge({
+                default_agent_uuid: defaultAgentUuid,
+                updated_at: this.database.fn.now(),
+            });
+    }
+
+    async deleteUserAgentPreferences({
+        userUuid,
+        projectUuid,
+    }: {
+        userUuid: string;
+        projectUuid: string;
+    }): Promise<void> {
+        await this.database(AiAgentUserPreferencesTableName)
+            .where({ user_uuid: userUuid, project_uuid: projectUuid })
+            .delete();
+    }
+
+    async createToolCall(data: {
+        promptUuid: string;
+        toolCallId: string;
+        toolName: string;
+        toolArgs: object;
+    }): Promise<string> {
+        const [toolCall] = await this.database(AiAgentToolCallTableName)
+            .insert({
+                ai_prompt_uuid: data.promptUuid,
+                tool_call_id: data.toolCallId,
+                tool_name: data.toolName,
+                tool_args: data.toolArgs,
+            })
+            .returning('ai_agent_tool_call_uuid');
+
+        return toolCall.ai_agent_tool_call_uuid;
+    }
+
+    async getToolCallsForPrompt(
+        promptUuid: string,
+    ): Promise<DbAiAgentToolCall[]> {
+        return this.database(AiAgentToolCallTableName)
+            .where('ai_prompt_uuid', promptUuid)
+            .orderBy('created_at', 'asc');
+    }
+
+    async createToolResults(
+        data: Array<{
+            promptUuid: string;
+            toolCallId: string;
+            toolName: string;
+            result: string;
+        }>,
+    ): Promise<string[]> {
+        if (data.length === 0) return [];
+
+        return this.database.transaction(async (trx) => {
+            const toolResults = await trx(AiAgentToolResultTableName)
+                .insert(
+                    data.map((item) => ({
+                        ai_prompt_uuid: item.promptUuid,
+                        tool_call_id: item.toolCallId,
+                        tool_name: item.toolName,
+                        result: item.result,
+                    })),
+                )
+                .returning('ai_agent_tool_result_uuid');
+
+            return toolResults.map((tr) => tr.ai_agent_tool_result_uuid);
+        });
+    }
+
+    async getToolResultsForPrompt(
+        promptUuid: string,
+    ): Promise<DbAiAgentToolResult[]> {
+        return this.database(AiAgentToolResultTableName)
+            .where('ai_prompt_uuid', promptUuid)
+            .orderBy('created_at', 'asc');
+    }
+
+    async getToolCallsAndResultsForPrompt(promptUuid: string) {
+        const toolCallsAndResults = await this.database(
+            AiAgentToolCallTableName,
+        )
+            .select<
+                Array<
+                    Pick<
+                        DbAiAgentToolCall,
+                        | 'ai_agent_tool_call_uuid'
+                        | 'tool_call_id'
+                        | 'tool_name'
+                        | 'tool_args'
+                        | 'created_at'
+                    > &
+                        Pick<
+                            DbAiAgentToolResult,
+                            'ai_agent_tool_result_uuid' | 'result'
+                        >
+                >
+            >(
+                `${AiAgentToolCallTableName}.ai_agent_tool_call_uuid`,
+                `${AiAgentToolCallTableName}.tool_call_id`,
+                `${AiAgentToolCallTableName}.tool_name`,
+                `${AiAgentToolCallTableName}.tool_args`,
+                `${AiAgentToolCallTableName}.created_at`,
+                `${AiAgentToolResultTableName}.ai_agent_tool_result_uuid`,
+                `${AiAgentToolResultTableName}.result`,
+            )
+            // we only want to return tool_calls that have a matching tool_result
+            .innerJoin(
+                AiAgentToolResultTableName,
+                `${AiAgentToolCallTableName}.tool_call_id`,
+                `${AiAgentToolResultTableName}.tool_call_id`,
+            )
+            .where(`${AiAgentToolCallTableName}.ai_prompt_uuid`, promptUuid)
+            .andWhere(
+                `${AiAgentToolResultTableName}.ai_prompt_uuid`,
+                promptUuid,
+            )
+            .orderBy(`${AiAgentToolCallTableName}.created_at`, 'asc');
+
+        return toolCallsAndResults;
     }
 }

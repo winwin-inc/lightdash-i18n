@@ -1,9 +1,11 @@
+import { parseISO } from 'date-fns';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useInterval } from 'react-use';
+
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useInterval } from 'react-use';
 
 dayjs.extend(relativeTime);
 
@@ -14,23 +16,33 @@ const useFromNow = () => {
         switch (i18n.language) {
             case 'zh':
                 return dayjs(timeStamp).locale('zh-cn').fromNow();
-                break;
             default:
                 return dayjs(timeStamp).fromNow();
         }
     };
 };
 
-export const useTimeAgo = (timeStamp: Date, interval: number = 10000) => {
+export const useTimeAgo = (
+    dateOrString: Date | string,
+    interval: number = 10000,
+) => {
     const fromNow = useFromNow();
 
-    const [timeAgo, setTimeAgo] = useState<string>(fromNow(timeStamp));
+    const parsed = useMemo(() => {
+        return typeof dateOrString === 'string'
+            ? parseISO(dateOrString)
+            : dateOrString;
+    }, [dateOrString]);
+
+    const [timeAgo, setTimeAgo] = useState<string>(fromNow(parsed));
 
     useInterval(() => {
-        setTimeAgo(fromNow(timeStamp));
+        setTimeAgo(fromNow(parsed));
     }, interval);
+
     useEffect(() => {
-        setTimeAgo(fromNow(timeStamp));
-    }, [timeStamp, fromNow]);
+        setTimeAgo(fromNow(parsed));
+    }, [parsed, fromNow]);
+
     return timeAgo;
 };

@@ -36,6 +36,7 @@ import {
     ActionIcon,
     Badge,
     Box,
+    Button,
     Group,
     HoverCard,
     Menu,
@@ -70,6 +71,7 @@ import React, {
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { v4 as uuid4 } from 'uuid';
+import { formatChartErrorMessage } from '../../utils/chartErrorUtils';
 
 import { DashboardTileComments } from '../../features/comments';
 import { DateZoomInfoOnTile } from '../../features/dateZoom';
@@ -78,6 +80,7 @@ import {
     getExpectedSeriesMap,
     mergeExistingAndExpectedSeries,
 } from '../../hooks/cartesianChartConfig/utils';
+import { useDashboardChartDownload } from '../../hooks/dashboard/useDashboardChartDownload';
 import {
     useDashboardChartReadyQuery,
     type DashboardChartReadyQuery,
@@ -89,6 +92,7 @@ import useToaster from '../../hooks/toaster/useToaster';
 import { getExplorerUrlFromCreateSavedChartVersion } from '../../hooks/useExplorerRoute';
 import { useFeatureFlagEnabled } from '../../hooks/useFeatureFlagEnabled';
 import usePivotDimensions from '../../hooks/usePivotDimensions';
+import { useProjectUuid } from '../../hooks/useProjectUuid';
 import {
     useInfiniteQueryResults,
     type InfiniteQueryResults,
@@ -96,6 +100,7 @@ import {
 import { useDuplicateChartMutation } from '../../hooks/useSavedQuery';
 import { useCreateShareMutation } from '../../hooks/useShare';
 import { Can } from '../../providers/Ability';
+import { useAbilityContext } from '../../providers/Ability/useAbilityContext';
 import useApp from '../../providers/App/useApp';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import useTracking from '../../providers/Tracking/useTracking';
@@ -284,6 +289,10 @@ const ValidDashboardChartTile: FC<{
             colorPalette={chart.colorPalette}
             setEchartsRef={setEchartsRef}
             computedSeries={computedSeries}
+            parameters={
+                dashboardChartReadyQuery.executeQueryResponse
+                    .usedParametersValues
+            }
         >
             <LightdashVisualization
                 isDashboard
@@ -359,6 +368,10 @@ const ValidDashboardChartTileMinimal: FC<{
             colorPalette={chart.colorPalette}
             setEchartsRef={setEchartsRef}
             computedSeries={computedSeries}
+            parameters={
+                dashboardChartReadyQuery.executeQueryResponse
+                    .usedParametersValues
+            }
         >
             <LightdashVisualization
                 isDashboard
@@ -382,6 +395,7 @@ interface DashboardChartTileMainProps
     canExportImages?: boolean;
     canExportPagePdf?: boolean;
     canDateZoom?: boolean;
+    onExplore?: (options: { chart: SavedChart }) => void;
 }
 
 const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
@@ -764,26 +778,12 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
         chartWithDashboardFilters.metricQuery?.customDimensions;
 
     const { pathname: chartPathname, search: chartSearch } = useMemo(() => {
-        if (cannotUseCustomDimensions) {
-            const queryWithoutCustomDimensions = {
-                ...chartWithDashboardFilters,
-                metricQuery: {
-                    ...chartWithDashboardFilters.metricQuery,
-                    customDimensions: undefined,
-                },
-            };
-            return getExplorerUrlFromCreateSavedChartVersion(
-                chartWithDashboardFilters.projectUuid,
-                queryWithoutCustomDimensions,
-                true,
-            );
-        }
         return getExplorerUrlFromCreateSavedChartVersion(
             chartWithDashboardFilters.projectUuid,
             chartWithDashboardFilters,
             true,
         );
-    }, [chartWithDashboardFilters, cannotUseCustomDimensions]);
+    }, [chartWithDashboardFilters]);
 
     const [isCommentsMenuOpen, setIsCommentsMenuOpen] = useState(false);
     const showComments = useDashboardContext(
@@ -844,9 +844,18 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
         t,
     ]);
 
-    const getDownloadQueryUuid = useCallback(async () => {
-        return dashboardChartReadyQuery.executeQueryResponse.queryUuid;
-    }, [dashboardChartReadyQuery.executeQueryResponse.queryUuid]);
+    // Use the custom hook for dashboard chart downloads
+    const { getDownloadQueryUuid } = useDashboardChartDownload(
+        tileUuid,
+        chart.uuid,
+        projectUuid,
+        dashboardUuid,
+    );
+
+    const closeDataExportModal = useCallback(
+        () => setIsDataExportModalOpen(false),
+        [],
+    );
 
     return (
         <>
@@ -1322,11 +1331,27 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
             {isDataExportModalOpen ? (
                 <Modal
                     opened
-                    onClose={() => setIsDataExportModalOpen(false)}
-                    title={t(
-                        'components_dashboard_tiles_chart_title.menus.download_data',
-                    )}
-                    size="md"
+                    onClose={closeDataExportModal}
+                    title={
+                        <Group spacing="xs">
+                            <MantineIcon
+                                icon={IconTableExport}
+                                size="lg"
+                                color="gray.7"
+                            />
+                            <Text fw={600}>
+                                {t(
+                                    'components_dashboard_tiles_chart_title.menus.export_data',
+                                )}
+                            </Text>
+                        </Group>
+                    }
+                    styles={(theme) => ({
+                        header: {
+                            borderBottom: `1px solid ${theme.colors.gray[4]}`,
+                        },
+                        body: { padding: 0 },
+                    })}
                 >
                     <ExportResults
                         projectUuid={projectUuid!}
@@ -1340,7 +1365,37 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                         )}
                         hiddenFields={getHiddenTableFields(chart.chartConfig)}
                         pivotConfig={getPivotConfig(chart)}
-                        hideLimitSelection
+                        renderDialogActions={({ onExport, isExporting }) => (
+                            <Group
+                                position="right"
+                                sx={(theme) => ({
+                                    borderTop: `1px solid ${theme.colors.gray[4]}`,
+                                    bottom: 0,
+                                    padding: theme.spacing.md,
+                                })}
+                            >
+                                <Button
+                                    variant="outline"
+                                    onClick={closeDataExportModal}
+                                >
+                                    {t(
+                                        'components_dashboard_tiles_chart_title.menus.cancel',
+                                    )}
+                                </Button>
+
+                                <Button
+                                    loading={isExporting}
+                                    onClick={async () => {
+                                        await onExport();
+                                    }}
+                                    data-testid="chart-export-results-button"
+                                >
+                                    {t(
+                                        'components_dashboard_tiles_chart_title.menus.download',
+                                    )}
+                                </Button>
+                            </Group>
+                        )}
                     />
                 </Modal>
             ) : null}
@@ -1358,6 +1413,7 @@ const DashboardChartTileMinimal: FC<DashboardChartTileMainProps> = (props) => {
         resultsData,
         canExportCsv,
         canExportImages,
+        onExplore,
     } = props;
 
     const {
@@ -1365,7 +1421,8 @@ const DashboardChartTileMinimal: FC<DashboardChartTileMainProps> = (props) => {
         explore,
         executeQueryResponse: { fields },
     } = dashboardChartReadyQuery;
-    const { projectUuid } = useParams<{ projectUuid: string }>();
+    const projectUuid = useProjectUuid();
+    const ability = useAbilityContext();
     const [echartRef, setEchartRef] = useState<
         RefObject<EChartsReact | null> | undefined
     >();
@@ -1374,6 +1431,23 @@ const DashboardChartTileMinimal: FC<DashboardChartTileMainProps> = (props) => {
         () => ({ ...resultsData, fields }),
         [resultsData, fields],
     );
+
+    const handleExploreFromHere = useCallback(() => {
+        if (onExplore) {
+            onExplore({ chart });
+        }
+    }, [onExplore, chart]);
+
+    const canExplore = ability.can(
+        'view',
+        subject('Explore', {
+            organizationUuid: chart.organizationUuid,
+            projectUuid,
+        }),
+    );
+
+    const isEmbeddedExploreEnabled =
+        canExplore && typeof onExplore === 'function';
 
     return (
         <TileBase
@@ -1385,8 +1459,17 @@ const DashboardChartTileMinimal: FC<DashboardChartTileMainProps> = (props) => {
             extraMenuItems={
                 canExportCsv ||
                 (canExportImages &&
-                    !isTableChartConfig(chart.chartConfig.config)) ? (
+                    !isTableChartConfig(chart.chartConfig.config)) ||
+                isEmbeddedExploreEnabled ? (
                     <>
+                        {isEmbeddedExploreEnabled && (
+                            <Menu.Item
+                                icon={<MantineIcon icon={IconTelescope} />}
+                                onClick={handleExploreFromHere}
+                            >
+                                Explore from here
+                            </Menu.Item>
+                        )}
                         {canExportCsv && (
                             <DashboardMinimalDownloadCsv
                                 explore={explore}
@@ -1430,6 +1513,7 @@ type DashboardChartTileProps = Omit<
     canExportImages?: boolean;
     dashboardChartReadyQuery?: DashboardChartReadyQuery;
     resultsData?: InfiniteQueryResults;
+    onExplore?: (options: { chart: SavedChart }) => void;
 };
 
 // Abstraction needed for enterprise version
@@ -1449,6 +1533,7 @@ export const GenericDashboardChartTile: FC<
     error,
     canExportCsv = false,
     canExportImages = false,
+    onExplore,
     ...rest
 }) => {
     const { t } = useTranslation();
@@ -1492,12 +1577,15 @@ export const GenericDashboardChartTile: FC<
             >
                 <SuboptimalState
                     icon={IconAlertCircle}
-                    title={
+                    title={formatChartErrorMessage(
+                        dashboardChartReadyQuery?.chart?.name ||
+                            tile.properties.chartName ||
+                            undefined,
                         error?.error?.message ||
-                        t(
-                            'components_dashboard_tiles_chart_title.no_data_available',
-                        )
-                    }
+                            t(
+                                'components_dashboard_tiles_chart_title.no_data_available',
+                            ),
+                    )}
                 ></SuboptimalState>
             </TileBase>
         );
@@ -1545,6 +1633,7 @@ export const GenericDashboardChartTile: FC<
                     dashboardChartReadyQuery={dashboardChartReadyQuery}
                     canExportCsv={canExportCsv}
                     canExportImages={canExportImages}
+                    onExplore={onExplore}
                 />
             ) : (
                 <DashboardChartTileMain
@@ -1553,6 +1642,7 @@ export const GenericDashboardChartTile: FC<
                     isEditMode={isEditMode}
                     resultsData={resultsData}
                     dashboardChartReadyQuery={dashboardChartReadyQuery}
+                    onExplore={onExplore}
                 />
             )}
             <UnderlyingDataModal />
@@ -1563,6 +1653,7 @@ export const GenericDashboardChartTile: FC<
 
 const DashboardChartTile: FC<DashboardChartTileProps> = (props) => {
     const readyQuery = useDashboardChartReadyQuery(
+        props.tile.tabUuid ?? "",
         props.tile.uuid,
         props.tile.properties?.savedChartUuid,
     );
@@ -1570,6 +1661,7 @@ const DashboardChartTile: FC<DashboardChartTileProps> = (props) => {
     const resultsData = useInfiniteQueryResults(
         readyQuery.data?.chart.projectUuid,
         readyQuery.data?.executeQueryResponse.queryUuid,
+        readyQuery.data?.chart.name,
     );
 
     const isLoading = useMemo(() => {

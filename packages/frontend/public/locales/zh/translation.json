@@ -41,7 +41,9 @@
     "hooks_access_token": {
         "toast_created": "创建令牌失败",
         "toast_deleted": "成功！您的令牌已删除。",
-        "toast_deleted_error": "删除令牌失败"
+        "toast_deleted_error": "删除令牌失败",
+        "toast_rotated": "成功！您的令牌已旋转。",
+        "toast_rotated_error": "旋转令牌失败"
     },
     "hooks_big_number_config": {
         "compare": "与上一行相比：{{comparisonValue}}",
@@ -89,6 +91,27 @@
         "updated_group_success": "成功！空间组访问权限已更新！",
         "updated_group_error": "更新空间组访问权限失败"
     },
+    "hooks_dashboard": {
+      "generate_preview_for": "正在生成 {{name}} 的预览",
+      "is_being_exported": "{{name}} 正在导出。这可能需要几秒钟。",
+      "success": "成功！",
+      "success_export": "成功！{{name}} 已导出。",
+      "failed_export": "导出 {{name}} 失败",
+      "failed_preview": "生成 {{name}} 预览失败",
+      "missing_file_url": "{{name}} 缺少文件 URL",
+      "something_went_wrong": "Something went wrong",
+      "failed_to_export": "导出 {{name}} 失败",
+      "dashboard_not_found": "看板未找到",
+      "success_update": "成功！看板 {{name}} 已更新。",
+      "open_dashboard": "打开看板",
+      "failed_to_update": "更新看板失败",
+      "success_create": "成功！看板已创建。",
+      "failed_to_create": "创建看板失败",
+      "success_duplicate": "成功！看板已复制。",
+      "failed_to_duplicate": "复制看板失败",
+      "success_delete": "成功！看板已删除。",
+      "failed_to_delete": "删除看板失败"
+    },
     "hooks_dashboards": {
         "success": "成功！看板已更新。",
         "error": "更新看板失败"
@@ -130,6 +153,18 @@
             "error": "设置活动颜色调色板失败"
         }
     },
+    "hooks_organization_groups": {
+      "create_success": "成功！组已创建。",
+      "create_error": "创建组失败",
+      "update_success": "成功！组 '{{name}}' 已更新。",
+      "update_error": "更新组失败",
+      "delete_success": "成功！组 '{{name}}' 已删除。",
+      "delete_error": "删除组失败"
+    },
+    "hooks_project": {
+      "update_error": "更新项目失败",
+      "create_error": "创建项目失败"
+    },
     "hooks_index_catalog_job": {
         "success": "成功刷新目录",
         "error": "刷新目录失败"
@@ -161,6 +196,18 @@
             "items": "项"
         },
         "invalid_action_type": "无效的操作类型"
+    },
+    "hooks_toaster": {
+      "snowflake": {
+        "title": "Snowflake 认证错误",
+        "message": "您可以尝试重新认证 Snowflake:"
+      },
+      "contact_support": {
+        "title": "请提供以下信息联系支持:",
+        "error_id": "错误 ID",
+        "trace_id": "跟踪 ID",
+        "copied": "已复制"
+      }
     },
 
     "providers_active_job": {
@@ -259,6 +306,13 @@
         }
     },
     "features_table_calculation_modal": {
+        "type_labels": {
+          "number": "数字",
+          "string": "字符串",
+          "date": "日期",
+          "timestamp": "时间戳",
+          "boolean": "布尔值"
+        },
         "tips": {
             "invalid": "具有此标签的表计算/维度已存在",
             "error": "保存时出错",
@@ -737,6 +791,15 @@
     "features_sql_runner_transformers_sql_chart": {
         "unknown_chart_type": "未知的图表类型"
     },
+    "features_sql_runner_sql_editor_preferences_popover": {
+      "autocomplete_preferences": "自动补全偏好",
+      "quotes": "引号",
+      "always": "总是",
+      "never": "从不",
+      "casing": "大小写",
+      "uppercase": "大写",
+      "lowercase": "小写"
+    },
 
     "features_comments_components_comment_mentions": {
         "add_comment": "添加评论 (输入 @ 可标记某人)",
@@ -785,6 +848,13 @@
         "select_dashboards_description": "只有这些看板可以被嵌入。",
         "save_changes": "保存更改"
     },
+    "features_embed_explore": {
+        "missing_project_uuid": "缺少项目 UUID",
+        "error_loading_explore": "加载探索失败",
+        "this_embed_link_has_expired": "此嵌入链接已过期",
+        "tables": "表格"
+    },
+
 
     "features_mertic_flow": {
         "time_granularity": "时间粒度",
@@ -1516,11 +1586,13 @@
         "source": "来源"
     },
     "features_ai_copilot_agents_details": {
+        "conversation_preview": "对话预览",
         "conversation_details": "对话详情",
         "loading_conversation": "加载对话...",
         "started_by": "由 {{user}} 于 {{date}} 开始",
         "ai_assistant": "AI 助手",
-        "thread_not_found": "未找到对话"
+        "thread_not_found": "未找到对话",
+        "open_chat_in_new_tab": "在新标签页中打开对话"
     },
     "features_ai_copilot_agents_hooks": {
         "failed_to_fetch_agents": "获取AI代理失败",
@@ -1550,11 +1622,22 @@
         }
     },
     "features_ai_copilot_chat_elements": {
+        "no_response": "没有响应...",
+        "loading_visualization": "正在加载可视化...",
         "processing": "正在处理您的请求，这可能需要一段时间",
         "something_went_wrong": "生成可视化时出现问题，请重试",
         "feedback_sent": "反馈已发送",
         "open_in_explore": "在探索中打开",
         "continue_exploring": "继续探索"
+    },
+    "features_ai_copilot_chat_elements_tool_calls": {
+      "how_it_is_calculated": "如何计算",
+      "searched_relevant_explores": "搜索相关探索",
+      "searched_for_fields": "搜索字段"
+    },
+    "features_ai_copilot_default_agent_button": {
+      "remove_as_default_agent": "移除为默认代理",
+      "set_as_default_agent": "设置为默认代理"
     },
     "features_ai_copilot_chat_input": {
         "placeholder": "问任何关于您数据的问题...",
@@ -1574,11 +1657,157 @@
         "thinking": "思考中...",
         "failed_to_generate_response": "生成AI代理对话响应失败",
         "failed_to_fetch_viz": "获取可视化失败",
-        "failed_to_submit_feedback": "提交反馈失败"
+        "failed_to_submit_feedback": "提交反馈失败",
+        "failed_to_save_prompt_query": "保存提示查询失败"
     },
     "features_ai_copilot_project_hooks": {
         "failed_to_fetch_agents": "获取AI代理失败",
-        "failed_to_fetch_project_agent": "获取项目AI代理失败"
+        "failed_to_fetch_project_agent": "获取项目AI代理失败",
+        "agent_created_successfully": "AI代理创建成功",
+        "failed_to_create_agent": "创建AI代理失败",
+        "agent_updated_successfully": "AI代理更新成功",
+        "failed_to_update_agent": "更新AI代理失败"
+    },
+    "features_ai_copilot_instructions": {
+      "guidelines": {
+        "domain_knowledge": {
+          "title": "领域知识",
+          "description": "指定行业、领域或专业知识。包括相关方法论、框架和技术知识。"
+        },
+        "company_context": {
+          "title": "公司背景",
+          "description": "包括相关业务背景、目标和约束。提及行业、目标受众和战略目标。"
+        },
+        "analysis_preferences": {
+          "title": "分析偏好",
+          "description": "定义数据应如何分析和呈现。指定首选指标、维度、可视化类型和报告格式。"
+        },
+        "role_and_expertise": {
+          "title": "角色与专业",
+          "description": "描述分析师的角色、职责和专业水平。定义沟通风格和决策权。"
+        }
+      },
+      "templates": {
+        "marketing_expert": {
+          "title": "营销专家",
+          "description": "您分析我们 B2B SaaS 公司的营销表现。重点关注 CAC、ROAS 和管道归因。当 CAC 超过 $200 或 ROAS 低于 3:1 时，标记为关注。以可操作的术语向我们的营销经理呈现见解。始终包括营销活动表现比较和优化策略建议。自然使用营销术语，如 CTR、CPM 和 MQL。"
+        },
+        "healthcare_analyst": {
+          "title": "医疗分析师",
+          "description": "您分析我们医疗系统的临床结果和运营指标。重点关注患者满意度得分、再入院率和住院时间。将再入院率超过 15% 标记为关键。以清晰的方式向临床工作人员和行政人员呈现发现。始终包括趋势分析和质量指标的相关性。考虑流感季节等季节性模式的影响。"
+        },
+        "operations_manager": {
+          "title": "运营经理",
+          "description": "您分析我们制造公司的供应链和运营效率。重点关注库存周转率、生产能力和交付表现。当准时交付率低于 95% 或库存天数超过 45 时，立即突出显示。以可操作的术语向运营团队呈现见解。始终包括瓶颈分析和资源利用率建议。"
+        },
+        "financial_expert": {
+          "title": "财务专家",
+          "description": "您分析我们企业公司的财务表现。重点关注收入增长、毛利率和现金流。当毛利率低于 60% 或烧钱率超过每月目标时，标记为紧急。以我们的 CFO 和财务团队理解的方式呈现见解。始终包括预算和预测的差异分析。自然使用财务术语，如 EBITDA、DSO 和营运资本。"
+        },
+        "ecommerce_analyst": {
+          "title": "电商分析师",
+          "description": "您分析我们在线零售公司的电商表现。重点关注转化率、平均订单价值和购物车放弃率。当转化率低于 5% 或平均订单价值低于 $100 时，标记为关键。以可操作的术语向我们的电商团队呈现见解。始终包括 A/B 测试建议和转化率优化策略。自然使用电商术语，如 CTR、CVR 和购物车放弃。"
+        },
+        "education_analyst": {
+          "title": "教育分析师",
+          "description": "您分析我们大学的学术表现和机构指标。重点关注招生趋势、留存率和学术成果。当留存率低于 85% 或毕业率下降时，标记为关键。向学术领导者和行政人员呈现发现。始终包括人口统计细分和识别高风险学生群体。考虑学期周期和特定项目的性能。"
+        },
+        "banking_risk_analyst": {
+          "title": "银行风险分析师",
+          "description": "您分析我们商业银行的信用风险和投资组合表现。重点关注违约率、信贷利用率和投资组合集中度。当违约率超过 2% 或任何行业集中度超过 15% 时，立即标记。向我们的风险委员会和贷款经理呈现见解。始终包括压力测试场景和监管合规考虑。自然使用银行术语，如 NPL、LGD 和 PD。"
+        }
+      }
+    },
+
+    "features_service_accounts": {
+      "service_accounts": "服务账户",
+      "add_service_account": "添加服务账户",
+      "no_service_accounts": "没有服务账户",
+      "no_service_accounts_description": "您还没有创建任何服务账户。创建您的第一个服务账户",
+      "create_service_account": "创建服务账户"
+    },
+    "features_service_accounts_create_modal": {
+      "expire_options": {
+        "no_expiration": "无过期",
+        "7_days": "7 天",
+        "30_days": "30 天",
+        "60_days": "60 天",
+        "90_days": "90 天",
+        "180_days": "180 天",
+        "365_days": "365 天"
+      },
+      "at_least_one_scope_required": "至少需要一个范围",
+      "new_service_account": "新服务账户",
+      "form": {
+        "description": {
+          "label": "描述",
+          "placeholder": "这个服务账户是用来做什么的？"
+        },
+        "expires_at": {
+          "label": "过期时间"
+        },
+        "scopes": {
+          "label": "范围",
+          "placeholder": "选择范围"
+        }
+      },
+      "token": "令牌",
+      "copy": "复制",
+      "copied": "已复制",
+      "create_service_account": "创建服务账户",
+      "make_sure_to_copy_token": "请确保现在复制您的访问令牌。您将无法再次看到它！",
+      "done": "完成"
+    },
+    "features_service_accounts_delete_modal": {
+      "delete_service_account": "删除服务账户",
+      "content": {
+        "part_1": "您确定吗？这将永久删除",
+        "part_2": "服务账户。"
+      },
+      "cancel": "取消",
+      "delete": "删除"
+    },
+    "features_service_accounts_table": {
+      "scopes": "范围",
+      "selected_scopes": "已选范围",
+      "no_expiration_date": "无过期时间",
+      "last_rotated_at": "上次旋转时间 {{date}}",
+      "columns": {
+        "description": "描述",
+        "scopes": "范围",
+        "expires_at": "过期时间",
+        "last_used_at": "上次使用时间"
+      }
+    },
+    "features_service_accounts_hooks": {
+      "service_account_created": "服务账户创建成功",
+      "failed_to_create_service_account": "创建服务账户失败",
+      "service_account_deleted": "服务账户删除成功",
+      "failed_to_delete_service_account": "删除服务账户失败"
+    },
+
+    "features_parameters": {
+      "parameters": "参数"
+    },
+    "features_parameters_input": {
+      "showing_first_results": "显示前 {{count}} 个结果。",
+      "continue": "继续",
+      "start": "开始",
+      "refresh_filter_values": "点击这里刷新过滤器值",
+      "results_loaded_at": "结果加载于 {{date}}",
+      "add": "添加",
+      "loading": "加载中...",
+      "no_results_found": "没有结果",
+      "default": "默认值",
+      "choose_value": "选择值..."
+    },
+    "features_parameters_selection": {
+      "loading": "加载参数...",
+      "failed_to_load_parameters": "加载参数失败",
+      "no_parameters_available": "没有参数可用",
+      "error_loading_parameter": "加载参数失败",
+      "clear_all_parameters": "清除所有参数",
+      "clear_all": "清除所有"
     },
 
     "components_common_paginate": {
@@ -1590,7 +1819,10 @@
         "last_edited": "最近编辑",
         "by": "由",
         "views_slice": "次查看 (自)",
-        "views": "次查看"
+        "views": "次查看",
+        "slug": "Slug",
+        "copy_slug": "复制 Slug",
+        "space": "空间"
     },
     "components_common_share_space_modal": {
         "share": "共享",
@@ -1600,7 +1832,7 @@
             "part_2": "现有的项目成员",
             "part_3": "共享空间。",
             "part_4": "在我们的",
-            "part_5": "文档",
+            "part_5": " 文档 ",
             "part_6": "中了解更多关于权限的信息。"
         },
         "nested_space": {
@@ -1700,7 +1932,8 @@
             "pin_to_homepage": "固定到主页",
             "scheduled_delivery": "定期推送",
             "export_dashboard": "导出看板",
-            "delete": "删除"
+            "delete": "删除",
+            "create": "创建"
         },
         "tooltip_upstream": {
             "upstream_project": "您必须先在设置 > 数据操作中启用上游项目",
@@ -1811,6 +2044,7 @@
             "loading": "加载中...",
             "no_results": "未找到任何结果"
         },
+        "filter_not_available": "过滤器不可用",
         "select_value": "选择值",
         "filter_operator_labels": {
             "is_null": "是空值",
@@ -2003,7 +2237,10 @@
                     "part_2": "编辑",
                     "part_3": "模式下添加的筛选器才会被保存"
                 },
-                "content": "添加筛选器"
+                "content": {
+                    "global": "添加全局筛选器",
+                    "tab": "添加标签筛选器"
+                }
             },
             "inactive_filter": {
                 "part_1": "此筛选器仅适用于标签",
@@ -2132,7 +2369,8 @@
     "components_settings_validator": {
         "tip": "使用项目验证器检查项目中哪些内容已损坏。",
         "run_validation": "运行验证",
-        "no_validation_errors_found": "未发现验证错误"
+        "no_validation_errors_found": "未发现验证错误",
+        "last_validated_at": "上次验证时间: {{date}}"
     },
     "components_settings_validator_modal": {
         "rename_tip": "您可以通过重命名受影响的字段或模型来重命名缺失的维度，使用下拉菜单。",
@@ -2334,6 +2572,7 @@
                 "placeholder": "搜索...",
                 "no_charts_found": "未找到图表"
             },
+            "load_more": "加载更多",
             "cancel": "取消",
             "add": "添加"
         }
@@ -2411,6 +2650,7 @@
         "tooltip_editing_actions": "请完成看板编辑以使用这些操作",
         "tooltip_custom_dimensions": "此图表包含自定义维度,您将无法在\"探索\"中运行自定义 SQL。",
         "menus": {
+            "export_data": "导出数据",
             "explore_from_here": "从这里探索",
             "download_data": "下载数据",
             "export_csv": "导出 CSV",
@@ -2418,7 +2658,9 @@
             "duplicate_chart": "复制图表",
             "copy_of": "复制 {{name}}",
             "copy_value": "复制值",
-            "view_underlying_data": "查看基础数据"
+            "view_underlying_data": "查看基础数据",
+            "cancel": "取消",
+            "download": "下载"
         },
         "tooltip_editing_chart": "请完成看板编辑以编辑此图表",
         "no_data_available": "没有可用数据",
@@ -2430,6 +2672,7 @@
     },
     "components_dashboard_tiles_sql_chart": {
         "edit_sql_chart": "编辑 SQL 图表",
+        "error_fetching_chart": "获取图表时出错",
         "no_data_available": "没有可用数据",
         "no_data": "没有数据"
     },
@@ -2439,6 +2682,8 @@
             "success": "计划交付已成功刷新"
         },
         "loading": "正在加载计划交付",
+        "scheduled_deliveries": "计划交付",
+        "click_to_refresh": "点击刷新计划交付的状态",
         "tabs": {
             "all_schedulers": "所有调度程序",
             "run_history": "运行历史记录",
@@ -2487,6 +2732,7 @@
             "label": "名称",
             "groups": {
                 "csv": "CSV",
+                "xlsx": "XLSX",
                 "image": "图像",
                 "google_sheets": "Google Sheets",
                 "schedule_type": "计划类型:",
@@ -2508,7 +2754,12 @@
         "last_deliver_start": {
             "label": "上次交付开始",
             "no_deliveries_started": "尚未开始任何交付"
-        }
+        },
+        "search": {
+            "label": "通过名称搜索调度程序"
+        },
+        "loading": "正在加载调度程序",
+        "no_schedulers": "未找到调度程序"
     },
     "components_schedulers_view_action_menu": {
         "edit_schedule": "编辑计划",
@@ -3507,8 +3758,19 @@
     "components_user_settings_access_tokens_panel_tokens_table": {
         "no_expiration_date": "无到期日期",
         "last_rotated_at": "最后更新时间",
+        "copy_token_uuid": "复制令牌UUID",
+        "token_rotated_successfully": "令牌已成功旋转! 您的旧令牌现已失效。",
+        "new_token": "新令牌",
         "copied": "已复制",
         "copy": "复制",
+        "mark_sure_to_copy": "请务必立即复制您的个人访问令牌。您将无法再次查看它!",
+        "done": "完成",
+        "rotating_token": "正在旋转令牌: {{description}}",
+        "rotating_token_description": "这将生成一个新令牌并使当前令牌失效。您必须指定一个新的到期日期。",
+        "new_expiration": "新过期日期",
+        "cancel": "取消",
+        "rotate_token": "旋转令牌",
+        "delete": "删除",
         "table_columns": {
             "description": "描述",
             "expiration_date": "到期日期",
@@ -3523,6 +3785,23 @@
             },
             "cancel": "取消",
             "delete": "删除"
+        
+        },
+        "token_modal": {
+          "token_uuid": {
+            "part_1": "令牌UUID",
+            "part_2": "为 \"{{description}}\" 生成"
+          },
+          "content": {
+            "part_1": "什么是令牌UUID?",
+            "part_2": {
+              "part_1": "UUID是令牌的唯一标识符,用于通过CLI进行令牌旋转",
+              "part_2": "这<strong>不是</strong>您的个人访问令牌值。"
+            }
+          },
+          "copied": "已复制!",
+          "copy_uuid": "复制UUID",
+          "done": "完成"
         }
     },
     "components_user_settings_organization_panel": {
@@ -3627,18 +3906,23 @@
                 "part_1": "配置Slack频道项目映射",
                 "part_2": "这里",
                 "part_3": "了解更多。"
-            },
-            "ai_copilot_flag": {
-                "title": " AI Agents 线程访问同意",
-                "description": "允许 AI Agents 访问线程消息,当用户在对话中提及机器人时。",
-                "tooltip": "线程越长, AI Agents 拥有的上下文越多。",
-                "allow_thread_messages": "允许 AI 访问线程消息",
-                "configure": {
-                    "part_1": "配置 Slack 频道项目映射",
-                    "part_2": "这里",
-                    "part_3": "。"
-                }
             }
+        },
+        "ai_copilot_flag": {
+          "title": " AI Agents 线程访问同意",
+          "description": "允许 AI Agents 访问线程消息,当用户在对话中提及机器人时。",
+          "tooltip": "线程越长, AI Agents 拥有的上下文越多。",
+          "allow_thread_messages": "允许 AI 访问线程消息",
+          "configure": {
+              "part_1": "配置 AI Agents 可以访问的频道",
+              "part_2": "这里",
+              "part_3": "。"
+          },
+          "ai_agents_oauth_requirement": {
+            "title": "AI Agents OAuth 要求",
+            "description": "启用后,用户必须通过OAuth使用AI Agent功能。"
+          },
+          "require_oauth_for_ai_agent": "要求AI Agent使用OAuth"
         },
         "tip": "您的Slack集成已过期,您应该重新安装Slack集成以确保最佳用户体验。",
         "reinstall": "重新安装",
@@ -3701,6 +3985,7 @@
             "cancel": "取消",
             "delete": "删除"
         },
+        "error_fetching_groups": "加载用户群组功能标志时出错",
         "loding_groups": "正在加载群组",
         "search_groups": "按名称、成员或成员邮箱搜索群组",
         "add_group": "添加群组",
@@ -3802,6 +4087,7 @@
             "delete": "删除"
         },
         "loading": "正在加载用户属性",
+        "error": "加载用户属性时出错",
         "user_and_group_attributes": "用户和群组属性",
         "user_attributes": "用户属性",
         "tooltip": {
@@ -4321,8 +4607,54 @@
             "conditional_formating": "条件格式化"
         }
     },
+    "components_visualization_configs_treemap": {
+        "tabs": {
+            "layout": "布局",
+            "display": "显示"
+        },
+        "display_config": {
+            "minimum_section_size": {
+                "label": "最小区块大小",
+                "tooltip": "任何小于此大小的区块都不会显示。您可以放大以查看更小的区块。"
+            },
+            "max_leaf_depth": {
+                "label": "最大叶子深度",
+                "tooltip": "要显示的树的最大深度。这对于限制显示的区块数量很有用。",
+                "no_limit": "无限制"
+            }
+        },
+        "layout_config": {
+            "dimension_hierarchy": {
+                "label": "维度层次结构",
+                "tooltip": "拖放您的维度以按层次结构排序。",
+                "select_dimension": "选择维度"
+            },
+            "size_metric": {
+                "label": "大小指标",
+                "tooltip": "确定每个区块的大小。",
+                "select_metric": "选择指标"
+            },
+            "color_metric": {
+                "label": "颜色指标",
+                "tooltip": "根据指标动态设置节点的颜色。如果未设置，则 treemap 将使用默认颜色方案。",
+                "select_metric": "选择指标",
+                "min_color": "最小颜色",
+                "threshold": "阈值",
+                "auto": "自动（每级）",
+                "max_color": "最大颜色"
+            }
+        }
+    },
     "components_visualization_configs_custom_vis": {
-        "placeholder": "开始输入您的 Vega-Lite JSON代码或从我们的预构建模板中选择以创建您的图表。"
+        "placeholder": "开始输入您的 Vega-Lite JSON代码或从我们的预构建模板中选择以创建您的图表。",
+        "templates": {
+            "bar_chart": "条形图",
+            "heatmap": "热图",
+            "bubble_plots": "气泡图",
+            "funnel_chart": "漏斗图",
+            "waterfall_chart": "瀑布图",
+            "map": "地图"
+        }
     },
     "components_visualization_configs_custom_vis_ai": {
         "placeholder": "创建一个带有详细工具提示和清晰值的热图，用于快速洞察",
@@ -4619,15 +4951,42 @@
         "tooltip_limit": {
             "label": "已达到 {{limit}} 的查询限制。可能还有其他未显示的结果。要查看更多,请增加查询限制或尝试缩小筛选器。",
             "content": "结果可能不完整"
-        }
+        },
+        "query_warnings": "查询警告"
     },
     "components_explorer_format_form": {
+        "type_labels": {
+          "id": "ID",
+          "date": "日期",
+          "timestamp": "时间戳",
+          "default": "默认",
+          "percent": "百分比",
+          "currency": "货币",
+          "number": "数字",
+          "bytes_si": "字节 (SI)",
+          "bytes_iec": "字节 (IEC)",
+          "custom": "自定义"
+        },
         "type": {
             "label": "类型",
+            "data": {
+                "bytes_si": "字节 (SI)",
+                "bytes_iec": "字节 (IEC)"
+            },
             "content": {
                 "part_1": "看起来像: "
             }
         },
+        "format": {
+          "format": "格式",
+          "label": "格式表达式",
+          "placeholder": "例如: #.#0",
+          "description":{
+            "part_1": "要帮助您构建格式表达式，我们建议使用",
+            "part_2": "https://customformats.com",
+            "part_3": "."
+          }
+      },
         "currency": {
             "label": "货币"
         },
@@ -4640,7 +4999,11 @@
         },
         "compact": {
             "label": "紧凑",
-            "placeholder": "例如千位(K)"
+            "placeholder": {
+              "part_1": "例如千位(K)",
+              "part_2": "例如千字节(KB)",
+              "part_3": "例如千字节(KiB)"
+            }
         },
         "perfix": {
             "label": "前缀",
@@ -4649,14 +5012,18 @@
         "suffix": {
             "label": "后缀",
             "placeholder": "例如 km/h"
-        }
+        },
+        "default_separator": "默认分隔符"
     },
     "components_explorer_format_modal": {
+        "format_metric": "格式化指标",
         "reset": "重置",
         "save_changes": "保存更改"
     },
     "components_explorer_results_card": {
-        "title": "结果"
+        "title": "结果",
+        "format": "格式",
+        "edit_format": "编辑格式"
     },
     "components_explorer_results_card_column_context_menu": {
         "filter": "过滤",
@@ -4739,7 +5106,8 @@
         },
         "explore_error_state": {
             "title": "加载结果时出错",
-            "description": "加载结果时出错"
+            "description": "加载结果时出错",
+            "detail": "了解如何解决此问题，请参阅我们的文档 →"
         }
     },
     "components_explorer_save_charts_header": {
@@ -4826,6 +5194,11 @@
             "move": "移动"
         }
     },
+    "components_explorer_visualization_config": {
+      "configure_chart": "配置图表",
+      "close_visualization_config": "关闭可视化配置",
+      "chart_type": "图表类型"
+    },
     "components_explorer_visualization_card": {
         "chart": "图表",
         "charts": "图表",
@@ -4853,7 +5226,9 @@
             "big_value": "大数值",
             "pie_chart": "饼图",
             "funnel_chart": "漏斗图",
-            "custom": "自定义"
+            "treemap": "树状图",
+            "custom": "自定义",
+            "unknown": "未知图表类型"
         },
         "menus": {
             "bar_chart": "条形图",
@@ -4863,6 +5238,7 @@
             "scatter_chart": "散点图",
             "pie_chart": "饼图",
             "funnel_chart": "漏斗图",
+            "treemap": "树状图",
             "table": "表格",
             "big_value": "大数值",
             "custom": "自定义"
@@ -4890,6 +5266,10 @@
             "open_pr": "打开拉取请求",
             "failed_to_write_back": "写回自定义指标失败"
         }
+    },
+    "components_explorer_parameters_card": {
+      "title": "参数",
+      "no_model_selected": "未选择模型"
     },
 
     "components_common_resource_view_grid": {
@@ -5038,6 +5418,7 @@
             "mixed_chart": "混合图表",
             "pie_chart": "饼图",
             "funnel_chart": "漏斗图",
+            "treemap": "树状图",
             "table": "表格",
             "big_number": "大数值",
             "custom_visualization": "自定义可视化",
@@ -5106,6 +5487,12 @@
     },
     "components_sql_runner_results_table": {
         "description": "单击运行查询以查看结果"
+    },
+    "components_sql_runner_actions": {
+      "disable_editor_soft_wrap": "禁用编辑器软换行",
+      "enable_editor_soft_wrap": "启用编辑器软换行",
+      "copied_to_clipboard": "已复制到剪贴板！",
+      "copy": "复制"
     },
     "pages_sql_runner_new": {
         "error": {
@@ -5186,6 +5573,15 @@
             "copy_value": "复制值"
         }
     },
+    "components_simple_treemap": {
+        "empty": {
+            "title": "无可用数据",
+            "description": "查询结果指标和维度。"
+        },
+        "loading": {
+            "title": "正在加载图表"
+        }
+    },
     "components_sort_button": {
         "no_sort": "未排序",
         "fields": "字段",
@@ -5232,7 +5628,7 @@
         "export": "导出 CSV"
     },
     "components_export_selector": {
-        "export_selector": "返回导出选择器",
+        "export_selector": "返回导出筛选器",
         "csv": "CSV",
         "download_data": "下载数据"
     },
@@ -5249,6 +5645,7 @@
             "title": "无法下载 CSV"
         },
         "no_data_to_export": "没有可导出的数据",
+        "file_format": "文件格式",
         "radio_groups_values": {
             "part_1": "格式化",
             "part_2": "原始"
@@ -5262,6 +5659,7 @@
             "part_2": "所有结果",
             "part_3": "自定义..."
         },
+        "prvot_tables_warning": "Pivot 导出限制为 {{csvCellsLimit}} 个单元格和 {{maxColumnLimit}} 列。",
         "limit": "Excel 导出限制为 1,000,000 行。",
         "download": "下载"
     },
@@ -5535,10 +5933,10 @@
         },
         "advanced": {
             "title": "高级",
-            "selector": "dbt 选择器",
-            "invalid": "dbt 选择器无效",
+            "selector": "dbt 筛选器",
+            "invalid": "dbt 筛选器无效",
             "content": {
-                "part_1": "添加 dbt 选择器以过滤掉您的 dbt 项目中的模型。您可以在",
+                "part_1": "添加 dbt 筛选器以过滤掉您的 dbt 项目中的模型。您可以在",
                 "part_2": "我们的文档",
                 "part_3": "中了解更多信息。"
             }
@@ -5986,7 +6384,8 @@
                 },
                 "data": {
                     "service_account": "服务账户 (JSON 密钥文件)",
-                    "user_account": "用户账户 (使用 Google 登录)"
+                    "user_account": "用户账户 (使用 Google 登录)",
+                    "application_default_credentials": "应用默认凭证"
                 },
                 "tooltip": "您已连接到 BigQuery"
             },
@@ -6589,6 +6988,11 @@
         }
     },
 
+    "components_lightdash_visualization": {
+      "unable_to_load_visualization": "无法加载图表",
+      "learn_how_to_resolve_this_in_our_documentation": "学习如何解决此问题 →"
+    },
+
     "pages_chart_history": {
         "title": "图表版本历史记录",
         "bread_crumbs": {
@@ -6866,6 +7270,156 @@
         "chart": "图表",
         "results": "结果"
     },
+    "pages_slack_auth_success": {
+        "title": "Slack 连接成功！",
+        "description": "您的 Slack 账户现已连接到 Lightdash。您现在可以通过在 Slack 频道中提及机器人来使用 AI 代理。"
+    },
+    "pages_ai_agents_redirect": {
+      "not_allowed": "您没有权限访问此视图"
+    },
+    "pages_ai_agents_welcome": {
+      "agent_features": {
+        "analyze": {
+          "title": "分析您的数据",
+          "description": "询问有关销售、收入、客户和绩效指标的问题"
+        },
+        "get_insights": {
+          "title": "获取洞察",
+          "description": "发现趋势、模式和可操作的建议"
+        },
+        "create_visualizations": {
+          "title": "创建可视化",
+          "description": "生成图表、图表和表格来可视化您的业务指标"
+        },
+        "specialized_agents": {
+          "title": "专用代理",
+          "description": "创建针对特定部门（如财务、销售或营销）训练的定制 AI 代理"
+        }
+      },
+      "something_went_wrong": "出错了...",
+      "welcome": "欢迎使用 AI 代理",
+      "your_ai_powered_bi_assistants": "您的 AI 驱动的 BI 助手",
+      "what_you_can_do_with_ai_agents": "您可以使用 AI 代理做什么：",
+      "ready_to_get_started": "准备开始？",
+      "create_your_first_agent": "创建您的第一个 AI 代理，开始分析您的业务数据并解锁强大的洞察。",
+      "create_your_first_agent_button": "创建您的第一个代理",
+      "no_permission": "您没有权限创建代理。请联系您的管理员获取访问权限。"
+    },
+    "pages_ai_agents_edit_page": {
+      "back_to_agents": "返回代理",
+      "agent_not_found": {
+        "title": "代理不存在",
+        "description": "您正在寻找的代理不存在。"
+      },
+      "back": "返回",
+      "new_agent": "新代理",
+      "agent": "代理",
+      "last_modified": "最后修改",
+      "delete_agent": "删除代理",
+      "create_agent": "创建代理",
+      "save_changes": "保存更改",
+      "setup": "设置",
+      "conversations": "对话",
+      "basic_information": "基本信息",
+      "form": {
+        "name": {
+          "name": "代理名称",
+          "placeholder": "输入代理名称",
+          "tooltip": "代理只能在当前项目中创建"
+        },
+        "project": {
+          "label": "项目",
+          "placeholder": "输入项目"
+        },
+        "avatar": {
+          "label": "头像图片 URL",
+          "description": "请提供一个图片 URL，例如 https://example.com/avatar.jpg。如果未提供，将使用默认头像。",
+          "placeholder": "https://example.com/avatar.jpg"
+        },
+        "tags": {
+          "label": "标签",
+          "placeholder": "选择标签",
+          "tooltip": {
+            "part_1": "添加标签以控制 AI 代理可以访问的指标和维度。更多信息请参阅我们的",
+            "part_2": "文档"
+          }
+        },
+        "group_access": {
+          "label": "组访问",
+          "description": "选择可以访问此代理的组。如果未选择组，则代理对组织中的所有用户可见。",
+          "tooltip": "管理员和开发人员将始终有权访问此代理。",
+          "placeholder": {
+            "loading": "加载组...",
+            "no_groups": "没有可用的组",
+            "select_groups": "选择组或留空以对所有用户可见"
+          }
+        },
+        "knowledge_expertise": {
+          "label": "知识与专业"
+        },
+        "instructions": {
+          "label": "Instructions 指令",
+          "description": "设置代理的整体行为和任务。这定义了它应该如何响应以及它的目的是什么。",
+          "placeholder": "您是营销分析专家。专注于活动表现、客户获取成本和 ROI 指标。始终使用条形图和表格来可视化数据。",
+          "character_count": "{{count}}个字符"
+        },
+        "quick_templates": {
+          "label": "快速模板"
+        },
+        "guidelines": {
+          "guidelines": "指南",
+          "description": "在编写指令时，请考虑以下指南以帮助代理有效地执行其任务。",
+          "visit": {
+            "part_1": "访问我们的",
+            "part_2": "文档",
+            "part_3": "了解更多关于指令以及它们如何工作。"
+          }
+        },
+        "integrations": {
+          "title": "集成"
+        },
+        "slack": {
+          "title": "Slack",
+          "description": {
+            "part_1": "禁用",
+            "part_2": "未配置频道",
+            "part_3": "启用"
+          },
+          "enable_slack_integration": {
+            "part_1": "要通过 Slack 启用 AI 代理交互，请在",
+            "part_2": "集成设置",
+            "part_3": "中连接您的 Slack 工作区。连接后，您可以选择此代理可用的频道。"
+          },
+          "refresh_slack_channels": {
+            "part_1": "选择此代理可用的频道。",
+            "part_2": "标记 Slack 应用",
+            "part_3": "Lightdash"
+          },
+          "channels": {
+            "label": "频道",
+            "placeholder": "选择一个频道",
+            "refresh": "刷新 Slack 频道"
+          }
+        }
+      },
+      "modal": {
+        "title": "删除代理",
+        "cancel": "取消",
+        "delete": "删除",
+        "content": "确定要删除此代理吗？此操作无法撤销。"
+      }
+    },
+    "pages_ai_agents_not_authorized": {
+        "title": "您没有权限与这个 AI 代理交互",
+        "content": "要获得访问权限，请联系您的组织管理员。",
+        "go_back_to_project_home": "返回项目首页"
+    },
+    "pages_embed_explore": {
+        "no_valid": "此嵌入链接无效",
+        "missing_explore_id": "缺少探索 ID",
+        "no_explore_id": "没有提供探索 ID",
+        "missing_chart": "缺少要探索的保存图表"
+    },
 
     "mobile_navbar": {
         "home": "首页",
@@ -7065,6 +7619,8 @@
         }
     },
     "ai_embed_dashboard": {
+        "tab_empty": "标签为空",
+        "tab_empty_description": "此标签没有图表",
         "print": "打印此页面",
         "embed_token": "嵌入令牌是必需的",
         "missing_project_uuid": "缺少项目UUID",
@@ -7078,6 +7634,8 @@
     },
     "ai_agents_page": {
         "threads_created": "Slack 中创建的线程是只读的",
+        "new_agent": "新代理",
+        "no_threads_yet": "还没有线程",
         "all_agents": "所有代理",
         "last_updated": "最后更新",
         "new_thread": "新线程",

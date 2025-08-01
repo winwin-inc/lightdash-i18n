@@ -6,16 +6,19 @@ module.exports = {
     testPathIgnorePatterns: ['/node_modules/', '/dist/'],
     maxWorkers: '50%',
     transform: {
-        '^.+\\.ts$': ['ts-jest', {
-            transpileOnly: true,
-            isolatedModules: true,
-        }]
+        '^.+\\.ts$': [
+            'ts-jest',
+            {
+                transpileOnly: true,
+                isolatedModules: true,
+            },
+        ],
     },
     moduleNameMapper: {
-        '^@/(.*)$': '<rootDir>/src/$1'
+        '^@/(.*)$': '<rootDir>/src/$1',
     },
     watchPlugins: [
         'jest-watch-typeahead/filename',
-        'jest-watch-typeahead/testname'
-    ]
-}; 
+        'jest-watch-typeahead/testname',
+    ],
+};

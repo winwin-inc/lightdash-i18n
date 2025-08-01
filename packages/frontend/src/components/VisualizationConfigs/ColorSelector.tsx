@@ -34,7 +34,7 @@ const ColorSelector: FC<Props> = ({
     const isValidHexColor = color && isHexCodeColor(color);
 
     return (
-        <Popover shadow="md" withArrow disabled={!onColorChange}>
+        <Popover withinPortal shadow="md" withArrow disabled={!onColorChange}>
             <Popover.Target>
                 <ColorSwatch
                     size={20}

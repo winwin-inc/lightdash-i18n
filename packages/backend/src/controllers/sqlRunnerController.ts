@@ -49,7 +49,6 @@ import { BaseController } from './baseController';
 @Route('/api/v1/projects/{projectUuid}/sqlRunner')
 @Response<ApiErrorPayload>('default', 'Error')
 @Tags('SQL runner')
-@Hidden() // Hide from documentation while in beta
 export class SqlRunnerController extends BaseController {
     @Middlewares([allowApiKeyAuthentication, isAuthenticated])
     @SuccessResponse('200', 'Success')
@@ -434,7 +433,7 @@ export class SqlRunnerController extends BaseController {
 
         const virtualViewName = await this.services
             .getProjectService()
-            .createVirtualView(req.user!, projectUuid, {
+            .createVirtualView(req.account!, projectUuid, {
                 name,
                 sql,
                 columns,
@@ -459,7 +458,7 @@ export class SqlRunnerController extends BaseController {
         this.setStatus(200);
         const { name: virtualViewName } = await this.services
             .getProjectService()
-            .updateVirtualView(req.user!, projectUuid, name, body);
+            .updateVirtualView(req.account!, projectUuid, name, body);
 
         return {
             status: 'ok',

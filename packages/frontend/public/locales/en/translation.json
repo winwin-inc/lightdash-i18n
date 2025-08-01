@@ -41,7 +41,9 @@
     "hooks_access_token": {
         "toast_created": "Failed to create token",
         "toast_deleted": "Success! Your token was deleted.",
-        "toast_deleted_error": "Failed to delete token"
+        "toast_deleted_error": "Failed to delete token",
+        "toast_rotated": "Success! Your token was rotated.",
+        "toast_rotated_error": "Failed to rotate token"
     },
     "hooks_big_number_config": {
         "compare": "{{comparisonValue}} compared to previous row",
@@ -89,6 +91,27 @@
         "updated_group_success": "Success! Space group access updated!",
         "updated_group_error": "Failed to update space group access"
     },
+    "hooks_dashboard": {
+      "generate_preview_for": "Generating preview for {{name}}",
+      "is_being_exported": "{{name}} is being exported. This might take a few seconds.",
+      "success": "Success!",
+      "success_export": "Success! {{name}} was exported.",
+      "failed_export": "Failed to export {{name}}",
+      "failed_preview": "Failed to generate preview for {{name}}",
+      "missing_file_url": "Missing file url for {{name}}",
+      "something_went_wrong": "Something went wrong",
+      "failed_to_export": "Failed to export {{name}}",
+      "dashboard_not_found": "Dashboard not found",
+      "success_update": "Success! Dashboard {{name}} was updated.",
+      "open_dashboard": "Open dashboard",
+      "failed_to_update": "Failed to update dashboard",
+      "success_create": "Success! Dashboard was created.",
+      "failed_to_create": "Failed to create dashboard",
+      "success_duplicate": "Success! Dashboard was duplicated.",
+      "failed_to_duplicate": "Failed to duplicate dashboard",
+      "success_delete": "Deleted! Dashboard was deleted.",
+      "failed_to_delete": "Failed to delete dashboard"
+    },
     "hooks_dashboards": {
         "success": "Success! Dashboards were updated.",
         "error": "Failed to update dashboard"
@@ -130,6 +153,18 @@
             "error": "Failed to set active color palette"
         }
     },
+    "hooks_organization_groups": {
+      "create_success": "Success! Group was created.",
+      "create_error": "Failed to create group",
+      "update_success": "Success! Group '{{name}}' was updated.",
+      "update_error": "Failed to update group",
+      "delete_success": "Success! Group '{{name}}' was deleted.",
+      "delete_error": "Failed to delete group"
+    },
+    "hooks_project": {
+      "update_error": "Failed to update project",
+      "create_error": "Failed to create project"
+    },
     "hooks_index_catalog_job": {
         "success": "Successfully refreshed catalog",
         "error": "Failed to refresh catalog"
@@ -161,6 +196,18 @@
             "items": "items"
         },
         "invalid_action_type": "Invalid action type in useContentBulkAction"
+    },
+    "hooks_toaster": {
+      "snowflake": {
+        "title": "Snowflake Authentication Error",
+        "message": "You can try to reauthenticate with Snowflake:"
+      },
+      "contact_support": {
+        "title": "Contact support with the following information:",
+        "error_id": "Error ID",
+        "trace_id": "Trace ID",
+        "copied": "Copied"
+      }
     },
 
     "providers_active_job": {
@@ -258,6 +305,13 @@
         }
     },
     "features_table_calculation_modal": {
+        "type_labels": {
+          "number": "number",
+          "string": "string",
+          "date": "date",
+          "timestamp": "timestamp",
+          "boolean": "boolean"
+        },
         "tips": {
             "invalid": "Table calculation/Dimension with this label already exists",
             "error": "Error saving",
@@ -735,6 +789,15 @@
     "features_sql_runner_transformers_sql_chart": {
         "unknown_chart_type": "Unknown chart type"
     },
+    "features_sql_runner_sql_editor_preferences_popover": {
+        "autocomplete_preferences": "Autocomplete preferences",
+        "quotes": "Quotes",
+        "always": "Always",
+        "never": "Never",
+        "casing": "Casing",
+        "uppercase": "Uppercase",
+        "lowercase": "Lowercase"
+    },
 
     "features_comments_components_comment_mentions": {
         "add_comment": "Add comment (type @ to tag someone)",
@@ -782,6 +845,12 @@
         "no_dashboards": "No dashboards available to embed",
         "select_dashboards_description": "Only these dashboards will be allowed to be embedded.",
         "save_changes": "Save changes"
+    },
+    "features_embed_explore": {
+        "missing_project_uuid": "Missing project UUID",
+        "error_loading_explore": "Error loading explore",
+        "this_embed_link_has_expired": "This embed link has expired",
+        "tables": "Tables"
     },
 
     "features_mertic_flow": {
@@ -1513,11 +1582,13 @@
         "source": "Source"
     },
     "features_ai_copilot_agents_details": {
+      "conversation_preview": "Conversation Preview",
         "conversation_details": "Conversation Details",
         "loading_conversation": "Loading conversation...",
         "started_by": "Started by {{user}} on {{date}}",
         "ai_assistant": "AI Assistant",
-        "thread_not_found": "Thread not found"
+        "thread_not_found": "Thread not found",
+        "open_chat_in_new_tab": "Open chat in new tab"
     },
     "features_ai_copilot_agents_hooks": {
         "failed_to_fetch_agents": "Failed to fetch AI agents",
@@ -1529,7 +1600,10 @@
         "deleted_agent": "AI agent deleted successfully",
         "failed_to_delete_agent": "Failed to delete AI agent",
         "failed_to_fetch_threads": "Failed to fetch AI agent threads",
-        "failed_to_fetch_thread": "Failed to fetch AI agent thread details"
+        "failed_to_fetch_thread": "Failed to fetch AI agent thread details",
+        "failed_to_fetch_viz": "Failed to fetch visualization",
+        "failed_to_submit_feedback": "Failed to submit feedback",
+        "failed_to_save_prompt_query": "Failed to save prompt query"
     },
     "features_ai_copilot_slack_integration_steps": {
         "allow_integration_access": "Allow integration access",
@@ -1547,11 +1621,22 @@
         }
     },
     "features_ai_copilot_chat_elements": {
+        "no_response": "No response...",
+        "loading_visualization": "Loading visualization...",
         "processing": "Processing your request, this may take a moment",
         "something_went_wrong": "Something went wrong generating the visualization, please try again",
         "feedback_sent": "Feedback sent",
         "open_in_explore": "Open in explore",
         "continue_exploring": "Continue exploring"
+    },
+    "features_ai_copilot_chat_elements_tool_calls": {
+      "how_it_is_calculated": "How it is calculated",
+      "searched_relevant_explores": "Searched relevant explores",
+      "searched_for_fields": "Searched for fields"
+    },
+    "features_ai_copilot_default_agent_button": {
+      "remove_as_default_agent": "Remove as default agent",
+      "set_as_default_agent": "Set as default agent"
     },
     "features_ai_copilot_chat_input": {
         "placeholder": "Ask anything about your data...",
@@ -1575,7 +1660,152 @@
     },
     "features_ai_copilot_project_hooks": {
         "failed_to_fetch_agents": "Failed to fetch AI agents",
-        "failed_to_fetch_project_agent": "Failed to fetch project AI agent"
+        "failed_to_fetch_project_agent": "Failed to fetch project AI agent",
+        "agent_created_successfully": "AI agent created successfully",
+        "failed_to_create_agent": "Failed to create AI agent",
+        "agent_updated_successfully": "AI agent updated successfully",
+        "failed_to_update_agent": "Failed to update AI agent"
+    },
+    "features_ai_copilot_instructions": {
+      "guidelines": {
+        "domain_knowledge": {
+          "title": "Domain knowledge",
+          "description": "Specify the industry, field, or subject matter expertise. Include relevant methodologies, frameworks, and technical knowledge."
+        },
+        "company_context": {
+          "title": "Company context",
+          "description": "Include relevant business context, goals, and constraints. Mention industry, target audience, and strategic objectives."
+        },
+        "analysis_preferences": {
+          "title": "Analysis preferences",
+          "description": "Define how data should be analyzed and presented. Specify preferred metrics, dimensions, visualization types, and reporting formats."
+        },
+        "role_and_expertise": {
+          "title": "Role & expertise",
+          "description": "Describe the analyst's role, responsibilities, and expertise level. Define communication style and decision-making authority."
+        }
+      },
+      "templates": {
+        "marketing_expert": {
+          "title": "Marketing expert",
+          "description": "You analyze marketing performance for our B2B SaaS company. Focus on CAC, ROAS, and pipeline attribution. When CAC exceeds $200 or ROAS drops below 3:1, flag as concerning. Present insights in actionable terms for our marketing managers. Always include campaign performance comparisons and recommend optimization strategies. Use marketing terminology like CTR, CPM, and MQL naturally."
+        },
+        "healthcare_analyst": {
+          "title": "Healthcare analyst",
+          "description": "You analyze clinical outcomes and operational metrics for our healthcare system. Focus on patient satisfaction scores, readmission rates, and length of stay. Flag readmission rates above 15% as critical. Present findings in clear terms for both clinical staff and administrators. Always include trend analysis and correlation with quality metrics. Consider seasonal patterns like flu season impacts."
+        },
+        "operations_manager": {
+          "title": "Operations manager",
+          "description": "You analyze supply chain and operational efficiency for our manufacturing company. Focus on inventory turnover, production capacity, and delivery performance. When on-time delivery drops below 95% or inventory days exceed 45, highlight immediately. Present insights that operations teams can act on today. Always include bottleneck analysis and resource utilization recommendations."
+        },
+        "financial_expert": {
+          "title": "Financial expert",
+          "description": "You analyze financial performance for our enterprise company. Focus on revenue growth, gross margins, and cash flow. When gross margin drops below 60% or burn rate exceeds monthly targets, flag as urgent. Present insights in terms our CFO and finance team understand. Always include variance analysis against budget and forecast implications. Use financial terminology like EBITDA, DSO, and working capital naturally."
+        },
+        "ecommerce_analyst": {
+          "title": "Ecommerce analyst",
+          "description": "You analyze ecommerce performance for our online retail company. Focus on conversion rates, AOV, and cart abandonment. When conversion rate drops below 5% or AOV falls below $100, flag as critical. Present insights in actionable terms for our ecommerce team. Always include A/B testing recommendations and conversion rate optimization strategies. Use ecommerce terminology like CTR, CVR, and cart abandonment naturally."
+        },
+        "education_analyst": {
+          "title": "Education analyst",
+          "description": "You analyze student performance and institutional metrics for our university. Focus on enrollment trends, retention rates, and academic outcomes. When retention drops below 85% or graduation rates decline year-over-year, flag as critical. Present findings for academic leadership and administrators. Always include demographic breakdowns and identify at-risk student populations. Consider semester cycles and program-specific performance."
+        },
+        "banking_risk_analyst": {
+          "title": "Banking risk analyst",
+          "description": "You analyze credit risk and portfolio performance for our commercial bank. Focus on default rates, credit utilization, and portfolio concentration. When default rates exceed 2% or any sector concentration tops 15%, flag immediately. Present insights for our risk committee and loan officers. Always include stress testing scenarios and regulatory compliance considerations. Use banking terminology like NPL, LGD, and PD naturally."
+        }
+      }
+    },
+
+    "features_service_accounts": {
+      "service_accounts": "Service accounts",
+      "add_service_account": "Add service account",
+      "no_service_accounts": "No service accounts",
+      "no_service_accounts_description": "You haven't created any service accounts yet. Create your first service account",
+      "create_service_account": "Create service account"
+    },
+    "features_service_accounts_create_modal": {
+      "expire_options": {
+        "no_expiration": "No expiration",
+        "7_days": "7 days",
+        "30_days": "30 days",
+        "60_days": "60 days",
+        "90_days": "90 days",
+        "180_days": "180 days",
+        "365_days": "365 days"
+      },
+      "at_least_one_scope_required": "At least one scope is required",
+      "new_service_account": "New service account",
+      "form": {
+        "description": {
+          "label": "Description",
+          "placeholder": "What's this service account for?"
+        },
+        "expires_at": {
+          "label": "Expiration"
+        },
+        "scopes": {
+          "label": "Scopes",
+          "placeholder": "Select scopes"
+        }
+      },
+      "token": "Token",
+      "copy": "Copy",
+      "copied": "Copied",
+      "create_service_account": "Create service account",
+      "make_sure_to_copy_token": "Make sure to copy your access token now. You won't be able to see it again!",
+      "done": "Done"
+    },
+    "features_service_accounts_delete_modal": {
+      "delete_service_account": "Delete service account",
+      "content": {
+        "part_1": "Are you sure? This will permanently delete the",
+        "part_2": "service account."
+      },
+      "cancel": "Cancel",
+      "delete": "Delete"
+    },
+    "features_service_accounts_table": {
+      "scopes": "scopes",
+      "selected_scopes": "Selected scopes",
+      "no_expiration_date": "No expiration date",
+      "last_rotated_at": "Last rotated at {{date}}",
+      "columns": {
+        "description": "Description",
+        "scopes": "Scopes",
+        "expires_at": "Expires at",
+        "last_used_at": "Last used at"
+      }
+    },
+    "features_service_accounts_hooks": {
+      "service_account_created": "Service account created",
+      "failed_to_create_service_account": "Failed to create service account",
+      "service_account_deleted": "Service account deleted",
+      "failed_to_delete_service_account": "Failed to delete service account"
+    },
+
+    "features_parameters": {
+      "parameters": "Parameters"
+    },
+    "features_parameters_input": {
+      "showing_first_results": "Showing first {{count}} results.",
+      "continue": "Continue",
+      "start": "Start",
+      "refresh_filter_values": "Click here to refresh filter values",
+      "results_loaded_at": "Results loaded at {{date}}",
+      "add": "Add",
+      "loading": "Loading...",
+      "no_results_found": "No results found",
+      "default": "default",
+      "choose_value": "Choose value..."
+    },
+    "features_parameters_selection": {
+      "loading": "Loading parameters...",
+      "failed_to_load_parameters": "Failed to load parameters",
+      "no_parameters_available": "No parameters available",
+      "error_loading_parameter": "Error loading parameter",
+      "clear_all_parameters": "Clear all parameters",
+      "clear_all": "Clear all"
     },
 
     "components_common_paginate": {
@@ -1586,7 +1816,10 @@
         "last_edited": "Last edited",
         "by": "by",
         "views_slice": "views since",
-        "views": "views"
+        "views": "views",
+        "slug": "Slug",
+        "copy_slug": "Copy slug",
+        "space": "Space"
     },
     "components_common_share_space_modal": {
         "share": "Share",
@@ -1596,7 +1829,7 @@
             "part_2": "existing project members",
             "part_3": ".",
             "part_4": "Learn more about permissions in our",
-            "part_5": "docs",
+            "part_5": " docs",
             "part_6": "."
         },
         "nested_space": {
@@ -1694,9 +1927,10 @@
             "create_new_space": "Create new space",
             "unpin_from_homepage": "Unpin from homepage",
             "pin_to_homepage": "Pin to homepage",
-            "scheduled_delivery": "Scheduled delivery",
+            "scheduled_delivery": "Scheduled deliveries",
             "export_dashboard": "Export dashboard",
-            "delete": "Delete"
+            "delete": "Delete",
+            "create": "Create"
         },
         "tooltip_upstream": {
             "upstream_project": "You must enable first an upstream project in settings > Data ops",
@@ -1807,6 +2041,7 @@
             "loading": "Loading...",
             "no_results": "No results found"
         },
+        "filter_not_available": "Filter not available",
         "select_value": "Select value",
         "filter_operator_labels": {
             "is_null": "is null",
@@ -1999,7 +2234,10 @@
                     "part_2": "edit",
                     "part_3": "mode will be saved"
                 },
-                "content": "Add filter"
+                "content": {
+                    "global": "Add global filter",
+                    "tab": "Add tab filter"
+                }
             },
             "inactive_filter": {
                 "part_1": "This filter only applies to tab {{suffix}}",
@@ -2128,7 +2366,8 @@
     "components_settings_validator": {
         "tip": "Use the project validator to check what content is broken in your project.",
         "run_validation": "Run validation",
-        "no_validation_errors_found": "No validation errors found"
+        "no_validation_errors_found": "No validation errors found",
+        "last_validated_at": "Last validated at: {{date}}"
     },
     "components_settings_validator_modal": {
         "rename_tip": "You can rename the missing dimension by renaming the affected field or model using the drop down below.",
@@ -2330,6 +2569,7 @@
                 "placeholder": "Search...",
                 "no_charts_found": "No charts found"
             },
+            "load_more": "Load more",
             "cancel": "Cancel",
             "add": "Add"
         }
@@ -2407,6 +2647,7 @@
         "tooltip_editing_actions": "Finish editing dashboard to use these actions",
         "tooltip_custom_dimensions": "This chart contains custom dimensions, you will not be able to run custom SQL on explore.",
         "menus": {
+            "export_data": "Export data",
             "explore_from_here": "Explore from here",
             "download_data": "Download data",
             "export_csv": "Export CSV",
@@ -2414,7 +2655,9 @@
             "duplicate_chart": "Duplicate chart",
             "copy_of": "Copy of {{name}}",
             "copy_value": "Copy value",
-            "view_underlying_data": "View underlying data"
+            "view_underlying_data": "View underlying data",
+            "cancel": "Cancel",
+            "download": "Download"
         },
         "tooltip_editing_chart": "Finish editing dashboard to edit this chart",
         "no_data_available": "No data available",
@@ -2436,6 +2679,8 @@
             "success": "Scheduled deliveries refreshed successfully"
         },
         "loading": "Loading scheduled deliveries",
+        "scheduled_deliveries": "Scheduled deliveries",
+        "click_to_refresh": "Click to refresh the status of the scheduled deliveries",
         "tabs": {
             "all_schedulers": "ALl schedulers",
             "run_history": "Run history",
@@ -2484,6 +2729,7 @@
             "label": "Name",
             "groups": {
                 "csv": "CSV",
+                "xlsx": "XLSX",
                 "image": "Image",
                 "google_sheets": "Google Sheets",
                 "schedule_type": "Schedule type:",
@@ -2505,7 +2751,12 @@
         "last_deliver_start": {
             "label": "Last delivery start",
             "no_deliveries_started": "No deliveries started"
-        }
+        },
+        "search": {
+            "label": "Search schedulers by name"
+        },
+        "loading": "Loading schedulers",
+        "no_schedulers": "No schedulers found"
     },
     "components_schedulers_view_action_menu": {
         "edit_schedule": "Edit schedule",
@@ -3504,8 +3755,19 @@
     "components_user_settings_access_tokens_panel_tokens_table": {
         "no_expiration_date": "No expiration date",
         "last_rotated_at": "Last rotated at",
+        "copy_token_uuid": "Copy token UUID",
+        "token_rotated_successfully": "Token rotated successfully! Your old token is now invalid.",
+        "new_token": "New token",
         "copied": "Copied",
         "copy": "Copy",
+        "mark_sure_to_copy": "Make sure to copy your new token now. You won't be able to see it again!",
+        "done": "Done",
+        "rotating_token": "Rotating token: {{description}}",
+        "rotating_token_description": "This will generate a new token and invalidate the current one. You must specify a new expiration date.",
+        "new_expiration": "New expiration",
+        "cancel": "Cancel",
+        "rotate_token": "Rotate token",
+        "delete": "Delete",
         "table_columns": {
             "description": "Description",
             "expiration_date": "Expiration date",
@@ -3520,6 +3782,23 @@
             },
             "cancel": "Cancel",
             "delete": "Delete"
+        
+        },
+        "token_modal": {
+          "token_uuid": {
+            "part_1": "Token UUID",
+            "part_2": "for \"{{description}}\""
+          },
+          "content": {
+            "part_1": "What is a token UUID?",
+            "part_2": {
+              "part_1": "The UUID is a unique identifier for your token, used for token rotation via the CLI",
+              "part_2": "This is <strong>not</strong> your Personal Access Token value."
+            }
+          },
+          "copied": "Copied!",
+          "copy_uuid": "Copy UUID",
+          "done": "Done"
         }
     },
     "components_user_settings_organization_panel": {
@@ -3624,18 +3903,23 @@
                 "part_1": "Configure Slack channel project mappings",
                 "part_2": "here",
                 "part_3": "."
-            },
-            "ai_copilot_flag": {
-                "title": " AI Agents thread access consent",
-                "description": "Allow the AI Agents to access thread messages when a user mentions the bot in a thread.",
-                "tooltip": "The longer the thread, the more context the AI Agents will have to work with.",
-                "allow_thread_messages": "Allow AI to access thread messages",
-                "configure": {
-                    "part_1": "Configure Slack channel project mappings",
-                    "part_2": "here",
-                    "part_3": "."
-                }
             }
+        },
+        "ai_copilot_flag": {
+          "title": " AI Agents thread access consent",
+          "description": "Allow the AI Agents to access thread messages when a user mentions the bot in a thread.",
+          "tooltip": "The longer the thread, the more context the AI Agents will have to work with.",
+          "allow_thread_messages": "Allow AI to access thread messages",
+          "configure": {
+              "part_1":  "Configure which channels your AI Agents can access",
+              "part_2": "here",
+              "part_3": "."
+          },
+          "ai_agents_oauth_requirement": {
+            "title": "AI Agents OAuth requirement",
+            "description": "When enabled, users must authenticate with OAuth to use AI Agent features."
+          },
+          "require_oauth_for_ai_agent": "Require OAuth for AI Agent"
         },
         "tip": "Your Slack integration is not up to date, you should reinstall the Slack integration to guarantee the best user experience.",
         "reinstall": "Reinstall",
@@ -3698,6 +3982,7 @@
             "cancel": "Cancel",
             "delete": "Delete"
         },
+        "error_fetching_groups": "Error fetching user groups feature flag",
         "loding_groups": "Loading groups",
         "search_groups": "Search groups by name, members or member email ",
         "add_group": "Add group",
@@ -3799,6 +4084,7 @@
             "delete": "Delete"
         },
         "loading": "Loading user attributes",
+        "error": "Error loading user attributes",
         "user_and_group_attributes": "User and group attributes",
         "user_attributes": "User Attributes",
         "tooltip": {
@@ -4320,8 +4606,54 @@
             "conditional_formating": "Conditional formatting"
         }
     },
+    "components_visualization_configs_treemap": {
+        "tabs": {
+            "layout": "Layout",
+            "display": "Display"
+        },
+        "display_config": {
+            "minimum_section_size": {
+                "label": "Minimum section size",
+                "tooltip": "Any sections smaller than this will not be displayed. You can zoom in to see smaller sections."
+            },
+            "max_leaf_depth": {
+                "label": "Max leaf depth",
+                "tooltip": "The maximum depth of the tree to display. This is useful to limit the number of sections displayed.",
+                "no_limit": "No limit"
+            }
+        },
+        "layout_config": {
+            "dimension_hierarchy": {
+                "label": "Dimension hierarchy",
+                "tooltip": "Drag and drop your dimensions to order them hierarchically.",
+                "select_dimension": "Select dimension"
+            },
+            "size_metric": {
+                "label": "Size metric",
+                "tooltip": "Determines how large each block is.",
+                "select_metric": "Select metric"
+            },
+            "color_metric": {
+                "label": "Color metric",
+                "tooltip": "Dynamically set the color of the nodes based on a metric. If not set, the treemap will use a default color scheme.",
+                "select_metric": "Select metric",
+                "min_color": "Min color",
+                "threshold": "Threshold",
+                "auto": "Auto (per-level)",
+                "max_color": "Max color"
+            }
+        }
+    },
     "components_visualization_configs_custom_vis": {
-        "placeholder": "Start by entering your Vega-Lite JSON code or choose from our pre-built templates to create your chart."
+        "placeholder": "Start by entering your Vega-Lite JSON code or choose from our pre-built templates to create your chart.",
+        "templates": {
+            "bar_chart": "Bar chart",
+            "heatmap": "Heatmap",
+            "bubble_plots": "Bubble plots",
+            "funnel_chart": "Funnel chart",
+            "waterfall_chart": "Waterfall chart",
+            "map": "Map"
+        }
     },
     "components_visualization_configs_custom_vis_ai": {
         "placeholder": "Create a heatmap with detailed tooltips and clear values for fast insights",
@@ -4618,13 +4950,40 @@
         "tooltip_limit": {
             "label": "Query limit of {{limit}} reached. There may be additional results that have not been displayed. To see more, increase the query limit or try narrowing filters.",
             "content": "Results may be incomplete"
-        }
+        },
+        "query_warnings": "Query warnings"
     },
     "components_explorer_format_form": {
+        "type_labels": {
+            "id": "ID",
+            "date": "Date",
+            "timestamp": "Timestamp",
+            "default": "Default",
+            "percent": "Percent",
+            "currency": "Currency",
+            "number": "Number",
+            "bytes_si": "Bytes (SI)",
+            "bytes_iec": "Bytes (IEC)",
+            "custom": "Custom"
+        },
         "type": {
             "label": "Type",
+            "data": {
+                "bytes_si": "bytes (SI)",
+                "bytes_iec": "bytes (IEC)"
+            },
             "content": {
                 "part_1": "Looks like: "
+            }
+        },
+        "format": {
+            "format": "Format",
+            "label": "Format expression",
+            "placeholder": "E.g. #.#0",
+            "description":{
+              "part_1": "To help you build your format expression, we recommend using",
+              "part_2": "https://customformats.com",
+              "part_3": "."
             }
         },
         "currency": {
@@ -4639,7 +4998,11 @@
         },
         "compact": {
             "label": "Compact",
-            "placeholder": "E.g. thousands (K)"
+            "placeholder": {
+              "part_1": "E.g. thousands (K)",
+              "part_2": "E.g. kilobytes (KB)",
+              "part_3": "E.g. kibibytes (KiB)"
+            }
         },
         "perfix": {
             "label": "Prefix",
@@ -4648,14 +5011,18 @@
         "suffix": {
             "label": "Suffix",
             "placeholder": "E.g. km/h"
-        }
+        },
+        "default_separator": "Default separator"
     },
     "components_explorer_format_modal": {
+       "format_metric": "Format metric",
         "reset": "Reset",
         "save_changes": "Save changes"
     },
     "components_explorer_results_card": {
-        "title": "Results"
+        "title": "Results",
+        "format": "Format",
+        "edit_format": "Edit format"
     },
     "components_explorer_results_card_column_context_menu": {
         "filter": "Filter by",
@@ -4739,7 +5106,8 @@
         },
         "explore_error_state": {
             "title": "Error loading results",
-            "description": "There was an error loading the results"
+            "description": "There was an error loading the results",
+            "detail": "Learn how to resolve this in our documentation →"
         }
     },
     "components_explorer_save_charts_header": {
@@ -4826,6 +5194,11 @@
             "move": "Move"
         }
     },
+    "components_explorer_visualization_config": {
+      "configure_chart": "Configure chart",
+      "close_visualization_config": "Close visualization config",
+      "chart_type": "Chart type"
+    },
     "components_explorer_visualization_card": {
         "chart": "Chart",
         "charts": "Charts",
@@ -4853,6 +5226,7 @@
             "big_value": "Big value",
             "pie_chart": "Pie chart",
             "funnel_chart": "Funnel chart",
+            "treemap": "Treemap",
             "custom": "Custom",
             "unknown": "Unknown visualization chart type"
         },
@@ -4865,6 +5239,7 @@
             "pie_chart": "Pie chart",
             "funnel_chart": "Funnel chart",
             "table": "Table",
+            "treemap": "Treemap",
             "big_value": "Big value",
             "custom": "Custom"
         }
@@ -4891,6 +5266,10 @@
             "open_pr": "Open Pull Request",
             "failed_to_write_back": "Failed to write back custom metric"
         }
+    },
+    "components_explorer_parameters_card": {
+        "title": "Parameters",
+        "no_model_selected": "No model selected"
     },
 
     "components_common_resource_view_grid": {
@@ -5039,6 +5418,7 @@
             "mixed_chart": "Mixed chart",
             "pie_chart": "Pie chart",
             "funnel_chart": "Funnel chart",
+            "treemap": "Treemap",
             "table": "Table",
             "big_number": "Big number",
             "custom_visualization": "Custom visualization",
@@ -5107,6 +5487,12 @@
     },
     "components_sql_runner_results_table": {
         "description": "Click run query to see your results"
+    },
+    "components_sql_runner_actions": {
+      "disable_editor_soft_wrap": "Disable editor soft-wrap",
+      "enable_editor_soft_wrap": "Enable editor soft-wrap",
+      "copied_to_clipboard": "Copied to clipboard!",
+      "copy": "Copy"
     },
     "pages_sql_runner_new": {
         "error": {
@@ -5187,6 +5573,15 @@
             "copy_value": "Copy value"
         }
     },
+    "components_simple_treemap": {
+        "empty": {
+            "title": "No data available",
+            "description": "Query metrics and dimensions with results."
+        },
+        "loading": {
+            "title": "Loading chart"
+        }
+    },
     "components_sort_button": {
         "no_sort": "No sort",
         "fields": "fields",
@@ -5248,6 +5643,7 @@
             "title": "Unable to download CSV"
         },
         "no_data_to_export": "No data to export",
+        "file_format": "File format",
         "tabs": {
             "values": "Values",
             "limit": "Limit"
@@ -5261,6 +5657,7 @@
             "part_2": "All Results",
             "part_3": "Custom..."
         },
+        "prvot_tables_warning": "Pivot exports are limited to {{csvCellsLimit}} cells and {{maxColumnLimit}} columns.",
         "limit": "Excel exports are limited to 1,000,000 rows.",
         "download": "Download"
     },
@@ -5977,7 +6374,8 @@
                 },
                 "data": {
                     "service_account": "Service Account (JSON key file)",
-                    "user_account": "User Account (Sign in with Google)"
+                    "user_account": "User Account (Sign in with Google)",
+                    "application_default_credentials": "Application Default Credentials"
                 },
                 "tooltip": "You are connected to BigQuery"
             },
@@ -6578,6 +6976,11 @@
         }
     },
 
+    "components_lightdash_visualization": {
+      "unable_to_load_visualization": "Unable to load visualization",
+      "learn_how_to_resolve_this_in_our_documentation": "Learn how to resolve this in our documentation →"
+    },
+
     "pages_chart_history": {
         "title": "Charts version history",
         "bread_crumbs": {
@@ -6864,6 +7267,156 @@
         "chart": "Chart",
         "results": "Results"
     },
+    "pages_slack_auth_success": {
+        "title": "Slack connected successfully!",
+        "description": "Your Slack account is now connected to Lightdash. You can now use AI Agent by mentioning the bot in your Slack channels."
+    },
+    "pages_ai_agents_redirect": {
+      "not_allowed": "You are not allowed to access this view"
+    },
+    "pages_ai_agents_welcome": {
+      "agent_features": {
+        "analyze": {
+          "title": "Analyze your data",
+          "description": "Ask questions about sales, revenue, customers, and performance metrics"
+        },
+        "get_insights": {
+          "title": "Get insights",
+          "description": "Discover trends, patterns, and actionable recommendations from your business data"
+        },
+        "create_visualizations": {
+          "title": "Create visualizations",
+          "description": "Generate charts, graphs, and tables to visualize your business metrics"
+        },
+        "specialized_agents": {
+          "title": "Specialized agents",
+          "description": "Create custom AI agents trained for specific departments like Finance, Sales, or Marketing"
+        }
+      },
+      "something_went_wrong": "Something went wrong...",
+      "welcome": "Welcome to AI Agents",
+      "your_ai_powered_bi_assistants": "Your AI-powered BI assistants",
+      "what_you_can_do_with_ai_agents": "What you can do with AI Agents:",
+      "ready_to_get_started": "Ready to get started?",
+      "create_your_first_agent": "Create your first AI agent to begin analyzing your business data and unlock powerful insights.",
+      "create_your_first_agent_button": "Create your first Agent",
+      "no_permission": "You don’t have permission to create agents. Please contact your workspace admin if you need access."
+    },
+    "pages_ai_agents_edit_page": {
+      "back_to_agents": "Back to Agents",
+      "agent_not_found": {
+        "title": "Agent not found",
+        "description": "The agent you are looking for does not exist."
+      },
+      "back": "Back",
+      "new_agent": "New Agent",
+      "agent": "Agent",
+      "last_modified": "Last modified",
+      "delete_agent": "Delete agent",
+      "create_agent": "Create agent",
+      "save_changes": "Save changes",
+      "setup": "Setup",
+      "conversations": "Conversations",
+      "basic_information": "Basic information",
+      "form": {
+        "name": {
+          "name": "Agent Name",
+          "placeholder": "Enter a name for this agent",
+          "tooltip": "Agents can only be created in the context the current project"
+        },
+        "project": {
+          "label": "Project",
+          "placeholder": "Enter a project"
+        },
+        "avatar": {
+          "label": "Avatar image URL",
+          "description": "Please provide an image url like https://example.com/avatar.jpg. If not provided, a default avatar will be used.",
+          "placeholder": "https://example.com/avatar.jpg"
+        },
+        "tags": {
+          "label": "Tags",
+          "placeholder": "Select tags",
+          "tooltip": {
+            "part_1": "Add tags to control which metrics and dimensions your AI agent can access. See more in our",
+            "part_2": "docs"
+          }
+        },
+        "group_access": {
+          "label": "Group Access",
+          "description": "Select groups that can access this agent. If no groups are selected, the agent will be visible to all users in the organization.",
+          "tooltip": "Admins and developers will always have access to this agent.",
+          "placeholder": {
+            "loading": "Loading groups...",
+            "no_groups": "No groups available",
+            "select_groups": "Select groups or leave empty for all users"
+          }
+        },
+        "knowledge_expertise": {
+          "label": "Knowledge & expertise"
+        },
+        "instructions": {
+          "label": "Instructions",
+          "description": "Set the overall behavior and task for the agent. This defines how it should respond and what its purpose is.",
+          "placeholder": "You are a marketing analytics expert. Focus on campaign performance, customer acquisition costs, and ROI metrics. Always use bar charts and tables to visualize data.",
+          "character_count": "{{count}} characters"
+        },
+        "quick_templates": {
+          "label": "Quick Templates"
+        },
+        "guidelines": {
+          "guidelines": "Guidelines",
+          "description": "When writing instructions, consider the following guidelines to help the agent perform its tasks effectively.",
+          "visit": {
+            "part_1": "Visit our",
+            "part_2": "docs",
+            "part_3": "to learn more about instructions and how they work."
+          }
+        },
+        "integrations": {
+          "title": "Integrations"
+        },
+        "slack": {
+          "title": "Slack",
+          "description": {
+            "part_1": "Disabled",
+            "part_2": "Channels not configured",
+            "part_3": "Enabled"
+          },
+          "enable_slack_integration": {
+            "part_1": "To enable AI agent interactions through Slack, please connect your Slack workspace in the",
+            "part_2": "Integrations settings",
+            "part_3": ". Once connected, you can select channels where this agent will be available."
+          },
+          "refresh_slack_channels": {
+            "part_1": "Select the channels where this agent will be available.",
+            "part_2": "Tag the Slack app",
+            "part_3": "Lightdash"
+          },
+          "channels": {
+            "label": "Channels",
+            "placeholder": "Pick a channel",
+            "refresh": "Refresh Slack channels"
+          }
+        }
+      },
+      "modal": {
+        "title": "Delete agent",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "content": "Are you sure you want to delete this agent? This action cannot be undone."
+      }
+    },
+    "pages_ai_agents_not_authorized": {
+        "title": "You're not authorized to interact with this AI agent",
+        "content": "To gain access, please contact your organization administrator.",
+        "go_back_to_project_home": "Go back to project home"
+    },
+    "pages_embed_explore": {
+        "no_valid": "This embed link is not valid",
+        "missing_explore_id": "Missing explore ID",
+        "no_explore_id": "No explore ID provided",
+        "missing_chart": "Missing saved chart to explore"
+    },
 
     "mobile_navbar": {
         "home": "Home",
@@ -7063,6 +7616,8 @@
         }
     },
     "ai_embed_dashboard": {
+        "tab_empty": "Tab is empty",
+        "tab_empty_description": "This tab has no tiles",
         "print": "Print this page",
         "embed_token": "Embed token is required",
         "missing_project_uuid": "Missing project UUID",
@@ -7076,6 +7631,8 @@
     },
     "ai_agents_page": {
         "threads_created": "Threads created in slack are read only",
+        "new_agent": "New agent",
+        "no_threads_yet": "No threads yet",
         "all_agents": "All agents",
         "last_updated": "Last updated",
         "new_thread": "New thread",

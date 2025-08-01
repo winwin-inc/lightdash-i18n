@@ -25,6 +25,7 @@ import {
 } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import Fuse from 'fuse.js';
+import { isEmpty } from 'lodash';
 import { memo, useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -288,7 +289,10 @@ export const Tables: FC = () => {
     const transformedData:
         | { database: string; tablesBySchema: TablesBySchema }
         | undefined = useMemo(() => {
-        if (!data) return undefined;
+        if (!data || isEmpty(data)) return undefined;
+        const [database] = Object.keys(data);
+        if (!database) return undefined;
+
         const tablesBySchema = Object.entries(data).flatMap(([, schemas]) =>
             Object.entries(schemas).map(([schema, tables]) => ({
                 schema,
@@ -296,7 +300,7 @@ export const Tables: FC = () => {
             })),
         );
         return {
-            database: Object.keys(data)[0],
+            database,
             tablesBySchema,
         };
     }, [data]);

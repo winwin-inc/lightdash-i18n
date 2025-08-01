@@ -1,4 +1,5 @@
 import {
+    formatDate,
     type ApiError,
     type ApiJobScheduledResponse,
     type CreateDashboard,
@@ -18,10 +19,13 @@ import {
     type UseQueryOptions,
 } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router';
+import { useTranslation } from 'react-i18next';
+
 import { lightdashApi } from '../../api';
 import { pollJobStatus } from '../../features/scheduler/hooks/useScheduler';
 import useToaster from '../toaster/useToaster';
 import useQueryError from '../useQueryError';
+import useDashboardStorage from './useDashboardStorage';
 
 const getDashboard = async (id: string) =>
     lightdashApi<Dashboard>({
@@ -72,16 +76,12 @@ const postDashboardsAvailableFilters = async (
     });
 
 const postEmbedDashboardsAvailableFilters = async (
-    embedToken: string,
     projectUuid: string,
     savedChartUuidsAndTileUuids: SavedChartsInfoForDashboardAvailableFilters,
 ) =>
     lightdashApi<DashboardAvailableFilters>({
         url: `/embed/${projectUuid}/dashboard/availableFilters`,
         method: 'POST',
-        headers: {
-            'Lightdash-Embed-Token': embedToken!,
-        },
         body: JSON.stringify(savedChartUuidsAndTileUuids),
     });
 
@@ -107,7 +107,6 @@ export const useDashboardsAvailableFilters = (
         () =>
             embedToken && projectUuid
                 ? postEmbedDashboardsAvailableFilters(
-                      embedToken,
                       projectUuid,
                       savedChartUuidsAndTileUuids,
                   )
@@ -134,6 +133,8 @@ export const useDashboardQuery = (
 
 export const useExportDashboard = () => {
     const { showToastSuccess, showToastApiError, showToastInfo } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<
         string,
         ApiError,
@@ -158,8 +159,8 @@ export const useExportDashboard = () => {
                 showToastInfo({
                     key: 'dashboard_export_toast',
                     title: data.isPreview
-                        ? `Generating preview for ${data.dashboard.name}`
-                        : `${data.dashboard.name} is being exported. This might take a few seconds.`,
+                        ? t('hooks_dashboard.generate_preview_for', { name: data.dashboard.name })
+                        : t('hooks_dashboard.is_being_exported', { name: data.dashboard.name }),
                     autoClose: false,
                     loading: true,
                 });
@@ -170,8 +171,8 @@ export const useExportDashboard = () => {
                     showToastSuccess({
                         key: 'dashboard_export_toast',
                         title: data.isPreview
-                            ? 'Success!'
-                            : `Success! ${data.dashboard.name} was exported.`,
+                            ? t('hooks_dashboard.success')
+                            : t('hooks_dashboard.success_export', { name: data.dashboard.name }),
                     });
                 }
             },
@@ -179,8 +180,8 @@ export const useExportDashboard = () => {
                 showToastApiError({
                     key: 'dashboard_export_toast',
                     title: data.isPreview
-                        ? `Failed to generate preview for ${data.dashboard.name}`
-                        : `Failed to export ${data.dashboard.name}`,
+                        ? t('hooks_dashboard.failed_preview', { name: data.dashboard.name })
+                        : t('hooks_dashboard.failed_export', { name: data.dashboard.name }),
                     apiError: error,
                 });
             },
@@ -206,6 +207,7 @@ export const useExportCsvDashboard = () => {
         showToastApiError,
         showToastInfo,
     } = useToaster();
+    const { t } = useTranslation();
 
     return useMutation<
         ApiJobScheduledResponse['results'],
@@ -237,7 +239,17 @@ export const useExportCsvDashboard = () => {
                 pollJobStatus(job.jobId)
                     .then(async (details) => {
                         if (details?.url) {
-                            window.open(details.url, '_blank');
+                            const link = document.createElement('a');
+                            link.href = details.url;
+                            link.setAttribute(
+                                'download',
+                                `${data.dashboard.name}-${formatDate(
+                                    Date.now(),
+                                )}`,
+                            );
+                            document.body.appendChild(link);
+                            link.click();
+                            link.remove(); // Remove the link from the DOM
                             showToastSuccess({
                                 key: 'dashboard_export_toast',
                                 title: `Success! ${data.dashboard.name} was exported.`,
@@ -245,15 +257,15 @@ export const useExportCsvDashboard = () => {
                         } else {
                             showToastError({
                                 key: 'dashboard_export_toast',
-                                title: `Missing file url for ${data.dashboard.name}`,
-                                subtitle: 'Something went wrong',
+                                title: t('hooks_dashboard.missing_file_url', { name: data.dashboard.name }),
+                                subtitle: t('hooks_dashboard.something_went_wrong'),
                             });
                         }
                     })
                     .catch((error: Error) => {
                         showToastError({
                             key: 'dashboard_export_toast',
-                            title: `Failed to export ${data.dashboard.name}`,
+                            title: t('hooks_dashboard.failed_export', { name: data.dashboard.name }),
                             subtitle: error.message,
                         });
                     });
@@ -261,7 +273,7 @@ export const useExportCsvDashboard = () => {
             onError: ({ error }, data) => {
                 showToastApiError({
                     key: 'dashboard_export_toast',
-                    title: `Failed to export ${data.dashboard.name}`,
+                    title: t('hooks_dashboard.failed_export', { name: data.dashboard.name }),
                     apiError: error,
                 });
             },
@@ -277,6 +289,9 @@ export const useUpdateDashboard = (
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { clearDashboardStorage } = useDashboardStorage();
+    const { t } = useTranslation();
+
     return useMutation<Dashboard, ApiError, UpdateDashboard>(
         (data) => {
             if (id === undefined) {
@@ -288,6 +303,7 @@ export const useUpdateDashboard = (
         {
             mutationKey: ['dashboard_update'],
             onSuccess: async (_, variables) => {
+                clearDashboardStorage();
                 await queryClient.invalidateQueries(['space', projectUuid]);
                 await queryClient.invalidateQueries([
                     'most-popular-and-recently-updated',
@@ -303,12 +319,12 @@ export const useUpdateDashboard = (
                     Object.keys(variables).length === 1 &&
                     Object.keys(variables).includes('name');
                 showToastSuccess({
-                    title: `Success! Dashboard ${
-                        onlyUpdatedName ? 'name ' : ''
-                    }was updated.`,
+                    title: t('hooks_dashboard.success_update', {
+                        name: onlyUpdatedName ? 'name ' : '',
+                    }),
                     action: showRedirectButton
                         ? {
-                              children: 'Open dashboard',
+                              children: t('hooks_dashboard.open_dashboard'),
                               icon: IconArrowRight,
                               onClick: () =>
                                   navigate(
@@ -321,7 +337,7 @@ export const useUpdateDashboard = (
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to update dashboard`,
+                    title: t('hooks_dashboard.failed_to_update'),
                     apiError: error,
                 });
             },
@@ -336,6 +352,8 @@ export const useCreateMutation = (
     const navigate = useNavigate();
     const { showToastSuccess, showToastApiError } = useToaster();
     const queryClient = useQueryClient();
+    const { t } = useTranslation();
+
     return useMutation<Dashboard, ApiError, CreateDashboard>(
         (data) =>
             projectUuid ? createDashboard(projectUuid, data) : Promise.reject(),
@@ -351,10 +369,10 @@ export const useCreateMutation = (
                 ]);
                 await queryClient.invalidateQueries(['content']);
                 showToastSuccess({
-                    title: `Success! Dashboard was created.`,
+                    title: t('hooks_dashboard.success_create'),
                     action: showRedirectButton
                         ? {
-                              children: 'Open dashboard',
+                              children: t('hooks_dashboard.open_dashboard'),
                               icon: IconArrowRight,
                               onClick: () =>
                                   navigate(
@@ -366,7 +384,7 @@ export const useCreateMutation = (
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to create dashboard`,
+                    title: t('hooks_dashboard.failed_to_create'),
                     apiError: error,
                 });
             },
@@ -385,6 +403,8 @@ export const useDuplicateDashboardMutation = (
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<
         Dashboard,
         ApiError,
@@ -410,10 +430,10 @@ export const useDuplicateDashboardMutation = (
                 ]);
                 await queryClient.invalidateQueries(['content']);
                 showToastSuccess({
-                    title: `Dashboard successfully duplicated!`,
+                    title: t('hooks_dashboard.success_duplicate'),
                     action: options?.showRedirectButton
                         ? {
-                              children: 'Open dashboard',
+                              children: t('hooks_dashboard.open_dashboard'),
                               icon: IconArrowRight,
                               onClick: () =>
                                   navigate(
@@ -425,7 +445,7 @@ export const useDuplicateDashboardMutation = (
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to duplicate dashboard`,
+                    title: t('hooks_dashboard.failed_to_duplicate'),
                     apiError: error,
                 });
             },
@@ -436,6 +456,8 @@ export const useDuplicateDashboardMutation = (
 export const useDashboardDeleteMutation = () => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+
     return useMutation<null, ApiError, string>(deleteDashboard, {
         onSuccess: async () => {
             await queryClient.invalidateQueries(['dashboards']);
@@ -450,12 +472,12 @@ export const useDashboardDeleteMutation = () => {
             ]);
             await queryClient.invalidateQueries(['content']);
             showToastSuccess({
-                title: `Deleted! Dashboard was deleted.`,
+                title: t('hooks_dashboard.success_delete'),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to delete dashboard`,
+                title: t('hooks_dashboard.failed_to_delete'),
                 apiError: error,
             });
         },

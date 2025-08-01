@@ -1,14 +1,11 @@
 import { subject } from '@casl/ability';
-import {
-    getCustomLabelsFromTableConfig,
-    getHiddenTableFields,
-} from '@lightdash/common';
 import { ActionIcon, Popover } from '@mantine/core';
 import { IconShare2 } from '@tabler/icons-react';
 import { memo, useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router';
+
 import { uploadGsheet } from '../../../hooks/gdrive/useGdrive';
+import { useProjectUuid } from '../../../hooks/useProjectUuid';
 import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import { ExplorerSection } from '../../../providers/Explorer/types';
@@ -27,6 +24,7 @@ import { ExplorerResults } from './ExplorerResults';
 const ResultsCard: FC = memo(() => {
     const { t } = useTranslation();
 
+    const projectUuid = useProjectUuid();
     const isEditMode = useExplorerContext(
         (context) => context.state.isEditMode,
     );
@@ -57,19 +55,11 @@ const ResultsCard: FC = memo(() => {
         (context) => context.actions.getDownloadQueryUuid,
     );
 
-    const unsavedChartVersion = useExplorerContext(
-        (context) => context.state.unsavedChartVersion,
+    const savedChart = useExplorerContext(
+        (context) => context.state.savedChart,
     );
-
-    const customLabels = getCustomLabelsFromTableConfig(
-        unsavedChartVersion.chartConfig.config,
-    );
-
-    const hiddenFields = getHiddenTableFields(unsavedChartVersion.chartConfig);
 
     const disabled = useMemo(() => (totalResults ?? 0) <= 0, [totalResults]);
-
-    const { projectUuid } = useParams<{ projectUuid: string }>();
 
     const resultsIsOpen = useMemo(
         () => expandedSections.includes(ExplorerSection.RESULTS),
@@ -114,13 +104,21 @@ const ResultsCard: FC = memo(() => {
                 resultsIsOpen &&
                 tableName && (
                     <>
-                        {isEditMode && <AddColumnButton />}
+                        <Can
+                            I="manage"
+                            this={subject('Explore', {
+                                organizationUuid: user.data?.organizationUuid,
+                                projectUuid,
+                            })}
+                        >
+                            {isEditMode && <AddColumnButton />}
+                        </Can>
 
                         <Can
                             I="manage"
                             this={subject('ExportCsv', {
                                 organizationUuid: user.data?.organizationUuid,
-                                projectUuid: projectUuid,
+                                projectUuid,
                             })}
                         >
                             <Popover
@@ -150,8 +148,9 @@ const ResultsCard: FC = memo(() => {
                                         }
                                         getGsheetLink={getGsheetLink}
                                         columnOrder={columnOrder}
-                                        customLabels={customLabels}
-                                        hiddenFields={hiddenFields}
+                                        customLabels={undefined} // for results table download, don't override labels
+                                        hiddenFields={undefined} // for results table download, don't hide columns
+                                        chartName={savedChart?.name}
                                         showTableNames
                                     />
                                 </Popover.Dropdown>

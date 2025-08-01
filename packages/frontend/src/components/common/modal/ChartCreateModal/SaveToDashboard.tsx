@@ -20,6 +20,7 @@ import {
 import useDashboardStorage from '../../../../hooks/dashboard/useDashboardStorage';
 import useToaster from '../../../../hooks/toaster/useToaster';
 import { useCreateMutation } from '../../../../hooks/useSavedQuery';
+import { DEFAULT_CHART_METADATA, type ChartMetadata } from './types';
 
 type Props = {
     dashboardName: string | null;
@@ -27,6 +28,7 @@ type Props = {
     savedData: CreateSavedChartVersion;
     projectUuid?: string;
     onClose: () => void;
+    defaults?: ChartMetadata;
 };
 
 type SaveToDashboardFormValues = { name: string; description: string };
@@ -44,6 +46,7 @@ export const SaveToDashboard: FC<Props> = ({
     dashboardUuid,
     projectUuid,
     onClose,
+    defaults = DEFAULT_CHART_METADATA,
 }) => {
     const [dashboardInfoFromStorage, setDashboardInfoFromStorage] = useState({
         name: dashboardName,
@@ -89,8 +92,7 @@ export const SaveToDashboard: FC<Props> = ({
     const unsavedDashboardTiles = getUnsavedDashboardTiles();
     const form = useForm<FormValues>({
         initialValues: {
-            name: '',
-            description: '',
+            ...defaults,
         },
         validate: zodResolver(validationSchema),
     });

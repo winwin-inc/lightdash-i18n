@@ -53,6 +53,18 @@ type TableCalculationFormInputs = {
     type?: TableCalculationType;
 };
 
+const useTableCalculationTypeLabels = () => {
+  const { t } = useTranslation();
+
+  return {
+    [TableCalculationType.NUMBER]: t("features_table_calculation_modal.type_labels.number"),
+    [TableCalculationType.STRING]: t("features_table_calculation_modal.type_labels.string"),
+    [TableCalculationType.DATE]: t("features_table_calculation_modal.type_labels.date"),
+    [TableCalculationType.TIMESTAMP]: t("features_table_calculation_modal.type_labels.timestamp"),
+    [TableCalculationType.BOOLEAN]: t("features_table_calculation_modal.type_labels.boolean"),
+  } as const;
+}
+
 const TableCalculationModal: FC<Props> = ({
     opened,
     tableCalculation,
@@ -75,6 +87,8 @@ const TableCalculationModal: FC<Props> = ({
         (context) =>
             context.state.unsavedChartVersion.metricQuery.customDimensions,
     );
+
+    const tableCalculationTypeLabels = useTableCalculationTypeLabels();
 
     const form = useForm<TableCalculationFormInputs>({
         initialValues: {
@@ -318,7 +332,12 @@ const TableCalculationModal: FC<Props> = ({
                                         if (tcType)
                                             form.setFieldValue(`type`, tcType);
                                     }}
-                                    data={Object.values(TableCalculationType)}
+                                    data={Object.values(TableCalculationType).map(item => {
+                                      return {
+                                        value: item,
+                                        label: tableCalculationTypeLabels[item] || item,
+                                      }
+                                    })}
                                 />
                             </Tooltip>
                         </Stack>

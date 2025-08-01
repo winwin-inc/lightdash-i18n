@@ -46,14 +46,19 @@ yarn-debug.log*
 yarn-error.log*
 
 .idea
+.pnpm-store
 node_modules
 package-lock.json
+pnpm-lock.yaml
+yarn.lock
 
 # typescript
 *.tsbuildinfo
 
 # examples
 /examples/full-jaffle-shop-demo/dbt/target
+/examples/full-jaffle-shop-demo/dbt/dbt_packages
+/examples/full-jaffle-shop-demo/dbt/dbt_internal_packages/
 /dbt
 /profile*
 
@@ -66,9 +71,17 @@ credentials.json
 packages/backend/target/
 venv/
 .venv/
+.venvs/
 dbt_modules/
 logs/
+
+# direnv
 /.envrc
+.direnv/
+
+# nix flakes
+flake.nix
+flake.lock
 
 # dangerfile
 dangerfile.development.ts
@@ -83,3 +96,8 @@ data/
 
 # environment
 .env*
+
+.local/*
+
+# pnpm
+.pnpm-store

@@ -1,28 +1,45 @@
+import { subject } from '@casl/ability';
 import {
     ECHARTS_DEFAULT_COLORS,
     getHiddenTableFields,
     getPivotConfig,
     NotFoundError,
 } from '@lightdash/common';
-import { useDisclosure } from '@mantine/hooks';
+import { Button } from '@mantine/core';
+import {
+    IconLayoutSidebarLeftCollapse,
+    IconLayoutSidebarLeftExpand,
+} from '@tabler/icons-react';
+import {
+    type FC,
+    memo,
+    useCallback,
+    useLayoutEffect,
+    useMemo,
+    useState,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
-import { type FC, memo, useCallback, useMemo, useState } from 'react';
 import ErrorBoundary from '../../../features/errorBoundary/ErrorBoundary';
 import { type EChartSeries } from '../../../hooks/echarts/useEchartsCartesianConfig';
 import { uploadGsheet } from '../../../hooks/gdrive/useGdrive';
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import { useExplore } from '../../../hooks/useExplore';
+import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import { ExplorerSection } from '../../../providers/Explorer/types';
 import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import ChartDownloadMenu from '../../common/ChartDownload/ChartDownloadMenu';
 import CollapsableCard from '../../common/CollapsableCard/CollapsableCard';
+import { COLLAPSABLE_CARD_BUTTON_PROPS } from '../../common/CollapsableCard/constants';
+import MantineIcon from '../../common/MantineIcon';
 import LightdashVisualization from '../../LightdashVisualization';
 import VisualizationProvider from '../../LightdashVisualization/VisualizationProvider';
 import { type EchartSeriesClickEvent } from '../../SimpleChart';
+import { VisualizationConfigPortalId } from '../ExplorePanel/constants';
+import VisualizationConfig from '../VisualizationCard/VisualizationConfig';
 import { SeriesContextMenu } from './SeriesContextMenu';
-import VisualizationSidebar from './VisualizationSidebar';
 
 export type EchartsClickEvent = {
     event: EchartSeriesClickEvent;
@@ -30,10 +47,11 @@ export type EchartsClickEvent = {
     series: EChartSeries[];
 };
 
-const VisualizationCard: FC<{
+type Props = {
     projectUuid?: string;
-    isProjectPreview?: boolean;
-}> = memo(({ projectUuid: fallBackUUid, isProjectPreview }) => {
+};
+
+const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
     const { health } = useApp();
     const { data: org } = useOrganization();
     const { t } = useTranslation();
@@ -104,8 +122,21 @@ const VisualizationCard: FC<{
     const [echartsClickEvent, setEchartsClickEvent] =
         useState<EchartsClickEvent>();
 
-    const [isSidebarOpen, { open: openSidebar, close: closeSidebar }] =
-        useDisclosure();
+    const isVisualizationConfigOpen = useExplorerContext(
+        (context) => context.state.isVisualizationConfigOpen,
+    );
+    const openVisualizationConfig = useExplorerContext(
+        (context) => context.actions.openVisualizationConfig,
+    );
+    const closeVisualizationConfig = useExplorerContext(
+        (context) => context.actions.closeVisualizationConfig,
+    );
+
+    useLayoutEffect(() => {
+        if (!isOpen) {
+            closeVisualizationConfig();
+        }
+    }, [closeVisualizationConfig, isOpen]);
 
     const onSeriesContextMenu = useCallback(
         (e: EchartSeriesClickEvent, series: EChartSeries[]) => {
@@ -162,6 +193,7 @@ const VisualizationCard: FC<{
                     unsavedChartVersion.pivotConfig?.columns
                 }
                 resultsData={resultsData}
+                apiErrorDetail={query.error?.error}
                 isLoading={isLoadingQueryResults}
                 columnOrder={unsavedChartVersion.tableConfig.columnOrder}
                 onSeriesContextMenu={onSeriesContextMenu}
@@ -172,6 +204,7 @@ const VisualizationCard: FC<{
                 onPivotDimensionsChange={setPivotFields}
                 colorPalette={org?.chartColors ?? ECHARTS_DEFAULT_COLORS}
                 tableCalculationsMetadata={tableCalculationsMetadata}
+                parameters={query.data?.usedParametersValues}
             >
                 <CollapsableCard
                     title={t('components_explorer_visualization_card.chart')}
@@ -182,26 +215,66 @@ const VisualizationCard: FC<{
                         isOpen && (
                             <>
                                 {isEditMode ? (
-                                    <VisualizationSidebar
-                                        chartType={
-                                            unsavedChartVersion.chartConfig.type
+                                    <Button
+                                        {...COLLAPSABLE_CARD_BUTTON_PROPS}
+                                        onClick={
+                                            isVisualizationConfigOpen
+                                                ? closeVisualizationConfig
+                                                : openVisualizationConfig
                                         }
-                                        savedChart={savedChart}
-                                        isProjectPreview={isProjectPreview}
-                                        isOpen={isSidebarOpen}
-                                        onOpen={openSidebar}
-                                        onClose={closeSidebar}
-                                    />
+                                        rightIcon={
+                                            <MantineIcon
+                                                color="gray"
+                                                icon={
+                                                    isVisualizationConfigOpen
+                                                        ? IconLayoutSidebarLeftCollapse
+                                                        : IconLayoutSidebarLeftExpand
+                                                }
+                                            />
+                                        }
+                                    >
+                                        {isVisualizationConfigOpen
+                                            ? t('components_explorer_visualization_card.close_configure')
+                                            : t('components_explorer_visualization_card.configure')}
+                                    </Button>
                                 ) : null}
-                                {!!projectUuid && (
-                                    <ChartDownloadMenu
-                                        getDownloadQueryUuid={
-                                            getDownloadQueryUuid
-                                        }
-                                        projectUuid={projectUuid}
-                                        getGsheetLink={getGsheetLink}
-                                    />
-                                )}
+
+                                {/*
+                                 * NOTE: not using Portal from mantine-8 because this page lacks MantineProvider from Mantine 8
+                                 * TODO: use mantine-8 portal with reuseTargetNode flag to avoid rendering additional divs
+                                 */}
+                                {isVisualizationConfigOpen &&
+                                    createPortal(
+                                        <VisualizationConfig
+                                            chartType={
+                                                unsavedChartVersion.chartConfig
+                                                    .type
+                                            }
+                                            onClose={closeVisualizationConfig}
+                                        />,
+                                        document.getElementById(
+                                            VisualizationConfigPortalId,
+                                        )!,
+                                    )}
+
+                                <Can
+                                    I="manage"
+                                    this={subject('Explore', {
+                                        organizationUuid: org?.organizationUuid,
+                                        projectUuid,
+                                    })}
+                                >
+                                    {!!projectUuid && (
+                                        <ChartDownloadMenu
+                                            getDownloadQueryUuid={
+                                                getDownloadQueryUuid
+                                            }
+                                            projectUuid={projectUuid}
+                                            chartName={savedChart?.name}
+                                            getGsheetLink={getGsheetLink}
+                                        />
+                                    )}
+                                </Can>
                             </>
                         )
                     }
@@ -214,6 +287,7 @@ const VisualizationCard: FC<{
                         echartSeriesClickEvent={echartsClickEvent?.event}
                         dimensions={echartsClickEvent?.dimensions}
                         series={echartsClickEvent?.series}
+                        explore={explore}
                     />
                 </CollapsableCard>
             </VisualizationProvider>

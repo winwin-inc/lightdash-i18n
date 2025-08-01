@@ -1,87 +1,145 @@
 import {
-    Explore,
-    aiFindFieldsToolSchema,
+    assertUnreachable,
+    CatalogField,
+    convertToAiHints,
+    FieldType,
     getItemId,
-    type CompiledField,
+    isEmojiIcon,
+    KnexPaginateArgs,
+    toolFindFieldsArgsSchema,
 } from '@lightdash/common';
 import { tool } from 'ai';
-import { mapValues, pick } from 'lodash';
-import type {
-    GetExploreFn,
-    SearchFieldsFn,
-} from '../types/aiAgentDependencies';
+import type { FindFieldFn } from '../types/aiAgentDependencies';
 import { toolErrorHandler } from '../utils/toolErrorHandler';
 
 type Dependencies = {
-    getExplore: GetExploreFn;
-    searchFields?: SearchFieldsFn;
+    findFields: FindFieldFn;
 };
 
-export const getFindFields = ({ getExplore, searchFields }: Dependencies) => {
-    const getMinimalTableInformation = async ({
-        explore,
-        embeddingSearchQueries,
-    }: {
-        explore: Explore;
-        embeddingSearchQueries: Array<{ name: string; description: string }>;
-    }) => {
-        // TODO: revisit this once we enable embedding search
-        // first we should filter and then we should do the embedding search
-        const filteredFields = await searchFields?.({
-            exploreName: explore.name,
-            embeddingSearchQueries,
-        });
+const fieldKindLabel = (fieldType: FieldType) => {
+    switch (fieldType) {
+        case FieldType.DIMENSION:
+            return 'Dimension';
+        case FieldType.METRIC:
+            return 'Metric';
+        default:
+            return assertUnreachable(fieldType, 'Invalid field type');
+    }
+};
 
-        const filterFieldFn = (field: CompiledField) => {
-            if (field.hidden) return false;
+const getFieldText = (catalogField: CatalogField) => {
+    const aiHints = convertToAiHints(catalogField.aiHints ?? undefined);
 
-            if (!filteredFields) return true;
-            return filteredFields.includes(field.name);
-        };
-        const mapFieldFn = (field: CompiledField) => ({
-            fieldId: getItemId(field),
-            ...pick(field, ['label', 'description', 'type']),
-        });
+    const fieldTypeLabel = fieldKindLabel(catalogField.fieldType);
 
-        const mappedValues = mapValues(explore.tables, (t) => {
-            const dimensions = Object.values(t.dimensions);
-            const metrics = Object.values(t.metrics);
+    if (!catalogField.basicType) {
+        throw new Error('Field basic type is required');
+    }
 
-            return {
-                ...pick(t, ['name', 'label', 'description']),
-                dimensions: dimensions.filter(filterFieldFn).map(mapFieldFn),
-                metrics: metrics.filter(filterFieldFn).map(mapFieldFn),
-            };
-        });
+    return `
+    <${fieldTypeLabel} fieldId="${getItemId({
+        name: catalogField.name,
+        table: catalogField.tableName,
+    })}" fieldType="${catalogField.fieldValueType}" fieldFilterType="${
+        catalogField.basicType
+    }">
+        <Name>${catalogField.name}</Name>
+        <Label>${catalogField.label}</Label>
+        <SearchRank>${catalogField.searchRank}</SearchRank>
+        ${
+            aiHints && aiHints.length > 0
+                ? `
+        <AI Hints>
+            ${aiHints.map((hint) => `<Hint>${hint}</Hint>`).join('\n')}
+        </AI Hints>`.trim()
+                : ''
+        }
+        ${
+            catalogField.categories && catalogField.categories.length > 0
+                ? `<Categories>${catalogField.categories
+                      .map((c) => c.name)
+                      .join(', ')}</Categories>`
+                : ''
+        }
+        <Table name="${catalogField.tableName}">${
+        catalogField.tableLabel
+    }</Table>
+        <UsageInCharts>${catalogField.chartUsage}</UsageInCharts>
+        ${
+            isEmojiIcon(catalogField.icon)
+                ? `<Emoji>${catalogField.icon.unicode}</Emoji>`
+                : ''
+        }
+        <Description>${catalogField.description}</Description>
+    </${fieldTypeLabel}>
+    `.trim();
+};
 
-        return mappedValues;
-    };
+const getFieldsText = (args: {
+    searchQuery: string;
+    fields: CatalogField[];
+    pagination:
+        | (KnexPaginateArgs & {
+              totalPageCount: number;
+              totalResults: number;
+          })
+        | undefined;
+}) =>
+    `
+<SearchResults searchQuery="${args.searchQuery}" page="${
+        args.pagination?.page
+    }" pageSize="${args.pagination?.pageSize}" totalPageCount="${
+        args.pagination?.totalPageCount
+    }" totalResults="${args.pagination?.totalResults}">
+    ${args.fields.map((field) => getFieldText(field)).join('\n\n')}
+</SearchResults>
+`.trim();
+
+export const getFindFields = ({ findFields }: Dependencies) => {
+    const schema = toolFindFieldsArgsSchema;
 
     return tool({
-        description: `Pick an explore and generate embedded search queries by breaking down user input into questions, ensuring each part of the input is addressed.
-Include all relevant information without omitting any names, companies, dates, or other pertinent details.
-Assume all potential fields, including company names and personal names, exist in the explore.
-It is important to find fields for the filters as well.`,
-        parameters: aiFindFieldsToolSchema,
-        execute: async ({ exploreName, embeddingSearchQueries }) => {
+        description: `Tool: "findFields"
+
+Purpose:
+Finds the most relevant Fields (Metrics & Dimensions) within Explores, returning detailed info about each.
+
+Usage tips:
+- Use "findExplores" first to discover available Explores and their field labels.
+- Use full field labels in search terms (e.g. "Total Revenue", "Order Date").
+- Pass all needed fields in one request.
+- Fields are sorted by relevance, with a maximum score of 1 and a minimum of 0, so the top results are the most relevant.
+- If results aren't relevant, retry with clearer or more specific terms.
+- Results are paginated — use the next page token to get more results if needed.
+`,
+        parameters: schema,
+        execute: async (args) => {
             try {
-                const explore = await getExplore({ exploreName });
-                const tables = await getMinimalTableInformation({
-                    explore,
-                    embeddingSearchQueries,
-                });
+                const fieldSearchQueryResults = await Promise.all(
+                    args.fieldSearchQueries.map(async (fieldSearchQuery) => ({
+                        searchQuery: fieldSearchQuery.label,
+                        ...(await findFields({
+                            table: args.table,
+                            fieldSearchQuery,
+                            page: args.page ?? 1,
+                            pageSize: 10,
+                        })),
+                    })),
+                );
 
-                return `Here are the available fields for explore named "${exploreName}":
-    - Read field labels and descriptions carefully to understand their usage.
-    - Look for hints in the field descriptions on how to/when to use the fields and ask the user for clarification if the field information is ambiguous or incomplete.
+                const fieldsText = fieldSearchQueryResults
+                    .map((fieldSearchQueryResult) =>
+                        getFieldsText(fieldSearchQueryResult),
+                    )
+                    .join('\n\n');
 
-\`\`\`json
-${JSON.stringify(tables, null, 4)}
-\`\`\``;
+                return fieldsText;
             } catch (error) {
                 return toolErrorHandler(
                     error,
-                    `Error finding fields for explore "${exploreName}".`,
+                    `Error finding fields for search queries: ${args.fieldSearchQueries
+                        .map((q) => q.label)
+                        .join(', ')}`,
                 );
             }
         },

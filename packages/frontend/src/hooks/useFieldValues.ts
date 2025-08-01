@@ -6,6 +6,7 @@ import {
     type ApiError,
     type FieldValueSearchResult,
     type FilterableItem,
+    type ParametersValuesMap,
 } from '@lightdash/common';
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -27,9 +28,6 @@ const getEmbedFilterValues = async (options: {
     return lightdashApi<FieldValueSearchResult>({
         url: `/embed/${options.projectId}/filter/${options.filterId}/search`,
         method: 'POST',
-        headers: {
-            'Lightdash-Embed-Token': options.embedToken!,
-        },
         body: JSON.stringify({
             search: options.search,
             limit: MAX_AUTOCOMPLETE_RESULTS,
@@ -47,6 +45,7 @@ const getFieldValues = async (
     forceRefresh: boolean,
     filters: AndFilterGroup | undefined,
     limit: number = MAX_AUTOCOMPLETE_RESULTS,
+    parameterValues?: ParametersValuesMap,
 ) => {
     if (!table) {
         throw new Error('Table is required to search for field values');
@@ -61,6 +60,7 @@ const getFieldValues = async (
             table,
             filters,
             forceRefresh,
+            parameters: parameterValues,
         }),
     });
 };
@@ -75,6 +75,7 @@ export const useFieldValues = (
     debounce: boolean = true,
     forceRefresh: boolean = false,
     useQueryOptions?: UseQueryOptions<FieldValueSearchResult, ApiError>,
+    parameterValues?: ParametersValuesMap,
 ) => {
     const { embedToken } = useEmbed();
     const [fieldName, setFieldName] = useState<string>(field.name);
@@ -126,6 +127,7 @@ export const useFieldValues = (
         fieldName,
         'search',
         debouncedSearch,
+        parameterValues,
     ];
     const query = useQuery<FieldValueSearchResult, ApiError>(
         cachekey,
@@ -147,6 +149,8 @@ export const useFieldValues = (
                     debouncedSearch,
                     forceRefresh,
                     filters,
+                    undefined,
+                    parameterValues,
                 );
             }
         },
