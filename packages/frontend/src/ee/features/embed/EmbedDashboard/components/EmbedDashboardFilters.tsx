@@ -75,6 +75,7 @@ const EmbedDashboardFilters: FC<Props> = ({
         >
             <Flex gap="xs" wrap="wrap" w="100%" justify="flex-start">
                 <ActiveFilters
+                    filterType="global"
                     isEditMode={false}
                     onPopoverOpen={handlePopoverOpen}
                     onPopoverClose={handlePopoverClose}
