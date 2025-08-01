@@ -315,7 +315,7 @@ const DashboardProvider: React.FC<
             setOriginalDashboardFilters(dashboard.filters);
 
             // tab filters
-            if (isEmptyTabFilters(tabFilters)) {
+            if (dashboard.tabs.length > 0 && isEmptyTabFilters(tabFilters)) {
                 const updatedTabFilters = dashboard.tabs.reduce((acc, tab) => {
                     acc[tab.uuid] = tab.filters || emptyFilters;
                     return acc;
