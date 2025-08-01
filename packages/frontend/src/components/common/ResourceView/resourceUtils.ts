@@ -57,6 +57,10 @@ export const useResourceTypeName = () => {
                         return t(
                             'components_common_resource_view_utils.resource_type_names.funnel_chart',
                         );
+                    case ChartKind.TREEMAP:
+                        return t(
+                            'components_common_resource_view_utils.resource_type_names.treemap',
+                        );
                     case ChartKind.TABLE:
                         return t(
                             'components_common_resource_view_utils.resource_type_names.table',
@@ -84,7 +88,7 @@ export const useResourceTypeName = () => {
                 return assertUnreachable(item, 'Resource type not supported');
         }
     };
-};
+}
 
 const getChartResourceUrl = (
     projectUuid: string,

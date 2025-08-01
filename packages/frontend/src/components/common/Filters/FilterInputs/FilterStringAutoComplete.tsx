@@ -11,7 +11,7 @@ import {
     type MultiSelectProps,
     type MultiSelectValueProps,
 } from '@mantine/core';
-import { IconPlus } from '@tabler/icons-react';
+import { IconAlertCircle, IconPlus } from '@tabler/icons-react';
 import uniq from 'lodash/uniq';
 import {
     useCallback,
@@ -100,6 +100,8 @@ const FilterStringAutoComplete: FC<Props> = ({
         results: resultsSet,
         refreshedAt,
         refetch,
+        error,
+        isError,
     } = useFieldValues(
         search,
         initialSuggestionData,
@@ -364,7 +366,18 @@ const FilterStringAutoComplete: FC<Props> = ({
                           )
                 }
                 rightSection={
-                    isInitialLoading ? <Loader size="xs" color="gray" /> : null
+                    isInitialLoading ? (
+                        <Loader size="xs" color="gray" />
+                    ) : isError ? (
+                        <Tooltip
+                            label={
+                                error?.error?.message || t('components_common_filters_inputs.filter_not_available')
+                            }
+                            withinPortal
+                        >
+                            <MantineIcon icon={IconAlertCircle} color="red" />
+                        </Tooltip>
+                    ) : null
                 }
                 dropdownComponent={DropdownComponentOverride}
                 itemComponent={({ label, ...others }) =>

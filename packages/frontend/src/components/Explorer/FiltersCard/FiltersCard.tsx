@@ -15,10 +15,10 @@ import {
 import { Badge, Text, Tooltip } from '@mantine/core';
 import { memo, useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router';
 
 import { useExplore } from '../../../hooks/useExplore';
 import { useProject } from '../../../hooks/useProject';
+import { useProjectUuid } from '../../../hooks/useProjectUuid';
 import { ExplorerSection } from '../../../providers/Explorer/types';
 import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import CollapsableCard from '../../common/CollapsableCard/CollapsableCard';
@@ -31,7 +31,7 @@ const FiltersCard: FC = memo(() => {
     const { t } = useTranslation();
     const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
-    const { projectUuid } = useParams<{ projectUuid: string }>();
+    const projectUuid = useProjectUuid();
     const project = useProject(projectUuid);
     const expandedSections = useExplorerContext(
         (context) => context.state.expandedSections,

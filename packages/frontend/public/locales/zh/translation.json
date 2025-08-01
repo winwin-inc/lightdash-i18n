@@ -848,6 +848,13 @@
         "select_dashboards_description": "只有这些看板可以被嵌入。",
         "save_changes": "保存更改"
     },
+    "features_embed_explore": {
+        "missing_project_uuid": "缺少项目 UUID",
+        "error_loading_explore": "加载探索失败",
+        "this_embed_link_has_expired": "此嵌入链接已过期",
+        "tables": "表格"
+    },
+
 
     "features_mertic_flow": {
         "time_granularity": "时间粒度",
@@ -1624,7 +1631,9 @@
         "continue_exploring": "继续探索"
     },
     "features_ai_copilot_chat_elements_tool_calls": {
-      "how_it_is_calculated": "如何计算"
+      "how_it_is_calculated": "如何计算",
+      "searched_relevant_explores": "搜索相关探索",
+      "searched_for_fields": "搜索字段"
     },
     "features_ai_copilot_default_agent_button": {
       "remove_as_default_agent": "移除为默认代理",
@@ -1789,6 +1798,7 @@
       "add": "添加",
       "loading": "加载中...",
       "no_results_found": "没有结果",
+      "default": "默认值",
       "choose_value": "选择值..."
     },
     "features_parameters_selection": {
@@ -2034,6 +2044,7 @@
             "loading": "加载中...",
             "no_results": "未找到任何结果"
         },
+        "filter_not_available": "过滤器不可用",
         "select_value": "选择值",
         "filter_operator_labels": {
             "is_null": "是空值",
@@ -4596,6 +4607,43 @@
             "conditional_formating": "条件格式化"
         }
     },
+    "components_visualization_configs_treemap": {
+        "tabs": {
+            "layout": "布局",
+            "display": "显示"
+        },
+        "display_config": {
+            "minimum_section_size": {
+                "label": "最小区块大小",
+                "tooltip": "任何小于此大小的区块都不会显示。您可以放大以查看更小的区块。"
+            },
+            "max_leaf_depth": {
+                "label": "最大叶子深度",
+                "tooltip": "要显示的树的最大深度。这对于限制显示的区块数量很有用。",
+                "no_limit": "无限制"
+            }
+        },
+        "layout_config": {
+            "dimension_hierarchy": {
+                "label": "维度层次结构",
+                "tooltip": "拖放您的维度以按层次结构排序。",
+                "select_dimension": "选择维度"
+            },
+            "size_metric": {
+                "label": "大小指标",
+                "tooltip": "确定每个区块的大小。"
+            },
+            "color_metric": {
+                "label": "颜色指标",
+                "tooltip": "根据指标动态设置节点的颜色。如果未设置，则 treemap 将使用默认颜色方案。",
+                "select_metric": "选择指标",
+                "min_color": "最小颜色",
+                "threshold": "阈值",
+                "auto": "自动（每级）",
+                "max_color": "最大颜色"
+            }
+        }
+    },
     "components_visualization_configs_custom_vis": {
         "placeholder": "开始输入您的 Vega-Lite JSON代码或从我们的预构建模板中选择以创建您的图表。",
         "templates": {
@@ -5177,6 +5225,7 @@
             "big_value": "大数值",
             "pie_chart": "饼图",
             "funnel_chart": "漏斗图",
+            "treemap": "树状图",
             "custom": "自定义",
             "unknown": "未知图表类型"
         },
@@ -5188,6 +5237,7 @@
             "scatter_chart": "散点图",
             "pie_chart": "饼图",
             "funnel_chart": "漏斗图",
+            "treemap": "树状图",
             "table": "表格",
             "big_value": "大数值",
             "custom": "自定义"
@@ -5367,6 +5417,7 @@
             "mixed_chart": "混合图表",
             "pie_chart": "饼图",
             "funnel_chart": "漏斗图",
+            "treemap": "树状图",
             "table": "表格",
             "big_number": "大数值",
             "custom_visualization": "自定义可视化",
@@ -5519,6 +5570,15 @@
         "cell_context": {
             "copied": "已复制到剪贴板！",
             "copy_value": "复制值"
+        }
+    },
+    "components_simple_treemap": {
+        "empty": {
+            "title": "无可用数据",
+            "description": "查询结果指标和维度。"
+        },
+        "loading": {
+            "title": "正在加载图表"
         }
     },
     "components_sort_button": {
@@ -7277,11 +7337,16 @@
         },
         "tags": {
           "label": "标签",
-          "placeholder": "选择标签"
+          "placeholder": "选择标签",
+          "tooltip": {
+            "part_1": "添加标签以控制 AI 代理可以访问的指标和维度。更多信息请参阅我们的",
+            "part_2": "文档"
+          }
         },
         "group_access": {
           "label": "组访问",
           "description": "选择可以访问此代理的组。如果未选择组，则代理对组织中的所有用户可见。",
+          "tooltip": "管理员和开发人员将始终有权访问此代理。",
           "placeholder": {
             "loading": "加载组...",
             "no_groups": "没有可用的组",
@@ -7295,7 +7360,7 @@
           "label": "Instructions 指令",
           "description": "设置代理的整体行为和任务。这定义了它应该如何响应以及它的目的是什么。",
           "placeholder": "您是营销分析专家。专注于活动表现、客户获取成本和 ROI 指标。始终使用条形图和表格来可视化数据。",
-          "character_count": "{{count}} 字符"
+          "character_count": "{{count}}个字符"
         },
         "quick_templates": {
           "label": "快速模板"
@@ -7342,6 +7407,17 @@
         "delete": "删除",
         "content": "确定要删除此代理吗？此操作无法撤销。"
       }
+    },
+    "pages_ai_agents_not_authorized": {
+        "title": "您没有权限与这个 AI 代理交互",
+        "content": "要获得访问权限，请联系您的组织管理员。",
+        "go_back_to_project_home": "返回项目首页"
+    },
+    "pages_embed_explore": {
+        "no_valid": "此嵌入链接无效",
+        "missing_explore_id": "缺少探索 ID",
+        "no_explore_id": "没有提供探索 ID",
+        "missing_chart": "缺少要探索的保存图表"
     },
 
     "mobile_navbar": {

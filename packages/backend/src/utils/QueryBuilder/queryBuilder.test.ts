@@ -1,10 +1,12 @@
 import {
     BinType,
     CustomDimensionType,
+    FilterOperator,
     ForbiddenError,
     JoinRelationship,
     TimeFrames,
 } from '@lightdash/common';
+import { BigquerySqlBuilder, PostgresSqlBuilder } from '@lightdash/warehouses';
 import {
     BuildQueryProps,
     CompiledQuery,
@@ -775,5 +777,275 @@ describe('Query builder', () => {
                 '("table1".shared) = ("table2".shared) AND \'active\' = \'active\'',
             );
         });
+
+        test('Should correctly identify usedParameters in query', () => {
+            // Create a QueryBuilder instance directly to test getSqlAndReferences
+            const queryBuilder = new MetricQueryBuilder({
+                explore: {
+                    ...EXPLORE,
+                    tables: {
+                        ...EXPLORE.tables,
+                        table1: {
+                            ...EXPLORE.tables.table1,
+                            dimensions: {
+                                ...EXPLORE.tables.table1.dimensions,
+                                dim1: {
+                                    ...EXPLORE.tables.table1.dimensions.dim1,
+                                    compiledSql:
+                                        'CASE WHEN ${lightdash.parameters.status} = \'active\' THEN "table1".dim1 WHEN ${lightdash.parameters.region} = \'EU\' THEN "table1".dim2 ELSE NULL END',
+                                },
+                            },
+                        },
+                    },
+                },
+                compiledMetricQuery: METRIC_QUERY,
+                warehouseSqlBuilder: warehouseClientMock,
+                intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
+                timezone: QUERY_BUILDER_UTC_TIMEZONE,
+                parameters: {
+                    status: 'active',
+                    region: 'EU',
+                    unused: 'parameter',
+                },
+            });
+
+            const compiledQuery = queryBuilder.compileQuery();
+
+            // Check that usedParameters only includes parameters that are actually used in the query
+            expect(compiledQuery.usedParameters).toEqual({
+                status: 'active',
+                region: 'EU',
+            });
+
+            // Verify that unused parameter is not included
+            expect(compiledQuery.usedParameters).not.toHaveProperty('unused');
+        });
+    });
+});
+
+describe('Escaping in postgres', () => {
+    const postgresSqlBuilder = new PostgresSqlBuilder();
+    const bigquerySqlBuilder = new BigquerySqlBuilder();
+
+    const postgresClientWithReplace = {
+        ...warehouseClientMock,
+        escapeString: postgresSqlBuilder.escapeString.bind(postgresSqlBuilder),
+    };
+    const bigqueryClientWithReplace = {
+        ...bigqueryClientMock,
+        escapeString: bigquerySqlBuilder.escapeString.bind(bigquerySqlBuilder),
+    };
+    test('Should return valid SQL filter', () => {
+        expect(
+            replaceWhitespace(
+                buildQuery({
+                    explore: EXPLORE,
+                    compiledMetricQuery: {
+                        ...METRIC_QUERY,
+                        filters: {
+                            dimensions: {
+                                id: '7e750e7c-8098-4a90-b364-4e935ad7a7e9',
+                                and: [
+                                    {
+                                        id: 'd69d3ba0-6ff5-4437-9ef3-4ed69006ea2e',
+                                        target: { fieldId: 'table1_dim1' },
+                                        operator: FilterOperator.EQUALS,
+                                        values: ['999'],
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                    warehouseSqlBuilder: postgresClientWithReplace,
+                    intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
+                    timezone: QUERY_BUILDER_UTC_TIMEZONE,
+                }).query,
+            ),
+        ).toContain(replaceWhitespace(`WHERE (( ("table1".dim1) IN (999) ))`));
+    });
+
+    test('Should throw when invalid number is provided', () => {
+        expect(() =>
+            replaceWhitespace(
+                buildQuery({
+                    explore: EXPLORE,
+                    compiledMetricQuery: {
+                        ...METRIC_QUERY,
+                        filters: {
+                            dimensions: {
+                                id: '7e750e7c-8098-4a90-b364-4e935ad7a7e9',
+                                and: [
+                                    {
+                                        id: 'd69d3ba0-6ff5-4437-9ef3-4ed69006ea2e',
+                                        target: { fieldId: 'table1_dim1' },
+                                        operator: FilterOperator.EQUALS,
+                                        values: ['99) OR (1=1) --'],
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                    warehouseSqlBuilder: postgresClientWithReplace,
+                    intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
+                    timezone: QUERY_BUILDER_UTC_TIMEZONE,
+                }).query,
+            ),
+        ).toThrow(
+            'Invalid number value in filter: "99) OR (1=1) ". Expected a valid number.',
+        );
+    });
+
+    test('Should return valid SQL filter with unicode characters in postgres', () => {
+        expect(
+            postgresClientWithReplace.escapeString('single\u2019quote'),
+        ).toBe("single''quote");
+
+        expect(
+            replaceWhitespace(
+                buildQuery({
+                    explore: EXPLORE,
+                    compiledMetricQuery: {
+                        ...METRIC_QUERY,
+                        filters: {
+                            dimensions: {
+                                id: '7e750e7c-8098-4a90-b364-4e935ad7a7e9',
+                                and: [
+                                    {
+                                        id: 'd69d3ba0-6ff5-4437-9ef3-4ed69006ea2e',
+                                        target: { fieldId: 'table1_shared' },
+                                        operator: FilterOperator.EQUALS,
+                                        values: ['\\\u2019) OR (1=1) --'],
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                    warehouseSqlBuilder: postgresClientWithReplace,
+                    intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
+                    timezone: QUERY_BUILDER_UTC_TIMEZONE,
+                }).query,
+            ),
+        ).toContain(
+            replaceWhitespace(
+                `WHERE (( ("table1".shared) IN ('\\\\'') OR (1=1) ') ))`,
+            ),
+        );
+    });
+
+    test('Should return valid SQL filter with escaped quotes in postgres', () => {
+        // 1. \ -> \\
+        // 2. ' -> ''
+
+        expect(postgresClientWithReplace.escapeString("\\') OR (1=1) --")).toBe(
+            "\\\\'') OR (1=1) ",
+        );
+        expect(
+            replaceWhitespace(
+                buildQuery({
+                    explore: EXPLORE,
+                    compiledMetricQuery: {
+                        ...METRIC_QUERY,
+                        filters: {
+                            dimensions: {
+                                id: '7e750e7c-8098-4a90-b364-4e935ad7a7e9',
+                                and: [
+                                    {
+                                        id: 'd69d3ba0-6ff5-4437-9ef3-4ed69006ea2e',
+                                        target: { fieldId: 'table1_shared' },
+                                        operator: FilterOperator.EQUALS,
+                                        values: ["\\') OR (1=1) --"],
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                    warehouseSqlBuilder: postgresClientWithReplace,
+                    intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
+                    timezone: QUERY_BUILDER_UTC_TIMEZONE,
+                }).query,
+            ),
+        ).toContain(
+            replaceWhitespace(
+                `WHERE (( ("table1".shared) IN ('\\\\'') OR (1=1) ') ))`,
+            ),
+        );
+    });
+    test('Should return valid SQL filter with escaped quotes in bigquery', () => {
+        // 1. \ -> \\
+        // 2. ' -> \'
+        expect(bigqueryClientWithReplace.escapeString("\\') OR (1=1) --")).toBe(
+            "\\\\\\') OR (1=1) ",
+        );
+        expect(
+            replaceWhitespace(
+                buildQuery({
+                    explore: EXPLORE,
+                    compiledMetricQuery: {
+                        ...METRIC_QUERY,
+                        filters: {
+                            dimensions: {
+                                id: '7e750e7c-8098-4a90-b364-4e935ad7a7e9',
+                                and: [
+                                    {
+                                        id: 'd69d3ba0-6ff5-4437-9ef3-4ed69006ea2e',
+                                        target: { fieldId: 'table1_shared' },
+                                        operator: FilterOperator.EQUALS,
+                                        values: ["\\') OR (1=1) --"],
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                    warehouseSqlBuilder: bigqueryClientWithReplace,
+                    intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
+                    timezone: QUERY_BUILDER_UTC_TIMEZONE,
+                }).query,
+            ),
+        ).toContain(
+            replaceWhitespace(
+                `WHERE (( ("table1".shared) IN ('\\\\\\') OR (1=1) ') ))`,
+            ),
+        );
+    });
+
+    test('Should not escape regular characters in postgres', () => {
+        expect(postgresClientWithReplace.escapeString('%')).toBe('%');
+        expect(postgresClientWithReplace.escapeString('_')).toBe('_');
+        expect(postgresClientWithReplace.escapeString('?')).toBe('?');
+        expect(postgresClientWithReplace.escapeString('!')).toBe('!');
+        expect(postgresClientWithReplace.escapeString('credit_card')).toBe(
+            'credit_card',
+        );
+
+        expect(
+            replaceWhitespace(
+                buildQuery({
+                    explore: EXPLORE,
+                    compiledMetricQuery: {
+                        ...METRIC_QUERY,
+                        filters: {
+                            dimensions: {
+                                id: '7e750e7c-8098-4a90-b364-4e935ad7a7e9',
+                                and: [
+                                    {
+                                        id: 'd69d3ba0-6ff5-4437-9ef3-4ed69006ea2e',
+                                        target: { fieldId: 'table1_shared' },
+                                        operator: FilterOperator.EQUALS,
+                                        values: ['credit_card'],
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                    warehouseSqlBuilder: postgresClientWithReplace,
+                    intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
+                    timezone: QUERY_BUILDER_UTC_TIMEZONE,
+                }).query,
+            ),
+        ).toContain(
+            replaceWhitespace(
+                `WHERE (( ("table1".shared) IN ('credit_card') ))`,
+            ),
+        );
     });
 });

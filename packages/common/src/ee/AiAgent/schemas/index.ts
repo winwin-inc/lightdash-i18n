@@ -1,10 +1,11 @@
 import { z } from 'zod';
-
-import { toolFindExploresArgsSchema } from './tools/toolFindExploresArgs';
-import { toolFindFieldsArgsSchema } from './tools/toolFindFieldsArgs';
-import { toolTableVizArgsSchema } from './tools/toolTableVizArgs';
-import { toolTimeSeriesArgsSchema } from './tools/toolTimeSeriesArgs';
-import { toolVerticalBarArgsSchema } from './tools/toolVerticalBarArgs';
+import {
+    toolFindExploresArgsSchema,
+    toolFindFieldsArgsSchema,
+    toolTableVizArgsSchema,
+    toolTimeSeriesArgsSchema,
+    toolVerticalBarArgsSchema,
+} from './tools';
 
 export * from './filters';
 export * from './tools';

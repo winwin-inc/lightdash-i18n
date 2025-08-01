@@ -846,6 +846,12 @@
         "select_dashboards_description": "Only these dashboards will be allowed to be embedded.",
         "save_changes": "Save changes"
     },
+    "features_embed_explore": {
+        "missing_project_uuid": "Missing project UUID",
+        "error_loading_explore": "Error loading explore",
+        "this_embed_link_has_expired": "This embed link has expired",
+        "tables": "Tables"
+    },
 
     "features_mertic_flow": {
         "time_granularity": "Time granularity",
@@ -1624,7 +1630,9 @@
         "continue_exploring": "Continue exploring"
     },
     "features_ai_copilot_chat_elements_tool_calls": {
-      "how_it_is_calculated": "How it is calculated"
+      "how_it_is_calculated": "How it is calculated",
+      "searched_relevant_explores": "Searched relevant explores",
+      "searched_for_fields": "Searched for fields"
     },
     "features_ai_copilot_default_agent_button": {
       "remove_as_default_agent": "Remove as default agent",
@@ -1788,6 +1796,7 @@
       "add": "Add",
       "loading": "Loading...",
       "no_results_found": "No results found",
+      "default": "default",
       "choose_value": "Choose value..."
     },
     "features_parameters_selection": {
@@ -2032,6 +2041,7 @@
             "loading": "Loading...",
             "no_results": "No results found"
         },
+        "filter_not_available": "Filter not available",
         "select_value": "Select value",
         "filter_operator_labels": {
             "is_null": "is null",
@@ -4596,6 +4606,43 @@
             "conditional_formating": "Conditional formatting"
         }
     },
+    "components_visualization_configs_treemap": {
+        "tabs": {
+            "layout": "Layout",
+            "display": "Display"
+        },
+        "display_config": {
+            "minimum_section_size": {
+                "label": "Minimum section size",
+                "tooltip": "Any sections smaller than this will not be displayed. You can zoom in to see smaller sections."
+            },
+            "max_leaf_depth": {
+                "label": "Max leaf depth",
+                "tooltip": "The maximum depth of the tree to display. This is useful to limit the number of sections displayed.",
+                "no_limit": "No limit"
+            }
+        },
+        "layout_config": {
+            "dimension_hierarchy": {
+                "label": "Dimension hierarchy",
+                "tooltip": "Drag and drop your dimensions to order them hierarchically.",
+                "select_dimension": "Select dimension"
+            },
+            "size_metric": {
+                "label": "Size metric",
+                "tooltip": "Determines how large each block is."
+            },
+            "color_metric": {
+                "label": "Color metric",
+                "tooltip": "Dynamically set the color of the nodes based on a metric. If not set, the treemap will use a default color scheme.",
+                "select_metric": "Select metric",
+                "min_color": "Min color",
+                "threshold": "Threshold",
+                "auto": "Auto (per-level)",
+                "max_color": "Max color"
+            }
+        }
+    },
     "components_visualization_configs_custom_vis": {
         "placeholder": "Start by entering your Vega-Lite JSON code or choose from our pre-built templates to create your chart.",
         "templates": {
@@ -5178,6 +5225,7 @@
             "big_value": "Big value",
             "pie_chart": "Pie chart",
             "funnel_chart": "Funnel chart",
+            "treemap": "Treemap",
             "custom": "Custom",
             "unknown": "Unknown visualization chart type"
         },
@@ -5190,6 +5238,7 @@
             "pie_chart": "Pie chart",
             "funnel_chart": "Funnel chart",
             "table": "Table",
+            "treemap": "Treemap",
             "big_value": "Big value",
             "custom": "Custom"
         }
@@ -5368,6 +5417,7 @@
             "mixed_chart": "Mixed chart",
             "pie_chart": "Pie chart",
             "funnel_chart": "Funnel chart",
+            "treemap": "Treemap",
             "table": "Table",
             "big_number": "Big number",
             "custom_visualization": "Custom visualization",
@@ -5520,6 +5570,15 @@
         "cell_context": {
             "copied": "Copied to clipboard!",
             "copy_value": "Copy value"
+        }
+    },
+    "components_simple_treemap": {
+        "empty": {
+            "title": "No data available",
+            "description": "Query metrics and dimensions with results."
+        },
+        "loading": {
+            "title": "Loading chart"
         }
     },
     "components_sort_button": {
@@ -7275,11 +7334,16 @@
         },
         "tags": {
           "label": "Tags",
-          "placeholder": "Select tags"
+          "placeholder": "Select tags",
+          "tooltip": {
+            "part_1": "Add tags to control which metrics and dimensions your AI agent can access. See more in our",
+            "part_2": "docs"
+          }
         },
         "group_access": {
           "label": "Group Access",
           "description": "Select groups that can access this agent. If no groups are selected, the agent will be visible to all users in the organization.",
+          "tooltip": "Admins and developers will always have access to this agent.",
           "placeholder": {
             "loading": "Loading groups...",
             "no_groups": "No groups available",
@@ -7313,9 +7377,9 @@
         "slack": {
           "title": "Slack",
           "description": {
-            "part_1": "disabled",
-            "part_2": "channels not configured",
-            "part_3": "enabled"
+            "part_1": "Disabled",
+            "part_2": "Channels not configured",
+            "part_3": "Enabled"
           },
           "enable_slack_integration": {
             "part_1": "To enable AI agent interactions through Slack, please connect your Slack workspace in the",
@@ -7340,6 +7404,17 @@
         "delete": "Delete",
         "content": "Are you sure you want to delete this agent? This action cannot be undone."
       }
+    },
+    "pages_ai_agents_not_authorized": {
+        "title": "You're not authorized to interact with this AI agent",
+        "content": "To gain access, please contact your organization administrator.",
+        "go_back_to_project_home": "Go back to project home"
+    },
+    "pages_embed_explore": {
+        "no_valid": "This embed link is not valid",
+        "missing_explore_id": "Missing explore ID",
+        "no_explore_id": "No explore ID provided",
+        "missing_chart": "Missing saved chart to explore"
     },
 
     "mobile_navbar": {

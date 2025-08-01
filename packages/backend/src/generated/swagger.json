@@ -811,6 +811,9 @@
             },
             "CommonEmbedJwtContent": {
                 "properties": {
+                    "canExplore": {
+                        "type": "boolean"
+                    },
                     "canExportPagePdf": {
                         "type": "boolean"
                     },
@@ -993,7 +996,8 @@
                     "table",
                     "big_number",
                     "funnel",
-                    "custom"
+                    "custom",
+                    "treemap"
                 ],
                 "type": "string"
             },
@@ -1325,6 +1329,39 @@
                 "required": ["tableCalculations", "metrics", "dimensions"],
                 "type": "object"
             },
+            "DashboardParameterValue": {
+                "properties": {
+                    "value": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            }
+                        ]
+                    },
+                    "parameterName": {
+                        "type": "string"
+                    }
+                },
+                "required": ["value", "parameterName"],
+                "type": "object"
+            },
+            "Record_string.DashboardParameterValue_": {
+                "properties": {},
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/DashboardParameterValue"
+                },
+                "type": "object",
+                "description": "Construct a type with a set of properties K of type T"
+            },
+            "DashboardParameters": {
+                "$ref": "#/components/schemas/Record_string.DashboardParameterValue_"
+            },
             "UpdatedByUser": {
                 "properties": {
                     "userUuid": {
@@ -1502,6 +1539,9 @@
                     },
                     "updatedByUser": {
                         "$ref": "#/components/schemas/UpdatedByUser"
+                    },
+                    "parameters": {
+                        "$ref": "#/components/schemas/DashboardParameters"
                     },
                     "filters": {
                         "$ref": "#/components/schemas/DashboardFilters"
@@ -3537,6 +3577,64 @@
                 "required": ["type"],
                 "type": "object"
             },
+            "ChartType.TREEMAP": {
+                "enum": ["treemap"],
+                "type": "string"
+            },
+            "TreemapChart": {
+                "properties": {
+                    "endColorThreshold": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "startColorThreshold": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "useDynamicColors": {
+                        "type": "boolean"
+                    },
+                    "endColor": {
+                        "type": "string"
+                    },
+                    "startColor": {
+                        "type": "string"
+                    },
+                    "colorMetricId": {
+                        "type": "string"
+                    },
+                    "sizeMetricId": {
+                        "type": "string"
+                    },
+                    "groupFieldIds": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "leafDepth": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "visibleMin": {
+                        "type": "number",
+                        "format": "double"
+                    }
+                },
+                "type": "object"
+            },
+            "TreemapChartConfig": {
+                "properties": {
+                    "config": {
+                        "$ref": "#/components/schemas/TreemapChart"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/ChartType.TREEMAP"
+                    }
+                },
+                "required": ["type"],
+                "type": "object"
+            },
             "ChartConfig": {
                 "anyOf": [
                     {
@@ -3556,6 +3654,9 @@
                     },
                     {
                         "$ref": "#/components/schemas/TableChartConfig"
+                    },
+                    {
+                        "$ref": "#/components/schemas/TreemapChartConfig"
                     }
                 ]
             },
@@ -5723,6 +5824,9 @@
             },
             "ApiExecuteAsyncQueryResultsCommon": {
                 "properties": {
+                    "usedParametersValues": {
+                        "$ref": "#/components/schemas/ParametersValuesMap"
+                    },
                     "parameterReferences": {
                         "items": {
                             "type": "string"
@@ -5737,6 +5841,7 @@
                     }
                 },
                 "required": [
+                    "usedParametersValues",
                     "parameterReferences",
                     "cacheMetadata",
                     "queryUuid"
@@ -7007,6 +7112,34 @@
                 "required": ["source", "data", "type"],
                 "type": "object"
             },
+            "ServiceAccountAuth": {
+                "properties": {
+                    "source": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": ["service-account"],
+                        "nullable": false
+                    }
+                },
+                "required": ["source", "type"],
+                "type": "object"
+            },
+            "PersonalAccessTokenAuth": {
+                "properties": {
+                    "source": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": ["pat"],
+                        "nullable": false
+                    }
+                },
+                "required": ["source", "type"],
+                "type": "object"
+            },
             "Pick_Account.Exclude_keyofAccount.user-or-keyofAccountHelpers__": {
                 "properties": {
                     "organization": {
@@ -7019,6 +7152,12 @@
                             },
                             {
                                 "$ref": "#/components/schemas/JwtAuth"
+                            },
+                            {
+                                "$ref": "#/components/schemas/ServiceAccountAuth"
+                            },
+                            {
+                                "$ref": "#/components/schemas/PersonalAccessTokenAuth"
                             }
                         ]
                     }
@@ -8566,6 +8705,7 @@
                     "big_number",
                     "pie",
                     "funnel",
+                    "treemap",
                     "custom"
                 ],
                 "type": "string"
@@ -9872,7 +10012,7 @@
                 "required": ["data"],
                 "type": "object"
             },
-            "ApiSchedulersResponse": {
+            "ApiSuccess_KnexPaginatedData_SchedulerAndTargets-Array__": {
                 "properties": {
                     "results": {
                         "$ref": "#/components/schemas/KnexPaginatedData_SchedulerAndTargets-Array_"
@@ -9885,6 +10025,9 @@
                 },
                 "required": ["results", "status"],
                 "type": "object"
+            },
+            "ApiSchedulersResponse": {
+                "$ref": "#/components/schemas/ApiSuccess_KnexPaginatedData_SchedulerAndTargets-Array__"
             },
             "ApiSchedulerAndTargetsResponse": {
                 "properties": {
@@ -10420,6 +10563,9 @@
                             }
                         ],
                         "nullable": true
+                    },
+                    "parameters": {
+                        "$ref": "#/components/schemas/DashboardParameters"
                     },
                     "dashboardVersionId": {
                         "type": "number",
@@ -11816,6 +11962,9 @@
             },
             "CalculateTotalFromQuery": {
                 "properties": {
+                    "parameters": {
+                        "$ref": "#/components/schemas/ParametersValuesMap"
+                    },
                     "explore": {
                         "type": "string"
                     },
@@ -11833,6 +11982,9 @@
                     },
                     {
                         "properties": {
+                            "parameters": {
+                                "$ref": "#/components/schemas/ParametersValuesMap"
+                            },
                             "pivotDimensions": {
                                 "items": {
                                     "type": "string"
@@ -12082,6 +12234,9 @@
                     },
                     "updatedByUser": {
                         "$ref": "#/components/schemas/Pick_UpdatedByUser.userUuid_"
+                    },
+                    "parameters": {
+                        "$ref": "#/components/schemas/DashboardParameters"
                     },
                     "filters": {
                         "$ref": "#/components/schemas/DashboardFilters"
@@ -12370,22 +12525,22 @@
                     }
                 ]
             },
-            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__": {
+            "PartialObjectDeep___91_x-string_93__58__description_63_-string-or-undefined--name_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__": {
                 "properties": {},
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
-            "PartialObjectDeep__chart_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__": {
+            "PartialObjectDeep__chart_58___91_x-string_93__58__description_63_-string-or-undefined--name_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__": {
                 "properties": {
                     "chart": {
-                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__"
+                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__description_63_-string-or-undefined--name_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__"
                     }
                 },
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
             "PartialDeep_ChartAsCodeLanguageMap._recurseIntoArrays-true__": {
-                "$ref": "#/components/schemas/PartialObjectDeep__chart_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__",
+                "$ref": "#/components/schemas/PartialObjectDeep__chart_58___91_x-string_93__58__description_63_-string-or-undefined--name_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__",
                 "description": "Create a type from another type with all keys and nested keys set to optional.\n\nUse-cases:\n- Merging a default settings/config object with another object, the second object would be a deep partial of the default object.\n- Mocking and testing complex entities, where populating an entire object with its keys would be redundant in terms of the mock or test."
             },
             "ApiChartAsCodeListResponse": {
@@ -12724,22 +12879,22 @@
                     }
                 ]
             },
-            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__content-string--title-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__": {
+            "PartialObjectDeep___91_x-string_93__58__description_63_-string-or-undefined--name_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__": {
                 "properties": {},
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
-            "PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__content-string--title-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__": {
+            "PartialObjectDeep__dashboard_58___91_x-string_93__58__description_63_-string-or-undefined--name_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__": {
                 "properties": {
                     "dashboard": {
-                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__content-string--title-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__"
+                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__description_63_-string-or-undefined--name_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__"
                     }
                 },
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
             "PartialDeep_DashboardAsCodeLanguageMap._recurseIntoArrays-true__": {
-                "$ref": "#/components/schemas/PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__content-string--title-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__",
+                "$ref": "#/components/schemas/PartialObjectDeep__dashboard_58___91_x-string_93__58__description_63_-string-or-undefined--name_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__",
                 "description": "Create a type from another type with all keys and nested keys set to optional.\n\nUse-cases:\n- Merging a default settings/config object with another object, the second object would be a deep partial of the default object.\n- Mocking and testing complex entities, where populating an entire object with its keys would be redundant in terms of the mock or test."
             },
             "ApiDashboardAsCodeListResponse": {
@@ -15799,6 +15954,17 @@
                     },
                     {
                         "properties": {
+                            "searchRank": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "aiHints": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array",
+                                "nullable": true
+                            },
                             "icon": {
                                 "allOf": [
                                     {
@@ -15829,8 +15995,18 @@
                             "tableName": {
                                 "type": "string"
                             },
-                            "basicType": {
+                            "fieldValueType": {
                                 "type": "string"
+                            },
+                            "basicType": {
+                                "type": "string",
+                                "enum": [
+                                    "string",
+                                    "number",
+                                    "date",
+                                    "timestamp",
+                                    "boolean"
+                                ]
                             },
                             "type": {
                                 "$ref": "#/components/schemas/CatalogType.Field"
@@ -15840,9 +16016,12 @@
                             }
                         },
                         "required": [
+                            "aiHints",
                             "icon",
                             "categories",
                             "tableName",
+                            "fieldValueType",
+                            "basicType",
                             "type",
                             "catalogSearchUuid"
                         ],
@@ -15883,6 +16062,24 @@
                     },
                     {
                         "properties": {
+                            "searchRank": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "joinedTables": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array",
+                                "nullable": true
+                            },
+                            "aiHints": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array",
+                                "nullable": true
+                            },
                             "icon": {
                                 "allOf": [
                                     {
@@ -15894,12 +16091,6 @@
                             "chartUsage": {
                                 "type": "number",
                                 "format": "double"
-                            },
-                            "joinedTables": {
-                                "items": {
-                                    "$ref": "#/components/schemas/CompiledExploreJoin"
-                                },
-                                "type": "array"
                             },
                             "categories": {
                                 "items": {
@@ -15930,6 +16121,8 @@
                             }
                         },
                         "required": [
+                            "joinedTables",
+                            "aiHints",
                             "icon",
                             "categories",
                             "type",
@@ -17215,6 +17408,15 @@
                         "required": ["dimension", "model"],
                         "type": "object"
                     },
+                    "options": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "allow_custom_values": {
+                        "type": "boolean"
+                    },
                     "multiple": {
                         "type": "boolean"
                     },
@@ -17230,12 +17432,6 @@
                                 "type": "array"
                             }
                         ]
-                    },
-                    "options": {
-                        "items": {
-                            "type": "string"
-                        },
-                        "type": "array"
                     },
                     "description": {
                         "type": "string"
@@ -17939,7 +18135,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "0.1834.0",
+        "version": "0.1859.5",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"
@@ -21941,6 +22137,9 @@
                         "application/json": {
                             "schema": {
                                 "properties": {
+                                    "parameters": {
+                                        "$ref": "#/components/schemas/ParametersValuesMap"
+                                    },
                                     "invalidateCache": {
                                         "type": "boolean"
                                     },

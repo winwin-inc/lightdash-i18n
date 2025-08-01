@@ -92,7 +92,9 @@ export const useAiAgent = (agentUuid: string | undefined) => {
         queryFn: () => getAgent(agentUuid!),
         onError: (error) => {
             if (error.error?.statusCode === 403) {
-                void navigate(`/projects/${activeProjectUuid}/home`);
+                void navigate(
+                    `/projects/${activeProjectUuid}/ai-agents/not-authorized`,
+                );
             } else {
                 showToastApiError({
                     title: t('features_ai_copilot_hooks.failed_to_fetch_agent'),
@@ -176,7 +178,9 @@ export const useAiAgentThreads = (
         queryFn: () => listAgentThreads(agentUuid!, allUsers),
         onError: (error) => {
             if (error.error?.statusCode === 403) {
-                void navigate(`/projects/${activeProjectUuid}/home`);
+                void navigate(
+                    `/projects/${activeProjectUuid}/ai-agents/not-authorized`,
+                );
             }
             // Don't show error toast for permission errors - let the UI handle it gracefully
             if (error.error?.statusCode !== 403) {
@@ -204,7 +208,9 @@ export const useAiAgentThread = (
         queryFn: () => getAgentThread(agentUuid!, threadUuid!),
         onError: (error) => {
             if (error.error?.statusCode === 403) {
-                void navigate(`/projects/${activeProjectUuid}/home`);
+                void navigate(
+                    `/projects/${activeProjectUuid}/ai-agents/not-authorized`,
+                );
             } else {
                 showToastApiError({
                     title: t('features_ai_copilot_hooks.failed_to_fetch_thread'),
@@ -342,7 +348,9 @@ export const useCreateAgentThreadMutation = (
         },
         onError: ({ error }) => {
             if (error?.statusCode === 403) {
-                void navigate(`/projects/${projectUuid}/home`);
+                void navigate(
+                    `/projects/${projectUuid}/ai-agents/not-authorized`,
+                );
             } else {
                 showToastApiError({
                     title: t('features_ai_copilot_hooks.failed_to_create_agent'),
@@ -461,7 +469,9 @@ export const useCreateAgentThreadMessageMutation = (
         },
         onError: ({ error }) => {
             if (error?.statusCode === 403) {
-                void navigate(`/projects/${projectUuid}/home`);
+                void navigate(
+                    `/projects/${projectUuid}/ai-agents/not-authorized`,
+                );
             } else {
                 showToastApiError({
                     title: t('features_ai_copilot_hooks.failed_to_generate_response'),
@@ -517,7 +527,9 @@ export const useAiAgentThreadMessageVizQuery = (
         },
         onError: (error: ApiError) => {
             if (error.error?.statusCode === 403) {
-                void navigate(`/projects/${activeProjectUuid}/home`);
+                void navigate(
+                    `/projects/${activeProjectUuid}/ai-agents/not-authorized`,
+                );
             } else {
                 showToastApiError({
                     title: t('features_ai_copilot_hooks.failed_to_fetch_viz'),
@@ -580,7 +592,9 @@ export const useUpdatePromptFeedbackMutation = (
         },
         onError: ({ error }) => {
             if (error?.statusCode === 403) {
-                void navigate(`/projects/${activeProjectUuid}/home`);
+                void navigate(
+                    `/projects/${activeProjectUuid}/ai-agents/not-authorized`,
+                );
             } else {
                 showToastApiError({
                     title: t('features_ai_copilot_hooks.failed_to_submit_feedback'),
@@ -640,7 +654,9 @@ export const useSavePromptQuery = (
         },
         onError: ({ error }) => {
             if (error?.statusCode === 403) {
-                void navigate(`/projects/${activeProjectUuid}/home`);
+                void navigate(
+                    `/projects/${activeProjectUuid}/ai-agents/not-authorized`,
+                );
             } else {
                 showToastApiError({
                     title: t('features_ai_copilot_hooks.failed_to_save_prompt_query'),

@@ -19,6 +19,7 @@ export const isEmptyTabFilters = (tabFilters: Record<string, DashboardFilters>) 
 }
 
 const useDashboardFilterForTab = ({
+    dashboard,
     dashboardFilters,
     dashboardTemporaryFilters,
 }: DashboardTabFilterProps) => {
@@ -168,7 +169,7 @@ const useDashboardFilterForTab = ({
     const resetTabFilters = (tabUuid: string) => {
         setTabFilters((prev) => ({
             ...prev,
-            [tabUuid]: emptyFilters,
+            [tabUuid]: dashboard?.tabs.find((tab) => tab.uuid === tabUuid)?.filters || emptyFilters,
         }));
         setTabTemporaryFilters((prev) => ({
             ...prev,

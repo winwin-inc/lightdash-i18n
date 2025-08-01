@@ -20,7 +20,7 @@ import min from 'lodash/min';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useDeepCompareEffect, useMount } from 'react-use';
-import { useConditionalRuleLabelFromItem } from '../../components/common/Filters/FilterInputs/utils';
+import { getConditionalRuleLabelFromItem } from '../../components/common/Filters/FilterInputs/utils';
 import {
     useGetComments,
     type useDashboardCommentsCheck,
@@ -56,8 +56,6 @@ const DashboardProvider: React.FC<
     defaultInvalidateCache,
     children,
 }) => {
-    const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
-
     const { search, pathname } = useLocation();
     const navigate = useNavigate();
 
@@ -308,8 +306,6 @@ const DashboardProvider: React.FC<
                     };
                     setHaveFiltersChanged(true);
                 } else {
-                    console.log('dashboard.filters', dashboard.filters);
-
                     updatedDashboardFilters = dashboard.filters;
                     setHaveFiltersChanged(false);
                 }
@@ -319,7 +315,7 @@ const DashboardProvider: React.FC<
             setOriginalDashboardFilters(dashboard.filters);
 
             // tab filters
-            if (isEmptyTabFilters(tabFilters)) {
+            if (dashboard.tabs.length > 0 && isEmptyTabFilters(tabFilters)) {
                 const updatedTabFilters = dashboard.tabs.reduce((acc, tab) => {
                     acc[tab.uuid] = tab.filters || emptyFilters;
                     return acc;
@@ -329,14 +325,14 @@ const DashboardProvider: React.FC<
             }
         }
     }, [
-        dashboard, 
-        dashboardFilters, 
+        dashboard,
+        dashboardFilters,
         overridesForSavedDashboardFilters,
-        tabFilters, 
+        tabFilters,
         setDashboardFilters,
         setHaveFiltersChanged,
         setOriginalDashboardFilters,
-        setTabFilters,
+        setTabFilters
     ]);
 
     // Updates url with temp and overridden filters and deep compare to avoid unnecessary re-renders for dashboardTemporaryFilters
@@ -397,10 +393,10 @@ const DashboardProvider: React.FC<
         dashboardTemporaryFilters,
         tabFilters,
         tabTemporaryFilters,
-        navigate,
         pathname,
         overridesForSavedDashboardFilters,
         search,
+        navigate,
     ]);
 
     useEffect(() => {
@@ -608,11 +604,7 @@ const DashboardProvider: React.FC<
                     },
                     [],
                 ),
-        [
-            dashboardFilters.dimensions,
-            allFilterableFieldsMap,
-            getConditionalRuleLabelFromItem,
-        ],
+        [dashboardFilters.dimensions, allFilterableFieldsMap],
     );
 
     const value = {

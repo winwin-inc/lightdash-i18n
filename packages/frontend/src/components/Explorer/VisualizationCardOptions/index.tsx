@@ -12,6 +12,7 @@ import {
     IconChartDots,
     IconChartLine,
     IconChartPie,
+    IconChartTreemap,
     IconChevronDown,
     IconCode,
     IconFilter,
@@ -33,6 +34,7 @@ import {
     isFunnelVisualizationConfig,
     isPieVisualizationConfig,
     isTableVisualizationConfig,
+    isTreemapVisualizationConfig,
 } from '../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../LightdashVisualization/useVisualizationContext';
 
@@ -187,6 +189,13 @@ const VisualizationCardOptions: FC = memo(() => {
                         'components_explorer_visualization_card_options.chart_types.funnel_chart',
                     ),
                     icon: <MantineIcon icon={IconFilter} color="gray" />,
+                };
+            case ChartType.TREEMAP:
+                return {
+                    text: t(
+                        'components_explorer_visualization_card_options.chart_types.treemap',
+                    ),
+                    icon: <MantineIcon icon={IconChartTreemap} color="gray" />,
                 };
             case ChartType.CUSTOM:
                 return {
@@ -394,6 +403,26 @@ const VisualizationCardOptions: FC = memo(() => {
                 >
                     {t(
                         'components_explorer_visualization_card_options.menus.funnel_chart',
+                    )}
+                </Menu.Item>
+
+                <Menu.Item
+                    disabled={disabled}
+                    color={
+                        isTreemapVisualizationConfig(visualizationConfig)
+                            ? 'blue'
+                            : undefined
+                    }
+                    icon={<MantineIcon icon={IconChartTreemap} />}
+                    onClick={() => {
+                        setPivotDimensions(undefined);
+                        setStacking(undefined);
+                        setCartesianType(undefined);
+                        setChartType(ChartType.TREEMAP);
+                    }}
+                >
+                    {t(
+                        'components_explorer_visualization_card_options.menus.treemap',
                     )}
                 </Menu.Item>
 

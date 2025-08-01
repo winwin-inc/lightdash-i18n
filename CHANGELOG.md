@@ -1,3 +1,282 @@
+# [0.1861.0](https://github.com/lightdash/lightdash/compare/0.1860.0...0.1861.0) (2025-07-30)
+
+
+### Features
+
+* improve AI field search with table context and field type information ([#16107](https://github.com/lightdash/lightdash/issues/16107)) ([261cb94](https://github.com/lightdash/lightdash/commit/261cb9427854e265d8cd404a0c0e25a364138c60)), closes [#15742](https://github.com/lightdash/lightdash/issues/15742)
+
+# [0.1860.0](https://github.com/lightdash/lightdash/compare/0.1859.5...0.1860.0) (2025-07-30)
+
+
+### Features
+
+* improve find explores tool ([#15944](https://github.com/lightdash/lightdash/issues/15944)) ([30b252b](https://github.com/lightdash/lightdash/commit/30b252b8b4fdb7ecabda4d8244c01f494a11034e))
+* simplify AI field search tool and remove experimental flag ([#16063](https://github.com/lightdash/lightdash/issues/16063)) ([edeb874](https://github.com/lightdash/lightdash/commit/edeb87482af52d40c7fcaabf9713cef9997504e6))
+
+## [0.1859.5](https://github.com/lightdash/lightdash/compare/0.1859.4...0.1859.5) (2025-07-30)
+
+
+### Bug Fixes
+
+* meta block overriding completely any meta properties ([#16120](https://github.com/lightdash/lightdash/issues/16120)) ([3afb9d4](https://github.com/lightdash/lightdash/commit/3afb9d403d33e5ce63848ed6961ff22e5961f1a0))
+
+## [0.1859.4](https://github.com/lightdash/lightdash/compare/0.1859.3...0.1859.4) (2025-07-30)
+
+
+### Bug Fixes
+
+* Allow chart model renames before changes are applied ([#16117](https://github.com/lightdash/lightdash/issues/16117)) ([230bc3e](https://github.com/lightdash/lightdash/commit/230bc3e3eabcd453a8fd161f4f186d92073d06fc))
+
+## [0.1859.3](https://github.com/lightdash/lightdash/compare/0.1859.2...0.1859.3) (2025-07-30)
+
+
+### Bug Fixes
+
+* stop escaping SQL LIKE wildcards in string values ([#16113](https://github.com/lightdash/lightdash/issues/16113)) ([c2f1f29](https://github.com/lightdash/lightdash/commit/c2f1f29a9373d96a60837de10a87fd96e7888436))
+
+## [0.1859.2](https://github.com/lightdash/lightdash/compare/0.1859.1...0.1859.2) (2025-07-30)
+
+
+### Bug Fixes
+
+* sanitize number values in filters ([#16098](https://github.com/lightdash/lightdash/issues/16098)) ([80c6706](https://github.com/lightdash/lightdash/commit/80c670662ec91be4d23c4f4f22f408aaad25a55c))
+
+## [0.1859.1](https://github.com/lightdash/lightdash/compare/0.1859.0...0.1859.1) (2025-07-30)
+
+
+### Bug Fixes
+
+* escape parameter values ([#16097](https://github.com/lightdash/lightdash/issues/16097)) ([7718cda](https://github.com/lightdash/lightdash/commit/7718cdab57bae2dc2586c0a00e5a0e07edae0c05))
+
+# [0.1859.0](https://github.com/lightdash/lightdash/compare/0.1858.1...0.1859.0) (2025-07-30)
+
+
+### Features
+
+* update AI system prompt with improved tool usage and formatting guide ([#16103](https://github.com/lightdash/lightdash/issues/16103)) ([d493577](https://github.com/lightdash/lightdash/commit/d49357711d727f89f92f7db4669547f38925377f))
+
+## [0.1858.1](https://github.com/lightdash/lightdash/compare/0.1858.0...0.1858.1) (2025-07-29)
+
+
+### Bug Fixes
+
+* upgrade invitesmodel.tsx to mantine 8 ([#16094](https://github.com/lightdash/lightdash/issues/16094)) ([ad5b53d](https://github.com/lightdash/lightdash/commit/ad5b53d05fd9c3036bd425ce42470e090de326a4))
+
+# [0.1858.0](https://github.com/lightdash/lightdash/compare/0.1857.0...0.1858.0) (2025-07-29)
+
+
+### Features
+
+* add joined_tables to catalog search for table relationships ([#16046](https://github.com/lightdash/lightdash/issues/16046)) ([d6a9ad9](https://github.com/lightdash/lightdash/commit/d6a9ad95e877c10d43811342be4f8bb59a98baae))
+
+# [0.1857.0](https://github.com/lightdash/lightdash/compare/0.1856.3...0.1857.0) (2025-07-29)
+
+
+### Features
+
+* add ai_hints to catalog search ([#16025](https://github.com/lightdash/lightdash/issues/16025)) ([69d2f19](https://github.com/lightdash/lightdash/commit/69d2f195e584debe25da3d809a566c8df4cd742a))
+
+## [0.1856.3](https://github.com/lightdash/lightdash/compare/0.1856.2...0.1856.3) (2025-07-29)
+
+
+### Bug Fixes
+
+* improve filter search value replacement ([#16073](https://github.com/lightdash/lightdash/issues/16073)) ([9f98c0e](https://github.com/lightdash/lightdash/commit/9f98c0eafc2668db06b9987ced6e748ae2c599b4))
+
+## [0.1856.2](https://github.com/lightdash/lightdash/compare/0.1856.1...0.1856.2) (2025-07-29)
+
+
+### Bug Fixes
+
+* border style on TextInput mantine 8 ([#16093](https://github.com/lightdash/lightdash/issues/16093)) ([7289eac](https://github.com/lightdash/lightdash/commit/7289eac5d96e85b0fe9bad21d51aa0ba2821475e))
+
+## [0.1856.1](https://github.com/lightdash/lightdash/compare/0.1856.0...0.1856.1) (2025-07-29)
+
+
+### Bug Fixes
+
+* alignment of invite users modal ([#16087](https://github.com/lightdash/lightdash/issues/16087)) ([67bbca4](https://github.com/lightdash/lightdash/commit/67bbca4861108d87439f8c24fbc69d3d39d9de89))
+
+# [0.1856.0](https://github.com/lightdash/lightdash/compare/0.1855.1...0.1856.0) (2025-07-29)
+
+
+### Features
+
+* seed project parameters in development data ([#16084](https://github.com/lightdash/lightdash/issues/16084)) ([bcf2461](https://github.com/lightdash/lightdash/commit/bcf246190fcccfe153f2e98e11b6807ac8fd8b28))
+
+## [0.1855.1](https://github.com/lightdash/lightdash/compare/0.1855.0...0.1855.1) (2025-07-29)
+
+
+### Bug Fixes
+
+* use useProjectUuid for subtotals ([#16089](https://github.com/lightdash/lightdash/issues/16089)) ([63269e9](https://github.com/lightdash/lightdash/commit/63269e922b6d7865319e8fed568380f5ffd8b55c))
+
+# [0.1855.0](https://github.com/lightdash/lightdash/compare/0.1854.0...0.1855.0) (2025-07-29)
+
+
+### Features
+
+* hide embed explore UI elements via CASL ([#16002](https://github.com/lightdash/lightdash/issues/16002)) ([09be178](https://github.com/lightdash/lightdash/commit/09be178a081997d0370aa4f374361a984b3fd6f3))
+
+# [0.1854.0](https://github.com/lightdash/lightdash/compare/0.1853.1...0.1854.0) (2025-07-29)
+
+
+### Features
+
+* add custom values support for parameter inputs ([#16039](https://github.com/lightdash/lightdash/issues/16039)) ([fdbd00c](https://github.com/lightdash/lightdash/commit/fdbd00cf949dea3590bacc970f1f4ffca3ca3b67))
+
+## [0.1853.1](https://github.com/lightdash/lightdash/compare/0.1853.0...0.1853.1) (2025-07-29)
+
+
+### Bug Fixes
+
+* reload parameters after refresh dbt ([#16085](https://github.com/lightdash/lightdash/issues/16085)) ([38e3fde](https://github.com/lightdash/lightdash/commit/38e3fde662eeb98c1542447b36cb94e83e69fb86))
+
+# [0.1853.0](https://github.com/lightdash/lightdash/compare/0.1852.0...0.1853.0) (2025-07-29)
+
+
+### Features
+
+* use saved parameters in embedded dashboard charts ([#16070](https://github.com/lightdash/lightdash/issues/16070)) ([aad4a35](https://github.com/lightdash/lightdash/commit/aad4a35cdbc5d495e3ea765db24992115b413f0a)), closes [#16061](https://github.com/lightdash/lightdash/issues/16061)
+
+# [0.1852.0](https://github.com/lightdash/lightdash/compare/0.1851.0...0.1852.0) (2025-07-29)
+
+
+### Features
+
+* support subtotals with parameters on the FE ([#16059](https://github.com/lightdash/lightdash/issues/16059)) ([dbecae0](https://github.com/lightdash/lightdash/commit/dbecae0d90c936e7d228827baea88210830943a6)), closes [#15996](https://github.com/lightdash/lightdash/issues/15996)
+
+# [0.1851.0](https://github.com/lightdash/lightdash/compare/0.1850.0...0.1851.0) (2025-07-29)
+
+
+### Features
+
+* support totals with parameters on the FE ([#16058](https://github.com/lightdash/lightdash/issues/16058)) ([b6e7473](https://github.com/lightdash/lightdash/commit/b6e74734a8b2f04e9a9aea75b6e5e1a6e81d5eee)), closes [#15996](https://github.com/lightdash/lightdash/issues/15996)
+
+# [0.1850.0](https://github.com/lightdash/lightdash/compare/0.1849.0...0.1850.0) (2025-07-29)
+
+
+### Features
+
+* support subtotals with parameters in backend ([#16057](https://github.com/lightdash/lightdash/issues/16057)) ([36f60ef](https://github.com/lightdash/lightdash/commit/36f60ef701210d92b70380978eed81dcd004598d)), closes [#15996](https://github.com/lightdash/lightdash/issues/15996)
+
+# [0.1849.0](https://github.com/lightdash/lightdash/compare/0.1848.2...0.1849.0) (2025-07-29)
+
+
+### Features
+
+* support parameters for totals calculation in the backend ([#16056](https://github.com/lightdash/lightdash/issues/16056)) ([07e1e71](https://github.com/lightdash/lightdash/commit/07e1e7110202cae6d4b1821dbbe1cc8acf825f07)), closes [#15996](https://github.com/lightdash/lightdash/issues/15996)
+
+## [0.1848.2](https://github.com/lightdash/lightdash/compare/0.1848.1...0.1848.2) (2025-07-28)
+
+
+### Bug Fixes
+
+* parameter default ([#16064](https://github.com/lightdash/lightdash/issues/16064)) ([b101d57](https://github.com/lightdash/lightdash/commit/b101d57dafd4cd09f2a879245489b1317be2bb02))
+
+## [0.1848.1](https://github.com/lightdash/lightdash/compare/0.1848.0...0.1848.1) (2025-07-28)
+
+
+### Bug Fixes
+
+* **test:** make model number assertions generic ([#16072](https://github.com/lightdash/lightdash/issues/16072)) ([50f29a7](https://github.com/lightdash/lightdash/commit/50f29a7d4d5c7e34cbd2d518f5fb7e9e572fbf39))
+
+# [0.1848.0](https://github.com/lightdash/lightdash/compare/0.1847.0...0.1848.0) (2025-07-28)
+
+
+### Features
+
+* add unauthorised ai agent page ([#16071](https://github.com/lightdash/lightdash/issues/16071)) ([a642cd2](https://github.com/lightdash/lightdash/commit/a642cd2e7d413ba9dbb6785d33349ad1ac7e2225))
+
+# [0.1847.0](https://github.com/lightdash/lightdash/compare/0.1846.0...0.1847.0) (2025-07-28)
+
+
+### Features
+
+* improve UX for unavailable filters in dashboards ([#16068](https://github.com/lightdash/lightdash/issues/16068)) ([837f5ee](https://github.com/lightdash/lightdash/commit/837f5ee8548d1319fd5b2a86e5ecb3ee18d6962b)), closes [#16000](https://github.com/lightdash/lightdash/issues/16000)
+
+# [0.1846.0](https://github.com/lightdash/lightdash/compare/0.1845.0...0.1846.0) (2025-07-28)
+
+
+### Features
+
+* use JWT token in explores for React SDK ([#15787](https://github.com/lightdash/lightdash/issues/15787)) ([68bb335](https://github.com/lightdash/lightdash/commit/68bb33560b8d64c5174df5ef600b18f646be91bb))
+
+# [0.1845.0](https://github.com/lightdash/lightdash/compare/0.1844.1...0.1845.0) (2025-07-28)
+
+
+### Features
+
+* add useAccount hook ([#15999](https://github.com/lightdash/lightdash/issues/15999)) ([0b878c0](https://github.com/lightdash/lightdash/commit/0b878c017c7cf188fff3b15edd4af72fb40ba601))
+
+## [0.1844.1](https://github.com/lightdash/lightdash/compare/0.1844.0...0.1844.1) (2025-07-28)
+
+
+### Bug Fixes
+
+* implement missing LESS_THAN_OR_EQUAL and GREATER_THAN_OR_EQUAL operators for conditional formatting ([#16048](https://github.com/lightdash/lightdash/issues/16048)) ([1d27d4e](https://github.com/lightdash/lightdash/commit/1d27d4e834758a962052fb98111cfe923bbb6b03))
+
+# [0.1844.0](https://github.com/lightdash/lightdash/compare/0.1843.0...0.1844.0) (2025-07-28)
+
+
+### Bug Fixes
+
+* handle empty analytics track of slack vote ([#16008](https://github.com/lightdash/lightdash/issues/16008)) ([f34d956](https://github.com/lightdash/lightdash/commit/f34d9569122e9ae00153dcbb7a9fd85e90ee29ad))
+
+
+### Features
+
+* use labels instead of field id on slack ai csv ([#16009](https://github.com/lightdash/lightdash/issues/16009)) ([ab8047e](https://github.com/lightdash/lightdash/commit/ab8047ed5b3cea128c41002eb7b2616174f428d2))
+
+# [0.1843.0](https://github.com/lightdash/lightdash/compare/0.1842.1...0.1843.0) (2025-07-28)
+
+
+### Features
+
+* adding a new treemap chart type ([#15407](https://github.com/lightdash/lightdash/issues/15407)) ([597fc57](https://github.com/lightdash/lightdash/commit/597fc573a7396c82545bf560c9c006297885edee))
+
+## [0.1842.1](https://github.com/lightdash/lightdash/compare/0.1842.0...0.1842.1) (2025-07-25)
+
+
+### Bug Fixes
+
+* Revert "fix: Revert "feat: refactor AsyncQuery and Project service to use account where needed for Embedded Explores ([#15893](https://github.com/lightdash/lightdash/issues/15893))" ([#16007](https://github.com/lightdash/lightdash/issues/16007))" ([#16023](https://github.com/lightdash/lightdash/issues/16023)) ([3287365](https://github.com/lightdash/lightdash/commit/32873650503d61ab26050b0ceb347c7810b93a5b))
+
+# [0.1842.0](https://github.com/lightdash/lightdash/compare/0.1841.0...0.1842.0) (2025-07-25)
+
+
+### Features
+
+* do not duplicate embed headers ([#16026](https://github.com/lightdash/lightdash/issues/16026)) ([4f4b1be](https://github.com/lightdash/lightdash/commit/4f4b1be946c1914f92f32034e0994e8bb43f4783))
+
+# [0.1841.0](https://github.com/lightdash/lightdash/compare/0.1840.1...0.1841.0) (2025-07-25)
+
+
+### Features
+
+* apply req.account to apiKey and serviceAccounts ([#16016](https://github.com/lightdash/lightdash/issues/16016)) ([baf3c86](https://github.com/lightdash/lightdash/commit/baf3c863e12fecffd8c19f447f4f15f50e65225f))
+
+## [0.1840.1](https://github.com/lightdash/lightdash/compare/0.1840.0...0.1840.1) (2025-07-25)
+
+
+### Bug Fixes
+
+* fix snowflake old oauth tokens ([#16020](https://github.com/lightdash/lightdash/issues/16020)) ([9757a54](https://github.com/lightdash/lightdash/commit/9757a549563998f856dc7071c11861eca3897e8e))
+
+# [0.1840.0](https://github.com/lightdash/lightdash/compare/0.1839.0...0.1840.0) (2025-07-25)
+
+
+### Features
+
+* save chart parameter values ([#15979](https://github.com/lightdash/lightdash/issues/15979)) ([7ed0dd2](https://github.com/lightdash/lightdash/commit/7ed0dd28e7c2a514a7863509eb9e07ce18f9e64b))
+
+# [0.1839.0](https://github.com/lightdash/lightdash/compare/0.1838.2...0.1839.0) (2025-07-25)
+
+
+### Features
+
+* implement field search for AI agent with user attributes and ai tags ([#15912](https://github.com/lightdash/lightdash/issues/15912)) ([49fadeb](https://github.com/lightdash/lightdash/commit/49fadebf849450e9131dddc4835c4906f62a44ff))
+
 ## [0.1838.2](https://github.com/lightdash/lightdash/compare/0.1838.1...0.1838.2) (2025-07-24)
 
 

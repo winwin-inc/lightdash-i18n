@@ -188,7 +188,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
         } else {
             updateTabDimensionFilter(activeTabUuid || '', value, index, isTemporary);
         }
-    }, [filterType, updateDimensionDashboardFilter, updateTabDimensionFilter, activeTabUuid, isEditMode]);
+    }, [filterType, activeTabUuid, isEditMode, updateDimensionDashboardFilter, updateTabDimensionFilter]);
 
     const handleChangeFilters = useCallback((currentFilters: DashboardFilters) => {
         if (filterType === 'global') {
@@ -199,7 +199,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                 [activeTabUuid || '']: currentFilters,
             });
         }
-    }, [filterType, setDashboardFilters, setTabFilters, activeTabUuid, tabFilters]);
+    }, [filterType, activeTabUuid, tabFilters, setDashboardFilters, setTabFilters]);
 
     const handleFilterChanged = useCallback((isTemporary: boolean) => {
         if (filterType === 'global') {
@@ -305,9 +305,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
     return (
         <>
             {!isEditMode && filtersChanged && (
-                <Tooltip label={t(
-                    'components_dashboard_filter.filter_active_filters.reset_all_filters',
-                )}>
+                <Tooltip label={t('components_dashboard_filter.filter.filter_active_filters.reset_all_filters')}>
                     <Button
                         size="xs"
                         variant="default"

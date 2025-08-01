@@ -364,11 +364,16 @@ export function reducer(
         }
         case ActionType.SET_PARAMETER: {
             return produce(state, (draft) => {
+                if (!draft.unsavedChartVersion.parameters) {
+                    draft.unsavedChartVersion.parameters = {};
+                }
                 if (action.payload.value === null) {
-                    delete draft.parameters[action.payload.key];
+                    delete draft.unsavedChartVersion.parameters[
+                        action.payload.key
+                    ];
                 } else {
-                    draft.parameters = {
-                        ...draft.parameters,
+                    draft.unsavedChartVersion.parameters = {
+                        ...draft.unsavedChartVersion.parameters,
                         [action.payload.key]: action.payload.value,
                     };
                 }
@@ -376,7 +381,7 @@ export function reducer(
         }
         case ActionType.CLEAR_ALL_PARAMETERS: {
             return produce(state, (draft) => {
-                draft.parameters = {};
+                draft.unsavedChartVersion.parameters = {};
             });
         }
         case ActionType.ADD_ADDITIONAL_METRIC: {
@@ -846,6 +851,7 @@ const ExplorerProvider: FC<
             | { chartUuid: string; context?: string }
             | { chartUuid: string; chartVersionUuid: string };
         dateZoomGranularity?: DateGranularity;
+        projectUuid?: string;
     }>
 > = ({
     minimal = false,
@@ -856,6 +862,7 @@ const ExplorerProvider: FC<
     children,
     viewModeQueryArgs,
     dateZoomGranularity,
+    projectUuid: propProjectUuid,
 }) => {
     const { t } = useTranslation();
 
@@ -1384,7 +1391,10 @@ const ExplorerProvider: FC<
             minimal,
         ],
     );
-    const { projectUuid } = useParams<{ projectUuid: string }>();
+    const { projectUuid: projectUuidFromParams } = useParams<{
+        projectUuid: string;
+    }>();
+    const projectUuid = propProjectUuid || projectUuidFromParams;
     const { remove: clearQueryResults } = query;
     const resetQueryResults = useCallback(() => {
         setValidQueryArgs(null);
@@ -1409,7 +1419,7 @@ const ExplorerProvider: FC<
                 ...(isEditMode ? {} : viewModeQueryArgs),
                 dateZoomGranularity,
                 invalidateCache: minimal,
-                parameters: state.parameters,
+                parameters: unsavedChartVersion.parameters || {},
             });
             dispatch({
                 type: ActionType.SET_PREVIOUSLY_FETCHED_STATE,
@@ -1426,12 +1436,12 @@ const ExplorerProvider: FC<
     }, [
         unsavedChartVersion.metricQuery,
         unsavedChartVersion.tableName,
+        unsavedChartVersion.parameters,
         projectUuid,
         isEditMode,
         viewModeQueryArgs,
         dateZoomGranularity,
         minimal,
-        state.parameters,
     ]);
 
     useEffect(() => {

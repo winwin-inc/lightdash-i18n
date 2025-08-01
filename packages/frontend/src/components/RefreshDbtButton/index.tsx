@@ -17,8 +17,8 @@ import { useParams } from 'react-router';
 
 import { useProject } from '../../hooks/useProject';
 import { useRefreshServer } from '../../hooks/useRefreshServer';
+import { useAbilityContext } from '../../providers/Ability/useAbilityContext';
 import useActiveJob from '../../providers/ActiveJob/useActiveJob';
-import useApp from '../../providers/App/useApp';
 import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
 import MantineIcon from '../common/MantineIcon';
@@ -41,9 +41,9 @@ const RefreshDbtButton: FC<{
     const { activeJob } = useActiveJob();
     const { mutate: refreshDbtServer } = useRefreshServer();
     const { t } = useTranslation();
-
     const { track } = useTracking();
-    const { user } = useApp();
+
+    const ability = useAbilityContext();
 
     const [isLoading, setIsLoading] = useState(false);
 
@@ -68,8 +68,8 @@ const RefreshDbtButton: FC<{
     }, [activeJob, activeJob?.jobStatus]);
 
     if (
-        user.data?.ability?.cannot('manage', 'Job') ||
-        user.data?.ability?.cannot('manage', 'CompileProject')
+        ability?.cannot('manage', 'Job') ||
+        ability?.cannot('manage', 'CompileProject')
     )
         return null;
 

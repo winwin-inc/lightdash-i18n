@@ -15,6 +15,7 @@ import {
     Collapse,
     Group,
     Paper,
+    rem,
     Stack,
     Text,
     Timeline,
@@ -101,6 +102,8 @@ const ToolCallDescription: FC<{
     toolCall: ToolCallSummary;
     compiledSql: ApiCompiledQueryResults | undefined;
 }> = ({ toolCall, compiledSql }) => {
+    const { t } = useTranslation();
+
     const toolNameParsed = ToolNameSchema.safeParse(toolCall.toolName);
     const toolArgsParsed = AgentToolCallArgsSchema.safeParse(toolCall.toolArgs);
 
@@ -117,28 +120,32 @@ const ToolCallDescription: FC<{
 
     switch (toolArgs.type) {
         case 'find_explores':
-            return null;
-        case 'find_fields':
-            const { exploreName } = toolArgs;
-
             return (
-                <>
-                    <Text c="dimmed" size="xs">
-                        Found relevant fields in{' '}
+                <Text c="dimmed" size="xs">
+                    {t('features_ai_copilot_chat_elements_tool_calls.searched_relevant_explores')}
+                </Text>
+            );
+        case 'find_fields':
+            return (
+                <Text c="dimmed" size="xs">
+                    {t('features_ai_copilot_chat_elements_tool_calls.searched_for_fields')}
+                    {toolArgs.fieldSearchQueries.map((query) => (
                         <Badge
+                            key={query.label}
                             color="gray"
                             variant="light"
                             size="xs"
+                            mx={rem(2)}
                             radius="sm"
                             style={{
                                 textTransform: 'none',
                                 fontWeight: 400,
                             }}
                         >
-                            {exploreName}
+                            {query.label}
                         </Badge>
-                    </Text>
-                </>
+                    ))}
+                </Text>
             );
         case AiResultType.VERTICAL_BAR_RESULT:
             const barVizConfigToolArgs = toolArgs;

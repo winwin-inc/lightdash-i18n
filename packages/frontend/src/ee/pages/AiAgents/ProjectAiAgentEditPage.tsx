@@ -6,6 +6,7 @@ import {
     Button,
     Code,
     Group,
+    HoverCard,
     LoadingOverlay,
     MultiSelect,
     Paper,
@@ -32,9 +33,9 @@ import {
 } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
 
-import { z } from 'zod';
 import { LightdashUserAvatar } from '../../../components/Avatar';
 import MantineIcon from '../../../components/common/MantineIcon';
 import MantineModal from '../../../components/common/MantineModal';
@@ -87,6 +88,8 @@ type Props = {
 };
 
 const ProjectAiAgentEditPage: FC<Props> = ({ isCreateMode = false }) => {
+    const { t } = useTranslation();
+
     const { agentUuid, projectUuid } = useParams<{
         agentUuid: string;
         projectUuid: string;
@@ -95,8 +98,6 @@ const ProjectAiAgentEditPage: FC<Props> = ({ isCreateMode = false }) => {
         action: 'manage',
         projectUuid,
     });
-
-    const { t } = useTranslation();
 
     const navigate = useNavigate();
     const { user } = useApp();
@@ -295,9 +296,7 @@ const ProjectAiAgentEditPage: FC<Props> = ({ isCreateMode = false }) => {
                         withBorder
                         style={{ borderStyle: 'dashed' }}
                     >
-                        <Title order={5}>
-                            {t('pages_ai_agents_edit_page.agent_not_found.title')}
-                        </Title>
+                        <Title order={5}>{t('pages_ai_agents_edit_page.agent_not_found.title')}</Title>
                         <Text size="sm" c="dimmed">
                             {t('pages_ai_agents_edit_page.agent_not_found.description')}
                         </Text>
@@ -440,7 +439,39 @@ const ProjectAiAgentEditPage: FC<Props> = ({ isCreateMode = false }) => {
                                         />
                                         <TagsInput
                                             variant="subtle"
-                                            label={t('pages_ai_agents_edit_page.form.tags.label')}
+                                            label={
+                                                <Group gap="xs">
+                                                    <Text fz="sm" fw={500}>
+                                                        {t('pages_ai_agents_edit_page.form.tags.label')}
+                                                    </Text>
+                                                    <HoverCard
+                                                        position="right"
+                                                        withArrow
+                                                    >
+                                                        <HoverCard.Target>
+                                                            <MantineIcon
+                                                                icon={
+                                                                    IconInfoCircle
+                                                                }
+                                                            />
+                                                        </HoverCard.Target>
+                                                        <HoverCard.Dropdown maw="250px">
+                                                            <Text fz="xs">
+                                                                {t('pages_ai_agents_edit_page.form.tags.tooltip.part_1')}
+                                                                <Anchor
+                                                                    fz="xs"
+                                                                    c="dimmed"
+                                                                    underline="always"
+                                                                    href="https://docs.lightdash.com/guides/ai-agents#limiting-access-to-specific-explores-and-fields"
+                                                                    target="_blank"
+                                                                >
+                                                                    {t('pages_ai_agents_edit_page.form.tags.tooltip.part_2')}
+                                                                </Anchor>
+                                                            </Text>
+                                                        </HoverCard.Dropdown>
+                                                    </HoverCard>
+                                                </Group>
+                                            }
                                             placeholder={t('pages_ai_agents_edit_page.form.tags.placeholder')}
                                             {...form.getInputProps('tags')}
                                             value={
@@ -470,10 +501,11 @@ const ProjectAiAgentEditPage: FC<Props> = ({ isCreateMode = false }) => {
                                                                 {t('pages_ai_agents_edit_page.form.group_access.label')}
                                                             </Text>
                                                             <Tooltip
-                                                                label={t('pages_ai_agents_edit_page.form.group_access.description')}
+                                                                label={t('pages_ai_agents_edit_page.form.group_access.tooltip')}
                                                                 withArrow
                                                                 withinPortal
                                                                 multiline
+                                                                position="right"
                                                                 maw="250px"
                                                             >
                                                                 <MantineIcon
@@ -484,6 +516,7 @@ const ProjectAiAgentEditPage: FC<Props> = ({ isCreateMode = false }) => {
                                                             </Tooltip>
                                                         </Group>
                                                     }
+                                                    description={t('pages_ai_agents_edit_page.form.group_access.description')}
                                                     placeholder={
                                                         isLoadingGroups
                                                             ? t('pages_ai_agents_edit_page.form.group_access.placeholder.loading')
@@ -636,7 +669,7 @@ const ProjectAiAgentEditPage: FC<Props> = ({ isCreateMode = false }) => {
                                             justify="space-between"
                                             gap="xs"
                                         >
-                                            <Title order={6}>{t('pages_ai_agents_edit_page.form.integrations.slack.title')}</Title>
+                                            <Title order={6}>{t('pages_ai_agents_edit_page.form.slack.title')}</Title>
                                             <Group
                                                 c={
                                                     slackChannelsConfigured
@@ -652,10 +685,10 @@ const ProjectAiAgentEditPage: FC<Props> = ({ isCreateMode = false }) => {
                                                 />
                                                 <Text size="xs">
                                                     {!slackInstallation?.organizationUuid
-                                                        ? t('pages_ai_agents_edit_page.form.integrations.slack.description.part_1')
+                                                        ? t('pages_ai_agents_edit_page.form.slack.description.part_1')
                                                         : !slackChannelsConfigured
-                                                        ? t('pages_ai_agents_edit_page.form.integrations.slack.description.part_2')
-                                                        : t('pages_ai_agents_edit_page.form.integrations.slack.description.part_3')}
+                                                        ? t('pages_ai_agents_edit_page.form.slack.description.part_2')
+                                                        : t('pages_ai_agents_edit_page.form.slack.description.part_3')}
                                                 </Text>
                                             </Group>
                                         </Group>
@@ -678,16 +711,16 @@ const ProjectAiAgentEditPage: FC<Props> = ({ isCreateMode = false }) => {
                                                     c="dimmed"
                                                     ta="center"
                                                 >
-                                                    {t('pages_ai_agents_edit_page.form.integrations.slack.enable_slack_integration.part_1')}
+                                                    {t('pages_ai_agents_edit_page.form.slack.enable_slack_integration.part_1')}
                                                     <Anchor
                                                         c="dimmed"
                                                         underline="always"
                                                         href="/generalSettings/integrations"
                                                         target="_blank"
                                                     >
-                                                        {t('pages_ai_agents_edit_page.form.integrations.slack.enable_slack_integration.part_2')}
+                                                        {t('pages_ai_agents_edit_page.form.slack.enable_slack_integration.part_2')}
                                                     </Anchor>
-                                                    {t('pages_ai_agents_edit_page.form.integrations.slack.enable_slack_integration.part_3')}
+                                                    {t('pages_ai_agents_edit_page.form.slack.enable_slack_integration.part_3')}
                                                 </Text>
                                             </Paper>
                                         ) : (
@@ -698,18 +731,17 @@ const ProjectAiAgentEditPage: FC<Props> = ({ isCreateMode = false }) => {
                                                         disabled={isRefreshing}
                                                         description={
                                                             <>
-                                                                {t('pages_ai_agents_edit_page.form.integrations.slack.refresh_slack_channels.label')}
+                                                                {t('pages_ai_agents_edit_page.form.slack.channels.label')}
                                                                 {slackChannelsConfigured && (
                                                                     <>
-                                                                        {' '}
-                                                                        {t('pages_ai_agents_edit_page.form.integrations.slack.channels.tag_slack_app.part_1')}
+                                                                        {t('pages_ai_agents_edit_page.form.slack.channels.tag_slack_app')}
                                                                         <Code>
                                                                             @
                                                                             {
                                                                                 slackInstallation.appName
                                                                             }
                                                                         </Code>{' '}
-                                                                        {t('pages_ai_agents_edit_page.form.integrations.slack.channels.tag_slack_app.part_2')}
+                                                                        {t('pages_ai_agents_edit_page.form.slack.channels.to_get_started')}
                                                                     </>
                                                                 )}
                                                             </>
@@ -719,8 +751,8 @@ const ProjectAiAgentEditPage: FC<Props> = ({ isCreateMode = false }) => {
                                                                 width: '100%',
                                                             },
                                                         }}
-                                                        label={t('pages_ai_agents_edit_page.form.integrations.slack.channels.label')}
-                                                        placeholder={t('pages_ai_agents_edit_page.form.integrations.slack.channels.placeholder')}
+                                                        label={t('pages_ai_agents_edit_page.form.slack.channels.label')}
+                                                        placeholder={t('pages_ai_agents_edit_page.form.slack.channels.placeholder')}
                                                         data={
                                                             slackChannelOptions
                                                         }
@@ -733,7 +765,7 @@ const ProjectAiAgentEditPage: FC<Props> = ({ isCreateMode = false }) => {
                                                             <Tooltip
                                                                 withArrow
                                                                 withinPortal
-                                                                label={t('pages_ai_agents_edit_page.form.integrations.slack.channels.refresh')}
+                                                                label={t('pages_ai_agents_edit_page.form.slack.channels.refresh')}
                                                             >
                                                                 <ActionIcon
                                                                     variant="transparent"
