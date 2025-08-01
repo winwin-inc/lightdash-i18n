@@ -109,18 +109,18 @@ export default defineConfig({
         hmr: {
             overlay: true,
         },
-        // TODO: 临时处理
-        watch: {
-            ignored: ['!**/node_modules/@lightdash/common/**'],
-            usePolling: true, // fix HMR hot update failure
-            interval: 1000 // polling interval
-        },
         allowedHosts: [
             'lightdash-dev', // for local development with docker
             '.lightdash.dev', // for cloudflared tunnels
         ],
+        // watch: {
+        //     ignored: ['!**/node_modules/@lightdash/common/**'],
+        // },
         watch: {
             ignored: ['!**/node_modules/@lightdash/common/**'],
+            // windows 下使用 polling 解决 HMR 热更新失败问题
+            usePolling: true, // fix HMR hot update failure
+            interval: 1000 // polling interval
         },
         proxy: {
             '/api': {
