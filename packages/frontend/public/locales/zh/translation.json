@@ -4631,7 +4631,8 @@
             },
             "size_metric": {
                 "label": "大小指标",
-                "tooltip": "确定每个区块的大小。"
+                "tooltip": "确定每个区块的大小。",
+                "select_metric": "选择指标"
             },
             "color_metric": {
                 "label": "颜色指标",

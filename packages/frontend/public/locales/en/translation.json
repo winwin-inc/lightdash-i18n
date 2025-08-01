@@ -4630,7 +4630,8 @@
             },
             "size_metric": {
                 "label": "Size metric",
-                "tooltip": "Determines how large each block is."
+                "tooltip": "Determines how large each block is.",
+                "select_metric": "Select metric"
             },
             "color_metric": {
                 "label": "Color metric",
