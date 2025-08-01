@@ -12,7 +12,7 @@ import {
     Tooltip,
 } from '@mantine/core';
 import { IconInfoCircle } from '@tabler/icons-react';
-import { useEffect, type FC } from 'react';
+import { type FC } from 'react';
 import MantineIcon from '../../../components/common/MantineIcon';
 import { ParameterInput } from './ParameterInput';
 
@@ -31,6 +31,7 @@ type ParameterSelectionProps = {
     cols?: number;
     projectUuid?: string;
     loadingMessage?: string;
+    disabled?: boolean;
 };
 
 export const ParameterSelection: FC<ParameterSelectionProps> = ({
@@ -44,25 +45,12 @@ export const ParameterSelection: FC<ParameterSelectionProps> = ({
     onClearAll,
     cols = 1,
     projectUuid,
+    disabled = false,
 }) => {
     const parameterKeys = parameters ? Object.keys(parameters) : [];
     const selectedParametersCount = Object.values(parameterValues).filter(
         (value) => value !== null && value !== '',
     ).length;
-
-    // Apply parameter defaults
-    useEffect(() => {
-        if (parameters) {
-            Object.entries(parameters).forEach(([key, param]) => {
-                if (
-                    param.default &&
-                    (!parameterValues || !parameterValues[key])
-                ) {
-                    onParameterChange(key, param.default);
-                }
-            });
-        }
-    }, [parameterValues, parameters, onParameterChange]);
 
     if (isLoading) {
         return (
@@ -138,6 +126,7 @@ export const ParameterSelection: FC<ParameterSelectionProps> = ({
                                 size={size}
                                 projectUuid={projectUuid}
                                 parameterValues={parameterValues}
+                                disabled={disabled}
                             />
                         </Box>
                     );
@@ -154,6 +143,7 @@ export const ParameterSelection: FC<ParameterSelectionProps> = ({
                         color="gray"
                         onClick={onClearAll}
                         style={{ alignSelf: 'flex-end' }}
+                        disabled={disabled}
                     >
                         Clear all
                     </Button>

@@ -15,6 +15,7 @@ import {
     Collapse,
     Group,
     Paper,
+    rem,
     Stack,
     Text,
     Timeline,
@@ -114,28 +115,32 @@ const ToolCallDescription: FC<{
 
     switch (toolArgs.type) {
         case 'find_explores':
-            return null;
-        case 'find_fields':
-            const { exploreName } = toolArgs;
-
             return (
-                <>
-                    <Text c="dimmed" size="xs">
-                        Found relevant fields in{' '}
+                <Text c="dimmed" size="xs">
+                    Searched relevant explores
+                </Text>
+            );
+        case 'find_fields':
+            return (
+                <Text c="dimmed" size="xs">
+                    Searched for fields{' '}
+                    {toolArgs.fieldSearchQueries.map((query) => (
                         <Badge
+                            key={query.label}
                             color="gray"
                             variant="light"
                             size="xs"
+                            mx={rem(2)}
                             radius="sm"
                             style={{
                                 textTransform: 'none',
                                 fontWeight: 400,
                             }}
                         >
-                            {exploreName}
+                            {query.label}
                         </Badge>
-                    </Text>
-                </>
+                    ))}
+                </Text>
             );
         case AiResultType.VERTICAL_BAR_RESULT:
             const barVizConfigToolArgs = toolArgs;

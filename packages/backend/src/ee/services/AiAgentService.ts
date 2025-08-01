@@ -1,5 +1,6 @@
 import { subject } from '@casl/ability';
 import {
+    Account,
     AiAgent,
     AiAgentThread,
     AiAgentThreadSummary,
@@ -32,6 +33,7 @@ import {
     parseVizConfig,
     QueryExecutionContext,
     SlackPrompt,
+    UnexpectedServerError,
     UpdateSlackResponse,
     UpdateWebAppResponse,
     type SessionUser,
@@ -45,7 +47,7 @@ import {
     ToolCallPart,
     ToolResultPart,
 } from 'ai';
-import _, { pick } from 'lodash';
+import _ from 'lodash';
 import slackifyMarkdown from 'slackify-markdown';
 import {
     AiAgentCreatedEvent,
@@ -56,10 +58,13 @@ import {
     AiAgentUpdatedEvent,
     LightdashAnalytics,
 } from '../../analytics/LightdashAnalytics';
+import { fromSession } from '../../auth/account';
 import { type SlackClient } from '../../clients/Slack/SlackClient';
 import { LightdashConfig } from '../../config/parseConfig';
 import Logger from '../../logging/logger';
+import { CatalogSearchContext } from '../../models/CatalogModel/CatalogModel';
 import { GroupsModel } from '../../models/GroupsModel';
+import { UserAttributesModel } from '../../models/UserAttributesModel';
 import { UserModel } from '../../models/UserModel';
 import { AsyncQueryService } from '../../services/AsyncQueryService/AsyncQueryService';
 import { CatalogService } from '../../services/CatalogService/CatalogService';
@@ -69,6 +74,8 @@ import { AiAgentModel } from '../models/AiAgentModel';
 import { generateAgentResponse, streamAgentResponse } from './ai/agents/agent';
 import { getModel } from './ai/models';
 import {
+    FindExploresFn,
+    FindFieldFn,
     GetExploreFn,
     GetPromptFn,
     RunMiniMetricQueryFn,
@@ -77,7 +84,6 @@ import {
     StoreToolResultsFn,
     UpdateProgressFn,
 } from './ai/types/aiAgentDependencies';
-import { AiAgentExploreSummary } from './ai/types/aiAgentExploreSummary';
 import {
     getDeepLinkBlocks,
     getExploreBlocks,
@@ -97,9 +103,10 @@ type AiAgentServiceDependencies = {
     groupsModel: GroupsModel;
     featureFlagService: FeatureFlagService;
     projectService: ProjectService;
-    catalogService: CatalogService;
     slackClient: SlackClient;
     asyncQueryService: AsyncQueryService;
+    userAttributesModel: UserAttributesModel;
+    catalogService: CatalogService;
 };
 
 export class AiAgentService {
@@ -123,6 +130,8 @@ export class AiAgentService {
 
     private readonly asyncQueryService: AsyncQueryService;
 
+    private readonly userAttributesModel: UserAttributesModel;
+
     constructor(dependencies: AiAgentServiceDependencies) {
         this.lightdashConfig = dependencies.lightdashConfig;
         this.analytics = dependencies.analytics;
@@ -130,10 +139,21 @@ export class AiAgentService {
         this.aiAgentModel = dependencies.aiAgentModel;
         this.groupsModel = dependencies.groupsModel;
         this.featureFlagService = dependencies.featureFlagService;
-        this.catalogService = dependencies.catalogService;
         this.projectService = dependencies.projectService;
         this.slackClient = dependencies.slackClient;
         this.asyncQueryService = dependencies.asyncQueryService;
+        this.userAttributesModel = dependencies.userAttributesModel;
+        this.catalogService = dependencies.catalogService;
+    }
+
+    private async getIsCopilotEnabled(
+        user: Pick<LightdashUser, 'userUuid' | 'organizationUuid'>,
+    ) {
+        const aiCopilotFlag = await this.featureFlagService.get({
+            user,
+            featureFlagId: CommercialFeatureFlags.AiCopilot,
+        });
+        return aiCopilotFlag.enabled;
     }
 
     /**
@@ -209,15 +229,14 @@ export class AiAgentService {
         return false;
     }
 
-    // from AiService getToolUtilities
     private async getExplore(
-        user: SessionUser,
+        account: Account,
         projectUuid: string,
         availableTags: string[] | null,
         exploreName: string,
     ) {
         const explore = await this.projectService.getExplore(
-            user,
+            account,
             projectUuid,
             exploreName,
         );
@@ -234,14 +253,14 @@ export class AiAgentService {
         return filteredExplore;
     }
 
-    // from AiService getToolUtilities
     private async runAiMetricQuery(
         user: SessionUser,
         projectUuid: string,
         metricQuery: AiMetricQueryWithFilters,
     ) {
+        const account = fromSession(user);
         const explore = await this.getExplore(
-            user,
+            account,
             projectUuid,
             null,
             metricQuery.exploreName,
@@ -255,7 +274,7 @@ export class AiAgentService {
         validateSelectedFieldsExistence(explore, metricQueryFields);
 
         return this.projectService.runExploreQuery(
-            user,
+            account,
             {
                 ...metricQuery,
                 // TODO: add tableCalculations
@@ -274,8 +293,9 @@ export class AiAgentService {
         projectUuid: string,
         metricQuery: AiMetricQueryWithFilters,
     ) {
+        const account = fromSession(user);
         const explore = await this.getExplore(
-            user,
+            account,
             projectUuid,
             null,
             metricQuery.exploreName,
@@ -290,7 +310,7 @@ export class AiAgentService {
 
         const asyncQuery = await this.asyncQueryService.executeAsyncMetricQuery(
             {
-                user,
+                account,
                 projectUuid,
                 metricQuery: {
                     ...metricQuery,
@@ -302,16 +322,6 @@ export class AiAgentService {
         );
 
         return asyncQuery;
-    }
-
-    private async getIsCopilotEnabled(
-        user: Pick<LightdashUser, 'userUuid' | 'organizationUuid'>,
-    ) {
-        const aiCopilotFlag = await this.featureFlagService.get({
-            user,
-            featureFlagId: CommercialFeatureFlags.AiCopilot,
-        });
-        return aiCopilotFlag.enabled;
     }
 
     public async getAgent(
@@ -1266,55 +1276,6 @@ export class AiAgentService {
         });
     }
 
-    private async getMinimalExploreInformation(
-        user: SessionUser,
-        projectUuid: string,
-        availableTags: string[] | null,
-    ): Promise<AiAgentExploreSummary[]> {
-        const exploreSummaries =
-            await this.projectService.getAllExploresSummary(
-                user,
-                projectUuid,
-                true,
-                false,
-            );
-
-        const explores = await this.projectService.findExplores({
-            user,
-            projectUuid,
-            exploreNames: exploreSummaries.map((s) => s.name),
-        });
-
-        const exploresWithoutErrors = Object.values(explores).filter(
-            (e): e is Explore => !isExploreError(e),
-        );
-
-        const exploresWithDescriptions = exploresWithoutErrors
-            .map((explore) =>
-                filterExploreByTags({
-                    explore,
-                    availableTags,
-                }),
-            )
-            .filter((explore) => explore !== undefined)
-            .map((explore, index) => ({
-                ...explore,
-                description: exploreSummaries[index]?.description,
-                aiHint: exploreSummaries[index]?.aiHint,
-            }));
-
-        const minimalExploreInformation: AiAgentExploreSummary[] =
-            exploresWithDescriptions.map((s) => ({
-                ...pick(s, ['name', 'label', 'description', 'baseTable']),
-                joinedTables: Object.keys(s.tables).filter(
-                    (table) => table !== s.baseTable,
-                ),
-                ...(s.aiHint ? { aiHint: s.aiHint } : {}),
-            }));
-
-        return minimalExploreInformation;
-    }
-
     private async getAgentSettings(
         user: SessionUser,
         prompt: SlackPrompt | AiWebAppPrompt,
@@ -1419,35 +1380,120 @@ export class AiAgentService {
     ) {
         const { projectUuid, organizationUuid } = prompt;
 
-        const getExplores = async () => {
+        const findExplores: FindExploresFn = async (args: {
+            page: number;
+            pageSize: number;
+        }) => {
             const agentSettings = await this.getAgentSettings(user, prompt);
 
-            return this.getMinimalExploreInformation(
-                user,
-                projectUuid,
-                agentSettings?.tags ?? null,
-            );
+            const userAttributes =
+                await this.userAttributesModel.getAttributeValuesForOrgMember({
+                    organizationUuid,
+                    userUuid: user.userUuid,
+                });
+
+            const { data: tables, pagination } =
+                await this.catalogService.searchCatalog({
+                    projectUuid,
+                    catalogSearch: {
+                        type: CatalogType.Table,
+                    },
+                    userAttributes,
+                    context: CatalogSearchContext.AI_AGENT,
+                    yamlTags: agentSettings.tags,
+                    tables: null,
+                    paginateArgs: {
+                        page: args.page,
+                        pageSize: args.pageSize,
+                    },
+                });
+
+            const allTableNames = tables.map((table) => table.name);
+
+            const fields =
+                tables.length > 0
+                    ? (
+                          await this.catalogService.searchCatalog({
+                              projectUuid,
+                              catalogSearch: {
+                                  type: CatalogType.Field,
+                                  searchQuery: '',
+                              },
+                              userAttributes,
+                              context: CatalogSearchContext.AI_AGENT,
+                              yamlTags: agentSettings.tags,
+                              tables: allTableNames,
+                              paginateArgs: {
+                                  page: 1,
+                                  // TODO: tweak this
+                                  pageSize: allTableNames.length * 50,
+                              },
+                              sortArgs: {
+                                  sort: 'chartUsage',
+                                  order: 'desc',
+                              },
+                          })
+                      ).data.filter((item) => item.type === CatalogType.Field)
+                    : [];
+
+            return {
+                tables: tables.filter(
+                    (table) => table.type === CatalogType.Table,
+                ),
+                fields: fields.filter(
+                    (field) => field.type === CatalogType.Field,
+                ),
+                pagination,
+            };
         };
 
         const getExplore: GetExploreFn = async ({ exploreName }) => {
             const agentSettings = await this.getAgentSettings(user, prompt);
 
-            const explore = await this.projectService.getExplore(
-                user,
+            const account = fromSession(user);
+            const explore = await this.getExplore(
+                account,
                 projectUuid,
+                agentSettings.tags,
                 exploreName,
             );
 
-            const filteredExplore = filterExploreByTags({
-                explore,
-                availableTags: agentSettings?.tags ?? null,
-            });
+            return explore;
+        };
 
-            if (!filteredExplore) {
-                throw new NotFoundError('Explore not found');
-            }
+        const findFields: FindFieldFn = async (args) => {
+            const userAttributes =
+                await this.userAttributesModel.getAttributeValuesForOrgMember({
+                    organizationUuid,
+                    userUuid: user.userUuid,
+                });
 
-            return filteredExplore;
+            const agentSettings = await this.getAgentSettings(user, prompt);
+
+            const { data: catalogItems, pagination } =
+                await this.catalogService.searchCatalog({
+                    projectUuid,
+                    catalogSearch: {
+                        type: CatalogType.Field,
+                        searchQuery: args.fieldSearchQuery.label,
+                    },
+                    context: CatalogSearchContext.AI_AGENT,
+                    // TODO: make this paginated
+                    paginateArgs: {
+                        page: args.page,
+                        pageSize: args.pageSize,
+                    },
+                    userAttributes,
+                    yamlTags: agentSettings.tags,
+                    tables: [args.table],
+                });
+
+            // TODO: we should not filter here, we should return all the fields
+            const catalogFields = catalogItems.filter(
+                (item) => item.type === CatalogType.Field,
+            );
+
+            return { fields: catalogFields, pagination };
         };
 
         const updateProgress: UpdateProgressFn = (progress) =>
@@ -1480,8 +1526,9 @@ export class AiAgentService {
 
             validateSelectedFieldsExistence(explore, metricQueryFields);
 
+            const account = fromSession(user);
             return this.projectService.runMetricQuery({
-                user,
+                account,
                 projectUuid,
                 metricQuery: {
                     ...metricQuery,
@@ -1526,10 +1573,9 @@ export class AiAgentService {
         };
 
         return {
-            getExplores,
+            findFields,
+            findExplores,
             getExplore,
-            // TODO: to be replaced by the new searchFields function
-            searchFields: undefined,
             updateProgress,
             getPrompt,
             runMiniMetricQuery,
@@ -1591,9 +1637,9 @@ export class AiAgentService {
         const { prompt, stream } = options;
 
         const {
-            getExplores,
+            findFields,
+            findExplores,
             getExplore,
-            searchFields,
             updateProgress,
             getPrompt,
             runMiniMetricQuery,
@@ -1619,9 +1665,9 @@ export class AiAgentService {
         };
 
         const dependencies = {
-            getExplores,
+            findFields,
+            findExplores,
             getExplore,
-            searchFields,
             runMiniMetricQuery,
             getPrompt,
             sendFile,
@@ -1649,14 +1695,16 @@ export class AiAgentService {
 
     // TODO: user permissions
     async updateHumanScoreForSlackPrompt(
+        userId: string,
+        organizationUuid: string | undefined,
         promptUuid: string,
         humanScore: number,
     ) {
         this.analytics.track<AiAgentPromptFeedbackEvent>({
             event: 'ai_agent_prompt.feedback',
-            userId: undefined,
+            userId,
             properties: {
-                organizationId: undefined,
+                organizationId: organizationUuid ?? '',
                 humanScore,
                 messageId: promptUuid,
                 context: 'slack',

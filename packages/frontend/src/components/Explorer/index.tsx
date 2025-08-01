@@ -1,8 +1,11 @@
+import { subject } from '@casl/ability';
 import { Stack } from '@mantine/core';
 import { memo, type FC } from 'react';
-import { useParams } from 'react-router';
+import { useOrganization } from '../../hooks/organization/useOrganization';
 import { useCompiledSql } from '../../hooks/useCompiledSql';
 import { useExplore } from '../../hooks/useExplore';
+import { useProjectUuid } from '../../hooks/useProjectUuid';
+import { Can } from '../../providers/Ability';
 import useExplorerContext from '../../providers/Explorer/useExplorerContext';
 import { DrillDownModal } from '../MetricQueryData/DrillDownModal';
 import MetricQueryDataProvider from '../MetricQueryData/MetricQueryDataProvider';
@@ -29,7 +32,7 @@ const Explorer: FC<{ hideHeader?: boolean }> = memo(
         const isEditMode = useExplorerContext(
             (context) => context.state.isEditMode,
         );
-        const { projectUuid } = useParams<{ projectUuid: string }>();
+        const projectUuid = useProjectUuid();
 
         const queryUuid = useExplorerContext(
             (context) => context.query?.data?.queryUuid,
@@ -40,6 +43,8 @@ const Explorer: FC<{ hideHeader?: boolean }> = memo(
         const { data: { parameterReferences } = {} } = useCompiledSql({
             enabled: !!unsavedChartVersionTableName,
         });
+
+        const { data: org } = useOrganization();
 
         return (
             <MetricQueryDataProvider
@@ -65,7 +70,15 @@ const Explorer: FC<{ hideHeader?: boolean }> = memo(
 
                     <ResultsCard />
 
-                    {!!projectUuid && <SqlCard projectUuid={projectUuid} />}
+                    <Can
+                        I="manage"
+                        this={subject('Explore', {
+                            organizationUuid: org?.organizationUuid,
+                            projectUuid,
+                        })}
+                    >
+                        {!!projectUuid && <SqlCard projectUuid={projectUuid} />}
+                    </Can>
                 </Stack>
 
                 <UnderlyingDataModal />
