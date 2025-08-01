@@ -607,7 +607,7 @@ const DashboardProvider: React.FC<
                     },
                     [],
                 ),
-        [dashboardFilters.dimensions, allFilterableFieldsMap],
+        [dashboardFilters.dimensions, allFilterableFieldsMap, getConditionalRuleLabelFromItem],
     );
 
     const value = {
