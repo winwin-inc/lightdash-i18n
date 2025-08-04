@@ -223,7 +223,7 @@ const Filter: FC<Props> = ({
             return filterableFieldsByTileUuid;
         }
         return Object.keys(filterableFieldsByTileUuid ?? {}).reduce((acc, tileUuid) => {
-            const tile = currentDashboardTiles?.find((tile) => tile.uuid === tileUuid);
+            const tile = currentDashboardTiles?.find((item) => item.uuid === tileUuid);
 
             if (tile) {
                 acc[tileUuid] = filterableFieldsByTileUuid?.[tileUuid] || []
