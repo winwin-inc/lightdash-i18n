@@ -82,7 +82,7 @@ const AddFilterButton: FC<Props> = ({
         return t(
             'components_dashboard_filter.filter.tooltip_creating_new.content.tab',
         );
-    }, [filterType]);
+    }, [filterType, t]);
 
     const currentDashboardTabs = useMemo(() => {
         if (filterType === 'global') {
