@@ -48,6 +48,7 @@ const useDashboardFilterStyles = createStyles((theme) => ({
 
 type Props = {
     isEditMode: boolean;
+    filterType: 'global' | 'tab';
     isTemporary?: boolean;
     field: FilterableDimension | undefined;
     filterRule: DashboardFilterRule;
@@ -62,6 +63,7 @@ type Props = {
 
 const Filter: FC<Props> = ({
     isEditMode,
+    filterType,
     isTemporary,
     field,
     filterRule,
@@ -201,6 +203,36 @@ const Filter: FC<Props> = ({
         },
         [onUpdate, handleClose],
     );
+
+    const currentDashboardTabs = useMemo(() => {
+        if (filterType === 'global') {
+            return dashboardTabs;
+        }
+        return dashboardTabs?.filter((tab) => tab.uuid === activeTabUuid);
+    }, [dashboardTabs, activeTabUuid, filterType]);
+
+    const currentDashboardTiles = useMemo(() => {
+        if (filterType === 'global') {
+            return dashboardTiles;
+        }
+        return dashboardTiles?.filter((tile) => tile.tabUuid === activeTabUuid);
+    }, [dashboardTiles, activeTabUuid, filterType]);
+
+    const currentFilterableFieldsByTileUuid = useMemo(() => {
+        if (filterType === 'global') {
+            return filterableFieldsByTileUuid;
+        }
+        return Object.keys(filterableFieldsByTileUuid ?? {}).reduce((acc, tileUuid) => {
+            const tile = currentDashboardTiles?.find((item) => item.uuid === tileUuid);
+
+            if (tile) {
+                acc[tileUuid] = filterableFieldsByTileUuid?.[tileUuid] || []
+            }
+
+            return acc;
+        }, {} as Record<string, FilterableDimension[]>);
+    }, [filterableFieldsByTileUuid, currentDashboardTiles, filterType]);
+
 
     return (
         <>
@@ -374,19 +406,19 @@ const Filter: FC<Props> = ({
                 </Popover.Target>
 
                 <Popover.Dropdown>
-                    {dashboardTiles && (
+                    {currentDashboardTiles && (
                         <FilterConfiguration
                             isCreatingNew={false}
                             isEditMode={isEditMode}
                             isTemporary={isTemporary}
                             field={field}
                             fields={allFilterableFields || []}
-                            tiles={dashboardTiles}
-                            tabs={dashboardTabs}
+                            tiles={currentDashboardTiles}
+                            tabs={currentDashboardTabs}
                             activeTabUuid={activeTabUuid}
                             originalFilterRule={originalFilterRule}
                             availableTileFilters={
-                                filterableFieldsByTileUuid ?? {}
+                                currentFilterableFieldsByTileUuid ?? {}
                             }
                             defaultFilterRule={defaultFilterRule}
                             onSave={handleSaveChanges}

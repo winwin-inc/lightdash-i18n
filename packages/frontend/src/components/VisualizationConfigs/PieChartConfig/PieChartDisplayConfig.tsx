@@ -33,6 +33,15 @@ export const Display: React.FC = () => {
         legendMaxItemLengthChange,
     } = visualizationConfig.chartConfig;
 
+    const chartLegendAlias = {
+        horizontal: t(
+            'components_visualization_configs_chart_pie.display_config.horizontal',
+        ),
+        vertical: t(
+            'components_visualization_configs_chart_pie.display_config.vertical',
+        ),
+    } as const;
+
     return (
         <Stack>
             <Config>
@@ -61,8 +70,10 @@ export const Display: React.FC = () => {
                                 legendPositionChange(val)
                             }
                             data={Object.entries(PieChartLegendPositions).map(
-                                ([position, label]) => ({
-                                    label,
+                                ([position]) => ({
+                                    label: chartLegendAlias[
+                                        position as PieChartLegendPosition
+                                    ],
                                     value: position,
                                 }),
                             )}

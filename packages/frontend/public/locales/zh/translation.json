@@ -4510,7 +4510,10 @@
         },
         "display_config": {
             "show_legend": "显示图例",
-            "orientation": "方向"
+            "orientation": "方向",
+            "label_max_length": "标签最大长度",
+            "horizontal": "水平",
+            "vertical": "垂直"
         },
         "layout_config": {
             "groups": "分组",
@@ -4535,7 +4538,13 @@
         "value_options": {
             "value_position": "值位置",
             "show_value": "显示值",
-            "show_percentage": "显示百分比"
+            "show_percentage": "显示百分比",
+            "options": {
+                "hidden": "隐藏",
+                "inside": "内部",
+                "outside": "外部",
+                "mixed": "混合"
+            }
         }
     },
     "components_visualization_configs_table": {
@@ -5163,7 +5172,8 @@
     "components_explorer_filters_card": {
         "title": "筛选器",
         "no_filter": "当前图表无筛选条件",
-        "active_filter": "激活筛选器",
+        "active_filter": "{{count}} 个激活筛选器",
+        "active_filter_suffix": "",
         "tip": "您必须处于“编辑”或“探索”模式才能更改过滤器",
         "rule_error": "尝试引用具有未知 ID 的字段："
     },

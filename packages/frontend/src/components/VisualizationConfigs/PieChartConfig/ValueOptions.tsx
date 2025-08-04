@@ -39,6 +39,21 @@ export const ValueOptions: FC<ValueOptionsProps> = ({
 }) => {
     const { t } = useTranslation();
 
+    const pieChartValueLabelAlias = {
+        hidden: t(
+            'components_visualization_configs_chart_pie.value_options.options.hidden',
+        ),
+        inside: t(
+            'components_visualization_configs_chart_pie.value_options.options.inside',
+        ),
+        outside: t(
+            'components_visualization_configs_chart_pie.value_options.options.outside',
+        ),
+        mixed: t(
+            'components_visualization_configs_chart_pie.value_options.options.mixed',
+        ),
+    } as const;
+
     return (
         <>
             <Group spacing="xs" noWrap>
@@ -52,9 +67,9 @@ export const ValueOptions: FC<ValueOptionsProps> = ({
                     data={[
                         ...(isValueLabelOverriden ? [['mixed', 'Mixed']] : []),
                         ...Object.entries(PieChartValueLabels),
-                    ].map(([value, label]) => ({
+                    ].map(([value]) => ({
                         value,
-                        label,
+                        label: pieChartValueLabelAlias[value as PieChartValueLabel],
                         disabled: value === 'mixed',
                     }))}
                     onChange={(newValueLabel: PieChartValueLabel) => {
