@@ -335,6 +335,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                                 {field || item.target.isSqlColumn ? (
                                     <Filter
                                         key={item.id}
+                                        filterType={filterType}
                                         isEditMode={isEditMode}
                                         field={field}
                                         filterRule={item}
@@ -384,6 +385,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                 return field || item.target.isSqlColumn ? (
                     <Filter
                         key={item.id}
+                        filterType={filterType}
                         isTemporary
                         isEditMode={isEditMode}
                         field={field}
