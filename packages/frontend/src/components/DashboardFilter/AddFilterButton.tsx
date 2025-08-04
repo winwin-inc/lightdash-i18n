@@ -1,4 +1,4 @@
-import { FilterableDimension, type DashboardFilterRule } from '@lightdash/common';
+import { type FilterableDimension, type DashboardFilterRule } from '@lightdash/common';
 import { Button, Popover, Text, Tooltip } from '@mantine/core';
 import { useDisclosure, useId } from '@mantine/hooks';
 import { IconFilter } from '@tabler/icons-react';
@@ -95,7 +95,7 @@ const AddFilterButton: FC<Props> = ({
             return filterableFieldsByTileUuid;
         }
         return Object.keys(filterableFieldsByTileUuid ?? {}).reduce((acc, tileUuid) => {
-            const tile = currentDashboardTiles?.find((tile) => tile.uuid === tileUuid);
+            const tile = currentDashboardTiles?.find((item) => item.uuid === tileUuid);
 
             if (tile) {
                 acc[tileUuid] = filterableFieldsByTileUuid?.[tileUuid] || []
