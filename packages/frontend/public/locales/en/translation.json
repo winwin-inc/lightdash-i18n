@@ -4509,7 +4509,10 @@
         },
         "display_config": {
             "show_legend": "Show legend",
-            "orientation": "Orientation"
+            "orientation": "Orientation",
+            "label_max_length": "Label max length",
+            "horizontal": "Horizontal",
+            "vertical": "Vertical"
         },
         "layout_config": {
             "groups": "Groups",
@@ -4534,7 +4537,13 @@
         "value_options": {
             "value_position": "Value position",
             "show_value": "Show value",
-            "show_percentage": "Show percentage"
+            "show_percentage": "Show percentage",
+            "options": {
+                "hidden": "Hidden",
+                "inside": "Inside",
+                "outside": "Outside",
+                "mixed": "Mixed"
+            }
         }
     },
     "components_visualization_configs_table": {
@@ -5163,7 +5172,8 @@
     "components_explorer_filters_card": {
         "title": "Filters",
         "no_filter": "This chart has no filters",
-        "active_filter": "active filter",
+        "active_filter": "{{count}} active filter",
+        "active_filter_suffix": "s",
         "tip": "You must be in 'edit' or 'explore' mode to change the filters",
         "rule_error": "Tried to reference field with unknown id: "
     },

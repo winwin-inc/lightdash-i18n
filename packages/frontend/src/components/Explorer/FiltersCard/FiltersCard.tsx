@@ -303,12 +303,16 @@ const FiltersCard: FC = memo(() => {
                                     textTransform: 'unset',
                                 }}
                             >
-                                {totalActiveFilters}{' '}
                                 <Text span fw={500}>
                                     {t(
                                         'components_explorer_filters_card.active_filter',
+                                        {
+                                            count: totalActiveFilters,
+                                        },
                                     )}
-                                    {totalActiveFilters === 1 ? '' : 's'}
+                                    {totalActiveFilters === 1 ? '' : t(
+                                        'components_explorer_filters_card.active_filter_suffix',
+                                    )}
                                 </Text>
                             </Badge>
                         </Tooltip>
