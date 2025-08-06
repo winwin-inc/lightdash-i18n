@@ -5,7 +5,7 @@ volumes:
 # Common configuration for Lightdash services
 x-lightdash-build: &lightdash-build
     context: ..
-    dockerfile: dockerfile
+    dockerfile: dockerfile-dev
     target: dev
 
 x-lightdash-volumes: &lightdash-volumes
