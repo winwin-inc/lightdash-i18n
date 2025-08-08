@@ -1,4 +1,7 @@
-import { type FilterableDimension, type DashboardFilterRule } from '@lightdash/common';
+import {
+    type DashboardFilterRule,
+    type FilterableDimension,
+} from '@lightdash/common';
 import { Button, Popover, Text, Tooltip } from '@mantine/core';
 import { useDisclosure, useId } from '@mantine/hooks';
 import { IconFilter } from '@tabler/icons-react';
@@ -12,6 +15,7 @@ import FilterConfiguration from './FilterConfiguration';
 type Props = {
     filterType: 'global' | 'tab';
     isEditMode: boolean;
+    isFilterEnabled: boolean;
     openPopoverId: string | undefined;
     activeTabUuid: string | undefined;
     onPopoverOpen: (popoverId: string) => void;
@@ -22,6 +26,7 @@ type Props = {
 const AddFilterButton: FC<Props> = ({
     filterType,
     isEditMode,
+    isFilterEnabled,
     openPopoverId,
     activeTabUuid,
     onPopoverOpen,
@@ -41,10 +46,11 @@ const AddFilterButton: FC<Props> = ({
     );
     const disabled = useMemo(() => {
         return (
-            !allFilterableFields &&
-            Object.keys(sqlChartTilesMetadata).length === 0
+            !isFilterEnabled ||
+            (!allFilterableFields &&
+                Object.keys(sqlChartTilesMetadata).length === 0)
         );
-    }, [allFilterableFields, sqlChartTilesMetadata]);
+    }, [isFilterEnabled, allFilterableFields, sqlChartTilesMetadata]);
     const filterableFieldsByTileUuid = useDashboardContext(
         (c) => c.filterableFieldsByTileUuid,
     );
@@ -102,16 +108,26 @@ const AddFilterButton: FC<Props> = ({
         if (filterType === 'global') {
             return filterableFieldsByTileUuid;
         }
-        return Object.keys(filterableFieldsByTileUuid ?? {}).reduce((acc, tileUuid) => {
-            const tile = currentDashboardTiles?.find((item) => item.uuid === tileUuid);
+        return Object.keys(filterableFieldsByTileUuid ?? {}).reduce(
+            (acc, tileUuid) => {
+                const tile = currentDashboardTiles?.find(
+                    (item) => item.uuid === tileUuid,
+                );
 
-            if (tile) {
-                acc[tileUuid] = filterableFieldsByTileUuid?.[tileUuid] || []
-            }
+                if (tile) {
+                    acc[tileUuid] =
+                        filterableFieldsByTileUuid?.[tileUuid] || [];
+                }
 
-            return acc;
-        }, {} as Record<string, FilterableDimension[]>);
+                return acc;
+            },
+            {} as Record<string, FilterableDimension[]>,
+        );
     }, [filterableFieldsByTileUuid, currentDashboardTiles, filterType]);
+
+    if (!isFilterEnabled) {
+        return null;
+    }
 
     return (
         <>

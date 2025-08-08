@@ -9,19 +9,23 @@ import { emptyFilters } from './useDashboardFilters';
 
 interface DashboardTabFilterProps {
     dashboard?: Dashboard;
-    dashboardFilters: DashboardFilters;  
-    dashboardTemporaryFilters: DashboardFilters; 
+    allFilters: DashboardFilters; // 使用 allFilters 而不是 dashboardFilters
+    isFilterEnabled: (tabUuid: string) => boolean;
 }
 
-export const isEmptyTabFilters = (tabFilters: Record<string, DashboardFilters>) => {
-    if (Object.keys(tabFilters).length === 0)  return true;
-    return Object.values(tabFilters).every((tabFilter) => tabFilter === emptyFilters);  
-}
+export const isEmptyTabFilters = (
+    tabFilters: Record<string, DashboardFilters>,
+) => {
+    if (Object.keys(tabFilters).length === 0) return true;
+    return Object.values(tabFilters).every(
+        (tabFilter) => tabFilter === emptyFilters,
+    );
+};
 
 const useDashboardFilterForTab = ({
     dashboard,
-    dashboardFilters,
-    dashboardTemporaryFilters,
+    allFilters,
+    isFilterEnabled,
 }: DashboardTabFilterProps) => {
     const [tabFilters, setTabFilters] = useState<
         Record<string, DashboardFilters>
@@ -47,36 +51,28 @@ const useDashboardFilterForTab = ({
     );
 
     const getMergedFiltersForTab = (tabUuid: string) => {
-        const globalFilters = {
-            dimensions: [
-                ...dashboardFilters.dimensions,
-                ...dashboardTemporaryFilters?.dimensions,
-            ],
-            metrics: [
-                ...dashboardFilters.metrics,
-                ...dashboardTemporaryFilters?.metrics,
-            ],
-            tableCalculations: [
-                ...dashboardFilters.tableCalculations,
-                ...dashboardTemporaryFilters?.tableCalculations,
-            ],
-        };
+        // If filter is disabled for this tab, return only global filters
+        if (!isFilterEnabled(tabUuid)) {
+            return allFilters;
+        }
+
         const tabSpecificFilters = getActiveTabFilters(tabUuid);
-        const tabSpecificTemporaryFilters = getActiveTabTemporaryFilters(tabUuid);
+        const tabSpecificTemporaryFilters =
+            getActiveTabTemporaryFilters(tabUuid);
 
         return {
             dimensions: [
-                ...globalFilters.dimensions,
+                ...allFilters.dimensions,
                 ...tabSpecificFilters.dimensions,
                 ...tabSpecificTemporaryFilters.dimensions,
             ],
             metrics: [
-                ...globalFilters.metrics,
+                ...allFilters.metrics,
                 ...tabSpecificFilters.metrics,
                 ...tabSpecificTemporaryFilters.metrics,
             ],
             tableCalculations: [
-                ...globalFilters.tableCalculations,
+                ...allFilters.tableCalculations,
                 ...tabSpecificFilters.tableCalculations,
                 ...tabSpecificTemporaryFilters.tableCalculations,
             ],
@@ -169,7 +165,9 @@ const useDashboardFilterForTab = ({
     const resetTabFilters = (tabUuid: string) => {
         setTabFilters((prev) => ({
             ...prev,
-            [tabUuid]: dashboard?.tabs.find((tab) => tab.uuid === tabUuid)?.filters || emptyFilters,
+            [tabUuid]:
+                dashboard?.tabs.find((tab) => tab.uuid === tabUuid)?.filters ||
+                emptyFilters,
         }));
         setTabTemporaryFilters((prev) => ({
             ...prev,

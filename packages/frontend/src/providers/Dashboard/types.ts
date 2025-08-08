@@ -101,7 +101,9 @@ export type DashboardContextType = {
     tabFilters: Record<string, DashboardFilters>;
     setTabFilters: Dispatch<SetStateAction<Record<string, DashboardFilters>>>;
     tabTemporaryFilters: Record<string, DashboardFilters>;
-    setTabTemporaryFilters: Dispatch<SetStateAction<Record<string, DashboardFilters>>>;
+    setTabTemporaryFilters: Dispatch<
+        SetStateAction<Record<string, DashboardFilters>>
+    >;
     haveTabFiltersChanged: Record<string, boolean>;
     setHaveTabFiltersChanged: Dispatch<SetStateAction<Record<string, boolean>>>;
     getActiveTabFilters: (tabUuid: string) => DashboardFilters;
@@ -124,4 +126,10 @@ export type DashboardContextType = {
         isTemporary: boolean,
     ) => void;
     resetTabFilters: (tabUuid: string) => void;
+    isGlobalFilterEnabled: boolean;
+    setIsGlobalFilterEnabled: (value: boolean) => void;
+    isTabFilterEnabled: Record<string, boolean>;
+    setIsTabFilterEnabled: Dispatch<SetStateAction<Record<string, boolean>>>;
+    haveFilterEnabledStatesChanged: boolean;
+    setHaveFilterEnabledStatesChanged: (value: boolean) => void;
 };

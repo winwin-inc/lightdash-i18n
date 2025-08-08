@@ -16,9 +16,13 @@ export const emptyFilters: DashboardFilters = {
 
 interface DashboardFilterProps {
     dashboard?: Dashboard;
+    isFilterEnabled?: boolean;
 }
 
-const useDashboardFilter = ({ dashboard }: DashboardFilterProps) => {
+const useDashboardFilter = ({
+    dashboard,
+    isFilterEnabled = true,
+}: DashboardFilterProps) => {
     const [dashboardTemporaryFilters, setDashboardTemporaryFilters] =
         useState<DashboardFilters>(emptyFilters);
     const [dashboardFilters, setDashboardFilters] =
@@ -35,6 +39,11 @@ const useDashboardFilter = ({ dashboard }: DashboardFilterProps) => {
     } = useSavedDashboardFiltersOverrides();
 
     const allFilters = useMemo(() => {
+        // If filter is disabled, return empty filters
+        if (!isFilterEnabled) {
+            return emptyFilters;
+        }
+
         return {
             dimensions: [
                 ...dashboardFilters.dimensions,
@@ -49,7 +58,7 @@ const useDashboardFilter = ({ dashboard }: DashboardFilterProps) => {
                 ...dashboardTemporaryFilters?.tableCalculations,
             ],
         };
-    }, [dashboardFilters, dashboardTemporaryFilters]);
+    }, [dashboardFilters, dashboardTemporaryFilters, isFilterEnabled]);
 
     // Resets all dashboard filters. There's a bit of a race condition
     // here because we store filters in memory in two places:
