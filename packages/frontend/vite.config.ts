@@ -115,6 +115,8 @@ export default defineConfig({
         ],
         watch: {
             ignored: ['!**/node_modules/@lightdash/common/**'],
+            usePolling: true,
+            interval: 1000,
         },
         proxy: {
             '/api': {

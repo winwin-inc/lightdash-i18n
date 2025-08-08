@@ -204,17 +204,22 @@ const Filter: FC<Props> = ({
         if (filterType === 'global') {
             return filterableFieldsByTileUuid;
         }
-        return Object.keys(filterableFieldsByTileUuid ?? {}).reduce((acc, tileUuid) => {
-            const tile = currentDashboardTiles?.find((item) => item.uuid === tileUuid);
+        return Object.keys(filterableFieldsByTileUuid ?? {}).reduce(
+            (acc, tileUuid) => {
+                const tile = currentDashboardTiles?.find(
+                    (item) => item.uuid === tileUuid,
+                );
 
-            if (tile) {
-                acc[tileUuid] = filterableFieldsByTileUuid?.[tileUuid] || []
-            }
+                if (tile) {
+                    acc[tileUuid] =
+                        filterableFieldsByTileUuid?.[tileUuid] || [];
+                }
 
-            return acc;
-        }, {} as Record<string, FilterableDimension[]>);
+                return acc;
+            },
+            {} as Record<string, FilterableDimension[]>,
+        );
     }, [filterableFieldsByTileUuid, currentDashboardTiles, filterType]);
-
 
     return (
         <>

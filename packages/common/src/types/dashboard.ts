@@ -141,6 +141,8 @@ export type DashboardDAO = Omit<Dashboard, 'isPrivate' | 'access'>;
 
 export type DashboardConfig = {
     isDateZoomDisabled: boolean;
+    isGlobalFilterEnabled?: boolean;
+    tabFilterEnabled?: Record<string, boolean>;
 };
 
 export type Dashboard = {

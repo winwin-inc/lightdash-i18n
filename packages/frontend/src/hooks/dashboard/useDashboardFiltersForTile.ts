@@ -10,9 +10,21 @@ const useDashboardFiltersForTile = (tileUuid: string): DashboardFilters => {
     const dashboardTemporaryFilters = useDashboardContext(
         (c) => c.dashboardTemporaryFilters,
     );
+    const isGlobalFilterEnabled = useDashboardContext(
+        (c) => c.isGlobalFilterEnabled,
+    );
 
-    return useMemo(
-        () => ({
+    return useMemo(() => {
+        // If global filter is disabled, return empty filters
+        if (!isGlobalFilterEnabled) {
+            return {
+                dimensions: [],
+                metrics: [],
+                tableCalculations: [],
+            };
+        }
+
+        return {
             dimensions: getDashboardFilterRulesForTile(tileUuid, [
                 ...dashboardFilters.dimensions,
                 ...(dashboardTemporaryFilters?.dimensions ?? []),
@@ -25,9 +37,13 @@ const useDashboardFiltersForTile = (tileUuid: string): DashboardFilters => {
                 ...dashboardFilters.tableCalculations,
                 ...(dashboardTemporaryFilters?.tableCalculations ?? []),
             ]),
-        }),
-        [tileUuid, dashboardFilters, dashboardTemporaryFilters],
-    );
+        };
+    }, [
+        tileUuid,
+        dashboardFilters,
+        dashboardTemporaryFilters,
+        isGlobalFilterEnabled,
+    ]);
 };
 
 export default useDashboardFiltersForTile;

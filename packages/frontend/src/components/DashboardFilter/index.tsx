@@ -4,8 +4,8 @@ import {
     type FilterableDimension,
     type FilterOperator,
 } from '@lightdash/common';
-import { Flex } from '@mantine/core';
-import { useCallback, useState, useMemo, type FC } from 'react';
+import { Checkbox, Flex } from '@mantine/core';
+import { useCallback, useMemo, useState, type FC } from 'react';
 import { useParams } from 'react-router';
 import { useProject } from '../../hooks/useProject';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
@@ -32,17 +32,56 @@ const DashboardFilter: FC<Props> = ({
 
     const project = useProject(projectUuid);
 
-    const allFilterableFieldsMap = useDashboardContext((c) => c.allFilterableFieldsMap);
+    const allFilterableFieldsMap = useDashboardContext(
+        (c) => c.allFilterableFieldsMap,
+    );
+
+    // filter enabled state
+    const isGlobalFilterEnabled = useDashboardContext(
+        (c) => c.isGlobalFilterEnabled,
+    );
+    const setIsGlobalFilterEnabled = useDashboardContext(
+        (c) => c.setIsGlobalFilterEnabled,
+    );
+    const isTabFilterEnabled = useDashboardContext((c) => c.isTabFilterEnabled);
+    const setIsTabFilterEnabled = useDashboardContext(
+        (c) => c.setIsTabFilterEnabled,
+    );
+
+    // use the appropriate filter enabled state based on filterType
+    const isFilterEnabled =
+        filterType === 'global'
+            ? isGlobalFilterEnabled
+            : isTabFilterEnabled[activeTabUuid || ''] ?? true;
+    const setIsFilterEnabled =
+        filterType === 'global'
+            ? setIsGlobalFilterEnabled
+            : (enabled: boolean) => {
+                  if (activeTabUuid) {
+                      setIsTabFilterEnabled((prev) => ({
+                          ...prev,
+                          [activeTabUuid]: enabled,
+                      }));
+                  }
+              };
 
     // global filters
     const allFilters = useDashboardContext((c) => c.allFilters);
-    const resetDashboardFilters = useDashboardContext((c) => c.resetDashboardFilters);
-    const addDimensionDashboardFilter = useDashboardContext((c) => c.addDimensionDashboardFilter);
-    
+    const resetDashboardFilters = useDashboardContext(
+        (c) => c.resetDashboardFilters,
+    );
+    const addDimensionDashboardFilter = useDashboardContext(
+        (c) => c.addDimensionDashboardFilter,
+    );
+
     // tab filters
-    const getMergedFiltersForTab = useDashboardContext((c) => c.getMergedFiltersForTab);
+    const getMergedFiltersForTab = useDashboardContext(
+        (c) => c.getMergedFiltersForTab,
+    );
     const resetTabFilters = useDashboardContext((c) => c.resetTabFilters);
-    const addTabDimensionFilter = useDashboardContext((c) => c.addTabDimensionFilter);
+    const addTabDimensionFilter = useDashboardContext(
+        (c) => c.addTabDimensionFilter,
+    );
 
     // computed variables
     const filters = useMemo(() => {
@@ -60,17 +99,29 @@ const DashboardFilter: FC<Props> = ({
         }
     }, [filterType, resetDashboardFilters, resetTabFilters, activeTabUuid]);
 
-    const handleAddDimensionDashboardFilter = useCallback((
-        filter: DashboardFilterRule<FilterOperator, DashboardFieldTarget, any, any>,
-        isTemporary: boolean,
-    ) => {
-        if (filterType === 'global') {
-            addDimensionDashboardFilter(filter, isTemporary);
-        } else {
-            addTabDimensionFilter(activeTabUuid || '', filter, isTemporary);
-        }
-    }, [filterType, addDimensionDashboardFilter, addTabDimensionFilter, activeTabUuid]);
-
+    const handleAddDimensionDashboardFilter = useCallback(
+        (
+            filter: DashboardFilterRule<
+                FilterOperator,
+                DashboardFieldTarget,
+                any,
+                any
+            >,
+            isTemporary: boolean,
+        ) => {
+            if (filterType === 'global') {
+                addDimensionDashboardFilter(filter, isTemporary);
+            } else {
+                addTabDimensionFilter(activeTabUuid || '', filter, isTemporary);
+            }
+        },
+        [
+            filterType,
+            addDimensionDashboardFilter,
+            addTabDimensionFilter,
+            activeTabUuid,
+        ],
+    );
 
     const handleSaveNew = useCallback(
         (
@@ -109,10 +160,11 @@ const DashboardFilter: FC<Props> = ({
             }
             dashboardFilters={filters}
         >
-            <Flex gap="xs" wrap="wrap" mb="xs">
+            <Flex gap="xs" wrap="wrap" mb="xs" align="center">
                 <AddFilterButton
                     filterType={filterType}
                     isEditMode={isEditMode}
+                    isFilterEnabled={isFilterEnabled}
                     openPopoverId={openPopoverId}
                     activeTabUuid={activeTabUuid}
                     onPopoverOpen={handlePopoverOpen}
@@ -123,12 +175,25 @@ const DashboardFilter: FC<Props> = ({
                 <ActiveFilters
                     filterType={filterType}
                     isEditMode={isEditMode}
+                    isFilterEnabled={isFilterEnabled}
                     activeTabUuid={activeTabUuid}
                     openPopoverId={openPopoverId}
                     onPopoverOpen={handlePopoverOpen}
                     onPopoverClose={handlePopoverClose}
                     onResetDashboardFilters={handleResetDashboardFilters}
                 />
+                {isEditMode && (
+                    <Checkbox
+                        checked={isFilterEnabled}
+                        onChange={(event) =>
+                            setIsFilterEnabled(event.currentTarget.checked)
+                        }
+                        size="md"
+                        ml="xl"
+                        styles={{ input: { cursor: 'pointer' } }}
+                        label="Enable filter"
+                    />
+                )}
             </Flex>
         </FiltersProvider>
     );

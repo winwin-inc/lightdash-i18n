@@ -6,11 +6,11 @@ import {
     convertDashboardFiltersParamToDashboardFilters,
     getItemId,
     isDashboardChartTileType,
-    type DashboardFilters,
-    type DashboardFiltersFromSearchParam,
     type CacheMetadata,
     type Dashboard,
     type DashboardFilterRule,
+    type DashboardFilters,
+    type DashboardFiltersFromSearchParam,
     type FilterableDimension,
     type SavedChartsInfoForDashboardAvailableFilters,
     type SchedulerFilterRule,
@@ -29,8 +29,12 @@ import {
     useDashboardQuery,
     useDashboardsAvailableFilters,
 } from '../../hooks/dashboard/useDashboard';
-import useDashboardFilter, { emptyFilters } from '../../hooks/dashboard/useDashboardFilters';
-import useDashboardFilterForTab, { isEmptyTabFilters } from '../../hooks/dashboard/useDashboardTabFilters';
+import useDashboardFilter, {
+    emptyFilters,
+} from '../../hooks/dashboard/useDashboardFilters';
+import useDashboardFilterForTab, {
+    isEmptyTabFilters,
+} from '../../hooks/dashboard/useDashboardTabFilters';
 import {
     hasSavedFiltersOverrides,
     useSavedDashboardFiltersOverrides,
@@ -114,6 +118,46 @@ const DashboardProvider: React.FC<
     const [haveTabsChanged, setHaveTabsChanged] = useState<boolean>(false);
     const [dashboardTabs, setDashboardTabs] = useState<Dashboard['tabs']>([]);
 
+    // filter enabled states - initialize from dashboard config
+    const [isGlobalFilterEnabled, setIsGlobalFilterEnabled] =
+        useState<boolean>(true);
+    const [isTabFilterEnabled, setIsTabFilterEnabled] = useState<
+        Record<string, boolean>
+    >({});
+
+    // Initialize filter enabled states from dashboard config when dashboard loads
+    useEffect(() => {
+        if (dashboard?.config) {
+            setIsGlobalFilterEnabled(
+                (dashboard.config as any).isGlobalFilterEnabled ?? true,
+            );
+            setIsTabFilterEnabled(
+                (dashboard.config as any).tabFilterEnabled ?? {},
+            );
+        }
+    }, [dashboard?.config]);
+
+    // Track filter enabled state changes
+    const [haveFilterEnabledStatesChanged, setHaveFilterEnabledStatesChanged] =
+        useState<boolean>(false);
+
+    // Check if filter enabled states have changed from dashboard config
+    useEffect(() => {
+        if (dashboard?.config) {
+            const hasGlobalFilterEnabledChanged =
+                (dashboard.config as any).isGlobalFilterEnabled !==
+                isGlobalFilterEnabled;
+            const hasTabFilterEnabledChanged =
+                JSON.stringify(
+                    (dashboard.config as any).tabFilterEnabled || {},
+                ) !== JSON.stringify(isTabFilterEnabled);
+
+            setHaveFilterEnabledStatesChanged(
+                hasGlobalFilterEnabledChanged || hasTabFilterEnabledChanged,
+            );
+        }
+    }, [dashboard?.config, isGlobalFilterEnabled, isTabFilterEnabled]);
+
     const { overridesForSavedDashboardFilters } =
         useSavedDashboardFiltersOverrides();
 
@@ -132,7 +176,10 @@ const DashboardProvider: React.FC<
         updateDimensionDashboardFilter,
         addMetricDashboardFilter,
         removeDimensionDashboardFilter,
-    } = useDashboardFilter({ dashboard });
+    } = useDashboardFilter({
+        dashboard,
+        isFilterEnabled: isGlobalFilterEnabled,
+    });
 
     // dashboard tab filter
     const {
@@ -151,10 +198,11 @@ const DashboardProvider: React.FC<
         updateTabDimensionFilter,
         removeTabDimensionFilter,
         resetTabFilters,
-    } = useDashboardFilterForTab({ 
-        dashboard, 
-        dashboardFilters, 
-        dashboardTemporaryFilters 
+    } = useDashboardFilterForTab({
+        dashboard,
+        allFilters,
+        isFilterEnabled: (tabUuid: string) =>
+            isTabFilterEnabled[tabUuid] ?? true,
     });
 
     const [resultsCacheTimes, setResultsCacheTimes] = useState<Date[]>([]);
@@ -332,7 +380,7 @@ const DashboardProvider: React.FC<
         setDashboardFilters,
         setHaveFiltersChanged,
         setOriginalDashboardFilters,
-        setTabFilters
+        setTabFilters,
     ]);
 
     // Updates url with temp and overridden filters and deep compare to avoid unnecessary re-renders for dashboardTemporaryFilters
@@ -374,10 +422,16 @@ const DashboardProvider: React.FC<
         } else {
             newParams.set(
                 'tempTabFilters',
-                JSON.stringify(Object.entries(tabTemporaryFilters).reduce((acc, [tabUuid, tabFilter]) => {
-                    acc[tabUuid] = compressDashboardFiltersToParam(tabFilter);
-                    return acc;
-                }, {} as Record<string, DashboardFiltersFromSearchParam>)),
+                JSON.stringify(
+                    Object.entries(tabTemporaryFilters).reduce(
+                        (acc, [tabUuid, tabFilter]) => {
+                            acc[tabUuid] =
+                                compressDashboardFiltersToParam(tabFilter);
+                            return acc;
+                        },
+                        {} as Record<string, DashboardFiltersFromSearchParam>,
+                    ),
+                ),
             );
         }
 
@@ -412,7 +466,11 @@ const DashboardProvider: React.FC<
                 ),
             }));
         }
-    }, [dashboard?.filters, overridesForSavedDashboardFilters, setDashboardFilters]);
+    }, [
+        dashboard?.filters,
+        overridesForSavedDashboardFilters,
+        setDashboardFilters,
+    ]);
 
     // Gets filters and dateZoom from URL and storage after redirect
     useMount(() => {
@@ -459,7 +517,10 @@ const DashboardProvider: React.FC<
 
             setTabTemporaryFilters(
                 Object.entries(filters).reduce((acc, [tabUuid, tabFilter]) => {
-                    acc[tabUuid] = convertDashboardFiltersParamToDashboardFilters(tabFilter as DashboardFiltersFromSearchParam);
+                    acc[tabUuid] =
+                        convertDashboardFiltersParamToDashboardFilters(
+                            tabFilter as DashboardFiltersFromSearchParam,
+                        );
                     return acc;
                 }, {} as Record<string, DashboardFilters>),
             );
@@ -677,6 +738,12 @@ const DashboardProvider: React.FC<
         updateTabDimensionFilter,
         removeTabDimensionFilter,
         resetTabFilters,
+        isGlobalFilterEnabled,
+        setIsGlobalFilterEnabled,
+        isTabFilterEnabled,
+        setIsTabFilterEnabled,
+        haveFilterEnabledStatesChanged,
+        setHaveFilterEnabledStatesChanged,
     };
     return (
         <DashboardContext.Provider value={value}>
