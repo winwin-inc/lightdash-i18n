@@ -12,8 +12,8 @@ import { captureException, useProfiler } from '@sentry/react';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
 import { type Layout } from 'react-grid-layout';
-import { useBlocker, useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useBlocker, useNavigate, useParams } from 'react-router';
 
 import DashboardFilter from '../components/DashboardFilter';
 import DashboardTabs from '../components/DashboardTabs';
@@ -283,17 +283,6 @@ const Dashboard: FC = () => {
 
     useEffect(() => {
         if (isSuccess) {
-            setHaveTilesChanged(false);
-            setHaveFiltersChanged(false);
-            setHaveTabFiltersChanged({});
-            setHaveFilterEnabledStatesChanged(false);
-            setDashboardTemporaryFilters({
-                dimensions: [],
-                metrics: [],
-                tableCalculations: [],
-            });
-            setTabTemporaryFilters({});
-            reset();
             if (dashboardTabs.length > 1) {
                 void navigate(
                     `/projects/${projectUuid}/dashboards/${dashboardUuid}/view/tabs/${activeTab?.uuid}`,
@@ -311,15 +300,35 @@ const Dashboard: FC = () => {
         navigate,
         isSuccess,
         projectUuid,
+        dashboardTabs,
+        activeTab,
+    ]);
+
+    // 监听路由模式变化，当切换到 view 模式后重置状态
+    useEffect(() => {
+        if (isSuccess && mode === 'view') {
+            setHaveTilesChanged(false);
+            setHaveFiltersChanged(false);
+            setHaveTabFiltersChanged({});
+            setHaveFilterEnabledStatesChanged(false);
+            setDashboardTemporaryFilters({
+                dimensions: [],
+                metrics: [],
+                tableCalculations: [],
+            });
+            setTabTemporaryFilters({});
+            reset();
+        }
+    }, [
+        isSuccess,
+        mode,
         reset,
-        setDashboardTemporaryFilters,
+        setHaveTilesChanged,
         setHaveFiltersChanged,
         setHaveTabFiltersChanged,
         setHaveFilterEnabledStatesChanged,
+        setDashboardTemporaryFilters,
         setTabTemporaryFilters,
-        setHaveTilesChanged,
-        dashboardTabs,
-        activeTab,
     ]);
 
     const handleToggleFullscreen = useCallback(async () => {
@@ -462,12 +471,6 @@ const Dashboard: FC = () => {
         setDashboardTabs(dashboard.tabs);
 
         setDashboardFilters(dashboard.filters);
-        setTabFilters(
-            dashboard.tabs.reduce((acc, tab) => {
-                acc[tab.uuid] = tab.filters || emptyFilters;
-                return acc;
-            }, {} as Record<string, DashboardFilters>),
-        );
         setHaveFiltersChanged(false);
         setHaveTabFiltersChanged({});
         setHaveFilterEnabledStatesChanged(false);
@@ -483,6 +486,15 @@ const Dashboard: FC = () => {
                 { replace: true },
             );
         }
+
+        setTimeout(() => {
+            setTabFilters(
+                dashboard.tabs.reduce((acc, tab) => {
+                    acc[tab.uuid] = tab.filters || emptyFilters;
+                    return acc;
+                }, {} as Record<string, DashboardFilters>),
+            );
+        }, 100);
     }, [
         dashboard,
         dashboardUuid,
@@ -528,8 +540,7 @@ const Dashboard: FC = () => {
                     haveTabFiltersChanged ||
                     haveFilterEnabledStatesChanged)
             ) {
-                const message =
-                    t('pages_dashboard.reload_message');
+                const message = t('pages_dashboard.reload_message');
                 event.returnValue = message;
                 return message;
             }
@@ -774,42 +785,49 @@ const Dashboard: FC = () => {
                 }
                 withFullHeight={true}
             >
-                <Group position="apart" align="flex-start" noWrap px={'lg'}>
-                    {/* This Group will take up remaining space (and not push DateZoom) */}
-                    <Group
-                        position="apart"
-                        align="flex-start"
-                        noWrap
-                        grow
-                        sx={{
-                            overflow: 'auto',
-                        }}
-                    >
-                        {hasTilesThatSupportFilters && (
-                            <DashboardFilter
-                                isEditMode={isEditMode}
-                                activeTabUuid={activeTab?.uuid}
-                                filterType="global"
-                            />
+                {/* Only show this Group if not in view mode, or if filters are enabled, or if DateZoom is enabled */}
+                {(!isEditMode &&
+                    hasTilesThatSupportFilters &&
+                    isGlobalFilterEnabled) ||
+                (!isEditMode && !isDateZoomDisabled) ||
+                isEditMode ? (
+                    <Group position="apart" align="flex-start" noWrap px={'lg'}>
+                        {/* This Group will take up remaining space (and not push DateZoom) */}
+                        <Group
+                            position="apart"
+                            align="flex-start"
+                            noWrap
+                            grow
+                            sx={{
+                                overflow: 'auto',
+                            }}
+                        >
+                            {hasTilesThatSupportFilters && (
+                                <DashboardFilter
+                                    isEditMode={isEditMode}
+                                    activeTabUuid={activeTab?.uuid}
+                                    filterType="global"
+                                />
+                            )}
+                        </Group>
+                        {/* DateZoom section will adjust width dynamically */}
+                        {hasDashboardTiles && (
+                            <Group spacing="xs" style={{ marginLeft: 'auto' }}>
+                                <Parameters
+                                    isEditMode={isEditMode}
+                                    parameterValues={parameterValues}
+                                    onParameterChange={handleParameterChange}
+                                    onClearAll={clearAllParameters}
+                                    parameterReferences={
+                                        dashboardParameterReferences
+                                    }
+                                    areAllChartsLoaded={areAllChartsLoaded}
+                                />
+                                <DateZoom isEditMode={isEditMode} />
+                            </Group>
                         )}
                     </Group>
-                    {/* DateZoom section will adjust width dynamically */}
-                    {hasDashboardTiles && (
-                        <Group spacing="xs" style={{ marginLeft: 'auto' }}>
-                            <Parameters
-                                isEditMode={isEditMode}
-                                parameterValues={parameterValues}
-                                onParameterChange={handleParameterChange}
-                                onClearAll={clearAllParameters}
-                                parameterReferences={
-                                    dashboardParameterReferences
-                                }
-                                areAllChartsLoaded={areAllChartsLoaded}
-                            />
-                            <DateZoom isEditMode={isEditMode} />
-                        </Group>
-                    )}
-                </Group>
+                ) : null}
                 <Flex style={{ flexGrow: 1, flexDirection: 'column' }}>
                     <DashboardTabs
                         isEditMode={isEditMode}
