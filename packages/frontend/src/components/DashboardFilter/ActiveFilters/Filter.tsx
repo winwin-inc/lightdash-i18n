@@ -173,21 +173,20 @@ const Filter: FC<Props> = ({
         if (activeTabUuid && !appliesToTabs.includes(activeTabUuid)) {
             const appliedTabList = appliesToTabs
                 .map((tabId) => {
-                    return `'${
-                        dashboardTabs.find((tab) => tab.uuid === tabId)?.name
-                    }'`;
+                    return `'${dashboardTabs.find((tab) => tab.uuid === tabId)?.name
+                        }'`;
                 })
                 .join(', ');
             return appliedTabList
                 ? `${t(
-                      'components_dashboard_filter.filter.inactive_filter.part_1',
-                      {
-                          suffix: appliesToTabs.length === 1 ? '' : 's',
-                      },
-                  )}: ${appliedTabList}`
+                    'components_dashboard_filter.filter.inactive_filter.part_1',
+                    {
+                        suffix: appliesToTabs.length === 1 ? '' : 's',
+                    },
+                )}: ${appliedTabList}`
                 : t(
-                      'components_dashboard_filter.filter.inactive_filter.part_2',
-                  );
+                    'components_dashboard_filter.filter.inactive_filter.part_2',
+                );
         }
     }, [activeTabUuid, appliesToTabs, dashboardTabs, t]);
 
@@ -276,15 +275,6 @@ const Filter: FC<Props> = ({
                                 </Text>
                             </Tooltip>
                         }
-                        styles={(theme) => ({
-                            common: {
-                                top: -5,
-                                right: 24,
-                                borderRadius: theme.radius.xs,
-                                borderBottomRightRadius: 0,
-                                borderBottomLeftRadius: 0,
-                            },
-                        })}
                     >
                         <Tooltip
                             fz="xs"
@@ -300,15 +290,13 @@ const Filter: FC<Props> = ({
                                         ? 'outline'
                                         : 'default'
                                 }
-                                className={`${classes.root} ${
-                                    hasUnsetRequiredFilter
-                                        ? classes.unsetRequiredFilter
-                                        : ''
-                                } ${
-                                    inactiveFilterInfo
+                                className={`${classes.root} ${hasUnsetRequiredFilter
+                                    ? classes.unsetRequiredFilter
+                                    : ''
+                                    } ${inactiveFilterInfo
                                         ? classes.inactiveFilter
                                         : ''
-                                }`}
+                                    }`}
                                 leftIcon={
                                     isDraggable && (
                                         <MantineIcon
@@ -363,13 +351,13 @@ const Filter: FC<Props> = ({
                                             label={
                                                 <Text fz="xs">
                                                     {filterRuleTables?.length ===
-                                                    1
+                                                        1
                                                         ? t(
-                                                              'components_dashboard_filter.filter.table',
-                                                          )
+                                                            'components_dashboard_filter.filter.table',
+                                                        )
                                                         : t(
-                                                              'components_dashboard_filter.filter.tables',
-                                                          )}{' '}
+                                                            'components_dashboard_filter.filter.tables',
+                                                        )}{' '}
                                                     <Text span fw={600}>
                                                         {filterRuleTables?.join(
                                                             ', ',

@@ -789,8 +789,8 @@ const Dashboard: FC = () => {
                 {(!isEditMode &&
                     hasTilesThatSupportFilters &&
                     isGlobalFilterEnabled) ||
-                (!isEditMode && !isDateZoomDisabled) ||
-                isEditMode ? (
+                    (!isEditMode && !isDateZoomDisabled) ||
+                    isEditMode ? (
                     <Group position="apart" align="flex-start" noWrap px={'lg'}>
                         {/* This Group will take up remaining space (and not push DateZoom) */}
                         <Group
@@ -798,9 +798,6 @@ const Dashboard: FC = () => {
                             align="flex-start"
                             noWrap
                             grow
-                            sx={{
-                                overflow: 'auto',
-                            }}
                         >
                             {hasTilesThatSupportFilters && (
                                 <DashboardFilter
