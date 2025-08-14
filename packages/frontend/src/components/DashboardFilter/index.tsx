@@ -190,7 +190,7 @@ const DashboardFilter: FC<Props> = ({
                         onChange={(event) =>
                             setIsFilterEnabled(event.currentTarget.checked)
                         }
-                        size="md"
+                        size="sm"
                         ml="xl"
                         styles={{ input: { cursor: 'pointer' } }}
                         label={t('components_dashboard_filter.enable_filter')}
