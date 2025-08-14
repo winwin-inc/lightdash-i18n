@@ -382,7 +382,11 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
     return (
         <>
             {!isEditMode && filtersChanged && (
-                <Tooltip label={t('components_dashboard_filter.filter.filter_active_filters.reset_all_filters')}>
+                <Tooltip
+                    label={t(
+                        'components_dashboard_filter.filter_active_filters.reset_all_filters',
+                    )}
+                >
                     <Button
                         size="xs"
                         variant="default"
