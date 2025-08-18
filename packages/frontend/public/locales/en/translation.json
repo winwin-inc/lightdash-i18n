@@ -2233,7 +2233,8 @@
         "filter_active_filters": {
             "reset_all_filters": "Reset all filters"
         },
-        "enable_filter": "Enable filter"
+        "enable_filter": "Enable filter",
+        "show_add_filter_button": "Show add filter"
     },
     "components_dashboard_tabs": {
         "add_tab_modal": {

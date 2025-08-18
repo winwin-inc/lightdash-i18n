@@ -2232,7 +2232,8 @@
         "filter_active_filters": {
             "reset_all_filters": "重置所有筛选器"
         },
-        "enable_filter": "启用筛选器"
+        "enable_filter": "启用筛选器",
+        "show_add_filter_button": "添加筛选器"
     },
     "components_dashboard_tabs": {
         "add_tab_modal": {

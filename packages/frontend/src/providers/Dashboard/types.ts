@@ -130,6 +130,16 @@ export type DashboardContextType = {
     setIsGlobalFilterEnabled: (value: boolean) => void;
     isTabFilterEnabled: Record<string, boolean>;
     setIsTabFilterEnabled: Dispatch<SetStateAction<Record<string, boolean>>>;
+    showGlobalAddFilterButton: boolean;
+    setShowGlobalAddFilterButton: (value: boolean) => void;
+    showTabAddFilterButton: Record<string, boolean>;
+    setShowTabAddFilterButton: (
+        value:
+            | Record<string, boolean>
+            | ((prev: Record<string, boolean>) => Record<string, boolean>),
+    ) => void;
     haveFilterEnabledStatesChanged: boolean;
     setHaveFilterEnabledStatesChanged: (value: boolean) => void;
+    haveShowAddFilterButtonStatesChanged: boolean;
+    setHaveShowAddFilterButtonStatesChanged: (value: boolean) => void;
 };

@@ -6,8 +6,8 @@ import {
 } from '@lightdash/common';
 import { Checkbox, Flex } from '@mantine/core';
 import { useCallback, useMemo, useState, type FC } from 'react';
-import { useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useParams } from 'react-router';
 import { useProject } from '../../hooks/useProject';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import useTracking from '../../providers/Tracking/useTracking';
@@ -50,6 +50,20 @@ const DashboardFilter: FC<Props> = ({
         (c) => c.setIsTabFilterEnabled,
     );
 
+    // show add filter button state
+    const showGlobalAddFilterButton = useDashboardContext(
+        (c) => c.showGlobalAddFilterButton,
+    );
+    const setShowGlobalAddFilterButton = useDashboardContext(
+        (c) => c.setShowGlobalAddFilterButton,
+    );
+    const showTabAddFilterButton = useDashboardContext(
+        (c) => c.showTabAddFilterButton,
+    );
+    const setShowTabAddFilterButton = useDashboardContext(
+        (c) => c.setShowTabAddFilterButton,
+    );
+
     // use the appropriate filter enabled state based on filterType
     const isFilterEnabled =
         filterType === 'global'
@@ -59,13 +73,30 @@ const DashboardFilter: FC<Props> = ({
         filterType === 'global'
             ? setIsGlobalFilterEnabled
             : (enabled: boolean) => {
-                if (activeTabUuid) {
-                    setIsTabFilterEnabled((prev) => ({
-                        ...prev,
-                        [activeTabUuid]: enabled,
-                    }));
-                }
-            };
+                  if (activeTabUuid) {
+                      setIsTabFilterEnabled((prev) => ({
+                          ...prev,
+                          [activeTabUuid]: enabled,
+                      }));
+                  }
+              };
+
+    // use the appropriate show add filter button state based on filterType
+    const showAddFilterButton =
+        filterType === 'global'
+            ? showGlobalAddFilterButton
+            : showTabAddFilterButton[activeTabUuid || ''] ?? false;
+    const setShowAddFilterButton =
+        filterType === 'global'
+            ? setShowGlobalAddFilterButton
+            : (enabled: boolean) => {
+                  if (activeTabUuid) {
+                      setShowTabAddFilterButton((prev) => ({
+                          ...prev,
+                          [activeTabUuid]: enabled,
+                      }));
+                  }
+              };
 
     // global filters
     const allFilters = useDashboardContext((c) => c.allFilters);
@@ -167,6 +198,7 @@ const DashboardFilter: FC<Props> = ({
                     filterType={filterType}
                     isEditMode={isEditMode}
                     isFilterEnabled={isFilterEnabled}
+                    showAddFilterButton={showAddFilterButton}
                     openPopoverId={openPopoverId}
                     activeTabUuid={activeTabUuid}
                     onPopoverOpen={handlePopoverOpen}
@@ -185,16 +217,36 @@ const DashboardFilter: FC<Props> = ({
                     onResetDashboardFilters={handleResetDashboardFilters}
                 />
                 {isEditMode && (
-                    <Checkbox
-                        checked={isFilterEnabled}
-                        onChange={(event) =>
-                            setIsFilterEnabled(event.currentTarget.checked)
-                        }
-                        size="sm"
-                        ml="xl"
-                        styles={{ input: { cursor: 'pointer' } }}
-                        label={t('components_dashboard_filter.enable_filter')}
-                    />
+                    <>
+                        <Checkbox
+                            checked={isFilterEnabled}
+                            onChange={(event) =>
+                                setIsFilterEnabled(event.currentTarget.checked)
+                            }
+                            size="sm"
+                            ml="xl"
+                            styles={{ input: { cursor: 'pointer' } }}
+                            label={t(
+                                'components_dashboard_filter.enable_filter',
+                            )}
+                        />
+                        {isFilterEnabled && (
+                            <Checkbox
+                                checked={showAddFilterButton}
+                                onChange={(event) =>
+                                    setShowAddFilterButton(
+                                        event.currentTarget.checked,
+                                    )
+                                }
+                                size="sm"
+                                ml="md"
+                                styles={{ input: { cursor: 'pointer' } }}
+                                label={t(
+                                    'components_dashboard_filter.show_add_filter_button',
+                                )}
+                            />
+                        )}
+                    </>
                 )}
             </Flex>
         </FiltersProvider>

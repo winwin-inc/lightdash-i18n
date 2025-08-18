@@ -143,6 +143,8 @@ export type DashboardConfig = {
     isDateZoomDisabled: boolean;
     isGlobalFilterEnabled?: boolean;
     tabFilterEnabled?: Record<string, boolean>;
+    showGlobalAddFilterButton?: boolean;
+    showTabAddFilterButton?: Record<string, boolean>;
 };
 
 export type Dashboard = {

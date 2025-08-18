@@ -16,6 +16,7 @@ type Props = {
     filterType: 'global' | 'tab';
     isEditMode: boolean;
     isFilterEnabled: boolean;
+    showAddFilterButton: boolean;
     openPopoverId: string | undefined;
     activeTabUuid: string | undefined;
     onPopoverOpen: (popoverId: string) => void;
@@ -27,6 +28,7 @@ const AddFilterButton: FC<Props> = ({
     filterType,
     isEditMode,
     isFilterEnabled,
+    showAddFilterButton,
     openPopoverId,
     activeTabUuid,
     onPopoverOpen,
@@ -125,6 +127,12 @@ const AddFilterButton: FC<Props> = ({
         );
     }, [filterableFieldsByTileUuid, currentDashboardTiles, filterType]);
 
+    // 显示模式下，如果不显示新增筛选器按钮，则隐藏
+    if (!isEditMode && !showAddFilterButton) {
+        return null;
+    }
+
+    // 编辑模式下，如果不启用筛选器，则隐藏
     if (!isFilterEnabled) {
         return null;
     }

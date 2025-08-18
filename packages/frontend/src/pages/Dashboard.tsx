@@ -125,11 +125,23 @@ const Dashboard: FC = () => {
         (c) => c.isGlobalFilterEnabled,
     );
     const isTabFilterEnabled = useDashboardContext((c) => c.isTabFilterEnabled);
+    const showGlobalAddFilterButton = useDashboardContext(
+        (c) => c.showGlobalAddFilterButton,
+    );
+    const showTabAddFilterButton = useDashboardContext(
+        (c) => c.showTabAddFilterButton,
+    );
     const haveFilterEnabledStatesChanged = useDashboardContext(
         (c) => c.haveFilterEnabledStatesChanged,
     );
     const setHaveFilterEnabledStatesChanged = useDashboardContext(
         (c) => c.setHaveFilterEnabledStatesChanged,
+    );
+    const haveShowAddFilterButtonStatesChanged = useDashboardContext(
+        (c) => c.haveShowAddFilterButtonStatesChanged,
+    );
+    const setHaveShowAddFilterButtonStatesChanged = useDashboardContext(
+        (c) => c.setHaveShowAddFilterButtonStatesChanged,
     );
 
     // Parameter state management for the Parameters component
@@ -311,6 +323,7 @@ const Dashboard: FC = () => {
             setHaveFiltersChanged(false);
             setHaveTabFiltersChanged({});
             setHaveFilterEnabledStatesChanged(false);
+            setHaveShowAddFilterButtonStatesChanged(false);
             setDashboardTemporaryFilters({
                 dimensions: [],
                 metrics: [],
@@ -327,6 +340,7 @@ const Dashboard: FC = () => {
         setHaveFiltersChanged,
         setHaveTabFiltersChanged,
         setHaveFilterEnabledStatesChanged,
+        setHaveShowAddFilterButtonStatesChanged,
         setDashboardTemporaryFilters,
         setTabTemporaryFilters,
     ]);
@@ -474,6 +488,7 @@ const Dashboard: FC = () => {
         setHaveFiltersChanged(false);
         setHaveTabFiltersChanged({});
         setHaveFilterEnabledStatesChanged(false);
+        setHaveShowAddFilterButtonStatesChanged(false);
 
         if (dashboardTabs.length > 0) {
             void navigate(
@@ -511,6 +526,7 @@ const Dashboard: FC = () => {
         setDashboardTabs,
         setHaveTabFiltersChanged,
         setHaveFilterEnabledStatesChanged,
+        setHaveShowAddFilterButtonStatesChanged,
     ]);
 
     const handleMoveDashboardToSpace = useCallback(
@@ -538,7 +554,8 @@ const Dashboard: FC = () => {
                 (haveTilesChanged ||
                     haveFiltersChanged ||
                     haveTabFiltersChanged ||
-                    haveFilterEnabledStatesChanged)
+                    haveFilterEnabledStatesChanged ||
+                    haveShowAddFilterButtonStatesChanged)
             ) {
                 const message = t('pages_dashboard.reload_message');
                 event.returnValue = message;
@@ -552,6 +569,7 @@ const Dashboard: FC = () => {
         haveFiltersChanged,
         haveTabFiltersChanged,
         haveFilterEnabledStatesChanged,
+        haveShowAddFilterButtonStatesChanged,
         isEditMode,
         t,
     ]);
@@ -564,7 +582,8 @@ const Dashboard: FC = () => {
                 haveFiltersChanged ||
                 haveTabsChanged ||
                 haveTabFiltersChanged ||
-                haveFilterEnabledStatesChanged) &&
+                haveFilterEnabledStatesChanged ||
+                haveShowAddFilterButtonStatesChanged) &&
             !nextLocation.pathname.includes(
                 `/projects/${projectUuid}/dashboards/${dashboardUuid}`,
             ) &&
@@ -697,6 +716,12 @@ const Dashboard: FC = () => {
                 ...(Object.keys(isTabFilterEnabled).length > 0 && {
                     tabFilterEnabled: isTabFilterEnabled,
                 }),
+                ...(showGlobalAddFilterButton !== undefined && {
+                    showGlobalAddFilterButton,
+                }),
+                ...(Object.keys(showTabAddFilterButton).length > 0 && {
+                    showTabAddFilterButton,
+                }),
             } as any,
         });
     };
@@ -769,7 +794,8 @@ const Dashboard: FC = () => {
                             haveTabsChanged ||
                             hasDateZoomDisabledChanged ||
                             haveTabFiltersChanged ||
-                            haveFilterEnabledStatesChanged
+                            haveFilterEnabledStatesChanged ||
+                            haveShowAddFilterButtonStatesChanged
                         }
                         onAddTiles={handleAddTiles}
                         onSaveDashboard={handleSaveDashboard}
@@ -789,16 +815,11 @@ const Dashboard: FC = () => {
                 {(!isEditMode &&
                     hasTilesThatSupportFilters &&
                     isGlobalFilterEnabled) ||
-                    (!isEditMode && !isDateZoomDisabled) ||
-                    isEditMode ? (
+                (!isEditMode && !isDateZoomDisabled) ||
+                isEditMode ? (
                     <Group position="apart" align="flex-start" noWrap px={'lg'}>
                         {/* This Group will take up remaining space (and not push DateZoom) */}
-                        <Group
-                            position="apart"
-                            align="flex-start"
-                            noWrap
-                            grow
-                        >
+                        <Group position="apart" align="flex-start" noWrap grow>
                             {hasTilesThatSupportFilters && (
                                 <DashboardFilter
                                     isEditMode={isEditMode}
