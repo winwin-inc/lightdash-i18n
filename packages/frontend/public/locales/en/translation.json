@@ -2507,6 +2507,7 @@
         "run_a_query": "Run a query"
     },
     "components_dashboard_tiles_base": {
+        "duplicate": "Duplicate",
         "edit_tile_content": "Edit tile content",
         "move_to_another_tab": "Move to another tab",
         "delete_chart": "Delete chart",

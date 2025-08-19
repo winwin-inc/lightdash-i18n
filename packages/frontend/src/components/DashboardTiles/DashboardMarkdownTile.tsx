@@ -5,6 +5,8 @@ import MarkdownPreview from '@uiw/react-markdown-preview';
 import React, { useCallback, useMemo, useState, type FC } from 'react';
 import rehypeExternalLinks from 'rehype-external-links';
 import { v4 as uuid4 } from 'uuid';
+import { useTranslation } from 'react-i18next';
+
 import { DashboardTileComments } from '../../features/comments';
 import { appendNewTilesToBottom } from '../../hooks/dashboard/useDashboard';
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
@@ -20,6 +22,8 @@ export type Props = Pick<
 };
 
 const MarkdownTile: FC<Props> = (props) => {
+    const { t } = useTranslation();
+
     const {
         tile: {
             properties: { title, content },
@@ -89,7 +93,7 @@ const MarkdownTile: FC<Props> = (props) => {
                         icon={<MantineIcon icon={IconCopy} />}
                         onClick={handleDuplicate}
                     >
-                        Duplicate
+                        {t('components_dashboard_tiles_base.duplicate')}
                     </Menu.Item>
                 )
             }

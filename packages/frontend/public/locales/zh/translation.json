@@ -2506,7 +2506,8 @@
         "run_a_query": "运行查询"
     },
     "components_dashboard_tiles_base": {
-        "edit_tile_content": "编辑图块内容",
+        "duplicate": "复制图块",
+        "edit_tile_content": "编辑图块",
         "move_to_another_tab": "移动到另一个标签页",
         "delete_chart": "删除图表",
         "remove_tile": "移除图块"
