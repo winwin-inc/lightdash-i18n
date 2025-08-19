@@ -19,9 +19,7 @@ const LoomTile: FC<Props> = (props) => {
     } = props;
 
     const [isCommentsMenuOpen, setIsCommentsMenuOpen] = useState(false);
-    const showComments = useDashboardContext(
-        (c) => c.dashboardCommentsCheck?.canViewDashboardComments,
-    );
+    const showComments = false; // 隐藏评论功能
     const tileHasComments = useDashboardContext((c) => c.hasTileComments(uuid));
     const dashboardComments = useMemo(
         () =>

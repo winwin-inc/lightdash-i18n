@@ -786,9 +786,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
     }, [chartWithDashboardFilters]);
 
     const [isCommentsMenuOpen, setIsCommentsMenuOpen] = useState(false);
-    const showComments = useDashboardContext(
-        (c) => c.dashboardCommentsCheck?.canViewDashboardComments,
-    );
+    const showComments = false; // 隐藏评论功能
     const tileHasComments = useDashboardContext((c) =>
         c.hasTileComments(tileUuid),
     );
@@ -1653,7 +1651,7 @@ export const GenericDashboardChartTile: FC<
 
 const DashboardChartTile: FC<DashboardChartTileProps> = (props) => {
     const readyQuery = useDashboardChartReadyQuery(
-        props.tile.tabUuid ?? "",
+        props.tile.tabUuid ?? '',
         props.tile.uuid,
         props.tile.properties?.savedChartUuid,
     );
