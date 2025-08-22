@@ -1,5 +1,5 @@
 import { getItemId, getMetrics } from '@lightdash/common';
-import { Button, Tooltip } from '@mantine/core';
+import { Button, Tooltip } from '@mantine-8/core';
 import { IconDeviceFloppy } from '@tabler/icons-react';
 import { useMemo, useState, type FC } from 'react';
 import { useExplore } from '../../../hooks/useExplore';
@@ -20,6 +20,10 @@ const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
         (context) => context.state.savedChart,
     );
     const spaceUuid = useSearchParams('fromSpace');
+
+    const missingRequiredParameters = useExplorerContext(
+        (context) => context.state.missingRequiredParameters,
+    );
 
     const [isQueryModalOpen, setIsQueryModalOpen] = useState<boolean>(false);
 
@@ -45,7 +49,8 @@ const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
     const isDisabled =
         !unsavedChartVersion.tableName ||
         !hasUnsavedChanges ||
-        foundCustomMetricWithDuplicateId;
+        foundCustomMetricWithDuplicateId ||
+        !!missingRequiredParameters?.length;
 
     const handleSaveChart = () => {
         return savedChart
@@ -71,7 +76,7 @@ const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
                     color={isExplorer ? 'blue' : 'green.7'}
                     size="xs"
                     loading={update.isLoading}
-                    leftIcon={
+                    leftSection={
                         isExplorer ? (
                             <MantineIcon icon={IconDeviceFloppy} />
                         ) : undefined
@@ -79,7 +84,7 @@ const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
                     {...(isDisabled && {
                         'data-disabled': true,
                     })}
-                    sx={{
+                    style={{
                         '&[data-disabled="true"]': {
                             pointerEvents: 'all',
                         },

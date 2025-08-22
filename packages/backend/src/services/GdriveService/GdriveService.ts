@@ -7,6 +7,7 @@ import {
     UploadMetricGsheet,
     UploadMetricGsheetPayload,
 } from '@lightdash/common';
+import { fromSession } from '../../auth/account';
 import { LightdashConfig } from '../../config/parseConfig';
 import { DashboardModel } from '../../models/DashboardModel/DashboardModel';
 import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
@@ -80,6 +81,18 @@ export class GdriveService extends BaseService {
         }
 
         if (
+            user.ability.cannot(
+                'manage',
+                subject('GoogleSheets', {
+                    organizationUuid: projectSummary.organizationUuid,
+                    projectUuid: projectSummary.projectUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        if (
             gsheetOptions.metricQuery.customDimensions?.some(
                 isCustomSqlDimension,
             ) &&
@@ -96,7 +109,7 @@ export class GdriveService extends BaseService {
 
         const { organizationUuid } = await this.projectService.getProject(
             gsheetOptions.projectUuid,
-            user,
+            fromSession(user),
         );
 
         const payload: UploadMetricGsheetPayload = {

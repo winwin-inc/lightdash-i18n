@@ -608,6 +608,7 @@ export const convertTable = (
               }
             : {}),
         ...(meta.ai_hint ? { aiHint: convertToAiHints(meta.ai_hint) } : {}),
+        ...(meta.parameters ? { parameters: meta.parameters } : {}),
     };
 };
 
@@ -809,6 +810,7 @@ export const convertExplores = async (
                             ? { description: exploreToCreate.description }
                             : {}),
                     },
+                    projectParameters: lightdashProjectConfig.parameters,
                 });
             } catch (e: unknown) {
                 return {

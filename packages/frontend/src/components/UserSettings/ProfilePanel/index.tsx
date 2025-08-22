@@ -7,7 +7,7 @@ import {
     Text,
     TextInput,
     Tooltip,
-} from '@mantine/core';
+} from '@mantine-8/core';
 import { useForm, zodResolver } from '@mantine/form';
 import { IconAlertCircle, IconCircleCheck } from '@tabler/icons-react';
 import { useEffect, useState, type FC } from 'react';
@@ -159,7 +159,7 @@ const ProfilePanel: FC = () => {
                     descriptionProps={{ mt: 'xs' }}
                     description={
                         isEmailServerConfigured && !data?.isVerified ? (
-                            <Text color="dimmed">
+                            <Text c="dimmed">
                                 This email has not been verified.{' '}
                                 <Anchor
                                     component="span"
@@ -186,7 +186,6 @@ const ProfilePanel: FC = () => {
                     )}
                     <Button
                         type="submit"
-                        display="block"
                         loading={isLoading}
                         disabled={!form.isDirty()}
                     >

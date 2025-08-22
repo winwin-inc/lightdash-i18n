@@ -96,6 +96,7 @@ export type CreateDashboard = {
     >;
     filters?: DashboardFilters;
     parameters?: DashboardParameters;
+    pinnedParameters?: string[];
     updatedByUser?: Pick<UpdatedByUser, 'userUuid'>;
     spaceUuid?: string;
     tabs: DashboardTab[];
@@ -143,6 +144,7 @@ export type DashboardConfig = {
     isDateZoomDisabled: boolean;
     isGlobalFilterEnabled?: boolean;
     tabFilterEnabled?: Record<string, boolean>;
+    pinnedParameters?: string[];
 };
 
 export type Dashboard = {

@@ -21,7 +21,8 @@ const themeOverride: MantineThemeOverride = {
 
 const getInitialState = (exploreId: string, savedChart: SavedChart) => ({
     parameters: {},
-    shouldFetchResults: true,
+    parameterDefinitions: {},
+    parameterReferences: [],
     expandedSections: [
         ExplorerSection.FILTERS,
         ExplorerSection.VISUALIZATION,
@@ -118,7 +119,6 @@ const EmbedExplore: FC<Props> = ({
             <ExplorerProvider
                 isEditMode={true}
                 projectUuid={projectUuid}
-                savedChart={savedChart}
                 initialState={getInitialState(exploreId, savedChart)}
                 defaultLimit={500}
             >

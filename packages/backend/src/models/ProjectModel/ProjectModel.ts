@@ -276,6 +276,7 @@ export class ProjectModel {
                 'projects.project_uuid',
                 'projects.name',
                 'projects.project_type',
+                'projects.created_at',
                 `projects.copied_from_project_uuid`,
                 `projects.created_by_user_uuid`,
                 `${WarehouseCredentialTableName}.warehouse_type`,
@@ -311,6 +312,7 @@ export class ProjectModel {
                 name,
                 project_uuid,
                 project_type,
+                created_at,
                 created_by_user_uuid,
                 copied_from_project_uuid,
                 warehouse_type,
@@ -330,6 +332,7 @@ export class ProjectModel {
                         projectUuid: project_uuid,
                         type: project_type,
                         createdByUserUuid: created_by_user_uuid,
+                        createdAt: created_at,
                         upstreamProjectUuid: copied_from_project_uuid,
                         warehouseType:
                             warehouse_type !== null
@@ -1196,6 +1199,7 @@ export class ProjectModel {
             role: ProjectMemberRole;
             first_name: string;
             last_name: string;
+            role_uuid: string | null;
         };
         const [projectMemberProfile] = await this.database(
             'project_memberships',
@@ -1222,6 +1226,7 @@ export class ProjectModel {
             email: projectMemberProfile.email,
             firstName: projectMemberProfile.first_name,
             lastName: projectMemberProfile.last_name,
+            roleUuid: projectMemberProfile.role_uuid || undefined,
         };
     }
 
@@ -1234,6 +1239,7 @@ export class ProjectModel {
             role: ProjectMemberRole;
             first_name: string;
             last_name: string;
+            role_uuid: string | null;
         };
         const projectMemberships = await this.database('project_memberships')
             .leftJoin('users', 'project_memberships.user_id', 'users.user_id')
@@ -1254,6 +1260,7 @@ export class ProjectModel {
             firstName: membership.first_name,
             projectUuid,
             lastName: membership.last_name,
+            roleUuid: membership.role_uuid || undefined,
         }));
     }
 

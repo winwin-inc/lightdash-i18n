@@ -3,21 +3,24 @@ import {
     type ParametersValuesMap,
 } from '@lightdash/common';
 import {
+    ActionIcon,
     Box,
     Button,
+    Flex,
     Group,
     SimpleGrid,
     Stack,
     Text,
     Tooltip,
-} from '@mantine/core';
-import { IconInfoCircle } from '@tabler/icons-react';
+} from '@mantine-8/core';
+import { IconInfoCircle, IconPin, IconPinFilled } from '@tabler/icons-react';
 import { type FC } from 'react';
 import MantineIcon from '../../../components/common/MantineIcon';
 import { ParameterInput } from './ParameterInput';
 
 type ParameterSelectionProps = {
     parameters?: Record<string, LightdashProjectParameter>;
+    missingRequiredParameters?: string[] | null;
     isLoading?: boolean;
     isError?: boolean;
     parameterValues: ParametersValuesMap;
@@ -32,6 +35,9 @@ type ParameterSelectionProps = {
     projectUuid?: string;
     loadingMessage?: string;
     disabled?: boolean;
+    isEditMode?: boolean;
+    pinnedParameters?: string[];
+    onParameterPin?: (paramKey: string) => void;
 };
 
 export const ParameterSelection: FC<ParameterSelectionProps> = ({
@@ -46,6 +52,10 @@ export const ParameterSelection: FC<ParameterSelectionProps> = ({
     cols = 1,
     projectUuid,
     disabled = false,
+    missingRequiredParameters,
+    isEditMode = false,
+    pinnedParameters = [],
+    onParameterPin,
 }) => {
     const parameterKeys = parameters ? Object.keys(parameters) : [];
     const selectedParametersCount = Object.values(parameterValues).filter(
@@ -78,11 +88,7 @@ export const ParameterSelection: FC<ParameterSelectionProps> = ({
 
     return (
         <Stack>
-            <SimpleGrid
-                cols={cols}
-                spacing="sm"
-                breakpoints={[{ maxWidth: 'sm', cols: 1 }]}
-            >
+            <SimpleGrid cols={{ base: 1, sm: cols }} spacing="sm">
                 {parameterKeys.map((paramKey) => {
                     const parameter = parameters?.[paramKey];
                     if (!parameter) {
@@ -92,29 +98,70 @@ export const ParameterSelection: FC<ParameterSelectionProps> = ({
                     }
                     return (
                         <Box key={paramKey}>
-                            <Group
-                                align="center"
-                                position="left"
-                                spacing="xs"
-                                mb="xxs"
-                            >
-                                <Text size={size} fw={500}>
-                                    {parameters?.[paramKey]?.label || paramKey}
-                                </Text>
-                                {parameters?.[paramKey]?.description && (
+                            <Group align="center" gap="xs" mb="xxs">
+                                <Group align="center" gap="xs">
+                                    <Text size={size} fw={500}>
+                                        {parameters?.[paramKey]?.label ||
+                                            paramKey}
+                                    </Text>
+                                    {parameters?.[paramKey]?.description && (
+                                        <Tooltip
+                                            withinPortal
+                                            position="top"
+                                            maw={350}
+                                            label={
+                                                parameters?.[paramKey]
+                                                    ?.description
+                                            }
+                                        >
+                                            <MantineIcon
+                                                icon={IconInfoCircle}
+                                                color="gray.6"
+                                                size="sm"
+                                            />
+                                        </Tooltip>
+                                    )}
+                                </Group>
+                                {isEditMode && onParameterPin && (
                                     <Tooltip
-                                        withinPortal
-                                        position="top"
-                                        maw={350}
                                         label={
-                                            parameters?.[paramKey]?.description
+                                            pinnedParameters.includes(paramKey)
+                                                ? 'Unpin parameter'
+                                                : 'Pin parameter'
                                         }
+                                        position="left"
                                     >
-                                        <MantineIcon
-                                            icon={IconInfoCircle}
-                                            color="gray.6"
-                                            size={size}
-                                        />
+                                        <ActionIcon
+                                            size="xs"
+                                            variant={
+                                                pinnedParameters.includes(
+                                                    paramKey,
+                                                )
+                                                    ? 'filled'
+                                                    : 'subtle'
+                                            }
+                                            color={
+                                                pinnedParameters.includes(
+                                                    paramKey,
+                                                )
+                                                    ? 'blue'
+                                                    : 'gray'
+                                            }
+                                            onClick={() =>
+                                                onParameterPin(paramKey)
+                                            }
+                                        >
+                                            <MantineIcon
+                                                icon={
+                                                    pinnedParameters.includes(
+                                                        paramKey,
+                                                    )
+                                                        ? IconPinFilled
+                                                        : IconPin
+                                                }
+                                                size="sm"
+                                            />
+                                        </ActionIcon>
                                     </Tooltip>
                                 )}
                             </Group>
@@ -127,6 +174,9 @@ export const ParameterSelection: FC<ParameterSelectionProps> = ({
                                 projectUuid={projectUuid}
                                 parameterValues={parameterValues}
                                 disabled={disabled}
+                                isError={missingRequiredParameters?.includes(
+                                    paramKey,
+                                )}
                             />
                         </Box>
                     );
@@ -134,20 +184,22 @@ export const ParameterSelection: FC<ParameterSelectionProps> = ({
             </SimpleGrid>
 
             {showClearAll && selectedParametersCount > 0 && onClearAll && (
-                <Tooltip label="Clear all parameter values" position="bottom">
-                    <Button
-                        selfAlign="flex-end"
-                        variant="subtle"
-                        compact
-                        size="xs"
-                        color="gray"
-                        onClick={onClearAll}
-                        style={{ alignSelf: 'flex-end' }}
-                        disabled={disabled}
+                <Flex justify="flex-end">
+                    <Tooltip
+                        label="Clear all parameter values"
+                        position="bottom"
                     >
-                        Clear all
-                    </Button>
-                </Tooltip>
+                        <Button
+                            variant="subtle"
+                            size="xs"
+                            c="gray"
+                            onClick={onClearAll}
+                            disabled={disabled}
+                        >
+                            Clear all
+                        </Button>
+                    </Tooltip>
+                </Flex>
             )}
         </Stack>
     );

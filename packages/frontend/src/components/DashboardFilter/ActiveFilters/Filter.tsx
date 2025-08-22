@@ -273,6 +273,7 @@ const Filter: FC<Props> = ({
                             <Button
                                 pos="relative"
                                 size="xs"
+                                radius="md"
                                 variant={
                                     isTemporary || hasUnsetRequiredFilter
                                         ? 'outline'

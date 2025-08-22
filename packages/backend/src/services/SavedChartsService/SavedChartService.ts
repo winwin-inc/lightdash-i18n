@@ -1,6 +1,7 @@
 import { subject } from '@casl/ability';
 import {
     AbilityAction,
+    Account,
     BulkActionable,
     ChartHistory,
     ChartSummary,
@@ -314,6 +315,7 @@ export class SavedChartService
                                   : `${savedChart.chartConfig.config?.spec?.mark}`,
                       }
                     : undefined,
+            parametersCount: Object.keys(savedChart.parameters || {}).length,
             ...countCustomDimensionsInMetricQuery(savedChart.metricQuery),
         };
     }
@@ -765,24 +767,30 @@ export class SavedChartService
         return this.analyticsModel.getChartViewStats(savedChartUuid);
     }
 
-    async get(savedChartUuid: string, user: SessionUser): Promise<SavedChart> {
+    async get(savedChartUuid: string, account: Account): Promise<SavedChart> {
         const savedChart = await this.savedChartModel.get(savedChartUuid);
         const space = await this.spaceModel.getSpaceSummary(
             savedChart.spaceUuid,
         );
-        const access = await this.spaceModel.getUserSpaceAccess(
-            user.userUuid,
-            savedChart.spaceUuid,
-        );
+
+        const savedChartPredicate: Omit<SavedChart, 'access'> & {
+            access?: SpaceShare[];
+        } = {
+            ...savedChart,
+            isPrivate: space.isPrivate,
+        };
+        if (account.isRegisteredUser()) {
+            savedChartPredicate.access =
+                await this.spaceModel.getUserSpaceAccess(
+                    account.user.id,
+                    savedChart.spaceUuid,
+                );
+        }
 
         if (
-            user.ability.cannot(
+            account.user.ability.cannot(
                 'view',
-                subject('SavedChart', {
-                    ...savedChart,
-                    isPrivate: space.isPrivate,
-                    access,
-                }),
+                subject('SavedChart', savedChartPredicate),
             )
         ) {
             throw new ForbiddenError(
@@ -792,23 +800,24 @@ export class SavedChartService
 
         await this.analyticsModel.addChartViewEvent(
             savedChartUuid,
-            user.userUuid,
+            account.isRegisteredUser() ? account.user.id : null,
         );
 
-        this.analytics.track({
+        this.analytics.trackAccount(account, {
             event: 'saved_chart.view',
-            userId: user.userUuid,
             properties: {
                 savedChartId: savedChart.uuid,
                 organizationId: savedChart.organizationUuid,
                 projectId: savedChart.projectUuid,
+                parametersCount: Object.keys(savedChart.parameters || {})
+                    .length,
             },
         });
 
         return {
             ...savedChart,
             isPrivate: space.isPrivate,
-            access,
+            access: savedChartPredicate.access ?? [],
         };
     }
 

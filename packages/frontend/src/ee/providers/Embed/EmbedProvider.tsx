@@ -1,6 +1,7 @@
 import { type LanguageMap, type SavedChart } from '@lightdash/common';
 import { get } from 'lodash';
 import { useEffect, useMemo, useState, type FC } from 'react';
+import { useParams } from 'react-router';
 import { useAccount } from '../../../hooks/user/useAccount';
 import { useAbilityContext } from '../../../providers/Ability/useAbilityContext';
 import {
@@ -18,20 +19,26 @@ type Props = {
     contentOverrides?: LanguageMap;
     embedHeaders?: Record<string, string>;
     onExplore?: (options: { chart: SavedChart }) => void;
+    onBackToDashboard?: () => void;
+    savedChart?: SavedChart;
 };
 
 const EmbedProvider: FC<React.PropsWithChildren<Props>> = ({
     children,
     embedToken = window.location.hash.replace('#', ''),
     filters,
-    projectUuid,
+    projectUuid: projectUuidFromProps,
     contentOverrides,
     onExplore,
+    onBackToDashboard,
+    savedChart,
 }) => {
     const [isInitialized, setIsInitialized] = useState(false);
     const embed = getFromInMemoryStorage<InMemoryEmbed>(EMBED_KEY);
     const { data: account, isLoading } = useAccount();
     const ability = useAbilityContext();
+    const params = useParams();
+    const projectUuid = projectUuidFromProps || params.projectUuid;
 
     // Set ability rules for the embedded user. We should only get abilities from abilityContext
     // rather than directly on the user or account.
@@ -59,6 +66,8 @@ const EmbedProvider: FC<React.PropsWithChildren<Props>> = ({
             projectUuid: embed?.projectUuid || projectUuid,
             languageMap: contentOverrides,
             onExplore,
+            savedChart,
+            onBackToDashboard,
         };
     }, [
         embed?.projectUuid,
@@ -68,6 +77,8 @@ const EmbedProvider: FC<React.PropsWithChildren<Props>> = ({
         projectUuid,
         contentOverrides,
         onExplore,
+        savedChart,
+        onBackToDashboard,
     ]);
 
     return (

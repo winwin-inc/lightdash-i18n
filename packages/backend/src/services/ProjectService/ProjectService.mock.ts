@@ -309,6 +309,7 @@ export const defaultProject: OrganizationProject = {
     name: 'name',
     type: ProjectType.DEFAULT,
     createdByUserUuid: sessionAccount.user.id,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
     upstreamProjectUuid: null,
     warehouseType: WarehouseTypes.POSTGRES,
     requireUserCredentials: false,
@@ -433,7 +434,6 @@ export const lightdashConfigWithNoSMTP: Pick<
         defaultLimit: 500,
         csvCellsLimit: 100,
         timezone: undefined,
-        showQueryWarnings: false,
     },
 };
 

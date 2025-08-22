@@ -57,13 +57,13 @@ const DashboardFilter: FC<Props> = ({
         filterType === 'global'
             ? setIsGlobalFilterEnabled
             : (enabled: boolean) => {
-                  if (activeTabUuid) {
-                      setIsTabFilterEnabled((prev) => ({
-                          ...prev,
-                          [activeTabUuid]: enabled,
-                      }));
-                  }
-              };
+                if (activeTabUuid) {
+                    setIsTabFilterEnabled((prev) => ({
+                        ...prev,
+                        [activeTabUuid]: enabled,
+                    }));
+                }
+            };
 
     // global filters
     const allFilters = useDashboardContext((c) => c.allFilters);
@@ -188,7 +188,7 @@ const DashboardFilter: FC<Props> = ({
                         onChange={(event) =>
                             setIsFilterEnabled(event.currentTarget.checked)
                         }
-                        size="md"
+                        size="sm"
                         ml="xl"
                         styles={{ input: { cursor: 'pointer' } }}
                         label="Enable filter"
