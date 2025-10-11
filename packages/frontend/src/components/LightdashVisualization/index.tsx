@@ -1,5 +1,5 @@
 import { assertUnreachable, ChartType } from '@lightdash/common';
-import { Anchor } from '@mantine/core';
+import { Anchor, Text } from '@mantine/core';
 import { IconChartBarOff } from '@tabler/icons-react';
 import { Fragment, memo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -42,11 +42,25 @@ const LightdashVisualization: FC<LightdashVisualizationProps> = memo(
         if (apiErrorDetail) {
             return (
                 <EmptyState
-                    icon={<MantineIcon icon={IconChartBarOff} />}
-                    title={t("components_lightdash_visualization.unable_to_load_visualization")}
+                    icon={
+                        // Icon consistent with SuboptimalState in charts
+                        <MantineIcon
+                            color="gray.5"
+                            size="xxl"
+                            icon={IconChartBarOff}
+                        />
+                    }
+                    h="100%"
+                    w="100%"
+                    justify="center"
+                    title={t(
+                        'components_lightdash_visualization.unable_to_load_visualization',
+                    )}
                     description={
                         <Fragment>
-                            {apiErrorDetail.message}
+                            <Text style={{ whiteSpace: 'pre-wrap' }}>
+                                {apiErrorDetail.message || ''}
+                            </Text>
                             {apiErrorDetail.data.documentationUrl && (
                                 <Fragment>
                                     <br />
@@ -57,7 +71,9 @@ const LightdashVisualization: FC<LightdashVisualizationProps> = memo(
                                         target="_blank"
                                         rel="noreferrer"
                                     >
-                                        {t("components_lightdash_visualization.learn_how_to_resolve_this_in_our_documentation")}
+                                        {t(
+                                            'components_lightdash_visualization.learn_how_to_resolve_this_in_our_documentation',
+                                        )}
                                     </Anchor>
                                 </Fragment>
                             )}

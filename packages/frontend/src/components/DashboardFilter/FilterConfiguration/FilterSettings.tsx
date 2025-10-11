@@ -48,12 +48,16 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     onChangeFilterRule,
 }) => {
     const { t } = useTranslation();
-    const getFilterOperatorOptions = useFilterOperatorOptions();
+
     const [filterLabel, setFilterLabel] = useState<string>();
+
+    const getFilterOperatorOptions = useFilterOperatorOptions();
+    const getPlaceholderByFilterTypeAndOperator =
+        usePlaceholderByFilterTypeAndOperator();
 
     const filterOperatorOptions = useMemo(
         () => getFilterOperatorOptions(filterType),
-        [filterType, getFilterOperatorOptions],
+        [filterType],
     );
 
     // Set default label when using revert (undo) button
@@ -95,9 +99,6 @@ const FilterSettings: FC<FilterSettingsProps> = ({
             )
         );
     }, [filterRule.operator, isFilterDisabled, isEditMode]);
-
-    const getPlaceholderByFilterTypeAndOperator =
-        usePlaceholderByFilterTypeAndOperator();
 
     return (
         <Stack>

@@ -2,10 +2,17 @@ import {
     type ApiCompiledQueryResults,
     type ApiError,
     type MetricQuery,
+    type ParametersValuesMap,
 } from '@lightdash/common';
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { useParams } from 'react-router';
 import { lightdashApi } from '../api';
+import {
+    selectFilters,
+    selectSorts,
+    selectTableName,
+    useExplorerSelector,
+} from '../features/explorer/store';
 import useExplorerContext from '../providers/Explorer/useExplorerContext';
 import { convertDateFilters } from '../utils/dateFilter';
 import useQueryError from './useQueryError';
@@ -14,7 +21,7 @@ const getCompiledQuery = async (
     projectUuid: string,
     tableId: string,
     query: MetricQuery,
-    queryParameters?: Record<string, string | string[]>,
+    queryParameters?: ParametersValuesMap,
 ) => {
     const timezoneFixQuery = {
         ...query,
@@ -33,14 +40,12 @@ export const useCompiledSql = (
     queryOptions?: UseQueryOptions<ApiCompiledQueryResults, ApiError>,
 ) => {
     const { projectUuid } = useParams<{ projectUuid: string }>();
-    const tableId = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.tableName,
-    );
+    const tableId = useExplorerSelector(selectTableName);
+    const filters = useExplorerSelector(selectFilters);
+    const sorts = useExplorerSelector(selectSorts);
     const {
         dimensions,
         metrics,
-        sorts,
-        filters,
         limit,
         tableCalculations,
         additionalMetrics,
@@ -76,7 +81,6 @@ export const useCompiledSql = (
         queryParameters,
     ];
     return useQuery<ApiCompiledQueryResults, ApiError>({
-        enabled: tableId !== undefined,
         queryKey,
         queryFn: () =>
             getCompiledQuery(
@@ -88,6 +92,8 @@ export const useCompiledSql = (
         onError: (result) => setErrorResponse(result),
         keepPreviousData: true,
         ...queryOptions,
+        // Ensure enabled check happens AFTER spread to prevent override
+        enabled: (queryOptions?.enabled ?? true) && !!tableId && !!projectUuid,
     });
 };
 

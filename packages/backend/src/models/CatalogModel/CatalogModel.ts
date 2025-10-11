@@ -3,12 +3,19 @@ import {
     CatalogItemIcon,
     CatalogItemsWithIcons,
     CatalogType,
+    ChangesetUtils,
+    ChangesetWithChanges,
+    CompiledDimension,
+    CompiledMetric,
+    CompiledTable,
     Explore,
     FieldType,
     NotFoundError,
     TableSelectionType,
     UNCATEGORIZED_TAG_UUID,
     UnexpectedServerError,
+    assertUnreachable,
+    convertToAiHints,
     isExploreError,
     type ApiCatalogSearch,
     type ApiSort,
@@ -28,6 +35,7 @@ import {
     type UserAttributeValueMap,
 } from '@lightdash/common';
 import { Knex } from 'knex';
+import { uniqBy } from 'lodash';
 import type { LightdashConfig } from '../../config/parseConfig';
 import {
     CatalogTableName,
@@ -58,6 +66,7 @@ export enum CatalogSearchContext {
     CATALOG = 'catalog',
     METRICS_EXPLORER = 'metricsExplorer',
     AI_AGENT = 'aiAgent',
+    MCP = 'mcp',
 }
 
 export type CatalogModelArguments = {
@@ -199,6 +208,355 @@ export class CatalogModel {
         }
     }
 
+    async indexCatalogUpdates({
+        projectUuid,
+        cachedExploreMap,
+        changeset,
+    }: {
+        projectUuid: string;
+        cachedExploreMap: { [exploreUuid: string]: Explore | ExploreError };
+        changeset: ChangesetWithChanges;
+    }): Promise<{
+        catalogUpdates: DbCatalog[];
+    }> {
+        const catalogUpdates = await wrapSentryTransaction(
+            'indexCatalog.updateCatalogItems',
+            {
+                projectUuid,
+                changesetLength: changeset?.changes.length,
+            },
+            () =>
+                this.database.transaction(async (trx) => {
+                    const catalogUpdatesResult: DbCatalog[] = [];
+
+                    const changesetChangesMap = uniqBy(
+                        changeset?.changes,
+                        (change) =>
+                            `${change.entityTableName}:${change.entityType}:${change.entityName}`,
+                    );
+                    const updatePromises = changesetChangesMap.map(
+                        async (change) => {
+                            const cachedExploreTable =
+                                cachedExploreMap[change.entityTableName];
+
+                            if (
+                                !cachedExploreTable ||
+                                !cachedExploreTable.tables
+                            ) {
+                                return null;
+                            }
+
+                            if (change.type === 'create') {
+                                const isMetric = change.entityType === 'metric';
+
+                                if (isMetric) {
+                                    const metricData = change.payload.value;
+
+                                    const cachedExplore = await trx(
+                                        CatalogTableName,
+                                    )
+                                        .select('cached_explore_uuid')
+                                        .where(
+                                            'table_name',
+                                            change.entityTableName,
+                                        )
+                                        .where('project_uuid', projectUuid)
+                                        .first('cached_explore_uuid');
+
+                                    if (!cachedExplore) {
+                                        return null;
+                                    }
+
+                                    const [result] = await trx(CatalogTableName)
+                                        .insert({
+                                            name: metricData.name,
+                                            label: metricData.label,
+                                            description:
+                                                metricData.description ?? null,
+                                            cached_explore_uuid:
+                                                cachedExplore.cached_explore_uuid,
+                                            project_uuid: projectUuid,
+                                            type: CatalogType.Field,
+                                            field_type: FieldType.METRIC,
+                                            required_attributes: {},
+                                            yaml_tags: [],
+                                            ai_hints: null,
+                                            chart_usage: 0,
+                                            table_name: change.entityTableName,
+                                            spotlight_show: true,
+                                            joined_tables: [],
+                                        })
+                                        .returning('*');
+
+                                    catalogUpdatesResult.push(result);
+                                    return result;
+                                }
+                            }
+
+                            let fieldToUpdate:
+                                | CompiledDimension
+                                | CompiledMetric
+                                | CompiledTable;
+                            const isTable = change.entityType === 'table';
+                            const table =
+                                cachedExploreTable.tables[
+                                    change.entityTableName
+                                ];
+                            if (!table) {
+                                return null;
+                            }
+
+                            switch (change.entityType) {
+                                case 'table': {
+                                    fieldToUpdate = table;
+                                    break;
+                                }
+                                case 'dimension': {
+                                    fieldToUpdate =
+                                        table.dimensions[change.entityName];
+                                    break;
+                                }
+                                case 'metric': {
+                                    fieldToUpdate =
+                                        table.metrics[change.entityName];
+                                    break;
+                                }
+                                default:
+                                    assertUnreachable(
+                                        change.entityType,
+                                        `Unknown entity type ${change.entityType}`,
+                                    );
+                            }
+
+                            const [result] = await trx(CatalogTableName)
+                                .where('table_name', change.entityTableName)
+                                .andWhere('project_uuid', projectUuid)
+                                .andWhere('name', change.entityName)
+                                .andWhere(
+                                    'type',
+                                    isTable
+                                        ? CatalogType.Table
+                                        : CatalogType.Field,
+                                )
+                                .update({
+                                    label: fieldToUpdate.label ?? null,
+                                    description:
+                                        fieldToUpdate.description ?? null,
+                                    ai_hints:
+                                        convertToAiHints(
+                                            fieldToUpdate.aiHint,
+                                        ) ?? null,
+                                })
+                                .returning('*');
+
+                            catalogUpdatesResult.push(result);
+                            return result;
+                        },
+                    );
+
+                    await Promise.all(updatePromises);
+
+                    return catalogUpdatesResult;
+                }),
+        );
+
+        return {
+            catalogUpdates,
+        };
+    }
+
+    async indexCatalogReverts({
+        projectUuid,
+        revertedChanges,
+        originalChangeset,
+        originalExplores,
+    }: {
+        projectUuid: string;
+        revertedChanges: ChangesetWithChanges['changes'];
+        originalChangeset: ChangesetWithChanges;
+        originalExplores: Record<string, Explore | ExploreError>;
+    }): Promise<{
+        catalogUpdates: DbCatalog[];
+    }> {
+        return wrapSentryTransaction(
+            'indexCatalog.indexCatalogReverts',
+            {
+                projectUuid,
+                revertedChangesCount: revertedChanges.length,
+                originalChangesetLength: originalChangeset.changes.length,
+            },
+            async () => {
+                // map of changeUuid -> state BEFORE that change
+                const stateMap = new Map<
+                    string,
+                    Record<string, Explore | ExploreError>
+                >();
+                let currentState = originalExplores;
+
+                for (const change of originalChangeset.changes) {
+                    stateMap.set(change.changeUuid, currentState);
+
+                    currentState = ChangesetUtils.applyChangeset(
+                        {
+                            ...originalChangeset,
+                            changes: [change],
+                        },
+                        structuredClone(currentState),
+                    );
+                }
+
+                return this.database.transaction(async (trx) => {
+                    const catalogUpdatesResult: DbCatalog[] = [];
+
+                    // un-apply each reverted change in the reverse order, using previous state for values
+                    const sortedRevertedChanges = [...revertedChanges].sort(
+                        (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+                    );
+
+                    for (const revertedChange of sortedRevertedChanges) {
+                        const preChangeState = stateMap.get(
+                            revertedChange.changeUuid,
+                        );
+
+                        if (!preChangeState) {
+                            Logger.warn(
+                                `Could not find pre-change state for ${revertedChange.changeUuid}`,
+                            );
+                            // eslint-disable-next-line no-continue
+                            continue;
+                        }
+                        const explore =
+                            preChangeState[revertedChange.entityTableName];
+
+                        if (!explore || isExploreError(explore)) {
+                            Logger.warn(
+                                `Explore ${revertedChange.entityTableName} not found in pre-change state`,
+                            );
+                            // eslint-disable-next-line no-continue
+                            continue;
+                        }
+
+                        const table =
+                            explore.tables[revertedChange.entityTableName];
+
+                        if (!table) {
+                            Logger.warn(
+                                `Table ${revertedChange.entityTableName} not found in pre-change state`,
+                            );
+                            // eslint-disable-next-line no-continue
+                            continue;
+                        }
+
+                        switch (revertedChange.type) {
+                            case 'create': {
+                                // eslint-disable-next-line no-await-in-loop
+                                await trx(CatalogTableName)
+                                    .where(
+                                        'table_name',
+                                        revertedChange.entityTableName,
+                                    )
+                                    .andWhere('project_uuid', projectUuid)
+                                    .andWhere('name', revertedChange.entityName)
+                                    .andWhere('type', CatalogType.Field)
+                                    .delete();
+                                break;
+                            }
+
+                            case 'update': {
+                                let fieldToRestore:
+                                    | CompiledDimension
+                                    | CompiledMetric
+                                    | CompiledTable;
+
+                                switch (revertedChange.entityType) {
+                                    case 'table':
+                                        fieldToRestore = table;
+                                        break;
+                                    case 'dimension':
+                                        fieldToRestore =
+                                            table.dimensions[
+                                                revertedChange.entityName
+                                            ];
+                                        break;
+                                    case 'metric':
+                                        fieldToRestore =
+                                            table.metrics[
+                                                revertedChange.entityName
+                                            ];
+                                        break;
+                                    default:
+                                        assertUnreachable(
+                                            revertedChange.entityType,
+                                            `Unknown entity type`,
+                                        );
+                                }
+
+                                if (!fieldToRestore) {
+                                    Logger.warn(
+                                        `Field ${revertedChange.entityName} not found in pre-change state`,
+                                    );
+                                    break;
+                                }
+
+                                const isTable =
+                                    revertedChange.entityType === 'table';
+
+                                // eslint-disable-next-line no-await-in-loop
+                                const [result] = await trx(CatalogTableName)
+                                    .where(
+                                        'table_name',
+                                        revertedChange.entityTableName,
+                                    )
+                                    .andWhere('project_uuid', projectUuid)
+                                    .andWhere('name', revertedChange.entityName)
+                                    .andWhere(
+                                        'type',
+                                        isTable
+                                            ? CatalogType.Table
+                                            : CatalogType.Field,
+                                    )
+                                    .update({
+                                        label: fieldToRestore.label ?? null,
+                                        description:
+                                            fieldToRestore.description ?? null,
+                                        ai_hints:
+                                            convertToAiHints(
+                                                fieldToRestore.aiHint,
+                                            ) ?? null,
+                                    })
+                                    .returning('*');
+
+                                if (result) {
+                                    catalogUpdatesResult.push(result);
+                                }
+
+                                break;
+                            }
+
+                            case 'delete': {
+                                // TODO: Implement when delete operations are fully supported
+                                Logger.warn(
+                                    `Delete revert not yet implemented for ${revertedChange.changeUuid}`,
+                                );
+                                break;
+                            }
+
+                            default:
+                                assertUnreachable(
+                                    revertedChange,
+                                    'Invalid change type',
+                                );
+                        }
+                    }
+
+                    return {
+                        catalogUpdates: catalogUpdatesResult,
+                    };
+                });
+            },
+        );
+    }
+
     private async getTagsPerItem(catalogSearchUuids: string[]) {
         const itemTags = await this.database(CatalogTagsTableName)
             .select()
@@ -234,15 +592,22 @@ export class CatalogModel {
     async search({
         projectUuid,
         exploreName,
-        catalogSearch: { catalogTags, filter, searchQuery = '', type },
+        catalogSearch: {
+            catalogTags,
+            filter,
+            searchQuery = '',
+            type,
+            yamlTags,
+            tables,
+        },
         excludeUnmatched = true,
         tablesConfiguration,
         userAttributes,
-        yamlTags,
-        tables,
         paginateArgs,
         sortArgs,
         context,
+        fullTextSearchOperator = 'AND',
+        exploreCacheMap,
     }: {
         projectUuid: string;
         exploreName?: string;
@@ -250,11 +615,11 @@ export class CatalogModel {
         excludeUnmatched?: boolean;
         tablesConfiguration: TablesConfiguration;
         userAttributes: UserAttributeValueMap;
-        yamlTags: string[] | null;
-        tables: string[] | null;
         paginateArgs?: KnexPaginateArgs;
         sortArgs?: ApiSort;
         context: CatalogSearchContext;
+        fullTextSearchOperator?: 'OR' | 'AND';
+        exploreCacheMap: { [exploreUuid: string]: Explore | ExploreError };
     }): Promise<KnexPaginatedData<CatalogItem[]>> {
         let catalogItemsQuery = this.database(CatalogTableName)
             .column(
@@ -275,6 +640,7 @@ export class CatalogModel {
                             searchVectorColumn: `${CatalogTableName}.search_vector`,
                             searchQuery,
                         },
+                        fullTextSearchOperator,
                     }),
                 },
             )
@@ -480,6 +846,10 @@ export class CatalogModel {
                                         .from(
                                             `${CatalogTableName} as explore_table`,
                                         )
+                                        .andWhere(
+                                            'explore_table.project_uuid',
+                                            projectUuid,
+                                        )
                                         .whereRaw(
                                             `explore_table.cached_explore_uuid = ${CatalogTableName}.cached_explore_uuid`,
                                         )
@@ -496,16 +866,19 @@ export class CatalogModel {
                                         .from(
                                             `${CatalogTableName} as any_field_in_explore`,
                                         )
-                                        .whereRaw(
+                                        .andWhereRaw(
                                             `any_field_in_explore.cached_explore_uuid = ${CatalogTableName}.cached_explore_uuid`,
                                         )
-                                        .andWhereNot(
-                                            'any_field_in_explore.type',
-                                            'table',
+                                        .andWhere(
+                                            'any_field_in_explore.project_uuid',
+                                            projectUuid,
                                         )
-                                        .andWhereRaw(
-                                            `any_field_in_explore.yaml_tags && ?::text[]`,
-                                            [yamlTags],
+                                        .andWhere(
+                                            'any_field_in_explore.type',
+                                            'field',
+                                        )
+                                        .whereNotNull(
+                                            `any_field_in_explore.yaml_tags`,
                                         );
                                 });
                         })
@@ -520,6 +893,10 @@ export class CatalogModel {
                             ).whereExists(function hasTaggedChild() {
                                 void this.select('name')
                                     .from(`${CatalogTableName} as child_field`)
+                                    .andWhere(
+                                        'child_field.project_uuid',
+                                        projectUuid,
+                                    )
                                     .whereRaw(
                                         `child_field.cached_explore_uuid = ${CatalogTableName}.cached_explore_uuid`,
                                     )
@@ -561,7 +938,7 @@ export class CatalogModel {
         if (excludeUnmatched && searchQuery) {
             catalogItemsQuery = catalogItemsQuery.andWhereRaw(
                 `"${CatalogTableName}".search_vector @@ to_tsquery('lightdash_english_config', ?)`,
-                getFullTextSearchQuery(searchQuery),
+                getFullTextSearchQuery(searchQuery, fullTextSearchOperator),
             );
         }
 
@@ -600,6 +977,7 @@ export class CatalogModel {
                 paginatedCatalogItems.data.map((item) =>
                     parseCatalog({
                         ...item,
+                        explore: exploreCacheMap[item.explore.name] as Explore,
                         catalog_tags:
                             tagsPerItem[item.catalog_search_uuid] ?? [],
                     }),

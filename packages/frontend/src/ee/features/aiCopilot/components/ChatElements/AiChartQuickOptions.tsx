@@ -10,9 +10,12 @@ import {
     IconDots,
     IconExternalLink,
     IconTableShortcut,
+    IconTerminal2,
 } from '@tabler/icons-react';
 import { Fragment, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
+
 import MantineIcon from '../../../../../components/common/MantineIcon';
 import MantineModal from '../../../../../components/common/MantineModal';
 import { SaveToSpaceOrDashboard } from '../../../../../components/common/modal/ChartCreateModal/SaveToSpaceOrDashboard';
@@ -20,7 +23,7 @@ import { useVisualizationContext } from '../../../../../components/LightdashVisu
 import useApp from '../../../../../providers/App/useApp';
 import useTracking from '../../../../../providers/Tracking/useTracking';
 import { EventName } from '../../../../../types/Events';
-import { useSavePromptQuery } from '../../hooks/useOrganizationAiAgents';
+import { useSavePromptQuery } from '../../hooks/useProjectAiAgents';
 import { getOpenInExploreUrl } from '../../utils/getOpenInExploreUrl';
 
 type Props = {
@@ -30,13 +33,17 @@ type Props = {
         description: string | null;
     };
     message: AiAgentMessageAssistant;
+    compiledSql?: string;
 };
 
 export const AiChartQuickOptions = ({
     projectUuid,
     saveChartOptions = { name: '', description: '' },
     message,
+    compiledSql,
 }: Props) => {
+    const { t } = useTranslation();
+
     const { track } = useTracking();
     const { user } = useApp();
     const { agentUuid } = useParams();
@@ -50,6 +57,7 @@ export const AiChartQuickOptions = ({
         pivotDimensions,
     } = useVisualizationContext();
     const { mutate: savePromptQuery } = useSavePromptQuery(
+        projectUuid,
         agentUuid!,
         message.threadUuid,
         message.uuid,
@@ -135,7 +143,9 @@ export const AiChartQuickOptions = ({
                     </ActionIcon>
                 </Menu.Target>
                 <Menu.Dropdown>
-                    <Menu.Label>Quick actions</Menu.Label>
+                    <Menu.Label>
+                        {t('ai_chart_quick_options.quick_actions')}
+                    </Menu.Label>
                     {message.savedQueryUuid ? (
                         <Menu.Item
                             component={Link}
@@ -145,7 +155,7 @@ export const AiChartQuickOptions = ({
                                 <MantineIcon icon={IconTableShortcut} />
                             }
                         >
-                            View saved chart
+                            {t('ai_chart_quick_options.view_saved_chart')}
                         </Menu.Item>
                     ) : (
                         <Menu.Item
@@ -154,7 +164,7 @@ export const AiChartQuickOptions = ({
                                 <MantineIcon icon={IconDeviceFloppy} />
                             }
                         >
-                            Save
+                            {t('ai_chart_quick_options.save')}
                         </Menu.Item>
                     )}
 
@@ -166,14 +176,27 @@ export const AiChartQuickOptions = ({
                         disabled={isDisabled}
                         onClick={onClickExplore}
                     >
-                        Explore from here
+                        {t('ai_chart_quick_options.explore_from_here')}
                     </Menu.Item>
+
+                    {!!compiledSql ? (
+                        <Menu.Item
+                            component={Link}
+                            to={{
+                                pathname: `/projects/${projectUuid}/sql-runner`,
+                            }}
+                            state={{ sql: compiledSql }}
+                            leftSection={<MantineIcon icon={IconTerminal2} />}
+                        >
+                            {t('ai_chart_quick_options.open_in_sql_runner')}
+                        </Menu.Item>
+                    ) : null}
                 </Menu.Dropdown>
             </Menu>
             <MantineModal
                 opened={opened}
                 onClose={close}
-                title="Save chart"
+                title={t('ai_chart_quick_options.save_chart')}
                 icon={IconChartBar}
                 size="lg"
                 modalBodyProps={{

@@ -2,21 +2,26 @@ import {
     Button,
     Group,
     Kbd,
-    MantineProvider,
     Text,
     Tooltip,
+    rgba,
     type MantineSize,
-} from '@mantine/core';
-import { useHotkeys, useOs } from '@mantine/hooks';
+} from '@mantine-8/core';
+import { useHotkeys, useOs } from '@mantine-8/hooks';
 import { IconPlayerPlay, IconX } from '@tabler/icons-react';
 import { memo, useCallback, useTransition, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-
+import {
+    explorerActions,
+    selectQueryLimit,
+    useExplorerDispatch,
+    useExplorerSelector,
+} from '../features/explorer/store';
 import useHealth from '../hooks/health/useHealth';
-import useExplorerContext from '../providers/Explorer/useExplorerContext';
+import { useExplorerQuery } from '../hooks/useExplorerQuery';
 import useTracking from '../providers/Tracking/useTracking';
 import { EventName } from '../types/Events';
-import LimitButton from './LimitButton';
+import RunQuerySettings from './RunQuerySettings';
 import MantineIcon from './common/MantineIcon';
 
 export const RefreshButton: FC<{ size?: MantineSize }> = memo(({ size }) => {
@@ -25,30 +30,20 @@ export const RefreshButton: FC<{ size?: MantineSize }> = memo(({ size }) => {
     const maxLimit = health.data?.query.maxLimit ?? 5000;
 
     const os = useOs();
-    const limit = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.metricQuery.limit,
-    );
-    const setRowLimit = useExplorerContext(
-        (context) => context.actions.setRowLimit,
-    );
-    const isValidQuery = useExplorerContext(
-        (context) => context.state.isValidQuery,
-    );
-    const isLoading = useExplorerContext((context) => {
-        const isCreatingQuery = context.query.isFetching;
-        const isFetchingFirstPage = context.queryResults.isFetchingFirstPage;
-        const isFetchingAllRows = context.queryResults.isFetchingAllPages;
-        const isQueryError = context.queryResults.error;
-        return (
-            (isCreatingQuery || isFetchingFirstPage || isFetchingAllRows) &&
-            !isQueryError
-        );
-    });
-    const fetchResults = useExplorerContext(
-        (context) => context.actions.fetchResults,
-    );
-    const cancelQuery = useExplorerContext(
-        (context) => context.actions.cancelQuery,
+
+    // Get state and actions from Redux
+    const limit = useExplorerSelector(selectQueryLimit);
+    const dispatch = useExplorerDispatch();
+
+    // Get query state and actions from hooks
+    const { isValidQuery, isLoading, fetchResults, cancelQuery } =
+        useExplorerQuery();
+
+    const setRowLimit = useCallback(
+        (newLimit: number) => {
+            dispatch(explorerActions.setRowLimit(newLimit));
+        },
+        [dispatch],
     );
 
     const { t } = useTranslation();
@@ -70,17 +65,15 @@ export const RefreshButton: FC<{ size?: MantineSize }> = memo(({ size }) => {
         <Button.Group>
             <Tooltip
                 label={
-                    <MantineProvider inherit theme={{ colorScheme: 'dark' }}>
-                        <Group spacing="xxs">
-                            <Kbd fw={600}>
-                                {os === 'macos' || os === 'ios' ? '⌘' : 'ctrl'}
-                            </Kbd>
+                    <Group gap="xxs">
+                        <Kbd fw={600}>
+                            {os === 'macos' || os === 'ios' ? '⌘' : 'ctrl'}
+                        </Kbd>
 
-                            <Text fw={600}>+</Text>
+                        <Text fw={600}>+</Text>
 
-                            <Kbd fw={600}>Enter</Kbd>
-                        </Group>
-                    </MantineProvider>
+                        <Kbd fw={600}>Enter</Kbd>
+                    </Group>
                 }
                 position="bottom"
                 withArrow
@@ -88,19 +81,21 @@ export const RefreshButton: FC<{ size?: MantineSize }> = memo(({ size }) => {
                 disabled={isLoading || !isValidQuery}
             >
                 <Button
-                    pr="xxs"
                     size={size}
+                    pr={limit ? 'xs' : undefined}
                     disabled={!isValidQuery}
-                    leftIcon={<MantineIcon icon={IconPlayerPlay} />}
+                    leftSection={<MantineIcon icon={IconPlayerPlay} />}
                     loading={isLoading}
                     onClick={onClick}
-                    sx={(theme) => ({
+                    style={(theme) => ({
                         flex: 1,
-                        borderRight: `1px solid ${theme.fn.rgba(
-                            theme.colors.gray[5],
-                            0.6,
-                        )}`,
+                        borderRight: isValidQuery
+                            ? `1px solid ${rgba(theme.colors.gray[5], 0.6)}`
+                            : undefined,
+                        borderTopRightRadius: 0,
+                        borderBottomRightRadius: 0,
                     })}
+                    data-testid="RefreshButton/RunQueryButton"
                 >
                     {t('components_refresh_button.run_query')} ({limit})
                 </Button>
@@ -121,17 +116,28 @@ export const RefreshButton: FC<{ size?: MantineSize }> = memo(({ size }) => {
                                 cancelQuery();
                             })
                         }
+                        style={{
+                            borderTopLeftRadius: 0,
+                            borderBottomLeftRadius: 0,
+                        }}
                     >
                         <MantineIcon icon={IconX} size="sm" />
                     </Button>
                 </Tooltip>
             ) : (
-                <LimitButton
+                <RunQuerySettings
                     disabled={!isValidQuery}
                     size={size}
                     maxLimit={maxLimit}
                     limit={limit}
                     onLimitChange={setRowLimit}
+                    showAutoFetchSetting
+                    targetProps={{
+                        style: {
+                            borderTopLeftRadius: 0,
+                            borderBottomLeftRadius: 0,
+                        },
+                    }}
                 />
             )}
         </Button.Group>

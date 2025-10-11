@@ -110,6 +110,8 @@ const createMockService = (overrides: AnyType = {}) => {
         emailModel: {} as AnyType,
         projectService: {} as AnyType,
         serviceAccountModel: serviceAccountModel as AnyType,
+        embedModel: {} as AnyType,
+        encryptionUtil: { encrypt: jest.fn() } as AnyType,
     });
 };
 
@@ -515,6 +517,56 @@ describe('InstanceConfigurationService.updateInstanceConfiguration', () => {
             await expect(
                 service.updateInstanceConfiguration(),
             ).resolves.not.toThrow();
+        });
+
+        test('should allow non-git project to be updated with warehouse configuration only', async () => {
+            const nonGitProject = {
+                ...mockProject,
+                dbtConnection: {
+                    type: 'local',
+                    project_dir: '/path/to/project',
+                },
+            };
+
+            service = createMockService({
+                organizationModel: {
+                    getOrgUuids: jest.fn().mockResolvedValue([mockOrgUuid]),
+                },
+                projectModel: {
+                    getDefaultProjectUuids: jest
+                        .fn()
+                        .mockResolvedValue([mockProjectUuid]),
+                    getWithSensitiveFields: jest
+                        .fn()
+                        .mockResolvedValue(nonGitProject),
+                    update: jest.fn().mockResolvedValue(undefined),
+                },
+                updateSetup: {
+                    project: {
+                        httpPath: '/sql/1.0/warehouses/new-warehouse',
+                        dbtVersion: SupportedDbtVersions.V1_5,
+                    },
+                },
+            });
+
+            await expect(
+                service.updateInstanceConfiguration(),
+            ).resolves.not.toThrow();
+
+            expect(service['projectModel'].update).toHaveBeenCalledWith(
+                mockProjectUuid,
+                {
+                    ...nonGitProject,
+                    warehouseConnection: {
+                        ...nonGitProject.warehouseConnection,
+                        httpPath: '/sql/1.0/warehouses/new-warehouse',
+                    },
+                    dbtVersion: SupportedDbtVersions.V1_5,
+                    dbtConnection: {
+                        ...nonGitProject.dbtConnection,
+                    },
+                },
+            );
         });
     });
 

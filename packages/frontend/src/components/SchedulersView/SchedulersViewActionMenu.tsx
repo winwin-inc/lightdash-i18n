@@ -1,7 +1,8 @@
-import { ActionIcon, Menu } from '@mantine/core';
+import { ActionIcon, Menu } from '@mantine-8/core';
 import {
     IconDots,
     IconEdit,
+    IconSend,
     IconSquarePlus,
     IconTrash,
 } from '@tabler/icons-react';
@@ -11,6 +12,8 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import { SchedulerDeleteModal } from '../../features/scheduler';
+import ConfirmSendNowModal from '../../features/scheduler/components/ConfirmSendNowModal';
+import { useSendNowSchedulerByUuid } from '../../features/scheduler/hooks/useScheduler';
 import MantineIcon from '../common/MantineIcon';
 import {
     getItemLink,
@@ -32,7 +35,10 @@ const SchedulersViewActionMenu: FC<SchedulersViewActionMenuProps> = ({
 }) => {
     const { t } = useTranslation();
     const [isDeleting, setIsDeleting] = React.useState(false);
+    const [isConfirmOpen, setIsConfirmOpen] = React.useState(false);
     const queryClient = useQueryClient();
+
+    const sendNowMutation = useSendNowSchedulerByUuid(item.schedulerUuid);
 
     const handleDelete = async () => {
         setIsDeleting(false);
@@ -52,14 +58,8 @@ const SchedulersViewActionMenu: FC<SchedulersViewActionMenuProps> = ({
                 closeOnClickOutside
             >
                 <Menu.Target>
-                    <ActionIcon
-                        sx={(theme) => ({
-                            ':hover': {
-                                backgroundColor: theme.colors.gray[1],
-                            },
-                        })}
-                    >
-                        <IconDots size={16} />
+                    <ActionIcon variant="subtle">
+                        <MantineIcon icon={IconDots} />
                     </ActionIcon>
                 </Menu.Target>
 
@@ -67,7 +67,7 @@ const SchedulersViewActionMenu: FC<SchedulersViewActionMenuProps> = ({
                     <Menu.Item
                         component={Link}
                         role="menuitem"
-                        icon={<IconEdit size={18} />}
+                        leftSection={<MantineIcon icon={IconEdit} />}
                         to={getSchedulerLink(item, projectUuid)}
                     >
                         {t(
@@ -77,7 +77,7 @@ const SchedulersViewActionMenu: FC<SchedulersViewActionMenuProps> = ({
                     <Menu.Item
                         component={Link}
                         role="menuitem"
-                        icon={<IconSquarePlus size={18} />}
+                        leftSection={<MantineIcon icon={IconSquarePlus} />}
                         to={getItemLink(item, projectUuid)}
                     >
                         {t('components_schedulers_view_action_menu.go_to')}
@@ -87,12 +87,20 @@ const SchedulersViewActionMenu: FC<SchedulersViewActionMenuProps> = ({
                                   'components_schedulers_view_action_menu.dashboard',
                               )}
                     </Menu.Item>
+                    <Menu.Item
+                        component="button"
+                        role="menuitem"
+                        leftSection={<MantineIcon icon={IconSend} />}
+                        onClick={() => setIsConfirmOpen(true)}
+                    >
+                        Send now
+                    </Menu.Item>
                     <Menu.Divider />
                     <Menu.Item
                         component="button"
                         role="menuitem"
                         color="red"
-                        icon={<MantineIcon icon={IconTrash} size={18} />}
+                        leftSection={<MantineIcon icon={IconTrash} />}
                         onClick={() => setIsDeleting(true)}
                     >
                         {t(
@@ -106,6 +114,16 @@ const SchedulersViewActionMenu: FC<SchedulersViewActionMenuProps> = ({
                 schedulerUuid={item.schedulerUuid}
                 onConfirm={handleDelete}
                 onClose={handleDelete}
+            />
+            <ConfirmSendNowModal
+                opened={isConfirmOpen}
+                onClose={() => setIsConfirmOpen(false)}
+                schedulerName={item.name}
+                loading={sendNowMutation.isLoading}
+                onConfirm={() => {
+                    sendNowMutation.mutate();
+                    setIsConfirmOpen(false);
+                }}
             />
         </>
     );

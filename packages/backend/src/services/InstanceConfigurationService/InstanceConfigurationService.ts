@@ -1,6 +1,8 @@
 import {
     AllowedEmailDomains,
     CreateProject,
+    CreateWarehouseCredentials,
+    DbtProjectConfig,
     isGitProjectType,
     NotExistsError,
     OrganizationMemberRole,
@@ -15,6 +17,7 @@ import {
 } from '@lightdash/common';
 import { LightdashAnalytics } from '../../analytics/LightdashAnalytics';
 import { LightdashConfig } from '../../config/parseConfig';
+import { EmbedModel } from '../../ee/models/EmbedModel';
 import { ServiceAccountModel } from '../../ee/models/ServiceAccountModel';
 import { PersonalAccessTokenModel } from '../../models/DashboardModel/PersonalAccessTokenModel';
 import { EmailModel } from '../../models/EmailModel';
@@ -22,6 +25,7 @@ import { OrganizationAllowedEmailDomainsModel } from '../../models/OrganizationA
 import { OrganizationModel } from '../../models/OrganizationModel';
 import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { UserModel } from '../../models/UserModel';
+import { EncryptionUtil } from '../../utils/EncryptionUtil/EncryptionUtil';
 import { BaseService } from '../BaseService';
 import { ProjectService } from '../ProjectService/ProjectService';
 
@@ -37,6 +41,8 @@ type InstanceConfigurationServiceArguments = {
     emailModel: EmailModel;
     projectService: ProjectService; // For compiling project on new setup
     serviceAccountModel?: ServiceAccountModel; // For creating service account on new setup
+    embedModel?: EmbedModel; // For updating embed settings on new setup
+    encryptionUtil: EncryptionUtil; // For encrypting embed secrets
 };
 
 export class InstanceConfigurationService extends BaseService {
@@ -60,6 +66,10 @@ export class InstanceConfigurationService extends BaseService {
 
     private readonly serviceAccountModel?: ServiceAccountModel;
 
+    private readonly embedModel?: EmbedModel;
+
+    private readonly encryptionUtil: EncryptionUtil;
+
     constructor({
         lightdashConfig,
         analytics,
@@ -71,6 +81,8 @@ export class InstanceConfigurationService extends BaseService {
         emailModel,
         projectService,
         serviceAccountModel,
+        embedModel,
+        encryptionUtil,
     }: InstanceConfigurationServiceArguments) {
         super();
         this.lightdashConfig = lightdashConfig;
@@ -84,6 +96,8 @@ export class InstanceConfigurationService extends BaseService {
         this.emailModel = emailModel;
         this.projectService = projectService;
         this.serviceAccountModel = serviceAccountModel;
+        this.embedModel = embedModel;
+        this.encryptionUtil = encryptionUtil;
     }
 
     async initializeInstance() {
@@ -184,11 +198,16 @@ export class InstanceConfigurationService extends BaseService {
             );
 
             // Optional steps are performed at the end
-            if (setup.organization.emailDomain) {
+            if (
+                setup.organization.emailDomains &&
+                setup.organization.emailDomains.length > 0
+            ) {
                 this.logger.debug(
-                    `Initial setup: Whitelisting domain "${setup.organization.emailDomain}"`,
+                    `Initial setup: Whitelisting domains "${setup.organization.emailDomains.join(
+                        ', ',
+                    )}"`,
                 );
-                const emailDomains = [setup.organization.emailDomain];
+                const { emailDomains } = setup.organization;
                 // Validates input
                 const error = validateOrganizationEmailDomains(emailDomains);
                 if (error) {
@@ -205,11 +224,13 @@ export class InstanceConfigurationService extends BaseService {
                 );
 
                 this.logger.info(
-                    `Initial setup: Whitelisted domain "${setup.organization.emailDomain}"`,
+                    `Initial setup: Whitelisted domains "${setup.organization.emailDomains.join(
+                        ', ',
+                    )}"`,
                 );
             } else {
                 this.logger.info(
-                    `Initial setup: No whitelisted domain, skipping`,
+                    `Initial setup: No whitelisted domains, skipping`,
                 );
             }
 
@@ -245,6 +266,13 @@ export class InstanceConfigurationService extends BaseService {
             } else {
                 this.logger.info(
                     `Initial setup: No API key provided, skipping`,
+                );
+            }
+
+            // Setup embed if configured
+            if (this.lightdashConfig.updateSetup?.embed) {
+                await this.updateEmbedSettingsForInstance(
+                    this.lightdashConfig.updateSetup,
                 );
             }
         } catch (error) {
@@ -355,7 +383,8 @@ export class InstanceConfigurationService extends BaseService {
         if (
             config.dbt?.personal_access_token ||
             config.project?.httpPath ||
-            config.project?.dbtVersion
+            config.project?.dbtVersion ||
+            config.project?.personalAccessToken
         ) {
             // This will throw an error if there is not exactly 1 project
             const projectUuid = await this.getSingleProject();
@@ -367,37 +396,57 @@ export class InstanceConfigurationService extends BaseService {
                 projectUuid,
             );
 
-            const dbt = project.dbtConnection;
-            if (!isGitProjectType(dbt)) {
-                throw new ParameterError(
-                    `Project ${projectUuid} is not a git project`,
-                );
-            }
-            const { warehouseConnection } = project;
-            if (
-                !warehouseConnection ||
-                warehouseConnection.type !== WarehouseTypes.DATABRICKS
-            ) {
+            const { warehouseConnection, dbtConnection } = project;
+
+            if (!warehouseConnection) {
                 throw new ParameterError(
                     `Project ${projectUuid} has no warehouse connection`,
                 );
             }
 
+            // Update dbt connection
+            let updatedDbtConnection: DbtProjectConfig | undefined;
+            if (config.dbt?.personal_access_token) {
+                if (!isGitProjectType(dbtConnection)) {
+                    throw new ParameterError(
+                        `Project ${projectUuid} is not a git project`,
+                    );
+                }
+                updatedDbtConnection = {
+                    ...dbtConnection,
+                    personal_access_token: config.dbt.personal_access_token,
+                };
+            }
+            // Update warehouse connection
+            let updatedWarehouseConnection:
+                | CreateWarehouseCredentials
+                | undefined;
+            if (
+                config.project?.httpPath ||
+                config.project?.personalAccessToken
+            ) {
+                if (warehouseConnection.type !== WarehouseTypes.DATABRICKS) {
+                    throw new ParameterError(
+                        `Project ${projectUuid} is not a Databricks project. Only Databricks projects are supported at the moment.`,
+                    );
+                }
+                updatedWarehouseConnection = {
+                    ...warehouseConnection,
+                    ...(config.project.httpPath && {
+                        httpPath: config.project.httpPath,
+                    }),
+                    ...(config.project.personalAccessToken && {
+                        personalAccessToken: config.project.personalAccessToken,
+                    }),
+                };
+            }
+
             const updatedProject: UpdateProject = {
                 ...project,
-                warehouseConnection: {
-                    ...warehouseConnection,
-                    httpPath:
-                        config.project?.httpPath ||
-                        warehouseConnection.httpPath,
-                },
+                warehouseConnection:
+                    updatedWarehouseConnection ?? warehouseConnection,
                 dbtVersion: config.project?.dbtVersion || project.dbtVersion,
-                dbtConnection: {
-                    ...dbt,
-                    personal_access_token:
-                        config.dbt?.personal_access_token ||
-                        dbt.personal_access_token!,
-                },
+                dbtConnection: updatedDbtConnection ?? dbtConnection,
             };
 
             await this.projectModel.update(projectUuid, updatedProject);
@@ -435,7 +484,8 @@ export class InstanceConfigurationService extends BaseService {
     ) {
         if (
             !config.organization?.defaultRole ||
-            !config.organization?.emailDomain
+            !config.organization?.emailDomains ||
+            config.organization.emailDomains.length === 0
         ) {
             this.logger.debug(
                 `Update instance: No default role config found, skipping`,
@@ -445,7 +495,7 @@ export class InstanceConfigurationService extends BaseService {
 
         const orgUuid = await this.getSingleOrg();
 
-        const emailDomains = [config.organization.emailDomain];
+        const { emailDomains } = config.organization;
         // Validates input
         const error = validateOrganizationEmailDomains(emailDomains);
         if (error) {
@@ -462,8 +512,70 @@ export class InstanceConfigurationService extends BaseService {
         );
 
         this.logger.info(
-            `Update instance: Updated default role to ${config.organization.defaultRole} for organization ${orgUuid}`,
+            `Update instance: Updated default role to ${
+                config.organization.defaultRole
+            } for domains "${emailDomains.join(
+                ', ',
+            )}" in organization ${orgUuid}`,
         );
+    }
+
+    private async updateEmbedSettingsForInstance(
+        config: NonNullable<LightdashConfig['updateSetup']>,
+    ) {
+        if (!config.embed || !this.embedModel) return;
+
+        const { allowAllDashboards, secret } = config.embed;
+        if (allowAllDashboards === undefined && !secret) return;
+
+        try {
+            const projectUuid = await this.getSingleProject();
+
+            // If config embed secret is provided, we need to call .save to upsert the embed record
+            // This requires a user UUID, we get it from the admin email
+            if (secret) {
+                let userUuid: string | undefined;
+                const adminEmail = config.organization?.admin?.email;
+                if (adminEmail) {
+                    const sessionUser =
+                        await this.userModel.findSessionUserByPrimaryEmail(
+                            adminEmail,
+                        );
+                    userUuid = sessionUser?.userUuid;
+                }
+
+                if (!userUuid) {
+                    throw new ParameterError(
+                        `Setting embed secret LD_SETUP_EMBED_SECRET requires an admin email LD_SETUP_ADMIN_EMAIL`,
+                    );
+                }
+
+                const encodedSecret = this.encryptionUtil.encrypt(secret);
+
+                await this.embedModel.save(
+                    projectUuid,
+                    encodedSecret,
+                    [],
+                    userUuid,
+                    allowAllDashboards ?? false,
+                );
+                this.logger.info(
+                    `Embed created for project ${projectUuid} with allowAllDashboards=${
+                        allowAllDashboards ?? false
+                    }`,
+                );
+            } else if (allowAllDashboards) {
+                this.logger.info(
+                    'No embed secret provided, enabling allowAllDashboards if configured',
+                );
+                await this.embedModel.updateDashboards(projectUuid, {
+                    dashboardUuids: [],
+                    allowAllDashboards,
+                });
+            }
+        } catch (error) {
+            this.logger.error(`Error updating embed settings: ${error}`);
+        }
     }
 
     async updateInstanceConfiguration() {
@@ -482,5 +594,7 @@ export class InstanceConfigurationService extends BaseService {
         await this.updateProjectConfiguration(config);
 
         await this.updateOrganizationDefaultRole(config);
+
+        await this.updateEmbedSettingsForInstance(config);
     }
 }

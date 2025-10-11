@@ -12,7 +12,7 @@ import {
     Stack,
     Text,
     Title,
-} from '@mantine/core';
+} from '@mantine-8/core';
 import { IconBook, IconInfoCircle } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -54,15 +54,15 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                     h="100%"
                     miw={minimal ? '100%' : maxWidth}
                     maw={maxWidth}
-                    position="apart"
+                    justify="space-between"
                     mx="auto"
                 >
                     <Button
-                        variant={minimal ? 'subtle' : 'light'}
+                        variant={minimal ? 'transparent' : 'subtle'}
                         color="gray.7"
                         p="xs"
                         fw="500"
-                        leftIcon={<Logo />}
+                        leftSection={<Logo />}
                         loading={healthState.isInitialLoading}
                         onClick={() => setIsOpen(true)}
                     >
@@ -85,7 +85,12 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                             href="https://docs.lightdash.com/"
                             target="_blank"
                         >
-                            <ActionIcon color="gray.7" p="xs" size="lg">
+                            <ActionIcon
+                                color="gray.7"
+                                p="xs"
+                                size="lg"
+                                variant="subtle"
+                            >
                                 <MantineIcon
                                     icon={IconBook}
                                     size="lg"
@@ -119,11 +124,9 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                 opened={isOpen}
                 onClose={() => setIsOpen(false)}
                 title={
-                    <Group align="center" position="left" spacing="xs">
-                        <IconInfoCircle size={17} color="gray" />{' '}
-                        {t('components_about_footer.modal.title', {
-                            name: 'Lightdash',
-                        })}
+                    <Group align="center" justify="flex-start" gap="xs">
+                        <IconInfoCircle size={17} color="gray" /> About
+                        Lightdash
                     </Group>
                 }
             >
@@ -157,9 +160,7 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                                         href="https://docs.lightdash.com/self-host/update-lightdash"
                                         target="_blank"
                                         rel="noreferrer"
-                                        style={{
-                                            textDecoration: 'underline',
-                                        }}
+                                        underline="always" // Required: link isn't differentiated from blue text without underline
                                     >
                                         {t('components_about_footer.modal.why')}
                                     </Anchor>{' '}
@@ -170,7 +171,7 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                             </Alert>
                         )}
 
-                        <Group position="right">
+                        <Group justify="flex-end">
                             <MantineLinkButton
                                 href="https://docs.lightdash.com/"
                                 target="_blank"

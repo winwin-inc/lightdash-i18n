@@ -94,6 +94,7 @@ const FilterConfiguration: FC<Props> = ({
     onSave,
 }) => {
     const { t } = useTranslation();
+
     const [selectedTabId, setSelectedTabId] = useState<FilterTabs>(DEFAULT_TAB);
     const [selectedField, setSelectedField] = useState<
         FilterableDimension | undefined
@@ -380,7 +381,7 @@ const FilterConfiguration: FC<Props> = ({
                                         <Text>
                                             {t(
                                                 'components_dashboard_filter.tabs.select_dimension',
-                                            )}
+                                            )}{' '}
                                             <Text color="red" span>
                                                 *
                                             </Text>{' '}
@@ -405,7 +406,7 @@ const FilterConfiguration: FC<Props> = ({
                                         <Text>
                                             {t(
                                                 'components_dashboard_filter.tabs.select_column',
-                                            )}
+                                            )}{' '}
                                             <Text color="red" span>
                                                 *
                                             </Text>{' '}

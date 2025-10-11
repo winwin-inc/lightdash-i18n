@@ -58,11 +58,11 @@ const ExportSelector: FC<
                         color="gray.6"
                         size="xs"
                         mb="xs"
-                        leftIcon={<IconArrowLeft size="16" />}
+                        leftIcon={<MantineIcon icon={IconArrowLeft} />}
                         variant="subtle"
                         onClick={() => setExportType(undefined)}
                     >
-                        {t('components_export_selector.export_selector')}
+                        {t('components_export_selector.back')}
                     </Button>
                     <ExportResults
                         totalResults={totalResults}

@@ -4,6 +4,7 @@ import {
     CreateEmbedJwt,
     Embed,
     OrganizationMemberRole,
+    OssEmbed,
     PossibleAbilities,
     SessionAccount,
     SessionUser,
@@ -87,9 +88,35 @@ export function buildAccount({
     if (accountType === 'session') {
         return fromSession(defaultSessionUser, 'session-cookie');
     }
+    const embed: OssEmbed = {
+        organization: defaultOrganization,
+        projectUuid: 'test-project-uuid',
+        encodedSecret: 'test-encoded-secret',
+        dashboardUuids: ['test-dashboard-uuid'],
+        allowAllDashboards: false,
+        createdAt: '2021-01-01',
+        user: {
+            userUuid: 'test-user-uuid',
+            firstName: 'Test',
+            lastName: 'User',
+        },
+    };
+
     return fromJwt({
         decodedToken: defaultJwtToken,
-        organization: defaultOrganization,
+        embed: {
+            organization: defaultOrganization,
+            projectUuid: 'test-project-uuid',
+            dashboardUuids: ['test-dashboard-uuid'],
+            allowAllDashboards: false,
+            createdAt: '2024-01-01',
+            encodedSecret: 'test-encoded-secret',
+            user: {
+                userUuid: defaultUserId,
+                firstName: 'Test',
+                lastName: 'User',
+            },
+        },
         source: 'test-jwt-token',
         dashboardUuid: 'test-dashboard-uuid',
         userAttributes: defaultUserAttributes,

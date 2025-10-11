@@ -4,7 +4,7 @@ import {
     type DashboardTile,
     type Dashboard as IDashboard,
 } from '@lightdash/common';
-import { ActionIcon, Group, ScrollArea, Stack, Tabs } from '@mantine/core';
+import { ActionIcon, Group, ScrollArea, Tabs } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import cloneDeep from 'lodash/cloneDeep';
 import { useMemo, useState, type FC } from 'react';
@@ -15,7 +15,6 @@ import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import { TrackSection } from '../../providers/Tracking/TrackingProvider';
 import '../../styles/droppable.css';
 import { SectionName } from '../../types/Events';
-import DashboardFilter from '../DashboardFilter';
 import EmptyStateNoTiles from '../DashboardTiles/EmptyStateNoTiles';
 import MantineIcon from '../common/MantineIcon';
 import { LockedDashboardModal } from '../common/modal/LockedDashboardModal';
@@ -33,7 +32,6 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 
 type DashboardTabsProps = {
     isEditMode: boolean;
-    hasTilesThatSupportFilters: boolean;
     hasRequiredDashboardFiltersToSet: boolean;
     addingTab: boolean;
     dashboardTiles: DashboardTile[] | undefined;
@@ -43,21 +41,16 @@ type DashboardTabsProps = {
     handleDeleteTile: (tile: IDashboard['tiles'][number]) => Promise<void>;
     handleBatchDeleteTiles: (tile: IDashboard['tiles'][number][]) => void;
     handleEditTile: (tiles: IDashboard['tiles'][number]) => void;
-    setActiveTab: (
-        value: React.SetStateAction<DashboardTab | undefined>,
-    ) => void;
     setAddingTab: (value: React.SetStateAction<boolean>) => void;
     setGridWidth: (value: React.SetStateAction<number>) => void;
 };
 
 const DashboardTabs: FC<DashboardTabsProps> = ({
     isEditMode,
-    hasTilesThatSupportFilters,
     hasRequiredDashboardFiltersToSet,
     addingTab,
     dashboardTiles,
     activeTab,
-    setActiveTab,
     handleAddTiles,
     handleUpdateTiles,
     handleDeleteTile,
@@ -66,14 +59,35 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
     setGridWidth,
     setAddingTab,
 }) => {
+    const gridProps = getResponsiveGridLayoutProps();
     const layouts = useMemo(
         () => ({
             lg:
                 dashboardTiles?.map<Layout>((tile) =>
-                    getReactGridLayoutConfig(tile, isEditMode),
+                    getReactGridLayoutConfig(
+                        tile,
+                        isEditMode,
+                        gridProps.cols.lg,
+                    ),
+                ) ?? [],
+            md:
+                dashboardTiles?.map<Layout>((tile) =>
+                    getReactGridLayoutConfig(
+                        tile,
+                        isEditMode,
+                        gridProps.cols.md,
+                    ),
+                ) ?? [],
+            sm:
+                dashboardTiles?.map<Layout>((tile) =>
+                    getReactGridLayoutConfig(
+                        tile,
+                        isEditMode,
+                        gridProps.cols.sm,
+                    ),
                 ) ?? [],
         }),
-        [dashboardTiles, isEditMode],
+        [dashboardTiles, isEditMode, gridProps],
     );
 
     const { search } = useLocation();
@@ -126,6 +140,21 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
         isActiveTile(tile),
     );
 
+    const handleChangeTab = (tab: DashboardTab) => {
+        const newParams = new URLSearchParams(search);
+        // Change tabs by navigating to the new tab
+        // the provider sets the active tab based on the URL
+        void navigate(
+            {
+                pathname: isEditMode
+                    ? `/projects/${projectUuid}/dashboards/${dashboardUuid}/edit/tabs/${tab?.uuid}`
+                    : `/projects/${projectUuid}/dashboards/${dashboardUuid}/view/tabs/${tab?.uuid}`,
+                search: newParams.toString(),
+            },
+            { replace: true },
+        );
+    };
+
     const handleAddTab = (name: string) => {
         if (name) {
             const newTabs = dashboardTabs ? [...dashboardTabs] : [];
@@ -147,16 +176,13 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                 uuid: uuid4(),
                 isDefault: false,
                 order: lastOrd + 1,
-                filters: {
-                    dimensions: [],
-                    metrics: [],
-                    tableCalculations: [],
-                },
             };
             newTabs.push(newTab);
             setDashboardTabs(newTabs);
-            setActiveTab(newTab);
             setHaveTabsChanged(true);
+
+            // Navigate to the new tab
+            handleChangeTab(newTab);
         }
         setAddingTab(false);
     };
@@ -185,7 +211,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
             return newTabs;
         });
         if (activeTab?.uuid === tabUuid) {
-            setActiveTab(
+            handleChangeTab(
                 dashboardTabs.filter((tab) => tab.uuid !== tabUuid)?.[0],
             );
         }
@@ -245,19 +271,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         (t) => t.uuid === e,
                                     );
                                     if (tab) {
-                                        setActiveTab(tab);
-                                        const newParams = new URLSearchParams(
-                                            search,
-                                        );
-                                        void navigate(
-                                            {
-                                                pathname: isEditMode
-                                                    ? `/projects/${projectUuid}/dashboards/${dashboardUuid}/edit/tabs/${tab?.uuid}`
-                                                    : `/projects/${projectUuid}/dashboards/${dashboardUuid}/view/tabs/${tab?.uuid}`,
-                                                search: newParams.toString(),
-                                            },
-                                            { replace: true },
-                                        );
+                                        handleChangeTab(tab);
                                     }
                                 }}
                                 mt={tabsEnabled ? 'sm' : 'xs'}
@@ -344,28 +358,14 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         )}
                                     </Tabs.List>
                                 )}
-
-                                <Stack
+                                <Group
+                                    grow
                                     pt={tabsEnabled ? 'sm' : undefined}
                                     pb="lg"
-                                    px="sm"
-                                    spacing={0}
+                                    px="xs"
                                 >
-                                    <Group px="xs">
-                                        {hasTilesThatSupportFilters &&
-                                            activeTab?.uuid && (
-                                                <DashboardFilter
-                                                    isEditMode={isEditMode}
-                                                    activeTabUuid={
-                                                        activeTab?.uuid
-                                                    }
-                                                    filterType="tab"
-                                                />
-                                            )}
-                                    </Group>
-
                                     <ResponsiveGridLayout
-                                        {...getResponsiveGridLayoutProps()}
+                                        {...gridProps}
                                         className={`${
                                             hasRequiredDashboardFiltersToSet
                                                 ? 'locked'
@@ -418,7 +418,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                             }
                                         })}
                                     </ResponsiveGridLayout>
-                                </Stack>
+                                </Group>
                                 <LockedDashboardModal
                                     opened={
                                         hasRequiredDashboardFiltersToSet &&
@@ -451,6 +451,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                 {activeTab && (
                                     <>
                                         <TabEditModal
+                                            key={activeTab.uuid}
                                             tab={activeTab}
                                             onClose={() => setEditingTab(false)}
                                             opened={isEditingTab}
@@ -462,6 +463,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                             tab={activeTab}
                                             dashboardTiles={dashboardTiles}
                                             dashboardTabs={dashboardTabs}
+                                            dashboardUuid={dashboardUuid!}
                                             onClose={() =>
                                                 setDeletingTab(false)
                                             }

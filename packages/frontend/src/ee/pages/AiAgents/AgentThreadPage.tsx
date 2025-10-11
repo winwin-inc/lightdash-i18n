@@ -1,37 +1,51 @@
 import { Center, Loader } from '@mantine-8/core';
-import { useOutletContext, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useOutletContext, useParams } from 'react-router';
 
 import useApp from '../../../providers/App/useApp';
 import { AgentChatDisplay } from '../../features/aiCopilot/components/ChatElements/AgentChatDisplay';
 import { AgentChatInput } from '../../features/aiCopilot/components/ChatElements/AgentChatInput';
+import { useAiAgentThreadArtifact } from '../../features/aiCopilot/hooks/useAiAgentThreadArtifact';
 import {
-    useAiAgent,
+    useProjectAiAgent as useAiAgent,
     useAiAgentThread,
     useCreateAgentThreadMessageMutation,
-} from '../../features/aiCopilot/hooks/useOrganizationAiAgents';
+} from '../../features/aiCopilot/hooks/useProjectAiAgents';
 import { useAiAgentThreadStreaming } from '../../features/aiCopilot/streaming/useAiAgentThreadStreamQuery';
 import { type AgentContext } from './AgentPage';
 
-const AiAgentThreadPage = () => {
+const AiAgentThreadPage = ({ debug }: { debug?: boolean }) => {
     const { t } = useTranslation();
-
-    const { agentUuid, threadUuid, projectUuid } = useParams();
+    const { agentUuid, threadUuid, projectUuid, promptUuid } = useParams();
     const { user } = useApp();
+
     const { data: thread, isLoading: isLoadingThread } = useAiAgentThread(
+        projectUuid!,
         agentUuid,
         threadUuid,
     );
 
+    // Handle artifact selection based on thread changes
+    useAiAgentThreadArtifact({
+        projectUuid,
+        agentUuid,
+        threadUuid,
+        thread,
+    });
+
     const isThreadFromCurrentUser = thread?.user.uuid === user?.data?.userUuid;
 
-    const agentQuery = useAiAgent(agentUuid);
+    const agentQuery = useAiAgent(projectUuid!, agentUuid!);
     const { agent } = useOutletContext<AgentContext>();
 
     const {
         mutateAsync: createAgentThreadMessage,
         isLoading: isCreatingMessage,
-    } = useCreateAgentThreadMessageMutation(projectUuid, agentUuid, threadUuid);
+    } = useCreateAgentThreadMessageMutation(
+        projectUuid!,
+        agentUuid,
+        threadUuid,
+    );
     const isStreaming = useAiAgentThreadStreaming(threadUuid!);
 
     const handleSubmit = (prompt: string) => {
@@ -51,18 +65,26 @@ const AiAgentThreadPage = () => {
             thread={thread}
             agentName={agentQuery.data?.name ?? 'AI'}
             enableAutoScroll={true}
-            mode="interactive"
+            promptUuid={promptUuid}
+            debug={debug}
+            projectUuid={projectUuid}
+            agentUuid={agentUuid}
         >
             <AgentChatInput
                 disabled={
                     thread.createdFrom === 'slack' || !isThreadFromCurrentUser
                 }
-                disabledReason={t('ai_agents_thread_page.thread_created_in_slack')}
+                disabledReason={t(
+                    'ai_agents_thread_page.thread_created_in_slack',
+                )}
                 loading={isCreatingMessage || isStreaming}
                 onSubmit={handleSubmit}
                 placeholder={t('ai_agents_thread_page.ask_agent_anything', {
                     agentName: agent.name,
                 })}
+                messageCount={thread.messages?.length || 0}
+                projectUuid={projectUuid}
+                agentUuid={agentUuid}
             />
         </AgentChatDisplay>
     );

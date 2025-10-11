@@ -1,4 +1,4 @@
-import { type FilterableDimension, type DashboardFilterRule } from '@lightdash/common';
+import { type DashboardFilterRule } from '@lightdash/common';
 import { Button, Popover, Text, Tooltip } from '@mantine/core';
 import { useDisclosure, useId } from '@mantine/hooks';
 import { IconFilter } from '@tabler/icons-react';
@@ -10,7 +10,6 @@ import MantineIcon from '../common/MantineIcon';
 import FilterConfiguration from './FilterConfiguration';
 
 type Props = {
-    filterType: 'global' | 'tab';
     isEditMode: boolean;
     openPopoverId: string | undefined;
     activeTabUuid: string | undefined;
@@ -20,7 +19,6 @@ type Props = {
 };
 
 const AddFilterButton: FC<Props> = ({
-    filterType,
     isEditMode,
     openPopoverId,
     activeTabUuid,
@@ -28,7 +26,7 @@ const AddFilterButton: FC<Props> = ({
     onPopoverClose,
     onSave,
 }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
 
     const popoverId = useId();
     const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
@@ -73,46 +71,6 @@ const AddFilterButton: FC<Props> = ({
         [onSave, handleClose],
     );
 
-    const buttonText = useMemo(() => {
-        if (filterType === 'global') {
-            return t(
-                'components_dashboard_filter.filter.tooltip_creating_new.content.global',
-            );
-        }
-        return t(
-            'components_dashboard_filter.filter.tooltip_creating_new.content.tab',
-        );
-    }, [filterType, t]);
-
-    const currentDashboardTabs = useMemo(() => {
-        if (filterType === 'global') {
-            return dashboardTabs;
-        }
-        return dashboardTabs?.filter((tab) => tab.uuid === activeTabUuid);
-    }, [dashboardTabs, activeTabUuid, filterType]);
-
-    const currentDashboardTiles = useMemo(() => {
-        if (filterType === 'global') {
-            return dashboardTiles;
-        }
-        return dashboardTiles?.filter((tile) => tile.tabUuid === activeTabUuid);
-    }, [dashboardTiles, activeTabUuid, filterType]);
-
-    const currentFilterableFieldsByTileUuid = useMemo(() => {
-        if (filterType === 'global') {
-            return filterableFieldsByTileUuid;
-        }
-        return Object.keys(filterableFieldsByTileUuid ?? {}).reduce((acc, tileUuid) => {
-            const tile = currentDashboardTiles?.find((item) => item.uuid === tileUuid);
-
-            if (tile) {
-                acc[tileUuid] = filterableFieldsByTileUuid?.[tileUuid] || []
-            }
-
-            return acc;
-        }, {} as Record<string, FilterableDimension[]>);
-    }, [filterableFieldsByTileUuid, currentDashboardTiles, filterType]);
-
     return (
         <>
             <Popover
@@ -141,7 +99,7 @@ const AddFilterButton: FC<Props> = ({
                             <Text fz="xs">
                                 {t(
                                     'components_dashboard_filter.filter.tooltip_creating_new.label.part_1',
-                                )}{' '}
+                                )}
                                 <Text span fw={600}>
                                     {t(
                                         'components_dashboard_filter.filter.tooltip_creating_new.label.part_2',
@@ -156,6 +114,7 @@ const AddFilterButton: FC<Props> = ({
                         <Button
                             size="xs"
                             variant="default"
+                            radius="md"
                             leftIcon={
                                 <MantineIcon color="blue" icon={IconFilter} />
                             }
@@ -170,22 +129,24 @@ const AddFilterButton: FC<Props> = ({
                                     : onPopoverOpen(popoverId)
                             }
                         >
-                            {buttonText}
+                            {t(
+                                'components_dashboard_filter.filter.tooltip_creating_new.content.add_filter',
+                            )}
                         </Button>
                     </Tooltip>
                 </Popover.Target>
 
                 <Popover.Dropdown>
-                    {currentDashboardTiles && (
+                    {dashboardTiles && (
                         <FilterConfiguration
                             isCreatingNew={true}
                             isEditMode={isEditMode}
                             fields={allFilterableFields || []}
-                            tiles={currentDashboardTiles}
-                            tabs={currentDashboardTabs}
+                            tiles={dashboardTiles}
+                            tabs={dashboardTabs}
                             activeTabUuid={activeTabUuid}
                             availableTileFilters={
-                                currentFilterableFieldsByTileUuid ?? {}
+                                filterableFieldsByTileUuid ?? {}
                             }
                             onSave={handleSaveChanges}
                             popoverProps={{

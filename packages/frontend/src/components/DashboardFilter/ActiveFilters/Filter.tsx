@@ -48,7 +48,6 @@ const useDashboardFilterStyles = createStyles((theme) => ({
 
 type Props = {
     isEditMode: boolean;
-    filterType: 'global' | 'tab';
     isTemporary?: boolean;
     field: FilterableDimension | undefined;
     filterRule: DashboardFilterRule;
@@ -63,7 +62,6 @@ type Props = {
 
 const Filter: FC<Props> = ({
     isEditMode,
-    filterType,
     isTemporary,
     field,
     filterRule,
@@ -77,11 +75,11 @@ const Filter: FC<Props> = ({
 }) => {
     const { t } = useTranslation();
 
-    const getConditionalRuleLabel = useConditionalRuleLabel();
-    const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
-
     const { classes } = useDashboardFilterStyles();
     const popoverId = useId();
+
+    const getConditionalRuleLabel = useConditionalRuleLabel();
+    const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
     const dashboard = useDashboardContext((c) => c.dashboard);
     const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
@@ -152,13 +150,7 @@ const Filter: FC<Props> = ({
                 filterRule.target.fieldId,
             );
         }
-    }, [
-        filterRule,
-        field,
-        sqlChartTilesMetadata,
-        getConditionalRuleLabel,
-        getConditionalRuleLabelFromItem,
-    ]);
+    }, [filterRule, field, sqlChartTilesMetadata]);
 
     const filterRuleTables = useMemo(() => {
         if (!field || !allFilterableFields) return;
@@ -179,17 +171,17 @@ const Filter: FC<Props> = ({
                 })
                 .join(', ');
             return appliedTabList
-                ? `${t(
-                      'components_dashboard_filter.filter.inactive_filter.part_1',
+                ? ` ${t(
+                      'components_dashboard_filter.filter.inactive_filter_info.part_1',
                       {
                           suffix: appliesToTabs.length === 1 ? '' : 's',
                       },
                   )}: ${appliedTabList}`
                 : t(
-                      'components_dashboard_filter.filter.inactive_filter.part_2',
+                      'components_dashboard_filter.filter.inactive_filter_info.part_2',
                   );
         }
-    }, [activeTabUuid, appliesToTabs, dashboardTabs, t]);
+    }, [activeTabUuid, appliesToTabs, dashboardTabs]);
 
     const handleClose = useCallback(() => {
         if (isPopoverOpen) onPopoverClose();
@@ -203,36 +195,6 @@ const Filter: FC<Props> = ({
         },
         [onUpdate, handleClose],
     );
-
-    const currentDashboardTabs = useMemo(() => {
-        if (filterType === 'global') {
-            return dashboardTabs;
-        }
-        return dashboardTabs?.filter((tab) => tab.uuid === activeTabUuid);
-    }, [dashboardTabs, activeTabUuid, filterType]);
-
-    const currentDashboardTiles = useMemo(() => {
-        if (filterType === 'global') {
-            return dashboardTiles;
-        }
-        return dashboardTiles?.filter((tile) => tile.tabUuid === activeTabUuid);
-    }, [dashboardTiles, activeTabUuid, filterType]);
-
-    const currentFilterableFieldsByTileUuid = useMemo(() => {
-        if (filterType === 'global') {
-            return filterableFieldsByTileUuid;
-        }
-        return Object.keys(filterableFieldsByTileUuid ?? {}).reduce((acc, tileUuid) => {
-            const tile = currentDashboardTiles?.find((item) => item.uuid === tileUuid);
-
-            if (tile) {
-                acc[tileUuid] = filterableFieldsByTileUuid?.[tileUuid] || []
-            }
-
-            return acc;
-        }, {} as Record<string, FilterableDimension[]>);
-    }, [filterableFieldsByTileUuid, currentDashboardTiles, filterType]);
-
 
     return (
         <>
@@ -290,6 +252,7 @@ const Filter: FC<Props> = ({
                             <Button
                                 pos="relative"
                                 size="xs"
+                                radius="md"
                                 variant={
                                     isTemporary || hasUnsetRequiredFilter
                                         ? 'outline'
@@ -364,7 +327,7 @@ const Filter: FC<Props> = ({
                                                           )
                                                         : t(
                                                               'components_dashboard_filter.filter.tables',
-                                                          )}{' '}
+                                                          )}
                                                     <Text span fw={600}>
                                                         {filterRuleTables?.join(
                                                             ', ',
@@ -406,19 +369,19 @@ const Filter: FC<Props> = ({
                 </Popover.Target>
 
                 <Popover.Dropdown>
-                    {currentDashboardTiles && (
+                    {dashboardTiles && (
                         <FilterConfiguration
                             isCreatingNew={false}
                             isEditMode={isEditMode}
                             isTemporary={isTemporary}
                             field={field}
                             fields={allFilterableFields || []}
-                            tiles={currentDashboardTiles}
-                            tabs={currentDashboardTabs}
+                            tiles={dashboardTiles}
+                            tabs={dashboardTabs}
                             activeTabUuid={activeTabUuid}
                             originalFilterRule={originalFilterRule}
                             availableTileFilters={
-                                currentFilterableFieldsByTileUuid ?? {}
+                                filterableFieldsByTileUuid ?? {}
                             }
                             defaultFilterRule={defaultFilterRule}
                             onSave={handleSaveChanges}

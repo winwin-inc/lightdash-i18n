@@ -16,7 +16,7 @@ import {
     Tooltip,
 } from '@mantine/core';
 import { Prism } from '@mantine/prism';
-import { IconBrandGithub, IconInfoCircle } from '@tabler/icons-react';
+import { IconGitBranch, IconInfoCircle } from '@tabler/icons-react';
 import * as yaml from 'js-yaml';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -27,7 +27,7 @@ import CollapsableCard from '../../common/CollapsableCard/CollapsableCard';
 import MantineIcon from '../../common/MantineIcon';
 import { CreatedPullRequestModalContent } from './CreatedPullRequestModalContent';
 import {
-    useIsGithubProject,
+    useIsGitProject,
     useWriteBackCustomDimensions,
     useWriteBackCustomMetrics,
 } from './hooks';
@@ -67,7 +67,7 @@ const useErrorTexts = () => {
     };
 };
 
-const SingleItemModalContent = ({
+export const SingleItemModalContent = ({
     handleClose,
     item,
     projectUuid,
@@ -134,7 +134,7 @@ const SingleItemModalContent = ({
     const [showDiff, setShowDiff] = useState(true);
     const [error, setError] = useState<string | undefined>();
 
-    const isGithubProject = useIsGithubProject(projectUuid);
+    const isGitProject = useIsGitProject(projectUuid);
 
     const previewCode = useMemo(() => {
         try {
@@ -159,7 +159,7 @@ const SingleItemModalContent = ({
         );
     }
 
-    const disableErrorTooltip = isGithubProject && !error;
+    const disableErrorTooltip = isGitProject && !error;
 
     const errorTooltipLabel = error
         ? t(
@@ -183,7 +183,7 @@ const SingleItemModalContent = ({
             title={
                 <Group spacing="xs">
                     <MantineIcon
-                        icon={IconBrandGithub}
+                        icon={IconGitBranch}
                         size="lg"
                         color="gray.7"
                     />
@@ -363,7 +363,7 @@ const MultipleItemsModalContent = ({
         () => writeBackCustomMetricsIsLoading,
     );
 
-    const isGithubProject = useIsGithubProject(projectUuid);
+    const isGitProject = useIsGitProject(projectUuid);
 
     const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
 
@@ -403,7 +403,7 @@ const MultipleItemsModalContent = ({
     }
 
     const disableErrorTooltip =
-        isGithubProject && selectedItemIds.length > 0 && !error;
+        isGitProject && selectedItemIds.length > 0 && !error;
 
     const errorTooltipLabel = error
         ? t(
@@ -412,7 +412,7 @@ const MultipleItemsModalContent = ({
                   type: texts[type].baseName,
               },
           )
-        : !isGithubProject
+        : !isGitProject
         ? prDisabledMessage
         : t(
               'components_explorer_custom_metric_write_back_modal.select_item_to_open_pr',
@@ -432,7 +432,7 @@ const MultipleItemsModalContent = ({
             title={
                 <Group spacing="xs">
                     <MantineIcon
-                        icon={IconBrandGithub}
+                        icon={IconGitBranch}
                         size="lg"
                         color="gray.7"
                     />

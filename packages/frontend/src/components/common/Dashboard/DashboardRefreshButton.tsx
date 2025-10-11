@@ -109,6 +109,7 @@ export const DashboardRefreshButton: FC<DashboardRefreshButtonProps> = memo(
                 <Tooltip
                     withinPortal
                     position="bottom"
+                    disabled={isOpen}
                     label={
                         <Text>
                             {t(
@@ -118,8 +119,8 @@ export const DashboardRefreshButton: FC<DashboardRefreshButtonProps> = memo(
                             {lastRefreshTime
                                 ? lastRefreshTime.toLocaleTimeString()
                                 : t(
-                                      'components_common_dashboard_refresh_button.never',
-                                  )}
+                                    'components_common_dashboard_refresh_button.never',
+                                )}
                         </Text>
                     }
                 >
@@ -211,47 +212,48 @@ export const DashboardRefreshButton: FC<DashboardRefreshButtonProps> = memo(
                                 'components_common_dashboard_refresh_button.off',
                             )}
                         </Menu.Item>
-                        {REFRESH_INTERVAL_OPTIONS.map(({ value, label }) => (
-                            <Menu.Item
-                                fz="xs"
-                                key={value}
-                                onClick={() => {
-                                    const valNum = +value;
-                                    setRefreshInterval(valNum);
-                                    onIntervalChange(valNum);
-                                    setIsAutoRefresh(true);
-                                    showToastSuccess({
-                                        title: `${t(
-                                            'components_common_dashboard_refresh_button.toast_refresh',
-                                        )} ${
-                                            REFRESH_INTERVAL_OPTIONS.find(
+                        {
+                            REFRESH_INTERVAL_OPTIONS.map(({ value, label }) => (
+                                <Menu.Item
+                                    fz="xs"
+                                    key={value}
+                                    onClick={() => {
+                                        const valNum = +value;
+                                        setRefreshInterval(valNum);
+                                        onIntervalChange(valNum);
+                                        setIsAutoRefresh(true);
+                                        showToastSuccess({
+                                            title: `${t(
+                                                'components_common_dashboard_refresh_button.toast_refresh',
+                                            )} ${REFRESH_INTERVAL_OPTIONS.find(
                                                 (option) =>
                                                     value === option.value,
                                             )?.label
-                                        }`,
-                                    });
-                                }}
-                                bg={
-                                    refreshInterval === +value
-                                        ? 'blue'
-                                        : 'white'
-                                }
-                                disabled={refreshInterval === +value}
-                                sx={{
-                                    '&[disabled]': {
-                                        color:
-                                            refreshInterval === +value
-                                                ? 'white'
-                                                : 'black',
-                                    },
-                                }}
-                            >
-                                {label}
-                            </Menu.Item>
-                        ))}
-                    </Menu.Dropdown>
-                </Menu>
-            </Button.Group>
+                                                }`,
+                                        });
+                                    }}
+                                    bg={
+                                        refreshInterval === +value
+                                            ? 'blue'
+                                            : 'white'
+                                    }
+                                    disabled={refreshInterval === +value}
+                                    sx={{
+                                        '&[disabled]': {
+                                            color:
+                                                refreshInterval === +value
+                                                    ? 'white'
+                                                    : 'black',
+                                        },
+                                    }}
+                                >
+                                    {label}
+                                </Menu.Item>
+                            ))
+                        }
+                    </Menu.Dropdown >
+                </Menu >
+            </Button.Group >
         );
     },
 );

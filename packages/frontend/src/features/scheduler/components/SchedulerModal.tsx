@@ -23,6 +23,8 @@ const SchedulersModal: FC<
     isChart,
     isThresholdAlert,
     itemsMap,
+    currentParameterValues,
+    availableParameters,
     onClose = () => {},
 }) => {
     const { t } = useTranslation();
@@ -73,6 +75,8 @@ const SchedulersModal: FC<
                 isChart={isChart}
                 isThresholdAlert={isThresholdAlert}
                 itemsMap={itemsMap}
+                currentParameterValues={currentParameterValues}
+                availableParameters={availableParameters}
             />
         </Modal>
     );

@@ -1,6 +1,5 @@
 import { type AnyType } from './any';
 import { type DimensionType } from './field';
-import type { SchedulerFilterRule } from './scheduler';
 
 export enum FilterType {
     STRING = 'string',
@@ -239,24 +238,25 @@ export const isMetricFilterTarget = (
 ): value is { fieldRef: string } =>
     !!value && typeof value === 'object' && 'fieldRef' in value;
 
+export const flattenFilterGroup = (filterGroup: FilterGroup): FilterRule[] => {
+    // Explicitly checking for undefined filter groups (and || or), saved filter group somehow was undefined when saving
+    const groupItems: FilterGroupItem[] | undefined = isAndFilterGroup(
+        filterGroup,
+    )
+        ? filterGroup.and
+        : filterGroup.or;
+
+    return (groupItems || []).flatMap((item) => {
+        if (isFilterGroup(item)) {
+            return flattenFilterGroup(item);
+        }
+
+        return [item];
+    });
+};
+
 export const getFilterRules = (filters: Filters): FilterRule[] => {
     const rules: FilterRule[] = [];
-    const flattenFilterGroup = (filterGroup: FilterGroup): FilterRule[] => {
-        // Explicitly checking for undefined filter groups (and || or), saved filter group somehow was undefined when saving
-        const groupItems: FilterGroupItem[] | undefined = isAndFilterGroup(
-            filterGroup,
-        )
-            ? filterGroup.and
-            : filterGroup.or;
-
-        return (groupItems || []).flatMap((item) => {
-            if (isFilterGroup(item)) {
-                return flattenFilterGroup(item);
-            }
-
-            return [item];
-        });
-    };
 
     if (filters.dimensions) {
         rules.push(...flattenFilterGroup(filters.dimensions));
@@ -348,27 +348,36 @@ export const removeFieldFromFilterGroup = (
 
 export const applyDimensionOverrides = (
     dashboardFilters: DashboardFilters,
-    overrides: DashboardFilters | SchedulerFilterRule[],
-) =>
-    dashboardFilters.dimensions.map((dimension) => {
-        const override =
-            overrides instanceof Array
-                ? overrides.find(
-                      (overrideDimension) =>
-                          overrideDimension.id === dimension.id,
-                  )
-                : overrides.dimensions.find(
-                      (overrideDimension) =>
-                          overrideDimension.id === dimension.id,
-                  );
-        if (override) {
-            return {
-                ...override,
-                tileTargets: dimension.tileTargets,
-            };
-        }
-        return dimension;
-    });
+    overrides: DashboardFilters | DashboardFilterRule[],
+) => {
+    const overrideArray =
+        overrides instanceof Array ? overrides : overrides.dimensions;
+
+    // Apply overrides to existing dashboard dimensions
+    const overriddenDimensions = dashboardFilters.dimensions.map(
+        (dimension) => {
+            const override = overrideArray.find(
+                (overrideDimension) => overrideDimension.id === dimension.id,
+            );
+            if (override) {
+                return {
+                    ...override,
+                    tileTargets: dimension.tileTargets,
+                };
+            }
+            return dimension;
+        },
+    );
+
+    // Add scheduler filters that don't exist in dashboard saved filters
+    const existingIds = new Set(dashboardFilters.dimensions.map((d) => d.id));
+    const newDimensions = overrideArray.filter(
+        (schedulerFilter) => !existingIds.has(schedulerFilter.id),
+    );
+    overriddenDimensions.push(...newDimensions);
+
+    return overriddenDimensions;
+};
 
 export const isDashboardFilterRule = (
     value: BaseFilterRule,

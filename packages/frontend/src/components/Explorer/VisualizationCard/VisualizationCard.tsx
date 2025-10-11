@@ -4,6 +4,7 @@ import {
     getHiddenTableFields,
     getPivotConfig,
     NotFoundError,
+    type ApiErrorDetail,
 } from '@lightdash/common';
 import { Button } from '@mantine/core';
 import {
@@ -11,21 +12,30 @@ import {
     IconLayoutSidebarLeftExpand,
 } from '@tabler/icons-react';
 import {
-    type FC,
     memo,
     useCallback,
     useLayoutEffect,
     useMemo,
     useState,
+    type FC,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 import ErrorBoundary from '../../../features/errorBoundary/ErrorBoundary';
+import {
+    explorerActions,
+    selectIsEditMode,
+    selectIsVisualizationConfigOpen,
+    selectIsVisualizationExpanded,
+    useExplorerDispatch,
+    useExplorerSelector,
+} from '../../../features/explorer/store';
 import { type EChartSeries } from '../../../hooks/echarts/useEchartsCartesianConfig';
 import { uploadGsheet } from '../../../hooks/gdrive/useGdrive';
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import { useExplore } from '../../../hooks/useExplore';
+import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
 import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import { ExplorerSection } from '../../../providers/Explorer/types';
@@ -40,6 +50,7 @@ import { type EchartSeriesClickEvent } from '../../SimpleChart';
 import { VisualizationConfigPortalId } from '../ExplorePanel/constants';
 import VisualizationConfig from '../VisualizationCard/VisualizationConfig';
 import { SeriesContextMenu } from './SeriesContextMenu';
+import VisualizationWarning from './VisualizationWarning';
 
 export type EchartsClickEvent = {
     event: EchartSeriesClickEvent;
@@ -60,12 +71,10 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
         (context) => context.state.savedChart,
     );
 
-    const isLoadingQueryResults = useExplorerContext(
-        (context) =>
-            context.query.isFetching || context.queryResults.isFetchingRows,
-    );
-    const query = useExplorerContext((context) => context.query);
-    const queryResults = useExplorerContext((context) => context.queryResults);
+    // Get query state from new hook
+    const { query, queryResults, isLoading, getDownloadQueryUuid } =
+        useExplorerQuery();
+    const isLoadingQueryResults = isLoading || queryResults.isFetchingRows;
 
     const resultsData = useMemo(
         () => ({
@@ -85,28 +94,25 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
     const setChartConfig = useExplorerContext(
         (context) => context.actions.setChartConfig,
     );
-    const expandedSections = useExplorerContext(
-        (context) => context.state.expandedSections,
+
+    const isOpen = useExplorerSelector(selectIsVisualizationExpanded);
+    const isEditMode = useExplorerSelector(selectIsEditMode);
+    const isVisualizationConfigOpen = useExplorerSelector(
+        selectIsVisualizationConfigOpen,
     );
-    const isEditMode = useExplorerContext(
-        (context) => context.state.isEditMode,
-    );
-    const toggleExpandedSection = useExplorerContext(
-        (context) => context.actions.toggleExpandedSection,
+    const dispatch = useExplorerDispatch();
+
+    const toggleExpandedSection = useCallback(
+        (section: ExplorerSection) => {
+            dispatch(explorerActions.toggleExpandedSection(section));
+        },
+        [dispatch],
     );
     const unsavedChartVersion = useExplorerContext(
         (context) => context.state.unsavedChartVersion,
     );
     const tableCalculationsMetadata = useExplorerContext(
         (context) => context.state.metadata?.tableCalculations,
-    );
-    const getDownloadQueryUuid = useExplorerContext(
-        (context) => context.actions.getDownloadQueryUuid,
-    );
-
-    const isOpen = useMemo(
-        () => expandedSections.includes(ExplorerSection.VISUALIZATION),
-        [expandedSections],
     );
 
     const toggleSection = useCallback(
@@ -122,15 +128,31 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
     const [echartsClickEvent, setEchartsClickEvent] =
         useState<EchartsClickEvent>();
 
-    const isVisualizationConfigOpen = useExplorerContext(
-        (context) => context.state.isVisualizationConfigOpen,
+    const openVisualizationConfig = useCallback(
+        () => dispatch(explorerActions.openVisualizationConfig()),
+        [dispatch],
     );
-    const openVisualizationConfig = useExplorerContext(
-        (context) => context.actions.openVisualizationConfig,
+    const closeVisualizationConfig = useCallback(
+        () => dispatch(explorerActions.closeVisualizationConfig()),
+        [dispatch],
     );
-    const closeVisualizationConfig = useExplorerContext(
-        (context) => context.actions.closeVisualizationConfig,
-    );
+
+    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+    useLayoutEffect(() => {
+        if (isVisualizationConfigOpen) {
+            const target = document.getElementById(VisualizationConfigPortalId);
+            setPortalTarget(target);
+        } else {
+            setPortalTarget(null);
+        }
+    }, [isVisualizationConfigOpen]);
+
+    useLayoutEffect(() => {
+        if (!isEditMode) {
+            closeVisualizationConfig();
+        }
+    }, [isEditMode, closeVisualizationConfig]);
 
     useLayoutEffect(() => {
         if (!isOpen) {
@@ -148,6 +170,26 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
         },
         [unsavedChartVersion],
     );
+
+    const { missingRequiredParameters } = useExplorerQuery();
+
+    const apiErrorDetail = useMemo(() => {
+        const queryError = query.error?.error ?? queryResults.error?.error;
+
+        return !missingRequiredParameters?.length
+            ? queryError
+            : // Mimicking an API Error Detail so it can be used in the EmptyState component
+              ({
+                  message: 'Missing required parameters',
+                  name: 'Error',
+                  statusCode: 400,
+                  data: {},
+              } satisfies ApiErrorDetail);
+    }, [
+        query.error?.error,
+        queryResults.error?.error,
+        missingRequiredParameters,
+    ]);
 
     if (!unsavedChartVersion.tableName) {
         return (
@@ -192,8 +234,9 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                 initialPivotDimensions={
                     unsavedChartVersion.pivotConfig?.columns
                 }
+                unsavedMetricQuery={unsavedChartVersion.metricQuery}
                 resultsData={resultsData}
-                apiErrorDetail={query.error?.error}
+                apiErrorDetail={apiErrorDetail}
                 isLoading={isLoadingQueryResults}
                 columnOrder={unsavedChartVersion.tableConfig.columnOrder}
                 onSeriesContextMenu={onSeriesContextMenu}
@@ -211,6 +254,18 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                     isOpen={isOpen}
                     isVisualizationCard
                     onToggle={toggleSection}
+                    headerElement={
+                        isOpen && (
+                            <VisualizationWarning
+                                pivotDimensions={
+                                    unsavedChartVersion.pivotConfig?.columns
+                                }
+                                chartConfig={unsavedChartVersion.chartConfig}
+                                resultsData={resultsData}
+                                isLoading={isLoadingQueryResults}
+                            />
+                        )
+                    }
                     rightHeaderElement={
                         isOpen && (
                             <>
@@ -224,7 +279,6 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                                         }
                                         rightIcon={
                                             <MantineIcon
-                                                color="gray"
                                                 icon={
                                                     isVisualizationConfigOpen
                                                         ? IconLayoutSidebarLeftCollapse
@@ -243,7 +297,7 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                                  * NOTE: not using Portal from mantine-8 because this page lacks MantineProvider from Mantine 8
                                  * TODO: use mantine-8 portal with reuseTargetNode flag to avoid rendering additional divs
                                  */}
-                                {isVisualizationConfigOpen &&
+                                {portalTarget &&
                                     createPortal(
                                         <VisualizationConfig
                                             chartType={
@@ -252,9 +306,7 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                                             }
                                             onClose={closeVisualizationConfig}
                                         />,
-                                        document.getElementById(
-                                            VisualizationConfigPortalId,
-                                        )!,
+                                        portalTarget,
                                     )}
 
                                 <Can

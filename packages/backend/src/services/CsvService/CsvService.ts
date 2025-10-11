@@ -5,6 +5,7 @@ import {
     ApiSqlQueryResults,
     applyDimensionOverrides,
     CustomSqlQueryForbiddenError,
+    DashboardFilterRule,
     DashboardFilters,
     DateGranularity,
     DimensionType,
@@ -34,14 +35,16 @@ import {
     ItemsMap,
     MetricQuery,
     MissingConfigError,
+    ParameterError,
+    ParametersValuesMap,
     PivotConfig,
     pivotResultsAsCsv,
     QueryExecutionContext,
     SCHEDULER_TASKS,
     SchedulerCsvOptions,
-    SchedulerFilterRule,
     SchedulerFormat,
     SessionUser,
+    validateSelectedTabs,
     type RunQueryTags,
 } from '@lightdash/common';
 import archiver from 'archiver';
@@ -49,6 +52,7 @@ import { stringify } from 'csv-stringify';
 import * as fs from 'fs';
 import * as fsPromise from 'fs/promises';
 
+import { warehouseSqlBuilderFromType } from '@lightdash/warehouses';
 import isNil from 'lodash/isNil';
 import moment from 'moment';
 import { nanoid } from 'nanoid';
@@ -86,6 +90,7 @@ import {
     sanitizeGenericFileName,
     streamJsonlData,
 } from '../../utils/FileDownloadUtils/FileDownloadUtils';
+import { PivotQueryBuilder } from '../../utils/QueryBuilder/PivotQueryBuilder';
 import { BaseService } from '../BaseService';
 import { PivotTableService } from '../PivotTableService/PivotTableService';
 import { ProjectService } from '../ProjectService/ProjectService';
@@ -601,6 +606,7 @@ export class CsvService extends BaseService {
         dashboardFilters,
         dateZoomGranularity,
         invalidateCache,
+        schedulerParameters,
     }: {
         user: SessionUser;
         chartUuid: string;
@@ -610,6 +616,7 @@ export class CsvService extends BaseService {
         dashboardFilters?: DashboardFilters;
         dateZoomGranularity?: DateGranularity;
         invalidateCache?: boolean;
+        schedulerParameters?: ParametersValuesMap;
     }): Promise<AttachmentUrl> {
         const chart = await this.savedChartModel.get(chartUuid);
         const {
@@ -691,6 +698,7 @@ export class CsvService extends BaseService {
             chartUuid,
             queryTags,
             invalidateCache,
+            parameters: schedulerParameters,
         });
         const numberRows = rows.length;
 
@@ -722,7 +730,7 @@ export class CsvService extends BaseService {
                 rows,
                 itemMap,
                 metricQuery,
-
+                pivotDetails: null, // TODO: this is using old way of running queries + pivoting, therefore pivotDetails is not available
                 exploreId,
                 onlyRaw,
                 truncated,
@@ -813,7 +821,7 @@ export class CsvService extends BaseService {
             });
         }
 
-        const { type: warehouseType } =
+        const { type: warehouseType, startOfWeek } =
             await this.projectModel.getWarehouseCredentialsForProject(
                 projectUuid,
             );
@@ -825,17 +833,26 @@ export class CsvService extends BaseService {
             isVizCartesianChartConfig(sqlChart.config) &&
             sqlChart.config.fieldConfig
         ) {
-            sql = ProjectService.applyPivotToSqlQuery({
+            const warehouseSqlBuilder = warehouseSqlBuilderFromType(
                 warehouseType,
+                startOfWeek,
+            );
+
+            const pivotQueryBuilder = new PivotQueryBuilder(
                 sql,
-                limit: sqlChart.limit,
-                indexColumn: sqlChart.config.fieldConfig.x,
-                valuesColumns: sqlChart.config.fieldConfig.y.filter(
-                    (col): col is Required<typeof col> => !!col.aggregation,
-                ),
-                groupByColumns: sqlChart.config.fieldConfig.groupBy,
-                sortBy: undefined,
-            });
+                {
+                    indexColumn: sqlChart.config.fieldConfig.x,
+                    valuesColumns: sqlChart.config.fieldConfig.y.filter(
+                        (col): col is Required<typeof col> => !!col.aggregation,
+                    ),
+                    groupByColumns: sqlChart.config.fieldConfig.groupBy,
+                    sortBy: undefined,
+                },
+                warehouseSqlBuilder,
+                sqlChart.limit,
+            );
+
+            sql = pivotQueryBuilder.toSql();
         }
 
         const resultsFileUrl = await this.projectService.runSqlQuery(
@@ -879,23 +896,26 @@ export class CsvService extends BaseService {
         overrideDashboardFilters,
         dateZoomGranularity,
         invalidateCache,
+        schedulerParameters,
     }: {
         user: SessionUser;
         dashboardUuid: string;
         options: SchedulerCsvOptions | undefined;
         jobId?: string;
-        schedulerFilters?: SchedulerFilterRule[];
-        selectedTabs?: string[] | undefined;
+        schedulerFilters?: DashboardFilterRule[];
+        selectedTabs: string[] | null;
         overrideDashboardFilters?: DashboardFilters;
         dateZoomGranularity?: DateGranularity;
         invalidateCache?: boolean;
+        schedulerParameters?: ParametersValuesMap;
     }): Promise<AttachmentUrl[]> {
         const dashboard = await this.dashboardModel.getById(dashboardUuid);
 
         const dashboardFilters = overrideDashboardFilters || dashboard.filters;
 
+        validateSelectedTabs(selectedTabs, dashboard.tiles);
+
         if (schedulerFilters) {
-            // Scheduler filters can only override existing filters from the dashboard
             dashboardFilters.dimensions = applyDimensionOverrides(
                 dashboard.filters,
                 schedulerFilters,
@@ -935,6 +955,7 @@ export class CsvService extends BaseService {
                     dashboardFilters,
                     dateZoomGranularity,
                     invalidateCache,
+                    schedulerParameters,
                 }),
         );
         this.logger.info(
@@ -1197,6 +1218,7 @@ export class CsvService extends BaseService {
                         onlyRaw,
                         truncated,
                         customLabels,
+                        pivotDetails: null, // TODO: this is using old way of running queries + pivoting, therefore pivotDetails is not available
                     });
 
                 this.analytics.track({
@@ -1388,6 +1410,7 @@ export class CsvService extends BaseService {
             options,
             overrideDashboardFilters: dashboardFilters,
             dateZoomGranularity,
+            selectedTabs: null,
         }).then((urls) => urls.filter((url) => url.path !== '#no-results'));
 
         this.logger.info(

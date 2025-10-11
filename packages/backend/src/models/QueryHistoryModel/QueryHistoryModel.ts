@@ -17,25 +17,6 @@ import {
 function convertDbQueryHistoryToQueryHistory(
     queryHistory: DbQueryHistory,
 ): QueryHistory {
-    function getPivotValuesColumns() {
-        if (!queryHistory.pivot_configuration) {
-            return null;
-        }
-
-        const { groupByColumns, valuesColumns: valuesColumnsConfig } =
-            queryHistory.pivot_configuration;
-
-        // From ProjectService.pivotQueryWorkerTask
-        return groupByColumns && groupByColumns.length > 0
-            ? Object.values(queryHistory.pivot_values_columns ?? {})
-            : valuesColumnsConfig.map((col) => ({
-                  referenceField: col.reference,
-                  pivotColumnName: `${col.reference}_${col.aggregation}`,
-                  aggregation: col.aggregation,
-                  pivotValues: [],
-              }));
-    }
-
     return {
         queryUuid: queryHistory.query_uuid,
         createdAt: queryHistory.created_at,
@@ -60,7 +41,7 @@ function convertDbQueryHistoryToQueryHistory(
         error: queryHistory.error,
         cacheKey: queryHistory.cache_key,
         pivotConfiguration: queryHistory.pivot_configuration,
-        pivotValuesColumns: getPivotValuesColumns(),
+        pivotValuesColumns: queryHistory.pivot_values_columns,
         pivotTotalColumnCount: queryHistory.pivot_total_column_count,
         resultsFileName: queryHistory.results_file_name,
         resultsCreatedAt: queryHistory.results_created_at,
@@ -242,5 +223,66 @@ export class QueryHistoryModel {
             columns: result.columns,
             originalColumns: result.original_columns,
         };
+    }
+
+    async cleanupBatch(
+        cutoffDate: Date,
+        batchSize: number,
+        delayMs: number,
+        maxBatches?: number,
+        totalDeleted: number = 0,
+        batchCount: number = 0,
+    ): Promise<{ totalDeleted: number; batchCount: number }> {
+        // Get IDs to delete
+        const idsToDelete = await this.database(QueryHistoryTableName)
+            .select('query_uuid')
+            .where('created_at', '<', cutoffDate)
+            .orderBy('created_at', 'asc')
+            .limit(batchSize);
+
+        if (idsToDelete.length === 0) {
+            return { totalDeleted, batchCount };
+        }
+
+        // Delete by IDs
+        const deletedCount = await this.database(QueryHistoryTableName)
+            .whereIn(
+                'query_uuid',
+                idsToDelete.map((row) => row.query_uuid),
+            )
+            .del();
+
+        if (deletedCount === 0) {
+            return { totalDeleted, batchCount };
+        }
+
+        const newTotalDeleted = totalDeleted + deletedCount;
+        const newBatchCount = batchCount + 1;
+
+        // Check if we've reached the maximum number of batches
+        if (maxBatches !== undefined && newBatchCount >= maxBatches) {
+            return { totalDeleted: newTotalDeleted, batchCount: newBatchCount };
+        }
+
+        // Add delay between batches to prevent database overload
+        if (deletedCount === batchSize) {
+            await new Promise<void>((resolve) => {
+                setTimeout(() => resolve(), delayMs);
+            });
+        }
+
+        // Continue with next batch if we deleted a full batch
+        if (deletedCount === batchSize) {
+            return this.cleanupBatch(
+                cutoffDate,
+                batchSize,
+                delayMs,
+                maxBatches,
+                newTotalDeleted,
+                newBatchCount,
+            );
+        }
+
+        return { totalDeleted: newTotalDeleted, batchCount: newBatchCount };
     }
 }

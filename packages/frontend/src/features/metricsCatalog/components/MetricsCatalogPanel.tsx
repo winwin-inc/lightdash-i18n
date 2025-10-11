@@ -46,7 +46,7 @@ import { MetricsTable } from './MetricsTable';
 
 const LOCAL_STORAGE_KEY = 'metrics-catalog-learn-more-popover-closed';
 
-const LearnMorePopover: FC<{ buttonStyles?: ButtonProps['sx'] }> = ({
+const LearnMorePopover: FC<{ buttonStyles?: ButtonProps['style'] }> = ({
     buttonStyles,
 }) => {
     const { t } = useTranslation();
@@ -91,7 +91,7 @@ const LearnMorePopover: FC<{ buttonStyles?: ButtonProps['sx'] }> = ({
                     size="xs"
                     variant="default"
                     leftIcon={<MantineIcon icon={IconSparkles} />}
-                    sx={buttonStyles}
+                    style={buttonStyles}
                     onClick={opened ? handleClose : open}
                 >
                     {t('features_metrics.learn_more.title')}
@@ -383,7 +383,7 @@ export const MetricsCatalogPanel: FC<MetricsCatalogPanelProps> = ({
         [tableName, metricName, dispatch],
     );
 
-    const headerButtonStyles: ButtonProps['sx'] = {
+    const headerButtonStyles: ButtonProps['style'] = {
         borderRadius: theme.radius.md,
         backgroundColor: '#FAFAFA',
         border: `1px solid ${theme.colors.gray[2]}`,
@@ -452,7 +452,7 @@ export const MetricsCatalogPanel: FC<MetricsCatalogPanelProps> = ({
                                 />
                             }
                             loading={true}
-                            sx={headerButtonStyles}
+                            style={headerButtonStyles}
                         >
                             {t('features_metrics.catalog.content.part_3')}
                         </Button>

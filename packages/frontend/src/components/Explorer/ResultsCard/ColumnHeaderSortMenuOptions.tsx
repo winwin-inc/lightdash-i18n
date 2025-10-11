@@ -7,9 +7,13 @@ import {
 } from '@lightdash/common';
 import { Menu, Text } from '@mantine/core';
 import { IconCheck } from '@tabler/icons-react';
-import { type FC } from 'react';
+import { useCallback, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
+
+import {
+    explorerActions,
+    useExplorerDispatch,
+} from '../../../features/explorer/store';
 import {
     SortDirection,
     getSortDirectionOrder,
@@ -33,11 +37,23 @@ const ColumnHeaderSortMenuOptions: FC<Props> = ({ item, sort }) => {
             : SortDirection.ASC
         : undefined;
 
-    const setSortFields = useExplorerContext(
-        (context) => context.actions.setSortFields,
-    );
-    const removeSortField = useExplorerContext(
-        (context) => context.actions.removeSortField,
+    const dispatch = useExplorerDispatch();
+
+    const handleSortClick = useCallback(
+        (sortDirection: SortDirection) => {
+            if (hasSort && selectedSortDirection === sortDirection) {
+                // Remove sort - clicking on current direction removes it
+                dispatch(explorerActions.setSortFields([]));
+            } else {
+                // Replace ALL sorts with this single sort
+                const newSort: SortField = {
+                    fieldId: itemFieldId,
+                    descending: sortDirection === SortDirection.DESC,
+                };
+                dispatch(explorerActions.setSortFields([newSort]));
+            }
+        },
+        [dispatch, hasSort, itemFieldId, selectedSortDirection],
     );
 
     return (
@@ -49,25 +65,14 @@ const ColumnHeaderSortMenuOptions: FC<Props> = ({ item, sort }) => {
                         key={sortDirection}
                         icon={
                             hasSort &&
-                            selectedSortDirection === sortDirection ? (
+                                selectedSortDirection === sortDirection ? (
                                 <MantineIcon icon={IconCheck} />
                             ) : undefined
                         }
                         disabled={
                             hasSort && selectedSortDirection === sortDirection
                         }
-                        onClick={() =>
-                            hasSort && selectedSortDirection === sortDirection
-                                ? removeSortField(itemFieldId)
-                                : setSortFields([
-                                      {
-                                          fieldId: itemFieldId,
-                                          descending:
-                                              sortDirection ===
-                                              SortDirection.DESC,
-                                      },
-                                  ])
-                        }
+                        onClick={() => handleSortClick(sortDirection)}
                     >
                         {t(
                             'components_explorer_results_card_column_context_menu.sort',

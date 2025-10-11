@@ -78,40 +78,34 @@ export const echartsConfigTimeSeriesMetric = async (
 };
 
 export const renderTimeSeriesViz = async ({
-    runMetricQuery,
+    queryResults,
     vizTool,
-    maxLimit,
+    metricQuery,
 }: {
-    runMetricQuery: (
-        metricQuery: AiMetricQueryWithFilters,
-    ) => ReturnType<InstanceType<typeof ProjectService>['runMetricQuery']>;
+    queryResults: Awaited<
+        ReturnType<InstanceType<typeof ProjectService>['runMetricQuery']>
+    >;
     vizTool: ToolTimeSeriesArgsTransformed;
-    maxLimit: number;
+    metricQuery: AiMetricQueryWithFilters;
 }): Promise<{
     type: AiResultType.TIME_SERIES_RESULT;
-    metricQuery: AiMetricQueryWithFilters;
     results: Awaited<
         ReturnType<InstanceType<typeof ProjectService>['runMetricQuery']>
     >;
+    metricQuery: AiMetricQueryWithFilters;
     chartOptions: object;
 }> => {
-    const metricQuery = metricQueryTimeSeriesViz(
-        vizTool.vizConfig,
-        vizTool.filters,
-        maxLimit,
-    );
-    const results = await runMetricQuery(metricQuery);
     const chartOptions = await echartsConfigTimeSeriesMetric(
         vizTool,
-        results.rows,
-        results.fields,
+        queryResults.rows,
+        queryResults.fields,
         metricQuery.sorts,
     );
 
     return {
         type: AiResultType.TIME_SERIES_RESULT,
         metricQuery,
-        results,
+        results: queryResults,
         chartOptions,
     };
 };

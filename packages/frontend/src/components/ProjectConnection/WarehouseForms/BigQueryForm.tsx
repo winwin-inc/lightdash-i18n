@@ -199,15 +199,21 @@ const BigQueryForm: FC<{
     const authenticationTypes = [
         {
             value: BigqueryAuthenticationType.PRIVATE_KEY,
-            label: t('components_project_connection_warehouse_form.big_query.authentication_type.data.service_account'),
+            label: t(
+                'components_project_connection_warehouse_form.big_query.authentication_type.data.service_account',
+            ),
         },
         isSsoEnabled && {
             value: BigqueryAuthenticationType.SSO,
-            label: t('components_project_connection_warehouse_form.big_query.authentication_type.data.user_account'),
+            label: t(
+                'components_project_connection_warehouse_form.big_query.authentication_type.data.user_account',
+            ),
         },
         isAdcEnabled && {
             value: BigqueryAuthenticationType.ADC,
-            label: t('components_project_connection_warehouse_form.big_query.authentication_type.data.application_default_credentials'),
+            label: t(
+                'components_project_connection_warehouse_form.big_query.authentication_type.data.application_default_credentials',
+            ),
         },
     ].filter(Boolean) as SelectItem[];
     return (
@@ -253,9 +259,11 @@ const BigQueryForm: FC<{
                             w={isAuthenticated ? '90%' : '100%'}
                         />
                         {isAuthenticated && (
-                            <Tooltip label={t(
-                              'components_project_connection_warehouse_form.big_query.authentication_type.tooltip',
-                            )}>
+                            <Tooltip
+                                label={t(
+                                    'components_project_connection_warehouse_form.big_query.authentication_type.tooltip',
+                                )}
+                            >
                                 <Group mt="40px">
                                     <MantineIcon
                                         icon={IconCheck}
@@ -309,9 +317,11 @@ const BigQueryForm: FC<{
                         }
                     />
                     {hasDatasets && (
-                        <Tooltip label={t(
-                            'components_project_connection_warehouse_form.big_query.project.tooltip',
-                        )}>
+                        <Tooltip
+                            label={t(
+                                'components_project_connection_warehouse_form.big_query.project.tooltip',
+                            )}
+                        >
                             <Group mt="50px">
                                 <MantineIcon icon={IconCheck} color="green" />
                             </Group>
@@ -398,7 +408,7 @@ const BigQueryForm: FC<{
                                 },
                             )}
                             label={t(
-                              'components_project_connection_warehouse_form.big_query.key_file.label',
+                                'components_project_connection_warehouse_form.big_query.key_file.label',
                             )}
                             // FIXME: until mantine 7.4: https://github.com/mantinedev/mantine/issues/5401#issuecomment-1874906064
                             // @ts-ignore
@@ -406,7 +416,7 @@ const BigQueryForm: FC<{
                                 !requireSecrets
                                     ? '**************'
                                     : t(
-                                        'components_project_connection_warehouse_form.big_query.key_file.placeholder',
+                                          'components_project_connection_warehouse_form.big_query.key_file.placeholder',
                                       )
                             }
                             description={
@@ -666,7 +676,6 @@ const BigQueryForm: FC<{
                                     )}
                                 </p>
                             }
-                            required
                             disabled={disabled}
                         />
 

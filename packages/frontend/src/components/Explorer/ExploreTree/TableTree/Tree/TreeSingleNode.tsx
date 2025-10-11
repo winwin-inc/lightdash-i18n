@@ -34,7 +34,7 @@ import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
 
 import { getItemBgColor } from '../../../../../hooks/useColumns';
-import { useFilters } from '../../../../../hooks/useFilters';
+import { useFilteredFields } from '../../../../../hooks/useFilters';
 import useTracking from '../../../../../providers/Tracking/useTracking';
 import { EventName } from '../../../../../types/Events';
 import FieldIcon from '../../../../common/Filters/FieldIcon';
@@ -91,10 +91,8 @@ const TreeSingleNodeComponent: FC<Props> = ({ node }) => {
         (context) => context.missingCustomDimensions,
     );
     const onItemClick = useTableTree((context) => context.onItemClick);
-    const { isFilteredField } = useFilters();
+    const { isFilteredField, addFilter } = useFilteredFields();
     const { showItemDetail } = useItemDetail();
-
-    const { addFilter } = useFilters();
     const { track } = useTracking();
 
     const [isHover, toggleHover] = useToggle(false);
@@ -168,10 +166,9 @@ const TreeSingleNodeComponent: FC<Props> = ({ node }) => {
         },
         [isFiltered, addFilter, item, track],
     );
-    const handleClick = useCallback(
-        () => onItemClick(node.key, item),
-        [onItemClick, node.key, item],
-    );
+    const handleClick = useCallback(() => {
+        onItemClick(node.key, item);
+    }, [onItemClick, node.key, item]);
     const handleMouseEnter = useCallback(
         () => toggleHover(true),
         [toggleHover],

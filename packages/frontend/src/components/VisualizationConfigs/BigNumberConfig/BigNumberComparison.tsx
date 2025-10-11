@@ -8,7 +8,7 @@ import {
     Switch,
     TextInput,
 } from '@mantine/core';
-import { startCase } from 'lodash';
+import startCase from 'lodash/startCase';
 import { useTranslation } from 'react-i18next';
 
 import { isBigNumberVisualizationConfig } from '../../LightdashVisualization/types';

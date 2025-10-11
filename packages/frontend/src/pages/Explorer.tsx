@@ -1,30 +1,46 @@
 import { subject } from '@casl/ability';
-import { useHotkeys } from '@mantine/hooks';
+import { type DateGranularity } from '@lightdash/common';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Provider } from 'react-redux';
 import { useParams } from 'react-router';
 
+import { useHotkeys } from '@mantine/hooks';
 import Page from '../components/common/Page/Page';
 import Explorer from '../components/Explorer';
 import ExploreSideBar from '../components/Explorer/ExploreSideBar/index';
 import ForbiddenPanel from '../components/ForbiddenPanel';
+import {
+    explorerStore,
+    selectTableName,
+    useExplorerSelector,
+} from '../features/explorer/store';
 import { useExplore } from '../hooks/useExplore';
+import { useExplorerQueryManager } from '../hooks/useExplorerQueryManager';
 import {
     useDateZoomGranularitySearch,
     useExplorerRoute,
     useExplorerUrlState,
 } from '../hooks/useExplorerRoute';
+import { ProfilerWrapper } from '../perf/ProfilerWrapper';
 import useApp from '../providers/App/useApp';
+import { defaultState } from '../providers/Explorer/defaultState';
 import ExplorerProvider from '../providers/Explorer/ExplorerProvider';
 import useExplorerContext from '../providers/Explorer/useExplorerContext';
 
-const ExplorerWithUrlParams = memo(() => {
+const ExplorerWithUrlParams = memo<{
+    dateZoomGranularity?: DateGranularity;
+}>(({ dateZoomGranularity }) => {
     const { t } = useTranslation();
 
+    // Run the query manager hook - orchestrates all query effects
+    useExplorerQueryManager({
+        dateZoomGranularity,
+    });
+
     useExplorerRoute();
-    const tableId = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.tableName,
-    );
+    // Get table name from Redux
+    const tableId = useExplorerSelector(selectTableName);
     const { data } = useExplore(tableId);
 
     const clearQuery = useExplorerContext(
@@ -39,7 +55,9 @@ const ExplorerWithUrlParams = memo(() => {
             withFullHeight
             withPaddedContent
         >
-            <Explorer />
+            <ProfilerWrapper id="Explorer">
+                <Explorer />
+            </ProfilerWrapper>
         </Page>
     );
 });
@@ -72,14 +90,21 @@ const ExplorerPage = memo(() => {
     }
 
     return (
-        <ExplorerProvider
-            isEditMode={true}
-            initialState={explorerUrlState}
-            defaultLimit={health.data?.query.defaultLimit}
-            dateZoomGranularity={dateZoomGranularity}
-        >
-            <ExplorerWithUrlParams />
-        </ExplorerProvider>
+        <Provider store={explorerStore}>
+            <ExplorerProvider
+                isEditMode={true}
+                initialState={
+                    explorerUrlState
+                        ? { ...explorerUrlState, isEditMode: true }
+                        : { ...defaultState, isEditMode: true }
+                }
+                defaultLimit={health.data?.query.defaultLimit}
+            >
+                <ExplorerWithUrlParams
+                    dateZoomGranularity={dateZoomGranularity}
+                />
+            </ExplorerProvider>
+        </Provider>
     );
 });
 

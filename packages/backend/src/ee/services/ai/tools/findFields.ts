@@ -3,17 +3,21 @@ import {
     CatalogField,
     convertToAiHints,
     FieldType,
+    getFilterTypeFromItemType,
     getItemId,
     isEmojiIcon,
-    KnexPaginateArgs,
     toolFindFieldsArgsSchema,
+    toolFindFieldsOutputSchema,
 } from '@lightdash/common';
 import { tool } from 'ai';
+import { z } from 'zod';
 import type { FindFieldFn } from '../types/aiAgentDependencies';
+import { toModelOutput } from '../utils/toModelOutput';
 import { toolErrorHandler } from '../utils/toolErrorHandler';
 
 type Dependencies = {
     findFields: FindFieldFn;
+    pageSize: number;
 };
 
 const fieldKindLabel = (fieldType: FieldType) => {
@@ -40,9 +44,11 @@ const getFieldText = (catalogField: CatalogField) => {
     <${fieldTypeLabel} fieldId="${getItemId({
         name: catalogField.name,
         table: catalogField.tableName,
-    })}" fieldType="${catalogField.fieldValueType}" fieldFilterType="${
-        catalogField.basicType
-    }">
+    })}" fieldType="${
+        catalogField.fieldValueType
+    }" fieldFilterType="${getFilterTypeFromItemType(
+        catalogField.fieldValueType,
+    )}">
         <Name>${catalogField.name}</Name>
         <Label>${catalogField.label}</Label>
         <SearchRank>${catalogField.searchRank}</SearchRank>
@@ -70,49 +76,29 @@ const getFieldText = (catalogField: CatalogField) => {
                 ? `<Emoji>${catalogField.icon.unicode}</Emoji>`
                 : ''
         }
-        <Description>${catalogField.description}</Description>
+        <description>${catalogField.description}</description>
     </${fieldTypeLabel}>
     `.trim();
 };
 
-const getFieldsText = (args: {
-    searchQuery: string;
-    fields: CatalogField[];
-    pagination:
-        | (KnexPaginateArgs & {
-              totalPageCount: number;
-              totalResults: number;
-          })
-        | undefined;
-}) =>
+const getFieldsText = (
+    args: Awaited<ReturnType<FindFieldFn>> & { searchQuery: string },
+) =>
     `
-<SearchResults searchQuery="${args.searchQuery}" page="${
+<SearchResult searchQuery="${args.searchQuery}" page="${
         args.pagination?.page
     }" pageSize="${args.pagination?.pageSize}" totalPageCount="${
         args.pagination?.totalPageCount
     }" totalResults="${args.pagination?.totalResults}">
     ${args.fields.map((field) => getFieldText(field)).join('\n\n')}
-</SearchResults>
+</SearchResult>
 `.trim();
 
-export const getFindFields = ({ findFields }: Dependencies) => {
-    const schema = toolFindFieldsArgsSchema;
-
-    return tool({
-        description: `Tool: "findFields"
-
-Purpose:
-Finds the most relevant Fields (Metrics & Dimensions) within Explores, returning detailed info about each.
-
-Usage tips:
-- Use "findExplores" first to discover available Explores and their field labels.
-- Use full field labels in search terms (e.g. "Total Revenue", "Order Date").
-- Pass all needed fields in one request.
-- Fields are sorted by relevance, with a maximum score of 1 and a minimum of 0, so the top results are the most relevant.
-- If results aren't relevant, retry with clearer or more specific terms.
-- Results are paginated — use the next page token to get more results if needed.
-`,
-        parameters: schema,
+export const getFindFields = ({ findFields, pageSize }: Dependencies) =>
+    tool({
+        description: toolFindFieldsArgsSchema.description,
+        inputSchema: toolFindFieldsArgsSchema,
+        outputSchema: toolFindFieldsOutputSchema,
         execute: async (args) => {
             try {
                 const fieldSearchQueryResults = await Promise.all(
@@ -122,7 +108,7 @@ Usage tips:
                             table: args.table,
                             fieldSearchQuery,
                             page: args.page ?? 1,
-                            pageSize: 10,
+                            pageSize,
                         })),
                     })),
                 );
@@ -133,15 +119,25 @@ Usage tips:
                     )
                     .join('\n\n');
 
-                return fieldsText;
+                return {
+                    result: `<SearchResults>${fieldsText}</SearchResults>`,
+                    metadata: {
+                        status: 'success',
+                    },
+                };
             } catch (error) {
-                return toolErrorHandler(
-                    error,
-                    `Error finding fields for search queries: ${args.fieldSearchQueries
-                        .map((q) => q.label)
-                        .join(', ')}`,
-                );
+                return {
+                    result: toolErrorHandler(
+                        error,
+                        `Error finding fields for search queries: ${args.fieldSearchQueries
+                            .map((q) => q.label)
+                            .join(', ')}`,
+                    ),
+                    metadata: {
+                        status: 'error',
+                    },
+                };
             }
         },
+        toModelOutput: (output) => toModelOutput(output),
     });
-};

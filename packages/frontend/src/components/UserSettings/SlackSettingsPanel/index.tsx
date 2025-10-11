@@ -29,7 +29,7 @@ import {
     IconRefresh,
     IconTrash,
 } from '@tabler/icons-react';
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 import { useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
@@ -51,8 +51,8 @@ const SLACK_INSTALL_URL = `/api/v1/slack/install/`;
 const MAX_SLACK_CHANNELS = 100000;
 
 const SlackSettingsPanel: FC = () => {
-  const { t } = useTranslation();
-  
+    const { t } = useTranslation();
+
     const { activeProjectUuid } = useActiveProjectUuid();
     const { data: aiCopilotFlag } = useFeatureFlag(
         CommercialFeatureFlags.AiCopilot,
@@ -238,11 +238,21 @@ const SlackSettingsPanel: FC = () => {
                                         </Tooltip>
                                     </Group>
                                 }
-                                disabled={isLoadingSlackChannels}
                                 size="xs"
-                                placeholder={t(
-                                    'components_user_settings_slack_settings_panel.from.select.placeholder',
-                                )}
+                                rightSection={
+                                    isLoadingSlackChannels ? (
+                                        <Loader size="xs" />
+                                    ) : null
+                                }
+                                placeholder={
+                                    isLoadingSlackChannels
+                                        ? t(
+                                              'components_user_settings_slack_settings_panel.from.select.loading',
+                                          )
+                                        : t(
+                                              'components_user_settings_slack_settings_panel.from.select.placeholder',
+                                          )
+                                }
                                 searchable
                                 clearable
                                 limit={500}

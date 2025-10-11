@@ -90,6 +90,7 @@ const TileFilterConfiguration: FC<Props> = ({
     onToggleAll,
 }) => {
     const { t } = useTranslation();
+
     const theme = useMantineTheme();
     const sqlChartTilesMetadata = useDashboardContext(
         (c) => c.sqlChartTilesMetadata,
@@ -137,7 +138,7 @@ const TileFilterConfiguration: FC<Props> = ({
         const tileWithTargetFields =
             sortedTileWithFilters.map<TileWithTargetFields>(
                 ([tileUuid, filters], index) => {
-                    const tile = tiles.find((item) => item.uuid === tileUuid);
+                    const tile = tiles.find((t) => t.uuid === tileUuid);
                     const tabUuidFromTile = tile?.tabUuid;
 
                     // tileConfig overrides the default filter state for a tile
@@ -230,7 +231,7 @@ const TileFilterConfiguration: FC<Props> = ({
                 const columns = metadata.columns.map(
                     ({ reference }) => reference,
                 );
-                const tile = tiles.find((item) => item.uuid === tileUuid);
+                const tile = tiles.find((t) => t.uuid === tileUuid);
                 if (!tile) {
                     return acc;
                 }
@@ -345,6 +346,8 @@ const TileFilterConfiguration: FC<Props> = ({
     }: {
         tileList: Array<TileWithTargetFields | TileWithTargetColumns>;
     }) => {
+        const { t } = useTranslation();
+
         return (
             <Stack spacing="md">
                 {tileList.map((value) => (
@@ -354,9 +357,7 @@ const TileFilterConfiguration: FC<Props> = ({
                                 value.invalidField
                                     ? t(
                                           'components_dashboard_filter.tile_filter.tooltip_invalid_field.not_valid',
-                                          {
-                                              invalidField: value.invalidField,
-                                          },
+                                          { invalidField: value.invalidField },
                                       )
                                     : t(
                                           'components_dashboard_filter.tile_filter.tooltip_invalid_field.no_fields',

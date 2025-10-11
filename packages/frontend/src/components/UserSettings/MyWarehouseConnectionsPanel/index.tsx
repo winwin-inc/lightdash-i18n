@@ -1,5 +1,5 @@
 import { type UserWarehouseCredentials } from '@lightdash/common';
-import { Button, Group, Stack, Text, Title } from '@mantine/core';
+import { Anchor, Button, Group, Stack, Text, Title } from '@mantine/core';
 import { IconDatabaseCog, IconPlus } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +22,27 @@ export const MyWarehouseConnectionsPanel = () => {
         warehouseCredentialsToBeDeleted,
         setWarehouseCredentialsToBeDeleted,
     ] = useState<UserWarehouseCredentials | undefined>(undefined);
+
+    const personalConnectionsCallout = (
+        <Text c="dimmed">
+            {t(
+                'components_user_settings_my_warehouse_connections_panel.empty.personal_connections_callout',
+            )}{' '}
+            <Anchor
+                role="button"
+                href="https://docs.lightdash.com/references/personal-warehouse-connections"
+                target="_blank"
+                rel="noreferrer"
+            >
+                {t(
+                    'components_user_settings_my_warehouse_connections_panel.empty.learn_more',
+                )}
+            </Anchor>
+            {t(
+                'components_user_settings_my_warehouse_connections_panel.empty.dot',
+            )}
+        </Text>
+    );
 
     return (
         <>
@@ -51,6 +72,7 @@ export const MyWarehouseConnectionsPanel = () => {
                                 )}
                             </Button>
                         </Group>
+                        {personalConnectionsCallout}
                         <CredentialsTable
                             credentials={credentials}
                             setWarehouseCredentialsToBeDeleted={
@@ -74,9 +96,17 @@ export const MyWarehouseConnectionsPanel = () => {
                         title={t(
                             'components_user_settings_my_warehouse_connections_panel.empty.title',
                         )}
-                        description={t(
-                            'components_user_settings_my_warehouse_connections_panel.empty.description',
-                        )}
+                        description={
+                            <>
+                                <Text>
+                                    {t(
+                                        'components_user_settings_my_warehouse_connections_panel.empty.description',
+                                    )}
+                                </Text>
+                                <br />
+                                {personalConnectionsCallout}
+                            </>
+                        }
                     >
                         <Button onClick={() => setIsCreatingCredentials(true)}>
                             {t(

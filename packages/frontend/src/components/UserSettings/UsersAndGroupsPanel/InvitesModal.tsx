@@ -6,7 +6,6 @@ import {
 import {
     Button,
     Group,
-    MantineProvider,
     Modal,
     Select,
     TextInput,
@@ -19,7 +18,6 @@ import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
 import { useCreateInviteLinkMutation } from '../../../hooks/useInviteLink';
-import { getMantine8ThemeOverride } from '../../../mantine8Theme';
 import useApp from '../../../providers/App/useApp';
 import { TrackPage } from '../../../providers/Tracking/TrackingProvider';
 import useTracking from '../../../providers/Tracking/useTracking';
@@ -89,82 +87,83 @@ const InvitesModal: FC<{
     };
 
     return (
-        <MantineProvider theme={getMantine8ThemeOverride()}>
-            <Modal
-                opened={opened}
-                onClose={onClose}
-                title={
-                    <Group gap="xs">
-                        <MantineIcon size="lg" icon={IconUser} />
-                        <Title order={4}>{t('components_user_settings_groups_panel_invites.title')}</Title>
-                    </Group>
-                }
-                size="lg"
+        <Modal
+            opened={opened}
+            onClose={onClose}
+            title={
+                <Group gap="xs">
+                    <MantineIcon size="lg" icon={IconUser} />
+                    <Title order={4}>Add user</Title>
+                </Group>
+            }
+            size="lg"
+        >
+            <TrackPage
+                name={PageName.INVITE_MANAGEMENT_SETTINGS}
+                type={PageType.MODAL}
+                category={CategoryName.SETTINGS}
             >
-                <TrackPage
-                    name={PageName.INVITE_MANAGEMENT_SETTINGS}
-                    type={PageType.MODAL}
-                    category={CategoryName.SETTINGS}
-                >
-                    <form
-                        name="invite_user"
-                        onSubmit={form.onSubmit((values: SendInviteFormProps) =>
-                            handleSubmit(values),
-                        )}
-                    >
-                        <Group gap="xs" align="start" wrap="nowrap">
-                            <TextInput
-                                name="email"
-                                label={t('components_user_settings_groups_panel_invites.form.email.label')}
-                                placeholder={t('components_user_settings_groups_panel_invites.form.email.placeholder')}
-                                required
-                                disabled={isLoading}
-                                style={{ flex: 1 }}
-                                {...form.getInputProps('email')}
-                            />
-                            {user.data?.ability?.can(
-                                'manage',
-                                'Organization',
-                            ) && (
-                                <Select
-                                    data={Object.values(
-                                        OrganizationMemberRole,
-                                    ).map((orgMemberRole) => ({
-                                        value: orgMemberRole,
-                                        label: RoleLabels[orgMemberRole],
-                                    }))}
-                                    disabled={isLoading}
-                                    required
-                                    placeholder={t('components_user_settings_groups_panel_invites.form.select.placeholder')}
-                                    comboboxProps={{
-                                        position: 'bottom',
-                                        withinPortal: true,
-                                    }}
-                                    style={{ marginTop: 20, width: 180 }}
-                                    {...form.getInputProps('role')}
-                                />
-                            )}
-                            <Button
-                                disabled={isLoading}
-                                type="submit"
-                                style={{ marginTop: 20 }}
-                            >
-                                {health.data?.hasEmailClient
-                                    ? t(
-                                          'components_user_settings_groups_panel_invites.form.send_invite',
-                                      )
-                                    : t(
-                                          'components_user_settings_groups_panel_invites.form.generate_invite',
-                                      )}
-                            </Button>
-                        </Group>
-                    </form>
-                    {inviteLink && (
-                        <InviteSuccess invite={inviteLink} hasMarginTop />
+                <form
+                    name="invite_user"
+                    onSubmit={form.onSubmit((values: SendInviteFormProps) =>
+                        handleSubmit(values),
                     )}
-                </TrackPage>
-            </Modal>
-        </MantineProvider>
+                >
+                    <Group gap="xs" align="start" wrap="nowrap">
+                        <TextInput
+                            name="email"
+                            label={t(
+                                'components_user_settings_groups_panel_invites.form.email.label',
+                            )}
+                            placeholder={t(
+                                'components_user_settings_groups_panel_invites.form.email.placeholder',
+                            )}
+                            required
+                            disabled={isLoading}
+                            style={{ flex: 1 }}
+                            {...form.getInputProps('email')}
+                        />
+                        {user.data?.ability?.can('manage', 'Organization') && (
+                            <Select
+                                data={Object.values(OrganizationMemberRole).map(
+                                    (orgMemberRole) => ({
+                                        value: orgMemberRole,
+                                        label: orgMemberRole.replace('_', ' '),
+                                    }),
+                                )}
+                                disabled={isLoading}
+                                required
+                                placeholder={t(
+                                    'components_user_settings_groups_panel_invites.form.select.placeholder',
+                                )}
+                                comboboxProps={{
+                                    position: 'bottom',
+                                    withinPortal: true,
+                                }}
+                                style={{ marginTop: 20, width: 180 }}
+                                {...form.getInputProps('role')}
+                            />
+                        )}
+                        <Button
+                            disabled={isLoading}
+                            type="submit"
+                            style={{ marginTop: 20 }}
+                        >
+                            {health.data?.hasEmailClient
+                                ? t(
+                                      'components_user_settings_groups_panel_invites.form.send_invite',
+                                  )
+                                : t(
+                                      'components_user_settings_groups_panel_invites.form.generate_invite',
+                                  )}
+                        </Button>
+                    </Group>
+                </form>
+                {inviteLink && (
+                    <InviteSuccess invite={inviteLink} hasMarginTop />
+                )}
+            </TrackPage>
+        </Modal>
     );
 };
 

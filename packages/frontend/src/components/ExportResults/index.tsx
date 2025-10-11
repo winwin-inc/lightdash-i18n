@@ -16,26 +16,22 @@ import {
 import { notifications } from '@mantine/notifications';
 import { IconTableExport } from '@tabler/icons-react';
 import { useMutation } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
 import { memo, useState, type FC, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
+import { pollJobStatus } from '../../features/scheduler/hooks/useScheduler';
 import useHealth from '../../hooks/health/useHealth';
 import useToaster from '../../hooks/toaster/useToaster';
-import { downloadQuery } from '../../hooks/useQueryResults';
+import { scheduleDownloadQuery } from '../../hooks/useQueryResults';
 import useUser from '../../hooks/user/useUser';
 import { Can } from '../../providers/Ability';
 import MantineIcon from '../common/MantineIcon';
+import { Limit } from './types';
 
 type ExportCsvRenderProps = {
     onExport: () => Promise<unknown>;
     isExporting: boolean;
 };
-
-enum Limit {
-    TABLE = 'table',
-    ALL = 'all',
-    CUSTOM = 'custom',
-}
 
 enum Values {
     FORMATTED = 'formatted',
@@ -45,7 +41,10 @@ enum Values {
 export type ExportResultsProps = {
     projectUuid: string;
     totalResults: number | undefined;
-    getDownloadQueryUuid: (limit: number | null) => Promise<string>;
+    getDownloadQueryUuid: (
+        limit: number | null,
+        limitType: Limit,
+    ) => Promise<string>;
     columnOrder?: string[];
     customLabels?: Record<string, string>;
     hiddenFields?: string[];
@@ -79,7 +78,7 @@ const ExportResults: FC<ExportResultsProps> = memo(
 
         const user = useUser(true);
         const health = useHealth();
-        const [limit, setLimit] = useState<string>(Limit.TABLE);
+        const [limit, setLimit] = useState<Limit>(Limit.TABLE);
         const [customLimit, setCustomLimit] = useState<number>(1);
         const [format, setFormat] = useState<string>(Values.FORMATTED);
         const [fileType, setFileType] = useState<DownloadFileType>(
@@ -96,8 +95,10 @@ const ExportResults: FC<ExportResultsProps> = memo(
                             : limit === Limit.TABLE
                             ? totalResults ?? 0
                             : null,
+                        limit,
                     );
-                    return downloadQuery(projectUuid, queryUuid, {
+
+                    const downloadOptions = {
                         fileType,
                         onlyRaw: format === Values.RAW,
                         columnOrder,
@@ -108,7 +109,13 @@ const ExportResults: FC<ExportResultsProps> = memo(
                         attachmentDownloadName: chartName
                             ? `${chartName}_${formatDate(new Date())}`
                             : undefined,
-                    });
+                    };
+
+                    return scheduleDownloadQuery(
+                        projectUuid,
+                        queryUuid,
+                        downloadOptions,
+                    );
                 },
                 {
                     onMutate: () => {
@@ -126,30 +133,41 @@ const ExportResults: FC<ExportResultsProps> = memo(
                     },
                     onSuccess: (response) => {
                         // Download file
-                        const link = document.createElement('a');
-                        link.href = response.fileUrl;
-                        link.setAttribute(
-                            'download',
-                            `${chartName || 'results'}_${formatDate(
-                                new Date(),
-                            )}.${fileType}`,
-                        );
-                        document.body.appendChild(link);
-                        link.click();
-                        link.remove(); // Remove the link from the DOM
-                        // Hide toast
-                        notifications.hide(TOAST_KEY);
+                        pollJobStatus(response.jobId)
+                            .then(async (details) => {
+                                const link = document.createElement('a');
+                                link.href = details?.fileUrl;
+                                link.setAttribute(
+                                    'download',
+                                    `${chartName || 'results'}_${formatDate(
+                                        new Date(),
+                                    )}.${fileType}`,
+                                );
+                                document.body.appendChild(link);
+                                link.click();
+                                link.remove(); // Remove the link from the DOM
+                                // Hide toast
+                                notifications.hide(TOAST_KEY);
 
-                        if (response.truncated) {
-                            showToastWarning({
-                                title: t(
-                                    'components_export_results.warning.title',
-                                ),
-                                subtitle: t(
-                                    'components_export_results.warning.subtitle',
-                                ),
+                                if (details?.truncated) {
+                                    showToastWarning({
+                                        title: t(
+                                            'components_export_results.warning.title',
+                                        ),
+                                        subtitle: t(
+                                            'components_export_results.warning.subtitle',
+                                        ),
+                                    });
+                                }
+                            })
+                            .catch((error: Error) => {
+                                showToastError({
+                                    title: t(
+                                        'components_export_results.error.title',
+                                    ),
+                                    subtitle: error.message,
+                                });
                             });
-                        }
                     },
                     onError: (error: { error: Error }) => {
                         notifications.hide(TOAST_KEY);
@@ -182,7 +200,9 @@ const ExportResults: FC<ExportResultsProps> = memo(
                 <Stack spacing={0} miw={300}>
                     <Stack p={renderDialogActions ? 'md' : 0}>
                         <Stack spacing="xs">
-                            <Text fw={500}>{t('components_export_results.file_format')}</Text>
+                            <Text fw={500}>
+                                {t('components_export_results.file_format')}
+                            </Text>
                             <SegmentedControl
                                 size={'xs'}
                                 value={fileType}
@@ -203,17 +223,26 @@ const ExportResults: FC<ExportResultsProps> = memo(
                         </Stack>
 
                         <Stack spacing="xs">
-                            <Text fw={500}>{t('components_export_results.tabs.values')}</Text>
+                            <Text fw={500}>
+                                {t('components_export_results.tabs.values')}
+                            </Text>
                             <SegmentedControl
                                 size={'xs'}
                                 value={format}
                                 onChange={(value) => setFormat(value)}
                                 data={[
                                     {
-                                        label: t('components_export_results.radio_groups_values.part_1'),
+                                        label: t(
+                                            'components_export_results.radio_groups_values.part_1',
+                                        ),
                                         value: Values.FORMATTED,
                                     },
-                                    { label: t('components_export_results.radio_groups_values.part_2'), value: Values.RAW },
+                                    {
+                                        label: t(
+                                            'components_export_results.radio_groups_values.part_2',
+                                        ),
+                                        value: Values.RAW,
+                                    },
                                 ]}
                             />
                         </Stack>
@@ -228,24 +257,34 @@ const ExportResults: FC<ExportResultsProps> = memo(
                             >
                                 {!hideLimitSelection ? (
                                     <Stack spacing="xs">
-                                        <Text fw={500}>{t('components_export_results.tabs.limit')}</Text>
+                                        <Text fw={500}>
+                                            {t(
+                                                'components_export_results.tabs.limit',
+                                            )}
+                                        </Text>
                                         <SegmentedControl
                                             size={'xs'}
                                             value={limit}
                                             onChange={(value) =>
-                                                setLimit(value)
+                                                setLimit(value as Limit)
                                             }
                                             data={[
                                                 {
-                                                    label: t('components_export_results.radio_groups_limit.part_1'),
+                                                    label: t(
+                                                        'components_export_results.radio_groups_limit.part_1',
+                                                    ),
                                                     value: Limit.TABLE,
                                                 },
                                                 {
-                                                    label: t('components_export_results.radio_groups_limit.part_2'),
+                                                    label: t(
+                                                        'components_export_results.radio_groups_limit.part_2',
+                                                    ),
                                                     value: Limit.ALL,
                                                 },
                                                 {
-                                                    label: t('components_export_results.radio_groups_limit.part_3'),
+                                                    label: t(
+                                                        'components_export_results.radio_groups_limit.part_3',
+                                                    ),
                                                     value: Limit.CUSTOM,
                                                 },
                                             ]}
@@ -271,10 +310,14 @@ const ExportResults: FC<ExportResultsProps> = memo(
                             {isPivotTable && (
                                 <Alert color="gray" p="xs">
                                     <Text size="xs">
-                                        {t('components_export_results.prvot_tables_warning', {
-                                            csvCellsLimit: csvCellsLimit.toLocaleString(),
-                                            maxColumnLimit,
-                                        })}
+                                        {t(
+                                            'components_export_results.prvot_tables_warning',
+                                            {
+                                                csvCellsLimit:
+                                                    csvCellsLimit.toLocaleString(),
+                                                maxColumnLimit,
+                                            },
+                                        )}
                                     </Text>
                                 </Alert>
                             )}
@@ -286,7 +329,9 @@ const ExportResults: FC<ExportResultsProps> = memo(
                                 !isPivotTable && (
                                     <Alert color="gray.9" p="xs">
                                         <Text size="xs">
-                                            {t('components_export_results.limit')}
+                                            {t(
+                                                'components_export_results.limit',
+                                            )}
                                         </Text>
                                     </Alert>
                                 )}
@@ -296,12 +341,11 @@ const ExportResults: FC<ExportResultsProps> = memo(
                     {!renderDialogActions ? (
                         <Button
                             loading={isExporting}
-                            compact
                             sx={{
                                 alignSelf: 'end',
                             }}
+                            size="xs"
                             mt="sm"
-                            size="md"
                             leftIcon={<MantineIcon icon={IconTableExport} />}
                             onClick={exportMutation}
                             data-testid="chart-export-results-button"

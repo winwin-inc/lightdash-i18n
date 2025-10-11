@@ -13,7 +13,6 @@ import {
     assertIsAccountWithOrg,
     assertUnreachable,
     CompiledDimension,
-    CompileError,
     convertCustomFormatToFormatExpression,
     convertFieldRefToFieldId,
     createVirtualView as createVirtualViewObject,
@@ -22,6 +21,7 @@ import {
     CustomSqlQueryForbiddenError,
     DashboardFilters,
     DEFAULT_RESULTS_PAGE_SIZE,
+    derivePivotConfigurationFromChart,
     Dimension,
     DimensionType,
     DownloadFileType,
@@ -32,54 +32,53 @@ import {
     type ExecuteAsyncUnderlyingDataRequestParams,
     ExpiredError,
     Explore,
-    FeatureFlags,
     FieldType,
     ForbiddenError,
+    formatItemValue,
+    formatRawValue,
     formatRow,
     getDashboardFilterRulesForTables,
     getDashboardFilterRulesForTileAndReferences,
     getDimensions,
     getErrorMessage,
+    getIntrinsicUserAttributes,
     getItemId,
     getItemMap,
-    GroupByColumn,
     isCartesianChartConfig,
     isCustomBinDimension,
     isCustomDimension,
     isCustomSqlDimension,
     isDateItem,
     isField,
+    isJwtUser,
     isMetric,
     isVizTableConfig,
     ItemsMap,
-    JobPriority,
     MAX_SAFE_INTEGER,
     MetricQuery,
+    normalizeIndexColumns,
     NotFoundError,
     type Organization,
-    ParameterError,
     type ParametersValuesMap,
     PivotConfig,
-    PivotIndexColum,
+    PivotConfiguration,
     type PivotValuesColumn,
     type Project,
     QueryExecutionContext,
     type QueryHistory,
     QueryHistoryStatus,
+    type ReadyQueryResultsPage,
     type ResultColumns,
     ResultRow,
-    type RunAsyncWarehouseQueryArgs,
     type RunQueryTags,
     S3Error,
     SCHEDULER_TASKS,
     SchedulerFormat,
     sleep,
-    SortBy,
     type SpaceShare,
     type SpaceSummary,
     SqlChart,
     UnexpectedServerError,
-    ValuesColumn,
     WarehouseClient,
     type WarehouseExecuteAsyncQuery,
     type WarehouseResults,
@@ -95,21 +94,27 @@ import { measureTime } from '../../logging/measureTime';
 import { FeatureFlagModel } from '../../models/FeatureFlagModel/FeatureFlagModel';
 import { QueryHistoryModel } from '../../models/QueryHistoryModel/QueryHistoryModel';
 import type { SavedSqlModel } from '../../models/SavedSqlModel';
-import { isFeatureFlagEnabled } from '../../postHog';
 import PrometheusMetrics from '../../prometheus';
+import type { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { wrapSentryTransaction } from '../../utils';
 import { processFieldsForExport } from '../../utils/FileDownloadUtils/FileDownloadUtils';
-import { replaceParametersAsString } from '../../utils/QueryBuilder/parameters';
+import { safeReplaceParametersWithSqlBuilder } from '../../utils/QueryBuilder/parameters';
+import { PivotQueryBuilder } from '../../utils/QueryBuilder/PivotQueryBuilder';
 import {
-    QueryBuilder,
     ReferenceMap,
-} from '../../utils/QueryBuilder/queryBuilder';
-import { applyLimitToSqlQuery } from '../../utils/QueryBuilder/utils';
+    SqlQueryBuilder,
+} from '../../utils/QueryBuilder/SqlQueryBuilder';
+import {
+    applyLimitToSqlQuery,
+    replaceUserAttributesAsStrings,
+} from '../../utils/QueryBuilder/utils';
 import type { ICacheService } from '../CacheService/ICacheService';
 import { CreateCacheResult } from '../CacheService/types';
 import { CsvService } from '../CsvService/CsvService';
 import { ExcelService } from '../ExcelService/ExcelService';
+import { PermissionsService } from '../PermissionsService/PermissionsService';
 import { PivotTableService } from '../PivotTableService/PivotTableService';
+import { getDashboardParametersValuesMap } from '../ProjectService/parameters';
 import {
     ProjectService,
     type ProjectServiceArguments,
@@ -133,6 +138,8 @@ import {
     type GetAsyncQueryResultsArgs,
     isExecuteAsyncDashboardSqlChartByUuid,
     isExecuteAsyncSqlChartByUuid,
+    type RunAsyncWarehouseQueryArgs,
+    type ScheduleDownloadAsyncQueryResultsArgs,
 } from './types';
 
 const SQL_QUERY_MOCK_EXPLORER_NAME = 'sql_query_explorer';
@@ -145,6 +152,8 @@ type AsyncQueryServiceArguments = ProjectServiceArguments & {
     storageClient: S3ResultsFileStorageClient;
     pivotTableService: PivotTableService;
     prometheusMetrics?: PrometheusMetrics;
+    schedulerClient: SchedulerClient;
+    permissionsService: PermissionsService;
 };
 
 export class AsyncQueryService extends ProjectService {
@@ -162,6 +171,10 @@ export class AsyncQueryService extends ProjectService {
 
     prometheusMetrics?: PrometheusMetrics;
 
+    schedulerClient: SchedulerClient;
+
+    permissionsService: PermissionsService;
+
     constructor(args: AsyncQueryServiceArguments) {
         super(args);
         this.queryHistoryModel = args.queryHistoryModel;
@@ -171,6 +184,8 @@ export class AsyncQueryService extends ProjectService {
         this.storageClient = args.storageClient;
         this.pivotTableService = args.pivotTableService;
         this.prometheusMetrics = args.prometheusMetrics;
+        this.schedulerClient = args.schedulerClient;
+        this.permissionsService = args.permissionsService;
     }
 
     // ! Duplicate of SavedSqlService.hasAccess
@@ -316,7 +331,7 @@ export class AsyncQueryService extends ProjectService {
             await this.getWarehouseCredentials({
                 projectUuid: queryHistory.projectUuid,
                 userId: account.user.id,
-                isSessionUser: account.isSessionUser(),
+                isRegisteredUser: account.isRegisteredUser(),
             }),
         );
 
@@ -374,6 +389,46 @@ export class AsyncQueryService extends ProjectService {
             queryHistory.warehouseQueryMetadata?.type || 'unknown',
             queryHistory.context,
         );
+    }
+
+    /**
+     * Get the pivot details from the query history, this is a utility function to get the pivot details from the query history
+     * @param queryHistory Query history
+     * @returns Pivot details
+     */
+    private static getPivotDetailsFromQueryHistory(
+        queryHistory: QueryHistory,
+    ): ReadyQueryResultsPage['pivotDetails'] {
+        const {
+            pivotConfiguration,
+            pivotValuesColumns,
+            pivotTotalColumnCount,
+            originalColumns,
+        } = queryHistory;
+
+        const isPivoted = pivotConfiguration && pivotValuesColumns;
+
+        if (!isPivoted) {
+            return null;
+        }
+
+        const sortedValuesColumns = Object.values(pivotValuesColumns).sort(
+            (a, b) => {
+                if (a.columnIndex && b.columnIndex) {
+                    return a.columnIndex - b.columnIndex;
+                }
+                return 0;
+            },
+        );
+
+        return {
+            valuesColumns: sortedValuesColumns,
+            totalColumnCount: pivotTotalColumnCount,
+            indexColumn: pivotConfiguration.indexColumn,
+            groupByColumns: pivotConfiguration.groupByColumns,
+            sortBy: pivotConfiguration.sortBy,
+            originalColumns: originalColumns || {},
+        };
     }
 
     async getAsyncQueryResults({
@@ -460,7 +515,11 @@ export class AsyncQueryService extends ProjectService {
         });
 
         const formatter = (row: Record<string, unknown>) =>
-            formatRow(row, queryHistory.fields);
+            formatRow(
+                row,
+                queryHistory.fields,
+                queryHistory.pivotValuesColumns,
+            );
 
         const {
             result: { rows },
@@ -545,19 +604,13 @@ export class AsyncQueryService extends ProjectService {
             );
         }
 
-        const {
-            pivotConfiguration,
-            pivotValuesColumns,
-            pivotTotalColumnCount,
-        } = queryHistory;
-
         if (!columns) {
             throw new UnexpectedServerError(
                 `No columns found for query ${queryUuid}`,
             );
         }
 
-        const returnObject = {
+        return {
             rows,
             columns,
             totalPageCount: pageCount,
@@ -571,25 +624,8 @@ export class AsyncQueryService extends ProjectService {
                 queryHistory.warehouseExecutionTimeMs ?? roundedDurationMs,
             resultsPageExecutionMs: roundedDurationMs,
             status,
-            pivotDetails: null,
-        };
-
-        const isPivoted = pivotConfiguration && pivotValuesColumns;
-
-        if (!isPivoted) {
-            return returnObject;
-        }
-
-        return {
-            ...returnObject,
-            pivotDetails: {
-                totalColumnCount: pivotTotalColumnCount,
-                valuesColumns: pivotValuesColumns,
-                indexColumn: pivotConfiguration.indexColumn,
-                groupByColumns: pivotConfiguration.groupByColumns,
-                sortBy: pivotConfiguration.sortBy,
-                originalColumns: originalColumns || {},
-            },
+            pivotDetails:
+                AsyncQueryService.getPivotDetailsFromQueryHistory(queryHistory),
         };
     }
 
@@ -722,6 +758,41 @@ export class AsyncQueryService extends ProjectService {
         }
     }
 
+    async scheduleDownloadAsyncQueryResults(
+        args: ScheduleDownloadAsyncQueryResultsArgs,
+    ) {
+        const { account, ...payload } = args;
+        assertIsAccountWithOrg(account);
+
+        const { organizationUuid } = account.organization;
+
+        if (
+            account.user.ability.cannot(
+                'view',
+                subject('Project', {
+                    organizationUuid,
+                    projectUuid: payload.projectUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const userUuid = account.user.id;
+
+        // If the account is a JWT user, we need to include the encoded JWT in the payload
+        const encodedJwt = account.isJwtUser()
+            ? account.authentication.source
+            : undefined;
+
+        return this.schedulerClient.downloadAsyncQueryResults({
+            ...payload,
+            organizationUuid,
+            userUuid,
+            encodedJwt,
+        });
+    }
+
     private async downloadAsyncQueryResults({
         account,
         projectUuid,
@@ -819,6 +890,10 @@ export class AsyncQueryService extends ProjectService {
                         metricQuery: queryHistory.metricQuery,
                         projectUuid,
                         storageClient: this.storageClient,
+                        pivotDetails:
+                            AsyncQueryService.getPivotDetailsFromQueryHistory(
+                                queryHistory,
+                            ),
                         options: {
                             onlyRaw,
                             showTableNames,
@@ -856,6 +931,10 @@ export class AsyncQueryService extends ProjectService {
                         metricQuery: queryHistory.metricQuery,
                         storageClient: this.storageClient,
                         lightdashConfig: this.lightdashConfig,
+                        pivotDetails:
+                            AsyncQueryService.getPivotDetailsFromQueryHistory(
+                                queryHistory,
+                            ),
                         options: {
                             onlyRaw,
                             showTableNames,
@@ -984,17 +1063,14 @@ export class AsyncQueryService extends ProjectService {
         queryTags,
         write,
         pivotConfiguration,
+        itemsMap,
     }: {
         warehouseClient: WarehouseClient;
         query: string;
         queryTags: RunQueryTags;
         write?: (rows: Record<string, unknown>[]) => void;
-        pivotConfiguration?: {
-            indexColumn: PivotIndexColum;
-            valuesColumns: ValuesColumn[];
-            groupByColumns: GroupByColumn[] | undefined;
-            sortBy: SortBy | undefined;
-        };
+        pivotConfiguration?: PivotConfiguration;
+        itemsMap: ItemsMap;
     }): Promise<{
         columns: ResultColumns;
         warehouseResults: WarehouseExecuteAsyncQuery;
@@ -1018,6 +1094,10 @@ export class AsyncQueryService extends ProjectService {
                   rows: WarehouseResults['rows'],
                   fields: WarehouseResults['fields'],
               ) => {
+                  if (!rows[0]) {
+                      // skip if empty
+                      return;
+                  }
                   if ('total_columns' in rows[0]) {
                       const numberTotalColumns = Number(rows[0].total_columns);
                       pivotTotalColumnCount = Number.isNaN(numberTotalColumns)
@@ -1034,6 +1114,22 @@ export class AsyncQueryService extends ProjectService {
                       pivotConfiguration;
 
                   if (!groupByColumns || groupByColumns.length === 0) {
+                      // When there are no group by columns, we can just derive the value columns from the values columns config
+                      valuesColumns.forEach((col) => {
+                          const valueColumnField =
+                              PivotQueryBuilder.getValueColumnFieldName(
+                                  col.reference,
+                                  col.aggregation,
+                              );
+                          const valueColumnReference = `${valueColumnField}`;
+                          valuesColumnData.set(valueColumnReference, {
+                              referenceField: col.reference,
+                              pivotColumnName: valueColumnReference,
+                              aggregation: col.aggregation,
+                              pivotValues: [],
+                              // columnIndex is omitted when no groupBy columns
+                          });
+                      });
                       write?.(rows);
                       return;
                   }
@@ -1046,37 +1142,74 @@ export class AsyncQueryService extends ProjectService {
                               write?.([currentTransformedRow]);
                           }
 
-                          if (indexColumn) {
-                              currentTransformedRow = {
-                                  [indexColumn.reference]:
-                                      row[indexColumn.reference],
-                              };
+                          const indexColumns =
+                              normalizeIndexColumns(indexColumn);
+                          if (indexColumns.length > 0) {
+                              currentTransformedRow =
+                                  indexColumns.reduce<ResultRow>(
+                                      (acc, indexCol) => {
+                                          acc[indexCol.reference] =
+                                              row[indexCol.reference];
+                                          return acc;
+                                      },
+                                      {},
+                                  );
                               currentRowIndex = row.row_index;
                           }
                       }
+
+                      const pivotValues =
+                          groupByColumns?.map((c) => {
+                              const field = itemsMap[c.reference];
+                              const rawValue = formatRawValue(
+                                  field,
+                                  row[c.reference],
+                              );
+                              const formattedValue = field
+                                  ? formatItemValue(
+                                        field,
+                                        row[c.reference],
+                                        false,
+                                    )
+                                  : String(rawValue);
+                              return {
+                                  referenceField: c.reference,
+                                  // value needs to be raw formatted so that dates match the subtotals and the formatted rows
+                                  value: rawValue,
+                                  // formatted value to match the display value in the frontend
+                                  formatted: formattedValue,
+                              };
+                          }) ?? [];
+
                       // Suffix the value column with the group by columns to avoid collisions.
                       // E.g. if we have a row with the value 1 and the group by columns are ['a', 'b'],
                       // then the value column will be 'value_1_a_b'
-                      const valueSuffix = groupByColumns
-                          ?.map((col) => row[col.reference])
-                          .join('_');
+                      const valueSuffix =
+                          pivotValues.length > 0
+                              ? pivotValues.map((p) => p.value).join('_')
+                              : '';
 
                       valuesColumns.forEach((col) => {
-                          const valueColumnReference = `${col.reference}_${col.aggregation}_${valueSuffix}`;
+                          const valueColumnField =
+                              PivotQueryBuilder.getValueColumnFieldName(
+                                  col.reference,
+                                  col.aggregation,
+                              );
+                          const valueColumnReference = valueSuffix
+                              ? `${valueColumnField}_${valueSuffix}`
+                              : valueColumnField;
 
                           valuesColumnData.set(valueColumnReference, {
                               referenceField: col.reference, // The original y field name
                               pivotColumnName: valueColumnReference, // The pivoted y field name and agg eg amount_avg_false
                               aggregation: col.aggregation,
-                              pivotValues: groupByColumns?.map((c) => ({
-                                  referenceField: c.reference,
-                                  value: row[c.reference],
-                              })),
+                              pivotValues,
+                              columnIndex: row.column_index,
                           });
 
                           currentTransformedRow = currentTransformedRow ?? {};
                           currentTransformedRow[valueColumnReference] =
-                              row[`${col.reference}_${col.aggregation}`];
+                              row[valueColumnField];
                       });
                   });
               }
@@ -1134,7 +1267,6 @@ export class AsyncQueryService extends ProjectService {
     public async runAsyncWarehouseQuery({
         userId,
         isRegisteredUser,
-        isSessionUser,
         projectUuid,
         query,
         fieldsMap,
@@ -1172,7 +1304,7 @@ export class AsyncQueryService extends ProjectService {
             const warehouseCredentials = await this.getWarehouseCredentials({
                 projectUuid,
                 userId,
-                isSessionUser,
+                isRegisteredUser,
             });
 
             warehouseCredentialsType = warehouseCredentials.type;
@@ -1232,6 +1364,7 @@ export class AsyncQueryService extends ProjectService {
                 queryTags,
                 write: stream?.write,
                 pivotConfiguration,
+                itemsMap: fieldsMap,
             });
 
             this.analytics.track({
@@ -1344,9 +1477,10 @@ export class AsyncQueryService extends ProjectService {
         explore,
         warehouseSqlBuilder,
         parameters,
+        projectUuid,
     }: Pick<
         ExecuteAsyncMetricQueryArgs,
-        'account' | 'metricQuery' | 'dateZoom' | 'parameters'
+        'account' | 'metricQuery' | 'dateZoom' | 'parameters' | 'projectUuid'
     > & {
         warehouseSqlBuilder: WarehouseSqlBuilder;
         explore: Explore;
@@ -1356,28 +1490,23 @@ export class AsyncQueryService extends ProjectService {
         const { userAttributes, intrinsicUserAttributes } =
             await this.getUserAttributes({ account });
 
-        const { enabled: useExperimentalMetricCtes } =
-            await this.featureFlagModel.get({
-                user: {
-                    userUuid: account.user.id,
-                    organizationUuid: account.organization.organizationUuid,
-                    organizationName: account.organization.name,
-                },
-                featureFlagId: FeatureFlags.ShowQueryWarnings,
-            });
+        const availableParameterDefinitions = await this.getAvailableParameters(
+            projectUuid,
+            explore,
+        );
 
-        const fullQuery = await ProjectService._compileQuery(
+        const fullQuery = await ProjectService._compileQuery({
             metricQuery,
             explore,
             warehouseSqlBuilder,
             intrinsicUserAttributes,
             userAttributes,
-            this.lightdashConfig.query.timezone || 'UTC',
+            timezone: this.lightdashConfig.query.timezone || 'UTC',
             dateZoom,
-            useExperimentalMetricCtes,
             // ! TODO: Should validate the parameters to make sure they are valid from the options
             parameters,
-        );
+            availableParameterDefinitions,
+        });
 
         const fieldsWithOverrides: ItemsMap = Object.fromEntries(
             Object.entries(fullQuery.fields).map(([key, value]) => {
@@ -1426,12 +1555,6 @@ export class AsyncQueryService extends ProjectService {
             missingParameterReferences: string[];
         },
         requestParameters: ExecuteAsyncQueryRequestParams,
-        pivotConfiguration?: {
-            indexColumn: PivotIndexColum;
-            valuesColumns: ValuesColumn[];
-            groupByColumns: GroupByColumn[] | undefined;
-            sortBy: SortBy | undefined;
-        },
     ): Promise<ExecuteAsyncQueryReturn> {
         return wrapSentryTransaction(
             'ProjectService.executeAsyncQuery',
@@ -1449,6 +1572,7 @@ export class AsyncQueryService extends ProjectService {
                     fields: fieldsMap,
                     originalColumns,
                     missingParameterReferences,
+                    pivotConfiguration,
                 } = args;
 
                 try {
@@ -1474,7 +1598,7 @@ export class AsyncQueryService extends ProjectService {
                         await this.getWarehouseCredentials({
                             projectUuid,
                             userId: account.user.id,
-                            isSessionUser: account.isSessionUser(),
+                            isRegisteredUser: account.isRegisteredUser(),
                         });
 
                     const warehouseCredentialsType = warehouseCredentials.type;
@@ -1490,18 +1614,21 @@ export class AsyncQueryService extends ProjectService {
                         warehouseCredentialsType,
                     );
 
+                    const warehouseSqlBuilder = warehouseSqlBuilderFromType(
+                        warehouseCredentialsType,
+                        warehouseCredentials.startOfWeek,
+                    );
+
                     let pivotedQuery = null;
                     if (pivotConfiguration) {
-                        pivotedQuery =
-                            await ProjectService.applyPivotToSqlQuery({
-                                warehouseType: warehouseCredentialsType,
-                                sql: compiledQuery,
-                                indexColumn: pivotConfiguration.indexColumn,
-                                valuesColumns: pivotConfiguration.valuesColumns,
-                                groupByColumns:
-                                    pivotConfiguration.groupByColumns,
-                                sortBy: pivotConfiguration.sortBy,
-                            });
+                        const pivotQueryBuilder = new PivotQueryBuilder(
+                            compiledQuery,
+                            pivotConfiguration,
+                            warehouseSqlBuilder,
+                            args.metricQuery.limit,
+                        );
+
+                        pivotedQuery = pivotQueryBuilder.toSql();
                     }
 
                     const query = pivotedQuery || compiledQuery;
@@ -1567,6 +1694,7 @@ export class AsyncQueryService extends ProjectService {
                                             ? requestParameters.chartUuid
                                             : undefined,
                                     explore,
+                                    parameters: requestParameters.parameters,
                                 },
                             ),
                             cacheMetadata: {
@@ -1617,19 +1745,6 @@ export class AsyncQueryService extends ProjectService {
                         } satisfies ExecuteAsyncQueryReturn;
                     }
 
-                    const isWorkerQueryExecutionEnabled =
-                        await isFeatureFlagEnabled(
-                            FeatureFlags.WorkerQueryExecution,
-                            {
-                                userUuid: account.user.id,
-                                organizationUuid:
-                                    account.organization.organizationUuid,
-                                organizationName: account.organization.name,
-                            },
-                            { throwOnTimeout: false },
-                            false, // default value
-                        );
-
                     if (missingParameterReferences.length > 0) {
                         await this.queryHistoryModel.update(
                             queryHistoryUuid,
@@ -1651,49 +1766,22 @@ export class AsyncQueryService extends ProjectService {
                         } satisfies ExecuteAsyncQueryReturn;
                     }
 
-                    if (isWorkerQueryExecutionEnabled) {
-                        this.logger.info(
-                            `Queuing query ${queryHistoryUuid} for execution in a worker`,
-                        );
-                        await this.schedulerClient.scheduleTask(
-                            SCHEDULER_TASKS.RUN_ASYNC_WAREHOUSE_QUERY,
-                            {
-                                userUuid: account.user.id,
-                                userId: account.user.id,
-                                isSessionUser: account.isSessionUser(),
-                                isRegisteredUser: account.isRegisteredUser(),
-                                projectUuid,
-                                organizationUuid,
-                                queryTags,
-                                query,
-                                fieldsMap,
-                                queryHistoryUuid,
-                                cacheKey,
-                                pivotConfiguration,
-                                originalColumns,
-                                warehouseCredentialsOverrides,
-                            },
-                            JobPriority.HIGH,
-                        );
-                    } else {
-                        this.logger.info(
-                            `Executing query ${queryHistoryUuid} in the main loop`,
-                        );
-                        void this.runAsyncWarehouseQuery({
-                            userId: account.user.id,
-                            isRegisteredUser: account.isRegisteredUser(),
-                            isSessionUser: account.isSessionUser(),
-                            projectUuid,
-                            query,
-                            fieldsMap,
-                            queryTags,
-                            warehouseCredentialsOverrides,
-                            queryHistoryUuid,
-                            pivotConfiguration,
-                            cacheKey,
-                            originalColumns,
-                        });
-                    }
+                    this.logger.info(
+                        `Executing query ${queryHistoryUuid} in the main loop`,
+                    );
+                    void this.runAsyncWarehouseQuery({
+                        userId: account.user.id,
+                        isRegisteredUser: account.isRegisteredUser(),
+                        projectUuid,
+                        query,
+                        fieldsMap,
+                        queryTags,
+                        warehouseCredentialsOverrides,
+                        queryHistoryUuid,
+                        pivotConfiguration,
+                        cacheKey,
+                        originalColumns,
+                    });
 
                     return {
                         queryUuid: queryHistoryUuid,
@@ -1723,6 +1811,7 @@ export class AsyncQueryService extends ProjectService {
         metricQuery,
         invalidateCache,
         parameters,
+        pivotConfiguration,
     }: ExecuteAsyncMetricQueryArgs): Promise<ApiExecuteAsyncMetricQueryResults> {
         assertIsAccountWithOrg(account);
 
@@ -1772,16 +1861,18 @@ export class AsyncQueryService extends ProjectService {
         const warehouseCredentials = await this.getWarehouseCredentials({
             projectUuid,
             userId: account.user.id,
-            isSessionUser: account.isSessionUser(),
+            isRegisteredUser: account.isRegisteredUser(),
         });
 
         const warehouseSqlBuilder = warehouseSqlBuilderFromType(
             warehouseCredentials.type,
+            warehouseCredentials.startOfWeek,
         );
 
         // Combine default parameter values with request parameters first
         const combinedParameters = await this.combineParameters(
             projectUuid,
+            explore,
             parameters,
         );
 
@@ -1799,6 +1890,7 @@ export class AsyncQueryService extends ProjectService {
             explore,
             warehouseSqlBuilder,
             parameters: combinedParameters,
+            projectUuid,
         });
 
         const { queryUuid, cacheMetadata } = await this.executeAsyncQuery(
@@ -1815,6 +1907,7 @@ export class AsyncQueryService extends ProjectService {
                 sql,
                 originalColumns: undefined,
                 missingParameterReferences,
+                pivotConfiguration,
             },
             requestParameters,
         );
@@ -1839,10 +1932,15 @@ export class AsyncQueryService extends ProjectService {
         invalidateCache,
         limit,
         parameters,
+        pivotResults,
     }: ExecuteAsyncSavedChartQueryArgs): Promise<ApiExecuteAsyncMetricQueryResults> {
         // Check user is in organization
         assertIsAccountWithOrg(account);
 
+        const savedChart = await this.savedChartModel.get(
+            chartUuid,
+            versionUuid,
+        );
         const {
             uuid: savedChartUuid,
             organizationUuid: savedChartOrganizationUuid,
@@ -1851,7 +1949,7 @@ export class AsyncQueryService extends ProjectService {
             tableName: savedChartTableName,
             metricQuery,
             parameters: savedChartParameters,
-        } = await this.savedChartModel.get(chartUuid, versionUuid);
+        } = savedChart;
 
         // Check chart belongs to project
         if (savedChartProjectUuid !== projectUuid) {
@@ -1929,16 +2027,18 @@ export class AsyncQueryService extends ProjectService {
         const warehouseCredentials = await this.getWarehouseCredentials({
             projectUuid,
             userId: account.user.id,
-            isSessionUser: account.isSessionUser(),
+            isRegisteredUser: account.isRegisteredUser(),
         });
 
         const warehouseSqlBuilder = warehouseSqlBuilderFromType(
             warehouseCredentials.type,
+            warehouseCredentials.startOfWeek,
         );
 
         // Combine default parameter values, saved chart parameters, and request parameters first
         const combinedParameters = await this.combineParameters(
             projectUuid,
+            explore,
             parameters,
             savedChartParameters,
         );
@@ -1956,7 +2056,16 @@ export class AsyncQueryService extends ProjectService {
             explore,
             warehouseSqlBuilder,
             parameters: combinedParameters,
+            projectUuid,
         });
+
+        const pivotConfiguration = pivotResults
+            ? derivePivotConfigurationFromChart(
+                  savedChart,
+                  metricQueryWithLimit,
+                  fields,
+              )
+            : undefined;
 
         const { queryUuid, cacheMetadata } = await this.executeAsyncQuery(
             {
@@ -1971,6 +2080,7 @@ export class AsyncQueryService extends ProjectService {
                 sql,
                 originalColumns: undefined,
                 missingParameterReferences,
+                pivotConfiguration,
             },
             requestParameters,
         );
@@ -1986,6 +2096,51 @@ export class AsyncQueryService extends ProjectService {
         };
     }
 
+    private async checkDashboardChartQueryPermissions(
+        account: Account,
+        projectUuid: string,
+        savedChartUuid: string,
+        space: Omit<SpaceSummary, 'userAccess'>,
+    ) {
+        if (isJwtUser(account)) {
+            await this.permissionsService.checkEmbedPermissions(
+                account,
+                savedChartUuid,
+            );
+        } else {
+            const access = await this.spaceModel.getUserSpaceAccess(
+                account.user.id,
+                space.uuid,
+            );
+
+            if (
+                account.user.ability.cannot(
+                    'view',
+                    subject('SavedChart', {
+                        organizationUuid: space.organizationUuid,
+                        projectUuid,
+                        isPrivate: space.isPrivate,
+                        access,
+                    }),
+                )
+            ) {
+                throw new ForbiddenError();
+            }
+        }
+
+        if (
+            account.user.ability.cannot(
+                'view',
+                subject('Project', {
+                    organizationUuid: space.organizationUuid,
+                    projectUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+    }
+
     async executeAsyncDashboardChartQuery({
         account,
         projectUuid,
@@ -1998,15 +2153,13 @@ export class AsyncQueryService extends ProjectService {
         invalidateCache,
         limit,
         parameters,
+        pivotResults,
     }: ExecuteAsyncDashboardChartQueryArgs): Promise<ApiExecuteAsyncDashboardChartQueryResults> {
         assertIsAccountWithOrg(account);
 
         const savedChart = await this.savedChartModel.get(chartUuid);
-        const {
-            organizationUuid,
-            projectUuid: savedChartProjectUuid,
-            parameters: savedChartParameters,
-        } = savedChart;
+        const { organizationUuid, projectUuid: savedChartProjectUuid } =
+            savedChart;
 
         if (savedChartProjectUuid !== projectUuid) {
             throw new ForbiddenError('Dashboard does not belong to project');
@@ -2022,35 +2175,16 @@ export class AsyncQueryService extends ProjectService {
             ),
         ]);
 
-        const access = await this.spaceModel.getUserSpaceAccess(
-            account.user.id,
-            space.uuid,
+        await this.checkDashboardChartQueryPermissions(
+            account,
+            projectUuid,
+            savedChart.uuid,
+            space,
         );
-
-        if (
-            account.user.ability.cannot(
-                'view',
-                subject('SavedChart', {
-                    organizationUuid,
-                    projectUuid,
-                    isPrivate: space.isPrivate,
-                    access,
-                }),
-            ) ||
-            account.user.ability.cannot(
-                'view',
-                subject('Project', {
-                    organizationUuid,
-                    projectUuid,
-                }),
-            )
-        ) {
-            throw new ForbiddenError();
-        }
 
         await this.analyticsModel.addChartViewEvent(
             savedChart.uuid,
-            account.user.id,
+            account.isRegisteredUser() ? account.user.id : null,
         );
 
         const tables = Object.keys(explore.tables);
@@ -2145,18 +2279,23 @@ export class AsyncQueryService extends ProjectService {
         const warehouseCredentials = await this.getWarehouseCredentials({
             projectUuid,
             userId: account.user.id,
-            isSessionUser: account.isSessionUser(),
+            isRegisteredUser: account.isRegisteredUser(),
         });
 
         const warehouseSqlBuilder = warehouseSqlBuilderFromType(
             warehouseCredentials.type,
+            warehouseCredentials.startOfWeek,
         );
 
-        // Combine default parameter values, saved chart parameters, and request parameters first
+        const dashboard = await this.dashboardModel.getById(dashboardUuid);
+        const dashboardParameters = getDashboardParametersValuesMap(dashboard);
+
+        // Combine default parameter values, dashboard parameters, and request parameters first
         const combinedParameters = await this.combineParameters(
             projectUuid,
+            explore,
             parameters,
-            savedChartParameters,
+            dashboardParameters,
         );
 
         const {
@@ -2172,7 +2311,16 @@ export class AsyncQueryService extends ProjectService {
             dateZoom,
             warehouseSqlBuilder,
             parameters: combinedParameters,
+            projectUuid,
         });
+
+        const pivotConfiguration = pivotResults
+            ? derivePivotConfigurationFromChart(
+                  savedChart,
+                  metricQueryWithLimit,
+                  fields,
+              )
+            : undefined;
 
         const { queryUuid, cacheMetadata } = await this.executeAsyncQuery(
             {
@@ -2188,6 +2336,7 @@ export class AsyncQueryService extends ProjectService {
                 sql,
                 originalColumns: undefined,
                 missingParameterReferences,
+                pivotConfiguration,
             },
             requestParameters,
         );
@@ -2331,16 +2480,18 @@ export class AsyncQueryService extends ProjectService {
         const warehouseCredentials = await this.getWarehouseCredentials({
             projectUuid,
             userId: account.user.id,
-            isSessionUser: account.isSessionUser(),
+            isRegisteredUser: account.isRegisteredUser(),
         });
 
         const warehouseSqlBuilder = warehouseSqlBuilderFromType(
             warehouseCredentials.type,
+            warehouseCredentials.startOfWeek,
         );
 
         // Combine default parameter values with request parameters first
         const combinedParameters = await this.combineParameters(
             projectUuid,
+            explore,
             parameters,
         );
 
@@ -2358,6 +2509,7 @@ export class AsyncQueryService extends ProjectService {
             dateZoom,
             warehouseSqlBuilder,
             parameters: combinedParameters,
+            projectUuid,
         });
 
         const { queryUuid: underlyingDataQueryUuid, cacheMetadata } =
@@ -2418,6 +2570,7 @@ export class AsyncQueryService extends ProjectService {
         // Combine default parameter values with request parameters first
         const combinedParameters = await this.combineParameters(
             projectUuid,
+            undefined,
             parameters,
         );
 
@@ -2456,12 +2609,12 @@ export class AsyncQueryService extends ProjectService {
                 sql: sqlWithParams,
                 originalColumns,
                 missingParameterReferences,
+                pivotConfiguration,
             },
             {
                 query: metricQuery,
                 invalidateCache,
             },
-            pivotConfiguration,
         );
 
         return {
@@ -2502,7 +2655,7 @@ export class AsyncQueryService extends ProjectService {
             await this.getWarehouseCredentials({
                 projectUuid,
                 userId: account.user.id,
-                isSessionUser: account.authentication.type === 'session',
+                isRegisteredUser: account.isRegisteredUser(),
             }),
         );
 
@@ -2516,21 +2669,35 @@ export class AsyncQueryService extends ProjectService {
         // Get one row to get the column definitions
         const columns: { name: string; type: DimensionType }[] = [];
 
-        // Replace parameters in SQL before running column discovery query
-        const { replacedSql: columnDiscoverySql } = replaceParametersAsString(
+        // Get user attributes for replacement
+        const { userAttributes, intrinsicUserAttributes } =
+            await this.getUserAttributes({ account });
+
+        // Replace user attributes first
+        const sqlWithUserAttributes = replaceUserAttributesAsStrings(
             sql,
-            parameters ?? {},
+            intrinsicUserAttributes,
+            userAttributes,
             warehouseConnection.warehouseClient,
         );
 
+        // Then replace parameters in SQL before running column discovery query
+        const { replacedSql: columnDiscoverySql } =
+            safeReplaceParametersWithSqlBuilder(
+                sqlWithUserAttributes,
+                parameters ?? {},
+                warehouseConnection.warehouseClient,
+            );
+
         await warehouseConnection.warehouseClient.streamQuery(
             applyLimitToSqlQuery({ sqlQuery: columnDiscoverySql, limit: 1 }),
-            (row) => {
-                if (row.fields) {
-                    Object.keys(row.fields).forEach((key) => {
+            (chunk) => {
+                // Only handle the first call
+                if (columns.length === 0 && chunk.fields) {
+                    Object.keys(chunk.fields).forEach((key) => {
                         columns.push({
                             name: key,
-                            type: row.fields[key].type,
+                            type: chunk.fields[key].type,
                         });
                     });
                 }
@@ -2558,7 +2725,7 @@ export class AsyncQueryService extends ProjectService {
 
         const virtualView = createVirtualViewObject(
             SQL_QUERY_MOCK_EXPLORER_NAME,
-            sql,
+            sqlWithUserAttributes,
             vizColumns,
             warehouseConnection.warehouseClient,
         );
@@ -2635,12 +2802,12 @@ export class AsyncQueryService extends ProjectService {
         // Select all vizColumns
         const selectColumns = vizColumns.map((col) => col.reference);
 
-        // Create and return the QueryBuilder instance
-        const queryBuilder = new QueryBuilder(
+        // Create and return the SqlQueryBuilder instance
+        const queryBuilder = new SqlQueryBuilder(
             {
                 referenceMap,
                 select: selectColumns,
-                from: { name: 'sql_query', sql },
+                from: { name: 'sql_query', sql: sqlWithUserAttributes },
                 filters: appliedDashboardFilters
                     ? {
                           id: uuidv4(),
@@ -2717,6 +2884,7 @@ export class AsyncQueryService extends ProjectService {
         // Combine default parameter values with request parameters first
         const combinedParameters = await this.combineParameters(
             projectUuid,
+            undefined,
             args.parameters,
         );
 
@@ -2757,12 +2925,12 @@ export class AsyncQueryService extends ProjectService {
                 sql,
                 originalColumns,
                 missingParameterReferences,
+                pivotConfiguration,
             },
             {
                 query: metricQuery,
                 invalidateCache,
             },
-            pivotConfiguration,
         );
 
         return {
@@ -2790,6 +2958,7 @@ export class AsyncQueryService extends ProjectService {
             account,
             projectUuid,
             tileUuid,
+            dashboardUuid,
             context,
             invalidateCache,
             dashboardFilters,
@@ -2807,10 +2976,15 @@ export class AsyncQueryService extends ProjectService {
             throw new ForbiddenError("You don't have access to this chart");
         }
 
-        // Combine default parameter values with request parameters first
+        const dashboard = await this.dashboardModel.getById(dashboardUuid);
+        const dashboardParameters = getDashboardParametersValuesMap(dashboard);
+
+        // Combine default parameter values, dashboard parameters, and request parameters first
         const combinedParameters = await this.combineParameters(
             projectUuid,
+            undefined,
             args.parameters,
+            dashboardParameters,
         );
 
         const {
@@ -2854,12 +3028,12 @@ export class AsyncQueryService extends ProjectService {
                 sql,
                 originalColumns,
                 missingParameterReferences,
+                pivotConfiguration,
             },
             {
                 query: metricQuery,
                 invalidateCache,
             },
-            pivotConfiguration,
         );
 
         return {

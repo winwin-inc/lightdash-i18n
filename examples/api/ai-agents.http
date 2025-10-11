@@ -13,15 +13,15 @@ Content-Type: application/json
 ### =============================================================================
 
 ### List all AI Agents
-GET http://localhost:8080/api/v1/aiAgents
+GET http://localhost:8080/api/v1/projects/PROJECT_UUID/aiAgents
 Content-Type: application/json
 
 ### Get specific AI Agent
-GET http://localhost:8080/api/v1/aiAgents/AGENT_UUID
+GET http://localhost:8080/api/v1/projects/PROJECT_UUID/aiAgents/AGENT_UUID
 Content-Type: application/json
 
 ### Create AI Agent
-POST http://localhost:8080/api/v1/aiAgents
+POST http://localhost:8080/api/v1/projects/PROJECT_UUID/aiAgents
 Content-Type: application/json
 
 {
@@ -38,7 +38,7 @@ Content-Type: application/json
 }
 
 ### Update AI Agent
-PATCH http://localhost:8080/api/v1/aiAgents/AI_AGENT_UUID
+PATCH http://localhost:8080/api/v1/projects/PROJECT_UUID/aiAgents/AI_AGENT_UUID
 Content-Type: application/json
 
 {
@@ -49,7 +49,7 @@ Content-Type: application/json
 }
 
 ### Delete AI Agent
-DELETE http://localhost:8080/api/v1/aiAgents/AI_AGENT_UUID
+DELETE http://localhost:8080/api/v1/projects/PROJECT_UUID/aiAgents/AI_AGENT_UUID
 Content-Type: application/json
 
 ### =============================================================================
@@ -57,15 +57,15 @@ Content-Type: application/json
 ### =============================================================================
 
 ### List Agent Threads
-GET http://localhost:8080/api/v1/aiAgents/AI_AGENT_UUID/threads
+GET http://localhost:8080/api/v1/projects/PROJECT_UUID/aiAgents/AI_AGENT_UUID/threads
 Content-Type: application/json
 
 ### Get specific Agent Thread
-GET http://localhost:8080/api/v1/aiAgents/AI_AGENT_UUID/threads/THREAD_UUID
+GET http://localhost:8080/api/v1/projects/PROJECT_UUID/aiAgents/AI_AGENT_UUID/threads/THREAD_UUID
 Content-Type: application/json
 
 ### Start new Agent Thread (create thread with first message)
-POST http://localhost:8080/api/v1/aiAgents/AI_AGENT_UUID/generate
+POST http://localhost:8080/api/v1/projects/PROJECT_UUID/aiAgents/AI_AGENT_UUID/generate
 Content-Type: application/json
 
 {
@@ -73,7 +73,7 @@ Content-Type: application/json
 }
 
 ### Generate response in existing Agent Thread
-POST http://localhost:8080/api/v1/aiAgents/AI_AGENT_UUID/threads/THREAD_UUID/generate
+POST http://localhost:8080/api/v1/projects/PROJECT_UUID/aiAgents/AI_AGENT_UUID/threads/THREAD_UUID/generate
 Content-Type: application/json
 
 {
@@ -81,17 +81,89 @@ Content-Type: application/json
 }
 
 ### Get Agent Thread Message Visualization
-GET http://localhost:8080/api/v1/aiAgents/AI_AGENT_UUID/threads/THREAD_UUID/message/MESSAGE_UUID/viz
+GET http://localhost:8080/api/v1/projects/PROJECT_UUID/aiAgents/AI_AGENT_UUID/threads/THREAD_UUID/message/MESSAGE_UUID/viz
+Content-Type: application/json
+
+### Get Artifact
+GET http://localhost:8080/api/v1/projects/PROJECT_UUID/aiAgents/AI_AGENT_UUID/artifacts/ARTIFACT_UUID
+Content-Type: application/json
+
+
+### Get Artifact Version
+GET http://localhost:8080/api/v1/projects/PROJECT_UUID/aiAgents/AI_AGENT_UUID/artifacts/ARTIFACT_UUID/versions/VERSION_UUID
+Content-Type: application/json
+
+
+### =============================================================================
+### AI AGENT ADMIN 
+### =============================================================================
+
+### Get all threads across all agents (Admin only) 
+GET http://localhost:8080/api/v1/aiAgents/admin/threads
+Content-Type: application/json
+
+### Paginated threads
+GET http://localhost:8080/api/v1/aiAgents/admin/threads?page=1&pageSize=25
 Content-Type: application/json
 
 ### =============================================================================
-### LEGACY AI ENDPOINTS (for reference)
+### FILTERING - Find threads for training loop analysis
 ### =============================================================================
 
-### Dashboard summary
-POST http://localhost:8080/api/v1/ai/PROJECT_UUID/dashboard/DASHBOARD_UUID/summary
+### Filter by project UUIDs (analyze specific projects)
+GET http://localhost:8080/api/v1/aiAgents/admin/threads?projectUuids=PROJECT_UUID_1&projectUuids=PROJECT_UUID_2
 Content-Type: application/json
 
-{
-    "context": "say something interesting"
-}
+### Filter by agent UUIDs (analyze specific agents)
+GET http://localhost:8080/api/v1/aiAgents/admin/threads?agentUuids=AGENT_UUID_1&agentUuids=AGENT_UUID_2
+Content-Type: application/json
+
+### Filter by specific user UUIDs
+GET http://localhost:8080/api/v1/aiAgents/admin/threads?userUuids=USER_UUID_1&userUuids=USER_UUID_2
+Content-Type: application/json
+
+### Filter by conversation source (Slack vs Web App)
+GET http://localhost:8080/api/v1/aiAgents/admin/threads?createdFrom=slack
+Content-Type: application/json
+
+### Filter by conversation source (Slack vs Web App)
+GET http://localhost:8080/api/v1/aiAgents/admin/threads?createdFrom=web_app
+Content-Type: application/json
+
+
+### =============================================================================
+### HUMAN FEEDBACK FILTERING - Training Loop Analysis
+### =============================================================================
+
+### Find all thumbs down responses (negative feedback)
+GET http://localhost:8080/api/v1/aiAgents/admin/threads?humanScore=-1
+Content-Type: application/json
+
+### Find all thumbs up responses (positive feedback)
+GET http://localhost:8080/api/v1/aiAgents/admin/threads?humanScore=1
+Content-Type: application/json
+
+### Find neutral responses (no voting)
+GET http://localhost:8080/api/v1/aiAgents/admin/threads?humanScore=0
+Content-Type: application/json
+
+### =============================================================================
+### DATE FILTERING - Temporal Analysis
+### =============================================================================
+
+### Conversations from specific date range
+GET http://localhost:8080/api/v1/aiAgents/admin/threads?dateFrom=2025-09-01&dateTo=2025-09-02
+Content-Type: application/json
+
+### =============================================================================
+### SORTING - Organize data for analysis
+### =============================================================================
+
+### Sort by creation date (newest first) - Default
+GET http://localhost:8080/api/v1/aiAgents/admin/threads?sortField=createdAt&sortDirection=desc
+Content-Type: application/json
+
+### Sort by title (alphabetical)
+GET http://localhost:8080/api/v1/aiAgents/admin/threads?sortField=title&sortDirection=asc
+Content-Type: application/json
+

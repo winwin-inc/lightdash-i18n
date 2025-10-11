@@ -19,8 +19,8 @@ type Props = {
 };
 
 const InvalidFilter: FC<Props> = ({ isEditMode, filterRule, onRemove }) => {
-    const theme = useMantineTheme();
     const { t } = useTranslation();
+    const theme = useMantineTheme();
 
     return (
         <Tooltip
@@ -32,7 +32,7 @@ const InvalidFilter: FC<Props> = ({ isEditMode, filterRule, onRemove }) => {
                 <Text span>
                     <Text span color="gray.6">
                         {t(
-                            'components_dashboard_filter.filter_invalid.unknown_field',
+                            'components_dashboard_filter.filter_invalid.unknown',
                         )}
                     </Text>
                     <Text span> {filterRule.target.fieldId}</Text>
@@ -42,6 +42,7 @@ const InvalidFilter: FC<Props> = ({ isEditMode, filterRule, onRemove }) => {
             <Button
                 size="xs"
                 variant="default"
+                radius="md"
                 data-disabled
                 leftIcon={
                     <MantineIcon

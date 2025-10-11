@@ -3,6 +3,7 @@ import {
     addDashboardFiltersToMetricQuery,
     AndFilterGroup,
     AnonymousAccount,
+    ApiExecuteAsyncDashboardChartQueryResults,
     CommercialFeatureFlags,
     CompiledDimension,
     CreateEmbedJwt,
@@ -15,6 +16,7 @@ import {
     DecodedEmbed,
     Embed,
     EmbedUrl,
+    ExecuteAsyncDashboardChartRequestParams,
     Explore,
     ExploreError,
     FieldValueSearchResult,
@@ -36,7 +38,9 @@ import {
     isFilterInteractivityEnabled,
     MetricQuery,
     NotFoundError,
+    NotSupportedError,
     ParameterError,
+    PivotConfiguration,
     QueryExecutionContext,
     RunQueryTags,
     SavedChartsInfoForDashboardAvailableFilters,
@@ -45,12 +49,17 @@ import {
     UpdateEmbed,
     UserAccessControls,
     UserAttributeValueMap,
+    type ParameterDefinitions,
     type ParametersValuesMap,
 } from '@lightdash/common';
 import { isArray } from 'lodash';
 import { nanoid as nanoidGenerator } from 'nanoid';
 import { LightdashAnalytics } from '../../../analytics/LightdashAnalytics';
-import { encodeLightdashJwt } from '../../../auth/lightdashJwt';
+import { fromJwt } from '../../../auth/account';
+import {
+    decodeLightdashJwt,
+    encodeLightdashJwt,
+} from '../../../auth/lightdashJwt';
 import { LightdashConfig } from '../../../config/parseConfig';
 import { DashboardModel } from '../../../models/DashboardModel/DashboardModel';
 import { FeatureFlagModel } from '../../../models/FeatureFlagModel/FeatureFlagModel';
@@ -58,7 +67,13 @@ import { OrganizationModel } from '../../../models/OrganizationModel';
 import { ProjectModel } from '../../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../../models/SavedChartModel';
 import { UserAttributesModel } from '../../../models/UserAttributesModel';
+import { AsyncQueryService } from '../../../services/AsyncQueryService/AsyncQueryService';
+import type { ScheduleDownloadAsyncQueryResultsArgs } from '../../../services/AsyncQueryService/types';
 import { BaseService } from '../../../services/BaseService';
+import {
+    getAvailableParameterDefinitions,
+    getDashboardParametersValuesMap,
+} from '../../../services/ProjectService/parameters';
 import { ProjectService } from '../../../services/ProjectService/ProjectService';
 import { getFilteredExplore } from '../../../services/UserAttributesService/UserAttributeUtils';
 import { EncryptionUtil } from '../../../utils/EncryptionUtil/EncryptionUtil';
@@ -76,6 +91,7 @@ type Dependencies = {
     projectModel: ProjectModel;
     userAttributesModel: UserAttributesModel;
     projectService: ProjectService;
+    asyncQueryService: AsyncQueryService;
     featureFlagModel: FeatureFlagModel;
     organizationModel: OrganizationModel;
 };
@@ -103,8 +119,11 @@ export class EmbedService extends BaseService {
 
     private readonly organizationModel: OrganizationModel;
 
+    private readonly asyncQueryService: AsyncQueryService;
+
     constructor(dependencies: Dependencies) {
         super();
+        this.asyncQueryService = dependencies.asyncQueryService;
         this.analytics = dependencies.analytics;
         this.embedModel = dependencies.embedModel;
         this.dashboardModel = dependencies.dashboardModel;
@@ -581,12 +600,13 @@ export class EmbedService extends BaseService {
             );
         }
 
-        const chartInDashboards = await this.dashboardModel.getAllByProject(
-            projectUuid,
-            chartUuid,
-        );
-        const chartInDashboardUuids = chartInDashboards.map((d) => d.uuid);
-        if (!chartInDashboardUuids.includes(dashboardUuid)) {
+        const chartExists =
+            await this.dashboardModel.savedChartExistsInDashboard(
+                projectUuid,
+                dashboardUuid,
+                chartUuid,
+            );
+        if (!chartExists) {
             throw new ForbiddenError(
                 `This chart does not belong to dashboard ${dashboardUuid}`,
             );
@@ -624,6 +644,22 @@ export class EmbedService extends BaseService {
         return { userAttributes, intrinsicUserAttributes };
     }
 
+    /**
+     * Get all available parameter definitions for a project and explore
+     * @param projectUuid - The UUID of the project
+     * @param explore - The explore to get the parameters for
+     * @returns Parameter definitions object
+     */
+    private async getAvailableParameters(
+        projectUuid: string,
+        explore: Explore,
+    ): Promise<ParameterDefinitions> {
+        const projectParameters =
+            await this.projectService.projectParametersModel.find(projectUuid);
+
+        return getAvailableParameterDefinitions(projectParameters, explore);
+    }
+
     private async _runEmbedQuery({
         projectUuid,
         metricQuery,
@@ -656,21 +692,26 @@ export class EmbedService extends BaseService {
         // Filter the explore access and fields based on the user attributes
         const filteredExplore = getFilteredExplore(explore, userAttributes);
 
-        const compiledQuery = await ProjectService._compileQuery(
-            metricQuery,
+        const availableParameterDefinitions = await this.getAvailableParameters(
+            projectUuid,
             filteredExplore,
-            warehouseClient,
+        );
+
+        const compiledQuery = await ProjectService._compileQuery({
+            metricQuery,
+            explore: filteredExplore,
+            warehouseSqlBuilder: warehouseClient,
             intrinsicUserAttributes,
             userAttributes,
-            this.lightdashConfig.query.timezone || 'UTC',
-            dateZoomGranularity
+            timezone: this.lightdashConfig.query.timezone || 'UTC',
+            dateZoom: dateZoomGranularity
                 ? {
                       granularity: dateZoomGranularity,
                   }
                 : undefined,
-            undefined,
-            combinedParameters,
-        );
+            parameters: combinedParameters,
+            availableParameterDefinitions,
+        });
 
         const results =
             await this.projectService.getResultsFromCacheOrWarehouse({
@@ -738,6 +779,96 @@ export class EmbedService extends BaseService {
         }
 
         return appliedDashboardFilters;
+    }
+
+    async executeAsyncDashboardTileQuery({
+        account,
+        projectUuid,
+        tileUuid,
+        dashboardFilters,
+        dateZoom,
+        invalidateCache,
+        dashboardSorts,
+        pivotResults,
+    }: {
+        account: AnonymousAccount;
+        projectUuid: string;
+        tileUuid: string;
+    } & Pick<
+        ExecuteAsyncDashboardChartRequestParams,
+        | 'dashboardFilters'
+        | 'dashboardSorts'
+        | 'pivotResults'
+        | 'invalidateCache'
+        | 'dateZoom'
+    >): Promise<ApiExecuteAsyncDashboardChartQueryResults> {
+        const { dashboardUuids, allowAllDashboards, user } =
+            await this.embedModel.get(projectUuid);
+
+        const dashboardUuid = account.access.dashboardId;
+        const dashboard = await this.dashboardModel.getById(dashboardUuid);
+
+        const chart = await this._getChartFromDashboardTiles(
+            dashboard,
+            tileUuid,
+        );
+
+        const { organizationUuid } = chart;
+        await this.isFeatureEnabled({
+            userUuid: user.userUuid,
+            organizationUuid,
+        });
+
+        await this._permissionsGetChartAndResults(
+            { allowAllDashboards, dashboardUuids },
+            projectUuid,
+            chart.uuid,
+            dashboardUuid,
+        );
+
+        const explore = await this.projectModel.getExploreFromCache(
+            projectUuid,
+            chart.tableName,
+        );
+        if (isExploreError(explore)) {
+            throw new ForbiddenError(
+                `Explore ${chart.tableName} on project ${projectUuid} has errors : ${explore.errors}`,
+            );
+        }
+
+        const appliedDashboardFilters = await this._getAppliedDashboardFilters(
+            account,
+            explore,
+            dashboard,
+            tileUuid,
+            dashboardFilters,
+        );
+
+        // Record analytics event
+        this.analytics.trackAccount<EmbedQueryViewed>(account, {
+            event: 'embed_query.executed',
+            properties: {
+                projectId: projectUuid,
+                dashboardId: dashboardUuid,
+                chartId: chart.uuid,
+            },
+        });
+
+        // Execute using AsyncQueryService method with embed context
+        return this.asyncQueryService.executeAsyncDashboardChartQuery({
+            account,
+            projectUuid,
+            chartUuid: chart.uuid,
+            dashboardSorts: dashboardSorts ?? [],
+            dashboardUuid,
+            dashboardFilters: appliedDashboardFilters,
+            dateZoom,
+            invalidateCache,
+            limit: undefined,
+            context: QueryExecutionContext.EMBED,
+            parameters: undefined,
+            pivotResults,
+        });
     }
 
     async getChartAndResults(
@@ -820,11 +951,14 @@ export class EmbedService extends BaseService {
             },
         });
 
+        const dashboardParameters = getDashboardParametersValuesMap(dashboard);
+
         // No parameters are passed in embed requests, just combine the saved parameters
         const combinedParameters = await this.projectService.combineParameters(
             projectUuid,
+            explore,
             {},
-            chart.parameters,
+            dashboardParameters,
         );
 
         const { rows, cacheMetadata, fields } = await this._runEmbedQuery({
@@ -953,47 +1087,66 @@ export class EmbedService extends BaseService {
         const { userAttributes, intrinsicUserAttributes } =
             this.getAccessControls(account);
 
-        const { totalQuery: totalMetricQuery } =
-            await this.projectService._getCalculateTotalQuery(
-                userAttributes,
-                intrinsicUserAttributes,
-                explore,
-                metricQuery,
-                warehouseClient,
-            );
+        const dashboard = await this.dashboardModel.getById(dashboardUuid);
+        const dashboardParameters = getDashboardParametersValuesMap(dashboard);
 
         // No parameters are passed in embed requests, just combine the saved parameters
         const combinedParameters = await this.projectService.combineParameters(
             projectUuid,
+            explore,
             {},
-            chart.parameters,
+            dashboardParameters,
         );
 
-        const { rows } = await this._runEmbedQuery({
+        const availableParameterDefinitions = await this.getAvailableParameters(
             projectUuid,
-            metricQuery: totalMetricQuery,
             explore,
-            queryTags: {
-                embed: 'true',
-                external_id: account.user.id,
-                project_uuid: projectUuid,
-                organization_uuid: chart.organizationUuid,
-                chart_uuid: chart.uuid,
-                dashboard_uuid: dashboardUuid,
-                explore_name: chart.tableName,
-                query_context: QueryExecutionContext.CALCULATE_TOTAL,
-            },
-            account,
-            combinedParameters,
-        });
+        );
 
-        if (rows.length === 0) {
-            throw new NotFoundError('No results found');
+        try {
+            const { totalQuery: totalMetricQuery } =
+                await this.projectService._getCalculateTotalQuery(
+                    userAttributes,
+                    intrinsicUserAttributes,
+                    explore,
+                    metricQuery,
+                    warehouseClient,
+                    availableParameterDefinitions,
+                    combinedParameters,
+                );
+
+            const { rows } = await this._runEmbedQuery({
+                projectUuid,
+                metricQuery: totalMetricQuery,
+                explore,
+                queryTags: {
+                    embed: 'true',
+                    external_id: account.user.id,
+                    project_uuid: projectUuid,
+                    organization_uuid: chart.organizationUuid,
+                    chart_uuid: chart.uuid,
+                    dashboard_uuid: dashboardUuid,
+                    explore_name: chart.tableName,
+                    query_context: QueryExecutionContext.CALCULATE_TOTAL,
+                },
+                account,
+                combinedParameters,
+            });
+
+            if (rows.length === 0) {
+                throw new NotFoundError('No results found');
+            }
+
+            const row = rows[0];
+
+            return row;
+        } catch (e) {
+            if (e instanceof NotSupportedError) {
+                this.logger.warn(e.message);
+                return {}; // no totals
+            }
+            throw e;
         }
-
-        const row = rows[0];
-
-        return row;
     }
 
     async calculateSubtotalsFromSavedChart(
@@ -1020,11 +1173,15 @@ export class EmbedService extends BaseService {
             ...(metricQuery.additionalMetrics?.map((m) => m.name) || []),
         ];
 
+        const dashboard = await this.dashboardModel.getById(dashboardUuid);
+        const dashboardParameters = getDashboardParametersValuesMap(dashboard);
+
         // No parameters are passed in embed requests, just combine the saved parameters
         const combinedParameters = await this.projectService.combineParameters(
             projectUuid,
+            explore,
             {},
-            chart.parameters,
+            dashboardParameters,
         );
 
         return this._calculateSubtotalsForEmbed(
@@ -1201,5 +1358,39 @@ export class EmbedService extends BaseService {
 
     async getEmbeddingByProjectId(projectUuid: string) {
         return this.embedModel.get(projectUuid);
+    }
+
+    async getAccountFromJwt(projectUuid: string, encodedJwt: string) {
+        const embed = await this.getEmbeddingByProjectId(projectUuid);
+        const decodedToken = decodeLightdashJwt(
+            encodedJwt,
+            embed.encodedSecret,
+        );
+        const userAttributesPromise = this.getEmbedUserAttributes(
+            embed.organization.organizationUuid,
+            decodedToken,
+        );
+        const dashboardUuidPromise = this.getDashboardUuidFromJwt(
+            decodedToken,
+            projectUuid,
+        );
+        const [dashboardUuid, userAttributes] = await Promise.all([
+            dashboardUuidPromise,
+            userAttributesPromise,
+        ]);
+
+        if (!dashboardUuid) {
+            throw new NotFoundError(
+                'Cannot verify JWT. Dashboard ID not found',
+            );
+        }
+
+        return fromJwt({
+            decodedToken,
+            source: encodedJwt,
+            embed,
+            dashboardUuid,
+            userAttributes,
+        });
     }
 }

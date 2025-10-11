@@ -1,5 +1,6 @@
 import { AI_DEFAULT_MAX_QUERY_LIMIT } from './constants';
 import {
+    convertAiTableCalcsSchemaToTableCalcs,
     metricQueryTableViz,
     metricQueryTimeSeriesViz,
     metricQueryVerticalBarViz,
@@ -22,11 +23,15 @@ export const parseVizConfig = (
 
     if (toolVerticalBarArgsParsed.success) {
         const vizTool = toolVerticalBarArgsParsed.data;
-        const metricQuery = metricQueryVerticalBarViz(
-            vizTool.vizConfig,
-            vizTool.filters,
-            maxLimit ?? AI_DEFAULT_MAX_QUERY_LIMIT,
-        );
+        const metricQuery = metricQueryVerticalBarViz({
+            vizConfig: vizTool.vizConfig,
+            filters: vizTool.filters,
+            maxLimit: maxLimit ?? AI_DEFAULT_MAX_QUERY_LIMIT,
+            customMetrics: vizTool.customMetrics ?? null,
+            tableCalculations: convertAiTableCalcsSchemaToTableCalcs(
+                vizTool.tableCalculations,
+            ),
+        });
         return {
             type: AiResultType.VERTICAL_BAR_RESULT,
             vizTool,
@@ -38,11 +43,15 @@ export const parseVizConfig = (
         toolTimeSeriesArgsSchemaTransformed.safeParse(vizConfigUnknown);
     if (toolTimeSeriesArgsParsed.success) {
         const vizTool = toolTimeSeriesArgsParsed.data;
-        const metricQuery = metricQueryTimeSeriesViz(
-            vizTool.vizConfig,
-            vizTool.filters,
-            maxLimit ?? AI_DEFAULT_MAX_QUERY_LIMIT,
-        );
+        const metricQuery = metricQueryTimeSeriesViz({
+            vizConfig: vizTool.vizConfig,
+            filters: vizTool.filters,
+            maxLimit: maxLimit ?? AI_DEFAULT_MAX_QUERY_LIMIT,
+            customMetrics: vizTool.customMetrics ?? null,
+            tableCalculations: convertAiTableCalcsSchemaToTableCalcs(
+                vizTool.tableCalculations,
+            ),
+        });
         return {
             type: AiResultType.TIME_SERIES_RESULT,
             vizTool,
@@ -54,11 +63,15 @@ export const parseVizConfig = (
         toolTableVizArgsSchemaTransformed.safeParse(vizConfigUnknown);
     if (toolTableVizArgsParsed.success) {
         const vizTool = toolTableVizArgsParsed.data;
-        const metricQuery = metricQueryTableViz(
-            vizTool.vizConfig,
-            vizTool.filters,
-            maxLimit ?? AI_DEFAULT_MAX_QUERY_LIMIT,
-        );
+        const metricQuery = metricQueryTableViz({
+            vizConfig: vizTool.vizConfig,
+            filters: vizTool.filters,
+            maxLimit: maxLimit ?? AI_DEFAULT_MAX_QUERY_LIMIT,
+            customMetrics: vizTool.customMetrics ?? null,
+            tableCalculations: convertAiTableCalcsSchemaToTableCalcs(
+                vizTool.tableCalculations,
+            ),
+        });
         return {
             type: AiResultType.TABLE_RESULT,
             vizTool,

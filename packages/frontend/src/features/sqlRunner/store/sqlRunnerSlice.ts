@@ -2,6 +2,7 @@ import {
     ChartKind,
     WarehouseTypes,
     type ApiErrorDetail,
+    type ParameterValue,
     type ParametersValuesMap,
     type RawResultRow,
     type SqlChart,
@@ -29,7 +30,7 @@ export enum SidebarTabs {
     VISUALIZATION = 'visualization',
 }
 
-const getLanguage = (
+export const getLanguage = (
     warehouseConnectionType?: WarehouseTypes,
 ): FormatOptionsWithLanguage['language'] => {
     switch (warehouseConnectionType) {
@@ -231,7 +232,7 @@ export const sqlRunnerSlice = createSlice({
             state,
             action: PayloadAction<{
                 key: string;
-                value: string | string[] | null;
+                value: ParameterValue | null;
             }>,
         ) => {
             const { key, value } = action.payload;

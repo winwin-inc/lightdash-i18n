@@ -1,52 +1,49 @@
-import { type AiAgentMessage, type AiAgentThread } from '@lightdash/common';
+import { type AiAgentThread } from '@lightdash/common';
 import { Box, Divider, Flex, getDefaultZIndex, Stack } from '@mantine-8/core';
-import { Fragment, useRef, type FC, type PropsWithChildren } from 'react';
+import {
+    Fragment,
+    useRef,
+    useState,
+    type FC,
+    type PropsWithChildren,
+} from 'react';
 import ErrorBoundary from '../../../../../features/errorBoundary/ErrorBoundary';
+import { AddToEvalModal } from '../Admin/AddToEvalModal';
 import { AssistantBubble } from './AgentChatAssistantBubble';
 import { UserBubble } from './AgentChatUserBubble';
 import ThreadScrollToBottom from './ScrollToBottom';
 import { ChatElementsUtils } from './utils';
 
-type AiThreadMessageProps = {
-    message: AiAgentMessage;
-    agentName?: string;
-    isPreview?: boolean;
-};
-
-const AiThreadMessage: FC<AiThreadMessageProps> = ({
-    message,
-    isPreview = false,
-}) => {
-    const isUser = message.role === 'user';
-
-    return isUser ? (
-        <UserBubble message={message} />
-    ) : (
-        <ErrorBoundary>
-            <AssistantBubble message={message} isPreview={isPreview} />
-        </ErrorBoundary>
-    );
-};
-
-type AgentChatDisplayProps = {
+type Props = {
     thread: AiAgentThread;
+    promptUuid?: string;
     agentName?: string;
     height?: string | number;
     showScrollbar?: boolean;
     enableAutoScroll?: boolean;
     padding?: string;
-    mode: 'preview' | 'interactive';
+    debug?: boolean;
+    projectUuid?: string;
+    agentUuid?: string;
+    renderArtifactsInline?: boolean;
+    showAddToEvalsButton?: boolean;
 };
 
-export const AgentChatDisplay: FC<PropsWithChildren<AgentChatDisplayProps>> = ({
+export const AgentChatDisplay: FC<PropsWithChildren<Props>> = ({
     thread,
-    agentName = 'AI',
     height = '100%',
     enableAutoScroll = false,
-    mode,
     children,
+    debug,
+    projectUuid,
+    agentUuid,
+    renderArtifactsInline = false,
+    showAddToEvalsButton = false,
 }) => {
     const viewport = useRef<HTMLDivElement>(null);
+    const [addToEvalsPromptUuid, setAddToEvalsPromptUuid] = useState<
+        string | null
+    >(null);
 
     return (
         <Flex
@@ -62,34 +59,51 @@ export const AgentChatDisplay: FC<PropsWithChildren<AgentChatDisplayProps>> = ({
                 style={{ flexGrow: 1 }}
             >
                 <Stack flex={1} style={{ flexGrow: 1 }}>
-                    {thread.messages.map((message, i, xs) => {
-                        return (
-                            <Fragment key={`${message.role}-${message.uuid}`}>
-                                {ChatElementsUtils.shouldRenderDivider(
-                                    message,
-                                    i,
-                                    xs,
-                                ) && (
-                                    <Divider
-                                        label={
-                                            message.createdAt
-                                                ? ChatElementsUtils.getDividerLabel(
-                                                      message.createdAt,
-                                                  )
-                                                : undefined
-                                        }
-                                        labelPosition="center"
-                                        my="sm"
-                                    />
-                                )}
-                                <AiThreadMessage
-                                    message={message}
-                                    agentName={agentName}
-                                    isPreview={mode === 'preview'}
+                    {thread.messages.map((message, i, xs) => (
+                        <Fragment key={`${message.role}-${message.uuid}`}>
+                            {ChatElementsUtils.shouldRenderDivider(
+                                message,
+                                i,
+                                xs,
+                            ) && (
+                                <Divider
+                                    label={
+                                        message.createdAt
+                                            ? ChatElementsUtils.getDividerLabel(
+                                                  message.createdAt,
+                                              )
+                                            : undefined
+                                    }
+                                    labelPosition="center"
+                                    my="sm"
                                 />
-                            </Fragment>
-                        );
-                    })}
+                            )}
+
+                            {message.role === 'user' ? (
+                                <UserBubble message={message} />
+                            ) : (
+                                <ErrorBoundary>
+                                    {projectUuid && agentUuid && (
+                                        <AssistantBubble
+                                            message={message}
+                                            debug={debug}
+                                            projectUuid={projectUuid}
+                                            agentUuid={agentUuid}
+                                            onAddToEvals={
+                                                setAddToEvalsPromptUuid
+                                            }
+                                            showAddToEvalsButton={
+                                                showAddToEvalsButton
+                                            }
+                                            renderArtifactsInline={
+                                                renderArtifactsInline
+                                            }
+                                        />
+                                    )}
+                                </ErrorBoundary>
+                            )}
+                        </Fragment>
+                    ))}
                 </Stack>
 
                 {enableAutoScroll ? (
@@ -105,6 +119,20 @@ export const AgentChatDisplay: FC<PropsWithChildren<AgentChatDisplayProps>> = ({
                     {children}
                 </Box>
             </Stack>
+
+            {showAddToEvalsButton &&
+                projectUuid &&
+                agentUuid &&
+                addToEvalsPromptUuid && (
+                    <AddToEvalModal
+                        isOpen={!!addToEvalsPromptUuid}
+                        onClose={() => setAddToEvalsPromptUuid(null)}
+                        projectUuid={projectUuid}
+                        agentUuid={agentUuid}
+                        threadUuid={thread.uuid}
+                        promptUuid={addToEvalsPromptUuid}
+                    />
+                )}
         </Flex>
     );
 };

@@ -1,33 +1,33 @@
 import { subject } from '@casl/ability';
+import { type Role } from '@lightdash/common';
 import {
-    FeatureFlags,
-    ProjectMemberRole,
-    convertOrganizationRoleToProjectRole,
-    convertProjectRoleToOrganizationRole,
-    getHighestProjectRole,
-    isGroupWithMembers,
-    type InheritedRoles,
-    type OrganizationMemberRole,
-} from '@lightdash/common';
-import { ActionIcon, Paper, Table, TextInput } from '@mantine/core';
+    ActionIcon,
+    Flex,
+    Pagination,
+    Paper,
+    Table,
+    TextInput,
+} from '@mantine/core';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import Fuse from 'fuse.js';
-import { useMemo, useState, type FC } from 'react';
+import { useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useProjectGroupAccessList } from '../../features/projectGroupAccess/hooks/useProjectGroupAccess';
 import { useTableStyles } from '../../hooks/styles/useTableStyles';
-import { useFeatureFlag } from '../../hooks/useFeatureFlagEnabled';
 import { useOrganizationGroups } from '../../hooks/useOrganizationGroups';
-import { useOrganizationUsers } from '../../hooks/useOrganizationUsers';
-import { useProjectAccess } from '../../hooks/useProjectAccess';
+import {
+    useOrganizationRoleAssignments,
+    useOrganizationRoles,
+} from '../../hooks/useOrganizationRoles';
+import { useProjectUsersWithRoles } from '../../hooks/useProjectUsersWithRolesV2';
 import { useAbilityContext } from '../../providers/Ability/useAbilityContext';
 import useApp from '../../providers/App/useApp';
 import LoadingState from '../common/LoadingState';
 import MantineIcon from '../common/MantineIcon';
 import { SettingsCard } from '../common/Settings/SettingsCard';
+import { DEFAULT_PAGE_SIZE } from '../common/Table/constants';
 import CreateProjectAccessModal from './CreateProjectAccessModal';
-import ProjectAccessRow from './ProjectAccessRow';
+import ProjectAccessRowV2 from './ProjectAccessRowV2';
 
 interface ProjectAccessProps {
     projectUuid: string;
@@ -41,102 +41,40 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
     onAddProjectAccessClose,
 }) => {
     const { user } = useApp();
-
-    const userGroupsFeatureFlagQuery = useFeatureFlag(
-        FeatureFlags.UserGroupsEnabled,
-    );
-    const ability = useAbilityContext();
     const { t } = useTranslation();
+
+    const ability = useAbilityContext();
 
     const { cx, classes } = useTableStyles();
 
     const [search, setSearch] = useState('');
+    const [page, setPage] = useState(1);
 
+    const { usersWithProjectRole, groupRoles, isLoading } =
+        useProjectUsersWithRoles(projectUuid);
+
+    const { data: organizationRoles, isLoading: isLoadingOrganizationRoles } =
+        useOrganizationRoles();
     const {
-        data: organizationUsers,
-        isInitialLoading: isOrganizationUsersLoading,
-    } = useOrganizationUsers();
+        data: organizationRoleAssignments,
+        isLoading: isLoadingOrganizationRoleAssignments,
+    } = useOrganizationRoleAssignments();
 
-    const { data: groups } = useOrganizationGroups(
-        { includeMembers: 5 },
-        {
-            enabled:
-                userGroupsFeatureFlagQuery.isSuccess &&
-                userGroupsFeatureFlagQuery.data.enabled,
-        },
-    );
+    // Fetch organization groups to check for inherited group access
+    const { data: organizationGroups } = useOrganizationGroups({
+        includeMembers: 2000,
+    });
 
-    const { data: projectAccess, isInitialLoading: isProjectAccessLoading } =
-        useProjectAccess(projectUuid);
-
-    const { data: projectGroupAccess } = useProjectGroupAccessList(projectUuid);
-
-    const orgRoles = useMemo(() => {
-        if (!organizationUsers || !projectAccess) return undefined;
-
-        return organizationUsers.reduce<Record<string, OrganizationMemberRole>>(
-            (acc, orgUser) => {
-                return {
-                    ...acc,
-                    [orgUser.userUuid]: orgUser.role,
-                };
-            },
-            {},
+    const rolesData = useMemo(() => {
+        return organizationRoles?.map(
+            (role: Pick<Role, 'roleUuid' | 'name' | 'ownerType'>) => ({
+                value: role.roleUuid,
+                label: role.name,
+                group:
+                    role.ownerType === 'system' ? 'System role' : 'Custom role',
+            }),
         );
-    }, [organizationUsers, projectAccess]);
-
-    const groupRoles = useMemo(() => {
-        if (!organizationUsers) return {};
-        if (!projectGroupAccess) return {};
-        if (!groups) return {};
-
-        return organizationUsers.reduce<Record<string, ProjectMemberRole>>(
-            (aggregatedRoles, orgUser) => {
-                const userGroupRoles = projectGroupAccess.reduce<
-                    ProjectMemberRole[]
-                >((userRoles, groupAccess) => {
-                    const group = groups.find(
-                        (g) => g.uuid === groupAccess.groupUuid,
-                    );
-                    if (!group || !isGroupWithMembers(group)) return userRoles;
-                    if (!group.memberUuids.includes(orgUser.userUuid))
-                        return userRoles;
-
-                    return [...userRoles, groupAccess.role];
-                }, []);
-
-                const highestRole = getHighestProjectRole(
-                    userGroupRoles.map((role) => ({
-                        type: 'group',
-                        role,
-                    })),
-                );
-
-                if (!highestRole) return aggregatedRoles;
-
-                return {
-                    ...aggregatedRoles,
-                    [orgUser.userUuid]: highestRole.role,
-                };
-            },
-            {},
-        );
-    }, [organizationUsers, projectGroupAccess, groups]);
-
-    const projectRoles = useMemo(() => {
-        if (!projectAccess) return {};
-
-        return projectAccess.reduce<Record<string, ProjectMemberRole>>(
-            (acc, projectMember) => {
-                return {
-                    ...acc,
-                    [projectMember.userUuid]: projectMember.role,
-                };
-            },
-            {},
-        );
-    }, [projectAccess]);
-
+    }, [organizationRoles]);
     const canManageProjectAccess = ability.can(
         'manage',
         subject('Project', {
@@ -145,77 +83,47 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
         }),
     );
 
-    const inheritedRoles = useMemo(() => {
-        // Organization users and org roles are not always available, and we don't want to show the user access page if they are not available
-        if (!organizationUsers || !orgRoles) return undefined;
-        return organizationUsers.reduce<Record<string, InheritedRoles>>(
-            (acc, orgUser) => {
-                return {
-                    ...acc,
-                    [orgUser.userUuid]: [
-                        {
-                            type: 'organization',
-                            role: convertOrganizationRoleToProjectRole(
-                                orgRoles[orgUser.userUuid],
-                            ),
-                        },
-                        {
-                            type: 'group',
-                            role: groupRoles[orgUser.userUuid],
-                        },
-                        {
-                            type: 'project',
-                            role: projectRoles[orgUser.userUuid],
-                        },
-                    ],
-                };
-            },
-            {},
-        );
-    }, [organizationUsers, orgRoles, groupRoles, projectRoles]);
-
-    const usersWithProjectRole = useMemo(() => {
-        if (!organizationUsers || !inheritedRoles) return [];
-
-        return organizationUsers.map((orgUser) => {
-            const highestRole = getHighestProjectRole(
-                inheritedRoles[orgUser.userUuid],
-            );
-            const hasProjectRole = !!projectRoles[orgUser.userUuid];
-            const inheritedRole = highestRole?.role
-                ? convertProjectRoleToOrganizationRole(highestRole.role)
-                : orgUser.role;
-            return {
-                ...orgUser,
-                finalRole: hasProjectRole
-                    ? convertProjectRoleToOrganizationRole(
-                          projectRoles[orgUser.userUuid] ||
-                              ProjectMemberRole.VIEWER,
-                      )
-                    : inheritedRole,
-                inheritedRole: inheritedRoles?.[orgUser.userUuid],
-            };
-        });
-    }, [organizationUsers, projectRoles, inheritedRoles]);
+    // Reset page when search changes
+    useEffect(() => {
+        setPage(1);
+    }, [search]);
 
     const filteredUsers = useMemo(() => {
         if (search && usersWithProjectRole) {
             return new Fuse(usersWithProjectRole, {
-                keys: ['firstName', 'lastName', 'email', 'finalRole'],
+                keys: ['firstName', 'lastName', 'email', 'role', 'projectRole'],
                 ignoreLocation: true,
                 threshold: 0.3,
             })
                 .search(search)
-                .map((result) => ({
-                    ...result.item,
-                    inheritedRole: inheritedRoles?.[result.item.userUuid],
-                }));
+                .map((result) => result.item);
         }
         return usersWithProjectRole;
-    }, [usersWithProjectRole, search, inheritedRoles]);
+    }, [usersWithProjectRole, search]);
 
-    if (isProjectAccessLoading || isOrganizationUsersLoading) {
-        return <LoadingState title={t('components_project_access.loading')} />;
+    // Pagination logic
+    const paginatedUsers = !filteredUsers
+        ? []
+        : (() => {
+              const startIndex = (page - 1) * DEFAULT_PAGE_SIZE;
+              const endIndex = startIndex + DEFAULT_PAGE_SIZE;
+              return filteredUsers.slice(startIndex, endIndex);
+          })();
+
+    const totalPages = !filteredUsers
+        ? 1
+        : Math.ceil(filteredUsers.length / DEFAULT_PAGE_SIZE);
+
+    if (
+        isLoading ||
+        isLoadingOrganizationRoles ||
+        isLoadingOrganizationRoleAssignments
+    ) {
+        return (
+            <LoadingState
+                title={t('components_project_access.loading_user_access')}
+            />
+        );
     }
 
     return (
@@ -255,22 +163,39 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredUsers?.map((orgUser) => (
-                            <ProjectAccessRow
+                        {paginatedUsers?.map((orgUser) => (
+                            <ProjectAccessRowV2
                                 key={orgUser.userUuid}
                                 projectUuid={projectUuid}
                                 canManageProjectAccess={canManageProjectAccess}
                                 user={orgUser}
-                                inheritedRoles={orgUser.inheritedRole}
+                                organizationRoles={rolesData || []}
+                                organizationRoleAssignments={
+                                    organizationRoleAssignments || []
+                                }
+                                organizationGroups={organizationGroups || []}
+                                groupRoles={groupRoles || []}
                             />
                         ))}
                     </tbody>
                 </Table>
+                {totalPages > 1 && (
+                    <Flex m="sm" align="center" justify="center">
+                        <Pagination
+                            size="sm"
+                            value={page}
+                            onChange={setPage}
+                            total={totalPages}
+                            mt="sm"
+                        />
+                    </Flex>
+                )}
             </SettingsCard>
 
             {isAddingProjectAccess && (
                 <CreateProjectAccessModal
                     projectUuid={projectUuid}
+                    roles={rolesData || []}
                     onClose={() => onAddProjectAccessClose()}
                 />
             )}

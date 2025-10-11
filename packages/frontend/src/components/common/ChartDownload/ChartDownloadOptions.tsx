@@ -32,15 +32,15 @@ type DownloadOptions = {
 
 type OptionsWorkaround =
     | {
-          needsWorkaround: false;
-          originalOptions: undefined;
-          updatedOptions: undefined;
-      }
+        needsWorkaround: false;
+        originalOptions: undefined;
+        updatedOptions: undefined;
+    }
     | {
-          needsWorkaround: true;
-          originalOptions: EChartsOption;
-          updatedOptions: EChartsOption;
-      };
+        needsWorkaround: true;
+        originalOptions: EChartsOption;
+        updatedOptions: EChartsOption;
+    };
 
 // TODO: Remove workaround once echarts fixes the bug https://github.com/apache/echarts/issues/20904
 const getOptionsWorkaround = (
@@ -73,34 +73,34 @@ const getOptionsWorkaround = (
 
     const updatedOptions: EChartsOption = needsWorkaround
         ? {
-              ...originalOptions,
-              series: originalOptions.series?.map((series: unknown) => {
-                  if (isPieSeries(series)) {
-                      return {
-                          ...series,
-                          data: series.data?.map((item) => {
-                              // Handle PieDataItemOption case
-                              if (
-                                  typeof item === 'object' &&
-                                  item !== null &&
-                                  !Array.isArray(item)
-                              ) {
-                                  return {
-                                      ...item,
-                                      label: {
-                                          ...item.label,
-                                          show: false,
-                                      },
-                                  };
-                              }
-                              // Handle OptionDataValueNumeric (primitive) or OptionDataValueNumeric[] (array) cases
-                              return item;
-                          }),
-                      };
-                  }
-                  return series;
-              }),
-          }
+            ...originalOptions,
+            series: originalOptions.series?.map((series: unknown) => {
+                if (isPieSeries(series)) {
+                    return {
+                        ...series,
+                        data: series.data?.map((item) => {
+                            // Handle PieDataItemOption case
+                            if (
+                                typeof item === 'object' &&
+                                item !== null &&
+                                !Array.isArray(item)
+                            ) {
+                                return {
+                                    ...item,
+                                    label: {
+                                        ...item.label,
+                                        show: false,
+                                    },
+                                };
+                            }
+                            // Handle OptionDataValueNumeric (primitive) or OptionDataValueNumeric[] (array) cases
+                            return item;
+                        }),
+                    };
+                }
+                return series;
+            }),
+        }
         : undefined;
 
     return {
@@ -255,15 +255,18 @@ const ChartDownloadOptions: React.FC<DownloadOptions> = ({
                 <Tooltip
                     variant="xs"
                     withinPortal
-                    label={t('components_chart_download.copy_to_clipboard')}
+                    color={isCopied ? 'teal' : undefined}
+                    label={isCopied ? t("components_chart_download.copied") : t("components_chart_download.copy_to_clipboard")}
                 >
                     <ActionIcon
                         size="md"
                         onClick={onCopyToClipboard}
-                        variant="outline"
-                        color={isCopied ? 'teal' : 'gray'}
+                        variant="default"
                     >
-                        <MantineIcon icon={isCopied ? IconCheck : IconCopy} />
+                        <MantineIcon
+                            color={isCopied ? 'teal' : undefined}
+                            icon={isCopied ? IconCheck : IconCopy}
+                        />
                     </ActionIcon>
                 </Tooltip>
                 <Button

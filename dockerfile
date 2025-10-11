@@ -38,14 +38,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Installing multiple versions of dbt
 # dbt 1.4 is the default
 RUN python3 -m venv /usr/local/dbt1.4 \
-  && /usr/local/dbt1.4/bin/pip install \
-  "dbt-postgres~=1.4.0" \
-  "dbt-redshift~=1.4.0" \
-  "dbt-snowflake~=1.4.0" \
-  "dbt-bigquery~=1.4.0" \
-  "dbt-databricks~=1.4.0" \
-  "dbt-trino~=1.4.0" \
-  "psycopg2-binary==2.9.6"
+    && /usr/local/dbt1.4/bin/pip install \
+    "dbt-postgres~=1.4.0" \
+    "dbt-redshift~=1.4.0" \
+    "dbt-snowflake~=1.4.0" \
+    "dbt-bigquery~=1.4.0" \
+    "dbt-databricks~=1.4.0" \
+    "dbt-trino~=1.4.0" \
+    "dbt-clickhouse~=1.4.0" \
+    "psycopg2-binary==2.9.6"
 
 RUN ln -s /usr/local/dbt1.4/bin/dbt /usr/local/bin/dbt\
     && python3 -m venv /usr/local/dbt1.5 \
@@ -56,6 +57,7 @@ RUN ln -s /usr/local/dbt1.4/bin/dbt /usr/local/bin/dbt\
     "dbt-bigquery~=1.5.0" \
     "dbt-databricks~=1.5.0" \
     "dbt-trino==1.5.0" \
+    "dbt-clickhouse~=1.5.0" \
     "psycopg2-binary==2.9.6" \
     && ln -s /usr/local/dbt1.5/bin/dbt /usr/local/bin/dbt1.5\
     && python3 -m venv /usr/local/dbt1.6 \
@@ -66,6 +68,7 @@ RUN ln -s /usr/local/dbt1.4/bin/dbt /usr/local/bin/dbt\
     "dbt-bigquery~=1.6.0" \
     "dbt-databricks~=1.6.0" \
     "dbt-trino==1.6.0" \
+    "dbt-clickhouse~=1.6.0" \
     "psycopg2-binary==2.9.6"\
     && ln -s /usr/local/dbt1.6/bin/dbt /usr/local/bin/dbt1.6 \
     && python3 -m venv /usr/local/dbt1.7 \
@@ -76,6 +79,7 @@ RUN ln -s /usr/local/dbt1.4/bin/dbt /usr/local/bin/dbt\
     "dbt-bigquery~=1.7.0" \
     "dbt-databricks~=1.7.0" \
     "dbt-trino==1.7.0" \
+    "dbt-clickhouse~=1.7.0" \
     "psycopg2-binary==2.9.6" \
     && ln -s /usr/local/dbt1.7/bin/dbt /usr/local/bin/dbt1.7 \
     && python3 -m venv /usr/local/dbt1.8 \
@@ -88,6 +92,7 @@ RUN ln -s /usr/local/dbt1.4/bin/dbt /usr/local/bin/dbt\
     "dbt-bigquery~=1.8.0" \
     "dbt-databricks~=1.8.0" \
     "dbt-trino~=1.8.0" \
+    "dbt-clickhouse~=1.8.0" \
     && ln -s /usr/local/dbt1.8/bin/dbt /usr/local/bin/dbt1.8 \
     && python3 -m venv /usr/local/dbt1.9 \
     && /usr/local/dbt1.9/bin/pip install \
@@ -98,6 +103,7 @@ RUN ln -s /usr/local/dbt1.4/bin/dbt /usr/local/bin/dbt\
     "dbt-bigquery~=1.9.0" \
     "dbt-databricks~=1.9.0" \
     "dbt-trino~=1.9.0" \
+    "dbt-clickhouse~=1.9.0" \
     && ln -s /usr/local/dbt1.9/bin/dbt /usr/local/bin/dbt1.9 \ 
     && python3 -m venv /usr/local/dbt1.10 \
     && /usr/local/dbt1.10/bin/pip install \
@@ -108,6 +114,7 @@ RUN ln -s /usr/local/dbt1.4/bin/dbt /usr/local/bin/dbt\
     "dbt-bigquery~=1.9.0" \
     "dbt-databricks~=1.10.0" \
     "dbt-trino~=1.9.0" \
+    "dbt-clickhouse~=1.9.0" \
     && ln -s /usr/local/dbt1.10/bin/dbt /usr/local/bin/dbt1.10
 
 # -----------------------------

@@ -10,6 +10,7 @@ import {
     MetricQuery,
     PivotConfig,
     pivotResultsAsCsv,
+    type ReadyQueryResultsPage,
 } from '@lightdash/common';
 import * as Excel from 'exceljs';
 import fs from 'fs';
@@ -124,6 +125,7 @@ export class ExcelService {
         onlyRaw,
         customLabels,
         maxColumnLimit,
+        pivotDetails,
     }: {
         rows: Record<string, AnyType>[];
         itemMap: ItemsMap;
@@ -132,6 +134,7 @@ export class ExcelService {
         onlyRaw: boolean;
         customLabels: Record<string, string> | undefined;
         maxColumnLimit: number;
+        pivotDetails: ReadyQueryResultsPage['pivotDetails'];
     }): Promise<Excel.Buffer> {
         // PivotQueryResults expects a formatted ResultRow[] type, so we need to convert it first
         const formattedRows = formatRows(rows, itemMap);
@@ -144,6 +147,7 @@ export class ExcelService {
             customLabels,
             onlyRaw,
             maxColumnLimit,
+            pivotDetails,
         });
 
         // Create Excel workbook
@@ -201,12 +205,14 @@ export class ExcelService {
         storageClient,
         lightdashConfig,
         options,
+        pivotDetails,
     }: {
         resultsFileName: string;
         fields: ItemsMap;
         metricQuery: MetricQuery;
         storageClient: S3ResultsFileStorageClient; // S3ResultsFileStorageClient type
         lightdashConfig: LightdashConfig;
+        pivotDetails: ReadyQueryResultsPage['pivotDetails'];
         options: {
             onlyRaw: boolean;
             showTableNames: boolean;
@@ -264,6 +270,7 @@ export class ExcelService {
             onlyRaw,
             customLabels,
             maxColumnLimit: lightdashConfig.pivotTable.maxColumnLimit,
+            pivotDetails,
         });
 
         // Upload the Excel buffer to storage using the storage client pattern

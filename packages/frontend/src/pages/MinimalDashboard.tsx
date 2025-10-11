@@ -1,9 +1,15 @@
-import type { DashboardTab } from '@lightdash/common';
+import type {
+    DashboardFilterRule,
+    DashboardTab,
+    ParametersValuesMap,
+} from '@lightdash/common';
 import {
     assertUnreachable,
     DashboardTileTypes,
     isDashboardScheduler,
+    SessionStorageKeys,
 } from '@lightdash/common';
+import { useSessionStorage } from '@mantine/hooks';
 import { IconLayoutDashboard } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
 import { Responsive, WidthProvider, type Layout } from 'react-grid-layout';
@@ -39,7 +45,19 @@ const MinimalDashboard: FC = () => {
     }>();
 
     const schedulerUuid = useSearchParams('schedulerUuid');
-    const sendNowSchedulerFilters = useSearchParams('sendNowSchedulerFilters');
+
+    const [sendNowSchedulerFilters] = useSessionStorage<
+        DashboardFilterRule[] | undefined
+    >({
+        key: SessionStorageKeys.SEND_NOW_SCHEDULER_FILTERS,
+    });
+
+    const [sendNowSchedulerParameters] = useSessionStorage<
+        ParametersValuesMap | undefined
+    >({
+        key: SessionStorageKeys.SEND_NOW_SCHEDULER_PARAMETERS,
+    });
+
     const schedulerTabs = useSearchParams('selectedTabs');
     const dateZoom = useDateZoomGranularitySearch();
 
@@ -70,11 +88,17 @@ const MinimalDashboard: FC = () => {
         if (schedulerUuid && scheduler && isDashboardScheduler(scheduler)) {
             return scheduler.filters;
         }
-        if (sendNowSchedulerFilters) {
-            return JSON.parse(sendNowSchedulerFilters);
-        }
-        return undefined;
+
+        return sendNowSchedulerFilters;
     }, [scheduler, schedulerUuid, sendNowSchedulerFilters]);
+
+    const schedulerParameters = useMemo(() => {
+        if (schedulerUuid && scheduler && isDashboardScheduler(scheduler)) {
+            return scheduler.parameters;
+        }
+
+        return sendNowSchedulerParameters;
+    }, [scheduler, schedulerUuid, sendNowSchedulerParameters]);
 
     const schedulerTabsSelected = useMemo(() => {
         if (schedulerTabs) {
@@ -108,21 +132,29 @@ const MinimalDashboard: FC = () => {
         });
     }, [sortedTabs, generateTabUrl]);
 
+    const gridProps = getResponsiveGridLayoutProps({
+        stackVerticallyOnSmallestBreakpoint: true,
+    });
+
     const layouts = useMemo(() => {
+        const tiles =
+            dashboard?.tiles.filter((tile) =>
+                // If there are selected tabs when sending now/scheduling, aggregate ALL tiles into one view.
+                schedulerTabsSelected
+                    ? schedulerTabsSelected.includes(tile.tabUuid)
+                    : // This is when viewed a dashboard with tabs in mobile mode - you can navigate between tabs.
+                      !activeTab || activeTab.uuid === tile.tabUuid,
+            ) ?? [];
+
         return {
-            lg:
-                dashboard?.tiles
-                    .filter((tile) =>
-                        // If there are selected tabs when sending now/scheduling, aggregate ALL tiles into one view.
-                        schedulerTabsSelected
-                            ? schedulerTabsSelected.includes(tile.tabUuid)
-                            : // This is when viewed a dashboard with tabs in mobile mode - you can navigate between tabs.
-                              !activeTab || activeTab.uuid === tile.tabUuid,
-                    )
-                    .map<Layout>((tile) => getReactGridLayoutConfig(tile)) ??
-                [],
+            lg: tiles.map<Layout>((tile) =>
+                getReactGridLayoutConfig(tile, false, gridProps.cols.lg),
+            ),
+            md: tiles.map<Layout>((tile) =>
+                getReactGridLayoutConfig(tile, false, gridProps.cols.md),
+            ),
         };
-    }, [dashboard?.tiles, schedulerTabsSelected, activeTab]);
+    }, [dashboard?.tiles, schedulerTabsSelected, activeTab, gridProps.cols]);
 
     const filteredDashboardTiles = useMemo(() => {
         return (
@@ -163,6 +195,7 @@ const MinimalDashboard: FC = () => {
     return (
         <DashboardProvider
             schedulerFilters={schedulerFilters}
+            schedulerParameters={schedulerParameters}
             dateZoom={dateZoom}
             defaultInvalidateCache={true}
         >
@@ -181,12 +214,7 @@ const MinimalDashboard: FC = () => {
                     sx={{ marginTop: '40px' }}
                 />
             ) : (
-                <ResponsiveGridLayout
-                    {...getResponsiveGridLayoutProps({
-                        stackVerticallyOnSmallestBreakpoint: true,
-                    })}
-                    layouts={layouts}
-                >
+                <ResponsiveGridLayout {...gridProps} layouts={layouts}>
                     {filteredDashboardTiles.map((tile) => (
                         <div key={tile.uuid}>
                             {tile.type === DashboardTileTypes.SAVED_CHART ? (

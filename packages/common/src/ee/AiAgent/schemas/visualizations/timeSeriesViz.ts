@@ -1,10 +1,12 @@
 import { z } from 'zod';
+import type { TableCalculation } from '../../../../types/field';
 import type { Filters } from '../../../../types/filter';
 import { AI_DEFAULT_MAX_QUERY_LIMIT } from '../../constants';
 import type { AiMetricQueryWithFilters } from '../../types';
 import { getValidAiQueryLimit } from '../../validators';
 import { getFieldIdSchema } from '../fieldId';
 import sortFieldSchema from '../sortField';
+import type { ToolTimeSeriesArgsTransformed } from '../tools';
 
 export const timeSeriesMetricVizConfigSchema = z.object({
     exploreName: z
@@ -55,11 +57,19 @@ export type TimeSeriesMetricVizConfigSchemaType = z.infer<
     typeof timeSeriesMetricVizConfigSchema
 >;
 
-export const metricQueryTimeSeriesViz = (
-    vizConfig: TimeSeriesMetricVizConfigSchemaType,
-    filters: Filters,
-    maxLimit: number,
-): AiMetricQueryWithFilters => {
+export const metricQueryTimeSeriesViz = ({
+    vizConfig,
+    filters,
+    maxLimit,
+    customMetrics,
+    tableCalculations,
+}: {
+    vizConfig: TimeSeriesMetricVizConfigSchemaType;
+    filters: Filters;
+    maxLimit: number;
+    customMetrics: ToolTimeSeriesArgsTransformed['customMetrics'] | null;
+    tableCalculations: TableCalculation[];
+}): AiMetricQueryWithFilters => {
     const metrics = vizConfig.yMetrics;
     const dimensions = [
         vizConfig.xDimension,
@@ -73,8 +83,13 @@ export const metricQueryTimeSeriesViz = (
         metrics,
         dimensions,
         limit: getValidAiQueryLimit(limit, maxLimit),
-        sorts,
+        sorts: sorts.map((sort) => ({
+            ...sort,
+            nullsFirst: sort.nullsFirst ?? undefined,
+        })),
         exploreName: vizConfig.exploreName,
         filters,
+        additionalMetrics: customMetrics ?? [],
+        tableCalculations,
     };
 };

@@ -4,9 +4,9 @@ import {
     CustomFormatType,
     FilterOperator,
     getItemId,
+    isSqlTableCalculation,
     type ChartConfig,
     type Filters,
-    type SortField,
     type TimeZone,
 } from '@lightdash/common';
 
@@ -127,51 +127,6 @@ describe('ExplorerProvider reducer', () => {
         });
     });
 
-    describe('SET_FETCH_RESULTS_FALSE', () => {
-        it('sets shouldFetchResults to false', () => {
-            const state = mockExplorerState({ shouldFetchResults: true });
-
-            const newState = reducer(state, {
-                type: ActionType.SET_FETCH_RESULTS_FALSE,
-            });
-
-            expect(newState.shouldFetchResults).toBe(false);
-        });
-
-        it('does not affect other parts of state', () => {
-            const state = mockExplorerState({
-                shouldFetchResults: true,
-                unsavedChartVersion: {
-                    tableName: 'orders',
-                    metricQuery: mockMetricQuery({
-                        dimensions: ['order_id'],
-                    }),
-                    chartConfig: mockCartesianChartConfig,
-                    tableConfig: mockTableConfig,
-                },
-            });
-
-            const newState = reducer(state, {
-                type: ActionType.SET_FETCH_RESULTS_FALSE,
-            });
-
-            expect(newState.unsavedChartVersion.tableName).toBe('orders');
-            expect(newState.unsavedChartVersion.metricQuery.dimensions).toEqual(
-                ['order_id'],
-            );
-        });
-
-        it('does not mutate previous state', () => {
-            const frozen = Object.freeze(
-                mockExplorerState({ shouldFetchResults: true }),
-            );
-
-            expect(() =>
-                reducer(frozen, { type: ActionType.SET_FETCH_RESULTS_FALSE }),
-            ).not.toThrow();
-        });
-    });
-
     describe('SET_PREVIOUSLY_FETCHED_STATE', () => {
         const mockPrevQuery = mockMetricQuery({
             dimensions: ['dimension_1'],
@@ -209,7 +164,6 @@ describe('ExplorerProvider reducer', () => {
 
         it('does not affect other parts of state', () => {
             const state = mockExplorerState({
-                shouldFetchResults: true,
                 unsavedChartVersion: {
                     tableName: 'sales',
                     metricQuery: mockMetricQuery(),
@@ -226,7 +180,6 @@ describe('ExplorerProvider reducer', () => {
             expect(newState.unsavedChartVersion).toEqual(
                 state.unsavedChartVersion,
             );
-            expect(newState.shouldFetchResults).toBe(true);
         });
     });
 
@@ -316,8 +269,14 @@ describe('ExplorerProvider reducer', () => {
                             { name: 'calc1', displayName: 'calc1', sql: '' },
                         ],
                         sorts: [
-                            { fieldId: 'revenue', descending: false },
-                            { fieldId: 'user_id', descending: true },
+                            {
+                                fieldId: 'revenue',
+                                descending: false,
+                            },
+                            {
+                                fieldId: 'user_id',
+                                descending: true,
+                            },
                         ],
                     },
                     tableConfig: {
@@ -342,7 +301,10 @@ describe('ExplorerProvider reducer', () => {
                 newState.unsavedChartVersion.metricQuery.tableCalculations,
             ).toEqual([{ name: 'calc1', displayName: 'calc1', sql: '' }]);
             expect(newState.unsavedChartVersion.metricQuery.sorts).toEqual([
-                { fieldId: 'user_id', descending: true },
+                {
+                    fieldId: 'user_id',
+                    descending: true,
+                },
             ]);
             expect(
                 newState.unsavedChartVersion.tableConfig.columnOrder,
@@ -351,7 +313,6 @@ describe('ExplorerProvider reducer', () => {
 
         it('preserves other parts of the state', () => {
             const state = mockExplorerState({
-                shouldFetchResults: true,
                 previouslyFetchedState: mockMetricQuery(),
             });
 
@@ -360,7 +321,6 @@ describe('ExplorerProvider reducer', () => {
                 payload: 'non_existent_field',
             });
 
-            expect(newState.shouldFetchResults).toBe(true);
             expect(newState.previouslyFetchedState).toEqual(mockMetricQuery());
         });
 
@@ -388,7 +348,12 @@ describe('ExplorerProvider reducer', () => {
                         tableCalculations: [
                             { name: 'calc_1', displayName: 'Calc', sql: '1' },
                         ],
-                        sorts: [{ fieldId: 'dim_1', descending: false }],
+                        sorts: [
+                            {
+                                fieldId: 'dim_1',
+                                descending: false,
+                            },
+                        ],
                     },
                     tableConfig: {
                         columnOrder: [],
@@ -639,341 +604,6 @@ describe('ExplorerProvider reducer', () => {
         });
     });
 
-    describe('TOGGLE_SORT_FIELD', () => {
-        const dimensions = ['dim_1'];
-        const metrics = ['metric_1'];
-        const tableCalculations = [
-            { name: 'calc_1', displayName: 'Calc 1', sql: '1' },
-        ];
-
-        const baseState = mockExplorerState({
-            unsavedChartVersion: {
-                ...mockExplorerState().unsavedChartVersion,
-                metricQuery: {
-                    exploreName: 'my_table',
-                    dimensions,
-                    metrics,
-                    filters: { dimensions: emptyFilterGroup() },
-                    sorts: [],
-                    limit: 500,
-                    tableCalculations,
-                },
-            },
-        });
-
-        it('adds ascending sort if field not currently sorted', () => {
-            const newState = reducer(baseState, {
-                type: ActionType.TOGGLE_SORT_FIELD,
-                payload: 'dim_1',
-            });
-
-            expect(newState.unsavedChartVersion.metricQuery.sorts).toEqual([
-                { fieldId: 'dim_1', descending: false },
-            ]);
-        });
-
-        it('toggles to descending if field already sorted ascending', () => {
-            const state = {
-                ...baseState,
-                unsavedChartVersion: {
-                    ...baseState.unsavedChartVersion,
-                    metricQuery: {
-                        ...baseState.unsavedChartVersion.metricQuery,
-                        sorts: [{ fieldId: 'dim_1', descending: false }],
-                    },
-                },
-            };
-
-            const newState = reducer(state, {
-                type: ActionType.TOGGLE_SORT_FIELD,
-                payload: 'dim_1',
-            });
-
-            expect(newState.unsavedChartVersion.metricQuery.sorts).toEqual([
-                { fieldId: 'dim_1', descending: true },
-            ]);
-        });
-
-        it('removes sort if field already sorted descending', () => {
-            const state = {
-                ...baseState,
-                unsavedChartVersion: {
-                    ...baseState.unsavedChartVersion,
-                    metricQuery: {
-                        ...baseState.unsavedChartVersion.metricQuery,
-                        sorts: [{ fieldId: 'dim_1', descending: true }],
-                    },
-                },
-            };
-
-            const newState = reducer(state, {
-                type: ActionType.TOGGLE_SORT_FIELD,
-                payload: 'dim_1',
-            });
-
-            expect(newState.unsavedChartVersion.metricQuery.sorts).toEqual([]);
-        });
-
-        it('does nothing if field is not active (not in dimensions, metrics, or calcs)', () => {
-            const newState = reducer(baseState, {
-                type: ActionType.TOGGLE_SORT_FIELD,
-                payload: 'unknown_field',
-            });
-
-            expect(newState).toStrictEqual(baseState);
-        });
-
-        it('does not mutate original state', () => {
-            const frozen = Object.freeze(baseState);
-
-            expect(() =>
-                reducer(frozen, {
-                    type: ActionType.TOGGLE_SORT_FIELD,
-                    payload: 'dim_1',
-                }),
-            ).not.toThrow();
-        });
-    });
-
-    describe('SET_SORT_FIELDS', () => {
-        it('sets sort fields if they exist in active fields', () => {
-            const state = mockExplorerState({
-                unsavedChartVersion: {
-                    ...mockExplorerState().unsavedChartVersion,
-                    metricQuery: mockMetricQuery({
-                        dimensions: ['a', 'b', 'c'],
-                        metrics: ['met_1'],
-                        tableCalculations: [
-                            { name: 'calc_1', sql: '1', displayName: 'calc' },
-                        ],
-                    }),
-                },
-            });
-
-            const action = {
-                type: ActionType.SET_SORT_FIELDS,
-                payload: [
-                    mockSortField('a'),
-                    mockSortField('b'),
-                    mockSortField('c'),
-                ] as SortField[],
-            } as const;
-
-            const newState = reducer(state, action);
-            expect(newState.unsavedChartVersion.metricQuery.sorts).toEqual(
-                action.payload,
-            );
-        });
-
-        it('ignores sort fields that are not active', () => {
-            const state = mockExplorerState({
-                unsavedChartVersion: {
-                    ...mockExplorerState().unsavedChartVersion,
-                    metricQuery: mockMetricQuery({
-                        dimensions: ['dim_1'],
-                    }),
-                },
-            });
-
-            const action = {
-                type: ActionType.SET_SORT_FIELDS,
-                payload: [
-                    mockSortField('dim_1'),
-                    mockSortField('not_active'),
-                ] as SortField[],
-            } as const;
-
-            const newState = reducer(state, action);
-            expect(newState.unsavedChartVersion.metricQuery.sorts).toEqual([
-                mockSortField('dim_1'),
-            ]);
-        });
-    });
-
-    describe('ADD_SORT_FIELD', () => {
-        it('adds a new sort if not present', () => {
-            const state = mockExplorerState({
-                unsavedChartVersion: {
-                    ...mockExplorerState().unsavedChartVersion,
-                    metricQuery: mockMetricQuery({ sorts: [] }),
-                },
-            });
-
-            const sortField = mockSortField('x');
-            const action = {
-                type: ActionType.ADD_SORT_FIELD,
-                payload: sortField,
-            } as const;
-            const newState = reducer(state, action);
-
-            expect(
-                newState.unsavedChartVersion.metricQuery.sorts,
-            ).toContainEqual(sortField);
-        });
-
-        it('updates sort direction if already present', () => {
-            const state = mockExplorerState({
-                unsavedChartVersion: {
-                    ...mockExplorerState().unsavedChartVersion,
-                    metricQuery: mockMetricQuery({
-                        sorts: [mockSortField('x')],
-                    }),
-                },
-            });
-
-            const action = {
-                type: ActionType.ADD_SORT_FIELD,
-                payload: { fieldId: 'x', descending: true },
-            } as const;
-
-            const newState = reducer(state, action);
-            expect(newState.unsavedChartVersion.metricQuery.sorts).toEqual([
-                { fieldId: 'x', descending: true },
-            ]);
-        });
-    });
-
-    describe('REMOVE_SORT_FIELD', () => {
-        it('removes the specified sort field', () => {
-            const state = mockExplorerState({
-                unsavedChartVersion: {
-                    ...mockExplorerState().unsavedChartVersion,
-                    metricQuery: mockMetricQuery({
-                        sorts: [mockSortField('x'), mockSortField('y')],
-                    }),
-                },
-            });
-
-            const action = {
-                type: ActionType.REMOVE_SORT_FIELD,
-                payload: 'x',
-            } as const;
-
-            const newState = reducer(state, action);
-            expect(newState.unsavedChartVersion.metricQuery.sorts).toEqual([
-                mockSortField('y'),
-            ]);
-        });
-
-        it('does nothing if the field is not sorted', () => {
-            const state = mockExplorerState({
-                unsavedChartVersion: {
-                    ...mockExplorerState().unsavedChartVersion,
-                    metricQuery: mockMetricQuery({
-                        sorts: [mockSortField('y')],
-                    }),
-                },
-            });
-
-            const action = {
-                type: ActionType.REMOVE_SORT_FIELD,
-                payload: 'x', // not present
-            } as const;
-
-            const newState = reducer(state, action);
-            expect(newState.unsavedChartVersion.metricQuery.sorts).toEqual([
-                mockSortField('y'),
-            ]);
-        });
-    });
-
-    describe('MOVE_SORT_FIELDS', () => {
-        it('moves a sort field from one index to another', () => {
-            const state = mockExplorerState({
-                unsavedChartVersion: {
-                    ...mockExplorerState().unsavedChartVersion,
-                    metricQuery: mockMetricQuery({
-                        sorts: [
-                            mockSortField('a'),
-                            mockSortField('b'),
-                            mockSortField('c'),
-                        ],
-                    }),
-                },
-            });
-
-            const action = {
-                type: ActionType.MOVE_SORT_FIELDS,
-                payload: { sourceIndex: 0, destinationIndex: 2 },
-            } as const;
-
-            const newState = reducer(state, action);
-
-            expect(newState.unsavedChartVersion.metricQuery.sorts).toEqual([
-                mockSortField('b'),
-                mockSortField('c'),
-                mockSortField('a'),
-            ]);
-        });
-
-        it('does nothing if sourceIndex is out of bounds', () => {
-            const state = mockExplorerState({
-                unsavedChartVersion: {
-                    ...mockExplorerState().unsavedChartVersion,
-                    metricQuery: mockMetricQuery({
-                        sorts: [mockSortField('a')],
-                    }),
-                },
-            });
-
-            const action = {
-                type: ActionType.MOVE_SORT_FIELDS,
-                payload: { sourceIndex: -1, destinationIndex: 0 },
-            } as const;
-
-            const newState = reducer(state, action);
-
-            expect(newState.unsavedChartVersion.metricQuery.sorts).toEqual([
-                mockSortField('a'),
-            ]);
-        });
-
-        it('does nothing if destinationIndex is out of bounds', () => {
-            const state = mockExplorerState({
-                unsavedChartVersion: {
-                    ...mockExplorerState().unsavedChartVersion,
-                    metricQuery: mockMetricQuery({
-                        sorts: [mockSortField('a')],
-                    }),
-                },
-            });
-
-            const action = {
-                type: ActionType.MOVE_SORT_FIELDS,
-                payload: { sourceIndex: 0, destinationIndex: 5 },
-            } as const;
-
-            const newState = reducer(state, action);
-
-            expect(newState.unsavedChartVersion.metricQuery.sorts).toEqual([
-                mockSortField('a'),
-            ]);
-        });
-
-        it('preserves order if source and destination are the same', () => {
-            const state = mockExplorerState({
-                unsavedChartVersion: {
-                    ...mockExplorerState().unsavedChartVersion,
-                    metricQuery: mockMetricQuery({
-                        sorts: [mockSortField('a'), mockSortField('b')],
-                    }),
-                },
-            });
-
-            const action = {
-                type: ActionType.MOVE_SORT_FIELDS,
-                payload: { sourceIndex: 1, destinationIndex: 1 },
-            } as const;
-
-            const newState = reducer(state, action);
-
-            expect(newState.unsavedChartVersion.metricQuery.sorts).toEqual([
-                mockSortField('a'),
-                mockSortField('b'),
-            ]);
-        });
-    });
-
     describe('SET_ROW_LIMIT', () => {
         it('sets a new row limit', () => {
             const state = mockExplorerState({
@@ -1073,10 +703,9 @@ describe('ExplorerProvider reducer', () => {
             expect(newState.unsavedChartVersion.metricQuery.filters).toEqual(
                 filters,
             );
-            expect(newState.shouldFetchResults).toBe(false);
         });
 
-        it('sets filters and enables shouldFetchResults', () => {
+        it('sets filters', () => {
             const filters = {
                 metrics: mockFilterGroup({
                     id: 'metrics-group',
@@ -1095,13 +724,11 @@ describe('ExplorerProvider reducer', () => {
             const newState = reducer(state, {
                 type: ActionType.SET_FILTERS,
                 payload: filters,
-                options: { shouldFetchResults: true },
             });
 
             expect(newState.unsavedChartVersion.metricQuery.filters).toEqual(
                 filters,
             );
-            expect(newState.shouldFetchResults).toBe(true);
         });
 
         it('preserves other parts of state', () => {
@@ -1418,7 +1045,10 @@ describe('ExplorerProvider reducer', () => {
                             { ...mockAdditionalMetric, uuid: 'metric-uuid' },
                         ],
                         sorts: [
-                            { fieldId: previousMetricName, descending: false },
+                            {
+                                fieldId: previousMetricName,
+                                descending: false,
+                            },
                         ],
                         filters: {
                             metrics: mockFilterGroup({
@@ -1480,9 +1110,10 @@ describe('ExplorerProvider reducer', () => {
             //     newState.unsavedChartVersion.metricQuery.filters.metrics
             //         ?.and?.[0]?.target?.fieldId,
             // ).toBe('orders_revenue_new');
+            const tableCalc =
+                newState.unsavedChartVersion.metricQuery.tableCalculations[0];
             expect(
-                newState.unsavedChartVersion.metricQuery.tableCalculations[0]
-                    .sql,
+                isSqlTableCalculation(tableCalc) ? tableCalc.sql : '',
             ).toContain('${orders.revenue_new}');
             expect(
                 newState.unsavedChartVersion.tableConfig.columnOrder,
@@ -1500,7 +1131,12 @@ describe('ExplorerProvider reducer', () => {
                     metricQuery: mockMetricQuery({
                         metrics: [metricId],
                         additionalMetrics: [mockAdditionalMetric],
-                        sorts: [{ fieldId: metricId, descending: false }],
+                        sorts: [
+                            {
+                                fieldId: metricId,
+                                descending: false,
+                            },
+                        ],
                         filters: {
                             metrics: {
                                 id: 'test-filter-group',

@@ -1,13 +1,20 @@
-import { Box } from '@mantine/core';
-import { memo } from 'react';
+import { Box } from '@mantine-8/core';
+import { memo, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import {
-    ParameterSelection,
-    useParameters,
-} from '../../../features/parameters';
+    explorerActions,
+    selectIsEditMode,
+    selectIsParametersExpanded,
+    selectParameterDefinitions,
+    selectParameters,
+    selectTableName,
+    useExplorerDispatch,
+    useExplorerSelector,
+} from '../../../features/explorer/store';
+import { ParameterSelection } from '../../../features/parameters';
+import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
 import { ExplorerSection } from '../../../providers/Explorer/types';
-import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import CollapsableCard from '../../common/CollapsableCard/CollapsableCard';
 
 const ParametersCard = memo(
@@ -15,57 +22,57 @@ const ParametersCard = memo(
         const { t } = useTranslation();
 
         const { projectUuid } = useParams<{ projectUuid: string }>();
-        const expandedSections = useExplorerContext(
-            (context) => context.state.expandedSections,
+
+        const paramsIsOpen = useExplorerSelector(selectIsParametersExpanded);
+        const isEditMode = useExplorerSelector(selectIsEditMode);
+        const tableName = useExplorerSelector(selectTableName);
+        const parameterDefinitions = useExplorerSelector(
+            selectParameterDefinitions,
+        );
+        const parameterValues = useExplorerSelector(selectParameters);
+        const dispatch = useExplorerDispatch();
+
+        const { missingRequiredParameters } = useExplorerQuery();
+
+        const toggleExpandedSection = useCallback(
+            (section: ExplorerSection) => {
+                dispatch(explorerActions.toggleExpandedSection(section));
+            },
+            [dispatch],
         );
 
-        const isEditMode = useExplorerContext(
-            (context) => context.state.isEditMode,
+        const filteredParameterDefinitions = useMemo(() => {
+            return Object.fromEntries(
+                Object.entries(parameterDefinitions).filter(([key]) =>
+                    parameterReferences?.includes(key),
+                ),
+            );
+        }, [parameterDefinitions, parameterReferences]);
+
+        const setParameter = useCallback(
+            (
+                key: string,
+                value: string | number | string[] | number[] | null,
+            ) => {
+                dispatch(explorerActions.setParameter({ key, value }));
+            },
+            [dispatch],
         );
 
-        const tableName = useExplorerContext(
-            (context) => context.state.unsavedChartVersion.tableName,
-        );
-
-        const toggleExpandedSection = useExplorerContext(
-            (context) => context.actions.toggleExpandedSection,
-        );
-
-        const {
-            data: parameters,
-            isLoading,
-            isError,
-            isFetched,
-        } = useParameters(projectUuid, parameterReferences, {
-            enabled: !!parameterReferences?.length,
-        });
-
-        const parameterValues = useExplorerContext(
-            (context) => context.state.unsavedChartVersion.parameters || {},
-        );
-
-        const setParameter = useExplorerContext(
-            (context) => context.actions.setParameter,
-        );
-
-        const clearAllParameters = useExplorerContext(
-            (context) => context.actions.clearAllParameters,
-        );
+        const clearAllParameters = useCallback(() => {
+            dispatch(explorerActions.clearAllParameters());
+        }, [dispatch]);
 
         const handleParameterChange = (
             paramKey: string,
-            value: string | string[] | null,
+            value: string | number | string[] | number[] | null,
         ) => {
             setParameter(paramKey, value);
         };
 
-        const paramsIsOpen = expandedSections.includes(
-            ExplorerSection.PARAMETERS,
-        );
-
         return (
             <CollapsableCard
-                isOpen={paramsIsOpen && isFetched}
+                isOpen={paramsIsOpen}
                 title={t('components_explorer_parameters_card.title')}
                 disabled={!tableName}
                 toggleTooltip={!tableName ? t('components_explorer_parameters_card.no_model_selected') : ''}
@@ -75,12 +82,10 @@ const ParametersCard = memo(
             >
                 <Box m="md">
                     <ParameterSelection
-                        parameters={parameters}
-                        isLoading={isLoading}
-                        isError={isError}
+                        parameters={filteredParameterDefinitions}
+                        missingRequiredParameters={missingRequiredParameters}
                         parameterValues={parameterValues || {}}
                         onParameterChange={handleParameterChange}
-                        size="sm"
                         showClearAll={true}
                         onClearAll={clearAllParameters}
                         cols={2}

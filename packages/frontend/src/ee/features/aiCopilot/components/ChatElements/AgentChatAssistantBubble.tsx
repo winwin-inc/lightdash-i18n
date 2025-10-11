@@ -1,12 +1,13 @@
 import {
-    AiResultType,
-    parseVizConfig,
+    ChartKind,
     type AiAgentMessageAssistant,
-    type ApiExecuteAsyncMetricQueryResults,
+    type ToolProposeChangeArgs,
 } from '@lightdash/common';
 import {
     ActionIcon,
-    Center,
+    Alert,
+    Anchor,
+    Button,
     CopyButton,
     Group,
     Loader,
@@ -15,269 +16,542 @@ import {
     Text,
     Tooltip,
 } from '@mantine-8/core';
+import { useDisclosure } from '@mantine-8/hooks';
 import {
+    IconArrowRight,
+    IconBug,
     IconCheck,
     IconCopy,
     IconExclamationCircle,
+    IconLayoutDashboard,
+    IconRefresh,
+    IconTestPipe,
     IconThumbDown,
     IconThumbDownFilled,
     IconThumbUp,
     IconThumbUpFilled,
 } from '@tabler/icons-react';
 import MDEditor from '@uiw/react-md-editor';
-import { memo, useCallback, useMemo, type FC } from 'react';
-import { useParams } from 'react-router';
+import { memo, useCallback, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../../../components/common/MantineIcon';
-import { useInfiniteQueryResults } from '../../../../../hooks/useQueryResults';
+import { getChartIcon } from '../../../../../components/common/ResourceIcon/utils';
 import {
-    useAiAgentThreadMessageVizQuery,
-    useUpdatePromptFeedbackMutation,
-} from '../../hooks/useOrganizationAiAgents';
+    mdEditorComponents,
+    rehypeRemoveHeaderLinks,
+    useMdEditorStyle,
+} from '../../../../../utils/markdownUtils';
+import { useUpdatePromptFeedbackMutation } from '../../hooks/useProjectAiAgents';
+import { setArtifact } from '../../store/aiArtifactSlice';
+import {
+    useAiAgentStoreDispatch,
+    useAiAgentStoreSelector,
+} from '../../store/hooks';
+import { useAiAgentThreadStreamMutation } from '../../streaming/useAiAgentThreadStreamMutation';
 import {
     useAiAgentThreadMessageStreaming,
     useAiAgentThreadStreamQuery,
 } from '../../streaming/useAiAgentThreadStreamQuery';
-import { AiChartVisualization } from './AiChartVisualization';
+import styles from './AgentChatAssistantBubble.module.css';
+import AgentChatDebugDrawer from './AgentChatDebugDrawer';
+import { AiArtifactInline } from './AiArtifactInline';
+import { AiArtifactButton } from './ArtifactButton/AiArtifactButton';
+import { rehypeAiAgentContentLinks } from './rehypeContentLinks';
 import { AiChartToolCalls } from './ToolCalls/AiChartToolCalls';
+import { AiProposeChangeToolCall } from './ToolCalls/AiProposeChangeToolCall';
 
 const AssistantBubbleContent: FC<{
     message: AiAgentMessageAssistant;
     projectUuid: string;
-    metricQuery?: ApiExecuteAsyncMetricQueryResults['metricQuery'];
-}> = ({ message, metricQuery, projectUuid }) => {
+    agentUuid: string;
+}> = ({ message, projectUuid, agentUuid }) => {
     const { t } = useTranslation();
     const streamingState = useAiAgentThreadStreamQuery(message.threadUuid);
     const isStreaming = useAiAgentThreadMessageStreaming(
         message.threadUuid,
         message.uuid,
     );
+    const { streamMessage } = useAiAgentThreadStreamMutation();
+    const mdStyle = useMdEditorStyle();
 
+    const hasStreamingError =
+        streamingState?.error && streamingState?.messageUuid === message.uuid;
     const messageContent =
         isStreaming && streamingState
             ? streamingState.content
-            : message.message ?? t('features_ai_copilot_chat_elements.no_response');
+            : message.message ??
+              t('features_ai_copilot_chat_elements.no_response');
 
-    return (
-        <>
-            {isStreaming && (
-                <AiChartToolCalls
-                    toolCalls={streamingState?.toolCalls}
-                    type="streaming"
-                />
-            )}
-
-            {!isStreaming && message.toolCalls.length > 0 && (
-                <AiChartToolCalls
-                    toolCalls={message.toolCalls}
-                    type="persisted"
-                    metricQuery={metricQuery}
-                    projectUuid={projectUuid}
-                />
-            )}
-            <MDEditor.Markdown
-                source={messageContent}
-                style={{ backgroundColor: 'transparent', padding: `0.5rem 0` }}
-            />
-            {isStreaming ? <Loader type="dots" color="gray" /> : null}
-        </>
-    );
-};
-
-export const AssistantBubble: FC<{
-    message: AiAgentMessageAssistant;
-    isPreview?: boolean;
-}> = memo(({ message, isPreview = false }) => {
-    const { t } = useTranslation();
-
-    const { agentUuid, projectUuid } = useParams();
-    if (!projectUuid) throw new Error(`Project Uuid not found`);
-    if (!agentUuid) throw new Error(`Agent Uuid not found`);
-
-    const vizConfig = useMemo(
-        () => parseVizConfig(message.vizConfigOutput),
-        [message.vizConfigOutput],
-    );
-
-    const hasVizConfig = !!vizConfig;
-    const isChartVisualization =
-        hasVizConfig && vizConfig.type !== AiResultType.TABLE_RESULT;
-    const isTableVisualization =
-        hasVizConfig &&
-        vizConfig.type === AiResultType.TABLE_RESULT &&
-        vizConfig.vizTool.vizConfig.limit !== 1;
-    const isVisualizationAvailable =
-        hasVizConfig && (isChartVisualization || isTableVisualization);
-
-    const queryExecutionHandle = useAiAgentThreadMessageVizQuery(
-        {
+    const handleRetry = useCallback(() => {
+        void streamMessage({
             projectUuid,
             agentUuid,
             threadUuid: message.threadUuid,
             messageUuid: message.uuid,
-        },
-        { enabled: isVisualizationAvailable },
-    );
-
-    const queryResults = useInfiniteQueryResults(
-        projectUuid,
-        queryExecutionHandle?.data?.query.queryUuid,
-    );
-
-    const isQueryLoading =
-        queryExecutionHandle.isLoading || queryResults.isFetchingRows;
-    const isQueryError = queryExecutionHandle.isError || queryResults.error;
-
-    const updateFeedbackMutation = useUpdatePromptFeedbackMutation(
+        });
+    }, [
+        streamMessage,
         agentUuid,
         message.threadUuid,
-    );
-
-    const upVoted = message.humanScore === 1;
-    const downVoted = message.humanScore === -1;
-    const hasRating = upVoted || downVoted;
-
-    const handleUpvote = useCallback(() => {
-        if (hasRating) return;
-        updateFeedbackMutation.mutate({
-            messageUuid: message.uuid,
-            humanScore: 1,
-        });
-    }, [hasRating, updateFeedbackMutation, message.uuid]);
-
-    const handleDownvote = useCallback(() => {
-        if (hasRating) return;
-        updateFeedbackMutation.mutate({
-            messageUuid: message.uuid,
-            humanScore: -1,
-        });
-    }, [hasRating, updateFeedbackMutation, message.uuid]);
-
-    const isLoading = useAiAgentThreadMessageStreaming(
-        message.threadUuid,
         message.uuid,
+        projectUuid,
+    ]);
+
+    const proposeChangeToolCall = isStreaming
+        ? (streamingState?.toolCalls.find((t) => t.toolName === 'proposeChange')
+              ?.toolArgs as ToolProposeChangeArgs)
+        : (message.toolCalls.find((t) => t.toolName === 'proposeChange')
+              ?.toolArgs as ToolProposeChangeArgs); // TODO: fix message type, it's `object` now
+
+    const proposeChangeToolResult = message.toolResults.find(
+        (result) => result.toolName === 'proposeChange',
     );
 
     return (
-        <Stack
-            pos="relative"
-            w="100%"
-            gap="xs"
-            style={{
-                overflow: 'unset',
-                borderStartStartRadius: '0px',
-            }}
-        >
-            <AssistantBubbleContent
-                message={message}
-                metricQuery={queryExecutionHandle.data?.query.metricQuery}
-                projectUuid={projectUuid}
-            />
-
-            {isVisualizationAvailable && (
+        <>
+            {hasStreamingError && (
                 <Paper
                     withBorder
                     radius="md"
-                    p="md"
-                    h="500px"
+                    pr="md"
                     shadow="none"
-                    {...((queryExecutionHandle.isError ||
-                        queryExecutionHandle.isLoading) && {
-                        bg: 'gray.0',
-                        style: {
-                            borderStyle: 'dashed',
-                        },
-                    })}
+                    bg="gray.0"
+                    style={{
+                        borderStyle: 'dashed',
+                    }}
                 >
-                    {isQueryLoading ? (
-                        <Center h="100%">
-                            <Loader
-                                type="dots"
-                                color="gray"
-                                delayedMessage={t(
-                                    'features_ai_copilot_chat_elements.loading_visualization',
-                                )}
-                            />
-                        </Center>
-                    ) : isQueryError ? (
-                        <Stack gap="xs" align="center">
-                            <MantineIcon
-                                icon={IconExclamationCircle}
-                                color="gray"
-                            />
-                            <Text size="xs" c="dimmed" ta="center">
-                                {t(
-                                    'features_ai_copilot_chat_elements.something_went_wrong',
-                                )}
-                            </Text>
-                        </Stack>
-                    ) : (
-                        <AiChartVisualization
-                            results={queryResults}
-                            message={message}
-                            queryExecutionHandle={queryExecutionHandle}
-                            projectUuid={projectUuid}
-                        />
-                    )}
+                    <Group gap="xs" align="center" justify="space-between">
+                        <Alert
+                            icon={
+                                <MantineIcon
+                                    icon={IconExclamationCircle}
+                                    color="gray"
+                                    size="md"
+                                />
+                            }
+                            color="gray.0"
+                            variant="outline"
+                        >
+                            <Stack gap={4}>
+                                <Text size="sm" fw={500} c="dimmed">
+                                    {t(
+                                        'features_ai_copilot_chat_elements.something_went_wrong',
+                                    )}
+                                </Text>
+                                <Text size="xs" c="dimmed">
+                                    {t(
+                                        'features_ai_copilot_chat_elements.failed_to_generate_response',
+                                    )}
+                                </Text>
+                            </Stack>
+                        </Alert>
+                        <Button
+                            size="xs"
+                            variant="default"
+                            color="dark.5"
+                            leftSection={
+                                <MantineIcon
+                                    icon={IconRefresh}
+                                    size="sm"
+                                    color="gray.7"
+                                />
+                            }
+                            onClick={handleRetry}
+                        >
+                            {t('features_ai_copilot_chat_elements.try_again')}
+                        </Button>
+                    </Group>
                 </Paper>
             )}
-            <Group gap={0} display={isPreview ? 'none' : 'flex'}>
-                <CopyButton value={message.message ?? ''}>
-                    {({ copied, copy }) => (
+
+            {isStreaming && (
+                <AiChartToolCalls
+                    toolCalls={streamingState?.toolCalls}
+                    type="streaming"
+                    projectUuid={projectUuid}
+                    agentUuid={agentUuid}
+                    threadUuid={message.threadUuid}
+                    promptUuid={message.uuid}
+                />
+            )}
+            {!isStreaming && message.toolCalls.length > 0 && (
+                <AiChartToolCalls
+                    toolCalls={message.toolCalls}
+                    type="persisted"
+                    projectUuid={projectUuid}
+                    agentUuid={agentUuid}
+                    threadUuid={message.threadUuid}
+                    promptUuid={message.uuid}
+                />
+            )}
+            {messageContent.length > 0 ? (
+                <MDEditor.Markdown
+                    rehypeRewrite={rehypeRemoveHeaderLinks}
+                    source={messageContent}
+                    style={{ ...mdStyle, padding: `0.5rem 0` }}
+                    rehypePlugins={[rehypeAiAgentContentLinks]}
+                    components={{
+                        ...mdEditorComponents,
+                        a: ({ node, children, ...props }) => {
+                            const contentType =
+                                'data-content-type' in props &&
+                                typeof props['data-content-type'] === 'string'
+                                    ? props['data-content-type']
+                                    : undefined;
+                            const chartType =
+                                'data-chart-type' in props &&
+                                typeof props['data-chart-type'] === 'string'
+                                    ? props['data-chart-type']
+                                    : undefined;
+
+                            if (contentType === 'dashboard-link') {
+                                return (
+                                    <Anchor
+                                        {...props}
+                                        target="_blank"
+                                        fz="sm"
+                                        fw={500}
+                                        bg="gray.0"
+                                        c="gray.7"
+                                        td="none"
+                                        classNames={{
+                                            root: styles.contentLink,
+                                        }}
+                                    >
+                                        <MantineIcon
+                                            icon={IconLayoutDashboard}
+                                            size="md"
+                                            color="green.7"
+                                            fill="green.6"
+                                            fillOpacity={0.2}
+                                            strokeWidth={1.9}
+                                        />
+
+                                        {/* margin is added by md package */}
+                                        <Text fz="sm" fw={500} m={0}>
+                                            {children}
+                                        </Text>
+
+                                        <MantineIcon
+                                            icon={IconArrowRight}
+                                            color="gray.7"
+                                            size="sm"
+                                            strokeWidth={2.0}
+                                        />
+                                    </Anchor>
+                                );
+                            } else if (contentType === 'chart-link') {
+                                const chartTypeKind =
+                                    chartType &&
+                                    Object.values(ChartKind).includes(
+                                        chartType as ChartKind,
+                                    )
+                                        ? (chartType as ChartKind)
+                                        : undefined;
+                                return (
+                                    <Anchor
+                                        {...props}
+                                        target="_blank"
+                                        fz="sm"
+                                        fw={500}
+                                        bg="gray.0"
+                                        c="gray.7"
+                                        td="none"
+                                        classNames={{
+                                            root: styles.contentLink,
+                                        }}
+                                    >
+                                        {chartTypeKind && (
+                                            <MantineIcon
+                                                icon={getChartIcon(
+                                                    chartTypeKind,
+                                                )}
+                                                size="md"
+                                                color="blue.7"
+                                                fill="blue.4"
+                                                fillOpacity={0.2}
+                                                strokeWidth={1.9}
+                                            />
+                                        )}
+
+                                        {/* margin is added by md package */}
+                                        <Text fz="sm" fw={500} m={0}>
+                                            {children}
+                                        </Text>
+
+                                        <MantineIcon
+                                            icon={IconArrowRight}
+                                            color="gray.7"
+                                            size="sm"
+                                            strokeWidth={2.0}
+                                        />
+                                    </Anchor>
+                                );
+                            }
+
+                            return <a {...props}>{children}</a>;
+                        },
+                    }}
+                />
+            ) : null}
+            {isStreaming ? <Loader type="dots" color="gray" /> : null}
+            {proposeChangeToolCall && (
+                <AiProposeChangeToolCall
+                    change={proposeChangeToolCall.change}
+                    entityTableName={proposeChangeToolCall.entityTableName}
+                    projectUuid={projectUuid}
+                    agentUuid={agentUuid}
+                    threadUuid={message.threadUuid}
+                    promptUuid={message.uuid}
+                    toolResult={proposeChangeToolResult}
+                />
+            )}
+        </>
+    );
+};
+
+type Props = {
+    message: AiAgentMessageAssistant;
+    isActive?: boolean;
+    debug?: boolean;
+    projectUuid: string;
+    agentUuid: string;
+    onAddToEvals?: (promptUuid: string) => void;
+    renderArtifactsInline?: boolean;
+    showAddToEvalsButton?: boolean;
+};
+
+export const AssistantBubble: FC<Props> = memo(
+    ({
+        message,
+        isActive = false,
+        debug = false,
+        projectUuid,
+        agentUuid,
+        onAddToEvals,
+        renderArtifactsInline = false,
+        showAddToEvalsButton = false,
+    }) => {
+        const artifact = useAiAgentStoreSelector(
+            (state) => state.aiArtifact.artifact,
+        );
+        const dispatch = useAiAgentStoreDispatch();
+        const { t } = useTranslation();
+
+        if (!projectUuid) throw new Error(`Project Uuid not found`);
+        if (!agentUuid) throw new Error(`Agent Uuid not found`);
+
+        const isArtifactAvailable = !!(
+            message.artifacts && message.artifacts.length > 0
+        );
+
+        const [isDrawerOpen, { open: openDrawer, close: closeDrawer }] =
+            useDisclosure(debug);
+
+        const updateFeedbackMutation = useUpdatePromptFeedbackMutation(
+            projectUuid,
+            agentUuid,
+            message.threadUuid,
+        );
+
+        const upVoted = message.humanScore === 1;
+        const downVoted = message.humanScore === -1;
+        const hasRating = upVoted || downVoted;
+
+        const handleUpvote = useCallback(() => {
+            if (hasRating) return;
+            updateFeedbackMutation.mutate({
+                messageUuid: message.uuid,
+                humanScore: 1,
+            });
+        }, [hasRating, updateFeedbackMutation, message.uuid]);
+
+        const handleDownvote = useCallback(() => {
+            if (hasRating) return;
+            updateFeedbackMutation.mutate({
+                messageUuid: message.uuid,
+                humanScore: -1,
+            });
+        }, [hasRating, updateFeedbackMutation, message.uuid]);
+
+        const isLoading = useAiAgentThreadMessageStreaming(
+            message.threadUuid,
+            message.uuid,
+        );
+
+        return (
+            <Stack
+                pos="relative"
+                w="100%"
+                gap="xs"
+                bg={isActive ? 'gray.0' : 'transparent'}
+                style={{
+                    overflow: 'unset',
+                    borderStartStartRadius: '0px',
+                }}
+            >
+                <AssistantBubbleContent
+                    message={message}
+                    projectUuid={projectUuid}
+                    agentUuid={agentUuid}
+                />
+
+                {isArtifactAvailable && projectUuid && agentUuid && (
+                    <Stack gap="xs">
+                        {renderArtifactsInline
+                            ? // Render artifacts inline directly
+                              message.artifacts!.map((messageArtifact) => (
+                                  <AiArtifactInline
+                                      key={`${messageArtifact.artifactUuid}-${messageArtifact.versionUuid}`}
+                                      artifact={messageArtifact}
+                                      message={message}
+                                      projectUuid={projectUuid}
+                                      agentUuid={agentUuid}
+                                  />
+                              ))
+                            : // Render artifact buttons that open modals
+                              message.artifacts!.map((messageArtifact) => (
+                                  <AiArtifactButton
+                                      key={`${messageArtifact.artifactUuid}-${messageArtifact.versionUuid}`}
+                                      onClick={() => {
+                                          if (
+                                              artifact?.artifactUuid ===
+                                                  messageArtifact.artifactUuid &&
+                                              artifact?.versionUuid ===
+                                                  messageArtifact.versionUuid
+                                          ) {
+                                              return;
+                                          }
+                                          dispatch(
+                                              setArtifact({
+                                                  artifactUuid:
+                                                      messageArtifact.artifactUuid,
+                                                  versionUuid:
+                                                      messageArtifact.versionUuid,
+                                                  message: message,
+                                                  projectUuid: projectUuid,
+                                                  agentUuid: agentUuid,
+                                              }),
+                                          );
+                                      }}
+                                      isArtifactOpen={
+                                          artifact?.artifactUuid ===
+                                              messageArtifact.artifactUuid &&
+                                          artifact?.versionUuid ===
+                                              messageArtifact.versionUuid
+                                      }
+                                      artifact={messageArtifact}
+                                  />
+                              ))}
+                    </Stack>
+                )}
+                <Group gap={0}>
+                    <CopyButton value={message.message ?? ''}>
+                        {({ copied, copy }) => (
+                            <ActionIcon
+                                variant="subtle"
+                                color="gray"
+                                aria-label="copy"
+                                onClick={copy}
+                                style={{
+                                    display: isLoading ? 'none' : 'block',
+                                }}
+                            >
+                                <MantineIcon
+                                    icon={copied ? IconCheck : IconCopy}
+                                />
+                            </ActionIcon>
+                        )}
+                    </CopyButton>
+
+                    {(!hasRating || upVoted) && (
                         <ActionIcon
                             variant="subtle"
                             color="gray"
-                            aria-label="copy"
-                            onClick={copy}
-                            style={{ display: isLoading ? 'none' : 'block' }}
+                            aria-label="upvote"
+                            onClick={handleUpvote}
+                            display={isLoading ? 'none' : 'block'}
                         >
-                            <MantineIcon icon={copied ? IconCheck : IconCopy} />
+                            <Tooltip
+                                label={t(
+                                    'features_ai_copilot_chat_elements.feedback_sent',
+                                )}
+                                position="top"
+                                withinPortal
+                                withArrow
+                                // Hack to only render tooltip (on hover) when `hasRating` is false
+                                opened={hasRating ? undefined : false}
+                            >
+                                <MantineIcon
+                                    icon={
+                                        upVoted
+                                            ? IconThumbUpFilled
+                                            : IconThumbUp
+                                    }
+                                />
+                            </Tooltip>
                         </ActionIcon>
                     )}
-                </CopyButton>
 
-                {(!hasRating || upVoted) && (
-                    <ActionIcon
-                        variant="subtle"
-                        color="gray"
-                        aria-label="upvote"
-                        onClick={handleUpvote}
-                        display={isLoading ? 'none' : 'block'}
-                    >
-                        <Tooltip
-                            label={t(
-                                'features_ai_copilot_chat_elements.feedback_sent',
-                            )}
-                            position="top"
-                            withinPortal
-                            withArrow
-                            // Hack to only render tooltip (on hover) when `hasRating` is false
-                            opened={hasRating ? undefined : false}
+                    {(!hasRating || downVoted) && (
+                        <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            aria-label="downvote"
+                            onClick={handleDownvote}
+                            display={isLoading ? 'none' : 'block'}
                         >
                             <MantineIcon
-                                icon={upVoted ? IconThumbUpFilled : IconThumbUp}
+                                icon={
+                                    downVoted
+                                        ? IconThumbDownFilled
+                                        : IconThumbDown
+                                }
                             />
-                        </Tooltip>
-                    </ActionIcon>
-                )}
+                        </ActionIcon>
+                    )}
 
-                {(!hasRating || downVoted) && (
-                    <ActionIcon
-                        variant="subtle"
-                        color="gray"
-                        aria-label="downvote"
-                        onClick={handleDownvote}
-                        display={isLoading ? 'none' : 'block'}
-                    >
-                        <MantineIcon
-                            icon={
-                                downVoted ? IconThumbDownFilled : IconThumbDown
-                            }
-                        />
-                    </ActionIcon>
-                )}
-            </Group>
-        </Stack>
-    );
-});
+                    {showAddToEvalsButton && onAddToEvals && (
+                        <Tooltip label="Add this response to evals">
+                            <ActionIcon
+                                variant="subtle"
+                                color="gray"
+                                aria-label={t(
+                                    'features_ai_copilot_chat_elements.add_to_evaluation_set',
+                                )}
+                                onClick={() => onAddToEvals(message.uuid)}
+                                display={isLoading ? 'none' : 'block'}
+                            >
+                                <MantineIcon icon={IconTestPipe} color="gray" />
+                            </ActionIcon>
+                        </Tooltip>
+                    )}
+
+                    {isArtifactAvailable && (
+                        <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            aria-label={t(
+                                'features_ai_copilot_chat_elements.debug_information',
+                            )}
+                            onClick={openDrawer}
+                        >
+                            <MantineIcon icon={IconBug} color="gray" />
+                        </ActionIcon>
+                    )}
+                </Group>
+
+                <AgentChatDebugDrawer
+                    agentUuid={agentUuid}
+                    projectUuid={projectUuid}
+                    artifacts={message.artifacts}
+                    toolCalls={message.toolCalls}
+                    isVisualizationAvailable={isArtifactAvailable}
+                    isDrawerOpen={isDrawerOpen}
+                    onClose={closeDrawer}
+                />
+            </Stack>
+        );
+    },
+);

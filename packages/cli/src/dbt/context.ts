@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import * as yaml from 'js-yaml';
 import * as path from 'path';
 import GlobalState from '../globalState';
+import { renderTemplatedYml } from './templating';
 
 type GetDbtContextArgs = {
     projectDir: string;
@@ -40,7 +41,23 @@ export const getDbtContext = async ({
             `Is ${initialProjectDir} a valid dbt project directory? Couldn't find a valid dbt_project.yml on ${initialProjectDir} or any of its parents:\n  ${msg}`,
         );
     }
-    const config = yaml.load(file) as Record<string, string>;
+    // Try to render Jinja templating (e.g., env_var) before parsing YAML
+    // If rendering fails, fall back to parsing the raw file for back compat
+    let renderedFile: string;
+    try {
+        renderedFile = renderTemplatedYml(file);
+    } catch (e) {
+        GlobalState.debug(
+            `> Warning: Failed to render Jinja in dbt_project.yml: ${getErrorMessage(
+                e,
+            )}`,
+        );
+        GlobalState.debug(
+            '> Falling back to parsing raw YAML without Jinja rendering',
+        );
+        renderedFile = file;
+    }
+    const config = yaml.load(renderedFile) as Record<string, string>;
 
     const targetSubDir = config['target-path'] || './target';
 

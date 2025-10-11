@@ -37,6 +37,10 @@ export class HealthService extends BaseService {
         this.migrationModel = migrationModel;
     }
 
+    private isEnterpriseEnabled(): boolean {
+        return this.lightdashConfig.license.licenseKey !== undefined;
+    }
+
     async getHealthState(user: SessionUser | undefined): Promise<HealthState> {
         const isAuthenticated: boolean = !!user?.userUuid;
 
@@ -106,6 +110,9 @@ export class HealthService extends BaseService {
             pivotTable: this.lightdashConfig.pivotTable,
             hasSlack: this.hasSlackConfig(),
             hasGithub: process.env.GITHUB_PRIVATE_KEY !== undefined,
+            hasGitlab:
+                this.lightdashConfig.gitlab.clientId !== undefined &&
+                this.lightdashConfig.gitlab.clientSecret !== undefined,
             auth: {
                 disablePasswordAuthentication:
                     this.lightdashConfig.auth.disablePasswordAuthentication,
@@ -145,7 +152,7 @@ export class HealthService extends BaseService {
                 snowflake: {
                     enabled:
                         !!this.lightdashConfig.auth.snowflake.clientId &&
-                        !!this.lightdashConfig.license.licenseKey,
+                        this.isEnterpriseEnabled(),
                 },
             },
             hasEmailClient: !!this.lightdashConfig.smtp,
@@ -166,6 +173,23 @@ export class HealthService extends BaseService {
             hasMicrosoftTeams: this.lightdashConfig.microsoftTeams.enabled,
             isServiceAccountEnabled:
                 this.lightdashConfig.serviceAccount.enabled,
+            isCustomRolesEnabled:
+                this.isEnterpriseEnabled() &&
+                this.lightdashConfig.customRoles.enabled,
+            embedding: {
+                enabled:
+                    this.isEnterpriseEnabled() &&
+                    this.lightdashConfig.embedding.enabled,
+                events: this.isEnterpriseEnabled()
+                    ? this.lightdashConfig.embedding.events
+                    : undefined,
+            },
+            ai: {
+                analyticsProjectUuid:
+                    this.lightdashConfig.ai.analyticsProjectUuid,
+                analyticsDashboardUuid:
+                    this.lightdashConfig.ai.analyticsDashboardUuid,
+            },
         };
     }
 

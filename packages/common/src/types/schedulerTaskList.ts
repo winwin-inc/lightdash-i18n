@@ -1,11 +1,14 @@
-import { includes } from 'lodash';
-import { type SlackPromptJobPayload } from '../ee';
+import includes from 'lodash/includes';
+import {
+    type AiAgentEvalRunJobPayload,
+    type SlackPromptJobPayload,
+} from '../ee';
 import { type SchedulerIndexCatalogJobPayload } from './catalog';
 import { type UploadMetricGsheetPayload } from './gdrive';
 import { type RenameResourcesPayload } from './rename';
 import {
-    type AsyncWarehouseQueryPayload,
     type CompileProjectPayload,
+    type DownloadAsyncQueryResultsPayload,
     type DownloadCsvPayload,
     type EmailNotificationPayload,
     type ExportCsvDashboardPayload,
@@ -25,6 +28,7 @@ import {
 
 export const EE_SCHEDULER_TASKS = {
     SLACK_AI_PROMPT: 'slackAiPrompt',
+    AI_AGENT_EVAL_RESULT: 'aiAgentEvalResult',
 } as const;
 
 export const SCHEDULER_TASKS = {
@@ -46,7 +50,8 @@ export const SCHEDULER_TASKS = {
     GENERATE_DAILY_JOBS: 'generateDailyJobs',
     EXPORT_CSV_DASHBOARD: 'exportCsvDashboard',
     RENAME_RESOURCES: 'renameResources',
-    RUN_ASYNC_WAREHOUSE_QUERY: 'runAsyncWarehouseQuery',
+    CLEAN_QUERY_HISTORY: 'cleanQueryHistory',
+    DOWNLOAD_ASYNC_QUERY_RESULTS: 'downloadAsyncQueryResults',
     ...EE_SCHEDULER_TASKS,
 } as const;
 
@@ -74,11 +79,14 @@ export interface TaskPayloadMap {
     [SCHEDULER_TASKS.EXPORT_CSV_DASHBOARD]: ExportCsvDashboardPayload;
     [SCHEDULER_TASKS.SLACK_AI_PROMPT]: SlackPromptJobPayload;
     [SCHEDULER_TASKS.RENAME_RESOURCES]: RenameResourcesPayload;
-    [SCHEDULER_TASKS.RUN_ASYNC_WAREHOUSE_QUERY]: AsyncWarehouseQueryPayload;
+    [SCHEDULER_TASKS.CLEAN_QUERY_HISTORY]: TraceTaskBase;
+    [SCHEDULER_TASKS.DOWNLOAD_ASYNC_QUERY_RESULTS]: DownloadAsyncQueryResultsPayload;
+    [SCHEDULER_TASKS.AI_AGENT_EVAL_RESULT]: AiAgentEvalRunJobPayload;
 }
 
 export interface EETaskPayloadMap {
     [EE_SCHEDULER_TASKS.SLACK_AI_PROMPT]: SlackPromptJobPayload;
+    [EE_SCHEDULER_TASKS.AI_AGENT_EVAL_RESULT]: AiAgentEvalRunJobPayload;
 }
 
 export type SchedulerTaskName =

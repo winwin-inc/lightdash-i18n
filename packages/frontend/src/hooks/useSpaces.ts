@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 
 import { lightdashApi } from '../api';
 import useToaster from './toaster/useToaster';
-import useUser from './user/useUser';
+import { useAccount } from './user/useAccount';
 
 const getSpaceSummaries = async (projectUuid: string) => {
     return lightdashApi<SpaceSummary[]>({
@@ -37,7 +37,7 @@ export const useSpaceSummaries = (
     includePrivateSpaces: boolean = false,
     queryOptions?: UseQueryOptions<SpaceSummary[], ApiError>,
 ) => {
-    const { data: user } = useUser(true);
+    const { data: account } = useAccount();
     return useQuery<SpaceSummary[], ApiError>(
         ['projects', projectUuid, 'spaces'],
         () => getSpaceSummaries(projectUuid!),
@@ -48,10 +48,10 @@ export const useSpaceSummaries = (
                     ? data
                     : data.filter(
                           (space) =>
-                              !!user &&
-                              hasDirectAccessToSpace(space, user.userUuid),
+                              !!account?.user &&
+                              hasDirectAccessToSpace(space, account.user.id),
                       ),
-            enabled: !!projectUuid,
+            enabled: !!projectUuid && account?.isRegisteredUser(),
             ...queryOptions,
         },
     );

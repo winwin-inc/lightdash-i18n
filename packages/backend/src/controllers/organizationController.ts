@@ -69,7 +69,7 @@ export class OrganizationController extends BaseController {
             status: 'ok',
             results: await this.services
                 .getOrganizationService()
-                .get(req.user!),
+                .get(req.account!),
         };
     }
 
@@ -172,7 +172,7 @@ export class OrganizationController extends BaseController {
             status: 'ok',
             results: await this.services
                 .getOrganizationService()
-                .getProjects(req.user!),
+                .getProjects(req.account!),
         };
     }
 
@@ -263,6 +263,8 @@ export class OrganizationController extends BaseController {
      * @param req express request
      * @param userUuid the uuid of the user to update
      * @param body the new membership profile
+     *
+     * @deprecated Use the /api/v2/org/assignments/user/{userId} endpoint instead
      */
     @Middlewares([
         allowApiKeyAuthentication,

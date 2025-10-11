@@ -289,16 +289,14 @@ const SingleSeriesConfiguration: FC<Props> = ({
                         type === CartesianSeriesType.AREA) && (
                         <Group spacing="xs">
                             <Checkbox
-                                checked={series.showSymbol ?? true}
+                                checked={Boolean(series.showSymbol)}
                                 label={t(
                                     'components_visualization_configs_chart.series.show_symbol',
                                 )}
                                 onChange={() => {
                                     updateSingleSeries({
                                         ...series,
-                                        showSymbol: !(
-                                            series.showSymbol ?? true
-                                        ),
+                                        showSymbol: !Boolean(series.showSymbol),
                                     });
                                 }}
                             />

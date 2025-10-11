@@ -10,10 +10,11 @@ import {
     applyEmbeddedAbility,
     buildAccountHelpers,
     CreateEmbedJwt,
-    Embed,
     ForbiddenError,
     MemberAbility,
+    OauthAccount,
     Organization,
+    OssEmbed,
     ServiceAcctAccount,
     SessionAccount,
     SessionUser,
@@ -73,19 +74,27 @@ const extractOrganizationFromUser = (
 
 export const fromJwt = ({
     decodedToken,
-    organization,
+    embed,
     source,
     dashboardUuid,
     userAttributes,
 }: {
     decodedToken: CreateEmbedJwt;
-    organization: Embed['organization'];
+    embed: OssEmbed;
     source: string;
     dashboardUuid: string;
     userAttributes: UserAccessControls;
 }): AnonymousAccount => {
     const builder = new AbilityBuilder<MemberAbility>(Ability);
-    applyEmbeddedAbility(decodedToken, dashboardUuid, organization, builder);
+    const externalId = getExternalId(decodedToken, source, embed.organization);
+
+    applyEmbeddedAbility(
+        decodedToken,
+        dashboardUuid,
+        embed,
+        externalId,
+        builder,
+    );
     const abilities = builder.build();
 
     return createAccount({
@@ -94,7 +103,8 @@ export const fromJwt = ({
             data: decodedToken,
             source,
         },
-        organization,
+        organization: embed.organization,
+        embed,
         access: {
             dashboardId: dashboardUuid,
             filtering: decodedToken.content.dashboardFiltersInteractivity,
@@ -102,7 +112,7 @@ export const fromJwt = ({
         },
         // Create the fields we're able to set from the JWT
         user: {
-            id: getExternalId(decodedToken, source, organization),
+            id: externalId,
             type: 'anonymous',
             ability: abilities,
             abilityRules: abilities.rules,
@@ -165,6 +175,35 @@ export const fromSession = (
         authentication: {
             type: 'session',
             source,
+        },
+        organization,
+        user: {
+            ...user,
+            type: 'registered',
+            id: user.userUuid,
+        },
+    });
+};
+
+export const fromOauth = (
+    sessionUser: SessionUser,
+    token: {
+        accessToken: string;
+        accessTokenExpiresAt?: Date;
+        refreshToken?: string;
+        refreshTokenExpiresAt?: Date;
+        scope?: string[];
+        client: { id: string };
+    },
+): OauthAccount => {
+    const [organization, user] = extractOrganizationFromUser(sessionUser);
+    return createAccount({
+        authentication: {
+            type: 'oauth',
+            source: token.accessToken,
+            token: token.accessToken,
+            clientId: token.client.id,
+            scopes: token.scope || [],
         },
         organization,
         user: {

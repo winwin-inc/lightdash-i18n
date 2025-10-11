@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-export const DEFAULT_OPENAI_MODEL_NAME = 'gpt-4.1';
-export const DEFAULT_ANTHROPIC_MODEL_NAME = 'claude-4-sonnet-20250514';
+export const DEFAULT_OPENAI_MODEL_NAME = 'gpt-4.1-2025-04-14';
+export const DEFAULT_ANTHROPIC_MODEL_NAME = 'claude-sonnet-4-20250514';
 export const DEFAULT_DEFAULT_AI_PROVIDER = 'openai';
 export const DEFAULT_OPENROUTER_MODEL_NAME = 'openai/gpt-4.1-2025-04-14';
 
@@ -16,6 +16,8 @@ export const aiCopilotConfigSchema = z
                     apiKey: z.string(),
                     modelName: z.string().default(DEFAULT_OPENAI_MODEL_NAME),
                     baseUrl: z.string().optional(),
+                    temperature: z.number().min(0).max(2).default(0.2),
+                    responsesApi: z.boolean().default(false),
                 })
                 .optional(),
             azure: z
@@ -24,12 +26,14 @@ export const aiCopilotConfigSchema = z
                     apiKey: z.string(),
                     apiVersion: z.string(),
                     deploymentName: z.string(),
+                    temperature: z.number().min(0).max(2).default(0.2),
                 })
                 .optional(),
             anthropic: z
                 .object({
                     apiKey: z.string(),
                     modelName: z.string().default(DEFAULT_ANTHROPIC_MODEL_NAME),
+                    temperature: z.number().min(0).max(2).default(0.2),
                 })
                 .optional(),
             openrouter: z
@@ -46,6 +50,7 @@ export const aiCopilotConfigSchema = z
                     modelName: z
                         .string()
                         .default(DEFAULT_OPENROUTER_MODEL_NAME),
+                    temperature: z.number().min(0).max(2).default(0.2),
                 })
                 .optional(),
         }),
@@ -53,6 +58,8 @@ export const aiCopilotConfigSchema = z
         requiresFeatureFlag: z.boolean(),
         telemetryEnabled: z.boolean(),
         debugLoggingEnabled: z.boolean(),
+        askAiButtonEnabled: z.boolean(),
+        maxQueryLimit: z.number().positive(),
     })
     .refine(
         ({ providers, defaultProvider, enabled }) =>

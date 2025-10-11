@@ -12,7 +12,13 @@ import {
     type MetricQuery,
 } from '@lightdash/common';
 import { useEffect, useMemo } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router';
+import {
+    useLocation,
+    useNavigate,
+    useParams,
+    useSearchParams,
+} from 'react-router';
+import { defaultQueryExecution } from '../providers/Explorer/defaultState';
 import {
     ExplorerSection,
     type ExplorerReduceState,
@@ -110,7 +116,7 @@ type BackwardsCompatibleCreateSavedChartVersionUrlParam = Omit<
     metricQuery: Omit<MetricQuery, 'exploreName'> & { exploreName?: string };
 };
 
-const parseExplorerSearchParams = (
+const parseChartFromExplorerSearchParams = (
     search: string,
 ): CreateSavedChartVersion | undefined => {
     const searchParams = new URLSearchParams(search);
@@ -198,10 +204,13 @@ export const useExplorerUrlState = (): ExplorerReduceState | undefined => {
         tableId: string | undefined;
     }>();
 
+    const [searchParams] = useSearchParams();
+    const fromDashboard = searchParams.get('fromDashboard');
+
     return useMemo(() => {
         if (pathParams.tableId) {
             try {
-                const unsavedChartVersion = parseExplorerSearchParams(
+                const unsavedChartVersion = parseChartFromExplorerSearchParams(
                     search,
                 ) || {
                     tableName: '',
@@ -226,7 +235,8 @@ export const useExplorerUrlState = (): ExplorerReduceState | undefined => {
                 };
 
                 return {
-                    shouldFetchResults: true,
+                    parameterReferences: [],
+                    parameterDefinitions: {},
                     expandedSections: unsavedChartVersion
                         ? [
                               ExplorerSection.VISUALIZATION,
@@ -249,6 +259,8 @@ export const useExplorerUrlState = (): ExplorerReduceState | undefined => {
                         },
                     },
                     parameters: {},
+                    fromDashboard: fromDashboard ?? undefined,
+                    queryExecution: defaultQueryExecution,
                 };
             } catch (e: any) {
                 const errorMessage = e.message ? ` Error: "${e.message}"` : '';
@@ -258,7 +270,7 @@ export const useExplorerUrlState = (): ExplorerReduceState | undefined => {
                 });
             }
         }
-    }, [pathParams, search, showToastError]);
+    }, [pathParams, search, showToastError, fromDashboard]);
 };
 
 export const createMetricPreviewUnsavedChartVersion = (

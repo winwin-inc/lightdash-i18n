@@ -19,30 +19,43 @@ interface AddProjectGroupAccessModalProps {
     isSubmitting: boolean;
     totalNumberOfGroups: number;
     availableGroups: GroupWithMembers[];
+    organizationRoles: { value: string; label: string; group: string }[];
     onSubmit: (formData: CreateProjectGroupAccess) => void;
     onClose: () => void;
 }
-
+type FormData = {
+    projectUuid: string;
+    groupUuid: string;
+    role: string;
+};
 const AddProjectGroupAccessModal: FC<AddProjectGroupAccessModalProps> = ({
     projectUuid,
     isSubmitting,
     totalNumberOfGroups,
     availableGroups,
+    organizationRoles,
     onSubmit,
     onClose,
 }) => {
     const { t } = useTranslation();
 
-    const form = useForm<CreateProjectGroupAccess>({
+    const defaultRole =
+        organizationRoles?.find(
+            (role) => role.value === ProjectMemberRole.VIEWER,
+        )?.value ||
+        organizationRoles?.[0]?.value ||
+        ProjectMemberRole.VIEWER;
+
+    const form = useForm<FormData>({
         initialValues: {
             projectUuid,
             groupUuid: '',
-            role: ProjectMemberRole.VIEWER,
+            role: defaultRole,
         },
     });
 
-    const handleSubmit = async (formData: CreateProjectGroupAccess) => {
-        onSubmit(formData);
+    const handleSubmit = (formData: FormData) => {
+        onSubmit(formData as CreateProjectGroupAccess);
     };
 
     return (
@@ -125,12 +138,7 @@ const AddProjectGroupAccessModal: FC<AddProjectGroupAccessModalProps> = ({
                                 sx={{ flexGrow: 1 }}
                             />
                             <Select
-                                data={Object.values(ProjectMemberRole).map(
-                                    (orgMemberRole) => ({
-                                        value: orgMemberRole,
-                                        label: orgMemberRole.replace('_', ' '),
-                                    }),
-                                )}
+                                data={organizationRoles}
                                 required
                                 placeholder={t(
                                     'features_project_group_access_add_modal.form.select_role.placeholder',

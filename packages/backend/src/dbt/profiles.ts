@@ -36,7 +36,8 @@ const credentialsTarget = (
                     timeout_seconds: credentials.timeoutSeconds,
                     priority: credentials.priority,
                     retries: credentials.retries,
-                    maximum_bytes_billed: credentials.maximumBytesBilled,
+                    maximum_bytes_billed:
+                        credentials.maximumBytesBilled || undefined, // form allows empty string, converting to undefined here
                     execution_project: credentials.executionProject,
                 },
                 environment: {},
@@ -204,6 +205,22 @@ const credentialsTarget = (
                 },
                 environment: {
                     [envVar('token')]: credentials.personalAccessToken,
+                },
+            };
+        case WarehouseTypes.CLICKHOUSE:
+            return {
+                target: {
+                    type: WarehouseTypes.CLICKHOUSE,
+                    host: credentials.host,
+                    port: credentials.port,
+                    user: envVarReference('user'),
+                    password: envVarReference('password'),
+                    schema: credentials.schema,
+                    secure: credentials.secure,
+                },
+                environment: {
+                    [envVar('user')]: credentials.user,
+                    [envVar('password')]: credentials.password,
                 },
             };
         default:

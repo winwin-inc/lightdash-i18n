@@ -14,6 +14,7 @@ import SuboptimalState from '../../../../../components/common/SuboptimalState/Su
 import {
     getReactGridLayoutConfig,
     getResponsiveGridLayoutProps,
+    type ResponsiveGridLayoutProps,
 } from '../../../../../components/DashboardTabs/gridUtils';
 import LoomTile from '../../../../../components/DashboardTiles/DashboardLoomTile';
 import SqlChartTile from '../../../../../components/DashboardTiles/DashboardSqlChartTile';
@@ -32,11 +33,12 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 
 const EmbedDashboardGrid: FC<{
     filteredTiles: DashboardTile[];
-    layouts: { lg: Layout[] };
+    layouts: { lg: Layout[]; md: Layout[]; sm: Layout[] };
     dashboard: any;
     projectUuid: string;
     hasRequiredDashboardFiltersToSet: boolean;
     isTabEmpty?: boolean;
+    gridProps: ResponsiveGridLayoutProps;
 }> = ({
     filteredTiles,
     layouts,
@@ -44,87 +46,90 @@ const EmbedDashboardGrid: FC<{
     projectUuid,
     hasRequiredDashboardFiltersToSet,
     isTabEmpty,
+    gridProps,
 }) => {
-  const { t } = useTranslation();
+    const { t } = useTranslation();
 
-  return (
-    <Group grow pt="sm" px="xs">
-        {isTabEmpty ? (
-            <div
-                style={{
-                    marginTop: '40px',
-                    textAlign: 'center',
-                }}
-            >
-                <SuboptimalState
-                    title={t('ai_embed_dashboard.tab_empty')}
-                    description={t('ai_embed_dashboard.tab_empty_description')}
-                />
-            </div>
-        ) : (
-            <ResponsiveGridLayout
-                {...getResponsiveGridLayoutProps({ enableAnimation: false })}
-                layouts={layouts}
-                className={`react-grid-layout-dashboard ${
-                    hasRequiredDashboardFiltersToSet ? 'locked' : ''
-                }`}
-            >
-                {filteredTiles.map((tile, index) => (
-                    <div key={tile.uuid}>
-                        {tile.type === DashboardTileTypes.SAVED_CHART ? (
-                            <EmbedDashboardChartTile
-                                projectUuid={projectUuid}
-                                dashboardSlug={dashboard.slug}
-                                key={tile.uuid}
-                                minimal
-                                tile={tile}
-                                isEditMode={false}
-                                onDelete={() => {}}
-                                onEdit={() => {}}
-                                canExportCsv={dashboard.canExportCsv}
-                                canExportImages={dashboard.canExportImages}
-                                locked={hasRequiredDashboardFiltersToSet}
-                                tileIndex={index}
-                            />
-                        ) : tile.type === DashboardTileTypes.MARKDOWN ? (
-                            <EmbedMarkdownTile
-                                key={tile.uuid}
-                                tile={tile}
-                                isEditMode={false}
-                                onDelete={() => {}}
-                                onEdit={() => {}}
-                                tileIndex={index}
-                                dashboardSlug={dashboard.slug}
-                            />
-                        ) : tile.type === DashboardTileTypes.LOOM ? (
-                            <LoomTile
-                                key={tile.uuid}
-                                tile={tile}
-                                isEditMode={false}
-                                onDelete={() => {}}
-                                onEdit={() => {}}
-                            />
-                        ) : tile.type === DashboardTileTypes.SQL_CHART ? (
-                            <SqlChartTile
-                                key={tile.uuid}
-                                tile={tile}
-                                isEditMode={false}
-                                onDelete={() => {}}
-                                onEdit={() => {}}
-                            />
-                        ) : (
-                            assertUnreachable(
-                                tile,
-                                `Dashboard tile type is not recognised`,
-                            )
+    return (
+        <Group grow pt="sm" px="xs">
+            {isTabEmpty ? (
+                <div
+                    style={{
+                        marginTop: '40px',
+                        textAlign: 'center',
+                    }}
+                >
+                    <SuboptimalState
+                        title={t('ai_embed_dashboard.tab_empty')}
+                        description={t(
+                            'ai_embed_dashboard.tab_empty_description',
                         )}
-                    </div>
-                ))}
-            </ResponsiveGridLayout>
-        )}
-    </Group>
-  );
-}
+                    />
+                </div>
+            ) : (
+                <ResponsiveGridLayout
+                    {...gridProps}
+                    layouts={layouts}
+                    className={`react-grid-layout-dashboard ${
+                        hasRequiredDashboardFiltersToSet ? 'locked' : ''
+                    }`}
+                >
+                    {filteredTiles.map((tile, index) => (
+                        <div key={tile.uuid}>
+                            {tile.type === DashboardTileTypes.SAVED_CHART ? (
+                                <EmbedDashboardChartTile
+                                    projectUuid={projectUuid}
+                                    dashboardSlug={dashboard.slug}
+                                    key={tile.uuid}
+                                    minimal
+                                    tile={tile}
+                                    isEditMode={false}
+                                    onDelete={() => {}}
+                                    onEdit={() => {}}
+                                    canExportCsv={dashboard.canExportCsv}
+                                    canExportImages={dashboard.canExportImages}
+                                    locked={hasRequiredDashboardFiltersToSet}
+                                    tileIndex={index}
+                                />
+                            ) : tile.type === DashboardTileTypes.MARKDOWN ? (
+                                <EmbedMarkdownTile
+                                    key={tile.uuid}
+                                    tile={tile}
+                                    isEditMode={false}
+                                    onDelete={() => {}}
+                                    onEdit={() => {}}
+                                    tileIndex={index}
+                                    dashboardSlug={dashboard.slug}
+                                />
+                            ) : tile.type === DashboardTileTypes.LOOM ? (
+                                <LoomTile
+                                    key={tile.uuid}
+                                    tile={tile}
+                                    isEditMode={false}
+                                    onDelete={() => {}}
+                                    onEdit={() => {}}
+                                />
+                            ) : tile.type === DashboardTileTypes.SQL_CHART ? (
+                                <SqlChartTile
+                                    key={tile.uuid}
+                                    tile={tile}
+                                    isEditMode={false}
+                                    onDelete={() => {}}
+                                    onEdit={() => {}}
+                                />
+                            ) : (
+                                assertUnreachable(
+                                    tile,
+                                    `Dashboard tile type is not recognised`,
+                                )
+                            )}
+                        </div>
+                    ))}
+                </ResponsiveGridLayout>
+            )}
+        </Group>
+    );
+};
 
 const EmbedDashboard: FC<{
     containerStyles?: React.CSSProperties;
@@ -245,15 +250,18 @@ const EmbedDashboard: FC<{
             return dashboard.tiles;
         }
 
+        // Make sure we have a tab selected
+        const tab = activeTab || sortedTabs[0];
+
         // If there are tabs, filter tiles by active tab
-        if (activeTab) {
+        if (tab) {
             return dashboard.tiles.filter((tile) => {
                 // Show tiles that belong to the active tab
-                const tileBelongsToActiveTab = tile.tabUuid === activeTab.uuid;
+                const tileBelongsToActiveTab = tile.tabUuid === tab.uuid;
 
                 // Show tiles that don't belong to any tab (legacy tiles) on the first tab
                 const tileHasNoTab = !tile.tabUuid;
-                const isFirstTab = activeTab.uuid === sortedTabs[0]?.uuid;
+                const isFirstTab = tab.uuid === sortedTabs[0]?.uuid;
 
                 return tileBelongsToActiveTab || (tileHasNoTab && isFirstTab);
             });
@@ -265,6 +273,22 @@ const EmbedDashboard: FC<{
     // Check if tabs should be enabled (more than one tab)
     const tabsEnabled = sortedTabs.length > 1;
     const MAGIC_SCROLL_AREA_HEIGHT = 40;
+
+    const gridProps = getResponsiveGridLayoutProps({ enableAnimation: false });
+    const layouts = useMemo(
+        () => ({
+            lg: filteredTiles.map<Layout>((tile) =>
+                getReactGridLayoutConfig(tile, false, gridProps.cols.lg),
+            ),
+            md: filteredTiles.map<Layout>((tile) =>
+                getReactGridLayoutConfig(tile, false, gridProps.cols.md),
+            ),
+            sm: filteredTiles.map<Layout>((tile) =>
+                getReactGridLayoutConfig(tile, false, gridProps.cols.sm),
+            ),
+        }),
+        [filteredTiles, gridProps.cols],
+    );
 
     if (!projectUuid) {
         return (
@@ -314,10 +338,6 @@ const EmbedDashboard: FC<{
             </div>
         );
     }
-
-    const layouts = {
-        lg: filteredTiles.map<Layout>((tile) => getReactGridLayoutConfig(tile)),
-    };
 
     // Check if current tab is empty
     const isTabEmpty = tabsEnabled && filteredTiles.length === 0;
@@ -385,6 +405,7 @@ const EmbedDashboard: FC<{
                             hasRequiredDashboardFiltersToSet
                         }
                         isTabEmpty={isTabEmpty}
+                        gridProps={gridProps}
                     />
                 </Tabs>
             ) : (
@@ -396,6 +417,7 @@ const EmbedDashboard: FC<{
                     hasRequiredDashboardFiltersToSet={
                         hasRequiredDashboardFiltersToSet
                     }
+                    gridProps={gridProps}
                 />
             )}
         </div>

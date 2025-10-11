@@ -32,6 +32,7 @@ import {
     isDuplicateDashboardParams,
     type ApiCalculateSubtotalsResponse,
     type ApiCreateDashboardResponse,
+    type ApiCreateDashboardWithChartsResponse,
     type ApiCreatePreviewResults,
     type ApiGetDashboardsResponse,
     type ApiGetTagsResponse,
@@ -40,6 +41,7 @@ import {
     type ApiUpdateDashboardsResponse,
     type CalculateSubtotalsFromQuery,
     type CreateDashboard,
+    type CreateDashboardWithCharts,
     type DuplicateDashboardParams,
     type Tag,
     type UpdateMultipleDashboards,
@@ -93,7 +95,7 @@ export class ProjectController extends BaseController {
             status: 'ok',
             results: await this.services
                 .getProjectService()
-                .getProject(projectUuid, req.user!),
+                .getProject(projectUuid, req.account!),
         };
     }
 
@@ -250,6 +252,7 @@ export class ProjectController extends BaseController {
 
     /**
      * Update a user's access to a project
+     * @deprecated use ProjectRolesController.UpdateProjectUserRoleAssignment instead
      */
     @Middlewares([
         allowApiKeyAuthentication,
@@ -278,6 +281,7 @@ export class ProjectController extends BaseController {
 
     /**
      * Remove a user's access to a project
+     * @deprecated use ProjectRolesController.DeleteProjectUserRoleAssignment instead
      */
     @Middlewares([
         allowApiKeyAuthentication,
@@ -599,6 +603,34 @@ export class ProjectController extends BaseController {
         isAuthenticated,
         unauthorisedInDemo,
     ])
+    @SuccessResponse('201', 'Created')
+    @Post('{projectUuid}/dashboards/with-charts')
+    @OperationId('createDashboardWithCharts')
+    async createDashboardWithCharts(
+        @Path() projectUuid: string,
+        @Body() body: CreateDashboardWithCharts,
+        @Request() req: express.Request,
+    ): Promise<ApiCreateDashboardWithChartsResponse> {
+        const dashboardService = this.services.getDashboardService();
+        this.setStatus(201);
+
+        const results = await dashboardService.createDashboardWithCharts(
+            req.user!,
+            projectUuid,
+            body,
+        );
+
+        return {
+            status: 'ok',
+            results,
+        };
+    }
+
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
     @SuccessResponse('200', 'Updated')
     @Patch('{projectUuid}/dashboards')
     @OperationId('updateDashboards')
@@ -636,6 +668,7 @@ export class ProjectController extends BaseController {
             dbtConnectionOverrides?: {
                 branch?: string;
                 environment?: DbtProjectEnvironmentVariable[];
+                manifest?: string;
             };
             warehouseConnectionOverrides?: { schema?: string };
         },
@@ -671,7 +704,7 @@ export class ProjectController extends BaseController {
         const { schedulerTimezone: oldDefaultProjectTimezone } =
             await this.services
                 .getProjectService()
-                .getProject(projectUuid, req.user!);
+                .getProject(projectUuid, req.account!);
 
         await this.services
             .getProjectService()

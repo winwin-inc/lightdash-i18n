@@ -1,11 +1,14 @@
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { LightdashConfig } from '../../../../config/parseConfig';
+import { AiModel } from './types';
+
+const PROVIDER = 'openrouter';
 
 export const getOpenRouterModel = (
     config: NonNullable<
         LightdashConfig['ai']['copilot']['providers']['openrouter']
     >,
-) => {
+): AiModel<typeof PROVIDER> => {
     /** @ref https://openrouter.ai/docs/community/vercel-ai-sdk */
     const openrouter = createOpenRouter({
         apiKey: `${config.apiKey}`,
@@ -22,5 +25,13 @@ export const getOpenRouterModel = (
         },
     });
 
-    return openrouter.chat(config.modelName);
+    const model = openrouter.chat(config.modelName);
+
+    return {
+        model,
+        callOptions: {
+            temperature: config.temperature,
+        },
+        providerOptions: undefined,
+    };
 };

@@ -1,31 +1,26 @@
-import { MantineProvider } from '@mantine-8/core';
 import { Navigate, Outlet, type RouteObject } from 'react-router';
 import NavBar from '../components/NavBar';
 import PrivateRoute from '../components/PrivateRoute';
-import { getMantine8ThemeOverride } from '../mantine8Theme';
 import { TrackPage } from '../providers/Tracking/TrackingProvider';
 import { PageName } from '../types/Events';
-import { AiAgentThreadStreamStoreProvider } from './features/aiCopilot/streaming/AiAgentThreadStreamStoreProvider';
+import EmbeddedApp from './features/embed/EmbeddedApp';
+import { AiAgentsAdminPage } from './pages/AiAgents/Admin/AiAgentsAdminPage';
 import AgentPage from './pages/AiAgents/AgentPage';
 import AgentsRedirect from './pages/AiAgents/AgentsRedirect';
 import AgentsWelcome from './pages/AiAgents/AgentsWelcome';
 import AiAgentThreadPage from './pages/AiAgents/AgentThreadPage';
 import AiAgentNewThreadPage from './pages/AiAgents/AiAgentNewThreadPage';
 import AiAgentsNotAuthorizedPage from './pages/AiAgents/AiAgentsNotAuthorizedPage';
+import { AiAgentsRootLayout } from './pages/AiAgents/AiAgentsRootLayout';
 import ProjectAiAgentEditPage from './pages/AiAgents/ProjectAiAgentEditPage';
-import AiConversationsPage from './pages/AiConversations';
 import EmbedDashboard from './pages/EmbedDashboard';
+import EmbedExplore from './pages/EmbedExplore';
 import { SlackAuthSuccess } from './pages/SlackAuthSuccess';
-import EmbedProvider from './providers/Embed/EmbedProvider';
 
 const COMMERCIAL_EMBED_ROUTES: RouteObject[] = [
     {
         path: '/embed',
-        element: (
-            <EmbedProvider>
-                <Outlet />
-            </EmbedProvider>
-        ),
+        element: <EmbeddedApp />,
         children: [
             {
                 path: '/embed/:projectUuid',
@@ -35,43 +30,42 @@ const COMMERCIAL_EMBED_ROUTES: RouteObject[] = [
                     </TrackPage>
                 ),
             },
-        ],
-    },
-];
-
-const COMMERCIAL_AI_ROUTES: RouteObject[] = [
-    {
-        path: '/projects/:projectUuid/ai',
-        element: (
-            <PrivateRoute>
-                <Outlet />
-            </PrivateRoute>
-        ),
-        children: [
-            ...[
-                '/projects/:projectUuid/ai/conversations/:threadUuid/:promptUuid',
-                '/projects/:projectUuid/ai/conversations/:threadUuid',
-                '/projects/:projectUuid/ai/conversations',
-            ].map((path) => {
-                return {
-                    path,
-                    element: (
-                        <>
-                            <NavBar />
-                            <AiConversationsPage />
-                        </>
-                    ),
-                };
-            }),
             {
-                path: '*',
-                element: <Navigate to={'conversations'} />,
+                path: '/embed/:projectUuid/explore/:exploreId',
+                element: (
+                    <TrackPage name={PageName.EMBED_EXPLORE}>
+                        <EmbedExplore />
+                    </TrackPage>
+                ),
             },
         ],
     },
 ];
 
 const COMMERCIAL_AI_AGENTS_ROUTES: RouteObject[] = [
+    {
+        path: '/ai-agents/admin',
+        element: (
+            <PrivateRoute>
+                <NavBar />
+                <Outlet />
+            </PrivateRoute>
+        ),
+        children: [
+            {
+                index: true,
+                element: <Navigate to="threads" replace />,
+            },
+            {
+                path: 'threads',
+                element: <AiAgentsAdminPage />,
+            },
+            {
+                path: 'agents',
+                element: <AiAgentsAdminPage />,
+            },
+        ],
+    },
     {
         path: '/ai-agents/',
         element: (
@@ -84,12 +78,7 @@ const COMMERCIAL_AI_AGENTS_ROUTES: RouteObject[] = [
         path: '/projects/:projectUuid/ai-agents',
         element: (
             <PrivateRoute>
-                <NavBar />
-                <MantineProvider theme={getMantine8ThemeOverride()}>
-                    <AiAgentThreadStreamStoreProvider>
-                        <Outlet />
-                    </AiAgentThreadStreamStoreProvider>
-                </MantineProvider>
+                <AiAgentsRootLayout />
             </PrivateRoute>
         ),
         children: [
@@ -108,6 +97,20 @@ const COMMERCIAL_AI_AGENTS_ROUTES: RouteObject[] = [
             {
                 path: ':agentUuid/edit',
                 element: <ProjectAiAgentEditPage />,
+                children: [
+                    {
+                        path: 'evals',
+                        element: <ProjectAiAgentEditPage />,
+                    },
+                    {
+                        path: 'evals/:evalUuid',
+                        element: <ProjectAiAgentEditPage />,
+                    },
+                    {
+                        path: 'evals/:evalUuid/run/:runUuid',
+                        element: <ProjectAiAgentEditPage />,
+                    },
+                ],
             },
             {
                 path: ':agentUuid',
@@ -123,6 +126,14 @@ const COMMERCIAL_AI_AGENTS_ROUTES: RouteObject[] = [
                             {
                                 index: true,
                                 element: <AiAgentNewThreadPage />,
+                            },
+                            {
+                                path: ':threadUuid/messages/:promptUuid/debug',
+                                element: <AiAgentThreadPage debug />,
+                            },
+                            {
+                                path: ':threadUuid/messages/:promptUuid',
+                                element: <AiAgentThreadPage />,
                             },
                             {
                                 path: ':threadUuid',
@@ -145,9 +156,11 @@ const COMMERCIAL_SLACK_AUTH_ROUTES: RouteObject[] = [
 
 export const CommercialWebAppRoutes = [
     ...COMMERCIAL_EMBED_ROUTES,
-    ...COMMERCIAL_AI_ROUTES,
     ...COMMERCIAL_AI_AGENTS_ROUTES,
     ...COMMERCIAL_SLACK_AUTH_ROUTES,
 ];
 
-export const CommercialMobileRoutes = [...COMMERCIAL_EMBED_ROUTES];
+export const CommercialMobileRoutes = [
+    ...COMMERCIAL_EMBED_ROUTES,
+    ...COMMERCIAL_AI_AGENTS_ROUTES,
+];

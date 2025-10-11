@@ -65,7 +65,9 @@ export const WriteBackToDbtModal: FC<Props> = ({ opened, onClose }) => {
 
     const canWriteToDbtProject = !!(
         health?.hasGithub &&
-        project?.dbtConnection.type === DbtProjectType.GITHUB
+        [DbtProjectType.GITHUB, DbtProjectType.GITLAB].includes(
+            project?.dbtConnection.type as DbtProjectType,
+        )
     );
 
     useEffect(() => {

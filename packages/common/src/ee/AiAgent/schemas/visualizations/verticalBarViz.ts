@@ -1,10 +1,12 @@
 import { z } from 'zod';
+import { type TableCalculation } from '../../../../types/field';
 import type { Filters } from '../../../../types/filter';
 import { AI_DEFAULT_MAX_QUERY_LIMIT } from '../../constants';
 import type { AiMetricQueryWithFilters } from '../../types';
 import { getValidAiQueryLimit } from '../../validators';
 import { getFieldIdSchema } from '../fieldId';
 import sortFieldSchema from '../sortField';
+import type { ToolVerticalBarArgsTransformed } from '../tools';
 
 export const verticalBarMetricVizConfigSchema = z.object({
     exploreName: z
@@ -63,11 +65,19 @@ export type VerticalBarMetricVizConfigSchemaType = z.infer<
     typeof verticalBarMetricVizConfigSchema
 >;
 
-export const metricQueryVerticalBarViz = (
-    vizConfig: VerticalBarMetricVizConfigSchemaType,
-    filters: Filters,
-    maxLimit: number,
-): AiMetricQueryWithFilters => {
+export const metricQueryVerticalBarViz = ({
+    vizConfig,
+    filters,
+    maxLimit,
+    customMetrics,
+    tableCalculations,
+}: {
+    vizConfig: VerticalBarMetricVizConfigSchemaType;
+    filters: Filters;
+    maxLimit: number;
+    customMetrics: ToolVerticalBarArgsTransformed['customMetrics'] | null;
+    tableCalculations: TableCalculation[];
+}): AiMetricQueryWithFilters => {
     const metrics = vizConfig.yMetrics;
     const dimensions = [
         vizConfig.xDimension,
@@ -80,8 +90,14 @@ export const metricQueryVerticalBarViz = (
         metrics,
         dimensions,
         limit: getValidAiQueryLimit(limit, maxLimit),
-        sorts,
+        sorts: sorts.map((sort) => ({
+            ...sort,
+            nullsFirst: sort.nullsFirst ?? undefined,
+        })),
         exploreName: vizConfig.exploreName,
         filters,
+        additionalMetrics: customMetrics ?? [],
+        // TODO: add tableCalculations
+        tableCalculations,
     };
 };

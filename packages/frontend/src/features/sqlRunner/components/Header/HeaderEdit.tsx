@@ -17,7 +17,7 @@ import {
     IconTrash,
 } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';

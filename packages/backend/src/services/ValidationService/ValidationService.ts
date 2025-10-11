@@ -17,6 +17,8 @@ import {
     InlineErrorType,
     isDashboardFieldTarget,
     isExploreError,
+    isSqlTableCalculation,
+    isTemplateTableCalculation,
     isValidationTargetValid,
     OrganizationMemberRole,
     RequestMethod,
@@ -100,10 +102,23 @@ export class ValidationService extends BaseService {
         >((acc, tc) => {
             const regex = /\$\{([^}]+)\}/g;
 
-            const fieldsInSql = tc.sql.match(regex);
-            if (fieldsInSql != null) {
-                return [...acc, ...fieldsInSql.map(parseTableField)];
+            if (isSqlTableCalculation(tc)) {
+                const fieldsInSql = tc.sql.match(regex);
+                if (fieldsInSql != null) {
+                    return [...acc, ...fieldsInSql.map(parseTableField)];
+                }
             }
+
+            if (isTemplateTableCalculation(tc)) {
+                const fieldsInTemplate = [
+                    tc.template.fieldId,
+                    ...('orderBy' in tc.template
+                        ? tc.template.orderBy.map((o) => o.fieldId)
+                        : []),
+                ];
+                return [...acc, ...fieldsInTemplate];
+            }
+
             return acc;
         }, []);
         return tableCalculationFieldsInSql;
@@ -573,6 +588,7 @@ export class ValidationService extends BaseService {
         projectUuid: string,
         compiledExplores?: (Explore | ExploreError)[],
         validationTargets?: Set<ValidationTarget>,
+        onlyValidateExploresInArgs?: boolean,
     ): Promise<CreateValidation[]> {
         const hasValidationTargets =
             validationTargets && validationTargets.size > 0;
@@ -615,7 +631,10 @@ export class ValidationService extends BaseService {
             );
         } else {
             explores = Object.values(
-                await this.projectModel.findExploresFromCache(projectUuid),
+                await this.projectModel.findExploresFromCache(
+                    projectUuid,
+                    'name',
+                ),
             );
         }
 
@@ -676,7 +695,7 @@ export class ValidationService extends BaseService {
                 ? await this.validateCharts(
                       projectUuid,
                       exploreFields,
-                      compiledExplores,
+                      onlyValidateExploresInArgs ? compiledExplores : undefined,
                   )
                 : [];
 
@@ -699,6 +718,7 @@ export class ValidationService extends BaseService {
         context?: RequestMethod,
         explores?: (Explore | ExploreError)[],
         validationTargets?: ValidationTarget[],
+        onlyValidateExploresInArgs?: boolean,
     ): Promise<string> {
         const { organizationUuid } = await this.projectModel.getSummary(
             projectUuid,
@@ -725,6 +745,7 @@ export class ValidationService extends BaseService {
             organizationUuid,
             explores,
             validationTargets,
+            onlyValidateExploresInArgs,
         });
         return jobId;
     }

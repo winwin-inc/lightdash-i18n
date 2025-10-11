@@ -44,7 +44,7 @@ import {
     IconSitemap,
     IconX,
 } from '@tabler/icons-react';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import { type MRT_TableInstance } from 'mantine-react-table';
 import { memo, useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -421,7 +421,9 @@ export const MetricsTableTopToolbar: FC<MetricsTableTopToolbarProps> = memo(
                                 variant="xs"
                                 multiline
                                 maw={150}
-                                label="Manage column visibility"
+                                label={t(
+                                    'features_metrics_catalog_components.top_toolbar.manage_column_visibility',
+                                )}
                                 position="top"
                             >
                                 <ActionIcon
@@ -487,8 +489,12 @@ export const MetricsTableTopToolbar: FC<MetricsTableTopToolbarProps> = memo(
                                                 withinPortal
                                                 label={
                                                     hasConfigChanges
-                                                        ? 'Discard unsaved changes'
-                                                        : 'Reset configuration for everyone'
+                                                        ? t(
+                                                              'features_metrics_catalog_components.top_toolbar.discard_unsaved_changes',
+                                                          )
+                                                        : t(
+                                                              'features_metrics_catalog_components.top_toolbar.reset_configuration_for_everyone',
+                                                          )
                                                 }
                                             >
                                                 <Button
@@ -509,8 +515,12 @@ export const MetricsTableTopToolbar: FC<MetricsTableTopToolbarProps> = memo(
                                                     }
                                                 >
                                                     {hasConfigChanges
-                                                        ? 'Discard'
-                                                        : 'Reset'}
+                                                        ? t(
+                                                              'features_metrics_catalog_components.top_toolbar.discard',
+                                                          )
+                                                        : t(
+                                                              'features_metrics_catalog_components.top_toolbar.reset',
+                                                          )}
                                                 </Button>
                                             </Tooltip>
 
@@ -523,7 +533,9 @@ export const MetricsTableTopToolbar: FC<MetricsTableTopToolbarProps> = memo(
                                                     isCreatingSpotlightConfig
                                                 }
                                             >
-                                                Save for everyone
+                                                {t(
+                                                    'features_metrics_catalog_components.top_toolbar.save_for_everyone',
+                                                )}
                                             </Button>
                                         </>
                                     ) : (
@@ -531,7 +543,9 @@ export const MetricsTableTopToolbar: FC<MetricsTableTopToolbarProps> = memo(
                                             position="bottom"
                                             variant="xs"
                                             withinPortal
-                                            label={'Discard unsaved changes'}
+                                            label={t(
+                                                'features_metrics_catalog_components.top_toolbar.discard_unsaved_changes',
+                                            )}
                                         >
                                             <Button
                                                 fullWidth
@@ -547,7 +561,9 @@ export const MetricsTableTopToolbar: FC<MetricsTableTopToolbarProps> = memo(
                                                         theme.shadows.subtle,
                                                 })}
                                             >
-                                                Discard
+                                                {t(
+                                                    'features_metrics_catalog_components.top_toolbar.discard',
+                                                )}
                                             </Button>
                                         </Tooltip>
                                     )}
@@ -586,7 +602,9 @@ export const MetricsTableTopToolbar: FC<MetricsTableTopToolbarProps> = memo(
                                     <Tooltip
                                         withinPortal
                                         variant="xs"
-                                        label="List view"
+                                        label={t(
+                                            'features_metrics_catalog_components.top_toolbar.list_view',
+                                        )}
                                         position="bottom-end"
                                     >
                                         <Center>

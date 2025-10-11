@@ -3,7 +3,7 @@ import {
     AiResultType,
     MetricQuery,
     metricQueryVerticalBarViz,
-    type ToolVerticalBarArgsTransformed,
+    ToolVerticalBarArgsTransformed,
 } from '@lightdash/common';
 import { ProjectService } from '../../../../services/ProjectService/ProjectService';
 import { getPivotedResults } from '../utils/getPivotedResults';
@@ -77,15 +77,15 @@ const echartsConfigVerticalBarMetric = async (
 };
 
 export const renderVerticalBarViz = async ({
-    runMetricQuery,
+    queryResults,
     vizTool,
-    maxLimit,
+    metricQuery,
 }: {
-    runMetricQuery: (
-        metricQuery: AiMetricQueryWithFilters,
-    ) => ReturnType<InstanceType<typeof ProjectService>['runMetricQuery']>;
+    queryResults: Awaited<
+        ReturnType<InstanceType<typeof ProjectService>['runMetricQuery']>
+    >;
     vizTool: ToolVerticalBarArgsTransformed;
-    maxLimit: number;
+    metricQuery: AiMetricQueryWithFilters;
 }): Promise<{
     type: AiResultType.VERTICAL_BAR_RESULT;
     results: Awaited<
@@ -94,23 +94,17 @@ export const renderVerticalBarViz = async ({
     metricQuery: AiMetricQueryWithFilters;
     chartOptions: object;
 }> => {
-    const metricQueryWithFilters = metricQueryVerticalBarViz(
-        vizTool.vizConfig,
-        vizTool.filters,
-        maxLimit,
-    );
-    const results = await runMetricQuery(metricQueryWithFilters);
     const chartOptions = await echartsConfigVerticalBarMetric(
         vizTool,
-        results.rows,
-        results.fields,
-        metricQueryWithFilters.sorts,
+        queryResults.rows,
+        queryResults.fields,
+        metricQuery.sorts,
     );
 
     return {
         type: AiResultType.VERTICAL_BAR_RESULT,
-        metricQuery: metricQueryWithFilters,
-        results,
+        metricQuery,
+        results: queryResults,
         chartOptions,
     };
 };

@@ -1,18 +1,45 @@
-import { useEffect } from 'react';
+import { memo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Provider } from 'react-redux';
 import { useParams } from 'react-router';
 
 import ErrorState from '../components/common/ErrorState';
 import Page from '../components/common/Page/Page';
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
-import { default as Explorer } from '../components/Explorer';
-import { default as ExplorePanel } from '../components/Explorer/ExplorePanel';
-import { default as SavedChartsHeader } from '../components/Explorer/SavedChartsHeader';
+import Explorer from '../components/Explorer';
+import ExplorePanel from '../components/Explorer/ExplorePanel';
+import SavedChartsHeader from '../components/Explorer/SavedChartsHeader';
+import { explorerStore } from '../features/explorer/store';
 import useDashboardStorage from '../hooks/dashboard/useDashboardStorage';
+import { useExplorerQueryManager } from '../hooks/useExplorerQueryManager';
 import { useSavedQuery } from '../hooks/useSavedQuery';
 import useApp from '../providers/App/useApp';
+import { defaultQueryExecution } from '../providers/Explorer/defaultState';
 import ExplorerProvider from '../providers/Explorer/ExplorerProvider';
 import { ExplorerSection } from '../providers/Explorer/types';
+
+const SavedExplorerContent = memo<{
+    viewModeQueryArgs?: { chartUuid: string; context?: string };
+    isEditMode: boolean;
+}>(({ viewModeQueryArgs, isEditMode }) => {
+    // Run the query manager hook - orchestrates all query effects
+    useExplorerQueryManager({
+        viewModeQueryArgs,
+    });
+
+    return (
+        <Page
+            title={undefined} // Will be set by SavedChartsHeader
+            header={<SavedChartsHeader />}
+            sidebar={<ExplorePanel />}
+            isSidebarOpen={isEditMode}
+            withFullHeight
+            withPaddedContent
+        >
+            <Explorer />
+        </Page>
+    );
+});
 
 const SavedExplorer = () => {
     const { t } = useTranslation();
@@ -58,55 +85,57 @@ const SavedExplorer = () => {
     }
 
     return (
-        <ExplorerProvider
-            isEditMode={isEditMode}
-            viewModeQueryArgs={
-                savedQueryUuid ? { chartUuid: savedQueryUuid } : undefined
-            }
-            initialState={
-                data
-                    ? {
-                          shouldFetchResults: true,
-                          expandedSections: [ExplorerSection.VISUALIZATION],
-                          unsavedChartVersion: {
-                              tableName: data.tableName,
-                              chartConfig: data.chartConfig,
-                              metricQuery: data.metricQuery,
-                              tableConfig: data.tableConfig,
-                              pivotConfig: data.pivotConfig,
-                              parameters: data.parameters,
-                          },
-                          modals: {
-                              format: {
-                                  isOpen: false,
+        <Provider store={explorerStore}>
+            <ExplorerProvider
+                isEditMode={isEditMode}
+                initialState={
+                    data
+                        ? {
+                              isEditMode,
+                              parameterReferences: Object.keys(
+                                  data.parameters ?? {},
+                              ),
+                              parameterDefinitions: {},
+                              expandedSections: [ExplorerSection.VISUALIZATION],
+                              unsavedChartVersion: {
+                                  tableName: data.tableName,
+                                  chartConfig: data.chartConfig,
+                                  metricQuery: data.metricQuery,
+                                  tableConfig: data.tableConfig,
+                                  pivotConfig: data.pivotConfig,
+                                  parameters: data.parameters,
                               },
-                              additionalMetric: {
-                                  isOpen: false,
+                              modals: {
+                                  format: {
+                                      isOpen: false,
+                                  },
+                                  additionalMetric: {
+                                      isOpen: false,
+                                  },
+                                  customDimension: {
+                                      isOpen: false,
+                                  },
+                                  writeBack: {
+                                      isOpen: false,
+                                  },
                               },
-                              customDimension: {
-                                  isOpen: false,
-                              },
-                              writeBack: {
-                                  isOpen: false,
-                              },
-                          },
-                      }
-                    : undefined
-            }
-            savedChart={data}
-            defaultLimit={health.data?.query.defaultLimit}
-        >
-            <Page
-                title={data?.name}
-                header={<SavedChartsHeader />}
-                sidebar={<ExplorePanel />}
-                isSidebarOpen={isEditMode}
-                withFullHeight
-                withPaddedContent
+                              queryExecution: defaultQueryExecution,
+                          }
+                        : undefined
+                }
+                savedChart={data}
+                defaultLimit={health.data?.query.defaultLimit}
             >
-                <Explorer />
-            </Page>
-        </ExplorerProvider>
+                <SavedExplorerContent
+                    viewModeQueryArgs={
+                        savedQueryUuid
+                            ? { chartUuid: savedQueryUuid }
+                            : undefined
+                    }
+                    isEditMode={isEditMode}
+                />
+            </ExplorerProvider>
+        </Provider>
     );
 };
 

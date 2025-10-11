@@ -227,6 +227,7 @@ export type MetricQueryExecutionProperties = {
     virtualViewId?: string;
     metricOverridesCount: number;
     limit: number;
+    parametersCount: number;
 };
 
 type PaginatedMetricQueryExecutionProperties =
@@ -494,6 +495,7 @@ export type CreateSavedChartVersionEvent = BaseTrack & {
         numFixedBinsBinCustomDimensions: number;
         numCustomRangeBinCustomDimensions: number;
         numCustomSqlDimensions: number;
+        parametersCount: number;
     };
 };
 
@@ -650,6 +652,7 @@ export type CreateDashboardOrVersionEvent = BaseTrack & {
         loomTilesCount: number;
         duplicated?: boolean;
         tabsCount?: number;
+        parametersCount: number;
     };
 };
 
@@ -792,11 +795,12 @@ type ShareSlack = BaseTrack & {
 
 type SavedChartView = BaseTrack & {
     event: 'saved_chart.view';
-    userId: string;
+    userId?: string;
     properties: {
         savedChartId: string;
         projectId: string;
         organizationId: string;
+        parametersCount: number;
     };
 };
 
@@ -807,6 +811,7 @@ type DashboardView = BaseTrack & {
         dashboardId: string;
         projectId: string;
         organizationId: string;
+        parametersCount: number;
     };
 };
 
@@ -1320,6 +1325,43 @@ export type AiAgentResponseStreamed = BaseTrack & {
     };
 };
 
+export type AiAgentEvalCreatedEvent = BaseTrack & {
+    event: 'ai_agent_eval.created';
+    userId: string;
+    properties: {
+        organizationId: string;
+        projectId: string;
+        aiAgentId: string;
+        evalId: string;
+        promptsCount: number;
+    };
+};
+
+export type AiAgentEvalRunEvent = BaseTrack & {
+    event: 'ai_agent_eval.run';
+    userId: string;
+    properties: {
+        organizationId: string;
+        projectId: string;
+        aiAgentId: string;
+        evalId: string;
+        runId: string;
+        promptsCount: number;
+    };
+};
+
+export type AiAgentEvalAppendedEvent = BaseTrack & {
+    event: 'ai_agent_eval.appended';
+    userId: string;
+    properties: {
+        organizationId: string;
+        projectId: string;
+        aiAgentId: string;
+        evalId: string;
+        promptsCount: number;
+    };
+};
+
 export type RenameResourceEvent = BaseTrack & {
     event:
         | 'rename_chart.executed'
@@ -1353,6 +1395,30 @@ export type SupportShareEvent = BaseTrack & {
         page: LightdashPage | undefined;
         withScreenshot: boolean;
         canImpersonate: boolean;
+    };
+};
+
+export type McpToolCallEvent = BaseTrack & {
+    event: 'mcp_tool_call';
+    userId: string;
+    properties: {
+        organizationId: string;
+        projectId?: string;
+        toolName: string;
+    };
+};
+
+export type AiAgentToolCallEvent = BaseTrack & {
+    event: 'ai_agent_tool_call';
+    userId: string;
+    properties: {
+        organizationId: string;
+        projectId: string;
+        aiAgentId: string;
+        agentName: string;
+        toolName: string;
+        threadId: string;
+        promptId: string;
     };
 };
 
@@ -1449,7 +1515,12 @@ type TypedEvent =
     | AiAgentDeletedEvent
     | AiAgentUpdatedEvent
     | AiAgentPromptCreatedEvent
-    | AiAgentPromptFeedbackEvent;
+    | AiAgentPromptFeedbackEvent
+    | AiAgentEvalCreatedEvent
+    | AiAgentEvalRunEvent
+    | AiAgentEvalAppendedEvent
+    | McpToolCallEvent
+    | AiAgentToolCallEvent;
 
 type UntypedEvent<T extends BaseTrack> = Omit<BaseTrack, 'event'> &
     T & {

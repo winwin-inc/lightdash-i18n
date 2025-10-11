@@ -6,11 +6,11 @@ import { IconArrowBarToDown, IconCopy, IconStack } from '@tabler/icons-react';
 import mapValues from 'lodash/mapValues';
 import { useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router';
 
 import useToaster from '../../hooks/toaster/useToaster';
+import { useProjectUuid } from '../../hooks/useProjectUuid';
+import { useAccount } from '../../hooks/user/useAccount';
 import { Can } from '../../providers/Ability';
-import useApp from '../../providers/App/useApp';
 import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
 import MantineIcon from '../common/MantineIcon';
@@ -30,8 +30,10 @@ const BigNumberContextMenu: FC<React.PropsWithChildren<{}>> = ({
     const { t } = useTranslation();
 
     const { track } = useTracking();
-    const { user } = useApp();
-    const { projectUuid } = useParams<{ projectUuid: string }>();
+    const { data: account } = useAccount();
+    const projectUuid = useProjectUuid();
+    const organizationUuid = account?.organization?.organizationUuid;
+    const userId = account?.user?.id;
 
     const isBigNumber = isBigNumberVisualizationConfig(visualizationConfig);
 
@@ -76,8 +78,8 @@ const BigNumberContextMenu: FC<React.PropsWithChildren<{}>> = ({
         track({
             name: EventName.VIEW_UNDERLYING_DATA_CLICKED,
             properties: {
-                organizationId: user?.data?.organizationUuid,
-                userId: user?.data?.userUuid,
+                organizationId: organizationUuid,
+                userId,
                 projectId: projectUuid,
             },
         });
@@ -89,8 +91,8 @@ const BigNumberContextMenu: FC<React.PropsWithChildren<{}>> = ({
         fieldValues,
         track,
         openUnderlyingDataModal,
-        user?.data?.organizationUuid,
-        user?.data?.userUuid,
+        organizationUuid,
+        userId,
         isBigNumber,
         visualizationConfig,
     ]);
@@ -102,8 +104,8 @@ const BigNumberContextMenu: FC<React.PropsWithChildren<{}>> = ({
         track({
             name: EventName.DRILL_BY_CLICKED,
             properties: {
-                organizationId: user?.data?.organizationUuid,
-                userId: user?.data?.userUuid,
+                organizationId: organizationUuid,
+                userId,
                 projectId: projectUuid,
             },
         });
@@ -113,8 +115,8 @@ const BigNumberContextMenu: FC<React.PropsWithChildren<{}>> = ({
         openDrillDownModal,
         projectUuid,
         track,
-        user?.data?.organizationUuid,
-        user?.data?.userUuid,
+        organizationUuid,
+        userId,
     ]);
 
     if (!item && !value) return <>{children}</>;
@@ -146,8 +148,8 @@ const BigNumberContextMenu: FC<React.PropsWithChildren<{}>> = ({
                     <Can
                         I="view"
                         this={subject('UnderlyingData', {
-                            organizationUuid: user.data?.organizationUuid,
-                            projectUuid: projectUuid,
+                            organizationUuid,
+                            projectUuid,
                         })}
                     >
                         <Menu.Item
@@ -163,8 +165,8 @@ const BigNumberContextMenu: FC<React.PropsWithChildren<{}>> = ({
                     <Can
                         I="manage"
                         this={subject('Explore', {
-                            organizationUuid: user.data?.organizationUuid,
-                            projectUuid: projectUuid,
+                            organizationUuid,
+                            projectUuid,
                         })}
                     >
                         <Menu.Item

@@ -34,9 +34,18 @@ import {
     type TableColumn,
 } from '../components/common/Table/types';
 import useEmbed from '../ee/providers/Embed/useEmbed';
-import useExplorerContext from '../providers/Explorer/useExplorerContext';
+import {
+    selectAdditionalMetrics,
+    selectCustomDimensions,
+    selectParameters,
+    selectSorts,
+    selectTableCalculations,
+    selectTableName,
+    useExplorerSelector,
+} from '../features/explorer/store';
 import { useCalculateTotal } from './useCalculateTotal';
 import { useExplore } from './useExplore';
+import { useExplorerQuery } from './useExplorerQuery';
 
 export const getItemBgColor = (
     item: Field | AdditionalMetric | TableCalculation | CustomDimension,
@@ -66,36 +75,20 @@ export const getValueCell = (info: CellContext<RawResultRow, string>) => {
 export const useColumns = (): TableColumn[] => {
     const { t } = useTranslation();
 
-    const activeFields = useExplorerContext(
-        (context) => context.state.activeFields,
-    );
-    const tableName = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.tableName,
-    );
-    const tableCalculations = useExplorerContext(
-        (context) =>
-            context.state.unsavedChartVersion.metricQuery.tableCalculations,
-    );
-    const customDimensions = useExplorerContext(
-        (context) =>
-            context.state.unsavedChartVersion.metricQuery.customDimensions,
-    );
-    const additionalMetrics = useExplorerContext(
-        (context) =>
-            context.state.unsavedChartVersion.metricQuery.additionalMetrics,
-    );
-    const sorts = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.metricQuery.sorts,
-    );
-    const resultsMetricQuery = useExplorerContext(
-        (context) => context.query.data?.metricQuery,
-    );
-    const resultsFields = useExplorerContext(
-        (context) => context.query.data?.fields,
-    );
-    const parameters = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.parameters,
-    );
+    // Use Redux for state that's available
+    const tableName = useExplorerSelector(selectTableName);
+    const tableCalculations = useExplorerSelector(selectTableCalculations);
+    const customDimensions = useExplorerSelector(selectCustomDimensions);
+    const additionalMetrics = useExplorerSelector(selectAdditionalMetrics);
+    const sorts = useExplorerSelector(selectSorts);
+
+    // Get state from new query hook
+    const { activeFields, query } = useExplorerQuery();
+    const resultsMetricQuery = query.data?.metricQuery;
+    const resultsFields = query.data?.fields;
+
+    // Get parameters from Redux
+    const parameters = useExplorerSelector(selectParameters);
 
     const { data: exploreData } = useExplore(tableName, {
         refetchOnMount: false,

@@ -1,4 +1,5 @@
 import {
+    FeatureFlags,
     MAX_SAFE_INTEGER,
     QueryExecutionContext,
     QueryHistoryStatus,
@@ -6,8 +7,10 @@ import {
 } from '@lightdash/common';
 import { useCallback, useMemo } from 'react';
 import { lightdashApi } from '../../api';
+import { Limit } from '../../components/ExportResults/types';
 import { pollForResults } from '../../features/queryRunner/executeQuery';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
+import { useFeatureFlag } from '../useFeatureFlagEnabled';
 import useDashboardFiltersForTile from './useDashboardFiltersForTile';
 
 export const useDashboardChartDownload = (
@@ -15,11 +18,12 @@ export const useDashboardChartDownload = (
     chartUuid: string,
     projectUuid: string | undefined,
     dashboardUuid: string | undefined,
+    originalQueryUuid: string,
 ) => {
     // Get dashboard filters and sorts for this tile
     const dashboardFilters = useDashboardFiltersForTile(tileUuid);
     const chartSort = useDashboardContext((c) => c.chartSort);
-    const parameters = useDashboardContext((c) => c.parameters);
+    const parameters = useDashboardContext((c) => c.parameterValues);
     const dashboardSorts = useMemo(
         () => chartSort[tileUuid] || [],
         [chartSort, tileUuid],
@@ -28,10 +32,19 @@ export const useDashboardChartDownload = (
         (c) => c.dateZoomGranularity,
     );
 
+    const { data: useSqlPivotResults } = useFeatureFlag(
+        FeatureFlags.UseSqlPivotResults,
+    );
+
     const getDownloadQueryUuid = useCallback(
-        async (limit: number | null): Promise<string> => {
+        async (limit: number | null, limitType: Limit): Promise<string> => {
             if (!projectUuid || !dashboardUuid) {
                 throw new Error('Missing required parameters');
+            }
+
+            // When limiting to the table, use the original query uuid so we don't execute a new query
+            if (limitType === Limit.TABLE) {
+                return originalQueryUuid;
             }
 
             // Execute a new query with the specified limit for download
@@ -52,6 +65,7 @@ export const useDashboardChartDownload = (
                         limit: limit ?? MAX_SAFE_INTEGER,
                         invalidateCache: false,
                         parameters,
+                        pivotResults: useSqlPivotResults?.enabled,
                     }),
                 });
 
@@ -79,6 +93,8 @@ export const useDashboardChartDownload = (
             dashboardSorts,
             dateZoomGranularity,
             parameters,
+            useSqlPivotResults?.enabled,
+            originalQueryUuid,
         ],
     );
 

@@ -11,6 +11,7 @@ import {
     MetricFilterRule,
     MetricOverrides,
     MetricType,
+    TableCalculationTemplate,
     TableCalculationType,
 } from '@lightdash/common';
 import { Knex } from 'knex';
@@ -141,12 +142,17 @@ type DbSavedChartVersionSort = {
     saved_queries_version_id: number;
     field_name: string;
     descending: boolean;
+    nulls_first: boolean | null;
     order: number;
 };
 
 export type CreateDbSavedChartVersionSort = Pick<
     DbSavedChartVersionSort,
-    'saved_queries_version_id' | 'field_name' | 'descending' | 'order'
+    | 'saved_queries_version_id'
+    | 'field_name'
+    | 'descending'
+    | 'nulls_first'
+    | 'order'
 >;
 
 export const SavedChartVersionSortsTableName = 'saved_queries_version_sorts';
@@ -166,6 +172,7 @@ export type DbSavedChartTableCalculation = {
     saved_queries_version_id: number;
     format?: CustomFormat;
     type?: TableCalculationType;
+    template?: TableCalculationTemplate;
 };
 
 export type DbSavedChartTableCalculationInsert = Omit<

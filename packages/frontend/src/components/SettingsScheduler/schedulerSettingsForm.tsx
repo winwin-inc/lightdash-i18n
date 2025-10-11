@@ -1,5 +1,5 @@
 import { type Project } from '@lightdash/common';
-import { Button, Flex, Group, Stack, Text, Tooltip } from '@mantine/core';
+import { Button, Group, Text, Tooltip } from '@mantine-8/core';
 import { useForm, zodResolver } from '@mantine/form';
 import { IconHelp } from '@tabler/icons-react';
 import { useMemo, type FC } from 'react';
@@ -16,7 +16,11 @@ type Props = {
     onSubmit: (data: z.infer<typeof schedulerSettingsSchema>) => void;
 };
 
-const SchedulerSettingsForm: FC<Props> = ({ isLoading, project, onSubmit }) => {
+export const SchedulerSettingsForm: FC<Props> = ({
+    isLoading,
+    project,
+    onSubmit,
+}) => {
     const { t } = useTranslation();
 
     const form = useForm<z.infer<typeof schedulerSettingsSchema>>({
@@ -33,10 +37,10 @@ const SchedulerSettingsForm: FC<Props> = ({ isLoading, project, onSubmit }) => {
 
     return (
         <form onSubmit={form.onSubmit(onSubmit)}>
-            <Stack w="100%">
+            <Group w="100%" gap="sm" align="flex-end">
                 <TimeZonePicker
                     label={
-                        <Group display="inline-flex" spacing="xs">
+                        <Group display="inline-flex" gap="xs">
                             {t(
                                 'components_settings_scheduler.form.time_zone.label.part_1',
                             )}
@@ -55,24 +59,22 @@ const SchedulerSettingsForm: FC<Props> = ({ isLoading, project, onSubmit }) => {
                             </Tooltip>
                         </Group>
                     }
-                    size="sm"
+                    size="xs"
                     variant="default"
                     maw="100%"
                     searchable
                     {...form.getInputProps('timezone')}
                 />
-                <Flex justify="end" align="center" gap="sm">
-                    <Button
-                        type="submit"
-                        disabled={!form.isValid() || !hasChanged}
-                        loading={isLoading}
-                    >
-                        {t('components_settings_scheduler.form.update')}
-                    </Button>
-                </Flex>
-            </Stack>
+
+                <Button
+                    type="submit"
+                    size="xs"
+                    disabled={!form.isValid() || !hasChanged}
+                    loading={isLoading}
+                >
+                    {t('components_settings_scheduler.form.update')}
+                </Button>
+            </Group>
         </form>
     );
 };
-
-export default SchedulerSettingsForm;

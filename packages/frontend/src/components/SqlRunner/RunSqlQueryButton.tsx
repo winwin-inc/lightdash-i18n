@@ -1,18 +1,11 @@
-import {
-    Button,
-    Group,
-    Kbd,
-    MantineProvider,
-    Text,
-    Tooltip,
-} from '@mantine/core';
-import { useOs } from '@mantine/hooks';
+import { Button, Group, Kbd, rgba, Text, Tooltip } from '@mantine-8/core';
+import { useOs } from '@mantine-8/hooks';
 import { IconPlayerPlay } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import useHealth from '../../hooks/health/useHealth';
-import LimitButton from '../LimitButton';
+import RunQuerySettings from '../RunQuerySettings';
 import MantineIcon from '../common/MantineIcon';
 
 const RunSqlQueryButton: FC<{
@@ -32,17 +25,15 @@ const RunSqlQueryButton: FC<{
         <Button.Group>
             <Tooltip
                 label={
-                    <MantineProvider inherit theme={{ colorScheme: 'dark' }}>
-                        <Group spacing="xxs">
-                            <Kbd fw={600}>
-                                {os === 'macos' || os === 'ios' ? '⌘' : 'ctrl'}
-                            </Kbd>
+                    <Group gap="xxs">
+                        <Kbd fw={600}>
+                            {os === 'macos' || os === 'ios' ? '⌘' : 'ctrl'}
+                        </Kbd>
 
-                            <Text fw={600}>+</Text>
+                        <Text fw={600}>+</Text>
 
-                            <Kbd fw={600}>Enter</Kbd>
-                        </Group>
-                    </MantineProvider>
+                        <Kbd fw={600}>Enter</Kbd>
+                    </Group>
                 }
                 position="bottom"
                 withArrow
@@ -52,16 +43,20 @@ const RunSqlQueryButton: FC<{
                 <Button
                     size="xs"
                     pr={limit ? 'xs' : undefined}
-                    leftIcon={<MantineIcon icon={IconPlayerPlay} />}
+                    leftSection={<MantineIcon icon={IconPlayerPlay} />}
                     onClick={onSubmit}
                     loading={isLoading}
                     disabled={disabled}
-                    sx={(theme) => ({
+                    style={(theme) => ({
                         flex: 1,
-                        borderRight: `1px solid ${theme.fn.rgba(
-                            theme.colors.gray[5],
-                            0.6,
-                        )}`,
+                        borderRight: !disabled
+                            ? `1px solid ${rgba(theme.colors.gray[5], 0.6)}`
+                            : undefined,
+
+                        ...(onLimitChange !== undefined && {
+                            borderTopRightRadius: 0,
+                            borderBottomRightRadius: 0,
+                        }),
                     })}
                 >
                     {`${t('components_sql_runner_query_button.run_query')} ${
@@ -70,12 +65,18 @@ const RunSqlQueryButton: FC<{
                 </Button>
             </Tooltip>
             {onLimitChange !== undefined && (
-                <LimitButton
+                <RunQuerySettings
                     disabled={disabled}
                     size="xs"
                     maxLimit={maxLimit}
                     limit={limit || 500}
                     onLimitChange={onLimitChange}
+                    targetProps={{
+                        style: {
+                            borderTopLeftRadius: 0,
+                            borderBottomLeftRadius: 0,
+                        },
+                    }}
                 />
             )}
         </Button.Group>

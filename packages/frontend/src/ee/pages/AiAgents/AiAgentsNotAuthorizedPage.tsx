@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 
 import MantineIcon from '../../../components/common/MantineIcon';
-import { AiAgentPageLayout } from '../../features/aiCopilot/components/AiAgentPageLayout';
+import { AiAgentPageLayout } from '../../features/aiCopilot/components/AiAgentPageLayout/AiAgentPageLayout';
 
 const AiAgentsNotAuthorizedPage: FC = () => {
     const { t } = useTranslation();

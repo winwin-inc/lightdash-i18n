@@ -22,6 +22,7 @@ const createPreviewProject = async ({
     dbtConnectionOverrides?: {
         branch?: string;
         environment?: DbtProjectEnvironmentVariable[];
+        manifest?: string;
     };
     warehouseConnectionOverrides?: { schema?: string };
 }) =>
@@ -51,6 +52,7 @@ export const useCreatePreviewMutation = () => {
             dbtConnectionOverrides?: {
                 branch?: string;
                 environment?: DbtProjectEnvironmentVariable[];
+                manifest?: string;
             };
             warehouseConnectionOverrides?: { schema?: string };
         }

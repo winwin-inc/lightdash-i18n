@@ -12,6 +12,7 @@ import {
 import bigquery from '@google-cloud/bigquery/build/src/types';
 import {
     AnyType,
+    BigqueryAuthenticationType,
     BigqueryDataset,
     CreateBigqueryCredentials,
     DimensionType,
@@ -155,6 +156,10 @@ export class BigquerySqlBuilder extends WarehouseBaseSqlBuilder {
         return '`';
     }
 
+    getFloatingType(): string {
+        return 'FLOAT64';
+    }
+
     escapeString(value: string): string {
         if (typeof value !== 'string') {
             return value;
@@ -166,10 +171,9 @@ export class BigquerySqlBuilder extends WarehouseBaseSqlBuilder {
                 .replaceAll('\\', '\\\\')
                 .replaceAll("'", "\\'")
                 .replaceAll('"', '\\"')
-                // Remove SQL comments (BigQuery supports --, /* */, and # comments)
+                // Remove SQL comments (BigQuery supports --, /* */ comments)
                 .replace(/--.*$/gm, '')
                 .replace(/\/\*[\s\S]*?\*\//g, '')
-                .replace(/#.*$/gm, '') // BigQuery also supports # comments
                 // Remove null bytes
                 .replaceAll('\0', '')
         );
@@ -184,9 +188,17 @@ export class BigqueryWarehouseClient extends WarehouseBaseClient<CreateBigqueryC
         try {
             this.client = new BigQuery({
                 projectId: credentials.executionProject || credentials.project,
-                location: credentials.location,
+                // empty string is not a valid value for location
+                location: credentials.location || undefined,
                 maxRetries: credentials.retries,
-                credentials: credentials.keyfileContents,
+
+                ...(credentials.authenticationType ===
+                BigqueryAuthenticationType.ADC
+                    ? {
+                          // Support ADC via workforce identity federation / external_account configuration.
+                          // In this case we should rely on ADC at runtime and not pass explicit credentials.
+                      }
+                    : { credentials: credentials.keyfileContents }),
             });
         } catch (e: unknown) {
             throw new WarehouseConnectionError(
@@ -250,10 +262,9 @@ export class BigqueryWarehouseClient extends WarehouseBaseClient<CreateBigqueryC
             query,
             params: options?.values,
             useLegacySql: false,
-            maximumBytesBilled:
-                this.credentials.maximumBytesBilled === undefined
-                    ? undefined
-                    : `${this.credentials.maximumBytesBilled}`,
+            maximumBytesBilled: this.credentials.maximumBytesBilled
+                ? `${this.credentials.maximumBytesBilled}`
+                : undefined,
             priority: this.credentials.priority,
             jobTimeoutMs:
                 this.credentials.timeoutSeconds &&
@@ -541,6 +552,39 @@ export class BigqueryWarehouseClient extends WarehouseBaseClient<CreateBigqueryC
                     break;
                 }
                 break;
+
+            case 'stopped':
+                return new WarehouseQueryError(
+                    `BigQuery job was stopped. ${
+                        error?.message ||
+                        'This may be due to configuration issues such as maximum bytes billed limit, job timeout, or query cancellation. Please check your connection settings.'
+                    }`,
+                );
+
+            case 'invalid':
+                return new WarehouseQueryError(
+                    `BigQuery configuration is invalid. ${
+                        error?.message ||
+                        'Please verify your connection settings and other advanced options.'
+                    }`,
+                );
+
+            case 'quotaExceeded':
+                return new WarehouseQueryError(
+                    `BigQuery quota exceeded. ${
+                        error?.message ||
+                        'You may have reached your query quota, slots quota, or other BigQuery limits. Please check your BigQuery quotas and usage.'
+                    }`,
+                );
+
+            case 'rateLimitExceeded':
+                return new WarehouseQueryError(
+                    `BigQuery rate limit exceeded. ${
+                        error?.message ||
+                        'Please wait a moment and try again, or consider reducing query frequency.'
+                    }`,
+                );
+
             default:
                 break;
         }
@@ -552,7 +596,9 @@ export class BigqueryWarehouseClient extends WarehouseBaseClient<CreateBigqueryC
             )}`,
         );
         return new WarehouseQueryError(
-            `Bigquery warehouse error: ${error?.reason}`,
+            `Bigquery warehouse error: ${error?.reason}${
+                error?.message ? ` - ${error.message}` : ''
+            }`,
         );
     }
 

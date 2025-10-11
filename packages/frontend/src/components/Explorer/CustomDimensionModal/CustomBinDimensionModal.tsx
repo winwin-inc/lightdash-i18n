@@ -24,7 +24,7 @@ import {
 } from '@mantine/core';
 import { useForm, zodResolver } from '@mantine/form';
 import { IconX } from '@tabler/icons-react';
-import { cloneDeep } from 'lodash';
+import cloneDeep from 'lodash/cloneDeep';
 import { useEffect, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
