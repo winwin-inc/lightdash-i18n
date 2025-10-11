@@ -845,7 +845,14 @@
         "guanularity": "粒度",
         "default": "默认",
         "delete_zoom": "删除缩放",
-        "on": "在"
+        "on": "在",
+        "options": {
+            "day": "日",
+            "week": "周",
+            "month": "月",
+            "quarter": "季度",
+            "year": "年"
+        }
     },
 
     "features_error_boundary": {
@@ -999,6 +1006,7 @@
             "tabs_list": {
                 "setup": "设置",
                 "filters": "筛选器",
+                "parameters": "参数",
                 "alert_message": "提醒消息",
                 "customization": "定制",
                 "preview_and_size": "预览和尺寸"
@@ -1145,7 +1153,7 @@
         "content": "这将立即触发已计划的交付。它不会改变或影响已配置的计划或未来的交付。"
     },
     "features_scheduler_parameters": {
-        "no_value_set": "没有值设置",
+        "no_value_set": "没有值",
         "reset_parameter": "重置参数回看板默认"
     },
     "features_semantic_content": {
@@ -3657,7 +3665,7 @@
     },
     "components_common_modal_dashboard_export": {
         "alert": "您的 CSV 导出将包括所选日期缩放粒度的数据。",
-        "tooltip_export": {
+        "tooltip": {
             "label": "以 zip 文件形式导出所有图表的表格结果",
             "button": "导出 CSV"
         },

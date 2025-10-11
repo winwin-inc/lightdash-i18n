@@ -56,6 +56,14 @@ export const DateZoom: FC<Props> = ({ isEditMode }) => {
         return null;
     }
 
+    const DateGranularityOptions = {
+        [DateGranularity.DAY]: t('features_date_zoom.options.day'),
+        [DateGranularity.WEEK]: t('features_date_zoom.options.week'),
+        [DateGranularity.MONTH]: t('features_date_zoom.options.month'),
+        [DateGranularity.QUARTER]: t('features_date_zoom.options.quarter'),
+        [DateGranularity.YEAR]: t('features_date_zoom.options.year'),
+    };
+
     return (
         <Menu
             withinPortal
@@ -100,11 +108,11 @@ export const DateZoom: FC<Props> = ({ isEditMode }) => {
                             />
                         }
                     >
-                        Date Zoom
+                        {t('features_date_zoom.date_zoom')}
                         {dateZoomGranularity ? `:` : null}{' '}
                         {dateZoomGranularity ? (
                             <Box fw={500} ml="xxs">
-                                {dateZoomGranularity}
+                                {DateGranularityOptions[dateZoomGranularity]}
                             </Box>
                         ) : null}
                     </Button>
@@ -165,7 +173,7 @@ export const DateZoom: FC<Props> = ({ isEditMode }) => {
                             ) : null
                         }
                     >
-                        {granularity}
+                        {DateGranularityOptions[granularity]}
                     </Menu.Item>
                 ))}
             </Menu.Dropdown>

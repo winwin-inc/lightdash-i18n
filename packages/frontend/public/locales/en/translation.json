@@ -852,7 +852,14 @@
         "guanularity": "Granularity",
         "default": "Default",
         "delete_zoom": "Delete zoom",
-        "on": "On"
+        "on": "On",
+        "options": {
+            "day": "Day",
+            "week": "Week",
+            "month": "Month",
+            "quarter": "Quarter",
+            "year": "Year"
+        }
     },
 
     "features_error_boundary": {
@@ -1006,6 +1013,7 @@
             "tabs_list": {
                 "setup": "Setup",
                 "filters": "Filters",
+                "parameters": "Parameters",
                 "alert_message": "Alert message",
                 "customization": "Customization",
                 "preview_and_size": "Preview and size"
@@ -3671,7 +3679,7 @@
     },
     "components_common_modal_dashboard_export": {
         "alert": "Your CSV export will include data for the selected date zoom granularity.",
-        "tooltip_export": {
+        "tooltip": {
             "label": "Export results in table for all charts in a zip file",
             "button": "Export CSV"
         },

@@ -9,7 +9,9 @@ import { captureException, useProfiler } from '@sentry/react';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
 import { type Layout } from 'react-grid-layout';
+import { useTranslation } from 'react-i18next';
 import { useBlocker, useNavigate, useParams } from 'react-router';
+
 import DashboardFilter from '../components/DashboardFilter';
 import DashboardTabs from '../components/DashboardTabs';
 import PinnedParameters from '../components/PinnedParameters';
@@ -40,6 +42,8 @@ import useFullscreen from '../providers/Fullscreen/useFullscreen';
 import '../styles/react-grid.css';
 
 const Dashboard: FC = () => {
+    const { t } = useTranslation();
+
     const navigate = useNavigate();
     const { projectUuid, dashboardUuid, mode } = useParams<{
         projectUuid: string;
@@ -218,8 +222,8 @@ const Dashboard: FC = () => {
                 setHaveTilesChanged(!!unsavedDashboardTiles);
             } catch {
                 showToastError({
-                    title: 'Error parsing chart',
-                    subtitle: 'Unable to save chart in dashboard',
+                    title: t('pages_dashboard.toast_chart_error.title'),
+                    subtitle: t('pages_dashboard.toast_chart_error.subtitle'),
                 });
                 captureException(
                     `Error parsing chart in dashboard. Attempted to parse: ${unsavedDashboardTilesRaw} `,
@@ -240,8 +244,8 @@ const Dashboard: FC = () => {
                 setHaveTabsChanged(!!unsavedDashboardTabs);
             } catch {
                 showToastError({
-                    title: 'Error parsing tabs',
-                    subtitle: 'Unable to save tabs in dashboard',
+                    title: t('pages_dashboard.toast_tabs_error.title'),
+                    subtitle: t('pages_dashboard.toast_tabs_error.subtitle'),
                 });
                 captureException(
                     `Error parsing tabs in dashboard. Attempted to parse: ${unsavedDashboardTabsRaw} `,
@@ -495,15 +499,14 @@ const Dashboard: FC = () => {
     useEffect(() => {
         const checkReload = (event: BeforeUnloadEvent) => {
             if (isEditMode && (haveTilesChanged || haveFiltersChanged)) {
-                const message =
-                    'You have unsaved changes to your dashboard! Are you sure you want to leave without saving?';
+                const message = t('pages_dashboard.reload_message');
                 event.returnValue = message;
                 return message;
             }
         };
         window.addEventListener('beforeunload', checkReload);
         return () => window.removeEventListener('beforeunload', checkReload);
-    }, [haveTilesChanged, haveFiltersChanged, isEditMode]);
+    }, [haveTilesChanged, haveFiltersChanged, isEditMode, t]);
 
     // Block navigating away if there are unsaved changes
     const blocker = useBlocker(({ nextLocation }) => {
@@ -584,8 +587,7 @@ const Dashboard: FC = () => {
                                 size={50}
                             />
                             <Text fw={500}>
-                                You have unsaved changes to your dashboard! Are
-                                you sure you want to leave without saving?
+                                t('pages_dashboard.modal.content')
                             </Text>
                         </Group>
 
@@ -595,7 +597,7 @@ const Dashboard: FC = () => {
                                     blocker.reset();
                                 }}
                             >
-                                Stay
+                                t('pages_dashboard.modal.stay')
                             </Button>
                             <Button
                                 color="red"
@@ -604,7 +606,7 @@ const Dashboard: FC = () => {
                                     blocker.proceed();
                                 }}
                             >
-                                Leave
+                                t('pages_dashboard.modal.leave')
                             </Button>
                         </Group>
                     </Stack>
