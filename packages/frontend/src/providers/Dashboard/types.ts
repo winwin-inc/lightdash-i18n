@@ -122,4 +122,35 @@ export type DashboardContextType = {
     tileNamesById: Record<string, string>;
     refreshDashboardVersion: () => Promise<void>;
     isRefreshingDashboardVersion: boolean;
+
+    // tabs-filter start
+    tabFilters: Record<string, DashboardFilters>;
+    setTabFilters: Dispatch<SetStateAction<Record<string, DashboardFilters>>>;
+    tabTemporaryFilters: Record<string, DashboardFilters>;
+    setTabTemporaryFilters: Dispatch<
+        SetStateAction<Record<string, DashboardFilters>>
+    >;
+    haveTabFiltersChanged: Record<string, boolean>;
+    setHaveTabFiltersChanged: Dispatch<SetStateAction<Record<string, boolean>>>;
+    getActiveTabFilters: (tabUuid: string) => DashboardFilters;
+    getActiveTabTemporaryFilters: (tabUuid: string) => DashboardFilters;
+    getMergedFiltersForTab: (tabUuid: string) => DashboardFilters;
+    addTabDimensionFilter: (
+        tabUuid: string,
+        filter: DashboardFilterRule,
+        isTemporary: boolean,
+    ) => void;
+    updateTabDimensionFilter: (
+        tabUuid: string,
+        filter: DashboardFilterRule,
+        index: number,
+        isTemporary: boolean,
+    ) => void;
+    removeTabDimensionFilter: (
+        tabUuid: string,
+        index: number,
+        isTemporary: boolean,
+    ) => void;
+    resetTabFilters: (tabUuid: string) => void;
+    // tabs-filer end
 };

@@ -2413,7 +2413,8 @@
                     "part_3": "模式下添加的筛选器才会被保存"
                 },
                 "content": {
-                    "add_filter": "添加筛选器"
+                    "add_global_filter": "添加全局筛选器",
+                    "add_tab_filter": "添加标签筛选器"
                 }
             },
             "inactive_filter": {

@@ -48,6 +48,7 @@ const useDashboardFilterStyles = createStyles((theme) => ({
 
 type Props = {
     isEditMode: boolean;
+    filterType: 'global' | 'tab';
     isTemporary?: boolean;
     field: FilterableDimension | undefined;
     filterRule: DashboardFilterRule;
@@ -62,6 +63,7 @@ type Props = {
 
 const Filter: FC<Props> = ({
     isEditMode,
+    filterType,
     isTemporary,
     field,
     filterRule,
@@ -178,13 +180,13 @@ const Filter: FC<Props> = ({
                 .join(', ');
             return appliedTabList
                 ? ` ${t(
-                      'components_dashboard_filter.filter.inactive_filter_info.part_1',
+                      'components_dashboard_filter.filter.inactive_filter.part_1',
                       {
                           suffix: appliesToTabs.length === 1 ? '' : 's',
                       },
                   )}: ${appliedTabList}`
                 : t(
-                      'components_dashboard_filter.filter.inactive_filter_info.part_2',
+                      'components_dashboard_filter.filter.inactive_filter.part_2',
                   );
         }
     }, [activeTabUuid, appliesToTabs, dashboardTabs, t]);
@@ -201,6 +203,41 @@ const Filter: FC<Props> = ({
         },
         [onUpdate, handleClose],
     );
+
+    const appliedDashboardTabs = useMemo(() => {
+        if (filterType === 'global') {
+            return dashboardTabs;
+        }
+        return dashboardTabs?.filter((tab) => tab.uuid === activeTabUuid);
+    }, [dashboardTabs, activeTabUuid, filterType]);
+
+    const appliedDashboardTiles = useMemo(() => {
+        if (filterType === 'global') {
+            return dashboardTiles;
+        }
+        return dashboardTiles?.filter((tile) => tile.tabUuid === activeTabUuid);
+    }, [dashboardTiles, activeTabUuid, filterType]);
+
+    const appliedFilterableFieldsByTileUuid = useMemo(() => {
+        if (filterType === 'global') {
+            return filterableFieldsByTileUuid;
+        }
+        return Object.keys(filterableFieldsByTileUuid ?? {}).reduce(
+            (acc, tileUuid) => {
+                const tile = appliedDashboardTiles?.find(
+                    (tile) => tile.uuid === tileUuid,
+                );
+
+                if (tile) {
+                    acc[tileUuid] =
+                        filterableFieldsByTileUuid?.[tileUuid] || [];
+                }
+
+                return acc;
+            },
+            {} as Record<string, FilterableDimension[]>,
+        );
+    }, [filterableFieldsByTileUuid, appliedDashboardTiles, filterType]);
 
     return (
         <>
@@ -239,15 +276,6 @@ const Filter: FC<Props> = ({
                                 </Text>
                             </Tooltip>
                         }
-                        styles={(theme) => ({
-                            common: {
-                                top: -5,
-                                right: 24,
-                                borderRadius: theme.radius.xs,
-                                borderBottomRightRadius: 0,
-                                borderBottomLeftRadius: 0,
-                            },
-                        })}
                     >
                         <Tooltip
                             fz="xs"
@@ -375,19 +403,19 @@ const Filter: FC<Props> = ({
                 </Popover.Target>
 
                 <Popover.Dropdown>
-                    {dashboardTiles && (
+                    {appliedDashboardTiles && (
                         <FilterConfiguration
                             isCreatingNew={false}
                             isEditMode={isEditMode}
                             isTemporary={isTemporary}
                             field={field}
                             fields={allFilterableFields || []}
-                            tiles={dashboardTiles}
-                            tabs={dashboardTabs}
+                            tiles={appliedDashboardTiles}
+                            tabs={appliedDashboardTabs}
                             activeTabUuid={activeTabUuid}
                             originalFilterRule={originalFilterRule}
                             availableTileFilters={
-                                filterableFieldsByTileUuid ?? {}
+                                appliedFilterableFieldsByTileUuid ?? {}
                             }
                             defaultFilterRule={defaultFilterRule}
                             onSave={handleSaveChanges}

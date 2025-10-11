@@ -34,6 +34,7 @@ const EmbedDashboardChartTile: FC<Props> = ({
     const readyQuery = useDashboardChartReadyQuery(
         tile.uuid,
         tile.properties?.savedChartUuid,
+        tile.tabUuid ?? '',
         QueryExecutionContext.EMBED,
     );
 

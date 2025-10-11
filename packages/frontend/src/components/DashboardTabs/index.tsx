@@ -4,7 +4,7 @@ import {
     type DashboardTile,
     type Dashboard as IDashboard,
 } from '@lightdash/common';
-import { ActionIcon, Group, ScrollArea, Tabs } from '@mantine/core';
+import { ActionIcon, Group, ScrollArea, Stack, Tabs } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import cloneDeep from 'lodash/cloneDeep';
 import { useMemo, useState, type FC } from 'react';
@@ -15,6 +15,7 @@ import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import { TrackSection } from '../../providers/Tracking/TrackingProvider';
 import '../../styles/droppable.css';
 import { SectionName } from '../../types/Events';
+import DashboardFilter from '../DashboardFilter';
 import EmptyStateNoTiles from '../DashboardTiles/EmptyStateNoTiles';
 import MantineIcon from '../common/MantineIcon';
 import { LockedDashboardModal } from '../common/modal/LockedDashboardModal';
@@ -32,6 +33,7 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 
 type DashboardTabsProps = {
     isEditMode: boolean;
+    hasTilesThatSupportFilters: boolean;
     hasRequiredDashboardFiltersToSet: boolean;
     addingTab: boolean;
     dashboardTiles: DashboardTile[] | undefined;
@@ -47,6 +49,7 @@ type DashboardTabsProps = {
 
 const DashboardTabs: FC<DashboardTabsProps> = ({
     isEditMode,
+    hasTilesThatSupportFilters,
     hasRequiredDashboardFiltersToSet,
     addingTab,
     dashboardTiles,
@@ -176,6 +179,11 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                 uuid: uuid4(),
                 isDefault: false,
                 order: lastOrd + 1,
+                filters: {
+                    dimensions: [],
+                    metrics: [],
+                    tableCalculations: [],
+                },
             };
             newTabs.push(newTab);
             setDashboardTabs(newTabs);
@@ -358,12 +366,25 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         )}
                                     </Tabs.List>
                                 )}
-                                <Group
-                                    grow
+                                <Stack
                                     pt={tabsEnabled ? 'sm' : undefined}
                                     pb="lg"
-                                    px="xs"
+                                    px="sm"
+                                    spacing={0}
                                 >
+                                    <Group>
+                                        {hasTilesThatSupportFilters &&
+                                            activeTab?.uuid && (
+                                                <DashboardFilter
+                                                    isEditMode={isEditMode}
+                                                    activeTabUuid={
+                                                        activeTab?.uuid
+                                                    }
+                                                    filterType="tab"
+                                                />
+                                            )}
+                                    </Group>
+
                                     <ResponsiveGridLayout
                                         {...gridProps}
                                         className={`${
@@ -418,7 +439,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                             }
                                         })}
                                     </ResponsiveGridLayout>
-                                </Group>
+                                </Stack>
                                 <LockedDashboardModal
                                     opened={
                                         hasRequiredDashboardFiltersToSet &&

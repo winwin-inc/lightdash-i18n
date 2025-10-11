@@ -2427,7 +2427,8 @@
                     "part_3": "mode will be saved"
                 },
                 "content": {
-                    "add_filter": "Add filter"
+                    "add_global_filter": "Add global filter",
+                    "add_tab_filter": "Add tab filter"
                 }
             },
             "inactive_filter": {

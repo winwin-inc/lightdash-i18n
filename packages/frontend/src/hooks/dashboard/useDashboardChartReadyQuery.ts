@@ -21,6 +21,7 @@ import { useFeatureFlag } from '../useFeatureFlagEnabled';
 import { useSavedQuery } from '../useSavedQuery';
 import useSearchParams from '../useSearchParams';
 import useDashboardFiltersForTile from './useDashboardFiltersForTile';
+import useDashboardTabFiltersForTile from './useDashboardTabFiltersForTile';
 
 const executeAsyncDashboardChartQuery = async (
     projectUuid: string,
@@ -62,11 +63,16 @@ export type DashboardChartReadyQuery = {
 export const useDashboardChartReadyQuery = (
     tileUuid: string,
     chartUuid: string | null,
+    tabUuid: string,
     contextOverride?: QueryExecutionContext,
 ) => {
     const dashboardUuid = useDashboardContext((c) => c.dashboard?.uuid);
     const invalidateCache = useDashboardContext((c) => c.invalidateCache);
     const dashboardFilters = useDashboardFiltersForTile(tileUuid);
+    const dashboardTabFilters = useDashboardTabFiltersForTile(
+        tabUuid,
+        tileUuid,
+    );
     const chartSort = useDashboardContext((c) => c.chartSort);
     const parameterValues = useDashboardContext((c) => c.parameterValues);
     const addParameterReferences = useDashboardContext(
@@ -113,8 +119,17 @@ export const useDashboardChartReadyQuery = (
         }
     }, [explore, addParameterDefinitions]);
 
-    const timezoneFixFilters =
+    const timezoneFixDashboardFilters =
         dashboardFilters && convertDateDashboardFilters(dashboardFilters);
+    const timezoneFixDashboardTabFilters =
+        dashboardTabFilters && convertDateDashboardFilters(dashboardTabFilters);
+
+    const timezoneFixFilters = useMemo(() => {
+        if (tabUuid) {
+            return timezoneFixDashboardTabFilters;
+        }
+        return timezoneFixDashboardFilters;
+    }, [tabUuid, timezoneFixDashboardTabFilters, timezoneFixDashboardFilters]);
 
     const hasADateDimension = useMemo(() => {
         const metricQueryDimensions = [
@@ -162,6 +177,7 @@ export const useDashboardChartReadyQuery = (
         () => [
             'dashboard_chart_ready_query',
             chartQuery.data?.projectUuid,
+            tabUuid,
             chartUuid,
             dashboardUuid,
             timezoneFixFilters,
@@ -176,6 +192,7 @@ export const useDashboardChartReadyQuery = (
         ],
         [
             chartQuery.data?.projectUuid,
+            tabUuid,
             chartUuid,
             dashboardUuid,
             timezoneFixFilters,

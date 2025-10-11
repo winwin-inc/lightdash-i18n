@@ -1,8 +1,11 @@
-import { type DashboardFilterRule } from '@lightdash/common';
+import {
+    FilterableDimension,
+    type DashboardFilterRule,
+} from '@lightdash/common';
 import { Button, Popover, Text, Tooltip } from '@mantine/core';
 import { useDisclosure, useId } from '@mantine/hooks';
 import { IconFilter } from '@tabler/icons-react';
-import { type FC, useCallback, useMemo } from 'react';
+import { useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
@@ -10,6 +13,7 @@ import MantineIcon from '../common/MantineIcon';
 import FilterConfiguration from './FilterConfiguration';
 
 type Props = {
+    filterType: 'global' | 'tab';
     isEditMode: boolean;
     openPopoverId: string | undefined;
     activeTabUuid: string | undefined;
@@ -19,6 +23,7 @@ type Props = {
 };
 
 const AddFilterButton: FC<Props> = ({
+    filterType,
     isEditMode,
     openPopoverId,
     activeTabUuid,
@@ -70,6 +75,50 @@ const AddFilterButton: FC<Props> = ({
         },
         [onSave, handleClose],
     );
+
+    const buttonText =
+        filterType === 'global'
+            ? t(
+                  'components_dashboard_filter.filter.tooltip_creating_new.content.add_global_filter',
+              )
+            : t(
+                  'components_dashboard_filter.filter.tooltip_creating_new.content.add_tab_filter',
+              );
+
+    const appliedDashboardTabs = useMemo(() => {
+        if (filterType === 'global') {
+            return dashboardTabs;
+        }
+        return dashboardTabs?.filter((tab) => tab.uuid === activeTabUuid);
+    }, [dashboardTabs, activeTabUuid, filterType]);
+
+    const appliedDashboardTiles = useMemo(() => {
+        if (filterType === 'global') {
+            return dashboardTiles;
+        }
+        return dashboardTiles?.filter((tile) => tile.tabUuid === activeTabUuid);
+    }, [dashboardTiles, activeTabUuid, filterType]);
+
+    const appliedFilterableFieldsByTileUuid = useMemo(() => {
+        if (filterType === 'global') {
+            return filterableFieldsByTileUuid;
+        }
+        return Object.keys(filterableFieldsByTileUuid ?? {}).reduce(
+            (acc, tileUuid) => {
+                const tile = appliedDashboardTiles?.find(
+                    (item) => item.uuid === tileUuid,
+                );
+
+                if (tile) {
+                    acc[tileUuid] =
+                        filterableFieldsByTileUuid?.[tileUuid] || [];
+                }
+
+                return acc;
+            },
+            {} as Record<string, FilterableDimension[]>,
+        );
+    }, [filterableFieldsByTileUuid, appliedDashboardTiles, filterType]);
 
     return (
         <>
@@ -129,24 +178,22 @@ const AddFilterButton: FC<Props> = ({
                                     : onPopoverOpen(popoverId)
                             }
                         >
-                            {t(
-                                'components_dashboard_filter.filter.tooltip_creating_new.content.add_filter',
-                            )}
+                            {buttonText}
                         </Button>
                     </Tooltip>
                 </Popover.Target>
 
                 <Popover.Dropdown>
-                    {dashboardTiles && (
+                    {appliedDashboardTiles && (
                         <FilterConfiguration
                             isCreatingNew={true}
                             isEditMode={isEditMode}
                             fields={allFilterableFields || []}
-                            tiles={dashboardTiles}
-                            tabs={dashboardTabs}
+                            tiles={appliedDashboardTiles}
+                            tabs={appliedDashboardTabs}
                             activeTabUuid={activeTabUuid}
                             availableTileFilters={
-                                filterableFieldsByTileUuid ?? {}
+                                appliedFilterableFieldsByTileUuid ?? {}
                             }
                             onSave={handleSaveChanges}
                             popoverProps={{

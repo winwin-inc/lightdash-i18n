@@ -1847,6 +1847,7 @@ const DashboardChartTile: FC<DashboardChartTileProps> = (props) => {
     const readyQuery = useDashboardChartReadyQuery(
         props.tile.uuid,
         props.tile.properties?.savedChartUuid,
+        props.tile.tabUuid ?? '',
     );
 
     const resultsData = useInfiniteQueryResults(
