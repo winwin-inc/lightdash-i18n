@@ -160,6 +160,7 @@ export const TabDeleteModal: FC<AddProps> = ({
         pluralTiles,
         handleMoveTile,
         destinationTabId,
+        t,
     ]);
 
     return (

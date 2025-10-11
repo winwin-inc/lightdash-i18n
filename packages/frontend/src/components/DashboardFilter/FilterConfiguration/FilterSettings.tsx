@@ -57,7 +57,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
 
     const filterOperatorOptions = useMemo(
         () => getFilterOperatorOptions(filterType),
-        [filterType],
+        [filterType, getFilterOperatorOptions],
     );
 
     // Set default label when using revert (undo) button

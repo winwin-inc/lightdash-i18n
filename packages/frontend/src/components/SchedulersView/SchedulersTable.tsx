@@ -409,15 +409,15 @@ const SchedulersTable: FC<SchedulersTableProps> = ({ projectUuid }) => {
                     let emails: string[] = [];
                     let slackChannels: string[] = [];
                     let msTeamsTargets: string[] = [];
-                    currentTargets.map((t) => {
-                        if (isSlackTarget(t)) {
+                    currentTargets.map((it) => {
+                        if (isSlackTarget(it)) {
                             return slackChannels.push(
-                                getSlackChannelName(t.channel),
+                                getSlackChannelName(it.channel),
                             );
-                        } else if (isMsTeamsTarget(t)) {
-                            return msTeamsTargets.push(t.webhook);
+                        } else if (isMsTeamsTarget(it)) {
+                            return msTeamsTargets.push(it.webhook);
                         } else {
-                            return emails.push(t.recipient);
+                            return emails.push(it.recipient);
                         }
                     });
 

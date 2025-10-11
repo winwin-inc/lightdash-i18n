@@ -1939,6 +1939,8 @@
     },
 
     "features_changesets_project_changesets": {
+        "create_new_item": "创建新项目",
+        "delete_item": "删除项目",
         "revert_change": {
             "title": "撤销更改",
             "content": {

@@ -40,10 +40,7 @@ import {
 import FiltersProvider from '../../../components/common/Filters/FiltersProvider';
 import useFiltersContext from '../../../components/common/Filters/useFiltersContext';
 import MantineIcon from '../../../components/common/MantineIcon';
-import {
-    hasSavedFilterValueChanged,
-    isFilterEnabled,
-} from '../../../components/DashboardFilter/FilterConfiguration/utils';
+import { hasSavedFilterValueChanged } from '../../../components/DashboardFilter/FilterConfiguration/utils';
 import { useProject } from '../../../hooks/useProject';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 

@@ -1954,6 +1954,8 @@
     },
 
     "features_changesets_project_changesets": {
+        "create_new_item": "Create new item",
+        "delete_item": "Delete item",
         "revert_change": {
             "title": "Revert change",
             "content": {

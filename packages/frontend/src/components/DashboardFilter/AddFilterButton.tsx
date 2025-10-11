@@ -26,7 +26,7 @@ const AddFilterButton: FC<Props> = ({
     onPopoverClose,
     onSave,
 }) => {
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
 
     const popoverId = useId();
     const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);

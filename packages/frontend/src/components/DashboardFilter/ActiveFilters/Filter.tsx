@@ -150,7 +150,13 @@ const Filter: FC<Props> = ({
                 filterRule.target.fieldId,
             );
         }
-    }, [filterRule, field, sqlChartTilesMetadata]);
+    }, [
+        filterRule,
+        field,
+        sqlChartTilesMetadata,
+        getConditionalRuleLabel,
+        getConditionalRuleLabelFromItem,
+    ]);
 
     const filterRuleTables = useMemo(() => {
         if (!field || !allFilterableFields) return;
@@ -181,7 +187,7 @@ const Filter: FC<Props> = ({
                       'components_dashboard_filter.filter.inactive_filter_info.part_2',
                   );
         }
-    }, [activeTabUuid, appliesToTabs, dashboardTabs]);
+    }, [activeTabUuid, appliesToTabs, dashboardTabs, t]);
 
     const handleClose = useCallback(() => {
         if (isPopoverOpen) onPopoverClose();

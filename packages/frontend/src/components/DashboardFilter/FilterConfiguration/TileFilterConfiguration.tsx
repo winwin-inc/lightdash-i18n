@@ -138,7 +138,7 @@ const TileFilterConfiguration: FC<Props> = ({
         const tileWithTargetFields =
             sortedTileWithFilters.map<TileWithTargetFields>(
                 ([tileUuid, filters], index) => {
-                    const tile = tiles.find((t) => t.uuid === tileUuid);
+                    const tile = tiles.find((it) => it.uuid === tileUuid);
                     const tabUuidFromTile = tile?.tabUuid;
 
                     // tileConfig overrides the default filter state for a tile
@@ -231,7 +231,7 @@ const TileFilterConfiguration: FC<Props> = ({
                 const columns = metadata.columns.map(
                     ({ reference }) => reference,
                 );
-                const tile = tiles.find((t) => t.uuid === tileUuid);
+                const tile = tiles.find((it) => it.uuid === tileUuid);
                 if (!tile) {
                     return acc;
                 }
@@ -346,8 +346,6 @@ const TileFilterConfiguration: FC<Props> = ({
     }: {
         tileList: Array<TileWithTargetFields | TileWithTargetColumns>;
     }) => {
-        const { t } = useTranslation();
-
         return (
             <Stack spacing="md">
                 {tileList.map((value) => (

@@ -9,7 +9,6 @@ import {
     isCustomSqlDimension,
     isDimension,
     isFilterableField,
-    MetricType,
     type AdditionalMetric,
     type CustomDimension,
     type Dimension,

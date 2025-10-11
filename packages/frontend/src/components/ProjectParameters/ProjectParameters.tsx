@@ -180,7 +180,7 @@ const ProjectParameters: FC<ProjectParametersProps> = ({ projectUuid }) => {
                     </Table.Td>
                 </Table.Tr>
             )),
-        [parameters, handleViewConfig],
+        [parameters, handleViewConfig, t],
     );
 
     if (isError) {

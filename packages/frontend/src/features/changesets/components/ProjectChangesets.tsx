@@ -32,7 +32,7 @@ import {
 } from 'mantine-react-table';
 import { MRT_Localization_EN } from 'mantine-react-table/locales/en';
 import { MRT_Localization_ZH_HANS } from 'mantine-react-table/locales/zh-Hans';
-import { useMemo, type FC } from 'react';
+import { useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../components/common/MantineIcon';
@@ -70,25 +70,6 @@ const formatDateTime = (date: Date): string => {
     return dayjs(date).format('MMM D, YYYY HH:mm');
 };
 
-const extractChangeValue = (
-    change: Change,
-): string | { path: string; value: string }[] => {
-    switch (change.type) {
-        case 'create':
-            return 'Create new item';
-        case 'delete':
-            return 'Delete item';
-        case 'update':
-            return change.payload.patches.map((patch) => ({
-                path: patch.path.replace('/', ''),
-                value: String(patch.value),
-            }));
-
-        default:
-            return assertUnreachable(change, `Unknown change type`);
-    }
-};
-
 const getUserDisplayName = (
     userUuid: string,
     organizationUsers:
@@ -119,6 +100,30 @@ export const ProjectChangesets: FC<Props> = ({ projectUuid }) => {
         isLoading,
         error,
     } = useActiveChangesets(projectUuid);
+
+    const extractChangeValue = useCallback(
+        (change: Change): string | { path: string; value: string }[] => {
+            switch (change.type) {
+                case 'create':
+                    return t(
+                        'features_changesets_project_changesets.create_new_item',
+                    );
+                case 'delete':
+                    return t(
+                        'features_changesets_project_changesets.delete_item',
+                    );
+                case 'update':
+                    return change.payload.patches.map((patch) => ({
+                        path: patch.path.replace('/', ''),
+                        value: String(patch.value),
+                    }));
+
+                default:
+                    return assertUnreachable(change, `Unknown change type`);
+            }
+        },
+        [t],
+    );
 
     const { data: organizationUsers } = useOrganizationUsers();
 
@@ -371,7 +376,7 @@ export const ProjectChangesets: FC<Props> = ({ projectUuid }) => {
                     },
                 },
             ],
-            [organizationUsers],
+            [organizationUsers, extractChangeValue, t],
         );
 
     const table = useMantineReactTable({

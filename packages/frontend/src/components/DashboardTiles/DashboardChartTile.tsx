@@ -620,7 +620,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
         showToastSuccess({
             title: t('components_dashboard_tiles_chart_title.copied'),
         });
-    }, [viewUnderlyingDataOptions, clipboard, showToastSuccess]);
+    }, [viewUnderlyingDataOptions, clipboard, showToastSuccess, t]);
 
     const {
         data: duplicatedChart,

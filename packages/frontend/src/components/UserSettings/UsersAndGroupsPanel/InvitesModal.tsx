@@ -93,7 +93,11 @@ const InvitesModal: FC<{
             title={
                 <Group gap="xs">
                     <MantineIcon size="lg" icon={IconUser} />
-                    <Title order={4}>Add user</Title>
+                    <Title order={4}>
+                        {t(
+                            'components_user_settings_groups_panel_invites.title',
+                        )}
+                    </Title>
                 </Group>
             }
             size="lg"
@@ -128,7 +132,7 @@ const InvitesModal: FC<{
                                 data={Object.values(OrganizationMemberRole).map(
                                     (orgMemberRole) => ({
                                         value: orgMemberRole,
-                                        label: orgMemberRole.replace('_', ' '),
+                                        label: RoleLabels[orgMemberRole],
                                     }),
                                 )}
                                 disabled={isLoading}

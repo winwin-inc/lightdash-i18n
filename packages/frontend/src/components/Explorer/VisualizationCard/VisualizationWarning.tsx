@@ -138,6 +138,7 @@ const VisualizationWarning: FC<PivotMismatchWarningProps> = ({
         isQueryFetching,
         shouldShowPivotMismatch,
         shouldShowUnusedDims,
+        t,
     ]);
 
     if (messages.length === 0) return null;

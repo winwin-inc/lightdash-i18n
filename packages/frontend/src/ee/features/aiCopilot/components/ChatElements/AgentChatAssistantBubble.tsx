@@ -99,9 +99,10 @@ const AssistantBubbleContent: FC<{
     ]);
 
     const proposeChangeToolCall = isStreaming
-        ? (streamingState?.toolCalls.find((t) => t.toolName === 'proposeChange')
-              ?.toolArgs as ToolProposeChangeArgs)
-        : (message.toolCalls.find((t) => t.toolName === 'proposeChange')
+        ? (streamingState?.toolCalls.find(
+              (it) => it.toolName === 'proposeChange',
+          )?.toolArgs as ToolProposeChangeArgs)
+        : (message.toolCalls.find((it) => it.toolName === 'proposeChange')
               ?.toolArgs as ToolProposeChangeArgs); // TODO: fix message type, it's `object` now
 
     const proposeChangeToolResult = message.toolResults.find(

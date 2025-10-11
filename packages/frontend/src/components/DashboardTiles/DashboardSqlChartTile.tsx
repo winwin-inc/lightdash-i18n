@@ -82,8 +82,8 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
      */
     const DashboardOptions = memo(
         ({
-            isEditMode,
-            projectUuid,
+            isEditMode: isEditModeProp,
+            projectUuid: projectUuidProp,
             slug,
         }: {
             isEditMode: boolean;
@@ -92,8 +92,8 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
         }) => (
             <LinkMenuItem
                 icon={<MantineIcon icon={IconFilePencil} />}
-                href={`/projects/${projectUuid}/sql-runner/${slug}/edit`}
-                disabled={isEditMode}
+                href={`/projects/${projectUuidProp}/sql-runner/${slug}/edit`}
+                disabled={isEditModeProp}
                 target="_blank"
             >
                 {t('components_dashboard_tiles_sql_chart.edit_sql_chart')}

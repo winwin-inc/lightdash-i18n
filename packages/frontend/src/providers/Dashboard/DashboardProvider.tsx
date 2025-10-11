@@ -929,7 +929,11 @@ const DashboardProvider: React.FC<
                     },
                     [],
                 ),
-        [dashboardFilters.dimensions, allFilterableFieldsMap],
+        [
+            dashboardFilters.dimensions,
+            allFilterableFieldsMap,
+            getConditionalRuleLabelFromItem,
+        ],
     );
 
     // Memoized mapping of tile UUIDs to their display names

@@ -104,7 +104,7 @@ const PromptRow: FC<PromptRowProps> = ({
                 index + 1
             }`
         );
-    }, [thread?.messages, index]);
+    }, [thread?.messages, index, t]);
 
     const handleRowClick = () => {
         if (
