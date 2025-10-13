@@ -105,13 +105,34 @@ apiV1Router.get(
     ),
 );
 
-apiV1Router.get(lightdashConfig.auth.oidc.callbackPath, (req, res, next) =>
-    passport.authenticate('oidc', {
-        failureRedirect: getOidcRedirectURL(false)(req),
-        successRedirect: getOidcRedirectURL(true)(req),
-        failureFlash: true,
-    })(req, res, next),
-);
+apiV1Router.get(lightdashConfig.auth.oidc.callbackPath, (req, res, next) => {
+    const maxRetries = 3;
+    let retryCount = 0;
+
+    const attemptAuth = () => {
+        passport.authenticate('oidc', {
+            failureRedirect: getOidcRedirectURL(false)(req),
+            successRedirect: getOidcRedirectURL(true)(req),
+            failureFlash: true,
+            failWithError: true,
+        })(req, res, (err: unknown) => {
+            if (err && retryCount < maxRetries) {
+                retryCount++;
+                console.log(`OIDC auth retry ${retryCount}/${maxRetries}`);
+                setTimeout(attemptAuth, 100); // 100ms 后重试
+                return;
+            }
+
+            if (err) {
+                console.error('oidc callback error', err);
+                return res.redirect(getOidcRedirectURL(false)(req));
+            }
+            return next();
+        });
+    };
+
+    attemptAuth();
+});
 
 apiV1Router.get(
     lightdashConfig.auth.oneLogin.loginPath,
