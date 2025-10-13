@@ -25,7 +25,8 @@ import SuboptimalState from '../components/common/SuboptimalState/SuboptimalStat
 import DashboardDeleteModal from '../components/common/modal/DashboardDeleteModal';
 import DashboardDuplicateModal from '../components/common/modal/DashboardDuplicateModal';
 import { DashboardExportModal } from '../components/common/modal/DashboardExportModal';
-import { useDashboardCommentsCheck } from '../features/comments';
+// import useApp from '../providers/App/useApp';
+// import { useDashboardCommentsCheck } from '../features/comments';
 import { DateZoom } from '../features/dateZoom';
 import { Parameters } from '../features/parameters';
 import {
@@ -38,7 +39,6 @@ import { useOrganization } from '../hooks/organization/useOrganization';
 import useToaster from '../hooks/toaster/useToaster';
 import { useContentAction } from '../hooks/useContent';
 import { useSpaceSummaries } from '../hooks/useSpaces';
-import useApp from '../providers/App/useApp';
 import DashboardProvider from '../providers/Dashboard/DashboardProvider';
 import useDashboardContext from '../providers/Dashboard/useDashboardContext';
 import useFullscreen from '../providers/Fullscreen/useFullscreen';
@@ -944,15 +944,18 @@ const Dashboard: FC = () => {
 
 const DashboardPage: FC = () => {
     const { projectUuid } = useParams<{ projectUuid: string }>();
-    const { user } = useApp();
-    const dashboardCommentsCheck = useDashboardCommentsCheck(user?.data);
+    // const { user } = useApp();
+    // const dashboardCommentsCheck = useDashboardCommentsCheck(user?.data);
 
     useProfiler('Dashboard');
 
     return (
         <DashboardProvider
             projectUuid={projectUuid}
-            dashboardCommentsCheck={dashboardCommentsCheck}
+            dashboardCommentsCheck={{
+                canViewDashboardComments: false,
+                canCreateDashboardComments: false,
+            }}
         >
             <Dashboard />
         </DashboardProvider>
