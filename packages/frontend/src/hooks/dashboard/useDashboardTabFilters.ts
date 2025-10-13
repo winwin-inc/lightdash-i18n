@@ -1,7 +1,7 @@
 import {
-    Dashboard,
-    DashboardFilterRule,
-    DashboardFilters,
+    type Dashboard,
+    type DashboardFilterRule,
+    type DashboardFilters,
 } from '@lightdash/common';
 import { useCallback, useState } from 'react';
 
@@ -76,17 +76,17 @@ export const useDashboardTabFilters = ({
 
         return {
             dimensions: [
-                ...allFilters.dimensions,
+                ...globalFilters.dimensions,
                 ...tabSpecificFilters.dimensions,
                 ...tabSpecificTemporaryFilters.dimensions,
             ],
             metrics: [
-                ...allFilters.metrics,
+                ...globalFilters.metrics,
                 ...tabSpecificFilters.metrics,
                 ...tabSpecificTemporaryFilters.metrics,
             ],
             tableCalculations: [
-                ...allFilters.tableCalculations,
+                ...globalFilters.tableCalculations,
                 ...tabSpecificFilters.tableCalculations,
                 ...tabSpecificTemporaryFilters.tableCalculations,
             ],

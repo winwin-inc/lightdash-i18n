@@ -200,8 +200,7 @@ const DashboardProvider: React.FC<
         dashboard,
         dashboardFilters,
         dashboardTemporaryFilters,
-        isFilterEnabled: (tabUuid: string) =>
-            isTabFilterEnabled[tabUuid] ?? true,
+        isFilterEnabled: (uuid: string) => isTabFilterEnabled[uuid] ?? true,
     });
 
     const [resultsCacheTimes, setResultsCacheTimes] = useState<Date[]>([]);
@@ -533,7 +532,14 @@ const DashboardProvider: React.FC<
 
             setOriginalDashboardFilters(dashboard.filters);
         }
-    }, [dashboard, dashboardFilters, overridesForSavedDashboardFilters]);
+    }, [
+        dashboard,
+        dashboardFilters,
+        overridesForSavedDashboardFilters,
+        setHaveFiltersChanged,
+        setDashboardFilters,
+        setOriginalDashboardFilters,
+    ]);
 
     // Updates url with temp and overridden filters and deep compare to avoid unnecessary re-renders for dashboardTemporaryFilters
     useDeepCompareEffect(() => {
@@ -594,7 +600,11 @@ const DashboardProvider: React.FC<
                 ),
             }));
         }
-    }, [dashboard?.filters, overridesForSavedDashboardFilters]);
+    }, [
+        dashboard?.filters,
+        overridesForSavedDashboardFilters,
+        setDashboardFilters,
+    ]);
 
     // Gets filters and dateZoom from URL and storage after redirect
     useMount(() => {

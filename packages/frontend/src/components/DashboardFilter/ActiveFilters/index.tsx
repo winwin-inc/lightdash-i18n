@@ -55,11 +55,11 @@ const DraggableItem: FC<{
 
     const style = transform
         ? ({
-            position: 'relative',
-            zIndex: 1,
-            transform: `translate(${transform.x}px, ${transform.y}px)`,
-            opacity: 0.8,
-        } as const)
+              position: 'relative',
+              zIndex: 1,
+              transform: `translate(${transform.x}px, ${transform.y}px)`,
+              opacity: 0.8,
+          } as const)
         : undefined;
 
     return (
@@ -111,7 +111,6 @@ const DroppableArea: FC<{
 
 const ActiveFilters: FC<ActiveFiltersProps> = ({
     filterType,
-    isFilterEnabled,
     isEditMode,
     isFilterEnabled,
     activeTabUuid,
@@ -281,7 +280,13 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                 });
             }
         },
-        [filterType, setDashboardFilters, setTabFilters, activeTabUuid],
+        [
+            filterType,
+            setDashboardFilters,
+            setTabFilters,
+            activeTabUuid,
+            tabFilters,
+        ],
     );
 
     const appliedFilterChanged = useCallback(

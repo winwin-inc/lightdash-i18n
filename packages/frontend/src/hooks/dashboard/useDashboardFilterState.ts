@@ -1,4 +1,4 @@
-import { Dashboard } from '@lightdash/common';
+import { type Dashboard } from '@lightdash/common';
 import { useEffect, useState } from 'react';
 
 export const useDashboardFilterState = ({

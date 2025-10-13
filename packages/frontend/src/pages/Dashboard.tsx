@@ -1,7 +1,7 @@
 import {
     ContentType,
-    DashboardFilterRule,
-    DashboardFilters,
+    type DashboardFilterRule,
+    type DashboardFilters,
     type DashboardTile,
     type Dashboard as IDashboard,
 } from '@lightdash/common';
@@ -309,6 +309,7 @@ const Dashboard: FC = () => {
         setHaveTabsChanged,
         clearIsEditingDashboardChart,
         showToastError,
+        t,
     ]);
 
     const [gridWidth, setGridWidth] = useState(0);
@@ -347,6 +348,15 @@ const Dashboard: FC = () => {
         projectUuid,
         dashboardTabs,
         activeTab,
+        setHaveTabFiltersChanged,
+        setHaveFilterEnabledStatesChanged,
+        setHaveShowAddFilterButtonStatesChanged,
+        setDashboardTemporaryFilters,
+        setTabTemporaryFilters,
+        setHavePinnedParametersChanged,
+        setHaveFiltersChanged,
+        setHaveTilesChanged,
+        reset,
     ]);
 
     // 监听路由模式变化，当切换到 view 模式后重置状态
@@ -369,7 +379,6 @@ const Dashboard: FC = () => {
         isSuccess,
         mode,
         reset,
-        setHaveTilesChanged,
         setHaveFiltersChanged,
         setHaveTilesChanged,
         setHaveTabFiltersChanged,
@@ -377,6 +386,7 @@ const Dashboard: FC = () => {
         setHaveShowAddFilterButtonStatesChanged,
         setTabTemporaryFilters,
         setHavePinnedParametersChanged,
+        setDashboardTemporaryFilters,
         dashboardTabs,
         activeTab,
     ]);
@@ -573,6 +583,7 @@ const Dashboard: FC = () => {
         activeTab,
         setSavedParameters,
         setPinnedParameters,
+        setHaveTabFiltersChanged,
         setHavePinnedParametersChanged,
         setHaveFilterEnabledStatesChanged,
         setHaveShowAddFilterButtonStatesChanged,

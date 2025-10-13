@@ -173,8 +173,9 @@ const Filter: FC<Props> = ({
         if (activeTabUuid && !appliesToTabs.includes(activeTabUuid)) {
             const appliedTabList = appliesToTabs
                 .map((tabId) => {
-                    return `'${dashboardTabs.find((tab) => tab.uuid === tabId)?.name
-                        }'`;
+                    return `'${
+                        dashboardTabs.find((tab) => tab.uuid === tabId)?.name
+                    }'`;
                 })
                 .join(', ');
             return appliedTabList
@@ -185,8 +186,8 @@ const Filter: FC<Props> = ({
                       },
                   )}: ${appliedTabList}`
                 : t(
-                    'components_dashboard_filter.filter.inactive_filter.part_2',
-                );
+                      'components_dashboard_filter.filter.inactive_filter.part_2',
+                  );
         }
     }, [activeTabUuid, appliesToTabs, dashboardTabs, t]);
 
@@ -214,7 +215,7 @@ const Filter: FC<Props> = ({
         if (filterType === 'global') {
             return dashboardTiles;
         }
-        return dashboardTiles?.filter((tile) => tile.tabUuid === activeTabUuid);
+        return dashboardTiles?.filter((tl) => tl.tabUuid === activeTabUuid);
     }, [dashboardTiles, activeTabUuid, filterType]);
 
     const appliedFilterableFieldsByTileUuid = useMemo(() => {
@@ -224,7 +225,7 @@ const Filter: FC<Props> = ({
         return Object.keys(filterableFieldsByTileUuid ?? {}).reduce(
             (acc, tileUuid) => {
                 const tile = appliedDashboardTiles?.find(
-                    (tile) => tile.uuid === tileUuid,
+                    (tl) => tl.uuid === tileUuid,
                 );
 
                 if (tile) {
@@ -291,13 +292,15 @@ const Filter: FC<Props> = ({
                                         ? 'outline'
                                         : 'default'
                                 }
-                                className={`${classes.root} ${hasUnsetRequiredFilter
-                                    ? classes.unsetRequiredFilter
-                                    : ''
-                                    } ${inactiveFilterInfo
+                                className={`${classes.root} ${
+                                    hasUnsetRequiredFilter
+                                        ? classes.unsetRequiredFilter
+                                        : ''
+                                } ${
+                                    inactiveFilterInfo
                                         ? classes.inactiveFilter
                                         : ''
-                                    }`}
+                                }`}
                                 leftIcon={
                                     isDraggable && (
                                         <MantineIcon
@@ -352,10 +355,10 @@ const Filter: FC<Props> = ({
                                             label={
                                                 <Text fz="xs">
                                                     {filterRuleTables?.length ===
-                                                        1
+                                                    1
                                                         ? t(
-                                                            'components_dashboard_filter.filter.table',
-                                                        )
+                                                              'components_dashboard_filter.filter.table',
+                                                          )
                                                         : t(
                                                               'components_dashboard_filter.filter.tables',
                                                           )}

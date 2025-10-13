@@ -1,6 +1,6 @@
 import {
-    FilterableDimension,
     type DashboardFilterRule,
+    type FilterableDimension,
 } from '@lightdash/common';
 import { Button, Popover, Text, Tooltip } from '@mantine/core';
 import { useDisclosure, useId } from '@mantine/hooks';
