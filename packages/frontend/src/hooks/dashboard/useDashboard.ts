@@ -3,6 +3,7 @@ import {
     type ApiError,
     type ApiJobScheduledResponse,
     type CreateDashboard,
+    type CreateDashboardWithCharts,
     type Dashboard,
     type DashboardAvailableFilters,
     type DashboardFilters,
@@ -18,8 +19,8 @@ import {
     useQueryClient,
     type UseQueryOptions,
 } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useNavigate, useParams } from 'react-router';
 
 import { lightdashApi } from '../../api';
 import { pollJobStatus } from '../../features/scheduler/hooks/useScheduler';
@@ -37,6 +38,16 @@ const getDashboard = async (id: string) =>
 const createDashboard = async (projectUuid: string, data: CreateDashboard) =>
     lightdashApi<Dashboard>({
         url: `/projects/${projectUuid}/dashboards`,
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+
+const createDashboardWithCharts = async (
+    projectUuid: string,
+    data: CreateDashboardWithCharts,
+) =>
+    lightdashApi<Dashboard>({
+        url: `/projects/${projectUuid}/dashboards/with-charts`,
         method: 'POST',
         body: JSON.stringify(data),
     });
@@ -89,7 +100,7 @@ const exportDashboard = async (
     id: string,
     gridWidth: number | undefined,
     queryFilters: string,
-    selectedTabs?: string[],
+    selectedTabs: string[] | null,
 ) =>
     lightdashApi<string>({
         url: `/dashboards/${id}/export`,
@@ -131,6 +142,53 @@ export const useDashboardQuery = (
     });
 };
 
+/**
+ * Checks if the dashboard version is up to date and returns the latest dashboard if it is not
+ * Helpful for refreshing the dashboard when the user wants to make changes to the dashboard
+ * This is to avoid one user or multiple users overwriting each other's changes
+ * @param dashboardUuid The dashboard uuid
+ * @returns The latest dashboard or null if the dashboard is up to date
+ */
+export const useDashboardVersionRefresh = (dashboardUuid: string) => {
+    const queryClient = useQueryClient();
+
+    return useMutation<Dashboard | null, ApiError, Dashboard | undefined>({
+        mutationKey: ['dashboard_version_refresh', dashboardUuid],
+        mutationFn: async (currentDashboard) => {
+            try {
+                if (!currentDashboard) {
+                    throw new Error('Current dashboard is undefined');
+                }
+
+                const latestDashboard = await getDashboard(dashboardUuid);
+
+                const currentTime = new Date(
+                    currentDashboard.updatedAt,
+                ).getTime();
+                const latestTime = new Date(
+                    latestDashboard.updatedAt,
+                ).getTime();
+
+                const isUpToDate = latestTime <= currentTime;
+
+                if (isUpToDate) {
+                    return null;
+                }
+
+                queryClient.setQueryData(
+                    ['saved_dashboard_query', dashboardUuid],
+                    latestDashboard,
+                );
+
+                return latestDashboard;
+            } catch (error) {
+                console.warn('Failed to check dashboard timestamp:', error);
+                return null;
+            }
+        },
+    });
+};
+
 export const useExportDashboard = () => {
     const { showToastSuccess, showToastApiError, showToastInfo } = useToaster();
     const { t } = useTranslation();
@@ -143,7 +201,7 @@ export const useExportDashboard = () => {
             gridWidth: number | undefined;
             queryFilters: string;
             isPreview?: boolean;
-            selectedTabs?: string[];
+            selectedTabs: string[] | null;
         }
     >(
         (data) =>
@@ -159,8 +217,12 @@ export const useExportDashboard = () => {
                 showToastInfo({
                     key: 'dashboard_export_toast',
                     title: data.isPreview
-                        ? t('hooks_dashboard.generate_preview_for', { name: data.dashboard.name })
-                        : t('hooks_dashboard.is_being_exported', { name: data.dashboard.name }),
+                        ? t('hooks_dashboard.generate_preview_for', {
+                              name: data.dashboard.name,
+                          })
+                        : t('hooks_dashboard.is_being_exported', {
+                              name: data.dashboard.name,
+                          }),
                     autoClose: false,
                     loading: true,
                 });
@@ -172,7 +234,9 @@ export const useExportDashboard = () => {
                         key: 'dashboard_export_toast',
                         title: data.isPreview
                             ? t('hooks_dashboard.success')
-                            : t('hooks_dashboard.success_export', { name: data.dashboard.name }),
+                            : t('hooks_dashboard.success_export', {
+                                  name: data.dashboard.name,
+                              }),
                     });
                 }
             },
@@ -180,8 +244,12 @@ export const useExportDashboard = () => {
                 showToastApiError({
                     key: 'dashboard_export_toast',
                     title: data.isPreview
-                        ? t('hooks_dashboard.failed_preview', { name: data.dashboard.name })
-                        : t('hooks_dashboard.failed_export', { name: data.dashboard.name }),
+                        ? t('hooks_dashboard.failed_preview', {
+                              name: data.dashboard.name,
+                          })
+                        : t('hooks_dashboard.failed_export', {
+                              name: data.dashboard.name,
+                          }),
                     apiError: error,
                 });
             },
@@ -257,15 +325,21 @@ export const useExportCsvDashboard = () => {
                         } else {
                             showToastError({
                                 key: 'dashboard_export_toast',
-                                title: t('hooks_dashboard.missing_file_url', { name: data.dashboard.name }),
-                                subtitle: t('hooks_dashboard.something_went_wrong'),
+                                title: t('hooks_dashboard.missing_file_url', {
+                                    name: data.dashboard.name,
+                                }),
+                                subtitle: t(
+                                    'hooks_dashboard.something_went_wrong',
+                                ),
                             });
                         }
                     })
                     .catch((error: Error) => {
                         showToastError({
                             key: 'dashboard_export_toast',
-                            title: t('hooks_dashboard.failed_export', { name: data.dashboard.name }),
+                            title: t('hooks_dashboard.failed_export', {
+                                name: data.dashboard.name,
+                            }),
                             subtitle: error.message,
                         });
                     });
@@ -273,7 +347,9 @@ export const useExportCsvDashboard = () => {
             onError: ({ error }, data) => {
                 showToastApiError({
                     key: 'dashboard_export_toast',
-                    title: t('hooks_dashboard.failed_export', { name: data.dashboard.name }),
+                    title: t('hooks_dashboard.failed_export', {
+                        name: data.dashboard.name,
+                    }),
                     apiError: error,
                 });
             },
@@ -348,6 +424,7 @@ export const useUpdateDashboard = (
 export const useCreateMutation = (
     projectUuid: string | undefined,
     showRedirectButton: boolean = false,
+    { showToastOnSuccess = true }: { showToastOnSuccess?: boolean } = {},
 ) => {
     const navigate = useNavigate();
     const { showToastSuccess, showToastApiError } = useToaster();
@@ -368,23 +445,73 @@ export const useCreateMutation = (
                     'most-popular-and-recently-updated',
                 ]);
                 await queryClient.invalidateQueries(['content']);
-                showToastSuccess({
-                    title: t('hooks_dashboard.success_create'),
-                    action: showRedirectButton
-                        ? {
-                              children: t('hooks_dashboard.open_dashboard'),
-                              icon: IconArrowRight,
-                              onClick: () =>
-                                  navigate(
-                                      `/projects/${projectUuid}/dashboards/${result.uuid}`,
-                                  ),
-                          }
-                        : undefined,
-                });
+
+                if (showToastOnSuccess) {
+                    showToastSuccess({
+                        title: t('hooks_dashboard.success_create'),
+                        action: showRedirectButton
+                            ? {
+                                  children: t('hooks_dashboard.open_dashboard'),
+                                  icon: IconArrowRight,
+                                  onClick: () =>
+                                      navigate(
+                                          `/projects/${projectUuid}/dashboards/${result.uuid}`,
+                                      ),
+                              }
+                            : undefined,
+                    });
+                }
             },
             onError: ({ error }) => {
                 showToastApiError({
                     title: t('hooks_dashboard.failed_to_create'),
+                    apiError: error,
+                });
+            },
+        },
+    );
+};
+
+export const useCreateDashboardWithChartsMutation = (
+    projectUuid: string | undefined,
+    { showToastOnSuccess = true }: { showToastOnSuccess?: boolean } = {},
+) => {
+    const navigate = useNavigate();
+    const { showToastSuccess, showToastApiError } = useToaster();
+    const queryClient = useQueryClient();
+    return useMutation<Dashboard, ApiError, CreateDashboardWithCharts>(
+        (data) =>
+            projectUuid
+                ? createDashboardWithCharts(projectUuid, data)
+                : Promise.reject(),
+        {
+            mutationKey: ['dashboard_create_with_charts', projectUuid],
+            onSuccess: async (result) => {
+                await queryClient.invalidateQueries(['dashboards']);
+                await queryClient.invalidateQueries([
+                    'dashboards-containing-chart',
+                ]);
+                await queryClient.invalidateQueries([
+                    'most-popular-and-recently-updated',
+                ]);
+                await queryClient.invalidateQueries(['content']);
+
+                if (showToastOnSuccess) {
+                    showToastSuccess({
+                        title: 'Dashboard created successfully!',
+                        action: {
+                            children: 'Open dashboard',
+                            onClick: () =>
+                                navigate(
+                                    `/projects/${projectUuid}/dashboards/${result.uuid}`,
+                                ),
+                        },
+                    });
+                }
+            },
+            onError: ({ error }) => {
+                showToastApiError({
+                    title: 'Failed to create dashboard',
                     apiError: error,
                 });
             },

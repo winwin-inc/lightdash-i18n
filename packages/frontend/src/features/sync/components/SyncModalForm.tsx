@@ -217,7 +217,9 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                             searchable
                             clearable
                             variant="default"
-                            withinPortal
+                            comboboxProps={{
+                                withinPortal: true,
+                            }}
                             {...methods.register('timezone')}
                             onChange={(value) => {
                                 methods.setValue(
@@ -233,13 +235,16 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
 
                     <Group>
                         <Switch
-                            label="Save in a new tab"
+                            label={t(
+                                'features_sync.form.save_in_new_tab.label',
+                            )}
                             checked={saveInNewTab}
                             onChange={() => setSaveInNewTab(!saveInNewTab)}
                         ></Switch>
                         <Tooltip
-                            label={`Type a tab name to save the sync in, instead of overriding the first existing tab in the Google sheet.
-                                    This will create a new tab if it doesn't exist. We will still create a tab called metadata with the Sync information.`}
+                            label={t(
+                                'features_sync.form.save_in_new_tab.tooltip',
+                            )}
                             multiline
                             withinPortal
                             position="right"
@@ -251,8 +256,10 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                     {saveInNewTab && (
                         <TextInput
                             required
-                            label="Tab name"
-                            placeholder="Sheet1"
+                            label={t('features_sync.form.tab_name.label')}
+                            placeholder={t(
+                                'features_sync.form.tab_name.placeholder',
+                            )}
                             error={
                                 methods.formState.errors.options &&
                                 `tabName` in methods.formState.errors.options &&
@@ -262,7 +269,9 @@ export const SyncModalForm: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                             {...methods.register('options.tabName', {
                                 validate: (value) => {
                                     if (value?.toLowerCase() === 'metadata') {
-                                        return 'Tab name cannot be "metadata"';
+                                        return t(
+                                            'features_sync.form.tab_name.error',
+                                        );
                                     }
                                     return true;
                                 },

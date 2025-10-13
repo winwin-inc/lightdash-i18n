@@ -68,12 +68,22 @@ const TokenItem: FC<{
                 <td>
                     <Group align="center" position="left" spacing="xs">
                         <span>
-                            {expiresAt
-                                ? formatDate(expiresAt)
-                                : t(
-                                      'components_user_settings_access_tokens_panel_tokens_table.no_expiration_date',
-                                  )}
+                            {expiresAt ? (
+                                <Tooltip
+                                    withinPortal
+                                    position="top"
+                                    maw={350}
+                                    label={formatTimestamp(expiresAt)}
+                                >
+                                    <span>{formatDate(expiresAt)}</span>
+                                </Tooltip>
+                            ) : (
+                                t(
+                                    'components_user_settings_access_tokens_panel_tokens_table.no_expiration_date',
+                                )
+                            )}
                         </span>
+
                         {rotatedAt && (
                             <Tooltip
                                 withinPortal
@@ -342,15 +352,21 @@ export const TokensTable = () => {
                 <Table className={cx(classes.root, classes.alignLastTdRight)}>
                     <thead>
                         <tr>
-                            <th>{t(
-                                'components_user_settings_access_tokens_panel_tokens_table.table_columns.description',
-                            )}</th>
-                            <th>{t(
-                                'components_user_settings_access_tokens_panel_tokens_table.table_columns.expiration_date',
-                            )}</th>
-                            <th>{t(
-                                'components_user_settings_access_tokens_panel_tokens_table.table_columns.last_used_at',
-                            )}</th>
+                            <th>
+                                {t(
+                                    'components_user_settings_access_tokens_panel_tokens_table.table_columns.description',
+                                )}
+                            </th>
+                            <th>
+                                {t(
+                                    'components_user_settings_access_tokens_panel_tokens_table.table_columns.expiration_date',
+                                )}
+                            </th>
+                            <th>
+                                {t(
+                                    'components_user_settings_access_tokens_panel_tokens_table.table_columns.last_used_at',
+                                )}
+                            </th>
                             <th></th>
                         </tr>
                     </thead>
@@ -447,9 +463,11 @@ export const TokensTable = () => {
                         variant="light"
                     >
                         <Stack spacing="xs">
-                            <Text fw={500}>{t(
-                                'components_user_settings_access_tokens_panel_tokens_table.token_modal.content.part_1',
-                            )}</Text>
+                            <Text fw={500}>
+                                {t(
+                                    'components_user_settings_access_tokens_panel_tokens_table.token_modal.content.part_1',
+                                )}
+                            </Text>
                             <Text size="sm">
                                 {t(
                                     'components_user_settings_access_tokens_panel_tokens_table.token_modal.content.part_2.part_1',
@@ -460,7 +478,8 @@ export const TokensTable = () => {
                                         label: 'Learn about token rotation',
                                     }}
                                 />
-                                . {t(
+                                .{' '}
+                                {t(
                                     'components_user_settings_access_tokens_panel_tokens_table.token_modal.content.part_2.part_2',
                                 )}
                             </Text>
@@ -483,11 +502,15 @@ export const TokensTable = () => {
                         <CopyButton value={tokenToCopy?.uuid ?? ''}>
                             {({ copied, copy }) => (
                                 <Tooltip
-                                    label={copied ? t(
-                                        'components_user_settings_access_tokens_panel_tokens_table.token_modal.copied',
-                                    ) : t(
-                                        'components_user_settings_access_tokens_panel_tokens_table.token_modal.copy_uuid',
-                                    )}
+                                    label={
+                                        copied
+                                            ? t(
+                                                  'components_user_settings_access_tokens_panel_tokens_table.token_modal.copied',
+                                              )
+                                            : t(
+                                                  'components_user_settings_access_tokens_panel_tokens_table.token_modal.copy_uuid',
+                                              )
+                                    }
                                     withArrow
                                     position="top"
                                 >
@@ -522,9 +545,13 @@ export const TokensTable = () => {
             <Modal
                 opened={!!tokenToRotate}
                 onClose={() => setTokenToRotate(undefined)}
-                title={<Title order={4}>{t(
-                    'components_user_settings_access_tokens_panel_tokens_table.rotate_token',
-                )}</Title>}
+                title={
+                    <Title order={4}>
+                        {t(
+                            'components_user_settings_access_tokens_panel_tokens_table.rotate_token',
+                        )}
+                    </Title>
+                }
                 size="md"
             >
                 {!!tokenToRotate ? (

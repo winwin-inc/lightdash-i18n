@@ -298,7 +298,7 @@ export const ExploreLoadingState = () => {
                 'components_explorer_results_card_non_ideal_state.explore_loading_state.title',
             )}
         >
-            <Loader color="gray" />
+            <Loader color="gray" data-testid="results-table-loading" />
         </EmptyState>
     );
 };
@@ -318,10 +318,12 @@ export const ExploreErrorState = ({
             )}
             description={
                 <Fragment>
-                    {errorDetail?.message ||
-                        t(
-                            'components_explorer_results_card_non_ideal_state.explore_error_state.description',
-                        )}
+                    <Text style={{ whiteSpace: 'pre-wrap' }}>
+                        {errorDetail?.message ||
+                            t(
+                                'components_explorer_results_card_non_ideal_state.explore_error_state.description',
+                            )}
+                    </Text>
                     {errorDetail?.data.documentationUrl && (
                         <Fragment>
                             <br />
@@ -337,6 +339,39 @@ export const ExploreErrorState = ({
                         </Fragment>
                     )}
                 </Fragment>
+            }
+        />
+    );
+};
+
+export const MissingRequiredParameters = ({
+    missingRequiredParameters,
+}: {
+    missingRequiredParameters: string[];
+}) => {
+    const { t } = useTranslation();
+
+    return (
+        <EmptyState
+            title={t(
+                'components_explorer_results_card_non_ideal_state.missing_required_parameters.title',
+            )}
+            description={
+                <>
+                    <Text>
+                        {missingRequiredParameters.length === 1
+                            ? t(
+                                  'components_explorer_results_card_non_ideal_state.missing_required_parameters.parameter_01',
+                              )
+                            : t(
+                                  'components_explorer_results_card_non_ideal_state.missing_required_parameters.parameter_02',
+                              )}
+                    </Text>
+                    <br />
+                    <Text span fw={500} size="sm">
+                        {missingRequiredParameters.join(', ')}
+                    </Text>
+                </>
             }
         />
     );

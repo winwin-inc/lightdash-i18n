@@ -26,10 +26,20 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
 import {
+    selectAdditionalMetrics,
+    selectCustomDimensions,
+    selectDimensions,
+    selectIsVisualizationConfigOpen,
+    selectMetrics,
+    selectTableName,
+    useExplorerSelector,
+} from '../../../features/explorer/store';
+import {
     DeleteVirtualViewModal,
     EditVirtualViewModal,
 } from '../../../features/virtualView';
 import { useExplore } from '../../../hooks/useExplore';
+import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import useTracking from '../../../providers/Tracking/useTracking';
@@ -68,38 +78,32 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
     const { t } = useTranslation();
 
     const { projectUuid } = useParams<{ projectUuid: string }>();
+
+    // Get state from Redux
+    const activeTableName = useExplorerSelector(selectTableName);
+    const additionalMetrics = useExplorerSelector(selectAdditionalMetrics);
+    const dimensions = useExplorerSelector(selectDimensions);
+    const customDimensions = useExplorerSelector(selectCustomDimensions);
+    const metrics = useExplorerSelector(selectMetrics);
+
+    // Keep reading these from Context for now (will migrate later)
     const chartUuid = useExplorerContext(
         (context) => context.state.savedChart?.uuid,
     );
-    const activeTableName = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.tableName,
-    );
-    const additionalMetrics = useExplorerContext(
-        (context) =>
-            context.state.unsavedChartVersion.metricQuery.additionalMetrics,
-    );
-    const dimensions = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.metricQuery.dimensions,
-    );
-    const customDimensions = useExplorerContext(
-        (context) =>
-            context.state.unsavedChartVersion.metricQuery.customDimensions,
-    );
-    const metrics = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.metricQuery.metrics,
-    );
     const activeFields = useExplorerContext(
         (context) => context.state.activeFields,
-    );
-    const toggleActiveField = useExplorerContext(
-        (context) => context.actions.toggleActiveField,
     );
     const replaceFields = useExplorerContext(
         (context) => context.actions.replaceFields,
     );
 
-    const isVisualizationConfigOpen = useExplorerContext(
-        (context) => context.state.isVisualizationConfigOpen,
+    // Use Context action for toggleActiveField - it has dual-dispatch to Redux
+    const toggleActiveField = useExplorerContext(
+        (context) => context.actions.toggleActiveField,
+    );
+
+    const isVisualizationConfigOpen = useExplorerSelector(
+        selectIsVisualizationConfigOpen,
     );
 
     const { data: explore, status, error } = useExplore(activeTableName);
@@ -144,14 +148,6 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
         projectUuid,
         chartUuid,
     ]);
-
-    const canManageVirtualViews = user.data?.ability?.can(
-        'manage',
-        subject('VirtualView', {
-            organizationUuid: user.data?.organizationUuid,
-            projectUuid,
-        }),
-    );
 
     const missingFields = useMemo(() => {
         if (explore) {
@@ -215,12 +211,12 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
         if (!explore) return [];
         const items = onBack
             ? [
-                  {
-                      title: t('components_explorer_panel.tables'),
-                      onClick: onBack,
-                  },
-                  { title: explore.label, active: true },
-              ]
+                {
+                    title: t('components_explorer_panel.tables'),
+                    onClick: onBack,
+                },
+                { title: explore.label, active: true },
+            ]
             : [{ title: explore.label, active: true }];
         return items;
     }, [onBack, explore, t]);
@@ -257,8 +253,14 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
             >
                 <Group position="apart">
                     <PageBreadcrumbs size="md" items={breadcrumbs} />
-                    {canManageVirtualViews &&
-                        explore.type === ExploreType.VIRTUAL && (
+                    {explore.type === ExploreType.VIRTUAL && (
+                        <Can
+                            I="create"
+                            this={subject('VirtualView', {
+                                organizationUuid: user.data?.organizationUuid,
+                                projectUuid,
+                            })}
+                        >
                             <Menu withArrow offset={-2}>
                                 <Menu.Target>
                                     <ActionIcon variant="transparent">
@@ -276,20 +278,32 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
                                             )}
                                         </Text>
                                     </Menu.Item>
-                                    <Menu.Item
-                                        icon={<MantineIcon icon={IconTrash} />}
-                                        color="red"
-                                        onClick={handleDeleteVirtualView}
+                                    <Can
+                                        I="delete"
+                                        this={subject('VirtualView', {
+                                            organizationUuid:
+                                                user.data?.organizationUuid,
+                                            projectUuid,
+                                        })}
                                     >
-                                        <Text fz="xs" fw={500}>
-                                            {t(
-                                                'components_explorer_panel.delete',
-                                            )}
-                                        </Text>
-                                    </Menu.Item>
+                                        <Menu.Item
+                                            icon={
+                                                <MantineIcon icon={IconTrash} />
+                                            }
+                                            color="red"
+                                            onClick={handleDeleteVirtualView}
+                                        >
+                                            <Text fz="xs" fw={500}>
+                                                {t(
+                                                    'components_explorer_panel.delete',
+                                                )}
+                                            </Text>
+                                        </Menu.Item>
+                                    </Can>
                                 </Menu.Dropdown>
                             </Menu>
-                        )}
+                        </Can>
+                    )}
                 </Group>
 
                 <ItemDetailProvider>

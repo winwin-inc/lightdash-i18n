@@ -21,9 +21,11 @@ import {
     IconHistory,
     IconInfoCircle,
 } from '@tabler/icons-react';
-import React, { useEffect, useState } from 'react';
+import React, { memo, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Provider } from 'react-redux';
 import { useNavigate, useParams } from 'react-router';
+
 import { EmptyState } from '../components/common/EmptyState';
 import ErrorState from '../components/common/ErrorState';
 import MantineIcon from '../components/common/MantineIcon';
@@ -31,6 +33,8 @@ import Page from '../components/common/Page/Page';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
 import Explorer from '../components/Explorer';
+import { explorerStore } from '../features/explorer/store';
+import { useExplorerQueryManager } from '../hooks/useExplorerQueryManager';
 import {
     useChartHistory,
     useChartVersion,
@@ -38,9 +42,24 @@ import {
     useSavedQuery,
 } from '../hooks/useSavedQuery';
 import { Can } from '../providers/Ability';
+import { defaultQueryExecution } from '../providers/Explorer/defaultState';
 import ExplorerProvider from '../providers/Explorer/ExplorerProvider';
 import { ExplorerSection } from '../providers/Explorer/types';
 import NoTableIcon from '../svgs/emptystate-no-table.svg?react';
+
+const ChartHistoryExplorer = memo<{
+    viewModeQueryArgs?: {
+        chartUuid: string;
+        chartVersionUuid: string;
+    };
+}>(({ viewModeQueryArgs }) => {
+    // Run the query manager hook - orchestrates all query effects
+    useExplorerQueryManager({
+        viewModeQueryArgs,
+    });
+
+    return <Explorer hideHeader={true} />;
+});
 
 const ChartHistory = () => {
     const { t } = useTranslation();
@@ -255,40 +274,45 @@ const ChartHistory = () => {
                 />
             )}
             {chartVersionQuery.data && (
-                <ExplorerProvider
-                    key={selectedVersionUuid}
-                    viewModeQueryArgs={
-                        savedQueryUuid && selectedVersionUuid
-                            ? {
-                                  chartUuid: savedQueryUuid,
-                                  chartVersionUuid: selectedVersionUuid,
-                              }
-                            : undefined
-                    }
-                    initialState={{
-                        shouldFetchResults: true,
-                        previouslyFetchedState: undefined,
-                        expandedSections: [ExplorerSection.VISUALIZATION],
-                        unsavedChartVersion: chartVersionQuery.data.chart,
-                        modals: {
-                            format: {
-                                isOpen: false,
+                <Provider store={explorerStore}>
+                    <ExplorerProvider
+                        key={selectedVersionUuid}
+                        initialState={{
+                            parameterReferences: [],
+                            parameterDefinitions: {},
+                            previouslyFetchedState: undefined,
+                            expandedSections: [ExplorerSection.VISUALIZATION],
+                            unsavedChartVersion: chartVersionQuery.data.chart,
+                            modals: {
+                                format: {
+                                    isOpen: false,
+                                },
+                                additionalMetric: {
+                                    isOpen: false,
+                                },
+                                customDimension: {
+                                    isOpen: false,
+                                },
+                                writeBack: {
+                                    isOpen: false,
+                                },
                             },
-                            additionalMetric: {
-                                isOpen: false,
-                            },
-                            customDimension: {
-                                isOpen: false,
-                            },
-                            writeBack: {
-                                isOpen: false,
-                            },
-                        },
-                    }}
-                    savedChart={chartVersionQuery.data?.chart}
-                >
-                    <Explorer hideHeader={true} />
-                </ExplorerProvider>
+                            queryExecution: defaultQueryExecution,
+                        }}
+                        savedChart={chartVersionQuery.data?.chart}
+                    >
+                        <ChartHistoryExplorer
+                            viewModeQueryArgs={
+                                savedQueryUuid && selectedVersionUuid
+                                    ? {
+                                          chartUuid: savedQueryUuid,
+                                          chartVersionUuid: selectedVersionUuid,
+                                      }
+                                    : undefined
+                            }
+                        />
+                    </ExplorerProvider>
+                </Provider>
             )}
 
             <Modal

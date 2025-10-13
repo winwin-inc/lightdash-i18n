@@ -74,24 +74,24 @@ const DroppableArea: FC<{
     children: ReactNode;
     filterType: 'global' | 'tab';
     activeTabUuid: string | undefined;
-}> = ({ id, children, filterType, activeTabUuid }) => {
+}> = ({ filterType, activeTabUuid, id, children }) => {
     const { active, isOver, over, setNodeRef } = useDroppable({ id });
     const { colors } = useMantineTheme();
 
     const dashboardFilters = useDashboardContext((c) => c.dashboardFilters);
     const tabFilters = useDashboardContext((c) => c.tabFilters);
 
-    const filters =
+    const appliedFilters =
         filterType === 'global'
             ? dashboardFilters
             : tabFilters[activeTabUuid || ''];
 
     const placeholderStyle = useMemo(() => {
         if (isOver && active && over && active.id !== over.id) {
-            const oldIndex = filters.dimensions.findIndex(
+            const oldIndex = appliedFilters.dimensions.findIndex(
                 (item) => item.id === active.id,
             );
-            const newIndex = filters.dimensions.findIndex(
+            const newIndex = appliedFilters.dimensions.findIndex(
                 (item) => item.id === over.id,
             );
             if (newIndex < oldIndex) {
@@ -100,7 +100,7 @@ const DroppableArea: FC<{
                 return { boxShadow: `8px 0px ${colors.blue[4]}` };
             }
         }
-    }, [isOver, active, over, filters.dimensions, colors]);
+    }, [isOver, active, over, appliedFilters.dimensions, colors]);
 
     return (
         <div ref={setNodeRef} style={placeholderStyle}>
@@ -110,11 +110,12 @@ const DroppableArea: FC<{
 };
 
 const ActiveFilters: FC<ActiveFiltersProps> = ({
+    filterType,
+    isFilterEnabled,
     isEditMode,
     isFilterEnabled,
     activeTabUuid,
     openPopoverId,
-    filterType,
     onPopoverOpen,
     onPopoverClose,
     onResetDashboardFilters,
@@ -136,14 +137,6 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
         (c) => c.isFetchingDashboardFilters,
     );
 
-    // global filters
-    const dashboardFilters = useDashboardContext((c) => c.dashboardFilters);
-    const dashboardTemporaryFilters = useDashboardContext(
-        (c) => c.dashboardTemporaryFilters,
-    );
-    const removeDimensionDashboardFilter = useDashboardContext(
-        (c) => c.removeDimensionDashboardFilter,
-    );
     const updateDimensionDashboardFilter = useDashboardContext(
         (c) => c.updateDimensionDashboardFilter,
     );
@@ -157,6 +150,28 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
         (c) =>
             c.haveFiltersChanged ||
             c.dashboardTemporaryFilters.dimensions.length > 0,
+    );
+
+    const mouseSensor = useSensor(MouseSensor, {
+        activationConstraint: { distance: 10 },
+    });
+    const touchSensor = useSensor(TouchSensor, {
+        activationConstraint: { delay: 250, tolerance: 5 },
+    });
+    const dragSensors = useSensors(mouseSensor, touchSensor);
+
+    const sortedTabUuids = useMemo(() => {
+        const sortedTabs = dashboardTabs?.sort((a, b) => a.order - b.order);
+        return sortedTabs?.map((tab) => tab.uuid) || [];
+    }, [dashboardTabs]);
+
+    // global filters
+    const dashboardFilters = useDashboardContext((c) => c.dashboardFilters);
+    const dashboardTemporaryFilters = useDashboardContext(
+        (c) => c.dashboardTemporaryFilters,
+    );
+    const removeDimensionDashboardFilter = useDashboardContext(
+        (c) => c.removeDimensionDashboardFilter,
     );
 
     // tab filters
@@ -174,21 +189,22 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
     const setHaveTabFiltersChanged = useDashboardContext(
         (c) => c.setHaveTabFiltersChanged,
     );
+
     const haveTabFiltersChanged = useDashboardContext(
         (c) =>
             c.haveTabFiltersChanged[activeTabUuid || ''] ||
             c.tabTemporaryFilters[activeTabUuid || '']?.dimensions.length > 0,
     );
 
-    // computed variables
-    const filters = useMemo(() => {
+    // applied variables
+    const appliedFilters = useMemo(() => {
         if (filterType === 'global') {
             return dashboardFilters;
         }
         return tabFilters[activeTabUuid || ''];
     }, [filterType, activeTabUuid, dashboardFilters, tabFilters]);
 
-    const temporaryFilters = useMemo(() => {
+    const appliedTemporaryFilters = useMemo(() => {
         if (filterType === 'global') {
             return dashboardTemporaryFilters;
         }
@@ -200,14 +216,14 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
         tabTemporaryFilters,
     ]);
 
-    const filtersChanged = useMemo(() => {
+    const appliedFiltersChanged = useMemo(() => {
         if (filterType === 'global') {
             return haveFiltersChanged;
         }
         return haveTabFiltersChanged || false;
     }, [filterType, haveFiltersChanged, haveTabFiltersChanged]);
 
-    const handleRemoveDimensionFilter = useCallback(
+    const appliedRemoveDimensionFilter = useCallback(
         (index: number, isTemporary: boolean) => {
             if (filterType === 'global') {
                 removeDimensionDashboardFilter(index, isTemporary);
@@ -227,7 +243,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
         ],
     );
 
-    const handleUpdateDimensionFilter = useCallback(
+    const appliedUpdateDimensionFilter = useCallback(
         (value: DashboardFilterRule, index: number, isTemporary: boolean) => {
             if (filterType === 'global') {
                 updateDimensionDashboardFilter(
@@ -247,34 +263,28 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
         },
         [
             filterType,
-            activeTabUuid,
-            isEditMode,
             updateDimensionDashboardFilter,
             updateTabDimensionFilter,
+            activeTabUuid,
+            isEditMode,
         ],
     );
 
-    const handleChangeFilters = useCallback(
-        (currentFilters: DashboardFilters) => {
+    const appliedChangeFilters = useCallback(
+        (filters: DashboardFilters) => {
             if (filterType === 'global') {
-                setDashboardFilters(currentFilters);
+                setDashboardFilters(filters);
             } else {
                 setTabFilters({
                     ...tabFilters,
-                    [activeTabUuid || '']: currentFilters,
+                    [activeTabUuid || '']: filters,
                 });
             }
         },
-        [
-            filterType,
-            activeTabUuid,
-            tabFilters,
-            setDashboardFilters,
-            setTabFilters,
-        ],
+        [filterType, setDashboardFilters, setTabFilters, activeTabUuid],
     );
 
-    const handleFilterChanged = useCallback(
+    const appliedFilterChanged = useCallback(
         (isTemporary: boolean) => {
             if (filterType === 'global') {
                 setHaveFiltersChanged(isTemporary);
@@ -293,39 +303,11 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
         ],
     );
 
-    const mouseSensor = useSensor(MouseSensor, {
-        activationConstraint: { distance: 10 },
-    });
-    const touchSensor = useSensor(TouchSensor, {
-        activationConstraint: { delay: 250, tolerance: 5 },
-    });
-    const dragSensors = useSensors(mouseSensor, touchSensor);
-
-    const sortedTabUuids = useMemo(() => {
-        const sortedTabs = dashboardTabs?.sort((a, b) => a.order - b.order);
-        return sortedTabs?.map((tab) => tab.uuid) || [];
-    }, [dashboardTabs]);
-
     const getTabsUsingFilter = useCallback(
         (filterId: string) => {
             const tabsForFilterMap = getTabUuidsForFilterRules(
                 dashboardTiles,
-                filters,
-                filterableFieldsByTileUuid,
-            );
-            return sortedTabUuids.filter(
-                (tabUuid: string) =>
-                    tabsForFilterMap[filterId]?.includes(tabUuid) ?? false,
-            );
-        },
-        [dashboardTiles, filters, filterableFieldsByTileUuid, sortedTabUuids],
-    );
-
-    const getTabsUsingTemporaryFilter = useCallback(
-        (filterId: string) => {
-            const tabsForFilterMap = getTabUuidsForFilterRules(
-                dashboardTiles,
-                temporaryFilters,
+                appliedFilters,
                 filterableFieldsByTileUuid,
             );
             return sortedTabUuids.filter(
@@ -335,7 +317,27 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
         },
         [
             dashboardTiles,
-            temporaryFilters,
+            appliedFilters,
+            filterableFieldsByTileUuid,
+            sortedTabUuids,
+        ],
+    );
+
+    const getTabsUsingTemporaryFilter = useCallback(
+        (filterId: string) => {
+            const tabsForFilterMap = getTabUuidsForFilterRules(
+                dashboardTiles,
+                appliedTemporaryFilters,
+                filterableFieldsByTileUuid,
+            );
+            return sortedTabUuids.filter(
+                (tabUuid: string) =>
+                    tabsForFilterMap[filterId]?.includes(tabUuid) ?? false,
+            );
+        },
+        [
+            dashboardTiles,
+            appliedTemporaryFilters,
             filterableFieldsByTileUuid,
             sortedTabUuids,
         ],
@@ -360,28 +362,29 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         if (!active || !over || active.id === over.id) return;
-        const oldIndex = filters.dimensions.findIndex(
+        const oldIndex = appliedFilters.dimensions.findIndex(
             (item) => item.id === active.id,
         );
-        const newIndex = filters.dimensions.findIndex(
+        const newIndex = appliedFilters.dimensions.findIndex(
             (item) => item.id === over.id,
         );
-        const newDimensions = arrayMove(filters.dimensions, oldIndex, newIndex);
-        handleChangeFilters({
-            ...filters,
+        const newDimensions = arrayMove(
+            appliedFilters.dimensions,
+            oldIndex,
+            newIndex,
+        );
+        appliedChangeFilters({
+            ...appliedFilters,
             dimensions: newDimensions,
         });
-        handleFilterChanged(true);
+        appliedFilterChanged(true);
     };
 
-    // 如果过滤器未启用，不显示任何内容
-    if (!isFilterEnabled) {
-        return null;
-    }
+    if (!isFilterEnabled) return null;
 
     return (
         <>
-            {!isEditMode && filtersChanged && (
+            {!isEditMode && appliedFiltersChanged && (
                 <Tooltip
                     label={t(
                         'components_dashboard_filter.filter_active_filters.reset_all_filters',
@@ -390,9 +393,10 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                     <Button
                         size="xs"
                         variant="default"
+                        radius="md"
                         color="gray"
                         onClick={() => {
-                            handleFilterChanged(false);
+                            appliedFilterChanged(false);
                             onResetDashboardFilters();
                         }}
                     >
@@ -405,10 +409,9 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
             >
-                {filters?.dimensions?.map((item, index) => {
+                {appliedFilters?.dimensions?.map((item, index) => {
                     const field = allFilterableFieldsMap[item.target.fieldId];
                     const appliesToTabs = getTabsUsingFilter(item.id);
-
                     return (
                         <DroppableArea
                             key={item.id}
@@ -434,13 +437,13 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                                         onPopoverOpen={onPopoverOpen}
                                         onPopoverClose={onPopoverClose}
                                         onRemove={() =>
-                                            handleRemoveDimensionFilter(
+                                            appliedRemoveDimensionFilter(
                                                 index,
                                                 false,
                                             )
                                         }
                                         onUpdate={(value) =>
-                                            handleUpdateDimensionFilter(
+                                            appliedUpdateDimensionFilter(
                                                 value,
                                                 index,
                                                 false,
@@ -453,7 +456,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                                         isEditMode={isEditMode}
                                         filterRule={item}
                                         onRemove={() =>
-                                            handleRemoveDimensionFilter(
+                                            appliedRemoveDimensionFilter(
                                                 index,
                                                 false,
                                             )
@@ -467,10 +470,9 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                 <DragOverlay />
             </DndContext>
 
-            {temporaryFilters?.dimensions.map((item, index) => {
+            {dashboardTemporaryFilters.dimensions.map((item, index) => {
                 const field = allFilterableFieldsMap[item.target.fieldId];
                 const appliesToTabs = getTabsUsingTemporaryFilter(item.id);
-
                 return field || item.target.isSqlColumn ? (
                     <Filter
                         key={item.id}
@@ -485,10 +487,10 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                         onPopoverOpen={onPopoverOpen}
                         onPopoverClose={onPopoverClose}
                         onRemove={() =>
-                            handleRemoveDimensionFilter(index, true)
+                            appliedRemoveDimensionFilter(index, true)
                         }
                         onUpdate={(value) =>
-                            handleUpdateDimensionFilter(value, index, true)
+                            appliedUpdateDimensionFilter(value, index, true)
                         }
                     />
                 ) : (
@@ -497,7 +499,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                         isEditMode={isEditMode}
                         filterRule={item}
                         onRemove={() =>
-                            handleRemoveDimensionFilter(index, false)
+                            appliedRemoveDimensionFilter(index, false)
                         }
                     />
                 );

@@ -1,7 +1,13 @@
-import { SimpleGrid, Stack, Text } from '@mantine/core';
+import { subject } from '@casl/ability';
+import { ProjectType } from '@lightdash/common';
+import { Alert, SimpleGrid, Stack, Text } from '@mantine/core';
+import { IconAlertTriangle } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useOrganization } from '../../../hooks/organization/useOrganization';
+import useApp from '../../../providers/App/useApp';
+import MantineIcon from '../../common/MantineIcon';
 import { ProjectCreationCard } from '../../common/Settings/SettingsCard';
 import InviteExpertFooter from './InviteExpertFooter';
 import OnboardingButton from './common/OnboardingButton';
@@ -19,7 +25,24 @@ const SelectWarehouse: FC<SelectWarehouseProps> = ({
     isCreatingFirstProject,
     onSelect,
 }) => {
+    const { user } = useApp();
+    const { data: organization } = useOrganization();
     const { t } = useTranslation();
+
+    const canCreateProject = user.data?.ability?.can(
+        'create',
+        subject('Project', {
+            organizationUuid: organization?.organizationUuid,
+            type: ProjectType.DEFAULT,
+        }),
+    );
+
+    const canInviteUsers = user.data?.ability?.can(
+        'manage',
+        subject('OrganizationMemberProfile', {
+            organizationUuid: organization?.organizationUuid,
+        }),
+    );
 
     return (
         <OnboardingWrapper>
@@ -28,6 +51,19 @@ const SelectWarehouse: FC<SelectWarehouseProps> = ({
                     <OnboardingConnectTitle
                         isCreatingFirstProject={isCreatingFirstProject}
                     />
+
+                    {canCreateProject === false && (
+                        <Alert
+                            icon={<MantineIcon icon={IconAlertTriangle} />}
+                            color="yellow"
+                            variant="light"
+                            ta="left"
+                        >
+                            {t(
+                                'components_project_connection_flow.select_warehouse.alert.part_1',
+                            )}
+                        </Alert>
+                    )}
 
                     <Text color="dimmed">
                         {t(
@@ -40,7 +76,19 @@ const SelectWarehouse: FC<SelectWarehouseProps> = ({
                             <OnboardingButton
                                 key={item.key}
                                 leftIcon={getWarehouseIcon(item.key)}
-                                onClick={() => onSelect(item.key)}
+                                onClick={
+                                    canCreateProject === false
+                                        ? undefined
+                                        : () => onSelect(item.key)
+                                }
+                                style={{
+                                    opacity:
+                                        canCreateProject === false ? 0.5 : 1,
+                                    cursor:
+                                        canCreateProject === false
+                                            ? 'not-allowed'
+                                            : 'pointer',
+                                }}
                             >
                                 {item.label}
                             </OnboardingButton>
@@ -49,7 +97,7 @@ const SelectWarehouse: FC<SelectWarehouseProps> = ({
                 </Stack>
             </ProjectCreationCard>
 
-            <InviteExpertFooter />
+            {canInviteUsers && <InviteExpertFooter />}
         </OnboardingWrapper>
     );
 };

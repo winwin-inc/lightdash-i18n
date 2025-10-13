@@ -263,6 +263,17 @@ export class NotFoundError extends LightdashError {
     }
 }
 
+export class NotSupportedError extends LightdashError {
+    constructor(message: string) {
+        super({
+            message,
+            name: 'NotSupportedError',
+            statusCode: 400,
+            data: {},
+        });
+    }
+}
+
 export class InvalidUser extends LightdashError {
     constructor(message: string) {
         super({
@@ -572,6 +583,48 @@ export class OauthAuthenticationError extends LightdashError {
             message,
             name: 'OauthAuthenticationError',
             statusCode: 401,
+            data,
+        });
+    }
+}
+
+export class GenerateDailySchedulerJobError extends LightdashError {
+    schedulerUuid: string;
+
+    constructor(
+        message: string,
+        schedulerUuid: string,
+        originalError?: unknown,
+    ) {
+        super({
+            message,
+            name: 'GenerateDailySchedulerJobError',
+            statusCode: 500,
+            data: {
+                schedulerUuid,
+                originalError:
+                    originalError instanceof Error
+                        ? originalError.message
+                        : String(originalError),
+            },
+        });
+        this.schedulerUuid = schedulerUuid;
+        if (originalError instanceof Error) {
+            this.stack = originalError.stack;
+            this.cause = originalError;
+        }
+    }
+}
+
+export class LightdashProjectConfigError extends LightdashError {
+    constructor(
+        message = 'Invalid lightdash.config.yml',
+        data: Record<string, AnyType> = {},
+    ) {
+        super({
+            message,
+            name: 'LightdashProjectConfigError',
+            statusCode: 400,
             data,
         });
     }

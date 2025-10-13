@@ -5,20 +5,15 @@ import {
     type FilterableItem,
     type LightdashProjectParameter,
     type ParametersValuesMap,
+    type ParameterValue,
 } from '@lightdash/common';
 import {
+    Box,
     Group,
-    Highlight,
-    Loader,
     MultiSelect,
-    ScrollArea,
     Select,
-    Stack,
-    Text,
-    Tooltip,
-    type MultiSelectProps,
-    type MultiSelectValueProps,
-} from '@mantine/core';
+    type ComboboxItemGroup,
+} from '@mantine-8/core';
 import { IconPlus } from '@tabler/icons-react';
 import uniq from 'lodash/uniq';
 import React, {
@@ -28,111 +23,78 @@ import React, {
     useRef,
     useState,
     type FC,
-    type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import MultiValuePastePopover from '../../../components/common/Filters/FilterInputs/MultiValuePastePopover';
 import { formatDisplayValue } from '../../../components/common/Filters/FilterInputs/utils';
 import MantineIcon from '../../../components/common/MantineIcon';
 import {
     MAX_AUTOCOMPLETE_RESULTS,
-    useFieldValues,
+    useFieldValuesSafely,
 } from '../../../hooks/useFieldValues';
-
-// Consistent create label component for all parameter inputs
-const CreateParameterLabel: FC<{ query: string }> = ({ query }) => {
-    const { t } = useTranslation();
-
-    return (
-        <Group spacing="xxs">
-            <MantineIcon icon={IconPlus} color="blue" size="sm" />
-            <Text color="blue">{t('features_parameters_input.add')} "{query}"</Text>
-        </Group>
-    )
-};
+import styles from './ParameterInput.module.css';
 
 type ParameterInputProps = {
     paramKey: string;
     parameter: LightdashProjectParameter;
-    value: string | string[] | null;
-    onParameterChange: (
-        paramKey: string,
-        value: string | string[] | null,
-    ) => void;
+    value: ParameterValue | null;
+    onParameterChange: (paramKey: string, value: ParameterValue | null) => void;
     size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
     projectUuid?: string;
     parameterValues?: ParametersValuesMap;
     disabled?: boolean;
+    isError?: boolean;
 };
 
-// Single value component that mimics a single select behavior - maxSelectedValues={1} behaves weirdly so we don't use it.
-const SingleValueComponent = ({
+export const ParameterInput: FC<ParameterInputProps> = ({
+    paramKey,
+    parameter,
     value,
-    label,
-    onRemove,
-    ...others
-}: MultiSelectValueProps & { value: string }) => {
-    return (
-        <div {...others}>
-            <Text size="xs" lineClamp={1}>
-                {label}
-            </Text>
-        </div>
-    );
-};
-
-type ParameterStringAutoCompleteProps = Omit<
-    MultiSelectProps,
-    'data' | 'onChange'
-> & {
-    projectUuid: string;
-    field: FilterableItem;
-    values: string[];
-    suggestions: string[];
-    onChange: (values: string[]) => void;
-    singleValue?: boolean;
-    parameterValues?: ParametersValuesMap;
-    size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
-};
-
-const ParameterStringAutoComplete: FC<ParameterStringAutoCompleteProps> = ({
-    values,
-    field,
-    projectUuid,
-    suggestions: initialSuggestionData,
-    disabled,
-    onChange,
-    placeholder,
-    onDropdownOpen,
-    onDropdownClose,
-    singleValue,
-    parameterValues,
+    onParameterChange,
     size,
-    creatable = false,
-    ...rest
+    projectUuid,
+    parameterValues,
+    disabled,
+    isError,
 }) => {
     const { t } = useTranslation();
 
     const multiSelectRef = useRef<HTMLInputElement>(null);
-    const fieldId = getItemId(field);
 
     const [search, setSearch] = useState('');
-    const [pastePopUpOpened, setPastePopUpOpened] = useState(false);
-    const [tempPasteValues, setTempPasteValues] = useState<
-        string | undefined
-    >();
-
     const [forceRefresh, setForceRefresh] = useState<boolean>(false);
 
-    const {
-        isInitialLoading,
-        results: resultsSet,
-        refreshedAt,
-        refetch,
-    } = useFieldValues(
+    // Create field for fetching if options_from_dimension exists
+    const field: FilterableItem | undefined = useMemo(() => {
+        if (parameter.options_from_dimension) {
+            return {
+                name: parameter.options_from_dimension.dimension,
+                table: parameter.options_from_dimension.model,
+                fieldType: FieldType.DIMENSION,
+                type: DimensionType.STRING,
+                label:
+                    parameter.label ||
+                    parameter.options_from_dimension.dimension,
+                tableLabel: parameter.options_from_dimension.model,
+                sql: '',
+                hidden: false,
+            };
+        }
+        return undefined;
+    }, [parameter.options_from_dimension, parameter.label]);
+
+    const fieldId = field ? getItemId(field) : undefined;
+
+    // Only use fetching if we have options_from_dimension and projectUuid
+    const shouldFetch = !!(
+        parameter.options_from_dimension &&
+        projectUuid &&
+        field
+    );
+
+    const fieldValuesResult = useFieldValuesSafely(
         search,
-        initialSuggestionData,
+        [],
         projectUuid,
         field,
         fieldId,
@@ -145,256 +107,19 @@ const ParameterStringAutoComplete: FC<ParameterStringAutoCompleteProps> = ({
         parameterValues,
     );
 
+    const { results: resultsSet, refreshedAt, refetch } = fieldValuesResult;
+
     useEffect(() => {
-        if (forceRefresh) {
-            refetch().then().catch(console.error); // This will skip queryKey cache from react query and refetch from backend
+        if (forceRefresh && shouldFetch && refetch) {
+            refetch().then().catch(console.error);
             setForceRefresh(false);
         }
-    }, [forceRefresh, refetch]);
-    const results = useMemo(() => [...resultsSet], [resultsSet]);
+    }, [forceRefresh, refetch, shouldFetch]);
 
-    const handleResetSearch = useCallback(() => {
-        setTimeout(() => setSearch(() => ''), 0);
-    }, [setSearch]);
-
-    const handleChange = useCallback(
-        (updatedValues: string[]) => {
-            if (singleValue && updatedValues.length > 1) {
-                onChange([updatedValues[updatedValues.length - 1]]);
-            } else {
-                onChange(uniq(updatedValues));
-            }
-            if (singleValue) {
-                multiSelectRef.current?.blur();
-            }
-        },
-        [onChange, singleValue],
+    const fetchedResults = useMemo(
+        () => (shouldFetch && resultsSet ? [...resultsSet] : []),
+        [resultsSet, shouldFetch],
     );
-
-    const handleAdd = useCallback(
-        (newValue: string) => {
-            if (singleValue) {
-                handleChange([newValue]);
-            } else {
-                handleChange([...values, newValue]);
-            }
-            return newValue;
-        },
-        [handleChange, values, singleValue],
-    );
-
-    const handleAddMultiple = useCallback(
-        (newValues: string[]) => {
-            if (singleValue && newValues.length > 0) {
-                handleChange([newValues[newValues.length - 1]]);
-            } else {
-                handleChange([...values, ...newValues]);
-            }
-            return newValues;
-        },
-        [handleChange, values, singleValue],
-    );
-
-    const handlePaste = useCallback(
-        (event: React.ClipboardEvent<HTMLInputElement>) => {
-            const clipboardData = event.clipboardData.getData('Text');
-            if (clipboardData.includes(',') || clipboardData.includes('\n')) {
-                setTempPasteValues(clipboardData);
-                setPastePopUpOpened(true);
-            }
-        },
-        [],
-    );
-
-    const handleKeyDown = useCallback(
-        (event: React.KeyboardEvent<HTMLInputElement>) => {
-            if (event.key === 'Enter' && search !== '') {
-                handleAdd(search);
-                handleResetSearch();
-            }
-        },
-        [handleAdd, handleResetSearch, search],
-    );
-
-    useEffect(() => {
-        if (singleValue && values.length > 1) {
-            handleChange([values[values.length - 1]]);
-        }
-    }, [values, singleValue, handleChange]);
-
-    const data = useMemo(() => {
-        // Mantine does not show value tag if value is not found in data
-        // so we need to add it manually here
-        // also we are merging status indicator as a first item
-        return uniq([...results, ...values]).map((value) => ({
-            value,
-            label: formatDisplayValue(value),
-        }));
-    }, [results, values]);
-
-    const searchedMaxResults = resultsSet.size >= MAX_AUTOCOMPLETE_RESULTS;
-    // memo override component so list doesn't scroll to the top on each click
-    const DropdownComponentOverride = useCallback(
-        ({ children, ...props }: { children: ReactNode }) => (
-            <Stack w="100%" spacing={0}>
-                <ScrollArea {...props}>
-                    {searchedMaxResults ? (
-                        <Text
-                            color="dimmed"
-                            size="xs"
-                            px="sm"
-                            pt="xs"
-                            pb="xxs"
-                            bg="white"
-                        >
-                            {t('features_parameters_input.showing_first_results', {
-                                count: MAX_AUTOCOMPLETE_RESULTS,
-                            })}{' '}
-                            {search ? t('features_parameters_input.continue') : t('features_parameters_input.start')} typing...
-                        </Text>
-                    ) : null}
-
-                    {children}
-                </ScrollArea>
-                <Tooltip
-                    withinPortal
-                    position="left"
-                    label={t('features_parameters_input.refresh_filter_values')}
-                >
-                    <Text
-                        color="dimmed"
-                        size="xs"
-                        px="sm"
-                        p="xxs"
-                        sx={(theme) => ({
-                            cursor: 'pointer',
-                            borderTop: `1px solid ${theme.colors.gray[2]}`,
-                            '&:hover': {
-                                backgroundColor: theme.colors.gray[1],
-                            },
-                        })}
-                        onClick={() => setForceRefresh(true)}
-                    >
-                        {t('features_parameters_input.results_loaded_at', {
-                            date: refreshedAt.toLocaleString(),
-                        })}
-                    </Text>
-                </Tooltip>
-            </Stack>
-        ),
-        [searchedMaxResults, search, refreshedAt, t],
-    );
-
-    return (
-        <MultiValuePastePopover
-            opened={pastePopUpOpened}
-            onClose={() => {
-                setPastePopUpOpened(false);
-                setTempPasteValues(undefined);
-                handleResetSearch();
-            }}
-            onMultiValue={() => {
-                if (!tempPasteValues) {
-                    setPastePopUpOpened(false);
-                    return;
-                }
-                const clipboardDataArray = tempPasteValues
-                    .split(/\,|\n/)
-                    .map((s) => s.trim())
-                    .filter((s) => s.length > 0);
-                handleAddMultiple(clipboardDataArray);
-            }}
-            onSingleValue={() => {
-                if (!tempPasteValues) {
-                    setPastePopUpOpened(false);
-                    return;
-                }
-                handleAdd(tempPasteValues);
-            }}
-        >
-            <MultiSelect
-                ref={multiSelectRef}
-                size={size}
-                w="100%"
-                placeholder={
-                    values.length > 0 || disabled ? undefined : placeholder
-                }
-                disabled={disabled}
-                valueComponent={singleValue ? SingleValueComponent : undefined}
-                creatable={creatable}
-                shouldCreate={(query) =>
-                    query.trim().length > 0 && !values.includes(query)
-                }
-                getCreateLabel={(query) => (
-                    <CreateParameterLabel query={query} />
-                )}
-                styles={{
-                    item: {
-                        // makes add new item button sticky to bottom
-                        '&:last-child:not([value])': {
-                            position: 'sticky',
-                            bottom: 4,
-                            // casts shadow on the bottom of the list to avoid transparency
-                            boxShadow: '0 4px 0 0 white',
-                        },
-                        '&:last-child:not([value]):not(:hover)': {
-                            background: 'white',
-                        },
-                    },
-                }}
-                disableSelectedItemFiltering
-                searchable
-                clearable={singleValue}
-                clearSearchOnChange
-                {...rest}
-                searchValue={search}
-                onSearchChange={setSearch}
-                limit={MAX_AUTOCOMPLETE_RESULTS}
-                onPaste={handlePaste}
-                nothingFound={
-                    isInitialLoading ? t('features_parameters_input.loading') : t('features_parameters_input.no_results_found')
-                }
-                rightSection={
-                    isInitialLoading ? <Loader size="xs" color="gray" /> : null
-                }
-                dropdownComponent={DropdownComponentOverride}
-                itemComponent={({ label, ...others }) =>
-                    others.disabled ? (
-                        <Text color="dimmed" {...others}>
-                            {label}
-                        </Text>
-                    ) : (
-                        <Highlight highlight={search} {...others}>
-                            {label}
-                        </Highlight>
-                    )
-                }
-                data={data}
-                value={values}
-                onDropdownOpen={onDropdownOpen}
-                onDropdownClose={() => {
-                    handleResetSearch();
-                    onDropdownClose?.();
-                }}
-                onChange={handleChange}
-                onCreate={handleAdd}
-                onKeyDown={handleKeyDown}
-            />
-        </MultiValuePastePopover>
-    );
-};
-
-export const ParameterInput: FC<ParameterInputProps> = ({
-    paramKey,
-    parameter,
-    value,
-    onParameterChange,
-    size,
-    projectUuid,
-    parameterValues,
-    disabled,
-}) => {
-    const { t } = useTranslation();
 
     const placeholder = useMemo(() => {
         const defaultValues = parameter.default
@@ -411,88 +136,345 @@ export const ParameterInput: FC<ParameterInputProps> = ({
             : t('features_parameters_input.choose_value');
     }, [parameter, t]);
 
-    const shouldCreate = useCallback(
-        (query: string) => {
-            return (
-                query.trim().length > 0 &&
-                !(Array.isArray(value) ? value : [value]).includes(query)
+    const currentStringValues = useMemo((): string[] => {
+        if (parameter.type !== 'string' || value == null) return [];
+        return (Array.isArray(value) ? value : [value]).map(String);
+    }, [value, parameter.type]);
+
+    const currentNumberValues = useMemo((): number[] => {
+        if (parameter.type !== 'number' || value == null) return [];
+        return (Array.isArray(value) ? value : [value])
+            .map((v) => (typeof v === 'number' ? v : Number(v)))
+            .filter((n): n is number => !isNaN(n) && isFinite(n));
+    }, [value, parameter.type]);
+
+    // Use the appropriate array based on parameter type
+    const currentValues =
+        parameter.type === 'number' ? currentNumberValues : currentStringValues;
+
+    const optionsData = useMemo(() => {
+        const parameterOptions = parameter.options ?? [];
+
+        // Add custom values if allowed
+        if (parameter.allow_custom_values) {
+            // Needed because current values are not in the same group as parameter options
+            const filteredCurrentValues = currentValues.filter(
+                (option) => !fetchedResults.includes(String(option)),
             );
+
+            return uniq([...parameterOptions, ...filteredCurrentValues]);
+        }
+
+        // Always return a copy to avoid Redux immutability issues
+        return [...parameterOptions];
+    }, [
+        parameter.options,
+        parameter.allow_custom_values,
+        currentValues,
+        fetchedResults,
+    ]);
+
+    // Handler for creating custom values when allow_custom_values is true
+    const handleCreateValue = useCallback(
+        (newValue: string) => {
+            if (!parameter.allow_custom_values || !newValue.trim()) return;
+
+            const trimmedValue = newValue.trim();
+
+            if (parameter.type === 'number') {
+                const numValue = Number(trimmedValue);
+
+                if (isNaN(numValue) || !isFinite(numValue)) return;
+
+                if (parameter.multiple) {
+                    onParameterChange(paramKey, [
+                        ...currentNumberValues,
+                        numValue,
+                    ]);
+                } else {
+                    onParameterChange(paramKey, numValue);
+                }
+            } else {
+                if (parameter.multiple) {
+                    onParameterChange(paramKey, [
+                        ...currentStringValues,
+                        trimmedValue,
+                    ]);
+                } else {
+                    onParameterChange(paramKey, trimmedValue);
+                }
+            }
         },
-        [value],
+        [
+            parameter.allow_custom_values,
+            parameter.multiple,
+            parameter.type,
+            currentStringValues,
+            currentNumberValues,
+            onParameterChange,
+            paramKey,
+        ],
     );
 
-    const getCreateLabel = useCallback(
-        (query: string) => <CreateParameterLabel query={query} />,
-        [],
+    const searchedMaxResults =
+        shouldFetch && fetchedResults.length >= MAX_AUTOCOMPLETE_RESULTS;
+
+    const selectData = useMemo(() => {
+        const baseItems = shouldFetch
+            ? optionsData.filter(
+                  (option) =>
+                      option !== '__refresh__' && option !== '__create__',
+              )
+            : optionsData;
+
+        const regularItems = [...baseItems] // Create a copy to avoid mutating Redux state
+            .sort((a, b) => String(a).localeCompare(String(b)))
+            .map((option) => ({
+                value: String(option),
+                label: formatDisplayValue(String(option)),
+            }));
+
+        const fetchedItems =
+            fetchedResults.length > 0
+                ? [
+                      {
+                          group: 'Dimension values',
+                          items: [...fetchedResults] // Create a copy to avoid mutating Redux state
+                              .sort((a, b) => a.localeCompare(b))
+                              .map((option) => ({
+                                  value: option,
+                                  label: formatDisplayValue(option),
+                              })),
+                      } satisfies ComboboxItemGroup,
+                  ]
+                : [];
+
+        const specialItems = [];
+
+        // Add create item if search doesn't match existing options and custom values are allowed
+        if (
+            parameter.allow_custom_values &&
+            search &&
+            search.trim() &&
+            !baseItems.some(
+                (option) =>
+                    String(option).toLowerCase() === search.toLowerCase(),
+            ) &&
+            !fetchedResults.some(
+                (option) => option.toLowerCase() === search.toLowerCase(),
+            )
+        ) {
+            specialItems.push({
+                value: '__create__',
+                label: `Add "${search.trim()}"`,
+            });
+        }
+
+        // Add refresh item for fetched options
+        if (shouldFetch) {
+            specialItems.push({
+                value: '__refresh__',
+                label: '__refresh_placeholder__', // Will be replaced in renderOption
+            });
+        }
+
+        return [...regularItems, ...fetchedItems, ...specialItems];
+    }, [
+        fetchedResults,
+        shouldFetch,
+        optionsData,
+        parameter.allow_custom_values,
+        search,
+    ]);
+
+    const renderOption = useCallback(
+        ({ option }: { option: { value: string; label: string } }) => {
+            if (option.value === '__refresh__' && shouldFetch && refreshedAt) {
+                const refreshLabel = `${
+                    searchedMaxResults
+                        ? `Showing first ${MAX_AUTOCOMPLETE_RESULTS} results. `
+                        : ''
+                }Options loaded at ${refreshedAt.toLocaleTimeString()} - ↻ Click to refresh`;
+
+                return (
+                    <Box fz={11} className={styles.refreshItem}>
+                        {refreshLabel}
+                    </Box>
+                );
+            }
+            if (option.value === '__create__') {
+                // Extract the query from the label (e.g., 'Add "query"' -> 'query')
+                const query = option.label.match(/^Add "(.+)"$/)?.[1] || '';
+                return (
+                    <div className={styles.createItem}>
+                        <Group gap="xxs" c="blue" fz="sm">
+                            <MantineIcon
+                                icon={IconPlus}
+                                color="blue"
+                                size="sm"
+                            />
+                            Add "{query}"
+                        </Group>
+                    </div>
+                );
+            }
+            return <div>{option.label}</div>;
+        },
+        [shouldFetch, refreshedAt, searchedMaxResults],
     );
 
-    if (parameter.options_from_dimension && projectUuid) {
-        // Create a FilterableItem from parameter.options_from_dimension
-        const field: FilterableItem = {
-            name: parameter.options_from_dimension.dimension,
-            table: parameter.options_from_dimension.model,
-            fieldType: FieldType.DIMENSION,
-            type: DimensionType.STRING,
-            label:
-                parameter.label || parameter.options_from_dimension.dimension,
-            tableLabel: parameter.options_from_dimension.model,
-            sql: '',
-            hidden: false,
-        };
+    const handleChange = useCallback(
+        (newValues: string | string[] | null) => {
+            // Handle refresh item selection - check both single value and array cases
+            if (
+                newValues === '__refresh__' ||
+                (Array.isArray(newValues) && newValues.includes('__refresh__'))
+            ) {
+                setForceRefresh(true);
+                return; // Don't update the actual parameter value
+            }
 
-        return (
-            <ParameterStringAutoComplete
-                projectUuid={projectUuid}
-                field={field}
-                autoFocus={false}
-                placeholder={placeholder}
-                suggestions={[]}
-                values={value ? (Array.isArray(value) ? value : [value]) : []}
-                singleValue={!parameter.multiple}
-                onChange={(newValue) => onParameterChange(paramKey, newValue)}
-                parameterValues={parameterValues}
-                size={size}
-                creatable={parameter.allow_custom_values}
-            />
-        );
-    }
+            // Handle create item selection - create new value from search
+            if (
+                newValues === '__create__' ||
+                (Array.isArray(newValues) && newValues.includes('__create__'))
+            ) {
+                if (search && search.trim()) {
+                    handleCreateValue(search.trim());
+                    setSearch(''); // Clear search after creation
+                }
+                return; // Don't update with the __create__ value
+            }
 
-    const currentValues = value ? (Array.isArray(value) ? value : [value]) : [];
-    const optionsData = parameter.allow_custom_values
-        ? uniq([...(parameter.options ?? []), ...currentValues])
-        : parameter.options ?? [];
+            // Convert string values back to appropriate types if needed
+            let finalValue: ParameterValue | null = newValues;
 
+            // For number parameters that somehow went through string flow, convert back
+            if (parameter.type === 'number' && newValues !== null) {
+                if (Array.isArray(newValues)) {
+                    // Filter out invalid numbers from the array
+                    const validNumbers = newValues
+                        .map((v) => Number(v))
+                        .filter((num) => !isNaN(num) && isFinite(num));
+
+                    // Only update if we have valid numbers, otherwise keep null
+                    finalValue = validNumbers.length > 0 ? validNumbers : null;
+                } else {
+                    const num = Number(newValues);
+                    // For single values, only accept valid numbers
+                    if (!isNaN(num) && isFinite(num)) {
+                        finalValue = num;
+                    } else {
+                        // Invalid number input - set to null rather than keeping invalid string
+                        finalValue = null;
+                    }
+                }
+            }
+
+            // Handle single value mode constraints
+            if (
+                !parameter.multiple &&
+                finalValue !== null &&
+                Array.isArray(finalValue)
+            ) {
+                finalValue =
+                    finalValue.length > 0
+                        ? finalValue[finalValue.length - 1]
+                        : null;
+            }
+
+            onParameterChange(paramKey, finalValue);
+
+            // Close dropdown if single value mode and a value was selected
+            if (!parameter.multiple && finalValue && multiSelectRef.current) {
+                multiSelectRef.current.blur();
+            }
+        },
+        [
+            parameter.multiple,
+            parameter.type,
+            paramKey,
+            onParameterChange,
+            search,
+            handleCreateValue,
+        ],
+    );
+
+    // Always render Select or MultiSelect based on parameter.multiple
     if (parameter.multiple) {
         return (
             <MultiSelect
-                data={optionsData}
-                value={currentValues}
-                onChange={(newValue) => onParameterChange(paramKey, newValue)}
-                placeholder={placeholder}
+                ref={multiSelectRef}
+                data={selectData}
+                value={currentValues.map(String)}
+                onChange={handleChange}
+                searchValue={
+                    shouldFetch || parameter.allow_custom_values
+                        ? search
+                        : undefined
+                }
+                onSearchChange={
+                    shouldFetch || parameter.allow_custom_values
+                        ? setSearch
+                        : undefined
+                }
+                placeholder={currentValues.length > 0 ? undefined : placeholder}
                 size={size}
                 searchable
                 clearable
                 disabled={disabled}
-                creatable={parameter.allow_custom_values}
-                shouldCreate={shouldCreate}
-                getCreateLabel={getCreateLabel}
+                error={isError}
+                hidePickedOptions
+                maxDropdownHeight={200}
+                renderOption={
+                    shouldFetch || parameter.allow_custom_values
+                        ? renderOption
+                        : undefined
+                }
+                comboboxProps={{
+                    withinPortal: false,
+                    zIndex: 10000,
+                    position: 'bottom-start',
+                    offset: 5,
+                }}
             />
         );
     }
 
     return (
         <Select
+            ref={multiSelectRef}
+            data={selectData}
+            value={currentValues.length > 0 ? String(currentValues[0]) : null}
+            onChange={handleChange}
+            searchValue={
+                shouldFetch || parameter.allow_custom_values
+                    ? search
+                    : undefined
+            }
+            onSearchChange={
+                shouldFetch || parameter.allow_custom_values
+                    ? setSearch
+                    : undefined
+            }
             placeholder={placeholder}
-            value={currentValues[0]}
-            onChange={(newValue) => onParameterChange(paramKey, newValue)}
-            data={optionsData}
             size={size}
             searchable
             clearable
             disabled={disabled}
-            creatable={parameter.allow_custom_values}
-            shouldCreate={shouldCreate}
-            getCreateLabel={getCreateLabel}
+            error={isError}
+            maxDropdownHeight={200}
+            renderOption={
+                shouldFetch || parameter.allow_custom_values
+                    ? renderOption
+                    : undefined
+            }
+            comboboxProps={{
+                withinPortal: false,
+                zIndex: 10000,
+                position: 'bottom-start',
+                offset: 5,
+            }}
         />
     );
 };

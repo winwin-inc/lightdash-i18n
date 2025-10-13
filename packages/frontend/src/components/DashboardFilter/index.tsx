@@ -8,6 +8,7 @@ import { Checkbox, Flex } from '@mantine/core';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
+
 import { useProject } from '../../hooks/useProject';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import useTracking from '../../providers/Tracking/useTracking';
@@ -28,6 +29,7 @@ const DashboardFilter: FC<Props> = ({
     filterType,
 }) => {
     const { t } = useTranslation();
+
     const { track } = useTracking();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const [openPopoverId, setPopoverId] = useState<string>();
@@ -91,14 +93,14 @@ const DashboardFilter: FC<Props> = ({
             ? setShowGlobalAddFilterButton
             : (enabled: boolean) => {
                   if (activeTabUuid) {
-                      setShowTabAddFilterButton((prev) => ({
+                      setShowTabAddFilterButton((prev: any) => ({
                           ...prev,
                           [activeTabUuid]: enabled,
                       }));
                   }
               };
 
-    // global filters
+    // all filters
     const allFilters = useDashboardContext((c) => c.allFilters);
     const resetDashboardFilters = useDashboardContext(
         (c) => c.resetDashboardFilters,
@@ -116,15 +118,14 @@ const DashboardFilter: FC<Props> = ({
         (c) => c.addTabDimensionFilter,
     );
 
-    // computed variables
-    const filters = useMemo(() => {
+    // apply filters
+    const appliedFilters = useMemo(() => {
         if (filterType === 'global') {
             return allFilters;
         }
         return getMergedFiltersForTab(activeTabUuid || '');
     }, [filterType, activeTabUuid, getMergedFiltersForTab, allFilters]);
-
-    const handleResetDashboardFilters = useCallback(() => {
+    const appliedResetDashboardFilters = useCallback(() => {
         if (filterType === 'global') {
             resetDashboardFilters();
         } else {
@@ -132,7 +133,7 @@ const DashboardFilter: FC<Props> = ({
         }
     }, [filterType, resetDashboardFilters, resetTabFilters, activeTabUuid]);
 
-    const handleAddDimensionDashboardFilter = useCallback(
+    const appliedAddDimensionDashboardFilter = useCallback(
         (
             filter: DashboardFilterRule<
                 FilterOperator,
@@ -171,9 +172,9 @@ const DashboardFilter: FC<Props> = ({
                     mode: isEditMode ? 'edit' : 'viewer',
                 },
             });
-            handleAddDimensionDashboardFilter(value, !isEditMode);
+            appliedAddDimensionDashboardFilter(value, !isEditMode);
         },
-        [handleAddDimensionDashboardFilter, isEditMode, track],
+        [appliedAddDimensionDashboardFilter, isEditMode, track],
     );
 
     const handlePopoverOpen = useCallback((id: string) => {
@@ -191,7 +192,7 @@ const DashboardFilter: FC<Props> = ({
             startOfWeek={
                 project.data?.warehouseConnection?.startOfWeek ?? undefined
             }
-            dashboardFilters={filters}
+            dashboardFilters={appliedFilters}
         >
             <Flex gap="xs" wrap="wrap" mb="xs" align="center">
                 <AddFilterButton
@@ -214,8 +215,9 @@ const DashboardFilter: FC<Props> = ({
                     openPopoverId={openPopoverId}
                     onPopoverOpen={handlePopoverOpen}
                     onPopoverClose={handlePopoverClose}
-                    onResetDashboardFilters={handleResetDashboardFilters}
+                    onResetDashboardFilters={appliedResetDashboardFilters}
                 />
+
                 {isEditMode && (
                     <>
                         <Checkbox
@@ -224,8 +226,19 @@ const DashboardFilter: FC<Props> = ({
                                 setIsFilterEnabled(event.currentTarget.checked)
                             }
                             size="sm"
-                            ml="xl"
-                            styles={{ input: { cursor: 'pointer' } }}
+                            ml={
+                                filterType === 'global'
+                                    ? isFilterEnabled
+                                        ? 'xl'
+                                        : 'none'
+                                    : isFilterEnabled
+                                    ? 'xl'
+                                    : 'xs'
+                            }
+                            styles={{
+                                input: { cursor: 'pointer' },
+                                root: { display: 'flex', alignItems: 'center' },
+                            }}
                             label={t(
                                 'components_dashboard_filter.enable_filter',
                             )}
@@ -239,8 +252,14 @@ const DashboardFilter: FC<Props> = ({
                                     )
                                 }
                                 size="sm"
-                                ml="md"
-                                styles={{ input: { cursor: 'pointer' } }}
+                                ml={'md'}
+                                styles={{
+                                    input: { cursor: 'pointer' },
+                                    root: {
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                    },
+                                }}
                                 label={t(
                                     'components_dashboard_filter.show_add_filter_button',
                                 )}

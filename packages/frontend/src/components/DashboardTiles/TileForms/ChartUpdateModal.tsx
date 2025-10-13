@@ -24,7 +24,7 @@ import {
 import { useForm } from '@mantine/form';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconEye, IconEyeOff } from '@tabler/icons-react';
-import { uniqBy } from 'lodash';
+import uniqBy from 'lodash/uniqBy';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
@@ -51,6 +51,7 @@ const ChartUpdateModal = ({
     ...modalProps
 }: ChartUpdateModalProps) => {
     const { t } = useTranslation();
+
     const form = useForm({
         initialValues: {
             uuid: isDashboardSqlChartTile(tile)
@@ -111,18 +112,17 @@ const ChartUpdateModal = ({
     return (
         <Modal
             onClose={() => onClose?.()}
-            title={
-                <Title order={4}>
-                    {t(
-                        'components_dashboard_tiles_forms_update_chart.edit_tile_content',
-                    )}
-                </Title>
-            }
+            title={<Title order={4}>Edit tile content</Title>}
             withCloseButton
             className="non-draggable"
             {...modalProps}
         >
-            <form onSubmit={handleConfirm} name="Edit tile content">
+            <form
+                onSubmit={handleConfirm}
+                name={t(
+                    'components_dashboard_tiles_forms_update_chart.edit_tile_content',
+                )}
+            >
                 <Stack spacing="md">
                     <Flex align="flex-end" gap="xs">
                         <TextInput
@@ -237,7 +237,6 @@ const ChartUpdateModal = ({
                             )}
                         </Button>
                         <Button type="submit">
-                            {' '}
                             {t(
                                 'components_dashboard_tiles_forms_update_chart.update',
                             )}

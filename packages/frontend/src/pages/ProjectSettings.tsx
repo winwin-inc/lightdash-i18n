@@ -8,11 +8,13 @@ import SuboptimalState from '../components/common/SuboptimalState/SuboptimalStat
 import { DataOps } from '../components/DataOps';
 import ProjectUserAccess from '../components/ProjectAccess';
 import { UpdateProjectConnection } from '../components/ProjectConnection';
+import ProjectParameters from '../components/ProjectParameters';
 import ProjectTablesConfiguration from '../components/ProjectTablesConfiguration/ProjectTablesConfiguration';
 import SettingsScheduler from '../components/SettingsScheduler';
 import SettingsUsageAnalytics from '../components/SettingsUsageAnalytics';
 import { SettingsValidator } from '../components/SettingsValidator';
 import SettingsEmbed from '../ee/features/embed/SettingsEmbed';
+import { ProjectChangesets } from '../features/changesets/components/ProjectChangesets';
 import { useProject } from '../hooks/useProject';
 
 const ProjectSettings: FC = () => {
@@ -39,6 +41,10 @@ const ProjectSettings: FC = () => {
                 ),
             },
             {
+                path: `/changesets`,
+                element: <ProjectChangesets projectUuid={projectUuid} />,
+            },
+            {
                 path: `/projectAccess`,
                 element: <ProjectUserAccess projectUuid={projectUuid} />,
             },
@@ -57,6 +63,10 @@ const ProjectSettings: FC = () => {
             {
                 path: `/dataOps`,
                 element: <DataOps projectUuid={projectUuid} />,
+            },
+            {
+                path: `/parameters`,
+                element: <ProjectParameters projectUuid={projectUuid} />,
             },
             {
                 path: '*',

@@ -102,24 +102,6 @@ const UserCompletionModal: FC = () => {
         setFieldValue('enableEmailDomainAccess', true);
     }, [canEnableEmailDomainAccess, setFieldValue]);
 
-    useEffect(() => {
-        // Tracking is disabled, we complete the user tracking with default values
-        if (
-            health.data?.rudder.writeKey === undefined &&
-            !isLoading &&
-            user.data &&
-            !user.data.isSetupComplete
-        ) {
-            mutate({
-                organizationName: user.data.organizationName,
-                jobTitle: 'Other',
-                enableEmailDomainAccess: false,
-                isMarketingOptedIn: false,
-                isTrackingAnonymized: true,
-            });
-        }
-    }, [health.data?.rudder.writeKey, isLoading, mutate, user.data]);
-
     if (
         !user.data ||
         user.data.isSetupComplete ||

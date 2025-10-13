@@ -1,7 +1,7 @@
 import {
-    type Dashboard,
-    type DashboardFilterRule,
-    type DashboardFilters,
+    Dashboard,
+    DashboardFilterRule,
+    DashboardFilters,
 } from '@lightdash/common';
 import { useCallback, useState } from 'react';
 
@@ -9,7 +9,8 @@ import { emptyFilters } from './useDashboardFilters';
 
 interface DashboardTabFilterProps {
     dashboard?: Dashboard;
-    allFilters: DashboardFilters; // 使用 allFilters 而不是 dashboardFilters
+    dashboardFilters: DashboardFilters;
+    dashboardTemporaryFilters: DashboardFilters;
     isFilterEnabled: (tabUuid: string) => boolean;
 }
 
@@ -22,9 +23,10 @@ export const isEmptyTabFilters = (
     );
 };
 
-const useDashboardFilterForTab = ({
+export const useDashboardTabFilters = ({
     dashboard,
-    allFilters,
+    dashboardFilters,
+    dashboardTemporaryFilters,
     isFilterEnabled,
 }: DashboardTabFilterProps) => {
     const [tabFilters, setTabFilters] = useState<
@@ -51,10 +53,22 @@ const useDashboardFilterForTab = ({
     );
 
     const getMergedFiltersForTab = (tabUuid: string) => {
-        // If filter is disabled for this tab, return only global filters
-        if (!isFilterEnabled(tabUuid)) {
-            return allFilters;
-        }
+        const globalFilters = {
+            dimensions: [
+                ...dashboardFilters.dimensions,
+                ...dashboardTemporaryFilters?.dimensions,
+            ],
+            metrics: [
+                ...dashboardFilters.metrics,
+                ...dashboardTemporaryFilters?.metrics,
+            ],
+            tableCalculations: [
+                ...dashboardFilters.tableCalculations,
+                ...dashboardTemporaryFilters?.tableCalculations,
+            ],
+        };
+
+        if (!isFilterEnabled(tabUuid)) return globalFilters;
 
         const tabSpecificFilters = getActiveTabFilters(tabUuid);
         const tabSpecificTemporaryFilters =
@@ -197,5 +211,3 @@ const useDashboardFilterForTab = ({
         resetTabFilters,
     };
 };
-
-export default useDashboardFilterForTab;

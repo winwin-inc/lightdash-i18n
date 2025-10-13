@@ -1,3 +1,4 @@
+import { subject } from '@casl/ability';
 import { type ApiScheduledDownloadCsv } from '@lightdash/common';
 import { Button, Loader, Menu } from '@mantine/core';
 import { IconShare2 } from '@tabler/icons-react';
@@ -8,6 +9,8 @@ import { GSheetsIcon } from '../../../components/common/GSheetsIcon';
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useGdriveAccessToken } from '../../../hooks/gdrive/useGdrive';
 import useHealth from '../../../hooks/health/useHealth';
+import { useProjectUuid } from '../../../hooks/useProjectUuid';
+import useApp from '../../../providers/App/useApp';
 import { useExportToGoogleSheet } from '../hooks/useExportToGoogleSheet';
 
 export type ExportToGoogleSheetProps = {
@@ -18,9 +21,11 @@ export type ExportToGoogleSheetProps = {
 
 export const ExportToGoogleSheet: FC<ExportToGoogleSheetProps> = memo(
     ({ getGsheetLink, asMenuItem, disabled }) => {
-        const health = useHealth();
         const { t } = useTranslation();
 
+        const health = useHealth();
+        const { user } = useApp();
+        const projectUuid = useProjectUuid();
         const hasGoogleDrive =
             health.data?.auth.google.oauth2ClientId !== undefined &&
             health.data?.auth.google.googleDriveApiKey !== undefined;
@@ -40,6 +45,18 @@ export const ExportToGoogleSheet: FC<ExportToGoogleSheetProps> = memo(
         if (!hasGoogleDrive) {
             // We should not load this component on `ExporSelector` if google keys are not available
             console.warn(t('features_export.no_google_drive'));
+            return null;
+        }
+
+        const cannotAccessGoogleSheets = user.data?.ability?.cannot(
+            'manage',
+            subject('GoogleSheets', {
+                organizationUuid: user.data?.organizationUuid,
+                projectUuid,
+            }),
+        );
+
+        if (cannotAccessGoogleSheets) {
             return null;
         }
 

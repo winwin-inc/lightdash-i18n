@@ -1,4 +1,4 @@
-import { Box, Button, Group } from '@mantine/core';
+import { Box, Button, Group, Tooltip } from '@mantine/core';
 import { IconChevronLeft, IconSend } from '@tabler/icons-react';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,7 @@ interface FooterProps {
     onCancel?: () => void;
     onConfirm?: () => void;
     loading?: boolean;
+    disabledMessage?: string;
 }
 
 const SchedulersModalFooter = ({
@@ -25,6 +26,7 @@ const SchedulersModalFooter = ({
     canSendNow,
     onConfirm,
     loading,
+    disabledMessage,
 }: FooterProps) => {
     const { t } = useTranslation();
 
@@ -68,14 +70,22 @@ const SchedulersModalFooter = ({
                     </Button>
                 )}
                 {!!confirmText && (
-                    <Button
-                        type="submit"
-                        disabled={disableConfirm}
-                        loading={loading}
-                        onClick={onConfirm}
+                    <Tooltip
+                        label={disabledMessage}
+                        disabled={!disableConfirm || !disabledMessage}
+                        fz="xs"
                     >
-                        {confirmText}
-                    </Button>
+                        <Box>
+                            <Button
+                                type="submit"
+                                disabled={disableConfirm}
+                                loading={loading}
+                                onClick={onConfirm}
+                            >
+                                {confirmText}
+                            </Button>
+                        </Box>
+                    </Tooltip>
                 )}
             </Group>
         </Group>

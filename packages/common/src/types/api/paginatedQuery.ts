@@ -1,10 +1,4 @@
-import {
-    type GroupByColumn,
-    type ParametersValuesMap,
-    type PivotIndexColum,
-    type SortBy,
-    type ValuesColumn,
-} from '../..';
+import { type ParametersValuesMap, type PivotConfiguration } from '../..';
 
 import type { QueryExecutionContext } from '../analytics';
 import type { DownloadFileType } from '../downloadFile';
@@ -28,6 +22,7 @@ export type ExecuteAsyncMetricQueryRequestParams =
     CommonExecuteQueryRequestParams & {
         query: Omit<MetricQueryRequest, 'csvLimit'>;
         dateZoom?: DateZoom;
+        pivotConfiguration?: PivotConfiguration;
     };
 
 export type ExecuteAsyncSavedChartRequestParams =
@@ -35,6 +30,7 @@ export type ExecuteAsyncSavedChartRequestParams =
         chartUuid: string;
         versionUuid?: string;
         limit?: number | null | undefined;
+        pivotResults?: boolean;
     };
 
 export type ExecuteAsyncDashboardChartRequestParams =
@@ -45,18 +41,14 @@ export type ExecuteAsyncDashboardChartRequestParams =
         dashboardSorts: SortField[];
         dateZoom?: DateZoom;
         limit?: number | null | undefined;
+        pivotResults?: boolean;
     };
 
 export type ExecuteAsyncSqlQueryRequestParams =
     CommonExecuteQueryRequestParams & {
         sql: string;
         limit?: number;
-        pivotConfiguration?: {
-            indexColumn: PivotIndexColum;
-            valuesColumns: ValuesColumn[];
-            groupByColumns: GroupByColumn[] | undefined;
-            sortBy: SortBy | undefined;
-        };
+        pivotConfiguration?: PivotConfiguration;
     };
 
 export type ExecuteAsyncUnderlyingDataRequestParams =

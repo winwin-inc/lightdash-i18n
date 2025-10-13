@@ -25,7 +25,7 @@ import {
 import { useForm } from '@mantine/form';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconChartAreaLine } from '@tabler/icons-react';
-import { uniqBy } from 'lodash';
+import uniqBy from 'lodash/uniqBy';
 import React, {
     forwardRef,
     useEffect,
@@ -103,6 +103,7 @@ const SelectItem = forwardRef<HTMLDivElement, ItemProps>(
 
 const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
     const { t } = useTranslation();
+
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [debouncedSearchQuery] = useDebouncedValue(searchQuery, 300);
@@ -224,7 +225,7 @@ const AddChartTilesModal: FC<Props> = ({ onAddTiles, onClose }) => {
 
                     default:
                         return assertUnreachable(
-                            sourceType as never,
+                            sourceType,
                             `Unknown chart source type: ${sourceType}`,
                         );
                 }

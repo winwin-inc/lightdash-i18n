@@ -1,4 +1,4 @@
-import { merge } from 'lodash';
+import merge from 'lodash/merge';
 import {
     SupportedDbtAdapter,
     buildModelGraph,
@@ -14,7 +14,11 @@ import {
     type DbtModelNode,
     type LineageGraph,
 } from '../types/dbt';
-import { MissingCatalogEntryError, ParseError } from '../types/errors';
+import {
+    CompileError,
+    MissingCatalogEntryError,
+    ParseError,
+} from '../types/errors';
 import {
     InlineErrorType,
     type Explore,
@@ -83,6 +87,9 @@ const convertTimezone = (
         case SupportedDbtAdapter.DATABRICKS:
             return timestampSql;
         case SupportedDbtAdapter.TRINO:
+            return timestampSql;
+        case SupportedDbtAdapter.CLICKHOUSE:
+            // DateTime: stored in server timezone, returns in server timezone
             return timestampSql;
         default:
             return assertUnreachable(
@@ -446,6 +453,11 @@ export const convertTable = (
                         meta: {
                             dimension: subDimension,
                         },
+                        config: {
+                            meta: {
+                                dimension: subDimension,
+                            },
+                        },
                     },
                     undefined,
                     undefined,
@@ -608,6 +620,7 @@ export const convertTable = (
               }
             : {}),
         ...(meta.ai_hint ? { aiHint: convertToAiHints(meta.ai_hint) } : {}),
+        ...(meta.parameters ? { parameters: meta.parameters } : {}),
     };
 };
 
@@ -754,6 +767,7 @@ export const convertExplores = async (
                 groupLabel: meta.group_label,
                 joins: meta?.joins || [],
                 description: meta.description,
+                tables: tableLookup,
             },
             ...(meta.explores
                 ? Object.entries(meta.explores).map(
@@ -765,6 +779,19 @@ export const convertExplores = async (
                               exploreConfig.group_label || meta.group_label,
                           joins: exploreConfig.joins || [],
                           description: exploreConfig.description,
+                          tables: {
+                              ...tableLookup,
+                              // Override the base table required filters with the explore config required filters
+                              [model.name]: {
+                                  ...tableLookup[model.name],
+                                  requiredFilters: parseModelRequiredFilters({
+                                      requiredFilters:
+                                          exploreConfig.required_filters,
+                                      defaultFilters:
+                                          exploreConfig.default_filters,
+                                  }),
+                              },
+                          },
                       }),
                   )
                 : []),
@@ -792,7 +819,7 @@ export const convertExplores = async (
                         always: join.always,
                         relationship: join.relationship,
                     })),
-                    tables: tableLookup,
+                    tables: exploreToCreate.tables,
                     targetDatabase: adapterType,
                     warehouse: model.config?.snowflake_warehouse,
                     databricksCompute: model.config?.databricks_compute,
@@ -809,6 +836,7 @@ export const convertExplores = async (
                             ? { description: exploreToCreate.description }
                             : {}),
                     },
+                    projectParameters: lightdashProjectConfig.parameters,
                 });
             } catch (e: unknown) {
                 return {
@@ -819,7 +847,8 @@ export const convertExplores = async (
                         {
                             // TODO improve parsing of error type
                             type:
-                                e instanceof ParseError
+                                e instanceof ParseError ||
+                                e instanceof CompileError
                                     ? InlineErrorType.METADATA_PARSE_ERROR
                                     : InlineErrorType.NO_DIMENSIONS_FOUND,
                             message:

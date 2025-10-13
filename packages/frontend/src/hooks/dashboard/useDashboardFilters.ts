@@ -1,12 +1,11 @@
 import {
+    DashboardFilterRule,
     type Dashboard,
-    type DashboardFilterRule,
     type DashboardFilters,
 } from '@lightdash/common';
 import { useCallback, useMemo, useState } from 'react';
-
 import { hasSavedFilterValueChanged } from '../../components/DashboardFilter/FilterConfiguration/utils';
-import { useSavedDashboardFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOverrides';
+import { useSavedDashboardFiltersOverrides } from '../useSavedDashboardFiltersOverrides';
 
 export const emptyFilters: DashboardFilters = {
     dimensions: [],
@@ -14,15 +13,13 @@ export const emptyFilters: DashboardFilters = {
     tableCalculations: [],
 };
 
-interface DashboardFilterProps {
-    dashboard?: Dashboard;
-    isFilterEnabled?: boolean;
-}
-
-const useDashboardFilter = ({
+export const useDashboardFilters = ({
     dashboard,
-    isFilterEnabled = true,
-}: DashboardFilterProps) => {
+    isFilterEnabled,
+}: {
+    isFilterEnabled: boolean;
+    dashboard?: Dashboard;
+}) => {
     const [dashboardTemporaryFilters, setDashboardTemporaryFilters] =
         useState<DashboardFilters>(emptyFilters);
     const [dashboardFilters, setDashboardFilters] =
@@ -32,17 +29,8 @@ const useDashboardFilter = ({
     const [haveFiltersChanged, setHaveFiltersChanged] =
         useState<boolean>(false);
 
-    const {
-        addSavedFilterOverride,
-        removeSavedFilterOverride,
-        resetSavedFilterOverrides,
-    } = useSavedDashboardFiltersOverrides();
-
     const allFilters = useMemo(() => {
-        // If filter is disabled, return empty filters
-        if (!isFilterEnabled) {
-            return emptyFilters;
-        }
+        if (!isFilterEnabled) return emptyFilters;
 
         return {
             dimensions: [
@@ -59,6 +47,13 @@ const useDashboardFilter = ({
             ],
         };
     }, [dashboardFilters, dashboardTemporaryFilters, isFilterEnabled]);
+
+    const {
+        overridesForSavedDashboardFilters,
+        addSavedFilterOverride,
+        removeSavedFilterOverride,
+        resetSavedFilterOverrides,
+    } = useSavedDashboardFiltersOverrides();
 
     // Resets all dashboard filters. There's a bit of a race condition
     // here because we store filters in memory in two places:
@@ -198,22 +193,19 @@ const useDashboardFilter = ({
     );
 
     return {
+        dashboardTemporaryFilters,
         dashboardFilters,
-        setDashboardFilters,
+        allFilters,
         haveFiltersChanged,
         setHaveFiltersChanged,
-        originalDashboardFilters,
         setOriginalDashboardFilters,
-        dashboardTemporaryFilters,
         setDashboardTemporaryFilters,
-        allFilters,
-
+        setDashboardFilters,
         resetDashboardFilters,
         addDimensionDashboardFilter,
         updateDimensionDashboardFilter,
         addMetricDashboardFilter,
         removeDimensionDashboardFilter,
+        overridesForSavedDashboardFilters,
     };
 };
-
-export default useDashboardFilter;

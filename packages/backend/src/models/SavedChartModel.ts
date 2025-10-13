@@ -20,6 +20,8 @@ import {
     isCustomBinDimension,
     isCustomSqlDimension,
     isFormat,
+    isSqlTableCalculation,
+    isTemplateTableCalculation,
     LightdashUser,
     MetricFilterRule,
     MetricOverrides,
@@ -30,6 +32,7 @@ import {
     SessionUser,
     SortField,
     Space,
+    TableCalculation,
     TimeZone,
     UpdatedByUser,
     UpdateMultipleSavedChart,
@@ -243,6 +246,7 @@ const createSavedChartVersion = async (
                 field_name: sort.fieldId,
                 descending: sort.descending,
                 saved_queries_version_id: version.saved_queries_version_id,
+                nulls_first: sort.nullsFirst ?? null,
                 order: index,
             })),
         );
@@ -251,13 +255,18 @@ const createSavedChartVersion = async (
             tableCalculations.map((tableCalculation) => ({
                 name: tableCalculation.name,
                 display_name: tableCalculation.displayName,
-                calculation_raw_sql: tableCalculation.sql,
+                calculation_raw_sql: isSqlTableCalculation(tableCalculation)
+                    ? tableCalculation.sql
+                    : '',
                 saved_queries_version_id: version.saved_queries_version_id,
                 format: tableCalculation.format,
                 order: tableConfig.columnOrder.findIndex(
                     (column) => column === tableCalculation.name,
                 ),
                 type: tableCalculation.type,
+                template: isTemplateTableCalculation(tableCalculation)
+                    ? tableCalculation.template
+                    : undefined,
             })),
         );
         await createSavedChartVersionCustomDimensions(
@@ -897,7 +906,7 @@ export class SavedChartModel {
                     .orderBy('order', 'asc');
 
                 const sortsQuery = this.database('saved_queries_version_sorts')
-                    .select(['field_name', 'descending'])
+                    .select(['field_name', 'descending', 'nulls_first'])
                     .where('saved_queries_version_id', savedQueriesVersionId)
                     .orderBy('order', 'asc');
                 const tableCalculationsQuery = this.database(
@@ -910,6 +919,7 @@ export class SavedChartModel {
                         'order',
                         'format',
                         'type',
+                        'template',
                     ])
                     .where('saved_queries_version_id', savedQueriesVersionId);
 
@@ -1036,18 +1046,25 @@ export class SavedChartModel {
                         sorts: sorts.map<SortField>((sort) => ({
                             fieldId: sort.field_name,
                             descending: sort.descending,
+                            nullsFirst: sort.nulls_first ?? undefined,
                         })),
                         limit: savedQuery.row_limit,
                         metricOverrides:
                             savedQuery.metric_overrides || undefined,
                         tableCalculations: tableCalculations.map(
-                            (tableCalculation) => ({
-                                name: tableCalculation.name,
-                                displayName: tableCalculation.display_name,
-                                sql: tableCalculation.calculation_raw_sql,
-                                format: tableCalculation.format || undefined,
-                                type: tableCalculation.type || undefined,
-                            }),
+                            (tableCalculation) =>
+                                ({
+                                    name: tableCalculation.name,
+                                    displayName: tableCalculation.display_name,
+                                    sql:
+                                        tableCalculation.calculation_raw_sql ||
+                                        undefined,
+                                    format:
+                                        tableCalculation.format || undefined,
+                                    type: tableCalculation.type || undefined,
+                                    template:
+                                        tableCalculation.template || undefined,
+                                } as TableCalculation),
                         ),
                         additionalMetrics,
                         customDimensions: [

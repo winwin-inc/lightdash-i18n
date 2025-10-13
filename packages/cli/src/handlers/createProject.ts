@@ -13,7 +13,8 @@ import { getConfig, setAnswer } from '../config';
 import { getDbtContext } from '../dbt/context';
 import GlobalState from '../globalState';
 import * as styles from '../styles';
-import { lightdashApi } from './dbt/apiClient';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { checkProjectCreationPermission, lightdashApi } from './dbt/apiClient';
 import getDbtProfileTargetName from './dbt/getDbtProfileTargetName';
 import { getDbtVersion } from './dbt/getDbtVersion';
 import getWarehouseClient from './dbt/getWarehouseClient';
@@ -81,6 +82,11 @@ type CreateProjectOptions = {
 export const createProject = async (
     options: CreateProjectOptions,
 ): Promise<ApiCreateProjectResults | undefined> => {
+    await checkProjectCreationPermission(
+        options.upstreamProjectUuid,
+        options.type,
+    );
+
     const dbtVersion = await getDbtVersion();
 
     const absoluteProjectPath = path.resolve(options.projectDir);

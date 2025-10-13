@@ -3,12 +3,15 @@ import { MantineProvider, type MantineThemeOverride } from '@mantine/core';
 import { IconUnlink } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Provider } from 'react-redux';
 
 import Page from '../../../../../components/common/Page/Page';
 import SuboptimalState from '../../../../../components/common/SuboptimalState/SuboptimalState';
 import Explorer from '../../../../../components/Explorer';
 import ExploreSideBar from '../../../../../components/Explorer/ExploreSideBar';
+import { explorerStore } from '../../../../../features/explorer/store';
 import { useExplore } from '../../../../../hooks/useExplore';
+import { defaultQueryExecution } from '../../../../../providers/Explorer/defaultState';
 import ExplorerProvider from '../../../../../providers/Explorer/ExplorerProvider';
 import { ExplorerSection } from '../../../../../providers/Explorer/types';
 import useEmbed from '../../../../providers/Embed/useEmbed';
@@ -22,8 +25,10 @@ const themeOverride: MantineThemeOverride = {
 };
 
 const getInitialState = (exploreId: string, savedChart: SavedChart) => ({
+    isEditMode: true,
     parameters: {},
-    shouldFetchResults: true,
+    parameterDefinitions: {},
+    parameterReferences: [],
     expandedSections: [
         ExplorerSection.FILTERS,
         ExplorerSection.VISUALIZATION,
@@ -75,6 +80,7 @@ const getInitialState = (exploreId: string, savedChart: SavedChart) => ({
             isOpen: false,
         },
     },
+    queryExecution: defaultQueryExecution,
 });
 
 type Props = {
@@ -96,7 +102,9 @@ const EmbedExplore: FC<Props> = ({
     if (!projectUuid) {
         return (
             <div style={{ marginTop: '20px' }}>
-                <SuboptimalState title={t('features_embed_explore.missing_project_uuid')} />
+                <SuboptimalState
+                    title={t('features_embed_explore.missing_project_uuid')}
+                />
             </div>
         );
     }
@@ -109,7 +117,9 @@ const EmbedExplore: FC<Props> = ({
                     icon={IconUnlink}
                     description={
                         exploreError.error.message.includes('jwt expired')
-                            ? t('features_embed_explore.this_embed_link_has_expired')
+                            ? t(
+                                  'features_embed_explore.this_embed_link_has_expired',
+                              )
                             : exploreError.error.message
                     }
                 />
@@ -119,24 +129,29 @@ const EmbedExplore: FC<Props> = ({
 
     return (
         <div style={containerStyles ?? { height: '100vh', overflowY: 'auto' }}>
-            <ExplorerProvider
-                isEditMode={true}
-                projectUuid={projectUuid}
-                savedChart={savedChart}
-                initialState={getInitialState(exploreId, savedChart)}
-                defaultLimit={500}
-            >
-                <MantineProvider inherit theme={themeOverride}>
-                    <Page
-                        title={data ? data?.label : t('features_embed_explore.tables')}
-                        sidebar={<ExploreSideBar />}
-                        withFullHeight
-                        withPaddedContent
-                    >
-                        <Explorer />
-                    </Page>
-                </MantineProvider>
-            </ExplorerProvider>
+            <Provider store={explorerStore}>
+                <ExplorerProvider
+                    isEditMode={true}
+                    projectUuid={projectUuid}
+                    initialState={getInitialState(exploreId, savedChart)}
+                    defaultLimit={500}
+                >
+                    <MantineProvider inherit theme={themeOverride}>
+                        <Page
+                            title={
+                                data
+                                    ? data?.label
+                                    : t('features_embed_explore.tables')
+                            }
+                            sidebar={<ExploreSideBar />}
+                            withFullHeight
+                            withPaddedContent
+                        >
+                            <Explorer />
+                        </Page>
+                    </MantineProvider>
+                </ExplorerProvider>
+            </Provider>
         </div>
     );
 };

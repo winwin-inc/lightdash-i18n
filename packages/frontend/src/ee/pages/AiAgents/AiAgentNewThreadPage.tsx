@@ -18,13 +18,13 @@ import MantineIcon from '../../../components/common/MantineIcon';
 import { AgentChatInput } from '../../features/aiCopilot/components/ChatElements/AgentChatInput';
 import { ChatElementsUtils } from '../../features/aiCopilot/components/ChatElements/utils';
 import { DefaultAgentButton } from '../../features/aiCopilot/components/DefaultAgentButton/DefaultAgentButton';
-import { useCreateAgentThreadMutation } from '../../features/aiCopilot/hooks/useOrganizationAiAgents';
+import { useCreateAgentThreadMutation } from '../../features/aiCopilot/hooks/useProjectAiAgents';
 import { type AgentContext } from './AgentPage';
 
 const AiAgentNewThreadPage = () => {
     const { agentUuid, projectUuid } = useParams();
     const { mutateAsync: createAgentThread, isLoading: isCreatingThread } =
-        useCreateAgentThreadMutation(agentUuid, projectUuid);
+        useCreateAgentThreadMutation(agentUuid, projectUuid!);
     const { agent } = useOutletContext<AgentContext>();
     const { t } = useTranslation();
 

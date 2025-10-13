@@ -38,6 +38,7 @@ const EmptyStateNoTiles: FC<SavedChartsAvailableProps> = ({
     dashboardTabs,
 }) => {
     const { t } = useTranslation();
+
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { user } = useApp();
     const { data: hasSavedCharts } = useProjectSavedChartStatus(projectUuid);
@@ -62,7 +63,9 @@ const EmptyStateNoTiles: FC<SavedChartsAvailableProps> = ({
                     ? t('components_dashboard_tile_empty_state.tab.add_tiles')
                     : t('components_dashboard_tile_empty_state.tab.is_empty');
             default:
-                return t('components_dashboard_tile_empty_state.is_empty');
+                return t(
+                    'components_dashboard_tile_empty_state.dashboard.is_empty',
+                );
         }
     };
 

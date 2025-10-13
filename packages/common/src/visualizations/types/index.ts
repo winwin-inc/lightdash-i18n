@@ -1,4 +1,5 @@
 import { DimensionType } from '../../types/field';
+import { type PivotConfiguration } from '../../types/pivot';
 import { type RawResultRow } from '../../types/results';
 import { ChartKind } from '../../types/savedCharts';
 import { type CartesianChartDisplay } from '../CartesianChartDataModel';
@@ -46,8 +47,8 @@ export enum AxisSide {
     RIGHT,
 }
 
-export function getColumnAxisType(column: VizColumn): VizIndexType {
-    switch (column.type) {
+export function getColumnAxisType(dimensionType: DimensionType): VizIndexType {
+    switch (dimensionType) {
         case DimensionType.DATE:
         case DimensionType.TIMESTAMP:
             return VizIndexType.TIME;
@@ -95,9 +96,7 @@ export type VizTableDisplay = {
     // On vis column config, visible, label and frozen, at least seem like display options
 };
 
-export type PivotIndexColum =
-    | { reference: string; type: VizIndexType }
-    | undefined;
+export type PivotIndexColum = { reference: string; type: VizIndexType };
 
 export type PivotValuesColumn = {
     referenceField: string;
@@ -105,15 +104,17 @@ export type PivotValuesColumn = {
     aggregation: VizAggregationOptions;
     pivotValues: {
         referenceField: string;
-        value: string;
+        value: unknown;
+        formatted?: string;
     }[];
+    columnIndex?: number;
 };
 
 export type PivotChartData = {
     queryUuid: string | undefined;
     fileUrl: string | undefined;
     results: RawResultRow[];
-    indexColumn: PivotIndexColum;
+    indexColumn: PivotConfiguration['indexColumn'] | undefined;
     valuesColumns: PivotValuesColumn[];
     columns: VizColumn[];
     columnCount: number | undefined;

@@ -1,30 +1,56 @@
 import {
+    AdditionalMetric,
+    AgentToolOutput,
+    AiArtifact,
     AiMetricQueryWithFilters,
     AiWebAppPrompt,
+    AllChartsSearchResult,
     AnyType,
     CacheMetadata,
     CatalogField,
     CatalogTable,
+    ChangesetWithChanges,
+    CreateChangeParams,
+    DashboardSearchResult,
     Explore,
+    ExploreCompiler,
+    Filters,
     ItemsMap,
     KnexPaginateArgs,
     SlackPrompt,
+    ToolFindChartsArgs,
+    ToolFindDashboardsArgs,
     ToolFindFieldsArgs,
     UpdateSlackResponse,
     UpdateWebAppResponse,
 } from '@lightdash/common';
-import { AiAgentResponseStreamed } from '../../../../analytics/LightdashAnalytics';
+import {
+    AiAgentResponseStreamed,
+    AiAgentToolCallEvent,
+} from '../../../../analytics/LightdashAnalytics';
 import { PostSlackFile } from '../../../../clients/Slack/SlackClient';
 
-export type FindExploresFn = (args: KnexPaginateArgs) => Promise<{
-    tables: CatalogTable[];
-    fields: CatalogField[];
-    pagination:
-        | (KnexPaginateArgs & {
-              totalPageCount: number;
-              totalResults: number;
-          })
-        | undefined;
+type Pagination = KnexPaginateArgs & {
+    totalPageCount: number;
+    totalResults: number;
+};
+
+export type FindExploresFn = (
+    args: {
+        tableName: string | null;
+        fieldOverviewSearchSize?: number;
+        fieldSearchSize?: number;
+        includeFields: boolean;
+    } & KnexPaginateArgs,
+) => Promise<{
+    tablesWithFields: {
+        table: CatalogTable;
+        dimensions?: CatalogField[];
+        metrics?: CatalogField[];
+        dimensionsPagination?: Pagination;
+        metricsPagination?: Pagination;
+    }[];
+    pagination: Pagination | undefined;
 }>;
 
 export type FindFieldFn = (
@@ -34,12 +60,25 @@ export type FindFieldFn = (
     },
 ) => Promise<{
     fields: CatalogField[];
-    pagination:
-        | (KnexPaginateArgs & {
-              totalPageCount: number;
-              totalResults: number;
-          })
-        | undefined;
+    pagination: Pagination | undefined;
+}>;
+
+export type FindDashboardsFn = (
+    args: KnexPaginateArgs & {
+        dashboardSearchQuery: ToolFindDashboardsArgs['dashboardSearchQueries'][number];
+    },
+) => Promise<{
+    dashboards: DashboardSearchResult[];
+    pagination: Pagination | undefined;
+}>;
+
+export type FindChartsFn = (
+    args: KnexPaginateArgs & {
+        chartSearchQuery: ToolFindChartsArgs['chartSearchQueries'][number];
+    },
+) => Promise<{
+    charts: AllChartsSearchResult[];
+    pagination: Pagination | undefined;
 }>;
 
 export type GetExploreFn = (args: { exploreName: string }) => Promise<Explore>;
@@ -51,6 +90,7 @@ export type GetPromptFn = () => Promise<SlackPrompt | AiWebAppPrompt>;
 export type RunMiniMetricQueryFn = (
     metricQuery: AiMetricQueryWithFilters,
     maxLimit: number,
+    additionalMetrics?: AdditionalMetric[],
 ) => Promise<{
     rows: Record<string, AnyType>[];
     cacheMetadata: CacheMetadata;
@@ -76,7 +116,41 @@ export type StoreToolResultsFn = (
         toolCallId: string;
         toolName: string;
         result: string;
+        metadata?: AgentToolOutput['metadata'];
     }>,
 ) => Promise<void>;
 
-export type TrackEventFn = (event: AiAgentResponseStreamed) => void;
+export type TrackEventFn = (
+    event: AiAgentResponseStreamed | AiAgentToolCallEvent,
+) => void;
+
+export type SearchFieldValuesFn = (args: {
+    table: string;
+    fieldId: string;
+    query: string;
+    filters?: Filters;
+}) => Promise<string[]>;
+
+export type CreateOrUpdateArtifactFn = (data: {
+    threadUuid: string;
+    promptUuid: string;
+    artifactType: 'chart' | 'dashboard';
+    title?: string;
+    description?: string;
+    vizConfig: Record<string, unknown>;
+}) => Promise<AiArtifact>;
+
+export type CheckUserPermissionFn = (args: {
+    userId: string;
+    organizationId: string;
+    permission: string;
+}) => Promise<boolean>;
+
+export type CreateChangeFn = (
+    params: Pick<
+        CreateChangeParams,
+        'type' | 'entityName' | 'entityType' | 'entityTableName' | 'payload'
+    >,
+) => Promise<string>;
+
+export type GetExploreCompilerFn = () => Promise<ExploreCompiler>;

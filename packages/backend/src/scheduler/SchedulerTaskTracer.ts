@@ -118,12 +118,20 @@ const getTagsForTask: {
         'project.uuid': payload.projectUuid,
     }),
 
+    [SCHEDULER_TASKS.AI_AGENT_EVAL_RESULT]: (payload) => ({
+        'organization.uuid': payload.organizationUuid,
+        'user.uuid': payload.userUuid,
+        'project.uuid': payload.projectUuid,
+    }),
+
     [SCHEDULER_TASKS.RENAME_RESOURCES]: (payload) => ({
         'organization.uuid': payload.organizationUuid,
         'user.uuid': payload.userUuid,
         'project.uuid': payload.projectUuid,
     }),
-    [SCHEDULER_TASKS.RUN_ASYNC_WAREHOUSE_QUERY]: (payload) => ({
+
+    [SCHEDULER_TASKS.CLEAN_QUERY_HISTORY]: () => ({}),
+    [SCHEDULER_TASKS.DOWNLOAD_ASYNC_QUERY_RESULTS]: (payload) => ({
         'organization.uuid': payload.organizationUuid,
         'user.uuid': payload.userUuid,
         'project.uuid': payload.projectUuid,

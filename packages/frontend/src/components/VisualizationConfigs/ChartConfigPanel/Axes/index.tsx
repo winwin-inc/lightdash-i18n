@@ -72,6 +72,8 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
         setXMaxOffsetValue,
         setShowGridX,
         setShowGridY,
+        setShowXAxis,
+        setShowYAxis,
         setXAxisSort,
         setXAxisLabelRotation,
         dirtyChartType,
@@ -108,6 +110,11 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
     const canSortByBarTotals =
         dirtyChartType === CartesianSeriesType.BAR &&
         getAxisTypeFromField(xAxisField) === 'category';
+
+    const showXAxis =
+        dirtyLayout?.showXAxis !== undefined ? dirtyLayout?.showXAxis : true;
+    const showYAxis =
+        dirtyLayout?.showYAxis !== undefined ? dirtyLayout?.showYAxis : true;
 
     return (
         <Stack>
@@ -352,6 +359,40 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                                         ? !dirtyLayout?.showGridY
                                         : false,
                                 );
+                            }}
+                        />
+                    </Stack>
+                </Config.Section>
+            </Config>
+            <Config>
+                <Config.Section>
+                    <Config.Heading>Show axis</Config.Heading>
+
+                    <Stack spacing="xs">
+                        <Checkbox
+                            label={`${dirtyLayout?.flipAxes ? 'Y' : 'X'}-axis`}
+                            checked={
+                                dirtyLayout?.flipAxes ? showYAxis : showXAxis
+                            }
+                            onChange={() => {
+                                if (dirtyLayout?.flipAxes) {
+                                    setShowYAxis(!showYAxis);
+                                } else {
+                                    setShowXAxis(!showXAxis);
+                                }
+                            }}
+                        />
+                        <Checkbox
+                            label={`${dirtyLayout?.flipAxes ? 'X' : 'Y'}-axis`}
+                            checked={
+                                dirtyLayout?.flipAxes ? showXAxis : showYAxis
+                            }
+                            onChange={() => {
+                                if (dirtyLayout?.flipAxes) {
+                                    setShowXAxis(!showXAxis);
+                                } else {
+                                    setShowYAxis(!showYAxis);
+                                }
                             }}
                         />
                     </Stack>

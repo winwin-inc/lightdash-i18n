@@ -9,7 +9,7 @@ import {
     Text,
     Tooltip,
     type ButtonProps,
-} from '@mantine/core';
+} from '@mantine-8/core';
 import { IconRefresh } from '@tabler/icons-react';
 import { useEffect, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -25,7 +25,7 @@ import MantineIcon from '../common/MantineIcon';
 
 const RefreshDbtButton: FC<{
     onClick?: () => void;
-    buttonStyles?: ButtonProps['sx'];
+    buttonStyles?: ButtonProps['style'];
     leftIcon?: React.ReactNode;
     defaultTextOverride?: React.ReactNode;
     refreshingTextOverride?: React.ReactNode;
@@ -73,7 +73,10 @@ const RefreshDbtButton: FC<{
     )
         return null;
 
-    if (data?.dbtConnection?.type === DbtProjectType.NONE) {
+    if (
+        data?.dbtConnection?.type === DbtProjectType.NONE ||
+        data?.dbtConnection?.type === DbtProjectType.MANIFEST
+    ) {
         if (data?.dbtConnection.hideRefreshButton) {
             return null;
         }
@@ -81,14 +84,14 @@ const RefreshDbtButton: FC<{
             <Popover withinPortal withArrow width={300}>
                 <Popover.Target>
                     <Box
-                        sx={{
+                        style={{
                             cursor: 'pointer',
                         }}
                     >
                         <Button
                             size="xs"
                             variant="outline"
-                            leftIcon={<MantineIcon icon={IconRefresh} />}
+                            leftSection={<MantineIcon icon={IconRefresh} />}
                             disabled
                         >
                             {t('components_refresh_dbt_button.refresh')}
@@ -150,7 +153,7 @@ const RefreshDbtButton: FC<{
     };
 
     return (
-        <Group spacing="xs">
+        <Group gap="xs">
             <Tooltip
                 withinPortal
                 multiline
@@ -161,10 +164,10 @@ const RefreshDbtButton: FC<{
                 <Button
                     size="xs"
                     variant="default"
-                    leftIcon={leftIcon ?? <MantineIcon icon={IconRefresh} />}
+                    leftSection={leftIcon ?? <MantineIcon icon={IconRefresh} />}
                     loading={isLoading}
                     onClick={handleRefresh}
-                    sx={buttonStyles}
+                    style={buttonStyles}
                 >
                     {!isLoading
                         ? defaultTextOverride ??

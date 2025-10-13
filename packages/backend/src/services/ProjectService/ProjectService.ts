@@ -40,6 +40,7 @@ import {
     CustomSqlQueryForbiddenError,
     DashboardAvailableFilters,
     DashboardBasicDetails,
+    type DashboardDAO,
     DashboardFilters,
     DateZoom,
     DbtExposure,
@@ -61,10 +62,12 @@ import {
     FilterOperator,
     findFieldByIdInExplore,
     findReplaceableCustomMetrics,
+    flattenFilterGroup,
     ForbiddenError,
     formatRawRows,
     formatRows,
     getAggregatedField,
+    getAvailableParametersFromTables,
     getDashboardFilterRulesForTables,
     getDateDimension,
     getDimensions,
@@ -76,6 +79,7 @@ import {
     getMetrics,
     getSubtotalKey,
     getTimezoneLabel,
+    GroupByColumn,
     hasIntersection,
     hasWarehouseCredentials,
     IntrinsicUserAttributes,
@@ -99,15 +103,20 @@ import {
     maybeOverrideDbtConnection,
     maybeOverrideWarehouseConnection,
     maybeReplaceFieldsInChartVersion,
+    mergeWarehouseCredentials,
     MetricQuery,
     MissingWarehouseCredentialsError,
     MostPopularAndRecentlyUpdated,
+    normalizeIndexColumns,
     NotExistsError,
     NotFoundError,
+    NotSupportedError,
     OpenIdIdentityIssuerType,
+    type ParameterDefinitions,
     ParameterError,
     type ParametersValuesMap,
     PivotChartData,
+    PivotChartLayout,
     PivotValuesColumn,
     Project,
     ProjectCatalog,
@@ -146,7 +155,9 @@ import {
     UserAccessControls,
     UserAttributeValueMap,
     UserWarehouseCredentials,
+    ValuesColumn,
     VizColumn,
+    VizIndexType,
     WarehouseClient,
     WarehouseConnectionError,
     WarehouseCredentials,
@@ -189,6 +200,7 @@ import { FeatureFlagModel } from '../../models/FeatureFlagModel/FeatureFlagModel
 import { GroupsModel } from '../../models/GroupsModel';
 import { JobModel } from '../../models/JobModel/JobModel';
 import { OnboardingModel } from '../../models/OnboardingModel/OnboardingModel';
+import { OrganizationWarehouseCredentialsModel } from '../../models/OrganizationWarehouseCredentialsModel';
 import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { ProjectParametersModel } from '../../models/ProjectParametersModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
@@ -214,7 +226,8 @@ import { EncryptionUtil } from '../../utils/EncryptionUtil/EncryptionUtil';
 import {
     CompiledQuery,
     MetricQueryBuilder,
-} from '../../utils/QueryBuilder/queryBuilder';
+} from '../../utils/QueryBuilder/MetricQueryBuilder';
+import { PivotQueryBuilder } from '../../utils/QueryBuilder/PivotQueryBuilder';
 import { applyLimitToSqlQuery } from '../../utils/QueryBuilder/utils';
 import { SubtotalsCalculator } from '../../utils/SubtotalsCalculator';
 import { BaseService } from '../BaseService';
@@ -228,7 +241,7 @@ import {
     getFilteredExplore,
 } from '../UserAttributesService/UserAttributeUtils';
 import { UserService } from '../UserService';
-import { ValidationService } from '../ValidationService/ValidationService';
+import { getAvailableParameterDefinitions } from './parameters';
 
 export type ProjectServiceArguments = {
     lightdashConfig: LightdashConfig;
@@ -258,6 +271,7 @@ export type ProjectServiceArguments = {
     userModel: UserModel;
     featureFlagModel: FeatureFlagModel;
     projectParametersModel: ProjectParametersModel;
+    organizationWarehouseCredentialsModel: OrganizationWarehouseCredentialsModel;
 };
 
 export class ProjectService extends BaseService {
@@ -317,6 +331,8 @@ export class ProjectService extends BaseService {
 
     projectParametersModel: ProjectParametersModel;
 
+    organizationWarehouseCredentialsModel: OrganizationWarehouseCredentialsModel;
+
     constructor({
         lightdashConfig,
         analytics,
@@ -345,6 +361,7 @@ export class ProjectService extends BaseService {
         userModel,
         featureFlagModel,
         projectParametersModel,
+        organizationWarehouseCredentialsModel,
     }: ProjectServiceArguments) {
         super();
         this.lightdashConfig = lightdashConfig;
@@ -375,6 +392,8 @@ export class ProjectService extends BaseService {
         this.userModel = userModel;
         this.featureFlagModel = featureFlagModel;
         this.projectParametersModel = projectParametersModel;
+        this.organizationWarehouseCredentialsModel =
+            organizationWarehouseCredentialsModel;
     }
 
     static getMetricQueryExecutionProperties({
@@ -383,12 +402,14 @@ export class ProjectService extends BaseService {
         chartUuid,
         queryTags,
         explore,
+        parameters,
     }: {
         metricQuery: MetricQuery;
         dateZoom: DateZoom | undefined;
         chartUuid: string | undefined;
         queryTags: Record<string, unknown>;
         explore: Explore;
+        parameters: ParametersValuesMap | undefined;
     }): MetricQueryExecutionProperties {
         return {
             dimensionsCount: metricQuery.dimensions.length,
@@ -481,6 +502,7 @@ export class ProjectService extends BaseService {
                 metricQuery.metrics.includes(metricOverrideKey),
             ).length,
             limit: metricQuery.limit,
+            parametersCount: Object.keys(parameters || {}).length,
         };
     }
 
@@ -627,6 +649,10 @@ export class ProjectService extends BaseService {
     This method is used to refresh the credentials for the warehouse client
     This runs on every request to the warehouse, to refresh the token if needed when an accessToken is requested
     Bigquery uses the refresh token directly on the warehouse connection, so there is no need to refresh it
+
+    If organizationWarehouseCredentialsUuid is provided, this means the project is using organization-level
+    credentials and the refresh token is already stored in the credentials (fetched from the org credentials table).
+    Otherwise, fetch the refresh token from the user's OpenID table.
     */
     private async refreshCredentials<T extends CreateWarehouseCredentials>(
         args: T,
@@ -637,35 +663,68 @@ export class ProjectService extends BaseService {
             args.authenticationType === 'sso'
         ) {
             try {
-                let { token } = args;
+                // On old project configs we were storing refreshToken inside the token field (legacy)
+                let refreshToken = args.refreshToken || args.token;
 
                 // We pass the refresh token for snowflake on args
                 // This is used on user warehouse credentials.
                 // If this is provided, use this instead of getting the refresh token from the openid table
-                if (token === undefined) {
-                    token = await this.userModel.getRefreshToken(
+                if (refreshToken === undefined) {
+                    refreshToken = await this.userModel.getRefreshToken(
                         userUuid,
                         OpenIdIdentityIssuerType.SNOWFLAKE,
                     );
                 }
-
+                // If we still don't have a token, we can't refresh
+                if (!refreshToken) {
+                    throw new Error(
+                        'No refresh token available for Snowflake SSO authentication',
+                    );
+                }
+                // Token format validation
+                if (refreshToken.startsWith('ver:1-hint')) {
+                    // This is an invalid refresh token format,
+                    // we are using `access token` as refresh token (refresh token starts with ver:2-hint)
+                    // Review the calls to this method and ensure we pass {token: refreshToken} instead
+                    // This might affect older projects that were not storing correctly refresh token
+                    // They should be recompiled to store the refresh token correctly
+                    // see _resolveWarehouseClientCredentials for more details.
+                    throw new UnexpectedServerError(
+                        'Invalid snowflake refresh token format, please recompile your project',
+                    );
+                }
                 this.logger.debug(
                     `Refreshing snowflake token for user ${userUuid}`,
                 );
+
                 const accessToken =
-                    await UserService.generateSnowflakeAccessToken(token);
+                    await UserService.generateSnowflakeAccessToken(
+                        refreshToken,
+                    );
                 return {
                     ...args,
                     authenticationType: 'sso',
                     token: accessToken,
                 };
             } catch (e: unknown) {
+                if (e instanceof LightdashError) {
+                    throw e;
+                }
                 this.logger.error(
                     `Error refreshing snowflake token: ${JSON.stringify(e)}`,
                 );
-                throw new SnowflakeTokenError(
-                    `Error refreshing snowflake token`,
-                );
+
+                let errorMessage = '';
+                try {
+                    // Try to get detailed error message from snowflake refresh token error
+                    const errorDetails = JSON.parse(
+                        (e as { data: string }).data,
+                    ).message;
+                    errorMessage = `Error refreshing snowflake token: ${errorDetails}`;
+                } catch (e2: unknown) {
+                    errorMessage = 'Error refreshing snowflake token';
+                }
+                throw new SnowflakeTokenError(errorMessage);
             }
         }
         return args;
@@ -675,10 +734,63 @@ export class ProjectService extends BaseService {
     This method is used when the user is creating a project
     This does not depend on `requireUserCredentials` flag (check getWarehouseCredentials for more details about that)
     In here, we will load on runtime SSH credentials or refresh tokens for SSO
+
+    If organizationWarehouseCredentialsUuid is provided, load the credentials from the organization
+    credentials table instead of using the inline warehouseConnection.
     */
     private async _resolveWarehouseClientCredentials<
-        T extends { warehouseConnection: CreateWarehouseCredentials },
+        T extends {
+            warehouseConnection: CreateWarehouseCredentials;
+            organizationWarehouseCredentialsUuid?: string;
+        },
     >(args: T, userUuid: string): Promise<T> {
+        // If using organization credentials, load them from the organization table
+        const organizationWarehouseCredentialsUuid =
+            args.warehouseConnection.type === WarehouseTypes.SNOWFLAKE
+                ? args.organizationWarehouseCredentialsUuid ||
+                  args.warehouseConnection.organizationWarehouseCredentialsUuid
+                : undefined;
+
+        if (organizationWarehouseCredentialsUuid) {
+            this.logger.debug(
+                `Resolving organization warehouse credentials with uuid ${organizationWarehouseCredentialsUuid}`,
+            );
+
+            const { credentials: orgCredentials } =
+                await this.organizationWarehouseCredentialsModel.getByUuid(
+                    organizationWarehouseCredentialsUuid,
+                    true, // withSensitiveData
+                );
+
+            if (orgCredentials.type !== WarehouseTypes.SNOWFLAKE) {
+                throw new UnexpectedServerError(
+                    'Organization warehouse credentials are not compatible with Snowflake SSO authentication',
+                );
+            }
+            // Replace the warehouseConnection with the organization credentials
+            // The organizationWarehouseCredentialsUuid will be stored in the projects table
+            // but we don't store duplicate credentials in warehouse_credentials table
+            const mergedWarehouseConnection = {
+                ...args.warehouseConnection,
+                ...orgCredentials,
+            } as CreateSnowflakeCredentials;
+            this.logger.debug(
+                `Refreshing snowflake warehouse credentials from organization credentials uuid: ${organizationWarehouseCredentialsUuid}`,
+            );
+            const credentials = await this.refreshCredentials(
+                mergedWarehouseConnection,
+                userUuid,
+            );
+
+            return {
+                ...args,
+                warehouseConnection: {
+                    ...mergedWarehouseConnection,
+                    ...credentials,
+                },
+            };
+        }
+
         if (
             (args.warehouseConnection.type === WarehouseTypes.REDSHIFT ||
                 args.warehouseConnection.type === WarehouseTypes.POSTGRES) &&
@@ -729,11 +841,16 @@ export class ProjectService extends BaseService {
 
         if (
             args.warehouseConnection.type === WarehouseTypes.SNOWFLAKE &&
-            args.warehouseConnection.authenticationType === 'sso'
+            args.warehouseConnection.authenticationType === 'sso' &&
+            !organizationWarehouseCredentialsUuid
         ) {
             const refreshToken = await this.userModel.getRefreshToken(
                 userUuid,
                 OpenIdIdentityIssuerType.SNOWFLAKE,
+            );
+            // Validate refresh token and generate new access token
+            this.logger.debug(
+                `Refreshing snowflake warehouse credentials from user uuid: ${userUuid}`,
             );
             const credentials = await this.refreshCredentials(
                 { ...args.warehouseConnection, token: refreshToken },
@@ -744,6 +861,7 @@ export class ProjectService extends BaseService {
                 warehouseConnection: {
                     ...args.warehouseConnection,
                     ...credentials,
+                    refreshToken, // Store refresh token from user so we can generate new access tokens later
                 },
             };
         }
@@ -756,25 +874,45 @@ export class ProjectService extends BaseService {
         This method is used when the user is making requests to the warehouse
         and .
         Then if `requireUserCredentials` flag is enabled, we load the tokens from `userWarehouseCredentials` and replace them with the credentials from the project.
-        If `requireUserCredentials` flag is disabled, we just get access token if needed for the warehouse (like nowflake on SSO).
+        If `requireUserCredentials` flag is disabled, we just get access token if needed for the warehouse (like Snowflake on SSO).
     */
     protected async getWarehouseCredentials({
         projectUuid,
         userId,
-        isSessionUser,
+        isRegisteredUser,
     }: {
         projectUuid: string;
         userId: string;
-        isSessionUser: boolean;
+        isRegisteredUser: boolean;
     }) {
-        let credentials =
+        // First, check if project uses organization-level credentials
+        const project = await this.projectModel.get(projectUuid);
+        const { organizationWarehouseCredentialsUuid } = project;
+
+        // Load base credentials from either organization or project table
+        let credentials: CreateWarehouseCredentials =
             await this.projectModel.getWarehouseCredentialsForProject(
                 projectUuid,
             );
         let userWarehouseCredentialsUuid: string | undefined;
 
+        if (
+            organizationWarehouseCredentialsUuid &&
+            !credentials.requireUserCredentials
+        ) {
+            this.logger.debug(
+                `Refreshing warehouse credentials from organization credentials`,
+            );
+            credentials = await this.refreshCredentials(
+                credentials, // This credentials are already loaded from organization
+                userId,
+            );
+        }
+
+        // If requireUserCredentials is true, we need to override the existing credentials with the user credentials
+        // even if we use organization credentials
         if (credentials.requireUserCredentials) {
-            if (!isSessionUser) {
+            if (!isRegisteredUser) {
                 throw new ForbiddenError(
                     'Embedded users cannot use personal warehouse credentials',
                 );
@@ -802,10 +940,16 @@ export class ProjectService extends BaseService {
                     'User warehouse credentials are not compatible',
                 );
             }
+            this.logger.debug(
+                `Refreshing warehouse credentials for user ${userId} with requireUserCredentials`,
+            );
             credentials = await this.refreshCredentials(credentials, userId);
 
             userWarehouseCredentialsUuid = userWarehouseCredentials.uuid;
-        } else if (isSessionUser) {
+        } else if (isRegisteredUser && !organizationWarehouseCredentialsUuid) {
+            this.logger.debug(
+                `Refreshing warehouse credentials for session user ${userId}`,
+            );
             credentials = await this.refreshCredentials(credentials, userId);
         }
 
@@ -894,6 +1038,7 @@ export class ProjectService extends BaseService {
             case WarehouseTypes.POSTGRES:
             case WarehouseTypes.BIGQUERY:
             case WarehouseTypes.TRINO:
+            case WarehouseTypes.CLICKHOUSE:
                 credentialsWithOverrides = warehouseSshCredentials;
                 break;
             default:
@@ -948,10 +1093,10 @@ export class ProjectService extends BaseService {
         });
     }
 
-    async getProject(projectUuid: string, user: SessionUser): Promise<Project> {
+    async getProject(projectUuid: string, account: Account): Promise<Project> {
         const project = await this.projectModel.get(projectUuid);
         if (
-            user.ability.cannot(
+            account.user.ability.cannot(
                 'view',
                 subject('Project', {
                     organizationUuid: project.organizationUuid,
@@ -985,6 +1130,24 @@ export class ProjectService extends BaseService {
                 await this.projectModel.getWarehouseCredentialsForProject(
                     data.upstreamProjectUuid,
                 );
+        } else if (
+            newProjectData.type === ProjectType.PREVIEW &&
+            data.upstreamProjectUuid &&
+            data.warehouseConnection &&
+            !data.copyWarehouseConnectionFromUpstreamProject
+        ) {
+            // When creating a preview from CLI with credentials, merge with upstream credentials
+            // to preserve advanced settings like requireUserCredentials
+            const upstreamCredentials =
+                await this.projectModel.getWarehouseCredentialsForProject(
+                    data.upstreamProjectUuid,
+                );
+            if (upstreamCredentials) {
+                newProjectData.warehouseConnection = mergeWarehouseCredentials(
+                    upstreamCredentials,
+                    data.warehouseConnection,
+                );
+            }
         }
 
         const createProject: CreateProjectOptionalCredentials =
@@ -994,6 +1157,7 @@ export class ProjectService extends BaseService {
                       user.userUuid,
                   )
                 : newProjectData;
+
         const projectUuid =
             await this.projectModel.createWithOptionalCredentials(
                 user.userUuid,
@@ -1176,20 +1340,30 @@ export class ProjectService extends BaseService {
                 async () => this.testProjectAdapter(createProject, user),
             );
 
-            const explores = await this.jobModel.tryJobStep(
-                jobUuid,
-                JobStepType.COMPILING,
-                async () => {
-                    try {
-                        // There's no project yet, so we don't track
-                        const trackingParams = undefined;
-                        return await adapter.compileAllExplores(trackingParams);
-                    } finally {
-                        await adapter.destroy();
-                        await sshTunnel.disconnect();
-                    }
-                },
-            );
+            const { explores, lightdashProjectConfig } =
+                await this.jobModel.tryJobStep(
+                    jobUuid,
+                    JobStepType.COMPILING,
+                    async () => {
+                        try {
+                            // There's no project yet, so we don't track
+                            const trackingParams = undefined;
+
+                            return {
+                                explores: await adapter.compileAllExplores(
+                                    trackingParams,
+                                ),
+                                lightdashProjectConfig:
+                                    await adapter.getLightdashProjectConfig(
+                                        trackingParams,
+                                    ),
+                            };
+                        } finally {
+                            await adapter.destroy();
+                            await sshTunnel.disconnect();
+                        }
+                    },
+                );
 
             const projectUuid = await this.jobModel.tryJobStep(
                 jobUuid,
@@ -1208,15 +1382,6 @@ export class ProjectService extends BaseService {
                             ProjectMemberRole.ADMIN,
                         );
                     }
-
-                    const trackingParams = {
-                        projectUuid: newProjectUuid,
-                        organizationUuid: user.organizationUuid,
-                        userUuid: user.userUuid,
-                    };
-
-                    const lightdashProjectConfig =
-                        await adapter.getLightdashProjectConfig(trackingParams);
 
                     await this.replaceYamlTags(
                         user,
@@ -1651,6 +1816,21 @@ export class ProjectService extends BaseService {
         }
         const cachedWarehouseCatalog =
             await this.projectModel.getWarehouseFromCache(projectUuid);
+
+        if (
+            project.warehouseConnection.type === WarehouseTypes.SNOWFLAKE &&
+            project.warehouseConnection.authenticationType === 'sso' &&
+            project.warehouseConnection.refreshToken
+        ) {
+            this.logger.debug(
+                `Refreshing snowflake warehouse credentials from refresh token on buildAdapter`,
+            );
+            const accessToken = await UserService.generateSnowflakeAccessToken(
+                project.warehouseConnection.refreshToken,
+            );
+            project.warehouseConnection.token = accessToken;
+        }
+
         const sshTunnel = new SshTunnel(project.warehouseConnection);
         await sshTunnel.connect();
 
@@ -1677,6 +1857,7 @@ export class ProjectService extends BaseService {
         explore: Explore,
         metricQuery: MetricQuery,
         warehouseSqlBuilder: WarehouseSqlBuilder,
+        availableParameters: string[],
         dateZoom?: DateZoom,
     ): Explore {
         if (dateZoom?.granularity) {
@@ -1714,6 +1895,7 @@ export class ProjectService extends BaseService {
                     dimToOverride.timeInterval && baseDimensionId
                         ? timeDimensionsMap[baseDimensionId]
                         : dimToOverride;
+
                 const dimWithGranularityOverride =
                     createDimensionWithGranularity(
                         dimToOverride.name,
@@ -1721,6 +1903,7 @@ export class ProjectService extends BaseService {
                         explore,
                         warehouseSqlBuilder,
                         dateZoom?.granularity,
+                        availableParameters,
                     );
 
                 return replaceDimensionInExplore(
@@ -1732,21 +1915,34 @@ export class ProjectService extends BaseService {
         return explore;
     }
 
-    static async _compileQuery(
-        metricQuery: MetricQuery,
-        explore: Explore,
-        warehouseSqlBuilder: WarehouseSqlBuilder,
-        intrinsicUserAttributes: IntrinsicUserAttributes,
-        userAttributes: UserAttributeValueMap,
-        timezone: string,
-        dateZoom?: DateZoom,
-        useExperimentalMetricCtes?: boolean,
-        parameters?: ParametersValuesMap,
-    ): Promise<CompiledQuery> {
+    static async _compileQuery({
+        metricQuery,
+        explore,
+        warehouseSqlBuilder,
+        intrinsicUserAttributes,
+        userAttributes,
+        timezone,
+        dateZoom,
+        parameters,
+        availableParameterDefinitions,
+    }: {
+        metricQuery: MetricQuery;
+        explore: Explore;
+        warehouseSqlBuilder: WarehouseSqlBuilder;
+        intrinsicUserAttributes: IntrinsicUserAttributes;
+        userAttributes: UserAttributeValueMap;
+        timezone: string;
+        dateZoom?: DateZoom;
+        parameters?: ParametersValuesMap;
+        availableParameterDefinitions: ParameterDefinitions;
+    }): Promise<CompiledQuery> {
+        const availableParameters = Object.keys(availableParameterDefinitions);
+
         const exploreWithOverride = ProjectService.updateExploreWithDateZoom(
             explore,
             metricQuery,
             warehouseSqlBuilder,
+            availableParameters,
             dateZoom,
         );
 
@@ -1754,6 +1950,7 @@ export class ProjectService extends BaseService {
             explore: exploreWithOverride,
             metricQuery,
             warehouseSqlBuilder,
+            availableParameters,
         });
 
         const queryBuilder = new MetricQueryBuilder({
@@ -1764,13 +1961,29 @@ export class ProjectService extends BaseService {
             userAttributes,
             timezone,
             parameters,
+            parameterDefinitions: availableParameterDefinitions,
         });
 
-        return wrapSentryTransactionSync(
-            'QueryBuilder.buildQuery',
-            { useExperimentalMetricCtes },
-            () => queryBuilder.compileQuery(useExperimentalMetricCtes),
+        return wrapSentryTransactionSync('QueryBuilder.buildQuery', {}, () =>
+            queryBuilder.compileQuery(),
         );
+    }
+
+    /**
+     * Get all available parameter definitions for a project and explore
+     * @param projectUuid - The UUID of the project
+     * @param explore - The explore to get the parameters for
+     * @returns Parameter definitions object
+     */
+    protected async getAvailableParameters(
+        projectUuid: string,
+        explore: Explore,
+    ): Promise<ParameterDefinitions> {
+        const projectParameters = await this.projectParametersModel.find(
+            projectUuid,
+        );
+
+        return getAvailableParameterDefinitions(projectParameters, explore);
     }
 
     async compileQuery(
@@ -1819,7 +2032,7 @@ export class ProjectService extends BaseService {
             await this.getWarehouseCredentials({
                 projectUuid,
                 userId: account.user.id,
-                isSessionUser: account.isSessionUser(),
+                isRegisteredUser: account.isRegisteredUser(),
             }),
             {
                 snowflakeVirtualWarehouse: explore.warehouse,
@@ -1830,27 +2043,22 @@ export class ProjectService extends BaseService {
         const { userAttributes, intrinsicUserAttributes } =
             await this.getUserAttributes({ account });
 
-        const { enabled: useExperimentalMetricCtes } =
-            await this.featureFlagModel.get({
-                user: {
-                    userUuid: account.user.id,
-                    organizationUuid: account.organization.organizationUuid,
-                    organizationName: account.organization.name,
-                },
-                featureFlagId: FeatureFlags.ShowQueryWarnings,
-            });
+        const availableParameterDefinitions = await this.getAvailableParameters(
+            projectUuid,
+            explore,
+        );
 
-        const compiledQuery = await ProjectService._compileQuery(
+        const compiledQuery = await ProjectService._compileQuery({
             metricQuery,
             explore,
-            warehouseClient,
+            warehouseSqlBuilder: warehouseClient,
             intrinsicUserAttributes,
             userAttributes,
-            this.lightdashConfig.query.timezone || 'UTC',
-            undefined,
-            useExperimentalMetricCtes,
+            timezone: this.lightdashConfig.query.timezone || 'UTC',
             parameters,
-        );
+            availableParameterDefinitions,
+        });
+
         await sshTunnel.disconnect();
 
         return {
@@ -2666,7 +2874,7 @@ export class ProjectService extends BaseService {
                             await this.getWarehouseCredentials({
                                 projectUuid,
                                 userId: account.user.id,
-                                isSessionUser: account.isSessionUser(),
+                                isRegisteredUser: account.isRegisteredUser(),
                             }),
                             {
                                 snowflakeVirtualWarehouse: explore.warehouse,
@@ -2679,17 +2887,20 @@ export class ProjectService extends BaseService {
                             account,
                         });
 
-                    const fullQuery = await ProjectService._compileQuery(
-                        metricQueryWithLimit,
+                    const availableParameterDefinitions =
+                        await this.getAvailableParameters(projectUuid, explore);
+
+                    const fullQuery = await ProjectService._compileQuery({
+                        metricQuery: metricQueryWithLimit,
                         explore,
-                        warehouseClient,
+                        warehouseSqlBuilder: warehouseClient,
                         intrinsicUserAttributes,
                         userAttributes,
-                        this.lightdashConfig.query.timezone || 'UTC',
+                        timezone: this.lightdashConfig.query.timezone || 'UTC',
                         dateZoom,
-                        undefined,
                         parameters,
-                    );
+                        availableParameterDefinitions,
+                    });
 
                     const { query } = fullQuery;
 
@@ -2737,6 +2948,7 @@ export class ProjectService extends BaseService {
                                     chartUuid,
                                     dateZoom,
                                     explore,
+                                    parameters,
                                 },
                             ),
                         },
@@ -2810,7 +3022,7 @@ export class ProjectService extends BaseService {
             await this.getWarehouseCredentials({
                 projectUuid,
                 userId: user.userUuid,
-                isSessionUser: true,
+                isRegisteredUser: true,
             }),
         );
         this.logger.debug(`Run query against warehouse`);
@@ -2866,7 +3078,7 @@ export class ProjectService extends BaseService {
             await this.getWarehouseCredentials({
                 projectUuid,
                 userId: userUuid,
-                isSessionUser: true,
+                isRegisteredUser: true,
             }),
         );
         this.logger.debug(`Stream query against warehouse`);
@@ -2911,118 +3123,6 @@ export class ProjectService extends BaseService {
         return { fileUrl, columns };
     }
 
-    static applyPivotToSqlQuery({
-        warehouseType,
-        sql,
-        limit,
-        indexColumn,
-        valuesColumns,
-        groupByColumns,
-        sortBy,
-    }: Pick<
-        SqlRunnerPivotQueryPayload,
-        | 'sql'
-        | 'limit'
-        | 'indexColumn'
-        | 'valuesColumns'
-        | 'groupByColumns'
-        | 'sortBy'
-    > & { warehouseType: WarehouseTypes }): string {
-        if (!indexColumn) throw new ParameterError('Index column is required');
-        const q = getFieldQuoteChar(warehouseType);
-        const userSql = sql.replace(/;\s*$/, '');
-        const groupBySelectDimensions = [
-            ...(groupByColumns || []).map((col) => `${q}${col.reference}${q}`),
-            `${q}${indexColumn.reference}${q}`,
-        ];
-        const groupBySelectMetrics = [
-            ...(valuesColumns ?? []).map((col) => {
-                const aggregationField = getAggregatedField(
-                    warehouseType,
-                    col.aggregation,
-                    col.reference,
-                );
-                return `${aggregationField} AS ${q}${col.reference}_${col.aggregation}${q}`;
-            }),
-        ];
-        const groupByQuery = `SELECT ${[
-            ...new Set(groupBySelectDimensions), // Remove duplicate columns
-            ...groupBySelectMetrics,
-        ].join(', ')} FROM original_query group by ${Array.from(
-            new Set(groupBySelectDimensions),
-        ).join(', ')}`;
-
-        const selectReferences = [
-            indexColumn.reference,
-            ...(groupByColumns || []).map((col) => `${q}${col.reference}${q}`),
-            ...(valuesColumns || []).map(
-                (col) => `${q}${col.reference}_${col.aggregation}${q}`,
-            ),
-        ];
-
-        const orderBy: string = sortBy?.length
-            ? `ORDER BY ${sortBy
-                  .map((s) => `${q}${s.reference}${q} ${s.direction}`)
-                  .join(', ')}`
-            : ``;
-
-        const sortDirectionForIndexColumn =
-            sortBy?.find((s) => s.reference === indexColumn.reference)
-                ?.direction === SortByDirection.DESC
-                ? 'DESC'
-                : 'ASC';
-        const pivotQuery = `SELECT ${selectReferences.join(
-            ', ',
-        )}, dense_rank() over (order by ${q}${
-            indexColumn.reference
-        }${q} ${sortDirectionForIndexColumn}) as ${q}row_index${q}, dense_rank() over (order by ${q}${
-            groupByColumns?.[0]?.reference
-        }${q}) as ${q}column_index${q} FROM group_by_query`;
-
-        if (groupByColumns && groupByColumns.length > 0) {
-            // Calculate max allowed columns based on number of value columns
-            const valueColumnsCount = valuesColumns?.length || 1;
-            const remainingColumns = MAX_PIVOT_COLUMN_LIMIT - 1; // Account for the index column
-            const maxColumnsPerValueColumn = Math.floor(
-                remainingColumns / valueColumnsCount,
-            );
-
-            // Generate filtered rows and total columns so that we can apply a max column limit but also count the total number of columns if we exceed the MAX_PIVOT_COLUMN_LIMIT
-            let pivotedSql = `
-            WITH original_query AS (${userSql}),
-                 group_by_query AS (${groupByQuery}),
-                 pivot_query AS (${pivotQuery}),
-                 filtered_rows AS (
-                    SELECT * FROM pivot_query WHERE ${q}row_index${q} <= ${
-                limit ?? 500
-            }
-                 ),
-                 total_columns AS (
-                    SELECT (COUNT(DISTINCT ${groupByColumns
-                        .map((col) => `filtered_rows.${q}${col.reference}${q}`)
-                        .join(', ')}) * ${
-                valuesColumns?.length || 1
-            }) as total_columns FROM filtered_rows
-                 )
-            `;
-
-            // Add a max column limit to avoid too many columns and performance issues.
-            // Warn the user if we exceed it.
-            pivotedSql += `\nSELECT p.*, t.total_columns FROM pivot_query p CROSS JOIN total_columns t WHERE p.${q}row_index${q} <= ${
-                limit ?? 500
-            } and p.${q}column_index${q} <= ${maxColumnsPerValueColumn} order by p.${q}row_index${q}, p.${q}column_index${q}`;
-
-            return pivotedSql;
-        }
-
-        let sqlQuery = `WITH original_query AS (${userSql}), group_by_query AS (${groupByQuery})`;
-        sqlQuery += `\nSELECT * FROM group_by_query ${orderBy} LIMIT ${
-            limit ?? 500
-        } `;
-
-        return sqlQuery;
-    }
-
     async pivotQueryWorkerTask({
         userUuid,
         projectUuid,
@@ -3037,7 +3137,10 @@ export class ProjectService extends BaseService {
     }: SqlRunnerPivotQueryPayload): Promise<
         Omit<PivotChartData, 'results' | 'columns'>
     > {
-        if (!indexColumn) throw new ParameterError('Index column is required');
+        const indexColumns = normalizeIndexColumns(indexColumn);
+        if (indexColumns.length === 0) {
+            throw new ParameterError('Index column is required');
+        }
         const { organizationUuid } = await this.projectModel.getSummary(
             projectUuid,
         );
@@ -3045,17 +3148,7 @@ export class ProjectService extends BaseService {
         const warehouseCredentials = await this.getWarehouseCredentials({
             projectUuid,
             userId: userUuid,
-            isSessionUser: true,
-        });
-        // Apply limit and pivot to the SQL query
-        const pivotedSql = ProjectService.applyPivotToSqlQuery({
-            warehouseType: warehouseCredentials.type,
-            sql,
-            limit,
-            indexColumn,
-            valuesColumns,
-            groupByColumns,
-            sortBy,
+            isRegisteredUser: true,
         });
 
         this.analytics.track({
@@ -3073,6 +3166,22 @@ export class ProjectService extends BaseService {
             projectUuid,
             warehouseCredentials,
         );
+
+        // Apply limit and pivot to the SQL query
+        const pivotQueryBuilder = new PivotQueryBuilder(
+            sql,
+            {
+                indexColumn: indexColumns,
+                valuesColumns,
+                groupByColumns,
+                sortBy,
+            },
+            warehouseClient,
+            limit,
+        );
+
+        const pivotedSql = pivotQueryBuilder.toSql();
+
         this.logger.debug(`Stream query against warehouse`);
         const queryTags: RunQueryTags = {
             organization_uuid: organizationUuid,
@@ -3124,10 +3233,17 @@ export class ProjectService extends BaseService {
                                     if (currentTransformedRow) {
                                         writer(currentTransformedRow);
                                     }
-                                    currentTransformedRow = {
-                                        [indexColumn.reference]:
-                                            row[indexColumn.reference],
-                                    };
+
+                                    currentTransformedRow =
+                                        indexColumns.reduce<ResultRow>(
+                                            (acc, indexCol) => {
+                                                acc[indexCol.reference] =
+                                                    row[indexCol.reference];
+                                                return acc;
+                                            },
+                                            {},
+                                        );
+
                                     currentRowIndex = row.row_index;
                                 }
                                 // Suffix the value column with the group by columns to avoid collisions.
@@ -3194,7 +3310,7 @@ export class ProjectService extends BaseService {
             queryUuid: undefined,
             fileUrl,
             valuesColumns: processedColumns,
-            indexColumn,
+            indexColumn: indexColumns,
             columnCount: Number(columnCount) || undefined,
         };
     }
@@ -3374,7 +3490,7 @@ export class ProjectService extends BaseService {
             await this.getWarehouseCredentials({
                 projectUuid,
                 userId: user.userUuid,
-                isSessionUser: true,
+                isRegisteredUser: true,
             }),
             {
                 snowflakeVirtualWarehouse: explore.warehouse,
@@ -3384,17 +3500,21 @@ export class ProjectService extends BaseService {
         const { userAttributes, intrinsicUserAttributes } =
             await this.getUserAttributes({ user });
 
-        const { query } = await ProjectService._compileQuery(
+        const availableParameterDefinitions = await this.getAvailableParameters(
+            projectUuid,
+            explore,
+        );
+
+        const { query } = await ProjectService._compileQuery({
             metricQuery,
             explore,
-            warehouseClient,
+            warehouseSqlBuilder: warehouseClient,
             intrinsicUserAttributes,
             userAttributes,
-            this.lightdashConfig.query.timezone || 'UTC',
-            undefined,
-            undefined,
+            timezone: this.lightdashConfig.query.timezone || 'UTC',
             parameters,
-        );
+            availableParameterDefinitions,
+        });
 
         // Add a cache_autocomplete prefix to the query hash to avoid collisions with the results cache
         const queryHashKey = metricQuery.timezone
@@ -3477,13 +3597,13 @@ export class ProjectService extends BaseService {
         };
     }
 
-    private async refreshAllTables(
+    private async refreshTablesAndProjectConfig(
         user: Pick<SessionUser, 'userUuid'>,
         projectUuid: string,
         requestMethod: RequestMethod,
     ): Promise<{
         explores: (Explore | ExploreError)[];
-        adapter: ProjectAdapter;
+        lightdashProjectConfig: LightdashProjectConfig;
     }> {
         // Checks that project exists
         const project = await this.projectModel.get(projectUuid);
@@ -3630,7 +3750,10 @@ export class ProjectService extends BaseService {
                 },
             });
 
-            return { explores, adapter };
+            const lightdashProjectConfig =
+                await adapter.getLightdashProjectConfig(trackingParams);
+
+            return { explores, lightdashProjectConfig };
         } catch (e) {
             if (!(e instanceof LightdashError)) {
                 Sentry.captureException(e);
@@ -3790,20 +3913,11 @@ export class ProjectService extends BaseService {
                     job.jobUuid,
                     JobStepType.COMPILING,
                     async () => {
-                        const { explores, adapter } =
-                            await this.refreshAllTables(
+                        const { explores, lightdashProjectConfig } =
+                            await this.refreshTablesAndProjectConfig(
                                 user,
                                 projectUuid,
                                 requestMethod,
-                            );
-                        const trackingParams = {
-                            projectUuid,
-                            organizationUuid,
-                            userUuid: user.userUuid,
-                        };
-                        const lightdashProjectConfig =
-                            await adapter.getLightdashProjectConfig(
-                                trackingParams,
                             );
 
                         await this.replaceYamlTags(
@@ -3857,7 +3971,7 @@ export class ProjectService extends BaseService {
     }
 
     async getAllExploresSummary(
-        user: SessionUser,
+        account: Account,
         projectUuid: string,
         filtered: boolean,
         includeErrors: boolean = true,
@@ -3866,7 +3980,7 @@ export class ProjectService extends BaseService {
             projectUuid,
         );
         if (
-            user.ability.cannot(
+            account.user.ability.cannot(
                 'view',
                 subject('Project', { organizationUuid, projectUuid }),
             )
@@ -3876,17 +3990,14 @@ export class ProjectService extends BaseService {
 
         const cachedExplores = await this.projectModel.findExploresFromCache(
             projectUuid,
+            'name',
         );
         const explores = Object.values(cachedExplores);
 
         if (!explores) {
             return [];
         }
-        const userAttributes =
-            await this.userAttributesModel.getAttributeValuesForOrgMember({
-                organizationUuid,
-                userUuid: user.userUuid,
-            });
+        const { userAttributes } = await this.getUserAttributes({ account });
 
         const allExploreSummaries = explores.reduce<SummaryExplore[]>(
             (acc, explore) => {
@@ -3946,7 +4057,7 @@ export class ProjectService extends BaseService {
         if (filtered) {
             const {
                 tableSelection: { type, value },
-            } = await this.getTablesConfiguration(user, projectUuid);
+            } = await this.getTablesConfiguration(account, projectUuid);
             if (type === TableSelectionType.WITH_TAGS) {
                 return allExploreSummaries.filter(
                     (explore) =>
@@ -4044,6 +4155,7 @@ export class ProjectService extends BaseService {
                 }
                 const explores = await this.projectModel.findExploresFromCache(
                     projectUuid,
+                    'name',
                     exploreNames,
                 );
 
@@ -4091,6 +4203,7 @@ export class ProjectService extends BaseService {
         }
         const cachedExplores = await this.projectModel.findExploresFromCache(
             projectUuid,
+            'name',
         );
         const explores = Object.values(cachedExplores);
 
@@ -4134,9 +4247,10 @@ export class ProjectService extends BaseService {
             case WarehouseTypes.POSTGRES:
             case WarehouseTypes.TRINO:
                 return credentials.dbname;
+            case WarehouseTypes.CLICKHOUSE:
+                return ''; // Clickhouse doesn't have a database
             case WarehouseTypes.SNOWFLAKE:
                 return credentials.database.toLowerCase();
-
             case WarehouseTypes.DATABRICKS:
                 return credentials.catalog;
             default:
@@ -4163,7 +4277,7 @@ export class ProjectService extends BaseService {
         const credentials = await this.getWarehouseCredentials({
             projectUuid,
             userId: user.userUuid,
-            isSessionUser: true,
+            isRegisteredUser: true,
         });
 
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
@@ -4216,7 +4330,7 @@ export class ProjectService extends BaseService {
         const credentials = await this.getWarehouseCredentials({
             projectUuid,
             userId: user.userUuid,
-            isSessionUser: true,
+            isRegisteredUser: true,
         });
 
         let catalog: WarehouseTablesCatalog | null = null;
@@ -4269,7 +4383,7 @@ export class ProjectService extends BaseService {
         const credentials = await this.getWarehouseCredentials({
             projectUuid,
             userId: user.userUuid,
-            isSessionUser: true,
+            isRegisteredUser: true,
         });
 
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
@@ -4286,7 +4400,7 @@ export class ProjectService extends BaseService {
 
         let database =
             databaseName ?? ProjectService.getWarehouseDatabase(credentials);
-        if (!database) {
+        if (database === undefined) {
             throw new NotFoundError(
                 'Database not found in warehouse credentials',
             );
@@ -4322,14 +4436,14 @@ export class ProjectService extends BaseService {
     }
 
     async getTablesConfiguration(
-        user: SessionUser,
+        account: Account,
         projectUuid: string,
     ): Promise<TablesConfiguration> {
         const { organizationUuid } = await this.projectModel.getSummary(
             projectUuid,
         );
         if (
-            user.ability.cannot(
+            account.user.ability.cannot(
                 'view',
                 subject('Project', { organizationUuid, projectUuid }),
             )
@@ -5001,6 +5115,7 @@ export class ProjectService extends BaseService {
             dbtConnectionOverrides?: {
                 branch?: string;
                 environment?: DbtProjectEnvironmentVariable[];
+                manifest?: string;
             };
             warehouseConnectionOverrides?: { schema?: string };
         },
@@ -5040,6 +5155,7 @@ export class ProjectService extends BaseService {
         // it is possible that the user `abilities` are not uptodate
         // Before we check permissions on scheduleCompileProject
         // Permissions will be checked again with the uptodate user on scheduler
+
         const { jobUuid } = await this.scheduleCompileProject(
             user,
             previewProject.project.projectUuid,
@@ -5142,7 +5258,7 @@ export class ProjectService extends BaseService {
         explore: Explore,
         metricQuery: MetricQuery,
         warehouseClient: WarehouseClient,
-        useExperimentalMetricCtes?: boolean,
+        availableParameterDefinitions: ParameterDefinitions,
         parameters?: ParametersValuesMap,
     ) {
         const totalQuery: MetricQuery = {
@@ -5156,17 +5272,29 @@ export class ProjectService extends BaseService {
             additionalMetrics: metricQuery.additionalMetrics,
         };
 
-        const { query } = await ProjectService._compileQuery(
-            totalQuery,
+        const hasMetricFilters =
+            !!totalQuery.filters.metrics &&
+            flattenFilterGroup(totalQuery.filters.metrics).length > 0;
+        const hasTableCalculationFilters =
+            !!totalQuery.filters.tableCalculations &&
+            flattenFilterGroup(totalQuery.filters.tableCalculations).length > 0;
+
+        if (hasMetricFilters || hasTableCalculationFilters) {
+            throw new NotSupportedError(
+                'Totals cannot be correctly calculated with metric filters or table calculation filters',
+            );
+        }
+
+        const { query } = await ProjectService._compileQuery({
+            metricQuery: totalQuery,
             explore,
-            warehouseClient,
+            warehouseSqlBuilder: warehouseClient,
             intrinsicUserAttributes,
             userAttributes,
-            this.lightdashConfig.query.timezone || 'UTC',
-            undefined,
-            useExperimentalMetricCtes,
+            timezone: this.lightdashConfig.query.timezone || 'UTC',
             parameters,
-        );
+            availableParameterDefinitions,
+        });
 
         return { query, totalQuery };
     }
@@ -5174,24 +5302,17 @@ export class ProjectService extends BaseService {
     async _calculateTotal(
         account: Account,
         projectUuid: string,
-        exploreName: string,
+        explore: Explore,
         metricQuery: MetricQuery,
         organizationUuid: string,
         parameters?: ParametersValuesMap,
     ) {
-        const explore = await this.getExplore(
-            account,
-            projectUuid,
-            exploreName,
-            organizationUuid,
-        );
-
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
             await this.getWarehouseCredentials({
                 projectUuid,
                 userId: account.user.id,
-                isSessionUser: account.isSessionUser(),
+                isRegisteredUser: account.isRegisteredUser(),
             }),
             {
                 snowflakeVirtualWarehouse: explore.warehouse,
@@ -5202,37 +5323,40 @@ export class ProjectService extends BaseService {
         const { userAttributes, intrinsicUserAttributes } =
             await this.getUserAttributes({ account });
 
-        const { enabled: useExperimentalMetricCtes } =
-            await this.featureFlagModel.get({
-                user: {
-                    userUuid: account.user.id,
-                    organizationName: account.organization.name,
-                    organizationUuid: account.organization.organizationUuid,
-                },
-                featureFlagId: FeatureFlags.ShowQueryWarnings,
-            });
-
-        const { query } = await this._getCalculateTotalQuery(
-            userAttributes,
-            intrinsicUserAttributes,
+        const availableParameterDefinitions = await this.getAvailableParameters(
+            projectUuid,
             explore,
-            metricQuery,
-            warehouseClient,
-            useExperimentalMetricCtes,
-            parameters,
         );
 
-        const queryTags: RunQueryTags = {
-            ...this.getUserQueryTags(account),
-            organization_uuid: account.organization.organizationUuid,
-            project_uuid: projectUuid,
-            explore_name: exploreName,
-            query_context: QueryExecutionContext.CALCULATE_TOTAL,
-        };
+        try {
+            const { query } = await this._getCalculateTotalQuery(
+                userAttributes,
+                intrinsicUserAttributes,
+                explore,
+                metricQuery,
+                warehouseClient,
+                availableParameterDefinitions,
+                parameters,
+            );
 
-        const { rows } = await warehouseClient.runQuery(query, queryTags);
-        await sshTunnel.disconnect();
-        return { row: rows[0] };
+            const queryTags: RunQueryTags = {
+                ...this.getUserQueryTags(account),
+                organization_uuid: account.organization.organizationUuid,
+                project_uuid: projectUuid,
+                explore_name: explore.name,
+                query_context: QueryExecutionContext.CALCULATE_TOTAL,
+            };
+
+            const { rows } = await warehouseClient.runQuery(query, queryTags);
+            await sshTunnel.disconnect();
+            return { row: rows[0] };
+        } catch (e) {
+            if (e instanceof NotSupportedError) {
+                this.logger.warn(e.message);
+                return { row: {} }; // no totals
+            }
+            throw e;
+        }
     }
 
     async _calculateTotalFromCacheOrWarehouse(
@@ -5249,7 +5373,7 @@ export class ProjectService extends BaseService {
             await this.getWarehouseCredentials({
                 projectUuid,
                 userId: account.user.id,
-                isSessionUser: account.authentication.type === 'session',
+                isRegisteredUser: account.isRegisteredUser(),
             }),
             {
                 snowflakeVirtualWarehouse: explore.warehouse,
@@ -5260,36 +5384,49 @@ export class ProjectService extends BaseService {
         const { userAttributes, intrinsicUserAttributes } =
             await this.getUserAttributes({ account });
 
-        const { query, totalQuery } = await this._getCalculateTotalQuery(
-            userAttributes,
-            intrinsicUserAttributes,
+        const availableParameterDefinitions = await this.getAvailableParameters(
+            projectUuid,
             explore,
-            metricQuery,
-            warehouseClient,
-            undefined,
-            parameters,
         );
 
-        const queryTags: RunQueryTags = {
-            ...this.getUserQueryTags(account),
-            organization_uuid: organizationUuid,
-            project_uuid: projectUuid,
-            explore_name: explore.name,
-            query_context: QueryExecutionContext.CALCULATE_TOTAL,
-        };
-
-        const { rows, cacheMetadata } =
-            await this.getResultsFromCacheOrWarehouse({
-                projectUuid,
-                context: QueryExecutionContext.CALCULATE_TOTAL,
+        try {
+            const { query, totalQuery } = await this._getCalculateTotalQuery(
+                userAttributes,
+                intrinsicUserAttributes,
+                explore,
+                metricQuery,
                 warehouseClient,
-                metricQuery: totalQuery,
-                query,
-                queryTags,
-                invalidateCache,
-            });
-        await sshTunnel.disconnect();
-        return { row: rows[0], cacheMetadata };
+                availableParameterDefinitions,
+                parameters,
+            );
+
+            const queryTags: RunQueryTags = {
+                ...this.getUserQueryTags(account),
+                organization_uuid: organizationUuid,
+                project_uuid: projectUuid,
+                explore_name: explore.name,
+                query_context: QueryExecutionContext.CALCULATE_TOTAL,
+            };
+
+            const { rows, cacheMetadata } =
+                await this.getResultsFromCacheOrWarehouse({
+                    projectUuid,
+                    context: QueryExecutionContext.CALCULATE_TOTAL,
+                    warehouseClient,
+                    metricQuery: totalQuery,
+                    query,
+                    queryTags,
+                    invalidateCache,
+                });
+            await sshTunnel.disconnect();
+            return { row: rows[0], cacheMetadata };
+        } catch (e) {
+            if (e instanceof NotSupportedError) {
+                this.logger.warn(e.message);
+                return { row: {} }; // no totals
+            }
+            throw e;
+        }
     }
 
     async calculateTotalFromSavedChart(
@@ -5370,6 +5507,7 @@ export class ProjectService extends BaseService {
 
         const combinedParameters = await this.combineParameters(
             projectUuid,
+            explore,
             parameters,
             savedChart.parameters,
         );
@@ -5416,15 +5554,23 @@ export class ProjectService extends BaseService {
             throw new CustomSqlQueryForbiddenError();
         }
 
+        const explore = await this.getExplore(
+            account,
+            projectUuid,
+            data.explore,
+            organizationUuid,
+        );
+
         const combinedParameters = await this.combineParameters(
             projectUuid,
+            explore,
             data.parameters,
         );
 
         const results = await this._calculateTotal(
             account,
             projectUuid,
-            data.explore,
+            explore,
             data.metricQuery,
             organizationUuid,
             combinedParameters,
@@ -5436,6 +5582,7 @@ export class ProjectService extends BaseService {
         account: Account,
         projectUuid: string,
         data: CalculateSubtotalsFromQuery,
+        explore: Explore,
         organizationUuid: string,
         parameters?: ParametersValuesMap,
     ) {
@@ -5445,13 +5592,6 @@ export class ProjectService extends BaseService {
             columnOrder,
             pivotDimensions,
         } = data;
-
-        const explore = await this.getExplore(
-            account,
-            projectUuid,
-            exploreName,
-            organizationUuid,
-        );
 
         // Use the shared utility to prepare dimension groups
         const { dimensionGroupsToSubtotal, analyticsData } =
@@ -5563,8 +5703,16 @@ export class ProjectService extends BaseService {
             throw new CustomSqlQueryForbiddenError();
         }
 
+        const explore = await this.getExplore(
+            account,
+            projectUuid,
+            data.explore,
+            organizationUuid,
+        );
+
         const combinedParameters = await this.combineParameters(
             projectUuid,
+            explore,
             data.parameters,
         );
 
@@ -5573,6 +5721,7 @@ export class ProjectService extends BaseService {
             account,
             projectUuid,
             data,
+            explore,
             organizationUuid,
             combinedParameters,
         );
@@ -5588,6 +5737,7 @@ export class ProjectService extends BaseService {
         }
         const cachedExplores = await this.projectModel.findExploresFromCache(
             projectUuid,
+            'name',
         );
         const allExplores = Object.values(cachedExplores);
 
@@ -5792,7 +5942,7 @@ export class ProjectService extends BaseService {
 
         if (
             account.user.ability.cannot(
-                'manage',
+                'create',
                 subject('VirtualView', { organizationUuid, projectUuid }),
             )
         ) {
@@ -5814,7 +5964,7 @@ export class ProjectService extends BaseService {
             await this.getWarehouseCredentials({
                 projectUuid,
                 userId: account.user.id,
-                isSessionUser: true,
+                isRegisteredUser: true,
             }),
         );
         const virtualView = await this.projectModel.createVirtualView(
@@ -5859,7 +6009,7 @@ export class ProjectService extends BaseService {
 
         if (
             account.user.ability.cannot(
-                'manage',
+                'create',
                 subject('VirtualView', { organizationUuid, projectUuid }),
             )
         ) {
@@ -5871,7 +6021,7 @@ export class ProjectService extends BaseService {
             await this.getWarehouseCredentials({
                 projectUuid,
                 userId: account.user.id,
-                isSessionUser: account.authentication.type === 'session',
+                isRegisteredUser: account.isRegisteredUser(),
             }),
         );
 
@@ -5907,7 +6057,7 @@ export class ProjectService extends BaseService {
 
         if (
             user.ability.cannot(
-                'manage',
+                'delete',
                 subject('VirtualView', { organizationUuid, projectUuid }),
             )
         ) {
@@ -6163,6 +6313,7 @@ export class ProjectService extends BaseService {
         );
         const explores = await this.projectModel.findExploresFromCache(
             projectUuid,
+            'name',
             charts.map((chart) => chart.tableName),
         );
         const replaceableFields = charts.reduce<ReplaceableCustomFields>(
@@ -6458,16 +6609,19 @@ export class ProjectService extends BaseService {
     /**
      * Combines parameter values from multiple sources in order of priority:
      * 1. Request parameters (highest priority)
-     * 2. Saved chart parameters
-     * 3. Default parameter values (lowest priority)
+     * 2. Saved chart/dashboard parameters
+     * 3. Default explore parameters values
+     * 4. Default project parameters values(lowest priority)
      */
     public async combineParameters(
         projectUuid: string,
+        explore?: Explore,
         requestParameters?: ParametersValuesMap,
-        savedChartParameters?: ParametersValuesMap,
+        savedParameters?: ParametersValuesMap,
     ): Promise<ParametersValuesMap> {
         // Get default values for parameters
-        const defaultParameters: ParametersValuesMap = {};
+        const projectDefaultParameterValues: ParametersValuesMap = {};
+
         // Fetch all parameters
         const parameterConfigs = await this.projectParametersModel.find(
             projectUuid,
@@ -6475,15 +6629,26 @@ export class ProjectService extends BaseService {
 
         for (const paramConfig of parameterConfigs) {
             if (paramConfig.config.default !== undefined) {
-                defaultParameters[paramConfig.name] =
+                projectDefaultParameterValues[paramConfig.name] =
                     paramConfig.config.default;
             }
         }
 
-        // Combine in order of priority: defaults < saved chart < request
+        const exploreParameters = explore
+            ? getAvailableParametersFromTables(Object.values(explore.tables))
+            : [];
+
+        const exploreDefaultParameterValues = Object.fromEntries(
+            Object.entries(exploreParameters)
+                .map(([key, value]) => [key, value.default])
+                .filter(([key, value]) => value !== undefined),
+        );
+
+        // Combine in order of priority: defaults (project / explore) < saved parameters (chart/dashboard) < request
         return {
-            ...defaultParameters,
-            ...(savedChartParameters || {}),
+            ...projectDefaultParameterValues,
+            ...exploreDefaultParameterValues,
+            ...(savedParameters || {}),
             ...(requestParameters || {}),
         };
     }

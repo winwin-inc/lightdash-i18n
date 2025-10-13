@@ -81,6 +81,7 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
     lockHeaderVisibility = false,
 }: Props<T>) => {
     const { t } = useTranslation();
+
     const [isEditingTileContent, setIsEditingTileContent] = useState(false);
     const [isMovingTabs, setIsMovingTabs] = useState(false);
 
@@ -133,7 +134,6 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
                 visible={isLoading ?? false}
                 zIndex={getDefaultZIndex('modal') - 10}
             />
-
             <HeaderContainer
                 $isEditMode={isEditMode}
                 $isEmpty={isMarkdownTileTitleEmpty || hideTitle}
@@ -330,7 +330,6 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
                     ) : null}
                 </Group>
             </HeaderContainer>
-
             <ChartContainer
                 className="non-draggable sentry-block ph-no-capture"
                 onMouseEnter={
@@ -342,7 +341,6 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
             >
                 {children}
             </ChartContainer>
-
             {isEditingTileContent &&
                 (tile.type === DashboardTileTypes.SAVED_CHART ||
                 tile.type === DashboardTileTypes.SQL_CHART ? (
@@ -376,7 +374,6 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
                         }}
                     />
                 ))}
-
             <DeleteChartTileThatBelongsToDashboardModal
                 className={'non-draggable'}
                 name={chartName ?? ''}

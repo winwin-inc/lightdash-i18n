@@ -62,6 +62,7 @@ export class UserWarehouseCredentialsModel {
                 case WarehouseTypes.POSTGRES:
                 case WarehouseTypes.TRINO:
                 case WarehouseTypes.SNOWFLAKE:
+                case WarehouseTypes.CLICKHOUSE:
                     credentials = {
                         type: credentialsWithSecrets.type,
                         user: credentialsWithSecrets.user,
@@ -276,5 +277,15 @@ export class UserWarehouseCredentialsModel {
                 userWarehouseCredentialsUuid,
             )
             .andWhere('user_uuid', userUuid);
+    }
+
+    async deleteAllByUserAndWarehouseType(
+        userUuid: string,
+        warehouseType: WarehouseTypes,
+    ): Promise<void> {
+        await this.database(UserWarehouseCredentialsTableName)
+            .delete()
+            .where('user_uuid', userUuid)
+            .andWhere('warehouse_type', warehouseType);
     }
 }

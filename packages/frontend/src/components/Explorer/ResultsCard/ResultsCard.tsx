@@ -4,7 +4,19 @@ import { IconShare2 } from '@tabler/icons-react';
 import { memo, useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import {
+    explorerActions,
+    selectColumnOrder,
+    selectIsEditMode,
+    selectIsResultsExpanded,
+    selectMetricQuery,
+    selectSorts,
+    selectTableName,
+    useExplorerDispatch,
+    useExplorerSelector,
+} from '../../../features/explorer/store';
 import { uploadGsheet } from '../../../hooks/gdrive/useGdrive';
+import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
 import { useProjectUuid } from '../../../hooks/useProjectUuid';
 import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
@@ -25,46 +37,31 @@ const ResultsCard: FC = memo(() => {
     const { t } = useTranslation();
 
     const projectUuid = useProjectUuid();
-    const isEditMode = useExplorerContext(
-        (context) => context.state.isEditMode,
-    );
-    const expandedSections = useExplorerContext(
-        (context) => context.state.expandedSections,
-    );
-    const tableName = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.tableName,
-    );
-    const sorts = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.metricQuery.sorts,
-    );
 
-    const totalResults = useExplorerContext(
-        (context) => context.queryResults.totalResults,
-    );
-    const toggleExpandedSection = useExplorerContext(
-        (context) => context.actions.toggleExpandedSection,
-    );
-    const metricQuery = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.metricQuery,
-    );
+    const isEditMode = useExplorerSelector(selectIsEditMode);
+    const resultsIsOpen = useExplorerSelector(selectIsResultsExpanded);
+    const dispatch = useExplorerDispatch();
+    const tableName = useExplorerSelector(selectTableName);
+    const sorts = useExplorerSelector(selectSorts);
+    const metricQuery = useExplorerSelector(selectMetricQuery);
+    const columnOrder = useExplorerSelector(selectColumnOrder);
 
-    const columnOrder = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.tableConfig.columnOrder,
-    );
-    const getDownloadQueryUuid = useExplorerContext(
-        (context) => context.actions.getDownloadQueryUuid,
-    );
-
+    // Get query state from new hook
+    const { queryResults, getDownloadQueryUuid } = useExplorerQuery();
+    const totalResults = queryResults.totalResults;
     const savedChart = useExplorerContext(
         (context) => context.state.savedChart,
     );
 
+    const toggleExpandedSection = useCallback(
+        (section: ExplorerSection) => {
+            dispatch(explorerActions.toggleExpandedSection(section));
+        },
+        [dispatch],
+    );
+
     const disabled = useMemo(() => (totalResults ?? 0) <= 0, [totalResults]);
 
-    const resultsIsOpen = useMemo(
-        () => expandedSections.includes(ExplorerSection.RESULTS),
-        [expandedSections],
-    );
     const toggleCard = useCallback(
         () => toggleExpandedSection(ExplorerSection.RESULTS),
         [toggleExpandedSection],
@@ -132,10 +129,7 @@ const ResultsCard: FC = memo(() => {
                                         {...COLLAPSABLE_CARD_ACTION_ICON_PROPS}
                                         disabled={disabled}
                                     >
-                                        <MantineIcon
-                                            icon={IconShare2}
-                                            color="gray"
-                                        />
+                                        <MantineIcon icon={IconShare2} />
                                     </ActionIcon>
                                 </Popover.Target>
 

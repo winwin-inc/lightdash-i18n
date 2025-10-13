@@ -1,12 +1,14 @@
 import {
     type Account as AccountType,
     AnyType,
-    type AsyncWarehouseQueryPayload,
     CompileProjectPayload,
     CreateProject,
     CreateSchedulerAndTargets,
     CreateSchedulerLog,
     CreateSchedulerTarget,
+    DashboardFilterRule,
+    DashboardParameterValue,
+    type DownloadAsyncQueryResultsPayload,
     DownloadCsvPayload,
     DownloadFileType,
     EmailNotificationPayload,
@@ -22,6 +24,7 @@ import {
     NotEnoughResults,
     NotificationFrequency,
     NotificationPayloadBase,
+    ParametersValuesMap,
     QueryExecutionContext,
     ReadFileError,
     RenameResourcesPayload,
@@ -34,7 +37,6 @@ import {
     ScheduledDeliveryPayload,
     SchedulerAndTargets,
     SchedulerCreateProjectWithCompilePayload,
-    SchedulerFilterRule,
     SchedulerFormat,
     type SchedulerIndexCatalogJobPayload,
     SchedulerJobStatus,
@@ -212,13 +214,20 @@ export default class SchedulerTask {
         this.asyncQueryService = args.asyncQueryService;
     }
 
+    private static getCsvOptions(
+        scheduler: SchedulerAndTargets | CreateSchedulerAndTargets,
+    ) {
+        return isSchedulerCsvOptions(scheduler.options)
+            ? scheduler.options
+            : undefined;
+    }
+
     protected async getChartOrDashboard(
         chartUuid: string | null,
         dashboardUuid: string | null,
         schedulerUuid: string | undefined,
-        sendNowSchedulerFilters: SchedulerFilterRule[] | undefined,
         context: DownloadCsv['properties']['context'],
-        selectedTabs: string[] | undefined,
+        selectedTabs: string[] | null,
     ) {
         if (chartUuid) {
             const chart =
@@ -246,11 +255,6 @@ export default class SchedulerTask {
 
             const queryParams = new URLSearchParams();
             if (schedulerUuid) queryParams.set('schedulerUuid', schedulerUuid);
-            if (sendNowSchedulerFilters)
-                queryParams.set(
-                    'sendNowSchedulerFilters',
-                    JSON.stringify(sendNowSchedulerFilters),
-                );
             if (selectedTabs)
                 queryParams.set('selectedTabs', JSON.stringify(selectedTabs));
             if (context) queryParams.set('context', context);
@@ -305,9 +309,14 @@ export default class SchedulerTask {
                 ? scheduler.filters
                 : undefined;
 
+        const sendNowSchedulerParameters =
+            !schedulerUuid && isDashboardScheduler(scheduler)
+                ? scheduler.parameters
+                : undefined;
+
         const selectedTabs = isDashboardScheduler(scheduler)
             ? scheduler.selectedTabs
-            : undefined;
+            : null;
 
         const context =
             scheduler.thresholds === undefined ||
@@ -326,7 +335,6 @@ export default class SchedulerTask {
             savedChartUuid,
             dashboardUuid,
             schedulerUuid,
-            sendNowSchedulerFilters,
             context,
             selectedTabs,
         );
@@ -360,6 +368,9 @@ export default class SchedulerTask {
                                 : undefined,
                         context: ScreenshotContext.SCHEDULED_DELIVERY,
                         contextId: jobId,
+                        selectedTabs,
+                        sendNowSchedulerFilters,
+                        sendNowSchedulerParameters,
                     });
                     if (unfurlImage.imageUrl === undefined) {
                         throw new Error('Unable to unfurl image');
@@ -479,13 +490,33 @@ export default class SchedulerTask {
                             : undefined;
 
                         if (schedulerFilters) {
-                            // Scheduler filters can only override existing filters from the dashboard
                             dashboardFilters.dimensions =
                                 applyDimensionOverrides(
                                     dashboard.filters,
                                     schedulerFilters,
                                 );
                         }
+
+                        const dashboardParameters = dashboard.parameters || {};
+                        const schedulerParameters = isDashboardScheduler(
+                            scheduler,
+                        )
+                            ? scheduler.parameters
+                            : undefined;
+
+                        // Convert dashboard parameters to ParametersValuesMap format
+                        const convertedDashboardParameters: ParametersValuesMap =
+                            Object.fromEntries(
+                                Object.entries(dashboardParameters).map(
+                                    ([key, param]) => [key, param.value],
+                                ),
+                            );
+
+                        // Merge scheduler parameters with dashboard parameters (scheduler parameters override)
+                        const finalParameters: ParametersValuesMap = {
+                            ...convertedDashboardParameters,
+                            ...schedulerParameters,
+                        };
 
                         const chartTileUuidsWithChartUuids = dashboard.tiles
                             .filter(isDashboardChartTileType)
@@ -523,6 +554,7 @@ export default class SchedulerTask {
                                                 dashboardUuid,
                                                 dashboardFilters,
                                                 dashboardSorts: [],
+                                                parameters: finalParameters,
                                                 limit: chartLimit,
                                             },
                                         );
@@ -581,6 +613,7 @@ export default class SchedulerTask {
                                             tileUuid,
                                             dashboardFilters,
                                             dashboardSorts: [],
+                                            parameters: finalParameters,
                                             limit:
                                                 sqlLimit === null
                                                     ? MAX_SAFE_INTEGER
@@ -692,6 +725,37 @@ export default class SchedulerTask {
                 const csvOptions = isSchedulerCsvOptions(options)
                     ? options
                     : undefined;
+
+                // Extract parameters for CSV format same as XLSX
+                let csvSchedulerParameters: ParametersValuesMap | undefined;
+                if (dashboardUuid) {
+                    const dashboard =
+                        await this.schedulerService.dashboardModel.getById(
+                            dashboardUuid,
+                        );
+                    const dashboardParameters = dashboard.parameters || {};
+                    const schedulerParameters = isDashboardScheduler(scheduler)
+                        ? scheduler.parameters
+                        : undefined;
+
+                    // Convert dashboard parameters to ParametersValuesMap format
+                    const convertedDashboardParameters: ParametersValuesMap =
+                        Object.fromEntries(
+                            Object.entries(dashboardParameters).map(
+                                ([key, param]) => [
+                                    key,
+                                    (param as DashboardParameterValue).value,
+                                ],
+                            ),
+                        );
+
+                    // Merge scheduler parameters with dashboard parameters (scheduler parameters override)
+                    csvSchedulerParameters = {
+                        ...convertedDashboardParameters,
+                        ...schedulerParameters,
+                    };
+                }
+
                 const baseAnalyticsProperties: DownloadCsv['properties'] = {
                     jobId,
                     userId: userUuid,
@@ -732,6 +796,7 @@ export default class SchedulerTask {
                                 : undefined,
                             selectedTabs,
                             invalidateCache: true,
+                            schedulerParameters: csvSchedulerParameters,
                         });
 
                         this.analytics.track({
@@ -1557,6 +1622,7 @@ export default class SchedulerTask {
                 projectUuid: payload.projectUuid,
                 organizationUuid: payload.organizationUuid,
                 createdByUserUuid: payload.userUuid,
+                onlyValidateExploresInArgs: payload.onlyValidateExploresInArgs,
             },
         });
 
@@ -1575,6 +1641,7 @@ export default class SchedulerTask {
                 payload.projectUuid,
                 payload.explores,
                 validationTargetsSet,
+                payload.onlyValidateExploresInArgs,
             );
 
             const contentIds = errors.map((validation) => {
@@ -1695,7 +1762,7 @@ export default class SchedulerTask {
         }
     }
 
-    private async logWrapper<TRecordValues = string>(
+    protected async logWrapper<TRecordValues = string>(
         baseLog: Pick<
             SchedulerLog,
             'task' | 'jobId' | 'scheduledTime' | 'details'
@@ -1877,6 +1944,7 @@ export default class SchedulerTask {
                     onlyRaw: true,
                     maxColumnLimit:
                         this.lightdashConfig.pivotTable.maxColumnLimit,
+                    pivotDetails: null, // TODO: this is using old way of running queries + pivoting, therefore pivotDetails is not available
                 });
 
                 await this.googleDriveClient.appendCsvToSheet(
@@ -2085,6 +2153,7 @@ export default class SchedulerTask {
                 if (csvUrl === undefined) {
                     throw new Error('Missing CSV URL');
                 }
+                const csvOptions = SchedulerTask.getCsvOptions(scheduler);
                 await this.emailClient.sendChartCsvNotificationEmail(
                     recipient,
                     name,
@@ -2101,11 +2170,14 @@ export default class SchedulerTask {
                     schedulerUrl,
                     includeLinks,
                     this.s3Client.getExpirationWarning()?.days,
+                    csvOptions?.asAttachment,
+                    format,
                 );
             } else if (dashboardUuid) {
                 if (csvUrls === undefined) {
                     throw new Error('Missing CSV URLS');
                 }
+                const csvOptions = SchedulerTask.getCsvOptions(scheduler);
 
                 await this.emailClient.sendDashboardCsvNotificationEmail(
                     recipient,
@@ -2123,6 +2195,8 @@ export default class SchedulerTask {
                     schedulerUrl,
                     includeLinks,
                     this.s3Client.getExpirationWarning()?.days,
+                    csvOptions?.asAttachment,
+                    format,
                 );
             } else {
                 throw new Error('Not implemented');
@@ -2416,6 +2490,7 @@ export default class SchedulerTask {
                         onlyRaw: true,
                         maxColumnLimit:
                             this.lightdashConfig.pivotTable.maxColumnLimit,
+                        pivotDetails: null, // TODO: this is using old way of running queries + pivoting, therefore pivotDetails is not available
                     });
                     await this.googleDriveClient.appendCsvToSheet(
                         refreshToken,
@@ -2558,6 +2633,7 @@ export default class SchedulerTask {
                                 maxColumnLimit:
                                     this.lightdashConfig.pivotTable
                                         .maxColumnLimit,
+                                pivotDetails: null, // TODO: this is using old way of running queries + pivoting, therefore pivotDetails is not available
                             });
 
                             await this.googleDriveClient.appendCsvToSheet(
@@ -2947,6 +3023,43 @@ export default class SchedulerTask {
                 },
             });
 
+            // Send failure notification email to scheduler creator
+            try {
+                const user = await this.userService.getSessionByUserUuid(
+                    scheduler.createdBy,
+                );
+                if (user.email) {
+                    const schedulerUrlParam = setUuidParam(
+                        'scheduler_uuid',
+                        schedulerUuid,
+                    );
+                    const schedulerUrl =
+                        scheduler.savedChartUuid || scheduler.dashboardUuid
+                            ? `${this.lightdashConfig.siteUrl}/projects/${
+                                  schedulerPayload.projectUuid
+                              }/${
+                                  scheduler.savedChartUuid
+                                      ? 'saved'
+                                      : 'dashboards'
+                              }/${
+                                  scheduler.savedChartUuid ||
+                                  scheduler.dashboardUuid
+                              }/view?${schedulerUrlParam}`
+                            : this.lightdashConfig.siteUrl;
+
+                    await this.emailClient.sendScheduledDeliveryFailureEmail(
+                        user.email,
+                        scheduler.name,
+                        schedulerUrl,
+                        getErrorMessage(e),
+                    );
+                }
+            } catch (emailError) {
+                Logger.error(
+                    `Failed to send scheduled delivery failure email: ${emailError}`,
+                );
+                // Don't throw - we still want to handle the original error
+            }
             if (e instanceof NotEnoughResults) {
                 Logger.warn(
                     `Scheduler ${schedulerUuid} did not return enough results for threshold alert`,
@@ -3121,29 +3234,31 @@ export default class SchedulerTask {
         );
     }
 
-    /**
-     * Runs the query against the warehouse and updates the query history when complete
-     */
-    protected async runAsyncWarehouseQuery(
+    protected async downloadAsyncQueryResults(
         jobId: string,
         scheduledTime: Date,
-        payload: AsyncWarehouseQueryPayload,
+        payload: DownloadAsyncQueryResultsPayload,
     ) {
         await this.logWrapper(
             {
-                task: SCHEDULER_TASKS.RUN_ASYNC_WAREHOUSE_QUERY,
+                task: SCHEDULER_TASKS.DOWNLOAD_ASYNC_QUERY_RESULTS,
                 jobId,
                 scheduledTime,
                 details: {
                     createdByUserUuid: payload.userUuid,
                     projectUuid: payload.projectUuid,
                     organizationUuid: payload.organizationUuid,
-                    queryHistoryUuid: payload.queryHistoryUuid,
                 },
             },
             async () => {
-                await this.asyncQueryService.runAsyncWarehouseQuery(payload);
-                return {};
+                const sessionUser = await this.userService.getSessionByUserUuid(
+                    payload.userUuid,
+                );
+                const account = Account.fromSession(sessionUser);
+                return this.asyncQueryService.download({
+                    account,
+                    ...payload,
+                });
             },
         );
     }

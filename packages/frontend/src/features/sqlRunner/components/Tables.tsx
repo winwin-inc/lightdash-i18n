@@ -25,7 +25,7 @@ import {
 } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import Fuse from 'fuse.js';
-import { isEmpty } from 'lodash';
+import isEmpty from 'lodash/isEmpty';
 import { memo, useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -73,13 +73,17 @@ const TableItem: FC<TableItemProps> = memo(
         partitionColumn,
         ...rest
     }) => {
+        const { t } = useTranslation();
+
         const { ref: hoverRef, hovered } = useHover();
         const { ref: truncatedRef, isTruncated } =
             useIsTruncated<HTMLDivElement>();
         const dispatch = useAppDispatch();
         const sql = useAppSelector((state) => state.sqlRunner.sql);
         const quoteChar = useAppSelector((state) => state.sqlRunner.quoteChar);
-        const quotedTable = `${quoteChar}${database}${quoteChar}.${quoteChar}${schema}${quoteChar}.${quoteChar}${table}${quoteChar}`;
+        const quotedTable = database
+            ? `${quoteChar}${database}${quoteChar}.${quoteChar}${schema}${quoteChar}.${quoteChar}${table}${quoteChar}`
+            : `${quoteChar}${schema}${quoteChar}.${quoteChar}${table}${quoteChar}`;
         return (
             <Box ref={hoverRef} pos="relative" {...rest}>
                 <UnstyledButton
@@ -152,7 +156,13 @@ const TableItem: FC<TableItemProps> = memo(
                         {({ copied, copy }) => (
                             <Tooltip
                                 variant="xs"
-                                label={copied ? 'Copied to clipboard' : 'Copy'}
+                                label={
+                                    copied
+                                        ? t(
+                                              'features_sql_runner_tables.copied_to_clipboard',
+                                          )
+                                        : t('features_sql_runner_tables.copy')
+                                }
                                 withArrow
                                 position="right"
                             >
@@ -291,7 +301,7 @@ export const Tables: FC = () => {
         | undefined = useMemo(() => {
         if (!data || isEmpty(data)) return undefined;
         const [database] = Object.keys(data);
-        if (!database) return undefined;
+        if (database === undefined) return undefined;
 
         const tablesBySchema = Object.entries(data).flatMap(([, schemas]) =>
             Object.entries(schemas).map(([schema, tables]) => ({

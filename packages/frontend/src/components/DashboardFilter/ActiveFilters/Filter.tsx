@@ -77,11 +77,11 @@ const Filter: FC<Props> = ({
 }) => {
     const { t } = useTranslation();
 
-    const getConditionalRuleLabel = useConditionalRuleLabel();
-    const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
-
     const { classes } = useDashboardFilterStyles();
     const popoverId = useId();
+
+    const getConditionalRuleLabel = useConditionalRuleLabel();
+    const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
     const dashboard = useDashboardContext((c) => c.dashboard);
     const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
@@ -178,12 +178,12 @@ const Filter: FC<Props> = ({
                 })
                 .join(', ');
             return appliedTabList
-                ? `${t(
-                    'components_dashboard_filter.filter.inactive_filter.part_1',
-                    {
-                        suffix: appliesToTabs.length === 1 ? '' : 's',
-                    },
-                )}: ${appliedTabList}`
+                ? ` ${t(
+                      'components_dashboard_filter.filter.inactive_filter.part_1',
+                      {
+                          suffix: appliesToTabs.length === 1 ? '' : 's',
+                      },
+                  )}: ${appliedTabList}`
                 : t(
                     'components_dashboard_filter.filter.inactive_filter.part_2',
                 );
@@ -203,28 +203,28 @@ const Filter: FC<Props> = ({
         [onUpdate, handleClose],
     );
 
-    const currentDashboardTabs = useMemo(() => {
+    const appliedDashboardTabs = useMemo(() => {
         if (filterType === 'global') {
             return dashboardTabs;
         }
         return dashboardTabs?.filter((tab) => tab.uuid === activeTabUuid);
     }, [dashboardTabs, activeTabUuid, filterType]);
 
-    const currentDashboardTiles = useMemo(() => {
+    const appliedDashboardTiles = useMemo(() => {
         if (filterType === 'global') {
             return dashboardTiles;
         }
         return dashboardTiles?.filter((tile) => tile.tabUuid === activeTabUuid);
     }, [dashboardTiles, activeTabUuid, filterType]);
 
-    const currentFilterableFieldsByTileUuid = useMemo(() => {
+    const appliedFilterableFieldsByTileUuid = useMemo(() => {
         if (filterType === 'global') {
             return filterableFieldsByTileUuid;
         }
         return Object.keys(filterableFieldsByTileUuid ?? {}).reduce(
             (acc, tileUuid) => {
-                const tile = currentDashboardTiles?.find(
-                    (item) => item.uuid === tileUuid,
+                const tile = appliedDashboardTiles?.find(
+                    (tile) => tile.uuid === tileUuid,
                 );
 
                 if (tile) {
@@ -236,7 +236,7 @@ const Filter: FC<Props> = ({
             },
             {} as Record<string, FilterableDimension[]>,
         );
-    }, [filterableFieldsByTileUuid, currentDashboardTiles, filterType]);
+    }, [filterableFieldsByTileUuid, appliedDashboardTiles, filterType]);
 
     return (
         <>
@@ -285,6 +285,7 @@ const Filter: FC<Props> = ({
                             <Button
                                 pos="relative"
                                 size="xs"
+                                radius="md"
                                 variant={
                                     isTemporary || hasUnsetRequiredFilter
                                         ? 'outline'
@@ -356,8 +357,8 @@ const Filter: FC<Props> = ({
                                                             'components_dashboard_filter.filter.table',
                                                         )
                                                         : t(
-                                                            'components_dashboard_filter.filter.tables',
-                                                        )}{' '}
+                                                              'components_dashboard_filter.filter.tables',
+                                                          )}
                                                     <Text span fw={600}>
                                                         {filterRuleTables?.join(
                                                             ', ',
@@ -399,19 +400,19 @@ const Filter: FC<Props> = ({
                 </Popover.Target>
 
                 <Popover.Dropdown>
-                    {currentDashboardTiles && (
+                    {appliedDashboardTiles && (
                         <FilterConfiguration
                             isCreatingNew={false}
                             isEditMode={isEditMode}
                             isTemporary={isTemporary}
                             field={field}
                             fields={allFilterableFields || []}
-                            tiles={currentDashboardTiles}
-                            tabs={currentDashboardTabs}
+                            tiles={appliedDashboardTiles}
+                            tabs={appliedDashboardTabs}
                             activeTabUuid={activeTabUuid}
                             originalFilterRule={originalFilterRule}
                             availableTileFilters={
-                                currentFilterableFieldsByTileUuid ?? {}
+                                appliedFilterableFieldsByTileUuid ?? {}
                             }
                             defaultFilterRule={defaultFilterRule}
                             onSave={handleSaveChanges}

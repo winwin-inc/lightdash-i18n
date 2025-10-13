@@ -1,11 +1,10 @@
-import type { PivotIndexColum, ResultColumns } from '..';
+import type { PivotConfiguration, ResultColumns } from '..';
 import type { PivotValuesColumn } from '../visualizations/types';
 import type { QueryExecutionContext } from './analytics';
 import type { ExecuteAsyncQueryRequestParams } from './api/paginatedQuery';
 import type { ItemsMap } from './field';
 import type { MetricQuery } from './metricQuery';
 import type { WarehouseTypes } from './projects';
-import type { GroupByColumn, SortBy, ValuesColumn } from './sqlRunner';
 
 export interface IWarehouseQueryMetadata {
     type: WarehouseTypes;
@@ -47,13 +46,8 @@ export type QueryHistory = {
     warehouseExecutionTimeMs: number | null;
     error: string | null;
     cacheKey: string;
-    pivotConfiguration: {
-        indexColumn: PivotIndexColum;
-        valuesColumns: ValuesColumn[];
-        groupByColumns: GroupByColumn[] | undefined;
-        sortBy: SortBy | undefined;
-    } | null;
-    pivotValuesColumns: PivotValuesColumn[] | null;
+    pivotConfiguration: PivotConfiguration | null;
+    pivotValuesColumns: Record<string, PivotValuesColumn> | null;
     pivotTotalColumnCount: number | null;
     resultsFileName: string | null; // S3 file name
     resultsCreatedAt: Date | null;

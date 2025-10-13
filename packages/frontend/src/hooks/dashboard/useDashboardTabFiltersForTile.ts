@@ -5,10 +5,15 @@ import {
 import { useMemo } from 'react';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 
-const useDashboardTabFiltersForTile = (tabUuid: string, tileUuid: string): DashboardFilters => {
-    const tabFilters = useDashboardContext((c) => c.getMergedFiltersForTab(tabUuid));
-    const tabTemporaryFilters = useDashboardContext(
-        (c) => c.getActiveTabTemporaryFilters(tabUuid),
+const useDashboardTabFiltersForTile = (
+    tabUuid: string,
+    tileUuid: string,
+): DashboardFilters => {
+    const tabFilters = useDashboardContext((c) =>
+        c.getMergedFiltersForTab(tabUuid),
+    );
+    const tabTemporaryFilters = useDashboardContext((c) =>
+        c.getActiveTabTemporaryFilters(tabUuid),
     );
 
     return useMemo(

@@ -15,8 +15,9 @@ type Props = LinkMenuItemProps & {
 };
 
 const EditChartMenuItem: FC<Props> = ({ tile, ...props }) => {
-    const { user } = useApp();
     const { t } = useTranslation();
+
+    const { user } = useApp();
     const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
     const filtersFromContext = useDashboardContext((c) => c.dashboardFilters);
     const haveTilesChanged = useDashboardContext((c) => c.haveTilesChanged);

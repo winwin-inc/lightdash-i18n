@@ -8,7 +8,7 @@ import {
 } from '@lightdash/common';
 import { Button, Group, Modal, Stack, Title } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type ValueOf } from 'type-fest';

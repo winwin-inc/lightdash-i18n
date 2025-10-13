@@ -16,11 +16,12 @@ import {
     type ItemsMap,
     type MetricQuery,
     type ParametersValuesMap,
+    type PivotConfig,
     type PivotData,
     type TableChart,
 } from '@lightdash/common';
 import { createWorkerFactory, useWorker } from '@shopify/react-web-worker';
-import { uniq } from 'lodash';
+import uniq from 'lodash/uniq';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import useEmbed from '../../ee/providers/Embed/useEmbed';
 import { useCalculateSubtotals } from '../useCalculateSubtotals';
@@ -29,7 +30,7 @@ import { type InfiniteQueryResults } from '../useQueryResults';
 import getDataAndColumns from './getDataAndColumns';
 
 const createWorker = createWorkerFactory(
-    () => import('@lightdash/common/src/pivotTable/pivotQueryResults'),
+    () => import('@lightdash/common/src/pivot/pivotQueryResults'),
 );
 
 const useTableConfig = (
@@ -337,39 +338,67 @@ const useTableConfig = (
             );
         });
 
-        worker
-            .pivotQueryResults({
-                pivotConfig: {
-                    pivotDimensions,
-                    metricsAsRows,
-                    columnOrder,
-                    hiddenMetricFieldIds,
-                    columnTotals: tableChartConfig?.showColumnCalculation,
-                    rowTotals: tableChartConfig?.showRowCalculation,
-                },
-                metricQuery: resultsData.metricQuery,
-                rows: resultsData.rows,
-                groupedSubtotals,
-                options: {
-                    maxColumns: pivotTableMaxColumnLimit,
-                },
-                getField,
-                getFieldLabel,
-            })
-            .then((data) => {
-                setPivotTableData({
-                    loading: false,
-                    data: data,
-                    error: undefined,
+        const pivotConfig: PivotConfig = {
+            pivotDimensions,
+            metricsAsRows,
+            columnOrder,
+            hiddenMetricFieldIds,
+            columnTotals: tableChartConfig?.showColumnCalculation,
+            rowTotals: tableChartConfig?.showRowCalculation,
+        };
+
+        if (resultsData.pivotDetails) {
+            worker
+                .convertSqlPivotedRowsToPivotData({
+                    rows: resultsData.rows,
+                    pivotDetails: resultsData.pivotDetails,
+                    pivotConfig,
+                    getField,
+                    getFieldLabel,
+                    groupedSubtotals,
+                })
+                .then((data) => {
+                    setPivotTableData({
+                        loading: false,
+                        data: data,
+                        error: undefined,
+                    });
+                })
+                .catch((e) => {
+                    setPivotTableData({
+                        loading: false,
+                        data: undefined,
+                        error: e.message,
+                    });
                 });
-            })
-            .catch((e) => {
-                setPivotTableData({
-                    loading: false,
-                    data: undefined,
-                    error: e.message,
+        } else {
+            worker
+                .pivotQueryResults({
+                    pivotConfig,
+                    metricQuery: resultsData.metricQuery,
+                    rows: resultsData.rows,
+                    groupedSubtotals,
+                    options: {
+                        maxColumns: pivotTableMaxColumnLimit,
+                    },
+                    getField,
+                    getFieldLabel,
+                })
+                .then((data) => {
+                    setPivotTableData({
+                        loading: false,
+                        data: data,
+                        error: undefined,
+                    });
+                })
+                .catch((e) => {
+                    setPivotTableData({
+                        loading: false,
+                        data: undefined,
+                        error: e.message,
+                    });
                 });
-            });
+        }
     }, [
         resultsData,
         pivotDimensions,

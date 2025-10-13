@@ -1,8 +1,11 @@
 import {
     CreateProjectMember,
+    getErrorMessage,
     InviteLink,
     PasswordResetLink,
     ProjectMemberRole,
+    sanitizeHtml,
+    SchedulerFormat,
     SessionUser,
     SmptError,
 } from '@lightdash/common';
@@ -16,11 +19,11 @@ import path from 'path';
 import { LightdashConfig } from '../../config/parseConfig';
 import Logger from '../../logging/logger';
 
-// Timeout configurations aligned with Nodemailer defaults and RFC 5321
+// Timeout configurations based on Nodemailer defaults, adjusted for scheduler compatibility
 export const SMTP_CONNECTION_CONFIG = {
     connectionTimeout: 120000, // 2 minutes - max time to establish connection (default)
     greetingTimeout: 30000, // 30 seconds - max time to wait for greeting (default)
-    socketTimeout: 600000, // 10 minutes - max time for idle socket (default)
+    socketTimeout: 180000, // 3 minutes - reduced from default to allow retry logic within default scheduler timeout (10min)
 } as const;
 
 export type AttachmentUrl = {
@@ -53,6 +56,31 @@ export default class EmailClient {
         if (this.lightdashConfig.smtp) {
             this.createTransporter();
         }
+    }
+
+    private static createFileAttachment(
+        attachment: AttachmentUrl,
+        format?: SchedulerFormat,
+    ): Mail.Attachment {
+        const contentType =
+            format === SchedulerFormat.XLSX
+                ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                : 'text/csv';
+
+        const fileExtension =
+            format === SchedulerFormat.XLSX
+                ? SchedulerFormat.XLSX
+                : SchedulerFormat.CSV;
+
+        const fileName = attachment.filename.endsWith(fileExtension)
+            ? attachment.filename
+            : `${attachment.filename}.${fileExtension}`;
+
+        return {
+            filename: fileName,
+            path: attachment.localPath || attachment.path,
+            contentType,
+        };
     }
 
     private createTransporter(): void {
@@ -147,10 +175,16 @@ export default class EmailClient {
                             error.message.includes('Connection timeout'));
 
                     if (isLastAttempt || !isRetryableError) {
+                        const isFileError =
+                            error instanceof Error &&
+                            error.message.includes('ENOENT');
+                        const errorMessage = isFileError
+                            ? 'There was an unexpected error when processing the attached file. Please contact your admin or support team.'
+                            : getErrorMessage(error);
                         throw new SmptError(
-                            `Failed to send email after ${attempt} attempts. ${error}`,
+                            `Failed to send email after ${attempt} attempts. ${errorMessage}`,
                             {
-                                error,
+                                error, // log the original error
                             },
                         );
                     }
@@ -243,6 +277,47 @@ export default class EmailClient {
         });
     }
 
+    public async sendScheduledDeliveryFailureEmail(
+        recipient: string,
+        schedulerName: string,
+        schedulerUrl: string,
+        errorMessage: string,
+    ) {
+        if (!this.canSendEmail()) {
+            Logger.error(
+                'Cannot send scheduled delivery failure email - email transporter not configured',
+                {
+                    recipient: recipient ? '***@***' : undefined,
+                    schedulerName,
+                },
+            );
+            throw new Error('Email transporter not configured');
+        }
+
+        const message = `
+            <p>Your scheduled delivery <strong>"${schedulerName}"</strong> failed to send.</p>
+            <br />
+            <br />
+            <br />
+            <p><strong>Error:</strong> ${sanitizeHtml(errorMessage)}</p>
+            <br />
+            <br />
+            <p>Please check your <a href="${schedulerUrl}">scheduled delivery settings</a> and try again.</p>
+        `;
+
+        return this.sendEmail({
+            to: recipient,
+            subject: `Failed to send scheduled delivery - "${schedulerName}"`,
+            template: 'genericNotification',
+            context: {
+                host: this.lightdashConfig.siteUrl,
+                title: 'Scheduled delivery failure',
+                message,
+            },
+            text: `Warning: Your scheduled delivery "${schedulerName}" failed to send. Error: ${errorMessage}. Please check your settings at ${schedulerUrl}`,
+        });
+    }
+
     public async sendInviteEmail(
         userThatInvited: Pick<
             SessionUser,
@@ -265,28 +340,35 @@ export default class EmailClient {
 
     public async sendProjectAccessEmail(
         userThatInvited: Pick<SessionUser, 'firstName' | 'lastName'>,
-        projectMember: CreateProjectMember,
+        projectMember:
+            | CreateProjectMember
+            | { email: string; customRoleName: string },
         projectName: string,
         projectUrl: string,
     ) {
-        let roleAction = 'view';
-        switch (projectMember.role) {
-            case ProjectMemberRole.VIEWER:
-                roleAction = 'view';
-                break;
-            case ProjectMemberRole.INTERACTIVE_VIEWER:
-                roleAction = 'explore';
-                break;
-            case ProjectMemberRole.EDITOR:
-            case ProjectMemberRole.DEVELOPER:
-                roleAction = 'edit';
-                break;
-            case ProjectMemberRole.ADMIN:
-                roleAction = 'manage';
-                break;
-            default:
-                const nope: never = projectMember.role;
+        let roleAction = '';
+        if ('customRoleName' in projectMember) {
+            roleAction = ``;
+        } else {
+            switch (projectMember.role) {
+                case ProjectMemberRole.VIEWER:
+                    roleAction = 'view';
+                    break;
+                case ProjectMemberRole.INTERACTIVE_VIEWER:
+                    roleAction = 'explore';
+                    break;
+                case ProjectMemberRole.EDITOR:
+                case ProjectMemberRole.DEVELOPER:
+                    roleAction = 'edit';
+                    break;
+                case ProjectMemberRole.ADMIN:
+                    roleAction = 'manage';
+                    break;
+                default:
+                    const nope: never = projectMember.role;
+            }
         }
+
         return this.sendEmail({
             to: projectMember.email,
             subject: `${userThatInvited.firstName} ${userThatInvited.lastName} invited you to ${projectName}`,
@@ -363,8 +445,17 @@ export default class EmailClient {
         schedulerUrl: string,
         includeLinks: boolean,
         expirationDays?: number,
+        asAttachment?: boolean,
+        format?: SchedulerFormat,
     ) {
         const csvUrl = attachment.path;
+        const attachments =
+            asAttachment &&
+            (attachment.localPath || attachment.path) &&
+            attachment.path !== '#no-results'
+                ? [EmailClient.createFileAttachment(attachment, format)]
+                : undefined;
+
         return this.sendEmail({
             to: recipient,
             subject,
@@ -385,8 +476,11 @@ export default class EmailClient {
                 schedulerUrl,
                 expirationDays,
                 includeLinks,
+                hasAttachment: attachments && attachments.length > 0,
+                attachmentCount: attachments?.length || 0,
             },
             text: title,
+            attachments,
         });
     }
 
@@ -403,6 +497,8 @@ export default class EmailClient {
         schedulerUrl: string,
         includeLinks: boolean,
         expirationDays?: number,
+        asAttachment?: boolean,
+        format?: SchedulerFormat,
     ) {
         const csvUrls = attachments.filter(
             (attachment) => !attachment.truncated,
@@ -411,6 +507,18 @@ export default class EmailClient {
         const truncatedCsvUrls = attachments.filter(
             (attachment) => attachment.truncated,
         );
+
+        const emailAttachments = asAttachment
+            ? csvUrls
+                  .filter(
+                      (attachment) =>
+                          (attachment.localPath || attachment.path) &&
+                          attachment.path !== '#no-results',
+                  )
+                  .map((attachment) =>
+                      EmailClient.createFileAttachment(attachment, format),
+                  )
+            : undefined;
 
         return this.sendEmail({
             to: recipient,
@@ -432,8 +540,11 @@ export default class EmailClient {
                 schedulerUrl,
                 expirationDays,
                 includeLinks,
+                hasAttachments: emailAttachments && emailAttachments.length > 0,
+                attachmentCount: emailAttachments?.length || 0,
             },
             text: title,
+            attachments: emailAttachments,
         });
     }
 

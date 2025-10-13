@@ -19,6 +19,7 @@ import {
     Select,
     Stack,
     Text,
+    Textarea,
     TextInput,
     Tooltip,
 } from '@mantine/core';
@@ -218,6 +219,8 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
     const [environment, setEnvironment] = useState<
         DbtProjectEnvironmentVariable[]
     >([]);
+    const [manifestJson, setManifestJson] = useState<string>('');
+    const [manifestError, setManifestError] = useState<string>('');
 
     const handleGeneratePreviewName = useCallback(() => {
         return uniqueNamesGenerator({
@@ -275,8 +278,10 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
     }, [projects, selectedProjectUuid]);
 
     const { data: projectDetails } = useProject(selectedProjectUuid);
-    const hasGithub = useMemo(() => {
-        return projectDetails?.dbtConnection?.type === DbtProjectType.GITHUB;
+    const hasGitIntegration = useMemo(() => {
+        return [DbtProjectType.GITHUB, DbtProjectType.GITLAB].includes(
+            projectDetails?.dbtConnection?.type as DbtProjectType,
+        );
     }, [projectDetails?.dbtConnection?.type]);
 
     useEffect(() => {
@@ -304,13 +309,77 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
         selectedProjectUuid,
     ]);
 
+    const reduceManifest = useCallback((manifestString: string): string => {
+        try {
+            const parsed = JSON.parse(manifestString);
+
+            // Keep only the keys that Lightdash actually needs
+            // Removes unused keys like exposures, selectors, unit_tests, etc
+            const reducedManifest = {
+                nodes: parsed.nodes || {},
+                metadata: parsed.metadata || {},
+                metrics: parsed.metrics || {},
+                docs: parsed.docs || {},
+            };
+
+            return JSON.stringify(reducedManifest);
+        } catch (e) {
+            // If parsing fails, return original string to let validation handle the error
+            return manifestString;
+        }
+    }, []);
+
+    const validateManifest = useCallback((value: string) => {
+        if (!value.trim()) {
+            setManifestError('');
+            return true;
+        }
+
+        try {
+            const parsed = JSON.parse(value);
+            if (!parsed.nodes || !parsed.metadata) {
+                setManifestError(
+                    'Invalid manifest.json: missing required fields (nodes, metadata)',
+                );
+                return false;
+            }
+            setManifestError('');
+            return true;
+        } catch (e) {
+            setManifestError('Invalid JSON format');
+            return false;
+        }
+    }, []);
+
+    const handleManifestChange = useCallback(
+        (value: string) => {
+            setManifestJson(value);
+            validateManifest(value);
+        },
+        [validateManifest],
+    );
+
     const handleCreatePreview = useCallback(async () => {
         if (!selectedProjectUuid || !previewName) return;
+
+        // Validate manifest if provided
+        if (manifestJson.trim() && !validateManifest(manifestJson)) {
+            return;
+        }
+
+        // Reduce manifest size by removing unnecessary keys
+        const finalManifest = manifestJson.trim()
+            ? reduceManifest(manifestJson.trim())
+            : undefined;
 
         await createPreviewProject({
             projectUuid: selectedProjectUuid,
             name: previewName,
-            dbtConnectionOverrides: { branch: selectedBranch, environment },
+            dbtConnectionOverrides: {
+                branch: selectedBranch,
+                environment,
+                manifest: finalManifest,
+            },
             warehouseConnectionOverrides: { schema },
         });
         onClose();
@@ -320,8 +389,11 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
         createPreviewProject,
         selectedBranch,
         environment,
+        manifestJson,
         schema,
         onClose,
+        validateManifest,
+        reduceManifest,
     ]);
 
     const branches = useBranches(selectedProjectUuid);
@@ -438,7 +510,7 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
                                 </Tooltip>
                             }
                         />
-                        {hasGithub ? (
+                        {hasGitIntegration ? (
                             <>
                                 <Select
                                     withinPortal
@@ -497,6 +569,28 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
                                             }
                                             disabled={isPreviewCreating}
                                         />
+
+                                        <Textarea
+                                            label={t(
+                                                'components_navbar_create_preview_project_modal.custom_manifest.label',
+                                            )}
+                                            placeholder={t(
+                                                'components_navbar_create_preview_project_modal.custom_manifest.placeholder',
+                                            )}
+                                            value={manifestJson}
+                                            onChange={(e) =>
+                                                handleManifestChange(
+                                                    e.currentTarget.value,
+                                                )
+                                            }
+                                            minRows={8}
+                                            maxRows={15}
+                                            disabled={isPreviewCreating}
+                                            error={manifestError}
+                                            description={t(
+                                                'components_navbar_create_preview_project_modal.custom_manifest.description',
+                                            )}
+                                        />
                                     </Stack>
                                 )}
                                 <FormCollapseButton
@@ -511,34 +605,73 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
                                 </FormCollapseButton>
                             </>
                         ) : (
-                            <Text color="gray.6">
-                                {t(
-                                    'components_navbar_create_preview_project_modal.project_seetings.part_1',
-                                )}{' '}
-                                <Text span weight={600}>
-                                    {projectDetails?.dbtConnection?.type
-                                        ? DbtProjectTypeLabels[
-                                              projectDetails.dbtConnection.type
-                                          ]
-                                        : t(
-                                              'components_navbar_create_preview_project_modal.project_seetings.part_2',
-                                          )}
-                                </Text>{' '}
-                                {t(
-                                    'components_navbar_create_preview_project_modal.project_seetings.part_3',
-                                )}{' '}
-                                <Anchor
-                                    target="_blank"
-                                    href={`/generalSettings/projectManagement/${selectedProjectUuid}/settings`}
+                            <>
+                                <Text color="gray.6">
+                                    {t(
+                                        'components_navbar_create_preview_project_modal.project_seetings.part_1',
+                                    )}{' '}
+                                    <Text span weight={600}>
+                                        {projectDetails?.dbtConnection?.type
+                                            ? DbtProjectTypeLabels[
+                                                  projectDetails.dbtConnection
+                                                      .type
+                                              ]
+                                            : t(
+                                                  'components_navbar_create_preview_project_modal.project_seetings.part_2',
+                                              )}
+                                    </Text>{' '}
+                                    {t(
+                                        'components_navbar_create_preview_project_modal.project_seetings.part_3',
+                                    )}{' '}
+                                    <Anchor
+                                        target="_blank"
+                                        href={`/generalSettings/projectManagement/${selectedProjectUuid}/settings`}
+                                    >
+                                        {t(
+                                            'components_navbar_create_preview_project_modal.project_seetings.part_4',
+                                        )}
+                                    </Anchor>{' '}
+                                    {t(
+                                        'components_navbar_create_preview_project_modal.project_seetings.part_5',
+                                    )}
+                                </Text>
+
+                                {isOpen && (
+                                    <Stack>
+                                        <Textarea
+                                            label={t(
+                                                'components_navbar_create_preview_project_modal.custom_manifest.label',
+                                            )}
+                                            placeholder={t(
+                                                'components_navbar_create_preview_project_modal.custom_manifest.placeholder',
+                                            )}
+                                            value={manifestJson}
+                                            onChange={(e) =>
+                                                handleManifestChange(
+                                                    e.currentTarget.value,
+                                                )
+                                            }
+                                            minRows={8}
+                                            maxRows={15}
+                                            disabled={isPreviewCreating}
+                                            error={manifestError}
+                                            description={t(
+                                                'components_navbar_create_preview_project_modal.custom_manifest.description',
+                                            )}
+                                        />
+                                    </Stack>
+                                )}
+                                <FormCollapseButton
+                                    isSectionOpen={isOpen}
+                                    onClick={() => {
+                                        setIsOpen(!isOpen);
+                                    }}
                                 >
                                     {t(
-                                        'components_navbar_create_preview_project_modal.project_seetings.part_4',
+                                        'components_navbar_create_preview_project_modal.advanced_options',
                                     )}
-                                </Anchor>{' '}
-                                {t(
-                                    'components_navbar_create_preview_project_modal.project_seetings.part_5',
-                                )}
-                            </Text>
+                                </FormCollapseButton>
+                            </>
                         )}
                     </Stack>
 

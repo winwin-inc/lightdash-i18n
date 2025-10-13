@@ -2,13 +2,13 @@ import {
     DimensionType,
     FeatureFlags,
     friendlyName,
+    getCustomMetricType,
     getItemId,
     isAdditionalMetric,
     isCustomDimension,
     isCustomSqlDimension,
     isDimension,
     isFilterableField,
-    MetricType,
     type AdditionalMetric,
     type CustomDimension,
     type Dimension,
@@ -31,41 +31,12 @@ import { v4 as uuidv4 } from 'uuid';
 
 import useToaster from '../../../../../hooks/toaster/useToaster';
 import { useFeatureFlagEnabled } from '../../../../../hooks/useFeatureFlagEnabled';
-import { useFilters } from '../../../../../hooks/useFilters';
+import { useFilteredFields } from '../../../../../hooks/useFilters';
 import useApp from '../../../../../providers/App/useApp';
 import useExplorerContext from '../../../../../providers/Explorer/useExplorerContext';
 import useTracking from '../../../../../providers/Tracking/useTracking';
 import { EventName } from '../../../../../types/Events';
 import MantineIcon from '../../../../common/MantineIcon';
-
-const getCustomMetricType = (type: DimensionType): MetricType[] => {
-    switch (type) {
-        case DimensionType.STRING:
-        case DimensionType.TIMESTAMP:
-        case DimensionType.DATE:
-            return [
-                MetricType.COUNT_DISTINCT,
-                MetricType.COUNT,
-                MetricType.MIN,
-                MetricType.MAX,
-            ];
-        case DimensionType.NUMBER:
-            return [
-                MetricType.MIN,
-                MetricType.MAX,
-                MetricType.SUM,
-                MetricType.PERCENTILE,
-                MetricType.MEDIAN,
-                MetricType.AVERAGE,
-                MetricType.COUNT_DISTINCT,
-                MetricType.COUNT,
-            ];
-        case DimensionType.BOOLEAN:
-            return [MetricType.COUNT_DISTINCT, MetricType.COUNT];
-        default:
-            return [];
-    }
-};
 
 type Props = {
     item: Metric | Dimension | AdditionalMetric | CustomDimension;
@@ -89,10 +60,11 @@ const TreeSingleNodeActions: FC<Props> = ({
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { user } = useApp();
     const { showToastSuccess } = useToaster();
-    const { addFilter } = useFilters();
+    const { addFilter } = useFilteredFields();
     const { track } = useTracking();
     const { t } = useTranslation();
 
+    // Keep using Context actions (they have dual-dispatch to Redux in ExplorerProvider)
     const removeAdditionalMetric = useExplorerContext(
         (context) => context.actions.removeAdditionalMetric,
     );

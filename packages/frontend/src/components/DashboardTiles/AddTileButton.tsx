@@ -40,6 +40,7 @@ const AddTileButton: FC<Props> = ({
     dashboardTabs,
 }) => {
     const { t } = useTranslation();
+
     const [addTileType, setAddTileType] = useState<DashboardTileTypes>();
     const [isAddChartTilesModalOpen, setIsAddChartTilesModalOpen] =
         useState<boolean>(false);
@@ -110,7 +111,11 @@ const AddTileButton: FC<Props> = ({
                         icon={<MantineIcon icon={IconPlus} />}
                     >
                         <Group spacing="xxs">
-                            <Text>{t('components_dashboard_tiles_add_tile_button.new_chart')}</Text>
+                            <Text>
+                                {t(
+                                    'components_dashboard_tiles_add_tile_button.new_chart',
+                                )}
+                            </Text>
                             <Tooltip
                                 label={t(
                                     'components_dashboard_tiles_add_tile_button.tooltip_new_chart',

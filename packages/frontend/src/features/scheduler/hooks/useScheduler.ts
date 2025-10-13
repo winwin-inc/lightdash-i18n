@@ -12,6 +12,7 @@ import {
 } from '@lightdash/common';
 import { notifications } from '@mantine/notifications';
 import {
+    useInfiniteQuery,
     useMutation,
     useQuery,
     useQueryClient,
@@ -22,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 
 import { lightdashApi } from '../../../api';
 import useToaster from '../../../hooks/toaster/useToaster';
+import { type DestinationType } from './useSchedulerFilters';
 
 const getScheduler = async (uuid: string) =>
     lightdashApi<SchedulerAndTargets>({
@@ -30,36 +32,81 @@ const getScheduler = async (uuid: string) =>
         body: undefined,
     });
 
-const getSchedulerLogs = async (projectUuid: string) =>
-    lightdashApi<SchedulerWithLogs>({
-        url: `/schedulers/${projectUuid}/logs`,
+const getSchedulerLogs = async (
+    projectUuid: string,
+    paginateArgs: KnexPaginateArgs,
+    searchQuery?: string,
+    filters?: {
+        statuses?: SchedulerJobStatus[];
+        createdByUserUuids?: string[];
+        destinations?: DestinationType[];
+    },
+) => {
+    const params = new URLSearchParams({
+        page: paginateArgs.page.toString(),
+        pageSize: paginateArgs.pageSize.toString(),
+    });
+
+    if (searchQuery) {
+        params.set('searchQuery', searchQuery);
+    }
+
+    if (filters?.statuses && filters.statuses.length > 0) {
+        params.set('statuses', filters.statuses.join(','));
+    }
+
+    if (filters?.createdByUserUuids && filters.createdByUserUuids.length > 0) {
+        params.set('createdByUserUuids', filters.createdByUserUuids.join(','));
+    }
+
+    if (filters?.destinations && filters.destinations.length > 0) {
+        params.set('destinations', filters.destinations.join(','));
+    }
+
+    return lightdashApi({
+        url: `/schedulers/${projectUuid}/logs?${params.toString()}`,
         method: 'GET',
         body: undefined,
-    });
+    }) as unknown as Promise<LogsResponse>;
+};
 
 const getPaginatedSchedulers = async (
     projectUuid: string,
-    paginateArgs?: KnexPaginateArgs,
+    paginateArgs: KnexPaginateArgs,
     searchQuery?: string,
     sortBy?: string,
     sortDirection?: 'asc' | 'desc',
+    filters?: {
+        createdByUserUuids?: string[];
+        formats?: string[];
+        resourceType?: 'chart' | 'dashboard';
+        resourceUuids?: string[];
+        destinations?: DestinationType[];
+    },
 ) => {
     const urlParams = new URLSearchParams({
-        ...(paginateArgs
-            ? {
-                  page: String(paginateArgs.page),
-                  pageSize: String(paginateArgs.pageSize),
-              }
-            : {}),
+        page: String(paginateArgs.page),
+        pageSize: String(paginateArgs.pageSize),
         ...(searchQuery ? { searchQuery } : {}),
         ...(sortBy ? { sortBy } : {}),
         ...(sortDirection ? { sortDirection } : {}),
+        ...(filters?.createdByUserUuids
+            ? { createdByUserUuids: filters.createdByUserUuids.join(',') }
+            : {}),
+        ...(filters?.formats ? { formats: filters.formats.join(',') } : {}),
+        ...(filters?.resourceType
+            ? { resourceType: filters.resourceType }
+            : {}),
+        ...(filters?.resourceUuids
+            ? { resourceUuids: filters.resourceUuids.join(',') }
+            : {}),
+        ...(filters?.destinations
+            ? { destinations: filters.destinations.join(',') }
+            : {}),
     }).toString();
 
     return lightdashApi<ApiSchedulersResponse['results']>({
-        url: `/schedulers/${projectUuid}/list${
-            urlParams ? `?${urlParams}` : ''
-        }`,
+        url: `/schedulers/${projectUuid}/list?${urlParams}`,
         method: 'GET',
         body: undefined,
     });
@@ -83,6 +130,13 @@ const sendNowScheduler = async (scheduler: CreateSchedulerAndTargets) =>
         body: JSON.stringify(scheduler),
     });
 
+const sendNowSchedulerByUuid = async (uuid: string) =>
+    lightdashApi<ApiTestSchedulerResponse['results']>({
+        url: `/schedulers/${uuid}/send`,
+        method: 'POST',
+        body: undefined,
+    });
+
 export const useScheduler = (
     uuid: string | null,
     useQueryOptions?: UseQueryOptions<SchedulerAndTargets, ApiError>,
@@ -94,11 +148,60 @@ export const useScheduler = (
         ...useQueryOptions,
     });
 
-export const useSchedulerLogs = (projectUuid: string) =>
-    useQuery<SchedulerWithLogs, ApiError>({
-        queryKey: ['schedulerLogs', projectUuid],
-        queryFn: () => getSchedulerLogs(projectUuid),
+type LogsResponse = {
+    pagination?: {
+        page: number;
+        pageSize: number;
+        totalPageCount: number;
+        totalResults: number;
+    };
+    data: SchedulerWithLogs;
+};
+
+export const useSchedulerLogs = ({
+    projectUuid,
+    paginateArgs,
+    searchQuery,
+    filters,
+}: {
+    projectUuid: string;
+    paginateArgs?: KnexPaginateArgs;
+    searchQuery?: string;
+    filters?: {
+        statuses?: SchedulerJobStatus[];
+        createdByUserUuids?: string[];
+        destinations?: DestinationType[];
+    };
+}) => {
+    return useInfiniteQuery<LogsResponse>({
+        queryKey: [
+            'schedulerLogs',
+            projectUuid,
+            paginateArgs,
+            searchQuery,
+            filters,
+        ],
+        queryFn: async ({ pageParam = 0 }) => {
+            return getSchedulerLogs(
+                projectUuid,
+                {
+                    page: (pageParam as number) + 1,
+                    pageSize: paginateArgs?.pageSize || 10,
+                },
+                searchQuery,
+                filters,
+            );
+        },
+        getNextPageParam: (_lastGroup, groups) => {
+            const currentPage = groups.length - 1;
+            const totalPages = _lastGroup.pagination?.totalPageCount ?? 0;
+            return currentPage < totalPages - 1 ? currentPage + 1 : undefined;
+        },
+        keepPreviousData: true,
+        refetchOnWindowFocus: false,
+        enabled: !!projectUuid,
     });
+};
 
 export const usePaginatedSchedulers = ({
     projectUuid,
@@ -106,14 +209,21 @@ export const usePaginatedSchedulers = ({
     searchQuery,
     sortBy,
     sortDirection,
+    filters,
 }: {
     projectUuid: string;
     paginateArgs?: KnexPaginateArgs;
     searchQuery?: string;
     sortBy?: string;
     sortDirection?: 'asc' | 'desc';
+    filters?: {
+        createdByUserUuids?: string[];
+        formats?: string[];
+        resourceType?: 'chart' | 'dashboard';
+        resourceUuids?: string[];
+    };
 }) => {
-    return useQuery<ApiSchedulersResponse['results'], ApiError>({
+    return useInfiniteQuery<ApiSchedulersResponse['results']>({
         queryKey: [
             'paginatedSchedulers',
             projectUuid,
@@ -121,15 +231,29 @@ export const usePaginatedSchedulers = ({
             searchQuery,
             sortBy,
             sortDirection,
+            filters,
         ],
-        queryFn: () =>
-            getPaginatedSchedulers(
+        queryFn: async ({ pageParam = 0 }) => {
+            return getPaginatedSchedulers(
                 projectUuid,
-                paginateArgs,
+                {
+                    page: pageParam as number,
+                    pageSize: paginateArgs?.pageSize ?? 10,
+                },
                 searchQuery,
                 sortBy,
                 sortDirection,
-            ),
+                filters,
+            );
+        },
+        getNextPageParam: (_lastGroup, groups) => {
+            const currentPage = groups.length - 1;
+            const totalPages = _lastGroup.pagination?.totalPageCount ?? 0;
+            return currentPage < totalPages - 1 ? currentPage + 1 : undefined;
+        },
+        keepPreviousData: true,
+        refetchOnWindowFocus: false,
+        enabled: !!projectUuid,
     });
 };
 
@@ -166,7 +290,7 @@ export const pollJobStatus = async (jobId: string) => {
     );
 };
 
-export const useSendNowScheduler = () => {
+const useSendNowJobStatus = (jobId: string | undefined) => {
     const queryClient = useQueryClient();
     const { t } = useTranslation();
 
@@ -176,50 +300,16 @@ export const useSendNowScheduler = () => {
         showToastSuccess,
         showToastApiError,
     } = useToaster();
-
-    const sendNowMutation = useMutation<
-        ApiTestSchedulerResponse['results'],
-        ApiError,
-        CreateSchedulerAndTargets
-    >(
-        (res) => {
-            showToastInfo({
-                key: 'toast-info-job-status',
-                title: t('features_scheduler_hooks.scheduler.processing_job'),
-                loading: true,
-                autoClose: false,
-            });
-            return sendNowScheduler(res);
-        },
-        {
-            mutationKey: ['sendNowScheduler'],
-            onSuccess: () => {},
-            onError: ({ error }) => {
-                showToastApiError({
-                    title: t(
-                        'features_scheduler_hooks.scheduler.failed_to_process_job',
-                    ),
-                    apiError: error,
-                });
-            },
-        },
-    );
-
-    const { data: sendNowData } = sendNowMutation;
-
-    const { data: scheduledDeliveryJobStatus } = useQuery<
-        ApiJobStatusResponse['results'] | undefined,
-        ApiError
-    >(
-        ['jobStatus', sendNowData?.jobId],
+    return useQuery<ApiJobStatusResponse['results'] | undefined, ApiError>(
+        ['jobStatus', jobId],
         () => {
-            if (!sendNowData?.jobId) return;
+            if (!jobId) return;
 
             setTimeout(() => {
                 notifications.hide('toast-info-job-status');
             }, 1000);
 
-            return getSchedulerJobStatus(sendNowData.jobId);
+            return getSchedulerJobStatus(jobId);
         },
         {
             refetchInterval: (data) => {
@@ -291,13 +381,122 @@ export const useSendNowScheduler = () => {
                     1000,
                 );
 
-                await queryClient.cancelQueries([
-                    'jobStatus',
-                    sendNowData?.jobId,
-                ]);
+                await queryClient.cancelQueries(['jobStatus', jobId]);
             },
-            enabled: Boolean(sendNowData && sendNowData?.jobId !== undefined),
+            enabled: Boolean(jobId !== undefined),
         },
+    );
+};
+
+export const useSendNowScheduler = () => {
+    const { t } = useTranslation();
+    const { showToastInfo, showToastApiError } = useToaster();
+
+    const sendNowMutation = useMutation<
+        ApiTestSchedulerResponse['results'],
+        ApiError,
+        CreateSchedulerAndTargets
+    >(
+        (res) => {
+            showToastInfo({
+                key: 'toast-info-job-status',
+                title: t(
+                    'features_scheduler_hooks.send_now_scheduler.processing_job',
+                ),
+                loading: true,
+                autoClose: false,
+            });
+            return sendNowScheduler(res);
+        },
+        {
+            mutationKey: ['sendNowScheduler'],
+            onSuccess: (res) => {
+                pollJobStatus(res.jobId || '')
+                    .then((data) => {
+                        if (data?.status === SchedulerJobStatus.ERROR) {
+                            throw new Error(data?.details?.error);
+                        }
+                    })
+                    .catch((e) => {
+                        throw e;
+                    });
+            },
+            onError: (apiError: ApiError) => {
+                showToastApiError({
+                    key: 'toast-info-job-status',
+                    title: t(
+                        'features_scheduler_hooks.send_now_scheduler.failed_to_process_job',
+                    ),
+                    apiError: apiError.error,
+                });
+            },
+        },
+    );
+
+    const { data: scheduledDeliveryJobStatus } = useSendNowJobStatus(
+        sendNowMutation.data?.jobId,
+    );
+
+    const isLoading = useMemo(
+        () =>
+            sendNowMutation.isLoading ||
+            scheduledDeliveryJobStatus?.status === SchedulerJobStatus.STARTED,
+        [scheduledDeliveryJobStatus?.status, sendNowMutation.isLoading],
+    );
+
+    return {
+        ...sendNowMutation,
+        isLoading,
+    };
+};
+
+export const useSendNowSchedulerByUuid = (schedulerUuid: string) => {
+    const { t } = useTranslation();
+    const { showToastInfo, showToastApiError } = useToaster();
+
+    const sendNowMutation = useMutation<
+        ApiTestSchedulerResponse['results'],
+        ApiError,
+        void
+    >(
+        async () => {
+            showToastInfo({
+                key: 'toast-info-job-status',
+                title: t(
+                    'features_scheduler_hooks.send_now_scheduler.processing_job',
+                ),
+                loading: true,
+                autoClose: false,
+            });
+            return sendNowSchedulerByUuid(schedulerUuid);
+        },
+        {
+            mutationKey: ['sendNowSchedulerByUuid', schedulerUuid],
+            onSuccess: (res) => {
+                pollJobStatus(res.jobId || '')
+                    .then((data) => {
+                        if (data?.status === SchedulerJobStatus.ERROR) {
+                            throw new Error(data?.details?.error);
+                        }
+                    })
+                    .catch((e) => {
+                        throw e;
+                    });
+            },
+            onError: (apiError: ApiError) => {
+                showToastApiError({
+                    key: 'toast-info-job-status',
+                    title: t(
+                        'features_scheduler_hooks.send_now_scheduler.failed_to_send_scheduled_delivery',
+                    ),
+                    apiError: apiError.error,
+                });
+            },
+        },
+    );
+
+    const { data: scheduledDeliveryJobStatus } = useSendNowJobStatus(
+        sendNowMutation.data?.jobId,
     );
 
     const isLoading = useMemo(

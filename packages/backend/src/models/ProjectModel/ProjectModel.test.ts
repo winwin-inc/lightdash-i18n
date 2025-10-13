@@ -1,7 +1,13 @@
 import {
     AnyType,
+    Change,
+    CompiledDimension,
+    CompiledMetric,
     CreatePostgresCredentials,
+    DimensionType,
     ExploreType,
+    FieldType,
+    MetricType,
 } from '@lightdash/common';
 import knex from 'knex';
 import { MockClient, RawQuery, Tracker, getTracker } from 'knex-mock-client';
@@ -13,6 +19,7 @@ import {
     CachedExploresTableName,
     ProjectTableName,
 } from '../../database/entities/projects';
+import { ChangesetModel } from '../ChangesetModel';
 import { ProjectModel } from './ProjectModel';
 import {
     CompletePostgresCredentials,
@@ -43,8 +50,11 @@ function queryMatcher(
 }
 
 describe('ProjectModel', () => {
+    const database = knex({ client: MockClient, dialect: 'pg' });
+
     const model = new ProjectModel({
-        database: knex({ client: MockClient, dialect: 'pg' }),
+        database,
+        changesetModel: new ChangesetModel({ database }),
         lightdashConfig: lightdashConfigMock,
         encryptionUtil: encryptionUtilMock,
     });
@@ -193,6 +203,52 @@ describe('ProjectModel', () => {
             );
             expect(result.user).toEqual(null);
             expect(result.password).toEqual('new_password');
+        });
+    });
+
+    describe('removing sensitive credentials from API', () => {
+        test('should remove sensitive credentials like token and refreshToken', async () => {
+            tracker.on
+                .select(queryMatcher(ProjectTableName, [projectUuid]))
+                .response([projectMock]);
+
+            const project = await model.get(projectUuid);
+
+            // Verify that sensitive fields are not present in the returned project
+            expect(project.warehouseConnection).toBeDefined();
+            expect(
+                (project.warehouseConnection as AnyType).token,
+            ).toBeUndefined();
+            expect(
+                (project.warehouseConnection as AnyType).refreshToken,
+            ).toBeUndefined();
+            expect(
+                (project.warehouseConnection as AnyType).password,
+            ).toBeUndefined();
+            expect(
+                (project.warehouseConnection as AnyType).keyfileContents,
+            ).toBeUndefined();
+            expect(
+                (project.warehouseConnection as AnyType).personalAccessToken,
+            ).toBeUndefined();
+            expect(
+                (project.warehouseConnection as AnyType).privateKey,
+            ).toBeUndefined();
+            expect(
+                (project.warehouseConnection as AnyType).privateKeyPass,
+            ).toBeUndefined();
+            expect(
+                (project.warehouseConnection as AnyType).sshTunnelPrivateKey,
+            ).toBeUndefined();
+            expect(
+                (project.warehouseConnection as AnyType).sslcert,
+            ).toBeUndefined();
+            expect(
+                (project.warehouseConnection as AnyType).sslkey,
+            ).toBeUndefined();
+            expect(
+                (project.warehouseConnection as AnyType).sslrootcert,
+            ).toBeUndefined();
         });
     });
 });

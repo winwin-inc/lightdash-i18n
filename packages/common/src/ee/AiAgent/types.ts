@@ -1,5 +1,5 @@
 import type { Filters } from '../../types/filter';
-import type { MetricQuery } from '../../types/metricQuery';
+import type { AdditionalMetric, MetricQuery } from '../../types/metricQuery';
 import type {
     ToolTableVizArgs,
     ToolTimeSeriesArgs,
@@ -9,14 +9,23 @@ import type {
 export enum AiResultType {
     TIME_SERIES_RESULT = 'time_series_chart',
     VERTICAL_BAR_RESULT = 'vertical_bar_chart',
-    ONE_LINE_RESULT = 'one_line_result',
     TABLE_RESULT = 'table',
+    DASHBOARD_RESULT = 'dashboard',
+    IMPROVE_CONTEXT = 'improve_context',
+    PROPOSE_CHANGE = 'propose_change',
 }
 
 export type AiMetricQuery = Pick<
     MetricQuery,
-    'metrics' | 'dimensions' | 'sorts' | 'limit' | 'exploreName'
->;
+    | 'metrics'
+    | 'dimensions'
+    | 'sorts'
+    | 'limit'
+    | 'exploreName'
+    | 'tableCalculations'
+> & {
+    additionalMetrics: Omit<AdditionalMetric, 'sql'>[];
+};
 
 export type AiMetricQueryWithFilters = AiMetricQuery & {
     filters: Filters;

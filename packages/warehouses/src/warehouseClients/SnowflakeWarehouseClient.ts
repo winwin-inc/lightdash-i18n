@@ -8,6 +8,7 @@ import {
     MetricType,
     ParseError,
     SupportedDbtAdapter,
+    UnexpectedServerError,
     WarehouseConnectionError,
     WarehouseQueryError,
     WarehouseResults,
@@ -19,6 +20,7 @@ import {
 } from '@lightdash/common';
 import * as crypto from 'crypto';
 import {
+    Column,
     configure,
     Connection,
     ConnectionOptions,
@@ -197,6 +199,12 @@ export class SnowflakeWarehouseClient extends WarehouseBaseClient<CreateSnowflak
 
         // if authenticationType is undefined, we assume it is a password authentication, for backwards compatibility
         if (credentials.authenticationType === 'sso') {
+            if (!credentials.token) {
+                // Perhaps we forgot to refresh the token before building the client, check buildAdapter for more details
+                throw new UnexpectedServerError(
+                    'Snowflake token is required for SSO authentication',
+                );
+            }
             authenticationOptions = {
                 token: credentials.token,
                 authenticator: 'OAUTH',
@@ -338,7 +346,8 @@ export class SnowflakeWarehouseClient extends WarehouseBaseClient<CreateSnowflak
     private getFieldsFromStatement(
         stmt: RowStatement | FileAndStageBindStatement,
     ) {
-        const columns = stmt.getColumns();
+        // There is a bug/mistype in snowflake-sdk since this method can return undefined
+        const columns = stmt.getColumns() as Column[] | undefined;
         return columns
             ? columns.reduce(
                   (acc, column) => ({
@@ -663,18 +672,10 @@ export class SnowflakeWarehouseClient extends WarehouseBaseClient<CreateSnowflak
                         reject(err);
                     }
                     if (data) {
-                        const fields = stmt.getColumns().reduce(
-                            (acc, column) => ({
-                                ...acc,
-                                [column.getName()]: {
-                                    type: mapFieldType(
-                                        column.getType().toUpperCase(),
-                                    ),
-                                },
-                            }),
-                            {},
-                        );
-                        resolve({ fields, rows: parseRows(data) });
+                        resolve({
+                            fields: this.getFieldsFromStatement(stmt),
+                            rows: parseRows(data),
+                        });
                     } else {
                         reject(
                             new WarehouseQueryError(
@@ -832,11 +833,62 @@ export class SnowflakeWarehouseClient extends WarehouseBaseClient<CreateSnowflak
         return this.parseWarehouseCatalog(rows, mapFieldType);
     }
 
+    /*
+     * This function is used to format the error message for the user.
+     * It is used to replace the {snowflakeTable} and {snowflakeSchema} with the actual table and schema names.
+     * Sample custom template: You don't have access to the {snowflakeTable} table. Please go to '{snowflakeSchema}' and request access
+     */
+    private formatCustomErrorMessage(
+        originalMessage: string,
+        customTemplate: string,
+    ): string {
+        let formattedMessage = customTemplate;
+
+        // Extract table information from the original error message
+        // Pattern matches: Object 'DATABASE.SCHEMA.TABLE' does not exist or not authorized
+        const tableMatch = originalMessage.match(
+            /Object '([^']+)' does not exist or not authorized/i,
+        );
+
+        if (tableMatch) {
+            const fullTableName = tableMatch[1];
+            const parts = fullTableName.split('.');
+
+            if (parts.length >= 3) {
+                const snowflakeTable = parts[parts.length - 1]; // Last part is table name
+                const snowflakeSchema = parts[parts.length - 2]; // Second to last is schema
+
+                // Replace variables in the custom message
+                formattedMessage = formattedMessage
+                    .replace(/\{snowflakeTable\}/g, snowflakeTable)
+                    .replace(/\{snowflakeSchema\}/g, snowflakeSchema);
+            }
+        }
+
+        return formattedMessage;
+    }
+
     parseError(error: SnowflakeError, query: string = '') {
         // if the error has no code or data, return a generic error
         if (!error?.code && !error.data) {
             return new WarehouseQueryError(error?.message || 'Unknown error');
         }
+
+        const originalMessage = error?.message || 'Unknown error';
+
+        // Check for unauthorized access errors and use custom message if configured
+        if (originalMessage.includes('does not exist or not authorized')) {
+            const customErrorMessage =
+                process.env.SNOWFLAKE_UNAUTHORIZED_ERROR_MESSAGE;
+            if (customErrorMessage) {
+                const formattedMessage = this.formatCustomErrorMessage(
+                    originalMessage,
+                    customErrorMessage,
+                );
+                return new WarehouseQueryError(formattedMessage);
+            }
+        }
+
         // pull error type from data object
         const errorType = error.data?.type || error.code;
         switch (errorType) {
@@ -878,6 +930,6 @@ export class SnowflakeWarehouseClient extends WarehouseBaseClient<CreateSnowflak
                 break;
         }
         // otherwise return a generic error
-        return new WarehouseQueryError(error?.message || 'Unknown error');
+        return new WarehouseQueryError(originalMessage);
     }
 }

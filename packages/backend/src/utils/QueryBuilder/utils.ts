@@ -152,7 +152,7 @@ const getWrapChars = (wrapChar: string): [string, string] => {
 export const replaceLightdashValues = (
     regex: RegExp,
     sql: string,
-    valuesMap: Record<string, string | string[]>,
+    valuesMap: Record<string, string | number | string[] | number[]>,
     quoteChar: string | '',
     wrapChar: string | '',
     {
@@ -196,7 +196,11 @@ export const replaceLightdashValues = (
                 );
             }
 
-            if (attributeValues.length === 0) {
+            if (
+                (isArray(attributeValues) && attributeValues.length === 0) ||
+                (typeof attributeValues === 'string' &&
+                    attributeValues.length === 0)
+            ) {
                 missingReferences.add(attribute);
                 if (!throwOnMissing) return acc;
                 throw new ForbiddenError(
@@ -204,14 +208,20 @@ export const replaceLightdashValues = (
                 );
             }
 
-            const valueString = isArray(attributeValues)
-                ? attributeValues
-                      .map(
-                          (attributeValue) =>
-                              `${quoteChar}${attributeValue}${quoteChar}`,
-                      )
-                      .join(', ')
-                : `${quoteChar}${attributeValues}${quoteChar}`;
+            let valueString: string;
+            if (isArray(attributeValues)) {
+                valueString = attributeValues
+                    .map((attributeValue) =>
+                        typeof attributeValue === 'number'
+                            ? String(attributeValue)
+                            : `${quoteChar}${attributeValue}${quoteChar}`,
+                    )
+                    .join(', ');
+            } else if (typeof attributeValues === 'number') {
+                valueString = String(attributeValues);
+            } else {
+                valueString = `${quoteChar}${attributeValues}${quoteChar}`;
+            }
 
             return acc.replace(sqlAttribute, valueString);
         },
@@ -420,13 +430,13 @@ const restoreStringsFromPlaceholders = (
         (_, p1) => placeholders[Number(p1)],
     );
 
-interface LimitOffsetClause {
+export interface LimitOffsetClause {
     limit: number;
     offset?: number;
 }
 
 // Extract the outer limit and offset clauses from a SQL query
-const extractOuterLimitOffsetFromSQL = (
+export const extractOuterLimitOffsetFromSQL = (
     sql: string,
 ): LimitOffsetClause | undefined => {
     let s = sql.trim();
@@ -459,7 +469,7 @@ const extractOuterLimitOffsetFromSQL = (
 };
 
 // Remove the outermost limit and offset clauses from SQL
-const removeCommentsAndOuterLimitOffset = (sql: string): string => {
+export const removeCommentsAndOuterLimitOffset = (sql: string): string => {
     let s = sql.trim();
     // remove comments
     s = removeComments(s);
@@ -469,7 +479,9 @@ const removeCommentsAndOuterLimitOffset = (sql: string): string => {
     // remove either "LIMIT x OFFSET y" or "OFFSET y LIMIT x" at the end of the query
     const limitOffsetRegex =
         /(\b(?:(?:limit\s+\d+(?:\s+offset\s+\d+)?)|(?:offset\s+\d+\s+limit\s+\d+))\s*(?:;|\s*)?)$/i;
-    let sqlWithoutLimit = sqlWithoutStrings.replace(limitOffsetRegex, '');
+    let sqlWithoutLimit = sqlWithoutStrings
+        .trim()
+        .replace(limitOffsetRegex, '');
     // remove semicolon from the end of the query
     sqlWithoutLimit = sqlWithoutLimit.trim().replace(/;+$/g, '');
     // restore strings
@@ -490,7 +502,7 @@ export const applyLimitToSqlQuery = ({
     limit,
 }: {
     sqlQuery: string;
-    limit: number | undefined;
+    limit: number | null | undefined;
 }): string => {
     // do nothing if limit is undefined
     if (limit === undefined) {
@@ -498,6 +510,9 @@ export const applyLimitToSqlQuery = ({
         let sql = removeComments(sqlQuery);
         sql = sql.trim().replace(/;+$/g, '');
         return sql.trim();
+    }
+    if (limit === null) {
+        return removeCommentsAndOuterLimitOffset(sqlQuery);
     }
     // get any existing outer limit and offset from the SQL query
     const existingLimitOffset = extractOuterLimitOffsetFromSQL(sqlQuery);
@@ -828,6 +843,9 @@ export const getCustomBinDimensionSql = ({
     };
 };
 
+/*
+ * Returns list of intermediary/extra joined tables based on the current joined tables
+ */
 export const getJoinedTables = (
     explore: Explore,
     tableNames: string[],
@@ -838,11 +856,18 @@ export const getJoinedTables = (
     const allNewReferences = explore.joinedTables.reduce<string[]>(
         (sum, joinedTable) => {
             if (tableNames.includes(joinedTable.table)) {
-                const newReferencesInJoin = parseAllReferences(
-                    joinedTable.sqlOn,
-                    joinedTable.table,
-                ).reduce<string[]>(
-                    (acc, { refTable }) =>
+                const joinTableReferences =
+                    joinedTable.tablesReferences ||
+                    parseAllReferences(
+                        // fallback for old explores, it might be incorrect when the join as an alias
+                        joinedTable.sqlOn,
+                        joinedTable.table,
+                    ).map(({ refTable }) => refTable);
+
+                const newReferencesInJoin = joinTableReferences.reduce<
+                    string[]
+                >(
+                    (acc, refTable) =>
                         !tableNames.includes(refTable)
                             ? [...acc, refTable]
                             : acc,

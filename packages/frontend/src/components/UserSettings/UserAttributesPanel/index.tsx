@@ -71,18 +71,26 @@ const UserListItem: FC<{
                             {orgUserAttribute.users.length}{' '}
                             {t(
                                 'components_user_settings_attributes_panel.user',
+                                {
+                                    suffix:
+                                        orgUserAttribute.users.length !== 1
+                                            ? 's'
+                                            : '',
+                                },
                             )}
-                            {orgUserAttribute.users.length !== 1 ? 's' : ''}
                         </Text>
                         {isGroupManagementEnabled && (
                             <Text fz="xs" color="gray.6">
                                 {orgUserAttribute.groups.length}{' '}
                                 {t(
                                     'components_user_settings_attributes_panel.group',
+                                    {
+                                        suffix:
+                                            orgUserAttribute.groups.length !== 1
+                                                ? 's'
+                                                : '',
+                                    },
                                 )}
-                                {orgUserAttribute.groups.length !== 1
-                                    ? 's'
-                                    : ''}
                             </Text>
                         )}
                     </Group>
@@ -184,16 +192,16 @@ const UserAttributesPanel: FC = () => {
     }
 
     if (isInitialLoading) {
-        return <LoadingState title={t(
-            'components_user_settings_attributes_panel.loading',
-        )} />;
+        return (
+            <LoadingState
+                title={t('components_user_settings_attributes_panel.loading')}
+            />
+        );
     }
 
     if (userGroupsFeatureFlagQuery.isError) {
         console.error(userGroupsFeatureFlagQuery.error);
-        throw new Error(t(
-            'components_user_settings_attributes_panel.error',
-        ));
+        throw new Error(t('components_user_settings_attributes_panel.error'));
     }
 
     if (!user.data) return null;

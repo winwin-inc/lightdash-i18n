@@ -868,7 +868,11 @@ export class DashboardModel {
             .where(
                 `${DashboardTilesTableName}.dashboard_version_id`,
                 dashboard.dashboard_version_id,
-            );
+            )
+            .orderBy([
+                { column: `${DashboardTilesTableName}.y_offset` },
+                { column: `${DashboardTilesTableName}.x_offset` },
+            ]);
 
         const tabs = await this.database(DashboardTabsTableName)
             .select<DashboardTab[]>(
@@ -1176,6 +1180,70 @@ export class DashboardModel {
         return orphanedCharts.map((chart) => ({
             uuid: chart.saved_query_uuid,
         }));
+    }
+
+    /**
+     * Check if a specific chart exists in the latest version of a specific dashboard within a project
+     */
+    async savedChartExistsInDashboard(
+        projectUuid: string,
+        dashboardUuid: string,
+        chartUuid: string,
+    ): Promise<boolean> {
+        const cteName = 'latest_dashboard_version_cte';
+
+        const result = await this.database
+            .with(cteName, (qb) => {
+                void qb
+                    .select({
+                        dashboard_uuid: `${DashboardsTableName}.dashboard_uuid`,
+                        dashboard_version_id: this.database.raw(
+                            `MAX(${DashboardVersionsTableName}.dashboard_version_id)`,
+                        ),
+                    })
+                    .from(DashboardsTableName)
+                    .innerJoin(
+                        DashboardVersionsTableName,
+                        `${DashboardsTableName}.dashboard_id`,
+                        `${DashboardVersionsTableName}.dashboard_id`,
+                    )
+                    .innerJoin(
+                        SpaceTableName,
+                        `${DashboardsTableName}.space_id`,
+                        `${SpaceTableName}.space_id`,
+                    )
+                    .innerJoin(
+                        ProjectTableName,
+                        `${SpaceTableName}.project_id`,
+                        `${ProjectTableName}.project_id`,
+                    )
+                    .where(
+                        `${DashboardsTableName}.dashboard_uuid`,
+                        dashboardUuid,
+                    )
+                    .where(`${ProjectTableName}.project_uuid`, projectUuid)
+                    .groupBy(`${DashboardsTableName}.dashboard_uuid`);
+            })
+            .select<
+                {
+                    dashboard_uuid: string;
+                }[]
+            >(`${cteName}.dashboard_uuid`)
+            .from(cteName)
+            .innerJoin(
+                DashboardTileChartTableName,
+                `${cteName}.dashboard_version_id`,
+                `${DashboardTileChartTableName}.dashboard_version_id`,
+            )
+            .innerJoin(
+                SavedChartsTableName,
+                `${DashboardTileChartTableName}.saved_chart_id`,
+                `${SavedChartsTableName}.saved_query_id`,
+            )
+            .where(`${SavedChartsTableName}.saved_query_uuid`, chartUuid)
+            .first();
+
+        return !!result;
     }
 
     async findInfoForDbtExposures(projectUuid: string): Promise<

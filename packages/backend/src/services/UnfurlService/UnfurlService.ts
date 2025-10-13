@@ -9,27 +9,51 @@ import {
     getErrorMessage,
     isDashboardChartTileType,
     isDashboardSqlChartTile,
+    LightdashMode,
     LightdashPage,
     LightdashRequestMethodHeader,
+    ParameterError,
     QueryHistoryStatus,
     RequestMethod,
     ScreenshotError,
+    SessionStorageKeys,
     SessionUser,
+    SlackInstallationNotFoundError,
     snakeCaseName,
+    validateSelectedTabs,
+    type DashboardFilterRule,
+    type ParametersValuesMap,
 } from '@lightdash/common';
 import * as Sentry from '@sentry/node';
+import {
+    AllMiddlewareArgs,
+    App,
+    LinkSharedEvent,
+    SlackEventMiddlewareArgs,
+} from '@slack/bolt';
+import { StringIndexed } from '@slack/bolt/dist/types/helpers';
+import { WebClient } from '@slack/web-api';
 import * as fsPromise from 'fs/promises';
 import { nanoid as useNanoid } from 'nanoid';
 import fetch from 'node-fetch';
 import { PDFDocument } from 'pdf-lib';
 import playwright from 'playwright';
+import { LightdashAnalytics } from '../../analytics/LightdashAnalytics';
 import { S3Client } from '../../clients/Aws/S3Client';
+import { SlackClient } from '../../clients/Slack/SlackClient';
+import {
+    getUnfurlBlocks,
+    Unfurl,
+} from '../../clients/Slack/SlackMessageBlocks';
 import { LightdashConfig } from '../../config/parseConfig';
+import { slackErrorHandler } from '../../errors';
+import Logger from '../../logging/logger';
 import { DashboardModel } from '../../models/DashboardModel/DashboardModel';
 import { DownloadFileModel } from '../../models/DownloadFileModel';
 import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
 import { ShareModel } from '../../models/ShareModel';
+import { SlackAuthenticationModel } from '../../models/SlackAuthenticationModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { getAuthenticationToken } from '../../routers/headlessBrowser';
 import { BaseService } from '../BaseService';
@@ -60,19 +84,6 @@ export enum ScreenshotContext {
 
 const SCREENSHOT_RETRIES = 3;
 
-export type Unfurl = {
-    title: string;
-    description?: string;
-    chartType?: string;
-    imageUrl: string | undefined;
-    pageType: LightdashPage;
-    minimalUrl: string;
-    organizationUuid: string;
-    resourceUuid: string | undefined;
-    chartTileUuids?: (string | null)[];
-    sqlChartTileUuids?: (string | null)[];
-};
-
 export type ParsedUrl = {
     isValid: boolean;
     lightdashPage?: LightdashPage;
@@ -84,6 +95,33 @@ export type ParsedUrl = {
     exploreModel?: string;
 };
 
+const notifySlackError = async (
+    error: unknown,
+    url: string,
+    client: WebClient,
+    event: LinkSharedEvent,
+    { appProfilePhotoUrl }: { appProfilePhotoUrl?: string },
+): Promise<void> => {
+    /** Expected slack errors:
+     * - cannot_parse_attachment: Means the image on the blocks is not accessible from slack, is the URL public ?
+     */
+    Logger.error(`Unable to unfurl slack URL ${url}: ${error} `);
+
+    // Send message in thread
+    await client.chat
+        .postMessage({
+            thread_ts: event.message_ts,
+            channel: event.channel,
+            ...(appProfilePhotoUrl ? { icon_url: appProfilePhotoUrl } : {}),
+            text: `:fire: Unable to unfurl ${url}: ${error}`,
+        })
+        .catch((er: unknown) =>
+            Logger.error(
+                `Unable send slack error message: ${getErrorMessage(er)}`,
+            ),
+        );
+};
+
 type UnfurlServiceArguments = {
     lightdashConfig: LightdashConfig;
     dashboardModel: DashboardModel;
@@ -91,8 +129,11 @@ type UnfurlServiceArguments = {
     spaceModel: SpaceModel;
     shareModel: ShareModel;
     s3Client: S3Client;
+    slackClient: SlackClient;
     projectModel: ProjectModel;
     downloadFileModel: DownloadFileModel;
+    analytics: LightdashAnalytics;
+    slackAuthenticationModel: SlackAuthenticationModel;
 };
 
 export class UnfurlService extends BaseService {
@@ -108,9 +149,15 @@ export class UnfurlService extends BaseService {
 
     s3Client: S3Client;
 
+    slackClient: SlackClient;
+
     projectModel: ProjectModel;
 
     downloadFileModel: DownloadFileModel;
+
+    analytics: LightdashAnalytics;
+
+    slackAuthenticationModel: SlackAuthenticationModel;
 
     constructor({
         lightdashConfig,
@@ -121,6 +168,9 @@ export class UnfurlService extends BaseService {
         s3Client,
         projectModel,
         downloadFileModel,
+        slackClient,
+        analytics,
+        slackAuthenticationModel,
     }: UnfurlServiceArguments) {
         super();
         this.lightdashConfig = lightdashConfig;
@@ -129,8 +179,11 @@ export class UnfurlService extends BaseService {
         this.spaceModel = spaceModel;
         this.shareModel = shareModel;
         this.s3Client = s3Client;
+        this.slackClient = slackClient;
         this.projectModel = projectModel;
         this.downloadFileModel = downloadFileModel;
+        this.analytics = analytics;
+        this.slackAuthenticationModel = slackAuthenticationModel;
     }
 
     private async waitForAllPaginatedResultsResponse(
@@ -148,7 +201,7 @@ export class UnfurlService extends BaseService {
             `Waiting for ${expectedResponses} paginated responses with timeout ${timeout}ms`,
         );
 
-        const responsePromise = new Promise<void>((resolve, reject) => {
+        const responsePromise = new Promise<void>((resolve) => {
             const responseHandler = async (response: playwright.Response) => {
                 if (response.url().match(paginatedQueryEndpointRegex)) {
                     this.logger.debug(
@@ -231,7 +284,7 @@ export class UnfurlService extends BaseService {
 
     async getTitleAndDescription(
         parsedUrl: ParsedUrl,
-        selectedTabs?: string[],
+        selectedTabs: string[] | null,
     ): Promise<
         Pick<
             Unfurl,
@@ -245,20 +298,21 @@ export class UnfurlService extends BaseService {
         switch (parsedUrl.lightdashPage) {
             case LightdashPage.DASHBOARD:
                 if (!parsedUrl.dashboardUuid)
-                    throw new Error(
+                    throw new ParameterError(
                         `Missing dashboardUuid when unfurling Dashboard URL ${parsedUrl.url}`,
                     );
                 const dashboard = await this.dashboardModel.getById(
                     parsedUrl.dashboardUuid,
                 );
 
+                validateSelectedTabs(selectedTabs, dashboard.tiles);
+
                 // Filter tiles based on selected tabs if they exist
-                const filteredTiles =
-                    selectedTabs && selectedTabs.length > 0
-                        ? dashboard.tiles.filter((tile) =>
-                              selectedTabs.includes(tile.tabUuid || ''),
-                          )
-                        : dashboard.tiles;
+                const filteredTiles = selectedTabs
+                    ? dashboard.tiles.filter((tile) =>
+                          selectedTabs.includes(tile.tabUuid || ''),
+                      )
+                    : dashboard.tiles;
 
                 return {
                     title: dashboard.name,
@@ -311,7 +365,7 @@ export class UnfurlService extends BaseService {
 
     async unfurlDetails(
         originUrl: string,
-        selectedTabs: string[] = [],
+        selectedTabs: string[] | null,
     ): Promise<Unfurl | undefined> {
         const parsedUrl = await this.parseUrl(originUrl);
 
@@ -387,6 +441,8 @@ export class UnfurlService extends BaseService {
         context,
         contextId,
         selectedTabs,
+        sendNowSchedulerFilters,
+        sendNowSchedulerParameters,
     }: {
         url: string;
         lightdashPage?: LightdashPage;
@@ -397,7 +453,9 @@ export class UnfurlService extends BaseService {
         selector?: string;
         context: ScreenshotContext;
         contextId?: unknown;
-        selectedTabs?: string[];
+        selectedTabs: string[] | null;
+        sendNowSchedulerFilters?: DashboardFilterRule[] | undefined;
+        sendNowSchedulerParameters?: ParametersValuesMap | undefined;
     }): Promise<{
         imageUrl?: string;
         pdfFile?: { source: string; fileName: string };
@@ -422,6 +480,8 @@ export class UnfurlService extends BaseService {
             context,
             contextId,
             selectedTabs,
+            sendNowSchedulerFilters,
+            sendNowSchedulerParameters,
         });
 
         let imageUrl;
@@ -462,7 +522,7 @@ export class UnfurlService extends BaseService {
         queryFilters: string,
         gridWidth: number | undefined,
         user: SessionUser,
-        selectedTabs?: string[],
+        selectedTabs: string[] | null,
     ): Promise<string> {
         const dashboard = await this.dashboardModel.getById(dashboardUuid);
         const { isPrivate } = await this.spaceModel.get(dashboard.spaceUuid);
@@ -470,6 +530,8 @@ export class UnfurlService extends BaseService {
             user.userUuid,
             dashboard.spaceUuid,
         );
+
+        validateSelectedTabs(selectedTabs, dashboard.tiles);
 
         // Create a new URLSearchParams object for query filters
         const selectedTabsParams = new URLSearchParams();
@@ -485,20 +547,29 @@ export class UnfurlService extends BaseService {
                 JSON.stringify(selectedTabsList),
             );
 
+        const urlBase = `/minimal/projects/${dashboard.projectUuid}/dashboards/${dashboardUuid}`;
+
+        // Normalize the query filters
+        const suffix =
+            queryFilters &&
+            !(queryFilters.startsWith('?') || queryFilters.startsWith('&'))
+                ? `?${queryFilters}`
+                : queryFilters ?? '';
+
+        const url = new URL(
+            urlBase + suffix,
+            this.lightdashConfig.headlessBrowser.internalLightdashHost,
+        );
+
+        for (const [k, v] of selectedTabsParams.entries()) {
+            url.searchParams.set(k, v);
+        }
+
         const { organizationUuid, projectUuid, name, minimalUrl, pageType } = {
             organizationUuid: dashboard.organizationUuid,
             projectUuid: dashboard.projectUuid,
             name: dashboard.name,
-            minimalUrl: new URL(
-                `/minimal/projects/${
-                    dashboard.projectUuid
-                }/dashboards/${dashboardUuid}${queryFilters}${
-                    selectedTabsParams.toString()
-                        ? `${selectedTabsParams.toString()}`
-                        : ''
-                }`,
-                this.lightdashConfig.headlessBrowser.internalLightdashHost,
-            ).href,
+            minimalUrl: url.href,
             pageType: LightdashPage.DASHBOARD,
         };
 
@@ -557,6 +628,8 @@ export class UnfurlService extends BaseService {
         context,
         contextId,
         selectedTabs,
+        sendNowSchedulerFilters,
+        sendNowSchedulerParameters,
     }: {
         imageId: string;
         cookie: string;
@@ -574,7 +647,9 @@ export class UnfurlService extends BaseService {
         retries?: number;
         context: ScreenshotContext;
         contextId?: unknown;
-        selectedTabs?: string[];
+        selectedTabs: string[] | null;
+        sendNowSchedulerFilters?: DashboardFilterRule[] | undefined;
+        sendNowSchedulerParameters?: ParametersValuesMap | undefined;
     }): Promise<Buffer | undefined> {
         this.logger.info(
             `with tiles ${JSON.stringify(chartTileUuids)} and ${JSON.stringify(
@@ -663,6 +738,29 @@ export class UnfurlService extends BaseService {
                                 : 'undefined',
                         },
                     });
+
+                    // Add sendNowSchedulerFilters and sendNowSchedulerParameters to the page session storage
+                    await page.addInitScript(
+                        (storage) => {
+                            for (const [key, value] of Object.entries(
+                                storage,
+                            )) {
+                                if (value) {
+                                    window.sessionStorage.setItem(
+                                        key,
+                                        JSON.stringify(value),
+                                    );
+                                }
+                            }
+                        },
+                        {
+                            [SessionStorageKeys.SEND_NOW_SCHEDULER_FILTERS]:
+                                sendNowSchedulerFilters,
+                            [SessionStorageKeys.SEND_NOW_SCHEDULER_PARAMETERS]:
+                                sendNowSchedulerParameters,
+                        },
+                    );
+
                     const parsedUrl = new URL(url);
 
                     const cookieMatch = cookie.match(/connect\.sid=([^;]+)/); // Extract cookie value
@@ -986,6 +1084,7 @@ export class UnfurlService extends BaseService {
                         e instanceof playwright.errors.TimeoutError ||
                         // Following error messages were taken from the Playwright source code
                         errorMessage.includes('Protocol error') ||
+                        errorMessage.includes('ECONNREFUSED') ||
                         errorMessage.includes('Target crashed') ||
                         errorMessage.includes(
                             'Target page, context or browser has been closed',
@@ -1019,6 +1118,8 @@ export class UnfurlService extends BaseService {
                             context,
                             contextId,
                             selectedTabs,
+                            sendNowSchedulerFilters,
+                            sendNowSchedulerParameters,
                         });
                     }
 
@@ -1038,8 +1139,15 @@ export class UnfurlService extends BaseService {
                         code: 2, // Error
                     });
 
+                    const isConnectionError =
+                        errorMessage.includes('ECONNREFUSED');
+
                     throw new ScreenshotError(
-                        `Screenshot ${errorType}: ${errorMessage}`,
+                        `Screenshot ${errorType}: ${
+                            isConnectionError
+                                ? 'There was a connection error while capturing the screenshot. Please contact your admin or support team.'
+                                : errorMessage
+                        }`,
                         {
                             url,
                             lightdashPage,
@@ -1088,8 +1196,7 @@ export class UnfurlService extends BaseService {
         const exploreUrl = new RegExp(`/projects/${uuid}/tables/`);
 
         if (url.match(dashboardUrl) !== null) {
-            const [projectUuid, dashboardUuid] =
-                (await url.match(uuidRegex)) || [];
+            const [projectUuid, dashboardUuid] = url.match(uuidRegex) || [];
 
             const { searchParams } = new URL(url);
             return {
@@ -1104,7 +1211,7 @@ export class UnfurlService extends BaseService {
             };
         }
         if (url.match(chartUrl) !== null) {
-            const [projectUuid, chartUuid] = (await url.match(uuidRegex)) || [];
+            const [projectUuid, chartUuid] = url.match(uuidRegex) || [];
             return {
                 isValid: true,
                 lightdashPage: LightdashPage.CHART,
@@ -1118,7 +1225,7 @@ export class UnfurlService extends BaseService {
             };
         }
         if (url.match(exploreUrl) !== null) {
-            const [projectUuid] = (await url.match(uuidRegex)) || [];
+            const [projectUuid] = url.match(uuidRegex) || [];
 
             const urlWithoutParams = url.split('?')[0];
             const exploreModel = urlWithoutParams.split('/tables/')[1];
@@ -1177,5 +1284,133 @@ export class UnfurlService extends BaseService {
             );
         }
         return header;
+    }
+
+    private async sendUnfurl(
+        event: LinkSharedEvent,
+        originalUrl: string,
+        unfurl: Unfurl,
+        client: WebClient,
+    ) {
+        const unfurlBlocks = getUnfurlBlocks(originalUrl, unfurl);
+        await client.chat
+            .unfurl({
+                ts: event.message_ts,
+                channel: event.channel,
+                unfurls: unfurlBlocks,
+            })
+            .catch((e: unknown) => {
+                this.analytics.track({
+                    event: 'share_slack.unfurl_error',
+                    userId: event.user,
+                    properties: {
+                        error: `${getErrorMessage(e)}`,
+                    },
+                });
+                Logger.error(
+                    `Unable to unfurl on slack ${JSON.stringify(
+                        unfurlBlocks,
+                    )}: ${JSON.stringify(e)}`,
+                );
+            });
+    }
+
+    public async unfurlSlackUrls(
+        message: SlackEventMiddlewareArgs<'link_shared'> &
+            AllMiddlewareArgs<StringIndexed>,
+    ) {
+        const { event, client, context } = message;
+        let appProfilePhotoUrl: string | undefined;
+
+        if (event.channel === 'COMPOSER') return; // Do not unfurl urls when typing, only when message is sent
+
+        Logger.debug(`Got link_shared slack event ${event.message_ts}`);
+
+        event.links.map(async (l) => {
+            const eventUserId = context.botUserId;
+
+            try {
+                const { teamId } = context;
+                const details = await this.unfurlDetails(l.url, null);
+
+                if (details) {
+                    this.analytics.track({
+                        event: 'share_slack.unfurl',
+                        userId: eventUserId,
+                        properties: {
+                            organizationId: details?.organizationUuid,
+                        },
+                    });
+
+                    Logger.debug(
+                        `Unfurling ${details.pageType} with URL ${details.minimalUrl}`,
+                    );
+
+                    await this.sendUnfurl(event, l.url, details, client);
+
+                    const imageId = `slack-image-${useNanoid()}`;
+                    const authUserUuid =
+                        await this.slackAuthenticationModel.getUserUuid(
+                            teamId ?? '',
+                        );
+
+                    const installation =
+                        await this.slackAuthenticationModel.getInstallationFromOrganizationUuid(
+                            details?.organizationUuid,
+                        );
+
+                    if (!installation) {
+                        throw new SlackInstallationNotFoundError();
+                    }
+
+                    appProfilePhotoUrl = installation.appProfilePhotoUrl;
+
+                    const { imageUrl } = await this.unfurlImage({
+                        url: details.minimalUrl,
+                        lightdashPage: details.pageType,
+                        imageId,
+                        authUserUuid,
+                        context: ScreenshotContext.SLACK,
+                        selectedTabs: null,
+                    });
+
+                    if (imageUrl) {
+                        await this.sendUnfurl(
+                            event,
+                            l.url,
+                            { ...details, imageUrl },
+                            client,
+                        );
+
+                        this.analytics.track({
+                            event: 'share_slack.unfurl_completed',
+                            userId: eventUserId,
+                            properties: {
+                                pageType: details.pageType,
+                                organizationId: details?.organizationUuid,
+                            },
+                        });
+                    }
+                }
+            } catch (e) {
+                if (this.lightdashConfig.mode === LightdashMode.PR) {
+                    void notifySlackError(e, l.url, client, event, {
+                        appProfilePhotoUrl,
+                    });
+                }
+                if (!(e instanceof ScreenshotError)) {
+                    slackErrorHandler(e, 'Unable to unfurl slack URL');
+                }
+
+                this.analytics.track({
+                    event: 'share_slack.unfurl_error',
+                    userId: eventUserId,
+
+                    properties: {
+                        error: `${e}`,
+                    },
+                });
+            }
+        });
     }
 }

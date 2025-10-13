@@ -1,19 +1,20 @@
 import {
     Account,
     DownloadFileType,
-    GroupByColumn,
     MetricQuery,
     PivotConfig,
-    SortBy,
-    ValuesColumn,
+    PivotConfiguration,
     type CacheMetadata,
     type DashboardFilters,
     type DateZoom,
+    type DownloadAsyncQueryResultsPayload,
     type Filters,
+    type ItemsMap,
     type ParametersValuesMap,
-    type PivotIndexColum,
     type QueryExecutionContext,
+    type ResultColumns,
     type ResultsPaginationArgs,
+    type RunQueryTags,
     type SortField,
 } from '@lightdash/common';
 
@@ -48,15 +49,23 @@ export type DownloadAsyncQueryResultsArgs = Omit<
     attachmentDownloadName?: string;
 };
 
+export type ScheduleDownloadAsyncQueryResultsArgs = Omit<
+    CommonAsyncQueryArgs,
+    'invalidateCache' | 'context' | 'parameters'
+> &
+    Omit<DownloadAsyncQueryResultsPayload, 'userUuid' | 'organizationUuid'>;
+
 export type ExecuteAsyncMetricQueryArgs = CommonAsyncQueryArgs & {
     metricQuery: MetricQuery;
     dateZoom?: DateZoom;
+    pivotConfiguration?: PivotConfiguration;
 };
 
 export type ExecuteAsyncSavedChartQueryArgs = CommonAsyncQueryArgs & {
     chartUuid: string;
     versionUuid?: string;
     limit?: number | null | undefined;
+    pivotResults?: boolean;
 };
 
 export type ExecuteAsyncDashboardChartQueryArgs = CommonAsyncQueryArgs & {
@@ -66,6 +75,7 @@ export type ExecuteAsyncDashboardChartQueryArgs = CommonAsyncQueryArgs & {
     dashboardSorts: SortField[];
     dateZoom?: DateZoom;
     limit?: number | null | undefined;
+    pivotResults?: boolean;
 };
 
 export type ExecuteAsyncUnderlyingDataQueryArgs = CommonAsyncQueryArgs & {
@@ -84,12 +94,7 @@ export type ExecuteAsyncQueryReturn = {
 export type ExecuteAsyncSqlQueryArgs = CommonAsyncQueryArgs & {
     sql: string;
     limit?: number;
-    pivotConfiguration?: {
-        indexColumn: PivotIndexColum;
-        valuesColumns: ValuesColumn[];
-        groupByColumns: GroupByColumn[] | undefined;
-        sortBy: SortBy | undefined;
-    };
+    pivotConfiguration?: PivotConfiguration;
 };
 
 export type ExecuteAsyncDashboardSqlChartCommonArgs = CommonAsyncQueryArgs & {
@@ -136,3 +141,21 @@ export type ExecuteAsyncSqlChartArgs =
 export const isExecuteAsyncSqlChartByUuid = (
     args: ExecuteAsyncSqlChartArgs,
 ): args is ExecuteAsyncSqlChartByUuidArgs => 'savedSqlUuid' in args;
+
+export type RunAsyncWarehouseQueryArgs = {
+    userId: string;
+    // Is the user in the database?
+    isRegisteredUser: boolean;
+    projectUuid: string;
+    queryTags: RunQueryTags;
+    query: string;
+    fieldsMap: ItemsMap;
+    queryHistoryUuid: string;
+    cacheKey: string;
+    warehouseCredentialsOverrides?: {
+        snowflakeVirtualWarehouse?: string;
+        databricksCompute?: string;
+    };
+    pivotConfiguration?: PivotConfiguration;
+    originalColumns?: ResultColumns;
+};

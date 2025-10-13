@@ -100,7 +100,6 @@ const TileUpdateModal = <T extends Tile>({
                                 : IconVideo
                         }
                     />
-                    <Title order={4}>Edit {tile.type} tile</Title>
                     <Title order={4}>
                         {t(
                             'components_dashboard_tiles_forms_update_tile.edit_tile',

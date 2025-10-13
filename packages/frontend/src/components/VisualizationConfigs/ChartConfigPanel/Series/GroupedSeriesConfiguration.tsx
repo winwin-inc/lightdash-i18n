@@ -321,14 +321,14 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                         chartValue === CartesianSeriesType.AREA) && (
                         <Group spacing="xs">
                             <Checkbox
-                                checked={seriesGroup[0].showSymbol ?? true}
+                                checked={Boolean(seriesGroup[0].showSymbol)}
                                 label={t(
                                     'components_visualization_configs_chart.series.show_symbol',
                                 )}
                                 onChange={() => {
                                     updateAllGroupedSeries(fieldKey, {
-                                        showSymbol: !(
-                                            seriesGroup[0].showSymbol ?? true
+                                        showSymbol: !Boolean(
+                                            seriesGroup[0].showSymbol,
                                         ),
                                     });
                                 }}

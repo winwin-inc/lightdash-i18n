@@ -48,8 +48,12 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     onChangeFilterRule,
 }) => {
     const { t } = useTranslation();
-    const getFilterOperatorOptions = useFilterOperatorOptions();
+
     const [filterLabel, setFilterLabel] = useState<string>();
+
+    const getFilterOperatorOptions = useFilterOperatorOptions();
+    const getPlaceholderByFilterTypeAndOperator =
+        usePlaceholderByFilterTypeAndOperator();
 
     const filterOperatorOptions = useMemo(
         () => getFilterOperatorOptions(filterType),
@@ -95,9 +99,6 @@ const FilterSettings: FC<FilterSettingsProps> = ({
             )
         );
     }, [filterRule.operator, isFilterDisabled, isEditMode]);
-
-    const getPlaceholderByFilterTypeAndOperator =
-        usePlaceholderByFilterTypeAndOperator();
 
     return (
         <Stack>

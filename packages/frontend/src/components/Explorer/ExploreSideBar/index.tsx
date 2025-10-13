@@ -19,6 +19,10 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 
+import {
+    selectTableName,
+    useExplorerSelector,
+} from '../../../features/explorer/store';
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import { useExplores } from '../../../hooks/useExplores';
 import { useProjectUuid } from '../../../hooks/useProjectUuid';
@@ -89,9 +93,9 @@ const BasePanel = () => {
                                         explore.groupLabel
                                     ]
                                         ? [
-                                              ...acc[0][explore.groupLabel],
-                                              explore,
-                                          ]
+                                            ...acc[0][explore.groupLabel],
+                                            explore,
+                                        ]
                                         : [explore],
                                 },
                                 acc[1],
@@ -243,9 +247,8 @@ const BasePanel = () => {
 
 const ExploreSideBar = memo(() => {
     const projectUuid = useProjectUuid();
-    const tableName = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.tableName,
-    );
+    // Get table name from Redux
+    const tableName = useExplorerSelector(selectTableName);
     const ability = useAbilityContext();
     const { data: org } = useOrganization();
 

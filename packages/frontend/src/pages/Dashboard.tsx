@@ -1,8 +1,7 @@
 import {
     ContentType,
-    type DashboardFilterRule,
-    type DashboardFilters,
-    type DashboardTab,
+    DashboardFilterRule,
+    DashboardFilters,
     type DashboardTile,
     type Dashboard as IDashboard,
 } from '@lightdash/common';
@@ -17,6 +16,7 @@ import { useBlocker, useNavigate, useParams } from 'react-router';
 
 import DashboardFilter from '../components/DashboardFilter';
 import DashboardTabs from '../components/DashboardTabs';
+import PinnedParameters from '../components/PinnedParameters';
 import DashboardHeader from '../components/common/Dashboard/DashboardHeader';
 import ErrorState from '../components/common/ErrorState';
 import MantineIcon from '../components/common/MantineIcon';
@@ -25,9 +25,10 @@ import SuboptimalState from '../components/common/SuboptimalState/SuboptimalStat
 import DashboardDeleteModal from '../components/common/modal/DashboardDeleteModal';
 import DashboardDuplicateModal from '../components/common/modal/DashboardDuplicateModal';
 import { DashboardExportModal } from '../components/common/modal/DashboardExportModal';
-import { useDashboardCommentsCheck } from '../features/comments';
+// import useApp from '../providers/App/useApp';
+// import { useDashboardCommentsCheck } from '../features/comments';
 import { DateZoom } from '../features/dateZoom';
-import { Parameters, useDashboardParameterState } from '../features/parameters';
+import { Parameters } from '../features/parameters';
 import {
     appendNewTilesToBottom,
     useUpdateDashboard,
@@ -38,7 +39,6 @@ import { useOrganization } from '../hooks/organization/useOrganization';
 import useToaster from '../hooks/toaster/useToaster';
 import { useContentAction } from '../hooks/useContent';
 import { useSpaceSummaries } from '../hooks/useSpaces';
-import useApp from '../providers/App/useApp';
 import DashboardProvider from '../providers/Dashboard/DashboardProvider';
 import useDashboardContext from '../providers/Dashboard/useDashboardContext';
 import useFullscreen from '../providers/Fullscreen/useFullscreen';
@@ -48,11 +48,10 @@ const Dashboard: FC = () => {
     const { t } = useTranslation();
 
     const navigate = useNavigate();
-    const { projectUuid, dashboardUuid, mode, tabUuid } = useParams<{
+    const { projectUuid, dashboardUuid, mode } = useParams<{
         projectUuid: string;
         dashboardUuid: string;
         mode?: string;
-        tabUuid?: string;
     }>();
     const { data: spaces } = useSpaceSummaries(projectUuid, true);
 
@@ -67,58 +66,18 @@ const Dashboard: FC = () => {
     );
     const hasRequiredDashboardFiltersToSet =
         requiredDashboardFilters.length > 0;
-    const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
-    const setDashboardTiles = useDashboardContext((c) => c.setDashboardTiles);
-    const haveTilesChanged = useDashboardContext((c) => c.haveTilesChanged);
-    const setHaveTilesChanged = useDashboardContext(
-        (c) => c.setHaveTilesChanged,
-    );
-    const haveTabsChanged = useDashboardContext((c) => c.haveTabsChanged);
-    const setHaveTabsChanged = useDashboardContext((c) => c.setHaveTabsChanged);
-    const dashboardTabs = useDashboardContext((c) => c.dashboardTabs);
-    const setDashboardTabs = useDashboardContext((c) => c.setDashboardTabs);
-
-    // global filters
-    const dashboardFilters = useDashboardContext((c) => c.dashboardFilters);
-    const dashboardTemporaryFilters = useDashboardContext(
-        (c) => c.dashboardTemporaryFilters,
-    );
     const haveFiltersChanged = useDashboardContext((c) => c.haveFiltersChanged);
     const setHaveFiltersChanged = useDashboardContext(
         (c) => c.setHaveFiltersChanged,
     );
-    const resetDashboardFilters = useDashboardContext(
-        (c) => c.resetDashboardFilters,
-    );
-    const setDashboardTemporaryFilters = useDashboardContext(
-        (c) => c.setDashboardTemporaryFilters,
-    );
-    const setDashboardFilters = useDashboardContext(
-        (c) => c.setDashboardFilters,
-    );
+    const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
+    const setDashboardTiles = useDashboardContext((c) => c.setDashboardTiles);
 
-    // tabs filters
-    const dashboardTabFilters = useDashboardContext((c) => c.tabFilters);
-    const dashboardTabTemporaryFilters = useDashboardContext(
-        (c) => c.tabTemporaryFilters,
-    );
-    const haveTabFiltersChanged = useDashboardContext((c) =>
-        Object.values(c.haveTabFiltersChanged).some((value) => value),
-    );
-    const setHaveTabFiltersChanged = useDashboardContext(
-        (c) => c.setHaveTabFiltersChanged,
-    );
-    const resetTabFilters = useDashboardContext((c) => c.resetTabFilters);
-    const setTabTemporaryFilters = useDashboardContext(
-        (c) => c.setTabTemporaryFilters,
-    );
-    const setTabFilters = useDashboardContext((c) => c.setTabFilters);
-
-    const isDateZoomDisabled = useDashboardContext((c) => c.isDateZoomDisabled);
-    const dashboardParameterReferences = useDashboardContext(
-        (c) => c.dashboardParameterReferences,
-    );
-    const areAllChartsLoaded = useDashboardContext((c) => c.areAllChartsLoaded);
+    const haveTabsChanged = useDashboardContext((c) => c.haveTabsChanged);
+    const setHaveTabsChanged = useDashboardContext((c) => c.setHaveTabsChanged);
+    const dashboardTabs = useDashboardContext((c) => c.dashboardTabs);
+    const setDashboardTabs = useDashboardContext((c) => c.setDashboardTabs);
+    const activeTab = useDashboardContext((c) => c.activeTab);
 
     // filter enabled state
     const isGlobalFilterEnabled = useDashboardContext(
@@ -144,10 +103,59 @@ const Dashboard: FC = () => {
         (c) => c.setHaveShowAddFilterButtonStatesChanged,
     );
 
-    // Parameter state management for the Parameters component
-    const { parameterValues, handleParameterChange, clearAllParameters } =
-        useDashboardParameterState();
+    // global filters
+    const dashboardFilters = useDashboardContext((c) => c.dashboardFilters);
+    const dashboardTemporaryFilters = useDashboardContext(
+        (c) => c.dashboardTemporaryFilters,
+    );
+    const haveTilesChanged = useDashboardContext((c) => c.haveTilesChanged);
+    const setHaveTilesChanged = useDashboardContext(
+        (c) => c.setHaveTilesChanged,
+    );
+    const setDashboardFilters = useDashboardContext(
+        (c) => c.setDashboardFilters,
+    );
+    const resetDashboardFilters = useDashboardContext(
+        (c) => c.resetDashboardFilters,
+    );
+    const setDashboardTemporaryFilters = useDashboardContext(
+        (c) => c.setDashboardTemporaryFilters,
+    );
 
+    // tab filters
+    const dashboardTabFilters = useDashboardContext((c) => c.tabFilters);
+    const dashboardTabTemporaryFilters = useDashboardContext(
+        (c) => c.tabTemporaryFilters,
+    );
+    const haveTabFiltersChanged = useDashboardContext((c) =>
+        Object.values(c.haveTabFiltersChanged).some((value) => value),
+    );
+    const setHaveTabFiltersChanged = useDashboardContext(
+        (c) => c.setHaveTabFiltersChanged,
+    );
+    const resetTabFilters = useDashboardContext((c) => c.resetTabFilters);
+    const setTabTemporaryFilters = useDashboardContext(
+        (c) => c.setTabTemporaryFilters,
+    );
+    const setTabFilters = useDashboardContext((c) => c.setTabFilters);
+
+    const isDateZoomDisabled = useDashboardContext((c) => c.isDateZoomDisabled);
+    const areAllChartsLoaded = useDashboardContext((c) => c.areAllChartsLoaded);
+    const missingRequiredParameters = useDashboardContext(
+        (c) => c.missingRequiredParameters,
+    );
+    const refreshDashboardVersion = useDashboardContext(
+        (c) => c.refreshDashboardVersion,
+    );
+
+    const isEditMode = useMemo(() => mode === 'edit', [mode]);
+
+    const setSavedParameters = useDashboardContext((c) => c.setSavedParameters);
+    const parametersHaveChanged = useDashboardContext(
+        (c) => c.parametersHaveChanged,
+    );
+    const parameterValues = useDashboardContext((c) => c.parameterValues);
+    const clearAllParameters = useDashboardContext((c) => c.clearAllParameters);
     const hasDateZoomDisabledChanged = useMemo(() => {
         return (
             (dashboard?.config?.isDateZoomDisabled || false) !==
@@ -155,6 +163,36 @@ const Dashboard: FC = () => {
         );
     }, [dashboard, isDateZoomDisabled]);
     const oldestCacheTime = useDashboardContext((c) => c.oldestCacheTime);
+    const dashboardParameters = useDashboardContext(
+        (c) => c.dashboardParameters,
+    );
+    const pinnedParameters = useDashboardContext((c) => c.pinnedParameters);
+    const toggleParameterPin = useDashboardContext((c) => c.toggleParameterPin);
+    const havePinnedParametersChanged = useDashboardContext(
+        (c) => c.havePinnedParametersChanged,
+    );
+    const setHavePinnedParametersChanged = useDashboardContext(
+        (c) => c.setHavePinnedParametersChanged,
+    );
+    const setPinnedParameters = useDashboardContext(
+        (c) => c.setPinnedParameters,
+    );
+
+    const parameterDefinitions = useDashboardContext(
+        (c) => c.parameterDefinitions,
+    );
+
+    const parameterReferences = useDashboardContext(
+        (c) => c.dashboardParameterReferences,
+    );
+
+    const referencedParameters = useMemo(() => {
+        return Object.fromEntries(
+            Object.entries(parameterDefinitions).filter(([key]) =>
+                parameterReferences.has(key),
+            ),
+        );
+    }, [parameterDefinitions, parameterReferences]);
 
     const {
         enabled: isFullScreenFeatureEnabled,
@@ -170,7 +208,6 @@ const Dashboard: FC = () => {
             dashboardTemporaryFilters.metrics.length > 0,
         [dashboardTemporaryFilters],
     );
-    const isEditMode = useMemo(() => mode === 'edit', [mode]);
     const {
         mutate,
         isSuccess,
@@ -187,7 +224,6 @@ const Dashboard: FC = () => {
         useDisclosure();
 
     // tabs state
-    const [activeTab, setActiveTab] = useState<DashboardTab | undefined>();
     const [addingTab, setAddingTab] = useState<boolean>(false);
 
     const hasDashboardTiles = dashboardTiles && dashboardTiles.length > 0;
@@ -201,19 +237,14 @@ const Dashboard: FC = () => {
 
         setDashboardTiles(dashboard?.tiles ?? []);
         setDashboardTabs(dashboard?.tabs ?? []);
-        setActiveTab(
-            () =>
-                dashboard?.tabs.find((tab) => tab.uuid === tabUuid) ??
-                dashboard?.tabs[0],
-        );
+        setSavedParameters(dashboard?.parameters ?? {});
     }, [
         isDashboardLoading,
         dashboard,
         dashboardTiles,
         setDashboardTiles,
         setDashboardTabs,
-        setActiveTab,
-        tabUuid,
+        setSavedParameters,
     ]);
 
     useEffect(() => {
@@ -258,16 +289,6 @@ const Dashboard: FC = () => {
                 );
                 setDashboardTabs(unsavedDashboardTabs);
                 setHaveTabsChanged(!!unsavedDashboardTabs);
-                if (activeTab === undefined) {
-                    // set up the active tab to previously selected tab
-                    const activeTabUuid =
-                        sessionStorage.getItem('activeTabUuid');
-                    setActiveTab(
-                        unsavedDashboardTabs.find(
-                            (tab: DashboardTab) => tab.uuid === activeTabUuid,
-                        ) ?? unsavedDashboardTabs[0],
-                    );
-                }
             } catch {
                 showToastError({
                     title: t('pages_dashboard.toast_tabs_error.title'),
@@ -288,13 +309,25 @@ const Dashboard: FC = () => {
         setHaveTabsChanged,
         clearIsEditingDashboardChart,
         showToastError,
-        t,
     ]);
 
     const [gridWidth, setGridWidth] = useState(0);
 
     useEffect(() => {
         if (isSuccess) {
+            setHaveTilesChanged(false);
+            setHaveFiltersChanged(false);
+            setHaveTabFiltersChanged({});
+            setHaveFilterEnabledStatesChanged(false);
+            setHaveShowAddFilterButtonStatesChanged(false);
+            setDashboardTemporaryFilters({
+                dimensions: [],
+                metrics: [],
+                tableCalculations: [],
+            });
+            setTabTemporaryFilters({});
+            setHavePinnedParametersChanged(false);
+            reset();
             if (dashboardTabs.length > 1) {
                 void navigate(
                     `/projects/${projectUuid}/dashboards/${dashboardUuid}/view/tabs/${activeTab?.uuid}`,
@@ -338,11 +371,14 @@ const Dashboard: FC = () => {
         reset,
         setHaveTilesChanged,
         setHaveFiltersChanged,
+        setHaveTilesChanged,
         setHaveTabFiltersChanged,
         setHaveFilterEnabledStatesChanged,
         setHaveShowAddFilterButtonStatesChanged,
-        setDashboardTemporaryFilters,
         setTabTemporaryFilters,
+        setHavePinnedParametersChanged,
+        dashboardTabs,
+        activeTab,
     ]);
 
     const handleToggleFullscreen = useCallback(async () => {
@@ -382,6 +418,8 @@ const Dashboard: FC = () => {
                 onFullscreenChange,
             );
     });
+
+    const handleParameterChange = useDashboardContext((c) => c.setParameter);
 
     const handleUpdateTiles = useCallback(
         async (layout: Layout[]) => {
@@ -483,8 +521,17 @@ const Dashboard: FC = () => {
         setHaveTilesChanged(false);
         setHaveTabsChanged(false);
         setDashboardTabs(dashboard.tabs);
+        setSavedParameters(dashboard.parameters ?? {});
+        setPinnedParameters(dashboard.config?.pinnedParameters ?? []);
+        setHavePinnedParametersChanged(false);
 
         setDashboardFilters(dashboard.filters);
+        setTabFilters(
+            dashboard.tabs.reduce((acc, tab) => {
+                acc[tab.uuid] = tab.filters || emptyFilters;
+                return acc;
+            }, {} as Record<string, DashboardFilters>),
+        );
         setHaveFiltersChanged(false);
         setHaveTabFiltersChanged({});
         setHaveFilterEnabledStatesChanged(false);
@@ -513,10 +560,8 @@ const Dashboard: FC = () => {
     }, [
         dashboard,
         dashboardUuid,
-        projectUuid,
-        dashboardTabs,
-        activeTab,
         navigate,
+        projectUuid,
         setDashboardTiles,
         setHaveFiltersChanged,
         setDashboardFilters,
@@ -524,7 +569,11 @@ const Dashboard: FC = () => {
         setHaveTilesChanged,
         setHaveTabsChanged,
         setDashboardTabs,
-        setHaveTabFiltersChanged,
+        dashboardTabs,
+        activeTab,
+        setSavedParameters,
+        setPinnedParameters,
+        setHavePinnedParametersChanged,
         setHaveFilterEnabledStatesChanged,
         setHaveShowAddFilterButtonStatesChanged,
     ]);
@@ -595,9 +644,11 @@ const Dashboard: FC = () => {
         return false; // allow navigation
     });
 
-    const handleEnterEditMode = useCallback(() => {
+    const handleEnterEditMode = useCallback(async () => {
         resetDashboardFilters();
         resetTabFilters(activeTab?.uuid || '');
+
+        await refreshDashboardVersion();
 
         // Defer the redirect
         void Promise.resolve().then(() => {
@@ -617,6 +668,7 @@ const Dashboard: FC = () => {
         dashboardUuid,
         resetDashboardFilters,
         resetTabFilters,
+        refreshDashboardVersion,
         navigate,
         activeTab?.uuid,
         dashboardTabs.length,
@@ -680,17 +732,26 @@ const Dashboard: FC = () => {
         });
     };
 
-    const handleSaveDashboard = () => {
-        // global filters
+    const hasSaveDashboardChanged = () => {
+        // global filter
         const dimensionFilters = [
             ...dashboardFilters.dimensions,
             ...dashboardTemporaryFilters.dimensions,
         ];
-        // Reset value for required filter on save dashboard
-        const requiredFiltersWithoutValues =
-            formatRequiredFilters(dimensionFilters);
 
-        // mutate tabs config
+        // Reset value for required filter on save dashboard
+        const requiredFiltersWithoutValues = dimensionFilters.map((filter) => {
+            if (filter.required) {
+                return {
+                    ...filter,
+                    disabled: true,
+                    values: [],
+                };
+            }
+            return filter;
+        });
+
+        // tabs config
         const tabsConfig = getTabsConfig();
 
         mutate({
@@ -722,7 +783,8 @@ const Dashboard: FC = () => {
                 ...(Object.keys(showTabAddFilterButton).length > 0 && {
                     showTabAddFilterButton,
                 }),
-            } as any,
+            },
+            parameters: dashboardParameters,
         });
     };
 
@@ -746,7 +808,7 @@ const Dashboard: FC = () => {
                                 size={50}
                             />
                             <Text fw={500}>
-                                {t('pages_dashboard.modal.content')}
+                                t('pages_dashboard.modal.content')
                             </Text>
                         </Group>
 
@@ -756,7 +818,7 @@ const Dashboard: FC = () => {
                                     blocker.reset();
                                 }}
                             >
-                                {t('pages_dashboard.modal.stay')}
+                                t('pages_dashboard.modal.stay')
                             </Button>
                             <Button
                                 color="red"
@@ -765,7 +827,7 @@ const Dashboard: FC = () => {
                                     blocker.proceed();
                                 }}
                             >
-                                {t('pages_dashboard.modal.leave')}
+                                t('pages_dashboard.modal.leave')
                             </Button>
                         </Group>
                     </Stack>
@@ -792,13 +854,15 @@ const Dashboard: FC = () => {
                             haveFiltersChanged ||
                             hasTemporaryFilters ||
                             haveTabsChanged ||
-                            hasDateZoomDisabledChanged ||
                             haveTabFiltersChanged ||
+                            hasDateZoomDisabledChanged ||
+                            parametersHaveChanged ||
+                            havePinnedParametersChanged ||
                             haveFilterEnabledStatesChanged ||
                             haveShowAddFilterButtonStatesChanged
                         }
                         onAddTiles={handleAddTiles}
-                        onSaveDashboard={handleSaveDashboard}
+                        onSaveDashboard={hasSaveDashboardChanged}
                         onCancel={handleCancel}
                         onMoveToSpace={handleMoveDashboardToSpace}
                         isMovingDashboardToSpace={isContentActionLoading}
@@ -811,41 +875,50 @@ const Dashboard: FC = () => {
                 }
                 withFullHeight={true}
             >
-                {/* Only show this Group if not in view mode, or if filters are enabled, or if DateZoom is enabled */}
-                {(!isEditMode &&
-                    hasTilesThatSupportFilters &&
-                    isGlobalFilterEnabled) ||
-                (!isEditMode && !isDateZoomDisabled) ||
-                isEditMode ? (
-                    <Group position="apart" align="flex-start" noWrap px={'lg'}>
-                        {/* This Group will take up remaining space (and not push DateZoom) */}
-                        <Group position="apart" align="flex-start" noWrap grow>
-                            {hasTilesThatSupportFilters && (
-                                <DashboardFilter
-                                    isEditMode={isEditMode}
-                                    activeTabUuid={activeTab?.uuid}
-                                    filterType="global"
-                                />
-                            )}
-                        </Group>
-                        {/* DateZoom section will adjust width dynamically */}
-                        {hasDashboardTiles && (
-                            <Group spacing="xs" style={{ marginLeft: 'auto' }}>
-                                <Parameters
-                                    isEditMode={isEditMode}
-                                    parameterValues={parameterValues}
-                                    onParameterChange={handleParameterChange}
-                                    onClearAll={clearAllParameters}
-                                    parameterReferences={
-                                        dashboardParameterReferences
-                                    }
-                                    areAllChartsLoaded={areAllChartsLoaded}
-                                />
-                                <DateZoom isEditMode={isEditMode} />
-                            </Group>
+                <Group position="apart" align="flex-start" noWrap px={'lg'}>
+                    {/* This Group will take up remaining space (and not push DateZoom) */}
+                    <Group
+                        position="apart"
+                        align="flex-start"
+                        noWrap
+                        grow
+                        sx={{
+                            overflow: 'auto',
+                        }}
+                    >
+                        {hasTilesThatSupportFilters && (
+                            <DashboardFilter
+                                isEditMode={isEditMode}
+                                activeTabUuid={activeTab?.uuid}
+                                filterType="global"
+                            />
                         )}
                     </Group>
-                ) : null}
+                    {/* DateZoom section will adjust width dynamically */}
+                    {hasDashboardTiles && (
+                        <Group spacing="xs" style={{ marginLeft: 'auto' }}>
+                            <DateZoom isEditMode={isEditMode} />
+                        </Group>
+                    )}
+                </Group>
+                {hasDashboardTiles && (
+                    <Group spacing="xs" align="flex-start" noWrap px={'lg'}>
+                        <Parameters
+                            isEditMode={isEditMode}
+                            parameterValues={parameterValues}
+                            onParameterChange={handleParameterChange}
+                            onClearAll={clearAllParameters}
+                            parameters={referencedParameters}
+                            isLoading={!areAllChartsLoaded}
+                            missingRequiredParameters={
+                                missingRequiredParameters
+                            }
+                            pinnedParameters={pinnedParameters}
+                            onParameterPin={toggleParameterPin}
+                        />
+                        <PinnedParameters isEditMode={isEditMode} />
+                    </Group>
+                )}
                 <Flex style={{ flexGrow: 1, flexDirection: 'column' }}>
                     <DashboardTabs
                         isEditMode={isEditMode}
@@ -862,7 +935,6 @@ const Dashboard: FC = () => {
                         handleEditTile={handleEditTiles}
                         setGridWidth={setGridWidth}
                         activeTab={activeTab}
-                        setActiveTab={setActiveTab}
                         setAddingTab={setAddingTab}
                     />
                 </Flex>
@@ -904,15 +976,19 @@ const Dashboard: FC = () => {
 
 const DashboardPage: FC = () => {
     const { projectUuid } = useParams<{ projectUuid: string }>();
-    const { user } = useApp();
-    const dashboardCommentsCheck = useDashboardCommentsCheck(user?.data);
+    // const { user } = useApp();
+    // const dashboardCommentsCheck = useDashboardCommentsCheck(user?.data);
 
     useProfiler('Dashboard');
 
     return (
         <DashboardProvider
             projectUuid={projectUuid}
-            dashboardCommentsCheck={dashboardCommentsCheck}
+            // TODO: hide comments feature for now, need to enable it later
+            dashboardCommentsCheck={{
+                canViewDashboardComments: false,
+                canCreateDashboardComments: false,
+            }}
         >
             <Dashboard />
         </DashboardProvider>

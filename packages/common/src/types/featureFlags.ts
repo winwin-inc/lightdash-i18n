@@ -49,15 +49,24 @@ export enum FeatureFlags {
     BigquerySSO = 'bigquery-sso',
 
     /**
-     * Generate new experimental CTE and show query warnings in explore page
-     * This feature flag is temporary while we work on the new query warnings for metric inflation.
-     */
-    ShowQueryWarnings = 'show-query-warnings',
-
-    /**
      * Use workers for async query execution
      */
     WorkerQueryExecution = 'worker-query-execution',
+
+    /**
+     * Enable SQL pivot results conversion to PivotData format
+     */
+    UseSqlPivotResults = 'use-sql-pivot-results',
+
+    /**
+     * Enable the unused content dashboard showing least viewed charts and dashboards
+     */
+    UnusedContentDashboard = 'unused-content-dashboard',
+
+    /**
+     * Enable Redux state management for Explorer (gradual migration from Context API)
+     */
+    UseRedux = 'use-redux',
 }
 
 export type FeatureFlag = {

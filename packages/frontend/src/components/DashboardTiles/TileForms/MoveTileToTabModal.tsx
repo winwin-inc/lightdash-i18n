@@ -42,6 +42,7 @@ const MoveTileToTabModal: FC<Props> = ({
             });
         }
     }, [onConfirm, selectedTabId, tile]);
+
     return (
         <Modal
             title={

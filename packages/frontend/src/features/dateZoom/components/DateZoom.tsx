@@ -1,14 +1,8 @@
 import { DateGranularity } from '@lightdash/common';
-import {
-    ActionIcon,
-    Button,
-    Group,
-    Menu,
-    Text,
-    useMantineTheme,
-} from '@mantine/core';
+import { ActionIcon, Box, Button, Group, Menu } from '@mantine-8/core';
 import {
     IconCalendarSearch,
+    IconCheck,
     IconChevronDown,
     IconChevronUp,
     IconX,
@@ -20,6 +14,7 @@ import MantineIcon from '../../../components/common/MantineIcon';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
+import styles from './DateZoom.module.css';
 
 type Props = {
     isEditMode: boolean;
@@ -27,7 +22,6 @@ type Props = {
 
 export const DateZoom: FC<Props> = ({ isEditMode }) => {
     const { t } = useTranslation();
-    const theme = useMantineTheme();
     const [showOpenIcon, setShowOpenIcon] = useState(false);
 
     const dateZoomGranularity = useDashboardContext(
@@ -52,19 +46,23 @@ export const DateZoom: FC<Props> = ({ isEditMode }) => {
                 <Button
                     variant="outline"
                     size="xs"
-                    leftIcon={<MantineIcon icon={IconCalendarSearch} />}
+                    leftSection={<MantineIcon icon={IconCalendarSearch} />}
                     onClick={() => setIsDateZoomDisabled(false)}
-                    sx={(themeStyles) => ({
-                        borderStyle: 'dashed',
-                        borderWidth: '1px',
-                        borderColor: themeStyles.colors.gray[4],
-                    })}
+                    classNames={{ root: styles.addDateZoomButton }}
                 >
                     + {t('features_date_zoom.add_date_zoom')}
                 </Button>
             );
         return null;
     }
+
+    const DateGranularityOptions = {
+        [DateGranularity.DAY]: t('features_date_zoom.options.day'),
+        [DateGranularity.WEEK]: t('features_date_zoom.options.week'),
+        [DateGranularity.MONTH]: t('features_date_zoom.options.month'),
+        [DateGranularity.QUARTER]: t('features_date_zoom.options.quarter'),
+        [DateGranularity.YEAR]: t('features_date_zoom.options.year'),
+    };
 
     return (
         <Menu
@@ -79,19 +77,13 @@ export const DateZoom: FC<Props> = ({ isEditMode }) => {
             onClose={() => setShowOpenIcon(false)}
         >
             <Menu.Target>
-                <Group spacing={0} sx={{ position: 'relative' }}>
+                <Group gap={0} pos="relative">
                     {isEditMode && (
                         <ActionIcon
                             size="xs"
                             variant="subtle"
                             onClick={() => setIsDateZoomDisabled(true)}
-                            sx={(themeStyles) => ({
-                                position: 'absolute',
-                                top: -6,
-                                left: -6,
-                                zIndex: 1,
-                                backgroundColor: themeStyles.white,
-                            })}
+                            className={styles.closeButton}
                         >
                             <MantineIcon icon={IconX} size={12} />
                         </ActionIcon>
@@ -99,15 +91,14 @@ export const DateZoom: FC<Props> = ({ isEditMode }) => {
                     <Button
                         size="xs"
                         variant="default"
-                        loaderPosition="center"
                         disabled={isEditMode}
-                        sx={{
-                            borderColor: dateZoomGranularity
-                                ? theme.colors.blue['6']
-                                : 'default',
-                        }}
-                        leftIcon={<MantineIcon icon={IconCalendarSearch} />}
-                        rightIcon={
+                        classNames={
+                            dateZoomGranularity
+                                ? { root: styles.activeDateZoomButton }
+                                : undefined
+                        }
+                        leftSection={<MantineIcon icon={IconCalendarSearch} />}
+                        rightSection={
                             <MantineIcon
                                 icon={
                                     showOpenIcon
@@ -117,15 +108,13 @@ export const DateZoom: FC<Props> = ({ isEditMode }) => {
                             />
                         }
                     >
-                        <Text>
-                            {t('features_date_zoom.date_zoom')}
-                            {dateZoomGranularity ? `:` : null}{' '}
-                            {dateZoomGranularity ? (
-                                <Text span fw={500}>
-                                    {dateZoomGranularity}
-                                </Text>
-                            ) : null}
-                        </Text>
+                        {t('features_date_zoom.date_zoom')}
+                        {dateZoomGranularity ? `:` : null}{' '}
+                        {dateZoomGranularity ? (
+                            <Box fw={500} ml="xxs">
+                                {DateGranularityOptions[dateZoomGranularity]}
+                            </Box>
+                        ) : null}
                     </Button>
                 </Group>
             </Menu.Target>
@@ -145,20 +134,17 @@ export const DateZoom: FC<Props> = ({ isEditMode }) => {
 
                         setDateZoomGranularity(undefined);
                     }}
-                    bg={
-                        dateZoomGranularity === undefined
-                            ? theme.colors.blue['6']
-                            : 'white'
-                    }
                     disabled={dateZoomGranularity === undefined}
-                    sx={{
-                        '&[disabled]': {
-                            color:
-                                dateZoomGranularity === undefined
-                                    ? 'white'
-                                    : 'black',
-                        },
-                    }}
+                    className={
+                        dateZoomGranularity === undefined
+                            ? styles.menuItemDisabled
+                            : ''
+                    }
+                    rightSection={
+                        dateZoomGranularity === undefined ? (
+                            <MantineIcon icon={IconCheck} size={14} />
+                        ) : null
+                    }
                 >
                     {t('features_date_zoom.default')}
                 </Menu.Item>
@@ -176,21 +162,18 @@ export const DateZoom: FC<Props> = ({ isEditMode }) => {
                             setDateZoomGranularity(granularity);
                         }}
                         disabled={dateZoomGranularity === granularity}
-                        bg={
+                        className={
                             dateZoomGranularity === granularity
-                                ? theme.colors.blue['6']
-                                : 'white'
+                                ? styles.menuItemDisabled
+                                : ''
                         }
-                        sx={{
-                            '&[disabled]': {
-                                color:
-                                    dateZoomGranularity === granularity
-                                        ? 'white'
-                                        : 'black',
-                            },
-                        }}
+                        rightSection={
+                            dateZoomGranularity === granularity ? (
+                                <MantineIcon icon={IconCheck} size={14} />
+                            ) : null
+                        }
                     >
-                        {granularity}
+                        {DateGranularityOptions[granularity]}
                     </Menu.Item>
                 ))}
             </Menu.Dropdown>

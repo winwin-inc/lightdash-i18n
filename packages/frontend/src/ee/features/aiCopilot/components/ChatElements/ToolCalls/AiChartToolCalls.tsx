@@ -2,8 +2,6 @@ import {
     AgentToolCallArgsSchema,
     type AiAgentToolCall,
     AiResultType,
-    type ApiCompiledQueryResults,
-    type ApiExecuteAsyncMetricQueryResults,
     assertUnreachable,
     TOOL_DISPLAY_MESSAGES,
     TOOL_DISPLAY_MESSAGES_AFTER_TOOL_CALL,
@@ -12,42 +10,55 @@ import {
 } from '@lightdash/common';
 import {
     Badge,
-    Collapse,
+    Button,
     Group,
     Paper,
     rem,
     Stack,
     Text,
     Timeline,
-    Title,
-    UnstyledButton,
 } from '@mantine-8/core';
-import { useDisclosure } from '@mantine-8/hooks';
 import {
     IconChartDots3,
     IconChartHistogram,
     IconChartLine,
+    IconDashboard,
     IconDatabase,
+    IconPencil,
+    IconSchool,
     IconSearch,
     IconSelector,
     IconTable,
+    IconTools,
     type TablerIconsProps,
 } from '@tabler/icons-react';
 import { type FC, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../../../../components/common/MantineIcon';
-import { useCompiledSqlFromMetricQuery } from '../../../../../../hooks/useCompiledSql';
+import { useAppendInstructionMutation } from '../../../hooks/useProjectAiAgents';
+import { clearImproveContextNotification } from '../../../store/aiAgentThreadStreamSlice';
+import {
+    useAiAgentStoreDispatch,
+    useAiAgentStoreSelector,
+} from '../../../store/hooks';
 import { AiChartGenerationToolCallDescription } from './AiChartGenerationToolCallDescription';
+import { ToolCallPaper } from './ToolCallPaper';
 
 const getToolIcon = (toolName: ToolName) => {
     const iconMap: Record<ToolName, (props: TablerIconsProps) => JSX.Element> =
         {
             findExplores: IconDatabase,
             findFields: IconSearch,
+            searchFieldValues: IconSelector,
             generateBarVizConfig: IconChartHistogram,
             generateTimeSeriesVizConfig: IconChartLine,
             generateTableVizConfig: IconTable,
+            generateDashboard: IconDashboard,
+            findDashboards: IconDashboard,
+            findCharts: IconChartDots3,
+            improveContext: IconSchool,
+            proposeChange: IconPencil,
         };
 
     return iconMap[toolName];
@@ -67,43 +78,25 @@ const ToolCallContainer = ({
     defaultOpened?: boolean;
 }) => {
     const { t } = useTranslation();
-    const [opened, { toggle }] = useDisclosure(defaultOpened);
-    
+
     return (
-        <Paper
-            withBorder
-            p="sm"
-            radius="md"
-            style={{ borderStyle: 'dashed' }}
-            // default shadow is subtler than the ones we can set
-            shadow={opened ? 'none' : undefined}
+        <ToolCallPaper
+            defaultOpened={defaultOpened}
+            variant="dashed"
+            icon={IconTools}
+            title={t(
+                'features_ai_copilot_chat_elements_tool_calls.how_it_is_calculated',
+            )}
         >
-            <UnstyledButton onClick={toggle} w="100%" h="22px">
-                <Group justify="space-between" w="100%" h="100%">
-                    <Group gap="xs">
-                        <MantineIcon
-                            icon={IconChartDots3}
-                            size={14}
-                            color="gray"
-                        />
-                        <Title order={6} c="dimmed" tt="uppercase" size="xs">
-                            {t('features_ai_copilot_chat_elements_tool_calls.how_it_is_calculated')}
-                        </Title>
-                    </Group>
-                    <MantineIcon icon={IconSelector} size={14} color="gray" />
-                </Group>
-            </UnstyledButton>
-            <Collapse in={opened}>{children}</Collapse>
-        </Paper>
+            {children}
+        </ToolCallPaper>
     );
 };
 
 const ToolCallDescription: FC<{
     toolCall: ToolCallSummary;
-    compiledSql: ApiCompiledQueryResults | undefined;
-}> = ({ toolCall, compiledSql }) => {
+}> = ({ toolCall }) => {
     const { t } = useTranslation();
-
     const toolNameParsed = ToolNameSchema.safeParse(toolCall.toolName);
     const toolArgsParsed = AgentToolCallArgsSchema.safeParse(toolCall.toolArgs);
 
@@ -122,13 +115,17 @@ const ToolCallDescription: FC<{
         case 'find_explores':
             return (
                 <Text c="dimmed" size="xs">
-                    {t('features_ai_copilot_chat_elements_tool_calls.searched_relevant_explores')}
+                    {t(
+                        'features_ai_copilot_chat_elements_tool_calls.searched_relevant_explores',
+                    )}
                 </Text>
             );
         case 'find_fields':
             return (
                 <Text c="dimmed" size="xs">
-                    {t('features_ai_copilot_chat_elements_tool_calls.searched_for_fields')}
+                    {t(
+                        'features_ai_copilot_chat_elements_tool_calls.searched_for_fields',
+                    )}
                     {toolArgs.fieldSearchQueries.map((query) => (
                         <Badge
                             key={query.label}
@@ -147,6 +144,49 @@ const ToolCallDescription: FC<{
                     ))}
                 </Text>
             );
+        case 'search_field_values':
+            const searchFieldValuesArgs = toolArgs as any;
+            return (
+                <Text c="dimmed" size="xs">
+                    {t(
+                        'features_ai_copilot_chat_elements_tool_calls.searched_for_values',
+                    )}{' '}
+                    <Badge
+                        color="gray"
+                        variant="light"
+                        size="xs"
+                        mx={rem(2)}
+                        radius="sm"
+                        style={{
+                            textTransform: 'none',
+                            fontWeight: 400,
+                        }}
+                    >
+                        {searchFieldValuesArgs.fieldId}
+                    </Badge>
+                    {searchFieldValuesArgs.query && (
+                        <>
+                            {' '}
+                            {t(
+                                'features_ai_copilot_chat_elements_tool_calls.matching',
+                            )}{' '}
+                            <Badge
+                                color="gray"
+                                variant="light"
+                                size="xs"
+                                mx={rem(2)}
+                                radius="sm"
+                                style={{
+                                    textTransform: 'none',
+                                    fontWeight: 400,
+                                }}
+                            >
+                                "{searchFieldValuesArgs.query}"
+                            </Badge>
+                        </>
+                    )}
+                </Text>
+            );
         case AiResultType.VERTICAL_BAR_RESULT:
             const barVizConfigToolArgs = toolArgs;
 
@@ -158,7 +198,6 @@ const ToolCallDescription: FC<{
                     breakdownByDimension={
                         barVizConfigToolArgs.vizConfig.breakdownByDimension
                     }
-                    sql={compiledSql?.query}
                 />
             );
         case AiResultType.TABLE_RESULT:
@@ -170,7 +209,6 @@ const ToolCallDescription: FC<{
                         tableVizConfigToolArgs.vizConfig.dimensions ?? []
                     }
                     metrics={tableVizConfigToolArgs.vizConfig.metrics}
-                    sql={compiledSql?.query}
                 />
             );
         case AiResultType.TIME_SERIES_RESULT:
@@ -183,91 +221,281 @@ const ToolCallDescription: FC<{
                     breakdownByDimension={
                         timeSeriesToolCallArgs.vizConfig.breakdownByDimension
                     }
-                    sql={compiledSql?.query}
                 />
             );
+        case 'find_dashboards':
+            const findDashboardsToolArgs = toolArgs;
+            return (
+                <Text c="dimmed" size="xs">
+                    {t(
+                        'features_ai_copilot_chat_elements_tool_calls.searched_for_dashboards',
+                    )}{' '}
+                    {findDashboardsToolArgs.dashboardSearchQueries.map(
+                        (query) => (
+                            <Badge
+                                key={query.label}
+                                color="gray"
+                                variant="light"
+                                size="xs"
+                                mx={rem(2)}
+                                radius="sm"
+                                style={{
+                                    textTransform: 'none',
+                                    fontWeight: 400,
+                                }}
+                            >
+                                {query.label}
+                            </Badge>
+                        ),
+                    )}
+                </Text>
+            );
+        case 'find_charts':
+            const findChartsToolArgs = toolArgs;
+            return (
+                <Text c="dimmed" size="xs">
+                    {t(
+                        'features_ai_copilot_chat_elements_tool_calls.searched_for_charts',
+                    )}{' '}
+                    {findChartsToolArgs.chartSearchQueries.map((query) => (
+                        <Badge
+                            key={query.label}
+                            color="gray"
+                            variant="light"
+                            size="xs"
+                            mx={rem(2)}
+                            radius="sm"
+                            style={{
+                                textTransform: 'none',
+                                fontWeight: 400,
+                            }}
+                        >
+                            {query.label}
+                        </Badge>
+                    ))}
+                </Text>
+            );
+        case AiResultType.DASHBOARD_RESULT:
+            const dashboardToolArgs = toolArgs;
+            return (
+                <Text c="dimmed" size="xs">
+                    {t(
+                        'features_ai_copilot_chat_elements_tool_calls.generated_dashboard',
+                    )}
+                    : "{dashboardToolArgs.title}"{' '}
+                    {dashboardToolArgs.visualizations.length !== 1
+                        ? t(
+                              'features_ai_copilot_chat_elements_tool_calls.generated_visualizations',
+                          )
+                        : t(
+                              'features_ai_copilot_chat_elements_tool_calls.generated_visualization',
+                          )}
+                </Text>
+            );
+        case AiResultType.IMPROVE_CONTEXT:
+        case AiResultType.PROPOSE_CHANGE:
+            return <> </>;
         default:
             return assertUnreachable(toolArgs, `Unknown tool name ${toolName}`);
     }
 };
 
+const ImproveContextToolCall: FC<{
+    projectUuid: string;
+    agentUuid: string;
+    threadUuid: string;
+    promptUuid: string;
+}> = ({ projectUuid, agentUuid, threadUuid, promptUuid }) => {
+    const { t } = useTranslation();
+
+    const improveContextNotification = useAiAgentStoreSelector((state) => {
+        const thread = state.aiAgentThreadStream[threadUuid];
+        if (thread?.messageUuid === promptUuid) {
+            return thread.improveContextNotification;
+        }
+        return null;
+    });
+    const dispatch = useAiAgentStoreDispatch();
+
+    const appendInstructionMutation = useAppendInstructionMutation(
+        projectUuid,
+        agentUuid,
+    );
+
+    if (!improveContextNotification) {
+        return null;
+    }
+
+    const handleSave = async () => {
+        if (!improveContextNotification) return;
+
+        await appendInstructionMutation.mutateAsync({
+            instruction: improveContextNotification.suggestedInstruction,
+        });
+
+        dispatch(
+            clearImproveContextNotification({
+                threadUuid,
+            }),
+        );
+    };
+
+    const handleDismiss = () => {
+        dispatch(
+            clearImproveContextNotification({
+                threadUuid,
+            }),
+        );
+    };
+
+    return (
+        <Paper bg="white" p="xs" mb="xs" withBorder>
+            <Group gap="xs" align="flex-start" wrap="nowrap">
+                <MantineIcon icon={IconSchool} size="md" color="indigo.6" />
+                <Stack gap="xs" style={{ flex: 1 }}>
+                    <Text fz="xs" fw={500} c="gray.9" lh="normal" m={0}>
+                        {t(
+                            'features_ai_copilot_chat_elements_tool_calls.save_instruction_to_memory',
+                        )}
+                    </Text>
+
+                    <Text
+                        fz="xs"
+                        c="gray.7"
+                        bg="gray.0"
+                        p="xs"
+                        style={{
+                            borderRadius: '4px',
+                            fontStyle: 'italic',
+                        }}
+                    >
+                        {improveContextNotification.suggestedInstruction}
+                    </Text>
+                    <Group justify="flex-end" gap="xs">
+                        <Button
+                            size="compact-xs"
+                            variant="subtle"
+                            color="gray"
+                            onClick={handleDismiss}
+                            disabled={appendInstructionMutation.isLoading}
+                        >
+                            {t(
+                                'features_ai_copilot_chat_elements_tool_calls.dismiss',
+                            )}
+                        </Button>
+                        <Button
+                            size="compact-xs"
+                            color="indigo"
+                            onClick={handleSave}
+                            loading={appendInstructionMutation.isLoading}
+                        >
+                            {t(
+                                'features_ai_copilot_chat_elements_tool_calls.save',
+                            )}
+                        </Button>
+                    </Group>
+                </Stack>
+            </Group>
+        </Paper>
+    );
+};
+
 type AiChartToolCallsProps = {
     toolCalls: ToolCallSummary[] | undefined;
     type: ToolCallDisplayType;
-    compiledSql?: ApiCompiledQueryResults;
-    metricQuery?: ApiExecuteAsyncMetricQueryResults['metricQuery'];
-    projectUuid?: string;
+    projectUuid: string;
+    agentUuid: string;
+    threadUuid: string;
+    promptUuid: string;
 };
 
+const EXCLUDED_TOOL_NAMES = ['improveContext', 'proposeChange'];
 export const AiChartToolCalls: FC<AiChartToolCallsProps> = ({
     toolCalls,
     type,
-    metricQuery,
     projectUuid,
+    agentUuid,
+    threadUuid,
+    promptUuid,
 }) => {
-    const { data: compiledSql } = useCompiledSqlFromMetricQuery({
-        tableName: metricQuery?.exploreName,
-        projectUuid,
-        metricQuery: metricQuery,
-    });
-
     const texts =
         type === 'streaming'
             ? TOOL_DISPLAY_MESSAGES
             : TOOL_DISPLAY_MESSAGES_AFTER_TOOL_CALL;
 
+    const calculationToolCalls = toolCalls?.filter(
+        (toolCall) => !EXCLUDED_TOOL_NAMES.includes(toolCall.toolName),
+    );
+
     if (!toolCalls || toolCalls.length === 0) return null;
+
     return (
-        <ToolCallContainer defaultOpened={type !== 'persisted'}>
-            <Stack pt="sm">
-                <Timeline
-                    active={toolCalls.length - 1}
-                    bulletSize={20}
-                    lineWidth={2}
-                    color="indigo.6"
-                >
-                    {toolCalls.map((toolCall) => {
-                        const toolNameParsed = ToolNameSchema.safeParse(
-                            toolCall.toolName,
-                        );
-                        if (!toolNameParsed.success) {
-                            return null;
-                        }
-
-                        const toolName = toolNameParsed.data;
-                        const IconComponent = getToolIcon(toolName);
-
-                        return (
-                            <Timeline.Item
-                                key={toolCall.toolCallId}
-                                radius="md"
-                                bullet={
-                                    <MantineIcon
-                                        icon={IconComponent}
-                                        size={12}
-                                        stroke={1.5}
-                                    />
+        <>
+            {projectUuid && agentUuid && threadUuid && (
+                <ImproveContextToolCall
+                    projectUuid={projectUuid}
+                    agentUuid={agentUuid}
+                    threadUuid={threadUuid}
+                    promptUuid={promptUuid}
+                />
+            )}
+            {!!calculationToolCalls?.length && (
+                <ToolCallContainer defaultOpened={type !== 'persisted'}>
+                    <Stack pt="xs">
+                        <Timeline
+                            active={calculationToolCalls.length - 1}
+                            bulletSize={16}
+                            lineWidth={1}
+                            color="gray"
+                        >
+                            {calculationToolCalls.map((toolCall) => {
+                                const toolNameParsed = ToolNameSchema.safeParse(
+                                    toolCall.toolName,
+                                );
+                                if (!toolNameParsed.success) {
+                                    return null;
                                 }
-                                title={
-                                    <Text fw={500} size="sm">
-                                        {texts[toolName]}
-                                    </Text>
-                                }
-                                lineVariant={'solid'}
-                            >
-                                <ToolCallDescription
-                                    toolCall={toolCall}
-                                    compiledSql={
-                                        type === 'persisted'
-                                            ? compiledSql
-                                            : undefined
-                                    }
-                                />
-                            </Timeline.Item>
-                        );
-                    })}
-                </Timeline>
-            </Stack>
-        </ToolCallContainer>
+
+                                const toolName = toolNameParsed.data;
+                                const IconComponent = getToolIcon(toolName);
+
+                                return (
+                                    <Timeline.Item
+                                        key={toolCall.toolCallId}
+                                        radius="sm"
+                                        bullet={
+                                            <Paper
+                                                bg="white"
+                                                p="two"
+                                                radius="sm"
+                                                shadow="subtle"
+                                            >
+                                                <MantineIcon
+                                                    icon={IconComponent}
+                                                    size={12}
+                                                    stroke={1.8}
+                                                    color="indigo.3"
+                                                />
+                                            </Paper>
+                                        }
+                                        mt="xs"
+                                        title={
+                                            <Text fw={400} size="xs" c="gray.7">
+                                                {texts[toolName]}
+                                            </Text>
+                                        }
+                                        lineVariant={'dashed'}
+                                    >
+                                        <ToolCallDescription
+                                            toolCall={toolCall}
+                                        />
+                                    </Timeline.Item>
+                                );
+                            })}
+                        </Timeline>
+                    </Stack>
+                </ToolCallContainer>
+            )}
+        </>
     );
 };

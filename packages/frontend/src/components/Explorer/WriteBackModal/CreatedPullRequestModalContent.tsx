@@ -1,5 +1,5 @@
 import { Anchor, Button, Group, Modal, Stack, Text } from '@mantine/core';
-import { IconBrandGithub } from '@tabler/icons-react';
+import { IconGitBranch } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../common/MantineIcon';
@@ -22,7 +22,7 @@ export const CreatedPullRequestModalContent = ({
             title={
                 <Group spacing="xs">
                     <MantineIcon
-                        icon={IconBrandGithub}
+                        icon={IconGitBranch}
                         size="lg"
                         color="gray.7"
                     />

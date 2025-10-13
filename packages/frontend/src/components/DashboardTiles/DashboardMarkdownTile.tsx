@@ -1,12 +1,10 @@
 import { type DashboardMarkdownTile } from '@lightdash/common';
-import { Menu, Text } from '@mantine/core';
+import { Menu, Text, useMantineTheme } from '@mantine/core';
 import { IconCopy } from '@tabler/icons-react';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 import React, { useCallback, useMemo, useState, type FC } from 'react';
 import rehypeExternalLinks from 'rehype-external-links';
 import { v4 as uuid4 } from 'uuid';
-import { useTranslation } from 'react-i18next';
-
 import { DashboardTileComments } from '../../features/comments';
 import { appendNewTilesToBottom } from '../../hooks/dashboard/useDashboard';
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
@@ -22,7 +20,7 @@ export type Props = Pick<
 };
 
 const MarkdownTile: FC<Props> = (props) => {
-    const { t } = useTranslation();
+    const theme = useMantineTheme();
 
     const {
         tile: {
@@ -33,7 +31,9 @@ const MarkdownTile: FC<Props> = (props) => {
     } = props;
 
     const [isCommentsMenuOpen, setIsCommentsMenuOpen] = useState(false);
-    const showComments = false; // 隐藏评论功能
+    const showComments = useDashboardContext(
+        (c) => c.dashboardCommentsCheck?.canViewDashboardComments,
+    );
     const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
     const { getUnsavedDashboardTiles } = useDashboardStorage();
     const tileHasComments = useDashboardContext((c) => c.hasTileComments(uuid));
@@ -93,7 +93,7 @@ const MarkdownTile: FC<Props> = (props) => {
                         icon={<MantineIcon icon={IconCopy} />}
                         onClick={handleDuplicate}
                     >
-                        {t('components_dashboard_tiles_base.duplicate')}
+                        Duplicate
                     </Menu.Item>
                 )
             }
@@ -110,13 +110,15 @@ const MarkdownTile: FC<Props> = (props) => {
                     },
                 }}
             >
-                <MarkdownPreview
-                    className="markdown-tile"
-                    source={content}
-                    rehypePlugins={[
-                        [rehypeExternalLinks, { target: '_blank' }],
-                    ]}
-                />
+                <div data-color-mode={theme.colorScheme}>
+                    <MarkdownPreview
+                        className="markdown-tile"
+                        source={content}
+                        rehypePlugins={[
+                            [rehypeExternalLinks, { target: '_blank' }],
+                        ]}
+                    />
+                </div>
             </Text>
         </TileBase>
     );

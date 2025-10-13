@@ -24,7 +24,12 @@ export const TabEditModal: FC<AddProps> = ({
     ...modalProps
 }) => {
     const { t } = useTranslation();
-    const form = useForm<{ newTabName: string }>();
+
+    const form = useForm<{ newTabName: string }>({
+        initialValues: {
+            newTabName: tab.name,
+        },
+    });
 
     const handleConfirm = form.onSubmit(({ ...tabProps }) => {
         onConfirm(tabProps.newTabName, tab.uuid);

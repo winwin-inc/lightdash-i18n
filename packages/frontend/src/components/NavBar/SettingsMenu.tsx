@@ -33,6 +33,7 @@ const SettingsMenu: FC = () => {
         'update',
         subject('Project', {
             organizationUuid: user.organizationUuid,
+            projectUuid: activeProjectUuid,
         }),
     );
 

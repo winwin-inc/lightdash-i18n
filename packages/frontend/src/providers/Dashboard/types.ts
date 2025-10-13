@@ -4,8 +4,12 @@ import {
     type Dashboard,
     type DashboardFilterRule,
     type DashboardFilters,
+    type DashboardParameters,
     type DateGranularity,
     type FilterableDimension,
+    type ParameterDefinitions,
+    type ParametersValuesMap,
+    type ParameterValue,
     type ResultColumn,
     type SortField,
 } from '@lightdash/common';
@@ -32,6 +36,10 @@ export type DashboardContextType = {
     setHaveTabsChanged: Dispatch<SetStateAction<boolean>>;
     dashboardTabs: Dashboard['tabs'];
     setDashboardTabs: Dispatch<SetStateAction<Dashboard['tabs']>>;
+    activeTab: Dashboard['tabs'][number] | undefined;
+    setActiveTab: Dispatch<
+        SetStateAction<Dashboard['tabs'][number] | undefined>
+    >;
     dashboardFilters: DashboardFilters;
     dashboardTemporaryFilters: DashboardFilters;
     allFilters: DashboardFilters;
@@ -93,11 +101,29 @@ export type DashboardContextType = {
     requiredDashboardFilters: Pick<DashboardFilterRule, 'id' | 'label'>[];
     isDateZoomDisabled: boolean;
     setIsDateZoomDisabled: Dispatch<SetStateAction<boolean>>;
-    parameters: Record<string, string | string[]>;
-    setParameter: (key: string, value: string | string[] | null) => void;
+    setSavedParameters: Dispatch<SetStateAction<DashboardParameters>>;
+    parametersHaveChanged: boolean;
+    dashboardParameters: DashboardParameters;
+    parameterValues: ParametersValuesMap;
+    clearAllParameters: () => void;
+    setParameter: (key: string, value: ParameterValue | null) => void;
     dashboardParameterReferences: Set<string>;
     addParameterReferences: (tileUuid: string, references: string[]) => void;
+    tileParameterReferences: Record<string, string[]>;
     areAllChartsLoaded: boolean;
+    parameterDefinitions: ParameterDefinitions;
+    addParameterDefinitions: (parameters: ParameterDefinitions) => void;
+    missingRequiredParameters: string[];
+    pinnedParameters: string[];
+    setPinnedParameters: (parameters: string[]) => void;
+    toggleParameterPin: (parameterKey: string) => void;
+    havePinnedParametersChanged: boolean;
+    setHavePinnedParametersChanged: Dispatch<SetStateAction<boolean>>;
+    tileNamesById: Record<string, string>;
+    refreshDashboardVersion: () => Promise<void>;
+    isRefreshingDashboardVersion: boolean;
+
+    // tabs-filter start
     tabFilters: Record<string, DashboardFilters>;
     setTabFilters: Dispatch<SetStateAction<Record<string, DashboardFilters>>>;
     tabTemporaryFilters: Record<string, DashboardFilters>;
@@ -126,6 +152,9 @@ export type DashboardContextType = {
         isTemporary: boolean,
     ) => void;
     resetTabFilters: (tabUuid: string) => void;
+    // tabs-filer end
+
+    // filter enabled state start
     isGlobalFilterEnabled: boolean;
     setIsGlobalFilterEnabled: (value: boolean) => void;
     isTabFilterEnabled: Record<string, boolean>;
@@ -142,4 +171,5 @@ export type DashboardContextType = {
     setHaveFilterEnabledStatesChanged: (value: boolean) => void;
     haveShowAddFilterButtonStatesChanged: boolean;
     setHaveShowAddFilterButtonStatesChanged: (value: boolean) => void;
+    // filter enabled state end
 };

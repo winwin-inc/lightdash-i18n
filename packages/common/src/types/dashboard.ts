@@ -1,7 +1,11 @@
 import { type FilterableDimension } from './field';
 import { type DashboardFilters } from './filter';
 import { type DashboardParameters } from './parameters';
-import { type ChartKind, type SavedChartType } from './savedCharts';
+import {
+    type ChartKind,
+    type CreateSavedChart,
+    type SavedChartType,
+} from './savedCharts';
 import { type SpaceShare } from './space';
 import { type UpdatedByUser } from './user';
 import { type ValidationSummary } from './validation';
@@ -96,6 +100,7 @@ export type CreateDashboard = {
     >;
     filters?: DashboardFilters;
     parameters?: DashboardParameters;
+    pinnedParameters?: string[];
     updatedByUser?: Pick<UpdatedByUser, 'userUuid'>;
     spaceUuid?: string;
     tabs: DashboardTab[];
@@ -140,9 +145,10 @@ export type DashboardTabWithUrls = DashboardTab & {
 export type DashboardDAO = Omit<Dashboard, 'isPrivate' | 'access'>;
 
 export type DashboardConfig = {
+    pinnedParameters?: string[];
     isDateZoomDisabled: boolean;
-    isGlobalFilterEnabled?: boolean;
     tabFilterEnabled?: Record<string, boolean>;
+    isGlobalFilterEnabled?: boolean;
     showGlobalAddFilterButton?: boolean;
     showTabAddFilterButton?: Record<string, boolean>;
 };
@@ -309,3 +315,15 @@ export function isDuplicateDashboardParams(
 ): params is DuplicateDashboardParams {
     return 'dashboardName' in params && 'dashboardDesc' in params;
 }
+
+export type CreateDashboardWithCharts = {
+    name: string;
+    description?: string;
+    spaceUuid: string;
+    charts: CreateSavedChart[];
+};
+
+export type ApiCreateDashboardWithChartsResponse = {
+    status: 'ok';
+    results: Dashboard;
+};

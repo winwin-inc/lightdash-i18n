@@ -1,10 +1,11 @@
 import { getItemId, getMetrics } from '@lightdash/common';
-import { Button, Tooltip } from '@mantine/core';
+import { Button, Tooltip } from '@mantine-8/core';
 import { IconDeviceFloppy } from '@tabler/icons-react';
 import { useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useExplore } from '../../../hooks/useExplore';
+import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
 import { useAddVersionMutation } from '../../../hooks/useSavedQuery';
 import useSearchParams from '../../../hooks/useSearchParams';
 import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
@@ -13,16 +14,29 @@ import ChartCreateModal from '../../common/modal/ChartCreateModal';
 
 const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
     const unsavedChartVersion = useExplorerContext(
-        (context) => context.state.unsavedChartVersion,
+        (context) => context.state.mergedUnsavedChartVersion,
     );
-    const hasUnsavedChanges = useExplorerContext(
-        (context) => context.state.hasUnsavedChanges,
-    );
+
+    // Get savedChart, comparison function, and isValidQuery from Context
     const savedChart = useExplorerContext(
         (context) => context.state.savedChart,
     );
+    const isUnsavedChartChanged = useExplorerContext(
+        (context) => context.actions.isUnsavedChartChanged,
+    );
+    const isValidQuery = useExplorerContext(
+        (context) => context.state.isValidQuery,
+    );
     const spaceUuid = useSearchParams('fromSpace');
     const { t } = useTranslation();
+
+    // For new charts, button is enabled when query is valid
+    // For existing charts, button is enabled when there are unsaved changes
+    const hasUnsavedChanges = savedChart
+        ? isUnsavedChartChanged(unsavedChartVersion)
+        : isValidQuery;
+
+    const { missingRequiredParameters } = useExplorerQuery();
 
     const [isQueryModalOpen, setIsQueryModalOpen] = useState<boolean>(false);
 
@@ -48,7 +62,8 @@ const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
     const isDisabled =
         !unsavedChartVersion.tableName ||
         !hasUnsavedChanges ||
-        foundCustomMetricWithDuplicateId;
+        foundCustomMetricWithDuplicateId ||
+        !!missingRequiredParameters?.length;
 
     const handleSaveChart = () => {
         return savedChart
@@ -59,9 +74,7 @@ const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
     return (
         <>
             <Tooltip
-                label={
-                    'A custom metric ID matches an existing table metric. Rename it to avoid conflicts.'
-                }
+                label={t('components_explorer_save_chart_button.title')}
                 disabled={!foundCustomMetricWithDuplicateId}
                 withinPortal
                 multiline
@@ -74,7 +87,7 @@ const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
                     color={isExplorer ? 'blue' : 'green.7'}
                     size="xs"
                     loading={update.isLoading}
-                    leftIcon={
+                    leftSection={
                         isExplorer ? (
                             <MantineIcon icon={IconDeviceFloppy} />
                         ) : undefined
@@ -82,7 +95,7 @@ const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
                     {...(isDisabled && {
                         'data-disabled': true,
                     })}
-                    sx={{
+                    style={{
                         '&[data-disabled="true"]': {
                             pointerEvents: 'all',
                         },

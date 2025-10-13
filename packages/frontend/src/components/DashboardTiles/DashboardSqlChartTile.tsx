@@ -6,9 +6,20 @@ import {
     isVizTableConfig,
     type DashboardSqlChartTile,
 } from '@lightdash/common';
-import { Box } from '@mantine/core';
-import { IconAlertCircle, IconFilePencil } from '@tabler/icons-react';
-import { memo, useEffect, useMemo, type FC } from 'react';
+import { Box, Menu } from '@mantine/core';
+import {
+    IconAlertCircle,
+    IconFilePencil,
+    IconTableExport,
+} from '@tabler/icons-react';
+import {
+    memo,
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type FC,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
@@ -23,6 +34,7 @@ import { Table } from '../DataViz/visualizations/Table';
 import LinkMenuItem from '../common/LinkMenuItem';
 import MantineIcon from '../common/MantineIcon';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
+import ExportDataModal from './ExportDataModal';
 import TileBase from './TileBase';
 
 interface Props
@@ -34,45 +46,17 @@ interface Props
     minimal?: boolean;
 }
 
-/**
- * TODO
- * Handle minimal mode
- * handle tabs
- */
-const DashboardOptions = memo(
-    ({
-        isEditMode,
-        projectUuid,
-        slug,
-    }: {
-        isEditMode: boolean;
-        projectUuid: string;
-        slug: string;
-    }) => {
-        const { t } = useTranslation();
-
-        return (
-            <LinkMenuItem
-                icon={<MantineIcon icon={IconFilePencil} />}
-                href={`/projects/${projectUuid}/sql-runner/${slug}/edit`}
-                disabled={isEditMode}
-                target="_blank"
-            >
-                {t('components_dashboard_tiles_sql_chart.edit_sql_chart')}
-            </LinkMenuItem>
-        );
-    },
-);
-
 const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
-    const { user } = useApp();
     const { t } = useTranslation();
+
+    const { user } = useApp();
     const { projectUuid, dashboardUuid } = useParams<{
         projectUuid: string;
         dashboardUuid: string;
     }>();
     const context = useSearchParams('context') || undefined;
     const savedSqlUuid = tile.properties.savedSqlUuid || undefined;
+    const [isDataExportModalOpen, setIsDataExportModalOpen] = useState(false);
     const canManageSqlRunner = user.data?.ability?.can(
         'manage',
         subject('SqlRunner', {
@@ -83,8 +67,39 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
     const updateSqlChartTilesMetadata = useDashboardContext(
         (c) => c.updateSqlChartTilesMetadata,
     );
-    const parameters = useDashboardContext((c) => c.parameters);
+    const parameters = useDashboardContext((c) => c.parameterValues);
     const dashboardFilters = useDashboardFiltersForTile(tile.uuid);
+
+    const closeDataExportModal = useCallback(
+        () => setIsDataExportModalOpen(false),
+        [],
+    );
+
+    /**
+     * TODO
+     * Handle minimal mode
+     * handle tabs
+     */
+    const DashboardOptions = memo(
+        ({
+            isEditMode: isEditModeProp,
+            projectUuid: projectUuidProp,
+            slug,
+        }: {
+            isEditMode: boolean;
+            projectUuid: string;
+            slug: string;
+        }) => (
+            <LinkMenuItem
+                icon={<MantineIcon icon={IconFilePencil} />}
+                href={`/projects/${projectUuidProp}/sql-runner/${slug}/edit`}
+                disabled={isEditModeProp}
+                target="_blank"
+            >
+                {t('components_dashboard_tiles_sql_chart.edit_sql_chart')}
+            </LinkMenuItem>
+        ),
+    );
 
     const {
         chartQuery: {
@@ -98,6 +113,7 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
             error: chartResultsError,
             isFetching: isChartResultsFetching,
         },
+        getDownloadQueryUuid,
     } = useSavedSqlChartResults({
         projectUuid,
         savedSqlUuid,
@@ -131,6 +147,14 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
         updateSqlChartTilesMetadata,
     ]);
 
+    const userCanExportData = user.data?.ability.can(
+        'manage',
+        subject('ExportCsv', {
+            organizationUuid: chartData?.organization.organizationUuid,
+            projectUuid: chartData?.project.projectUuid,
+        }),
+    );
+
     // No chart available or savedSqlUuid is undefined - which means that the chart was deleted
     if (chartData === undefined || !savedSqlUuid) {
         return (
@@ -148,7 +172,9 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
                         title={formatChartErrorMessage(
                             tile.properties.chartName,
                             chartError?.error?.message ||
-                                t('components_dashboard_tiles_sql_chart.error_fetching_chart'),
+                                t(
+                                    'components_dashboard_tiles_sql_chart.error_fetching_chart',
+                                ),
                         )}
                     />
                 )}
@@ -206,12 +232,25 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
             {...rest}
             extraMenuItems={
                 projectUuid &&
-                canManageSqlRunner && (
-                    <DashboardOptions
-                        isEditMode={isEditMode}
-                        projectUuid={projectUuid}
-                        slug={chartData.slug}
-                    />
+                (canManageSqlRunner || userCanExportData) && (
+                    <>
+                        {canManageSqlRunner && (
+                            <DashboardOptions
+                                isEditMode={isEditMode}
+                                projectUuid={projectUuid}
+                                slug={chartData.slug}
+                            />
+                        )}
+                        <Menu.Item
+                            icon={<MantineIcon icon={IconTableExport} />}
+                            disabled={isEditMode}
+                            onClick={() => setIsDataExportModalOpen(true)}
+                        >
+                            {t(
+                                'components_dashboard_tiles_sql_chart.download_data',
+                            )}
+                        </Menu.Item>
+                    </>
                 )
             }
         >
@@ -242,6 +281,18 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
                     }}
                 />
             )}
+            <ExportDataModal
+                isOpen={isDataExportModalOpen}
+                onClose={closeDataExportModal}
+                projectUuid={projectUuid!}
+                totalResults={
+                    chartResultsData.chartUnderlyingData?.rows.length ?? 0
+                }
+                getDownloadQueryUuid={getDownloadQueryUuid}
+                showTableNames
+                chartName={tile.properties.title || chartData.name}
+                columnOrder={chartResultsData.chartUnderlyingData?.columns}
+            />
         </TileBase>
     );
 };

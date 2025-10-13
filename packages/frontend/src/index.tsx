@@ -1,3 +1,5 @@
+import '@mantine-8/core/styles.css';
+
 // eslint-disable-next-line import/order
 import { scan } from 'react-scan'; // react-scan has to be imported before react
 
@@ -8,7 +10,7 @@ import App from './App';
 
 // Trigger FE tests
 scan({
-    enabled: import.meta.env.DEV,
+    enabled: import.meta.env.DEV && REACT_SCAN_ENABLED,
 });
 
 const container = document.getElementById('root');

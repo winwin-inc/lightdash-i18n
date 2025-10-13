@@ -1,5 +1,6 @@
 import { Ability, AbilityBuilder, subject } from '@casl/ability';
 import { type CreateEmbedJwt } from '../ee';
+import { type OssEmbed } from '../types/auth';
 import { applyEmbeddedAbility } from './jwtAbility';
 import { type MemberAbility } from './types';
 
@@ -12,13 +13,13 @@ const createEmbedJwt = (overrides?: {
 }): CreateEmbedJwt => {
     const baseContent = {
         type: 'dashboard',
-        projectUuid: 'project-uuid-1',
         dashboardUuid: 'dashboard-uuid-1',
         canExportCsv: false,
         canExportImages: false,
         canExportPagePdf: false,
         canDateZoom: false,
         canExplore: false,
+        canViewUnderlyingData: false,
     };
 
     const { content: contentOverrides, ...otherOverrides } = overrides || {};
@@ -37,12 +38,27 @@ const organization = {
     name: 'Organization 1',
 };
 
+const embed: OssEmbed = {
+    organization,
+    projectUuid: 'project-uuid-1',
+    encodedSecret: 'encoded-secret',
+    dashboardUuids: ['dashboard-uuid-1'],
+    allowAllDashboards: false,
+    createdAt: '2021-01-01',
+    user: {
+        firstName: 'John',
+        lastName: 'Doe',
+        userUuid: 'user-uuid-1',
+    },
+};
+
 const defineAbilityForEmbedUser = (
     embedUser: CreateEmbedJwt,
     dashboardUuid: string,
 ): MemberAbility => {
     const builder = new AbilityBuilder<MemberAbility>(Ability);
-    applyEmbeddedAbility(embedUser, dashboardUuid, organization, builder);
+    const externalId = 'external-id-1';
+    applyEmbeddedAbility(embedUser, dashboardUuid, embed, externalId, builder);
     return builder.build();
 };
 
@@ -100,7 +116,6 @@ describe('Embedded dashboard abilities', () => {
             const embedUser: CreateEmbedJwt = {
                 content: {
                     type: 'dashboard',
-                    projectUuid: 'project-uuid-1',
                     dashboardUuid: 'dashboard-uuid-1',
                 },
                 exp: Date.now() / 1000 + 3600,
@@ -152,6 +167,17 @@ describe('Embedded dashboard abilities', () => {
                 ability.can(
                     'view',
                     subject('Dashboard', { canDateZoom: true }),
+                ),
+            ).toBe(false);
+
+            // Underlying data should default to false
+            expect(
+                ability.can(
+                    'view',
+                    subject('UnderlyingData', {
+                        organizationUuid: organization.organizationUuid,
+                        projectUuid,
+                    }),
                 ),
             ).toBe(false);
         });
@@ -469,6 +495,156 @@ describe('Embedded dashboard abilities', () => {
                 ).toBe(false);
             });
         });
+
+        describe('Underlying data', () => {
+            it('should allow viewing underlying data when canViewUnderlyingData is true', () => {
+                const embedUser = createEmbedJwt({
+                    content: { canViewUnderlyingData: true },
+                });
+                const ability = defineAbilityForEmbedUser(
+                    embedUser,
+                    dashboardUuid,
+                );
+
+                expect(
+                    ability.can(
+                        'view',
+                        subject('UnderlyingData', {
+                            organizationUuid: organization.organizationUuid,
+                            projectUuid,
+                        }),
+                    ),
+                ).toBe(true);
+            });
+
+            it('should not allow viewing underlying data when canViewUnderlyingData is false', () => {
+                const embedUser = createEmbedJwt({
+                    content: { canViewUnderlyingData: false },
+                });
+                const ability = defineAbilityForEmbedUser(
+                    embedUser,
+                    dashboardUuid,
+                );
+
+                expect(
+                    ability.can(
+                        'view',
+                        subject('UnderlyingData', {
+                            organizationUuid: organization.organizationUuid,
+                            projectUuid,
+                        }),
+                    ),
+                ).toBe(false);
+            });
+
+            it('should handle undefined canViewUnderlyingData as false', () => {
+                const embedUser = createEmbedJwt({
+                    content: { canViewUnderlyingData: undefined },
+                });
+                const ability = defineAbilityForEmbedUser(
+                    embedUser,
+                    dashboardUuid,
+                );
+
+                expect(
+                    ability.can(
+                        'view',
+                        subject('UnderlyingData', {
+                            organizationUuid: organization.organizationUuid,
+                            projectUuid,
+                        }),
+                    ),
+                ).toBe(false);
+            });
+        });
+    });
+
+    describe('Explore abilities', () => {
+        it('should allow viewing Explore domains when canExplore is true', () => {
+            const embedUser = createEmbedJwt({
+                content: { canExplore: true },
+            });
+            const ability = defineAbilityForEmbedUser(embedUser, dashboardUuid);
+
+            expect(
+                ability.can(
+                    'view',
+                    subject('Explore', {
+                        organizationUuid: organization.organizationUuid,
+                        projectUuid,
+                    }),
+                ),
+            ).toBe(true);
+            expect(
+                ability.can(
+                    'view',
+                    subject('Project', {
+                        organizationUuid: organization.organizationUuid,
+                        projectUuid,
+                    }),
+                ),
+            ).toBe(true);
+        });
+
+        it('should not allow viewing Explore domains when canExplore is false', () => {
+            const embedUser = createEmbedJwt({
+                content: { canExplore: false },
+            });
+            const ability = defineAbilityForEmbedUser(embedUser, dashboardUuid);
+
+            expect(
+                ability.can(
+                    'view',
+                    subject('Explore', {
+                        organizationUuid: organization.organizationUuid,
+                        projectUuid,
+                    }),
+                ),
+            ).toBe(false);
+        });
+
+        it('should not allow viewing Explore domains when canExplore is undefined', () => {
+            const embedUser = createEmbedJwt({
+                content: { canExplore: undefined },
+            });
+            const ability = defineAbilityForEmbedUser(embedUser, dashboardUuid);
+
+            expect(
+                ability.can(
+                    'view',
+                    subject('Explore', {
+                        organizationUuid: organization.organizationUuid,
+                        projectUuid,
+                    }),
+                ),
+            ).toBe(false);
+        });
+
+        it('should not allow viewing Explore domains for different projects', () => {
+            const embedUser = createEmbedJwt({
+                content: { canExplore: true },
+            });
+            const ability = defineAbilityForEmbedUser(embedUser, dashboardUuid);
+
+            expect(
+                ability.can(
+                    'view',
+                    subject('Explore', {
+                        organizationUuid: organization.organizationUuid,
+                        projectUuid: 'different-project-uuid',
+                    }),
+                ),
+            ).toBe(false);
+            expect(
+                ability.can(
+                    'view',
+                    subject('Project', {
+                        organizationUuid: organization.organizationUuid,
+                        projectUuid: 'different-project-uuid',
+                    }),
+                ),
+            ).toBe(false);
+        });
     });
 
     describe('Explore abilities', () => {
@@ -521,7 +697,7 @@ describe('Embedded dashboard abilities', () => {
                         projectUuid,
                     }),
                 ),
-            ).toBe(false);
+            ).toBe(true);
         });
 
         it('should not allow viewing Explore domains when canExplore is undefined', () => {
@@ -547,7 +723,7 @@ describe('Embedded dashboard abilities', () => {
                         projectUuid,
                     }),
                 ),
-            ).toBe(false);
+            ).toBe(true);
         });
 
         it('should not allow viewing Explore domains for different projects', () => {

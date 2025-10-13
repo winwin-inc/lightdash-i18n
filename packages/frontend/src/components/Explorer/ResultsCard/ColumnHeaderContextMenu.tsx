@@ -20,6 +20,10 @@ import { useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
+    selectAdditionalMetrics,
+    useExplorerSelector,
+} from '../../../features/explorer/store';
+import {
     DeleteTableCalculationModal,
     UpdateTableCalculationModal,
 } from '../../../features/tableCalculation';
@@ -51,13 +55,12 @@ const ContextMenu: FC<ContextMenuProps> = ({
     const item = meta?.item;
     const sort = meta?.sort?.sort;
 
+    // Get state from Redux
+    const additionalMetrics = useExplorerSelector(selectAdditionalMetrics);
+
+    // Use Context action for removeActiveField (not yet migrated to Redux)
     const removeActiveField = useExplorerContext(
         (context) => context.actions.removeActiveField,
-    );
-
-    const additionalMetrics = useExplorerContext(
-        (context) =>
-            context.state.unsavedChartVersion.metricQuery.additionalMetrics,
     );
 
     const additionalMetric = useMemo(
@@ -88,7 +91,7 @@ const ContextMenu: FC<ContextMenuProps> = ({
                             icon={<MantineIcon icon={IconFilter} />}
                             onClick={() => {
                                 track({ name: EventName.ADD_FILTER_CLICKED });
-                                addFilter(item, undefined, false);
+                                addFilter(item, undefined);
                             }}
                         >
                             {t(
@@ -175,7 +178,7 @@ const ContextMenu: FC<ContextMenuProps> = ({
                             icon={<MantineIcon icon={IconFilter} />}
                             onClick={() => {
                                 track({ name: EventName.ADD_FILTER_CLICKED });
-                                addFilter(item, undefined, false);
+                                addFilter(item, undefined);
                             }}
                         >
                             {t(
@@ -229,7 +232,7 @@ const ContextMenu: FC<ContextMenuProps> = ({
                     icon={<MantineIcon icon={IconFilter} />}
                     onClick={() => {
                         track({ name: EventName.ADD_FILTER_CLICKED });
-                        addFilter(item, undefined, false);
+                        addFilter(item, undefined);
                     }}
                 >
                     {t(

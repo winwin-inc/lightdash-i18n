@@ -29,6 +29,8 @@ import {
     type MRT_SortingState,
     type MRT_Virtualizer,
 } from 'mantine-react-table';
+import { MRT_Localization_EN } from 'mantine-react-table/locales/en';
+import { MRT_Localization_ZH_HANS } from 'mantine-react-table/locales/zh-Hans';
 import {
     useCallback,
     useDeferredValue,
@@ -73,7 +75,8 @@ type MetricsTableProps = {
 export const MetricsTable: FC<MetricsTableProps> = ({ metricCatalogView }) => {
     const metricsCatalogColumns = useMetricsCatalogColumns();
 
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const isZh = i18n.language === 'zh';
 
     const { track } = useTracking();
     const dispatch = useAppDispatch();
@@ -338,6 +341,7 @@ export const MetricsTable: FC<MetricsTableProps> = ({ metricCatalogView }) => {
         onSortingChange: setInternalSorting,
         enableTopToolbar: true,
         positionGlobalFilter: 'left',
+        localization: isZh ? MRT_Localization_ZH_HANS : MRT_Localization_EN,
         mantinePaperProps,
         mantineTableContainerProps: {
             ref: tableContainerRef,

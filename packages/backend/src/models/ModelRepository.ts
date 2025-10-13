@@ -3,6 +3,7 @@ import { LightdashConfig } from '../config/parseConfig';
 import { type UtilRepository } from '../utils/UtilRepository';
 import { AnalyticsModel } from './AnalyticsModel';
 import { CatalogModel } from './CatalogModel/CatalogModel';
+import { ChangesetModel } from './ChangesetModel';
 import { CommentModel } from './CommentModel/CommentModel';
 import { ContentModel } from './ContentModel/ContentModel';
 import { DashboardModel } from './DashboardModel/DashboardModel';
@@ -11,9 +12,11 @@ import { DownloadFileModel } from './DownloadFileModel';
 import { EmailModel } from './EmailModel';
 import { FeatureFlagModel } from './FeatureFlagModel/FeatureFlagModel';
 import { GithubAppInstallationsModel } from './GithubAppInstallations/GithubAppInstallationsModel';
+import { GitlabAppInstallationsModel } from './GitlabAppInstallations/GitlabAppInstallationsModel';
 import { GroupsModel } from './GroupsModel';
 import { InviteLinkModel } from './InviteLinkModel';
 import { JobModel } from './JobModel/JobModel';
+import { McpContextModel } from './McpContextModel';
 import { MigrationModel } from './MigrationModel/MigrationModel';
 import { NotificationsModel } from './NotificationsModel/NotificationsModel';
 import { OAuth2Model } from './OAuth2Model';
@@ -22,12 +25,14 @@ import { OpenIdIdentityModel } from './OpenIdIdentitiesModel';
 import { OrganizationAllowedEmailDomainsModel } from './OrganizationAllowedEmailDomainsModel';
 import { OrganizationMemberProfileModel } from './OrganizationMemberProfileModel';
 import { OrganizationModel } from './OrganizationModel';
+import { OrganizationWarehouseCredentialsModel } from './OrganizationWarehouseCredentialsModel';
 import { PasswordResetLinkModel } from './PasswordResetLinkModel';
 import { PinnedListModel } from './PinnedListModel';
 import { ProjectModel } from './ProjectModel/ProjectModel';
 import { ProjectParametersModel } from './ProjectParametersModel';
 import { QueryHistoryModel } from './QueryHistoryModel/QueryHistoryModel';
 import { ResourceViewItemModel } from './ResourceViewItemModel';
+import { RolesModel } from './RolesModel';
 import { SavedChartModel } from './SavedChartModel';
 import { SavedSqlModel } from './SavedSqlModel';
 import { SchedulerModel } from './SchedulerModel';
@@ -56,9 +61,11 @@ export type ModelManifest = {
     downloadFileModel: DownloadFileModel;
     emailModel: EmailModel;
     githubAppInstallationsModel: GithubAppInstallationsModel;
+    gitlabAppInstallationsModel: GitlabAppInstallationsModel;
     groupsModel: GroupsModel;
     inviteLinkModel: InviteLinkModel;
     jobModel: JobModel;
+    mcpContextModel: McpContextModel;
     migrationModel: MigrationModel;
     notificationsModel: NotificationsModel;
     oauthModel: OAuth2Model;
@@ -67,11 +74,13 @@ export type ModelManifest = {
     organizationAllowedEmailDomainsModel: OrganizationAllowedEmailDomainsModel;
     organizationMemberProfileModel: OrganizationMemberProfileModel;
     organizationModel: OrganizationModel;
+    organizationWarehouseCredentialsModel: OrganizationWarehouseCredentialsModel;
     passwordResetLinkModel: PasswordResetLinkModel;
     personalAccessTokenModel: PersonalAccessTokenModel;
     pinnedListModel: PinnedListModel;
     projectModel: ProjectModel;
     resourceViewItemModel: ResourceViewItemModel;
+    rolesModel: RolesModel;
     savedChartModel: SavedChartModel;
     schedulerModel: SchedulerModel;
     searchModel: SearchModel;
@@ -93,6 +102,7 @@ export type ModelManifest = {
     spotlightTableConfigModel: SpotlightTableConfigModel;
     queryHistoryModel: QueryHistoryModel;
     projectParametersModel: ProjectParametersModel;
+    changesetModel: ChangesetModel;
     /** An implementation signature for these models are not available at this stage */
     aiAgentModel: unknown;
     embedModel: unknown;
@@ -240,6 +250,17 @@ export class ModelRepository
         );
     }
 
+    public getGitlabAppInstallationsModel(): GitlabAppInstallationsModel {
+        return this.getModel(
+            'gitlabAppInstallationsModel',
+            () =>
+                new GitlabAppInstallationsModel({
+                    database: this.database,
+                    encryptionUtil: this.utils.getEncryptionUtil(),
+                }),
+        );
+    }
+
     public getGroupsModel(): GroupsModel {
         return this.getModel(
             'groupsModel',
@@ -262,6 +283,13 @@ export class ModelRepository
         return this.getModel(
             'jobModel',
             () => new JobModel({ database: this.database }),
+        );
+    }
+
+    public getMcpContextModel(): McpContextModel {
+        return this.getModel(
+            'mcpContextModel',
+            () => new McpContextModel(this.database),
         );
     }
 
@@ -327,6 +355,17 @@ export class ModelRepository
         );
     }
 
+    public getOrganizationWarehouseCredentialsModel(): OrganizationWarehouseCredentialsModel {
+        return this.getModel(
+            'organizationWarehouseCredentialsModel',
+            () =>
+                new OrganizationWarehouseCredentialsModel({
+                    database: this.database,
+                    encryptionUtil: this.utils.getEncryptionUtil(),
+                }),
+        );
+    }
+
     public getPasswordResetLinkModel(): PasswordResetLinkModel {
         return this.getModel(
             'passwordResetLinkModel',
@@ -358,6 +397,7 @@ export class ModelRepository
             () =>
                 new ProjectModel({
                     database: this.database,
+                    changesetModel: this.getChangesetModel(),
                     lightdashConfig: this.lightdashConfig,
                     encryptionUtil: this.utils.getEncryptionUtil(),
                 }),
@@ -369,6 +409,10 @@ export class ModelRepository
             'resourceViewItemModel',
             () => new ResourceViewItemModel({ database: this.database }),
         );
+    }
+
+    public getRolesModel(): RolesModel {
+        return this.getModel('rolesModel', () => new RolesModel(this.database));
     }
 
     public getSavedChartModel(): SavedChartModel {
@@ -486,6 +530,13 @@ export class ModelRepository
                     database: this.database,
                     lightdashConfig: this.lightdashConfig,
                 }),
+        );
+    }
+
+    public getChangesetModel(): ChangesetModel {
+        return this.getModel(
+            'changesetModel',
+            () => new ChangesetModel({ database: this.database }),
         );
     }
 

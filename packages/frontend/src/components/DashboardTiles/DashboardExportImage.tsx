@@ -44,8 +44,8 @@ export const DashboardExportImage: FC<{
     chartName: string;
     isMinimal: boolean;
 }> = ({ echartRef, chartName, isMinimal }) => {
-    const { track } = useTracking();
     const { t } = useTranslation();
+    const { track } = useTracking();
 
     return (
         <Menu.Item
@@ -57,7 +57,9 @@ export const DashboardExportImage: FC<{
                 downloadChartImage(echartRef, chartName);
             }}
         >
-            {t('components_dashboard_tiles_export_image.export_image')}
+            {t(
+                'components_dashboard_tiles_dashboard_export_image.export_image',
+            )}
         </Menu.Item>
     );
 };

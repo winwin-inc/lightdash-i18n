@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useFormContext } from './formContext';
 import BigQueryForm from './WarehouseForms/BigQueryForm';
+import ClickhouseForm from './WarehouseForms/ClickhouseForm';
 import DatabricksForm from './WarehouseForms/DatabricksForm';
 import { warehouseDefaultValues } from './WarehouseForms/defaultValues';
 import PostgresForm from './WarehouseForms/PostgresForm';
@@ -19,6 +20,7 @@ const WarehouseTypeLabels = {
     [WarehouseTypes.SNOWFLAKE]: 'Snowflake',
     [WarehouseTypes.DATABRICKS]: 'Databricks',
     [WarehouseTypes.TRINO]: 'Trino',
+    [WarehouseTypes.CLICKHOUSE]: 'ClickHouse',
 };
 
 const WarehouseTypeForms = {
@@ -28,6 +30,7 @@ const WarehouseTypeForms = {
     [WarehouseTypes.SNOWFLAKE]: SnowflakeForm,
     [WarehouseTypes.DATABRICKS]: DatabricksForm,
     [WarehouseTypes.TRINO]: TrinoForm,
+    [WarehouseTypes.CLICKHOUSE]: ClickhouseForm,
 };
 
 interface WarehouseSettingsFormProps {

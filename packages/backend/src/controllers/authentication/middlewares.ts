@@ -12,7 +12,8 @@ import { ErrorRequestHandler, Request, RequestHandler } from 'express';
 
 import passport from 'passport';
 import { URL } from 'url';
-import { fromApiKey } from '../../auth/account/account';
+import { fromApiKey, fromOauth } from '../../auth/account/account';
+import { buildAccountExistsWarning } from '../../auth/account/warnAccountExists';
 import { lightdashConfig } from '../../config/lightdashConfig';
 import { authenticateServiceAccount } from '../../ee/authentication';
 import Logger from '../../logging/logger';
@@ -56,6 +57,7 @@ export const allowOauthAuthentication: RequestHandler = (req, res, next) => {
         .getOauthService()
         .authenticate(oauthReq, oauthRes)
         .then((token) => {
+            // attach token info to the authInfo request
             req.services
                 .getUserService()
                 .findSessionUser({
@@ -63,6 +65,15 @@ export const allowOauthAuthentication: RequestHandler = (req, res, next) => {
                     organization: token.user.organizationUuid,
                 })
                 .then((user) => {
+                    if (req.account?.isAuthenticated()) {
+                        Logger.warn(
+                            buildAccountExistsWarning('OAuth'),
+                            req.account?.authentication?.type,
+                        );
+                    }
+                    if (user) {
+                        req.account = fromOauth(user, token);
+                    }
                     req.user = user;
                     next();
                 })
@@ -104,6 +115,13 @@ export const allowApiKeyAuthentication: RequestHandler = (req, res, next) => {
             req,
             res,
             () => {
+                if (req?.account?.isAuthenticated()) {
+                    Logger.warn(
+                        buildAccountExistsWarning('ApiKey'),
+                        req.account?.authentication?.type,
+                    );
+                }
+
                 if (req.user) {
                     req.account = fromApiKey(
                         req.user!,

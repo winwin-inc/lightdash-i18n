@@ -1,4 +1,6 @@
 import {
+    FeatureFlags,
+    getAvailableParametersFromTables,
     getDimensions,
     getItemId,
     isDateItem,
@@ -15,6 +17,7 @@ import { lightdashApi } from '../../api';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import { convertDateDashboardFilters } from '../../utils/dateFilter';
 import { useExplore } from '../useExplore';
+import { useFeatureFlag } from '../useFeatureFlagEnabled';
 import { useSavedQuery } from '../useSavedQuery';
 import useSearchParams from '../useSearchParams';
 import useDashboardFiltersForTile from './useDashboardFiltersForTile';
@@ -31,6 +34,26 @@ const executeAsyncDashboardChartQuery = async (
         body: JSON.stringify(data),
     });
 
+// Embed-only endpoint for executing a dashboard tile query
+const postEmbedDashboardTileQuery = async (
+    projectUuid: string,
+    data: {
+        tileUuid: string;
+    } & Pick<
+        ExecuteAsyncDashboardChartRequestParams,
+        | 'dashboardFilters'
+        | 'dashboardSorts'
+        | 'pivotResults'
+        | 'invalidateCache'
+        | 'dateZoom'
+    >,
+): Promise<ApiExecuteAsyncDashboardChartQueryResults> =>
+    lightdashApi<ApiExecuteAsyncDashboardChartQueryResults>({
+        url: `/embed/${projectUuid}/query/dashboard-tile`,
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+
 export type DashboardChartReadyQuery = {
     executeQueryResponse: ApiExecuteAsyncDashboardChartQueryResults;
     chart: SavedChart;
@@ -38,16 +61,25 @@ export type DashboardChartReadyQuery = {
 };
 
 export const useDashboardChartReadyQuery = (
-    tabUuid: string,
     tileUuid: string,
     chartUuid: string | null,
+    tabUuid: string,
+    contextOverride?: QueryExecutionContext,
 ) => {
     const dashboardUuid = useDashboardContext((c) => c.dashboard?.uuid);
     const invalidateCache = useDashboardContext((c) => c.invalidateCache);
+    const dashboardFilters = useDashboardFiltersForTile(tileUuid);
+    const dashboardTabFilters = useDashboardTabFiltersForTile(
+        tabUuid,
+        tileUuid,
+    );
     const chartSort = useDashboardContext((c) => c.chartSort);
-    const parameters = useDashboardContext((c) => c.parameters);
+    const parameterValues = useDashboardContext((c) => c.parameterValues);
     const addParameterReferences = useDashboardContext(
         (c) => c.addParameterReferences,
+    );
+    const tileParameterReferences = useDashboardContext(
+        (c) => c.tileParameterReferences,
     );
     const dashboardSorts = useMemo(
         () => chartSort[tileUuid] || [],
@@ -60,9 +92,9 @@ export const useDashboardChartReadyQuery = (
     const setChartsWithDateZoomApplied = useDashboardContext(
         (c) => c.setChartsWithDateZoomApplied,
     );
-
-    const dashboardFilters = useDashboardFiltersForTile(tileUuid);
-    const tabFilters = useDashboardTabFiltersForTile(tabUuid, tileUuid);
+    const addParameterDefinitions = useDashboardContext(
+        (c) => c.addParameterDefinitions,
+    );
 
     const sortKey =
         dashboardSorts
@@ -79,17 +111,25 @@ export const useDashboardChartReadyQuery = (
         chartQuery.data?.metricQuery?.exploreName,
     );
 
+    useEffect(() => {
+        if (explore) {
+            addParameterDefinitions(
+                getAvailableParametersFromTables(Object.values(explore.tables)),
+            );
+        }
+    }, [explore, addParameterDefinitions]);
+
     const timezoneFixDashboardFilters =
         dashboardFilters && convertDateDashboardFilters(dashboardFilters);
-    const timezoneFixTabFilters =
-        tabFilters && convertDateDashboardFilters(tabFilters);
+    const timezoneFixDashboardTabFilters =
+        dashboardTabFilters && convertDateDashboardFilters(dashboardTabFilters);
 
     const timezoneFixFilters = useMemo(() => {
         if (tabUuid) {
-            return timezoneFixTabFilters;
+            return timezoneFixDashboardTabFilters;
         }
         return timezoneFixDashboardFilters;
-    }, [tabUuid, timezoneFixTabFilters, timezoneFixDashboardFilters]);
+    }, [tabUuid, timezoneFixDashboardTabFilters, timezoneFixDashboardFilters]);
 
     const hasADateDimension = useMemo(() => {
         const metricQueryDimensions = [
@@ -108,6 +148,16 @@ export const useDashboardChartReadyQuery = (
         explore,
     ]);
 
+    const chartParameterValues = useMemo(() => {
+        if (!tileParameterReferences || !tileParameterReferences[tileUuid])
+            return {};
+        return Object.fromEntries(
+            Object.entries(parameterValues).filter(([key]) =>
+                tileParameterReferences[tileUuid].includes(key),
+            ),
+        );
+    }, [parameterValues, tileParameterReferences, tileUuid]);
+
     setChartsWithDateZoomApplied((prev) => {
         if (hasADateDimension) {
             if (granularity) {
@@ -119,6 +169,10 @@ export const useDashboardChartReadyQuery = (
         return prev;
     });
 
+    const { data: useSqlPivotResults } = useFeatureFlag(
+        FeatureFlags.UseSqlPivotResults,
+    );
+
     const queryKey = useMemo(
         () => [
             'dashboard_chart_ready_query',
@@ -129,11 +183,12 @@ export const useDashboardChartReadyQuery = (
             timezoneFixFilters,
             dashboardSorts,
             sortKey,
-            context,
+            contextOverride || context,
             autoRefresh,
             hasADateDimension ? granularity : null,
             invalidateCache,
-            parameters,
+            chartParameterValues,
+            useSqlPivotResults,
         ],
         [
             chartQuery.data?.projectUuid,
@@ -143,12 +198,14 @@ export const useDashboardChartReadyQuery = (
             timezoneFixFilters,
             dashboardSorts,
             sortKey,
+            contextOverride,
             context,
             autoRefresh,
             hasADateDimension,
             granularity,
             invalidateCache,
-            parameters,
+            chartParameterValues,
+            useSqlPivotResults,
         ],
     );
 
@@ -159,23 +216,45 @@ export const useDashboardChartReadyQuery = (
                 throw new Error('Chart or explore is undefined');
             }
 
-            const executeQueryResponse = await executeAsyncDashboardChartQuery(
-                chartQuery.data.projectUuid,
-                {
-                    context: autoRefresh
-                        ? QueryExecutionContext.AUTOREFRESHED_DASHBOARD
-                        : context || QueryExecutionContext.DASHBOARD,
-                    chartUuid: chartUuid!,
-                    dashboardUuid: dashboardUuid!,
-                    dashboardFilters: timezoneFixFilters,
-                    dashboardSorts,
-                    dateZoom: {
-                        granularity,
-                    },
-                    invalidateCache,
-                    parameters,
-                },
-            );
+            const requestedContext =
+                contextOverride || context || QueryExecutionContext.DASHBOARD;
+            const effectiveContext = autoRefresh
+                ? QueryExecutionContext.AUTOREFRESHED_DASHBOARD
+                : requestedContext;
+
+            const isEmbedContext =
+                requestedContext === QueryExecutionContext.EMBED;
+
+            const executeQueryResponse = isEmbedContext
+                ? await postEmbedDashboardTileQuery(
+                      chartQuery.data.projectUuid,
+                      {
+                          tileUuid,
+                          dashboardFilters: timezoneFixFilters,
+                          dashboardSorts,
+                          dateZoom: {
+                              granularity,
+                          },
+                          invalidateCache,
+                          pivotResults: useSqlPivotResults?.enabled,
+                      },
+                  )
+                : await executeAsyncDashboardChartQuery(
+                      chartQuery.data.projectUuid,
+                      {
+                          context: effectiveContext,
+                          chartUuid: chartUuid!,
+                          dashboardUuid: dashboardUuid!,
+                          dashboardFilters: timezoneFixFilters,
+                          dashboardSorts,
+                          dateZoom: {
+                              granularity,
+                          },
+                          invalidateCache,
+                          parameters: parameterValues,
+                          pivotResults: useSqlPivotResults?.enabled,
+                      },
+                  );
 
             return {
                 chart: chartQuery.data,

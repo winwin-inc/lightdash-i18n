@@ -6,8 +6,10 @@ import {
 import {
     ActionIcon,
     Badge,
+    Box,
     Button,
     Group,
+    LoadingOverlay,
     Modal,
     Paper,
     Stack,
@@ -17,6 +19,7 @@ import {
     Title,
     type ModalProps,
 } from '@mantine/core';
+import { useDebouncedValue } from '@mantine/hooks';
 import {
     IconAlertCircle,
     IconEdit,
@@ -34,7 +37,6 @@ import {
     useOrganizationGroups,
 } from '../../../hooks/useOrganizationGroups';
 import useApp from '../../../providers/App/useApp';
-import LoadingState from '../../common/LoadingState';
 import MantineIcon from '../../common/MantineIcon';
 import { SettingsCard } from '../../common/Settings/SettingsCard';
 import CreateGroupModal from './CreateGroupModal';
@@ -201,6 +203,7 @@ const GroupsView: FC = () => {
     const { mutate, isLoading: isDeleting } = useGroupDeleteMutation();
 
     const [search, setSearch] = useState('');
+    const [debouncedSearch] = useDebouncedValue(search, 300);
 
     const isGroupManagementEnabled =
         userGroupsFeatureFlagQuery.isSuccess &&
@@ -209,7 +212,7 @@ const GroupsView: FC = () => {
     const { data: groups, isInitialLoading: isLoadingGroups } =
         useOrganizationGroups(
             {
-                searchInput: search,
+                searchInput: debouncedSearch,
                 includeMembers: GROUP_MEMBERS_PER_PAGE, // TODO: pagination
             },
             { enabled: isGroupManagementEnabled },
@@ -224,14 +227,11 @@ const GroupsView: FC = () => {
 
     if (userGroupsFeatureFlagQuery.isError) {
         console.error(userGroupsFeatureFlagQuery.error);
-        throw new Error(t(
-            'components_user_settings_groups_panel_view.error_fetching_groups',
-        ));
-    }
-    if (isLoadingGroups) {
-        return <LoadingState title={t(
-            'components_user_settings_groups_panel_view.loding_groups',
-        )} />;
+        throw new Error(
+            t(
+                'components_user_settings_groups_panel_view.error_fetching_groups',
+            ),
+        );
     }
 
     return (
@@ -284,8 +284,19 @@ const GroupsView: FC = () => {
                             <th />
                         </tr>
                     </thead>
-                    <tbody>
-                        {groups && groups.length ? (
+                    <tbody style={{ position: 'relative' }}>
+                        {isLoadingGroups ? (
+                            <tr>
+                                <td colSpan={3}>
+                                    <Box py="lg">
+                                        <LoadingOverlay
+                                            visible={true}
+                                            transitionDuration={200}
+                                        />
+                                    </Box>
+                                </td>
+                            </tr>
+                        ) : groups && groups.length > 0 ? (
                             groups.map((group) => {
                                 if (!isGroupWithMembers(group)) {
                                     return null;

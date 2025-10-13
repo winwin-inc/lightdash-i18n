@@ -1,36 +1,26 @@
-import {
-    Badge,
-    Button,
-    Group,
-    HoverCard,
-    rem,
-    Stack,
-    Text,
-} from '@mantine-8/core';
-import { Prism } from '@mantine/prism';
-import { IconEye } from '@tabler/icons-react';
-import MantineIcon from '../../../../../../components/common/MantineIcon';
+import { Badge, Group, rem, Stack, Text } from '@mantine-8/core';
+import { useTranslation } from 'react-i18next';
 
 export const AiChartGenerationToolCallDescription = ({
     title,
     dimensions,
     metrics,
     breakdownByDimension,
-    sql,
 }: {
     title: string;
     dimensions: string[];
     metrics: string[];
     breakdownByDimension?: string | null;
-    sql: string | undefined;
 }) => {
+    const { t } = useTranslation();
+
     const fields = [...dimensions, ...metrics];
 
     return (
         <Stack gap="xs">
             <Group gap="xs">
                 <Text c="dimmed" size="xs">
-                    Generated chart{' '}
+                    {t('ai_copilot_chat_elements_tool_calls.generated_chart')}{' '}
                     <Badge
                         mx={rem(2)}
                         color="gray"
@@ -46,7 +36,9 @@ export const AiChartGenerationToolCallDescription = ({
                     </Badge>{' '}
                     {fields.length > 0 && (
                         <>
-                            with fields{' '}
+                            {t(
+                                'ai_copilot_chat_elements_tool_calls.with_fields',
+                            )}{' '}
                             {fields.map((field) => (
                                 <Badge
                                     key={field}
@@ -68,7 +60,9 @@ export const AiChartGenerationToolCallDescription = ({
                     {breakdownByDimension && (
                         <>
                             {' '}
-                            and breakdown by{' '}
+                            {t(
+                                'ai_copilot_chat_elements_tool_calls.and_breakdown_by',
+                            )}{' '}
                             <Badge
                                 mx={rem(2)}
                                 color="gray"
@@ -86,48 +80,6 @@ export const AiChartGenerationToolCallDescription = ({
                     )}
                 </Text>
             </Group>
-
-            {sql && (
-                <HoverCard
-                    shadow="subtle"
-                    radius="md"
-                    position="bottom-start"
-                    withinPortal
-                >
-                    <HoverCard.Target>
-                        <Group justify="start">
-                            <Button
-                                size="compact-xs"
-                                variant="subtle"
-                                color="gray.6"
-                                leftSection={
-                                    <MantineIcon
-                                        icon={IconEye}
-                                        size={12}
-                                        stroke={1.5}
-                                    />
-                                }
-                            >
-                                SQL
-                            </Button>
-                        </Group>
-                    </HoverCard.Target>
-                    <HoverCard.Dropdown p={0} maw={500}>
-                        <Prism
-                            language="sql"
-                            withLineNumbers
-                            noCopy
-                            styles={{
-                                lineContent: {
-                                    fontSize: 10,
-                                },
-                            }}
-                        >
-                            {sql}
-                        </Prism>
-                    </HoverCard.Dropdown>
-                </HoverCard>
-            )}
         </Stack>
     );
 };

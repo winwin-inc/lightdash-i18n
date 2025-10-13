@@ -23,7 +23,7 @@ export type CreateWebAppThread = {
     organizationUuid: string;
     projectUuid: string;
     userUuid: string;
-    createdFrom: 'web_app';
+    createdFrom: 'web_app' | 'evals';
     agentUuid: string | null;
 };
 
@@ -37,11 +37,7 @@ export type AiPrompt = {
     prompt: string;
     createdAt: Date;
     response: string | null;
-    vizConfigOutput: object | null;
     humanScore: number | null;
-    // TODO: removed, leaving here for now as a reminder that we need to remove these fields from the prompt
-    // filtersOutput: object | null;
-    // metricQuery: object | null;
 };
 
 export type SlackPrompt = AiPrompt & {
@@ -77,14 +73,12 @@ export type CreateWebAppPrompt = {
 export type UpdateSlackResponse = {
     promptUuid: string;
     response?: string;
-    vizConfigOutput?: object | null;
     humanScore?: number | null;
 };
 
 export type UpdateWebAppResponse = {
     promptUuid: string;
     response: string;
-    vizConfigOutput?: object | null;
     humanScore?: number | null;
 };
 
@@ -97,51 +91,16 @@ export type SlackPromptJobPayload = TraceTaskBase & {
     slackPromptUuid: string;
 };
 
-export type AiConversation = {
+export type AiAgentEvalRunJobPayload = TraceTaskBase & {
+    evalRunResultUuid: string;
+    evalRunUuid: string;
+    agentUuid: string;
     threadUuid: string;
-    createdAt: string | Date;
-    createdFrom: string; // TODO: should be enum. slack | web | etc...
-    firstMessage: string;
-    user: {
-        uuid: string;
-        name: string;
-    };
 };
 
-export type ApiAiConversations = {
-    status: 'ok';
-    results: AiConversation[];
+export type CloneThread = {
+    sourceThreadUuid: string;
+    sourcePromptUuid: string;
+    targetUserUuid: string;
+    createdFrom?: 'web_app' | 'evals';
 };
-
-type AiConversationMessageIncomplete = {
-    promptUuid: string;
-    message: string;
-    createdAt: string | Date;
-    user: {
-        uuid: string;
-        name: string;
-    };
-};
-
-type AiConversationComplete = AiConversationMessageIncomplete & {
-    response: string;
-    respondedAt: string | Date;
-    vizConfigOutput?: object;
-    filtersOutput?: object;
-    metricQuery?: object;
-    humanScore?: number;
-};
-
-export type AiConversationMessage =
-    | AiConversationMessageIncomplete
-    | AiConversationComplete;
-
-export type ApiAiConversationMessages = {
-    status: 'ok';
-    results: AiConversationMessage[];
-};
-
-export const isAiConversationMessageComplete = (
-    message: AiConversationMessage,
-): message is AiConversationComplete =>
-    'response' in message && 'respondedAt' in message;

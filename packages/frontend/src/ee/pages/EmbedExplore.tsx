@@ -11,27 +11,22 @@ const EmbedExplorePage: FC<{
     containerStyles?: React.CSSProperties;
     exploreId?: string;
     savedChart?: SavedChart;
-}> = ({ containerStyles, exploreId, savedChart }) => {
+}> = ({
+    containerStyles,
+    exploreId: exploreIdProps,
+    savedChart: savedChartProps,
+}) => {
     const { t } = useTranslation();
-    const { embedToken } = useEmbed();
+
+    const { embedToken, savedChart: savedChartEmbed } = useEmbed();
+    const savedChart = savedChartEmbed || savedChartProps;
 
     if (!embedToken) {
         return (
             <div style={{ marginTop: '20px' }}>
                 <SuboptimalState
                     icon={IconUnlink}
-                    title={t("pages_embed_explore.no_valid")}
-                />
-            </div>
-        );
-    }
-
-    if (!exploreId) {
-        return (
-            <div style={{ marginTop: '20px' }}>
-                <SuboptimalState
-                    title={t("pages_embed_explore.missing_explore_id")}
-                    description={t("pages_embed_explore.no_explore_id")}
+                    title={t('pages_embed_explore.no_valid')}
                 />
             </div>
         );
@@ -41,12 +36,14 @@ const EmbedExplorePage: FC<{
         return (
             <div style={{ marginTop: '20px' }}>
                 <SuboptimalState
-                    title={t("pages_embed_explore.missing_chart")}
+                    title={t('pages_embed_explore.missing_chart')}
                     icon={IconUnlink}
                 />
             </div>
         );
     }
+
+    const exploreId = exploreIdProps || savedChart?.tableName;
 
     return (
         <EmbedExplore

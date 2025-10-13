@@ -404,6 +404,160 @@
                                         }
                                     ]
                                 }
+                            },
+                            "parameters": {
+                                "type": ["object", "null"],
+                                "description": "Define parameters that can be used in SQL queries",
+                                "patternProperties": {
+                                    "^[a-zA-Z0-9_-]+$": {
+                                        "type": "object",
+                                        "properties": {
+                                            "label": {
+                                                "description": "The label of the parameter as it will be displayed in the UI",
+                                                "type": "string"
+                                            },
+                                            "type": {
+                                                "description": "The data type of the parameter (defaults to 'string' for backwards compatibility)",
+                                                "type": "string",
+                                                "enum": ["string", "number"],
+                                                "default": "string"
+                                            },
+                                            "description": {
+                                                "description": "A description of the parameter",
+                                                "type": "string"
+                                            },
+                                            "options": {
+                                                "description": "A list of possible values for the parameter",
+                                                "type": "array",
+                                                "items": {
+                                                    "type": ["string", "number"]
+                                                }
+                                            },
+                                            "default": {
+                                                "description": "The default value(s) for the parameter",
+                                                "oneOf": [
+                                                    {
+                                                        "type": [
+                                                            "string",
+                                                            "number"
+                                                        ]
+                                                    },
+                                                    {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": [
+                                                                "string",
+                                                                "number"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            },
+                                            "multiple": {
+                                                "description": "Whether the parameter input will be a multi select",
+                                                "type": "boolean"
+                                            },
+                                            "allow_custom_values": {
+                                                "description": "Whether users can input custom values beyond predefined options",
+                                                "type": "boolean"
+                                            },
+                                            "options_from_dimension": {
+                                                "description": "Get parameter options from a dimension in a model",
+                                                "type": "object",
+                                                "properties": {
+                                                    "model": {
+                                                        "description": "The model containing the dimension",
+                                                        "type": "string"
+                                                    },
+                                                    "dimension": {
+                                                        "description": "The dimension to get options from",
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "model",
+                                                    "dimension"
+                                                ]
+                                            }
+                                        },
+                                        "required": ["label"]
+                                    }
+                                }
+                            },
+                            "default_filters": {
+                                "type": "array",
+                                "description": "Default filters that are automatically applied when exploring this model",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "properties": {
+                                        "required": {
+                                            "type": "boolean",
+                                            "description": "If true, this filter cannot be removed by users"
+                                        }
+                                    }
+                                }
+                            },
+                            "required_filters": {
+                                "type": "array",
+                                "description": "Alias for default_filters (deprecated, use default_filters instead)",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "properties": {
+                                        "required": {
+                                            "type": "boolean",
+                                            "description": "If true, this filter cannot be removed by users"
+                                        }
+                                    }
+                                }
+                            },
+                            "explores": {
+                                "type": "object",
+                                "description": "Defines custom explores for this model",
+                                "patternProperties": {
+                                    "^[a-zA-Z0-9_]+$": {
+                                        "type": "object",
+                                        "properties": {
+                                            "default_filters": {
+                                                "type": "array",
+                                                "description": "Default filters that are automatically applied when exploring this explore",
+                                                "items": {
+                                                    "type": "object",
+                                                    "additionalProperties": {
+                                                        "type": "string"
+                                                    },
+                                                    "properties": {
+                                                        "required": {
+                                                            "type": "boolean",
+                                                            "description": "If true, this filter cannot be removed by users"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required_filters": {
+                                                "type": "array",
+                                                "description": "Alias for default_filters (deprecated, use default_filters instead)",
+                                                "items": {
+                                                    "type": "object",
+                                                    "additionalProperties": {
+                                                        "type": "string"
+                                                    },
+                                                    "properties": {
+                                                        "required": {
+                                                            "type": "boolean",
+                                                            "description": "If true, this filter cannot be removed by users"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     },

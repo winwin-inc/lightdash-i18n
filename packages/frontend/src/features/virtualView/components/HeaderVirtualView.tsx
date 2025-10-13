@@ -33,7 +33,7 @@ import {
     IconTableAlias,
     IconTrash,
 } from '@tabler/icons-react';
-import { groupBy } from 'lodash';
+import groupBy from 'lodash/groupBy';
 import { memo, useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
@@ -477,6 +477,7 @@ export const HeaderVirtualView: FC<{
         await getValidation({
             explores: [virtualExplore],
             validationTargets: [ValidationTarget.CHARTS],
+            onlyValidateExploresInArgs: true,
             onComplete: async (response: ValidationResponse[]) => {
                 if (response.length === 0) {
                     // No errors , we don't need to show warning

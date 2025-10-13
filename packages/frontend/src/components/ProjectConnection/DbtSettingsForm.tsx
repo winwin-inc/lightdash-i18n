@@ -15,6 +15,7 @@ import AzureDevOpsForm from './DbtForms/AzureDevOpsForm';
 import BitBucketForm from './DbtForms/BitBucketForm';
 import DbtCloudForm from './DbtForms/DbtCloudForm';
 import DbtLocalForm from './DbtForms/DbtLocalForm';
+import DbtManifestForm from './DbtForms/DbtManifestForm';
 import DbtNoneForm from './DbtForms/DbtNoneForm';
 import GithubForm from './DbtForms/GithubForm';
 import GitlabForm from './DbtForms/GitlabForm';
@@ -23,6 +24,7 @@ import FormCollapseButton from './FormCollapseButton';
 import FormSection from './Inputs/FormSection';
 import { MultiKeyValuePairsInput } from './Inputs/MultiKeyValuePairsInput';
 import { BigQuerySchemaInput } from './WarehouseForms/BigQueryForm';
+import { ClickhouseSchemaInput } from './WarehouseForms/ClickhouseForm';
 import { DatabricksSchemaInput } from './WarehouseForms/DatabricksForm';
 import { PostgresSchemaInput } from './WarehouseForms/PostgresForm';
 import { RedshiftSchemaInput } from './WarehouseForms/RedshiftForm';
@@ -67,6 +69,7 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
             DbtProjectType.BITBUCKET,
             DbtProjectType.AZURE_DEVOPS,
             DbtProjectType.NONE,
+            DbtProjectType.MANIFEST,
         ];
         if (health.data?.localDbtEnabled) {
             enabledTypes.push(DbtProjectType.DBT);
@@ -97,6 +100,8 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                 return AzureDevOpsForm;
             case DbtProjectType.NONE:
                 return DbtNoneForm;
+            case DbtProjectType.MANIFEST:
+                return DbtManifestForm;
             default: {
                 return assertUnreachable(
                     type,
@@ -130,6 +135,9 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
         [DbtProjectType.NONE]: {
             env: `environment-variables-3`,
         },
+        [DbtProjectType.MANIFEST]: {
+            env: `environment-variables-3`,
+        },
     };
 
     const WarehouseSchemaInput = useMemo(() => {
@@ -146,6 +154,8 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                 return SnowflakeSchemaInput;
             case WarehouseTypes.DATABRICKS:
                 return DatabricksSchemaInput;
+            case WarehouseTypes.CLICKHOUSE:
+                return ClickhouseSchemaInput;
             default: {
                 return assertUnreachable(
                     warehouseType,
@@ -205,7 +215,11 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                                     disabled={disabled}
                                     placeholder="prod"
                                 />
-                                <WarehouseSchemaInput disabled={disabled} />
+                                {/* This WarehouseSchemaInput extra options will be provided in the organization warehouse credentials form */}
+                                {form.values
+                                    .organizationWarehouseCredentialsUuid ? null : (
+                                    <WarehouseSchemaInput disabled={disabled} />
+                                )}
                             </Stack>
                         </FormSection>
                         <FormSection

@@ -1,51 +1,61 @@
 import {
-    DashboardTileTypes,
-    DateGranularity,
     applyDimensionOverrides,
     compressDashboardFiltersToParam,
     convertDashboardFiltersParamToDashboardFilters,
+    DashboardTileTypes,
+    DateGranularity,
     getItemId,
     isDashboardChartTileType,
     type CacheMetadata,
     type Dashboard,
     type DashboardFilterRule,
     type DashboardFilters,
-    type DashboardFiltersFromSearchParam,
+    type DashboardParameters,
     type FilterableDimension,
+    type ParameterDefinitions,
+    type ParametersValuesMap,
+    type ParameterValue,
     type SavedChartsInfoForDashboardAvailableFilters,
-    type SchedulerFilterRule,
     type SortField,
 } from '@lightdash/common';
+import isEqual from 'lodash/isEqual';
 import min from 'lodash/min';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useDeepCompareEffect, useMount } from 'react-use';
-
 import { useConditionalRuleLabelFromItem } from '../../components/common/Filters/FilterInputs/utils';
+import { LightdashEventType } from '../../ee/features/embed/events/types';
+import { useEmbedEventEmitter } from '../../ee/features/embed/hooks/useEmbedEventEmitter';
 import {
     useGetComments,
     type useDashboardCommentsCheck,
 } from '../../features/comments';
+import { useParameters } from '../../features/parameters';
 import {
     useDashboardQuery,
     useDashboardsAvailableFilters,
+    useDashboardVersionRefresh,
 } from '../../hooks/dashboard/useDashboard';
-import useDashboardFilter, {
-    emptyFilters,
-} from '../../hooks/dashboard/useDashboardFilters';
-import useDashboardFilterForTab, {
-    isEmptyTabFilters,
-} from '../../hooks/dashboard/useDashboardTabFilters';
 import {
-    hasSavedFiltersOverrides,
-    useSavedDashboardFiltersOverrides,
-} from '../../hooks/useSavedDashboardFiltersOverrides';
+    emptyFilters,
+    useDashboardFilters,
+} from '../../hooks/dashboard/useDashboardFilters';
+import { useDashboardFilterState } from '../../hooks/dashboard/useDashboardFilterState';
+import { useDashboardTabFilters } from '../../hooks/dashboard/useDashboardTabFilters';
+import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOverrides';
 import DashboardContext from './context';
 import { type SqlChartTileMetadata } from './types';
 
 const DashboardProvider: React.FC<
     React.PropsWithChildren<{
-        schedulerFilters?: SchedulerFilterRule[] | undefined;
+        schedulerFilters?: DashboardFilterRule[] | undefined;
+        schedulerParameters?: ParametersValuesMap | undefined;
         dateZoom?: DateGranularity | undefined;
         projectUuid?: string;
         embedToken?: string;
@@ -54,6 +64,7 @@ const DashboardProvider: React.FC<
     }>
 > = ({
     schedulerFilters,
+    schedulerParameters,
     dateZoom,
     projectUuid,
     embedToken,
@@ -66,11 +77,18 @@ const DashboardProvider: React.FC<
 
     const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
-    const { dashboardUuid } = useParams<{
+    const { dashboardUuid, tabUuid } = useParams<{
         dashboardUuid: string;
+        tabUuid?: string;
     }>() as {
         dashboardUuid: string;
+        tabUuid?: string;
     };
+
+    const {
+        mutateAsync: versionRefresh,
+        isLoading: isRefreshingDashboardVersion,
+    } = useDashboardVersionRefresh(dashboardUuid);
 
     const [isAutoRefresh, setIsAutoRefresh] = useState<boolean>(false);
 
@@ -120,86 +138,27 @@ const DashboardProvider: React.FC<
     const [haveTilesChanged, setHaveTilesChanged] = useState<boolean>(false);
     const [haveTabsChanged, setHaveTabsChanged] = useState<boolean>(false);
     const [dashboardTabs, setDashboardTabs] = useState<Dashboard['tabs']>([]);
+    const [activeTab, setActiveTab] = useState<
+        Dashboard['tabs'][number] | undefined
+    >();
 
-    // filter enabled states - initialize from dashboard config
-    const [isGlobalFilterEnabled, setIsGlobalFilterEnabled] =
-        useState<boolean>(true);
-    const [isTabFilterEnabled, setIsTabFilterEnabled] = useState<
-        Record<string, boolean>
-    >({});
-    const [showGlobalAddFilterButton, setShowGlobalAddFilterButton] =
-        useState<boolean>(false);
-    const [showTabAddFilterButton, setShowTabAddFilterButton] = useState<
-        Record<string, boolean>
-    >({});
-
-    // Initialize filter enabled states from dashboard config when dashboard loads
-    useEffect(() => {
-        if (dashboard?.config) {
-            setIsGlobalFilterEnabled(
-                (dashboard.config as any).isGlobalFilterEnabled ?? true,
-            );
-            setIsTabFilterEnabled(
-                (dashboard.config as any).tabFilterEnabled ?? {},
-            );
-            setShowGlobalAddFilterButton(
-                (dashboard.config as any).showGlobalAddFilterButton ?? false,
-            );
-            setShowTabAddFilterButton(
-                (dashboard.config as any).showTabAddFilterButton ?? {},
-            );
-        }
-    }, [dashboard?.config]);
-
-    // Track filter enabled state changes
-    const [haveFilterEnabledStatesChanged, setHaveFilterEnabledStatesChanged] =
-        useState<boolean>(false);
-
-    // Track show add filter button state changes
-    const [
+    // dashboard filter state
+    const {
+        isGlobalFilterEnabled,
+        setIsGlobalFilterEnabled,
+        isTabFilterEnabled,
+        setIsTabFilterEnabled,
+        haveFilterEnabledStatesChanged,
+        setHaveFilterEnabledStatesChanged,
+        showGlobalAddFilterButton,
+        setShowGlobalAddFilterButton,
+        showTabAddFilterButton,
+        setShowTabAddFilterButton,
         haveShowAddFilterButtonStatesChanged,
         setHaveShowAddFilterButtonStatesChanged,
-    ] = useState<boolean>(false);
+    } = useDashboardFilterState({ dashboard });
 
-    // Check if filter enabled states have changed from dashboard config
-    useEffect(() => {
-        if (dashboard?.config) {
-            const hasGlobalFilterEnabledChanged =
-                ((dashboard.config as any).isGlobalFilterEnabled ?? true) !==
-                isGlobalFilterEnabled;
-            const hasTabFilterEnabledChanged =
-                JSON.stringify(
-                    (dashboard.config as any).tabFilterEnabled || {},
-                ) !== JSON.stringify(isTabFilterEnabled);
-
-            setHaveFilterEnabledStatesChanged(
-                hasGlobalFilterEnabledChanged || hasTabFilterEnabledChanged,
-            );
-        }
-    }, [dashboard?.config, isGlobalFilterEnabled, isTabFilterEnabled]);
-
-    // Check if show add filter button states have changed from dashboard config
-    useEffect(() => {
-        if (dashboard?.config) {
-            const hasShowGlobalAddFilterButtonChanged =
-                ((dashboard.config as any).showGlobalAddFilterButton ??
-                    false) !== showGlobalAddFilterButton;
-            const hasShowTabAddFilterButtonChanged =
-                JSON.stringify(
-                    (dashboard.config as any).showTabAddFilterButton || {},
-                ) !== JSON.stringify(showTabAddFilterButton);
-
-            setHaveShowAddFilterButtonStatesChanged(
-                hasShowGlobalAddFilterButtonChanged ||
-                    hasShowTabAddFilterButtonChanged,
-            );
-        }
-    }, [dashboard?.config, showGlobalAddFilterButton, showTabAddFilterButton]);
-
-    const { overridesForSavedDashboardFilters } =
-        useSavedDashboardFiltersOverrides();
-
-    // dashboard filter
+    // dashboard filters
     const {
         allFilters,
         dashboardFilters,
@@ -214,7 +173,8 @@ const DashboardProvider: React.FC<
         updateDimensionDashboardFilter,
         addMetricDashboardFilter,
         removeDimensionDashboardFilter,
-    } = useDashboardFilter({
+        overridesForSavedDashboardFilters,
+    } = useDashboardFilters({
         dashboard,
         isFilterEnabled: isGlobalFilterEnabled,
     });
@@ -236,9 +196,10 @@ const DashboardProvider: React.FC<
         updateTabDimensionFilter,
         removeTabDimensionFilter,
         resetTabFilters,
-    } = useDashboardFilterForTab({
+    } = useDashboardTabFilters({
         dashboard,
-        allFilters,
+        dashboardFilters,
+        dashboardTemporaryFilters,
         isFilterEnabled: (tabUuid: string) =>
             isTabFilterEnabled[tabUuid] ?? true,
     });
@@ -247,6 +208,10 @@ const DashboardProvider: React.FC<
     const [invalidateCache, setInvalidateCache] = useState<boolean>(
         defaultInvalidateCache === true,
     );
+
+    // Event system for filter change tracking
+    const { dispatchEmbedEvent } = useEmbedEventEmitter();
+    const previousFiltersRef = useRef<DashboardFilters | null>(null);
 
     const [chartSort, setChartSort] = useState<Record<string, SortField[]>>({});
 
@@ -268,13 +233,93 @@ const DashboardProvider: React.FC<
         }
     }, [dashboard]);
 
-    const [parameters, setParameters] = useState<
-        Record<string, string | string[]>
-    >({});
+    const [parameterDefinitions, setParameterDefinitions] =
+        useState<ParameterDefinitions>({});
+
+    const addParameterDefinitions = useCallback(
+        (parameters: ParameterDefinitions) => {
+            setParameterDefinitions((prev) => ({
+                ...prev,
+                ...parameters,
+            }));
+        },
+        [],
+    );
+
+    // Saved parameters are the parameters that are saved on the server
+    const [savedParameters, setSavedParameters] = useState<DashboardParameters>(
+        {},
+    );
+    // parameters that are currently applied to the dashboard
+    const [parameters, setParameters] = useState<DashboardParameters>({});
+    const [parametersHaveChanged, setParametersHaveChanged] =
+        useState<boolean>(false);
+
+    // Pinned parameters state
+    const [pinnedParameters, setPinnedParametersState] = useState<string[]>([]);
+    const [havePinnedParametersChanged, setHavePinnedParametersChanged] =
+        useState<boolean>(false);
+
+    // Set parameters to saved parameters when they are loaded
+    useEffect(() => {
+        if (savedParameters) {
+            setParameters(savedParameters);
+        }
+    }, [savedParameters]);
+
+    // Set pinned parameters when dashboard is loaded
+    useEffect(() => {
+        if (dashboard?.config?.pinnedParameters !== undefined) {
+            setPinnedParametersState(dashboard.config.pinnedParameters);
+        } else if (dashboard?.config !== undefined) {
+            // Initialize empty array if dashboard has config but no pinnedParameters
+            setPinnedParametersState([]);
+        }
+    }, [dashboard?.config?.pinnedParameters, dashboard?.config]);
+
+    // Set active tab when dashboard and tabs are loaded
+    useEffect(() => {
+        if (dashboardTabs && dashboardTabs.length > 0) {
+            const matchedTab =
+                dashboardTabs.find((tab) => tab.uuid === tabUuid) ??
+                dashboardTabs[0];
+
+            setActiveTab(matchedTab);
+        }
+    }, [dashboardTabs, tabUuid]);
+
+    // Apply scheduler parameters when provided (for scheduled deliveries)
+    useEffect(() => {
+        if (schedulerParameters) {
+            // Convert ParametersValuesMap to DashboardParameters format
+            const dashboardParams: DashboardParameters = Object.fromEntries(
+                Object.entries(schedulerParameters).map(([key, value]) => [
+                    key,
+                    {
+                        parameterName: key,
+                        value,
+                    },
+                ]),
+            );
+            setSavedParameters(dashboardParams);
+        }
+    }, [schedulerParameters]);
+
+    // Set parametersHaveChanged to true if parameters have changed
+    useEffect(() => {
+        if (!isEqual(parameters, savedParameters)) {
+            setParametersHaveChanged(true);
+        }
+    }, [parameters, savedParameters]);
 
     const setParameter = useCallback(
-        (key: string, value: string | string[] | null) => {
-            if (value === null) {
+        (key: string, value: ParameterValue | null) => {
+            if (
+                value === null ||
+                value === undefined ||
+                value === '' ||
+                (Array.isArray(value) && value.length === 0)
+            ) {
                 setParameters((prev) => {
                     const newParams = { ...prev };
                     delete newParams[key];
@@ -283,12 +328,54 @@ const DashboardProvider: React.FC<
             } else {
                 setParameters((prev) => ({
                     ...prev,
-                    [key]: value,
+                    [key]: {
+                        parameterName: key,
+                        value,
+                    },
                 }));
             }
         },
         [],
     );
+
+    const clearAllParameters = useCallback(() => {
+        setParameters({});
+    }, []);
+
+    const setPinnedParameters = useCallback((pinnedParams: string[]) => {
+        setPinnedParametersState(pinnedParams);
+        setHavePinnedParametersChanged(true);
+    }, []);
+
+    const toggleParameterPin = useCallback((parameterKey: string) => {
+        setPinnedParametersState((prev) => {
+            const isCurrentlyPinned = prev.includes(parameterKey);
+            const newPinnedParams = isCurrentlyPinned
+                ? prev.filter((key) => key !== parameterKey)
+                : [...prev, parameterKey];
+            return newPinnedParams;
+        });
+        setHavePinnedParametersChanged(true);
+    }, []);
+
+    const parameterValues = useMemo(() => {
+        return Object.entries(parameters).reduce((acc, [key, parameter]) => {
+            if (
+                parameter.value !== null &&
+                parameter.value !== undefined &&
+                parameter.value !== ''
+            ) {
+                acc[key] = parameter.value;
+            }
+            return acc;
+        }, {} as ParametersValuesMap);
+    }, [parameters]);
+
+    const selectedParametersCount = useMemo(() => {
+        return Object.values(parameterValues).filter(
+            (value) => value !== null && value !== '' && value !== undefined,
+        ).length;
+    }, [parameterValues]);
 
     // Track parameter references from each tile
     const [tileParameterReferences, setTileParameterReferences] = useState<
@@ -315,22 +402,68 @@ const DashboardProvider: React.FC<
         return new Set(allReferences);
     }, [tileParameterReferences]);
 
+    const { data: projectParameters } = useParameters(
+        projectUuid,
+        Array.from(dashboardParameterReferences ?? []),
+        {
+            enabled: !!projectUuid && !!dashboardParameterReferences,
+        },
+    );
+
+    useEffect(() => {
+        if (projectParameters) {
+            addParameterDefinitions(projectParameters);
+        }
+    }, [projectParameters, addParameterDefinitions]);
+
     // Determine if all chart tiles have loaded their parameter references
     const areAllChartsLoaded = useMemo(() => {
         if (!dashboardTiles) return false;
 
+        // If tabs exist, but no active tab is specified, tiles are not loaded
+        if (dashboardTabs && dashboardTabs.length > 0 && !activeTab)
+            return false;
+
         const chartTileUuids = dashboardTiles
             .filter(isDashboardChartTileType)
+            .filter((tile) => {
+                // If no active tab specified, include all tiles (backwards compatibility)
+                if (!activeTab) return true;
+
+                // If tabs exist, only include tiles from the active tab or no tabUuid
+                return !tile.tabUuid || tile.tabUuid === activeTab.uuid;
+            })
             .map((tile) => tile.uuid);
 
         return chartTileUuids.every((tileUuid) => loadedTiles.has(tileUuid));
-    }, [dashboardTiles, loadedTiles]);
+    }, [dashboardTiles, loadedTiles, activeTab, dashboardTabs]);
 
-    // Reset parameter references and loaded tiles when dashboard tiles change
+    const missingRequiredParameters = useMemo(() => {
+        // If no parameter references, return empty array
+        if (!dashboardParameterReferences.size) return [];
+
+        // Missing required parameters are the ones that are not set and don't have a default value
+        return Array.from(dashboardParameterReferences).filter(
+            (parameterName) =>
+                !parameters[parameterName] &&
+                !parameterDefinitions[parameterName]?.default,
+        );
+    }, [dashboardParameterReferences, parameters, parameterDefinitions]);
+
+    // Remove parameter references for tiles that are no longer in the dashboard
     useEffect(() => {
         if (dashboardTiles) {
-            setTileParameterReferences({});
-            setLoadedTiles(new Set());
+            setTileParameterReferences((old) => {
+                if (!dashboardTiles) return {};
+                const tileIds = new Set(
+                    dashboardTiles.map((tile) => tile.uuid),
+                );
+                return Object.fromEntries(
+                    Object.entries(old).filter(([tileId]) =>
+                        tileIds.has(tileId),
+                    ),
+                );
+            });
         }
     }, [dashboardTiles]);
 
@@ -376,7 +509,6 @@ const DashboardProvider: React.FC<
 
     useEffect(() => {
         if (dashboard) {
-            // global filters
             if (dashboardFilters === emptyFilters) {
                 let updatedDashboardFilters;
 
@@ -398,34 +530,14 @@ const DashboardProvider: React.FC<
 
                 setDashboardFilters(updatedDashboardFilters);
             }
+
             setOriginalDashboardFilters(dashboard.filters);
-
-            // tab filters
-            if (dashboard.tabs.length > 0 && isEmptyTabFilters(tabFilters)) {
-                const updatedTabFilters = dashboard.tabs.reduce((acc, tab) => {
-                    acc[tab.uuid] = tab.filters || emptyFilters;
-                    return acc;
-                }, {} as Record<string, DashboardFilters>);
-
-                setTabFilters(updatedTabFilters);
-            }
         }
-    }, [
-        dashboard,
-        dashboardFilters,
-        overridesForSavedDashboardFilters,
-        tabFilters,
-        setDashboardFilters,
-        setHaveFiltersChanged,
-        setOriginalDashboardFilters,
-        setTabFilters,
-    ]);
+    }, [dashboard, dashboardFilters, overridesForSavedDashboardFilters]);
 
     // Updates url with temp and overridden filters and deep compare to avoid unnecessary re-renders for dashboardTemporaryFilters
     useDeepCompareEffect(() => {
         const newParams = new URLSearchParams(search);
-
-        // temp filters
         if (
             dashboardTemporaryFilters?.dimensions?.length === 0 &&
             dashboardTemporaryFilters?.metrics?.length === 0
@@ -440,7 +552,6 @@ const DashboardProvider: React.FC<
             );
         }
 
-        // overridden filters
         if (overridesForSavedDashboardFilters?.dimensions?.length === 0) {
             newParams.delete('filters');
         } else if (overridesForSavedDashboardFilters?.dimensions?.length > 0) {
@@ -449,25 +560,6 @@ const DashboardProvider: React.FC<
                 JSON.stringify(
                     compressDashboardFiltersToParam(
                         overridesForSavedDashboardFilters,
-                    ),
-                ),
-            );
-        }
-
-        // tab filters
-        if (isEmptyTabFilters(tabTemporaryFilters)) {
-            newParams.delete('tempTabFilters');
-        } else {
-            newParams.set(
-                'tempTabFilters',
-                JSON.stringify(
-                    Object.entries(tabTemporaryFilters).reduce(
-                        (acc, [tabUuid, tabFilter]) => {
-                            acc[tabUuid] =
-                                compressDashboardFiltersToParam(tabFilter);
-                            return acc;
-                        },
-                        {} as Record<string, DashboardFiltersFromSearchParam>,
                     ),
                 ),
             );
@@ -483,12 +575,10 @@ const DashboardProvider: React.FC<
     }, [
         dashboardFilters,
         dashboardTemporaryFilters,
-        tabFilters,
-        tabTemporaryFilters,
+        navigate,
         pathname,
         overridesForSavedDashboardFilters,
         search,
-        navigate,
     ]);
 
     useEffect(() => {
@@ -504,11 +594,7 @@ const DashboardProvider: React.FC<
                 ),
             }));
         }
-    }, [
-        dashboard?.filters,
-        overridesForSavedDashboardFilters,
-        setDashboardFilters,
-    ]);
+    }, [dashboard?.filters, overridesForSavedDashboardFilters]);
 
     // Gets filters and dateZoom from URL and storage after redirect
     useMount(() => {
@@ -545,22 +631,6 @@ const DashboardProvider: React.FC<
                 convertDashboardFiltersParamToDashboardFilters(
                     JSON.parse(tempFilterSearchParam),
                 ),
-            );
-        }
-
-        // Tab filters
-        const tempTabFilterSearchParam = searchParams.get('tempTabFilters');
-        if (tempTabFilterSearchParam) {
-            const filters = JSON.parse(tempTabFilterSearchParam);
-
-            setTabTemporaryFilters(
-                Object.entries(filters).reduce((acc, [tabUuid, tabFilter]) => {
-                    acc[tabUuid] =
-                        convertDashboardFiltersParamToDashboardFilters(
-                            tabFilter as DashboardFiltersFromSearchParam,
-                        );
-                    return acc;
-                }, {} as Record<string, DashboardFilters>),
             );
         }
     });
@@ -626,6 +696,30 @@ const DashboardProvider: React.FC<
             : {};
     }, [dashboardAvailableFiltersData]);
 
+    // Watch for filter changes and emit events (skip initial render)
+    useEffect(() => {
+        const previousFilters = previousFiltersRef.current;
+        const hasPreviousFilters =
+            previousFilters &&
+            previousFilters.dimensions.length +
+                previousFilters.metrics.length +
+                previousFilters.tableCalculations.length;
+
+        if (hasPreviousFilters && !isEqual(previousFilters, allFilters)) {
+            const filterCount =
+                allFilters.dimensions.length +
+                allFilters.metrics.length +
+                allFilters.tableCalculations.length;
+
+            dispatchEmbedEvent(LightdashEventType.FilterChanged, {
+                hasFilters: filterCount > 0,
+                filterCount,
+            });
+        }
+
+        previousFiltersRef.current = allFilters;
+    }, [allFilters, dispatchEmbedEvent]);
+
     const hasTilesThatSupportFilters = useMemo(() => {
         const tileTypesThatSupportFilters = [
             DashboardTileTypes.SQL_CHART,
@@ -666,6 +760,29 @@ const DashboardProvider: React.FC<
         },
         [],
     );
+
+    const refreshDashboardVersion = useCallback(async () => {
+        try {
+            const freshDashboard = await versionRefresh(dashboard);
+
+            // Only update local state if we got fresh data back
+            // (null means dashboard was already up-to-date)
+            if (freshDashboard) {
+                setDashboardTiles(freshDashboard.tiles);
+                setDashboardTabs(freshDashboard.tabs);
+                setSavedParameters(freshDashboard.parameters ?? {});
+            }
+        } catch (error) {
+            console.error('Failed to refresh dashboard:', error);
+            // Could optionally show a toast error here
+        }
+    }, [
+        versionRefresh,
+        dashboard,
+        setDashboardTiles,
+        setDashboardTabs,
+        setSavedParameters,
+    ]);
 
     const oldestCacheTime = useMemo(
         () => min(resultsCacheTimes),
@@ -710,6 +827,27 @@ const DashboardProvider: React.FC<
         ],
     );
 
+    // Memoized mapping of tile UUIDs to their display names
+    const tileNamesById = useMemo(() => {
+        if (!dashboardTiles) return {};
+
+        return dashboardTiles.reduce<Record<string, string>>((acc, tile) => {
+            const tileWithoutTitle =
+                !tile.properties.title || tile.properties.title.length === 0;
+            const isChartTileType = isDashboardChartTileType(tile);
+
+            let tileName = '';
+            if (tileWithoutTitle && isChartTileType) {
+                tileName = tile.properties.chartName || '';
+            } else if (tile.properties.title) {
+                tileName = tile.properties.title;
+            }
+
+            acc[tile.uuid] = tileName;
+            return acc;
+        }, {});
+    }, [dashboardTiles]);
+
     const value = {
         projectUuid,
         isDashboardLoading,
@@ -724,6 +862,8 @@ const DashboardProvider: React.FC<
         setHaveTabsChanged,
         dashboardTabs,
         setDashboardTabs,
+        activeTab,
+        setActiveTab,
         setDashboardTemporaryFilters,
         dashboardFilters,
         dashboardTemporaryFilters,
@@ -762,11 +902,30 @@ const DashboardProvider: React.FC<
         requiredDashboardFilters,
         isDateZoomDisabled,
         setIsDateZoomDisabled,
-        parameters,
+        setSavedParameters,
+        parametersHaveChanged,
+        dashboardParameters: parameters,
+        parameterValues,
+        selectedParametersCount,
         setParameter,
+        parameterDefinitions,
+        clearAllParameters,
         dashboardParameterReferences,
         addParameterReferences,
+        tileParameterReferences,
         areAllChartsLoaded,
+        missingRequiredParameters,
+        pinnedParameters,
+        setPinnedParameters,
+        toggleParameterPin,
+        havePinnedParametersChanged,
+        setHavePinnedParametersChanged,
+        addParameterDefinitions,
+        tileNamesById,
+        refreshDashboardVersion,
+        isRefreshingDashboardVersion,
+
+        // tab filters start
         tabFilters,
         setTabFilters,
         tabTemporaryFilters,
@@ -780,18 +939,22 @@ const DashboardProvider: React.FC<
         updateTabDimensionFilter,
         removeTabDimensionFilter,
         resetTabFilters,
+        // tab filters end
+
+        // filter enabled state start
         isGlobalFilterEnabled,
         setIsGlobalFilterEnabled,
         isTabFilterEnabled,
         setIsTabFilterEnabled,
+        haveFilterEnabledStatesChanged,
+        setHaveFilterEnabledStatesChanged,
         showGlobalAddFilterButton,
         setShowGlobalAddFilterButton,
         showTabAddFilterButton,
         setShowTabAddFilterButton,
-        haveFilterEnabledStatesChanged,
-        setHaveFilterEnabledStatesChanged,
         haveShowAddFilterButtonStatesChanged,
         setHaveShowAddFilterButtonStatesChanged,
+        // filter enabled state end
     };
     return (
         <DashboardContext.Provider value={value}>

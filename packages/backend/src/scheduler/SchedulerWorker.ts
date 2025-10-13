@@ -1,4 +1,5 @@
 import {
+    GenerateDailySchedulerJobError,
     getErrorMessage,
     getSchedulerUuid,
     isSchedulerTaskName,
@@ -80,6 +81,16 @@ export class SchedulerWorker extends SchedulerTask {
                         maxAttempts: 3,
                     },
                 },
+                {
+                    task: SCHEDULER_TASKS.CLEAN_QUERY_HISTORY,
+                    pattern:
+                        this.lightdashConfig.scheduler.queryHistory.cleanup
+                            .schedule,
+                    options: {
+                        backfillPeriod: 24 * 3600 * 1000, // 24 hours in ms
+                        maxAttempts: 3,
+                    },
+                },
             ]),
             taskList: traceTasks(this.getTaskList()),
             events: schedulerWorkerEventEmitter,
@@ -114,28 +125,70 @@ export class SchedulerWorker extends SchedulerTask {
                     await this.schedulerService.getAllSchedulers();
 
                 const promises = schedulers.map(async (scheduler) => {
-                    const defaultTimezone =
-                        await this.schedulerService.getSchedulerDefaultTimezone(
-                            scheduler.schedulerUuid,
-                        );
-                    const { organizationUuid, projectUuid } =
-                        await this.schedulerService.getCreateSchedulerResource(
-                            scheduler,
-                        );
+                    try {
+                        const defaultTimezone =
+                            await this.schedulerService.getSchedulerDefaultTimezone(
+                                scheduler.schedulerUuid,
+                            );
+                        const { organizationUuid, projectUuid } =
+                            await this.schedulerService.getCreateSchedulerResource(
+                                scheduler,
+                            );
 
-                    await this.schedulerClient.generateDailyJobsForScheduler(
-                        scheduler,
-                        {
-                            organizationUuid,
-                            projectUuid,
-                            userUuid: scheduler.createdBy,
-                        },
-                        defaultTimezone,
-                        currentDateStartOfDay,
-                    );
+                        await this.schedulerClient.generateDailyJobsForScheduler(
+                            scheduler,
+                            {
+                                organizationUuid,
+                                projectUuid,
+                                userUuid: scheduler.createdBy,
+                            },
+                            defaultTimezone,
+                            currentDateStartOfDay,
+                        );
+                        return scheduler.schedulerUuid;
+                    } catch (error) {
+                        throw new GenerateDailySchedulerJobError(
+                            `Failed to generate daily jobs for scheduler ${scheduler.schedulerUuid} with: ${error}`,
+                            scheduler.schedulerUuid,
+                            error,
+                        );
+                    }
                 });
 
-                await Promise.all(promises);
+                const results = await Promise.allSettled(promises);
+
+                const successful = results.filter(
+                    (result) => result.status === 'fulfilled',
+                );
+
+                const failed = results.filter(
+                    (result) => result.status === 'rejected',
+                );
+
+                Logger.info(
+                    `Completed generating daily jobs: ${successful.length} successful, ${failed.length} failed out of ${schedulers.length} total schedulers`,
+                );
+
+                // Log individual failures
+                failed.forEach((result) => {
+                    if (
+                        result.reason instanceof GenerateDailySchedulerJobError
+                    ) {
+                        Logger.error(result.reason.message);
+                    } else {
+                        Logger.error(
+                            'Scheduler job failed with unexpected error',
+                            result.reason,
+                        );
+                    }
+                });
+
+                // Only throw if all schedulers failed
+                if (failed.length > 0 && successful.length === 0) {
+                    throw new Error(
+                        'Failed to generate daily jobs for all schedulers',
+                    );
+                }
             },
             [SCHEDULER_TASKS.HANDLE_SCHEDULED_DELIVERY]: async (
                 payload,
@@ -664,18 +717,55 @@ export class SchedulerWorker extends SchedulerTask {
                     },
                 );
             },
-            [SCHEDULER_TASKS.RUN_ASYNC_WAREHOUSE_QUERY]: async (
+            [SCHEDULER_TASKS.CLEAN_QUERY_HISTORY]: async () => {
+                const cleanupConfig =
+                    this.lightdashConfig.scheduler.queryHistory.cleanup;
+
+                if (!cleanupConfig.enabled) {
+                    Logger.info('Query history cleanup job is disabled');
+                    return;
+                }
+
+                Logger.info('Starting query history cleanup job');
+
+                const cutoffDate = moment()
+                    .utc()
+                    .subtract(cleanupConfig.retentionDays, 'days')
+                    .toDate();
+
+                Logger.info(
+                    `Cleaning query history records older than ${cutoffDate.toISOString()}`,
+                );
+
+                try {
+                    const { totalDeleted, batchCount } =
+                        await this.asyncQueryService.queryHistoryModel.cleanupBatch(
+                            cutoffDate,
+                            cleanupConfig.batchSize,
+                            cleanupConfig.delayMs,
+                            cleanupConfig.maxBatches,
+                        );
+
+                    Logger.info(
+                        `Query history cleanup completed. Total records deleted: ${totalDeleted} in ${batchCount} batches`,
+                    );
+                } catch (error) {
+                    Logger.error('Error during query history cleanup:', error);
+                    throw error;
+                }
+            },
+            [SCHEDULER_TASKS.DOWNLOAD_ASYNC_QUERY_RESULTS]: async (
                 payload,
                 helpers,
             ) => {
                 await tryJobOrTimeout(
                     SchedulerClient.processJob(
-                        SCHEDULER_TASKS.RUN_ASYNC_WAREHOUSE_QUERY,
+                        SCHEDULER_TASKS.DOWNLOAD_ASYNC_QUERY_RESULTS,
                         helpers.job.id,
                         helpers.job.run_at,
                         payload,
                         async () => {
-                            await this.runAsyncWarehouseQuery(
+                            await this.downloadAsyncQueryResults(
                                 helpers.job.id,
                                 helpers.job.run_at,
                                 payload,
@@ -686,15 +776,15 @@ export class SchedulerWorker extends SchedulerTask {
                     this.lightdashConfig.scheduler.jobTimeout,
                     async (job, e) => {
                         await this.schedulerService.logSchedulerJob({
-                            task: SCHEDULER_TASKS.RUN_ASYNC_WAREHOUSE_QUERY,
+                            task: SCHEDULER_TASKS.DOWNLOAD_ASYNC_QUERY_RESULTS,
                             jobId: job.id,
                             scheduledTime: job.run_at,
                             status: SchedulerJobStatus.ERROR,
                             details: {
                                 createdByUserUuid: payload.userUuid,
+                                error: getErrorMessage(e),
                                 projectUuid: payload.projectUuid,
                                 organizationUuid: payload.organizationUuid,
-                                queryHistoryUuid: payload.queryHistoryUuid,
                             },
                         });
                     },
