@@ -155,7 +155,7 @@ const AgentsFilter: FC<AgentsFilterProps> = ({
                     <Stack gap={4}>
                         <Text fz="xs" c="dark.3" fw={600}>
                             {t(
-                                'ai_agent_form_setup_admin.agents_filter.filter_by_ai_agents',
+                                'ai_agent_form_setup_admin.agents_filter.filter_threads_by_agent',
                             )}
                             :
                         </Text>

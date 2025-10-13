@@ -46,7 +46,7 @@ export const FeedbackFilter = ({
                 <Tooltip
                     variant="xs"
                     label={t(
-                        'ai_agent_form_setup_admin.feedback_filter.show_thumbs_up_threads',
+                        'ai_agent_form_setup_admin.feedback_filter.thumbs_up',
                     )}
                     withinPortal
                     maw={200}
@@ -63,7 +63,7 @@ export const FeedbackFilter = ({
                 <Tooltip
                     variant="xs"
                     label={t(
-                        'ai_agent_form_setup_admin.feedback_filter.show_thumbs_down_threads',
+                        'ai_agent_form_setup_admin.feedback_filter.thumbs_down',
                     )}
                     withinPortal
                     maw={200}

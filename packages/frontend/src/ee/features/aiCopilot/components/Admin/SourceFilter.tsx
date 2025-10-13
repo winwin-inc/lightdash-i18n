@@ -46,9 +46,7 @@ export const SourceFilter = ({
                 <Tooltip
                     withinPortal
                     variant="xs"
-                    label={t(
-                        'ai_agent_form_setup_admin.source_filter.web_app_threads',
-                    )}
+                    label={t('ai_agent_form_setup_admin.source_filter.web_app')}
                 >
                     <Box>
                         <MantineIcon
@@ -65,9 +63,7 @@ export const SourceFilter = ({
                 <Tooltip
                     withinPortal
                     variant="xs"
-                    label={t(
-                        'ai_agent_form_setup_admin.source_filter.slack_threads',
-                    )}
+                    label={t('ai_agent_form_setup_admin.source_filter.slack')}
                 >
                     <Box>
                         <MantineIcon icon={IconBrandSlack} {...iconProps} />
