@@ -291,7 +291,7 @@ const ProjectAccessRowV2: FC<Props> = ({
                         label={
                             hasProjectRole
                                 ? t(
-                                      'components_project_access_row_v2.revoke_project_access',
+                                      'components_project_access_row_v2.remove_project_access',
                                   )
                                 : t(
                                       'components_project_access_row_v2.cannot_revoke_inherited_access_from_organization',

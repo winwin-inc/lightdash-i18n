@@ -1429,15 +1429,15 @@
         },
         "top_toolbar": {
             "search": "Search by name or description",
-            "metrics": "{{length}} metrics"
+            "metrics": "{{length}} metrics",
+            "manage_column_visibility": "Manage column visibility",
+            "discard_unsaved_changes": "Discard unsaved changes",
+            "reset_configuration_for_everyone": "Reset configuration for everyone",
+            "discard": "Discard",
+            "reset": "Reset",
+            "save_for_everyone": "Save for everyone",
+            "list_view": "List view"
         },
-        "manage_column_visibility": "Manage column visibility",
-        "discard_unsaved_changes": "Discard unsaved changes",
-        "reset_configuration_for_everyone": "Reset configuration for everyone",
-        "discard": "Discard",
-        "reset": "Reset",
-        "save_for_everyone": "Save for everyone",
-        "list_view": "List view",
         "empty_state": {
             "unavailable": "Data unavailable for selected range",
             "content": "We'd love to show you more, but the data isn't available for this range. Try selecting a different range to continue exploring!"
@@ -1480,6 +1480,7 @@
             }
         },
         "metric_visualization": {
+            "reset_zoom": "Reset zoom",
             "different": {
                 "part_1": "X-axis is set to",
                 "part_2": "and",

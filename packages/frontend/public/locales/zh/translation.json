@@ -1422,15 +1422,15 @@
         },
         "top_toolbar": {
             "search": "按名称或描述搜索",
-            "metrics": "{{length}}个指标"
+            "metrics": "{{length}}个指标",
+            "manage_column_visibility": "管理列可见性",
+            "discard_unsaved_changes": "丢弃未保存的更改",
+            "reset_configuration_for_everyone": "重置配置",
+            "discard": "丢弃",
+            "reset": "重置",
+            "save_for_everyone": "保存给每个人",
+            "list_view": "列表视图"
         },
-        "manage_column_visibility": "管理列可见性",
-        "discard_unsaved_changes": "丢弃未保存的更改",
-        "reset_configuration_for_everyone": "重置配置",
-        "discard": "丢弃",
-        "reset": "重置",
-        "save_for_everyone": "保存给每个人",
-        "list_view": "列表视图",
         "empty_state": {
             "unavailable": "所选范围内没有数据",
             "content": "我们希望能为您展示更多，但该范围内的数据不可用。请尝试选择不同的范围以继续探索！"
@@ -1473,6 +1473,7 @@
             }
         },
         "metric_visualization": {
+            "reset_zoom": "重置缩放",
             "different": {
                 "part_1": "X 轴设置为",
                 "part_2": "和",

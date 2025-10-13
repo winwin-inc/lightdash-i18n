@@ -84,13 +84,16 @@ const Login: FC<{}> = () => {
         oidcOptions.forceRedirect &&
         !health.data?.isAuthenticated
     ) {
+        const validRedirectUrl =
+            redirectUrl && redirectUrl !== '/' ? redirectUrl : null;
+
         const forceRedirectUrl =
-            redirectUrl ||
+            validRedirectUrl ||
             localStorage.getItem(LOCAL_STORAGE_KEY) ||
             window.location.href;
 
-        if (redirectUrl) {
-            localStorage.setItem(LOCAL_STORAGE_KEY, redirectUrl);
+        if (validRedirectUrl) {
+            localStorage.setItem(LOCAL_STORAGE_KEY, validRedirectUrl);
         }
 
         window.location.href = `/api/v1${

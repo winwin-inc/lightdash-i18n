@@ -620,7 +620,9 @@ const MetricsVisualization: FC<Props> = ({
                             fz={14}
                             h={32}
                         >
-                            Reset zoom
+                            {t(
+                                'features_metrics_catalog_components.metric_visualization.reset_zoom',
+                            )}
                         </Button>
                     </Box>
                 </Tooltip>
