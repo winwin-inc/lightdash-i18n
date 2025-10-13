@@ -15,7 +15,9 @@ export const emptyFilters: DashboardFilters = {
 
 export const useDashboardFilters = ({
     dashboard,
+    isFilterEnabled,
 }: {
+    isFilterEnabled: boolean;
     dashboard?: Dashboard;
 }) => {
     const [dashboardTemporaryFilters, setDashboardTemporaryFilters] =
@@ -28,6 +30,8 @@ export const useDashboardFilters = ({
         useState<boolean>(false);
 
     const allFilters = useMemo(() => {
+        if (!isFilterEnabled) return emptyFilters;
+
         return {
             dimensions: [
                 ...dashboardFilters.dimensions,
@@ -42,7 +46,7 @@ export const useDashboardFilters = ({
                 ...dashboardTemporaryFilters?.tableCalculations,
             ],
         };
-    }, [dashboardFilters, dashboardTemporaryFilters]);
+    }, [dashboardFilters, dashboardTemporaryFilters, isFilterEnabled]);
 
     const {
         overridesForSavedDashboardFilters,

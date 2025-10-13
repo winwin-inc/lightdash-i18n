@@ -145,8 +145,12 @@ export type DashboardTabWithUrls = DashboardTab & {
 export type DashboardDAO = Omit<Dashboard, 'isPrivate' | 'access'>;
 
 export type DashboardConfig = {
-    isDateZoomDisabled: boolean;
     pinnedParameters?: string[];
+    isDateZoomDisabled: boolean;
+    tabFilterEnabled?: Record<string, boolean>;
+    isGlobalFilterEnabled?: boolean;
+    showGlobalAddFilterButton?: boolean;
+    showTabAddFilterButton?: Record<string, boolean>;
 };
 
 export type Dashboard = {

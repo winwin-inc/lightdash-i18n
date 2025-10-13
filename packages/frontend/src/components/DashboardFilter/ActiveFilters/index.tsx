@@ -34,6 +34,7 @@ import Filter from './Filter';
 
 interface ActiveFiltersProps {
     isEditMode: boolean;
+    isFilterEnabled: boolean;
     activeTabUuid: string | undefined;
     openPopoverId: string | undefined;
     filterType: 'global' | 'tab';
@@ -110,6 +111,7 @@ const DroppableArea: FC<{
 
 const ActiveFilters: FC<ActiveFiltersProps> = ({
     filterType,
+    isFilterEnabled,
     isEditMode,
     activeTabUuid,
     openPopoverId,
@@ -377,11 +379,15 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
         appliedFilterChanged(true);
     };
 
+    if (!isFilterEnabled) return null;
+
     return (
         <>
             {!isEditMode && appliedFiltersChanged && (
                 <Tooltip
-                    label={t('components_dashboard_filter.filter_active_filters.reset_all_filters')}
+                    label={t(
+                        'components_dashboard_filter.filter_active_filters.reset_all_filters',
+                    )}
                 >
                     <Button
                         size="xs"

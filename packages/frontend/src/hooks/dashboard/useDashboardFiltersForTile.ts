@@ -4,15 +4,21 @@ import {
 } from '@lightdash/common';
 import { useMemo } from 'react';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
+import { emptyFilters } from './useDashboardFilters';
 
 const useDashboardFiltersForTile = (tileUuid: string): DashboardFilters => {
     const dashboardFilters = useDashboardContext((c) => c.dashboardFilters);
     const dashboardTemporaryFilters = useDashboardContext(
         (c) => c.dashboardTemporaryFilters,
     );
+    const isGlobalFilterEnabled = useDashboardContext(
+        (c) => c.isGlobalFilterEnabled,
+    );
 
-    return useMemo(
-        () => ({
+    return useMemo(() => {
+        if (!isGlobalFilterEnabled) return emptyFilters;
+
+        return {
             dimensions: getDashboardFilterRulesForTile(tileUuid, [
                 ...dashboardFilters.dimensions,
                 ...(dashboardTemporaryFilters?.dimensions ?? []),
@@ -25,9 +31,13 @@ const useDashboardFiltersForTile = (tileUuid: string): DashboardFilters => {
                 ...dashboardFilters.tableCalculations,
                 ...(dashboardTemporaryFilters?.tableCalculations ?? []),
             ]),
-        }),
-        [tileUuid, dashboardFilters, dashboardTemporaryFilters],
-    );
+        };
+    }, [
+        tileUuid,
+        dashboardFilters,
+        dashboardTemporaryFilters,
+        isGlobalFilterEnabled,
+    ]);
 };
 
 export default useDashboardFiltersForTile;

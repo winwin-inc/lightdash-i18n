@@ -11,6 +11,7 @@ interface DashboardTabFilterProps {
     dashboard?: Dashboard;
     dashboardFilters: DashboardFilters;
     dashboardTemporaryFilters: DashboardFilters;
+    isFilterEnabled: (tabUuid: string) => boolean;
 }
 
 export const isEmptyTabFilters = (
@@ -26,6 +27,7 @@ export const useDashboardTabFilters = ({
     dashboard,
     dashboardFilters,
     dashboardTemporaryFilters,
+    isFilterEnabled,
 }: DashboardTabFilterProps) => {
     const [tabFilters, setTabFilters] = useState<
         Record<string, DashboardFilters>
@@ -65,6 +67,9 @@ export const useDashboardTabFilters = ({
                 ...dashboardTemporaryFilters?.tableCalculations,
             ],
         };
+
+        if (!isFilterEnabled(tabUuid)) return globalFilters;
+
         const tabSpecificFilters = getActiveTabFilters(tabUuid);
         const tabSpecificTemporaryFilters =
             getActiveTabTemporaryFilters(tabUuid);

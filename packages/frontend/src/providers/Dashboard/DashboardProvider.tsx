@@ -46,6 +46,7 @@ import {
     emptyFilters,
     useDashboardFilters,
 } from '../../hooks/dashboard/useDashboardFilters';
+import { useDashboardFilterState } from '../../hooks/dashboard/useDashboardFilterState';
 import { useDashboardTabFilters } from '../../hooks/dashboard/useDashboardTabFilters';
 import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOverrides';
 import DashboardContext from './context';
@@ -141,6 +142,22 @@ const DashboardProvider: React.FC<
         Dashboard['tabs'][number] | undefined
     >();
 
+    // dashboard filter state
+    const {
+        isGlobalFilterEnabled,
+        setIsGlobalFilterEnabled,
+        isTabFilterEnabled,
+        setIsTabFilterEnabled,
+        haveFilterEnabledStatesChanged,
+        setHaveFilterEnabledStatesChanged,
+        showGlobalAddFilterButton,
+        setShowGlobalAddFilterButton,
+        showTabAddFilterButton,
+        setShowTabAddFilterButton,
+        haveShowAddFilterButtonStatesChanged,
+        setHaveShowAddFilterButtonStatesChanged,
+    } = useDashboardFilterState({ dashboard });
+
     // dashboard filters
     const {
         allFilters,
@@ -157,7 +174,10 @@ const DashboardProvider: React.FC<
         addMetricDashboardFilter,
         removeDimensionDashboardFilter,
         overridesForSavedDashboardFilters,
-    } = useDashboardFilters({ dashboard });
+    } = useDashboardFilters({
+        dashboard,
+        isFilterEnabled: isGlobalFilterEnabled,
+    });
 
     // dashboard tab filter
     const {
@@ -180,6 +200,8 @@ const DashboardProvider: React.FC<
         dashboard,
         dashboardFilters,
         dashboardTemporaryFilters,
+        isFilterEnabled: (tabUuid: string) =>
+            isTabFilterEnabled[tabUuid] ?? true,
     });
 
     const [resultsCacheTimes, setResultsCacheTimes] = useState<Date[]>([]);
@@ -918,6 +940,21 @@ const DashboardProvider: React.FC<
         removeTabDimensionFilter,
         resetTabFilters,
         // tab filters end
+
+        // filter enabled state start
+        isGlobalFilterEnabled,
+        setIsGlobalFilterEnabled,
+        isTabFilterEnabled,
+        setIsTabFilterEnabled,
+        haveFilterEnabledStatesChanged,
+        setHaveFilterEnabledStatesChanged,
+        showGlobalAddFilterButton,
+        setShowGlobalAddFilterButton,
+        showTabAddFilterButton,
+        setShowTabAddFilterButton,
+        haveShowAddFilterButtonStatesChanged,
+        setHaveShowAddFilterButtonStatesChanged,
+        // filter enabled state end
     };
     return (
         <DashboardContext.Provider value={value}>

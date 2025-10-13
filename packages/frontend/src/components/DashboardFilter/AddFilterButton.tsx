@@ -15,6 +15,8 @@ import FilterConfiguration from './FilterConfiguration';
 type Props = {
     filterType: 'global' | 'tab';
     isEditMode: boolean;
+    isFilterEnabled: boolean;
+    showAddFilterButton: boolean;
     openPopoverId: string | undefined;
     activeTabUuid: string | undefined;
     onPopoverOpen: (popoverId: string) => void;
@@ -25,6 +27,8 @@ type Props = {
 const AddFilterButton: FC<Props> = ({
     filterType,
     isEditMode,
+    isFilterEnabled,
+    showAddFilterButton,
     openPopoverId,
     activeTabUuid,
     onPopoverOpen,
@@ -44,10 +48,11 @@ const AddFilterButton: FC<Props> = ({
     );
     const disabled = useMemo(() => {
         return (
-            !allFilterableFields &&
-            Object.keys(sqlChartTilesMetadata).length === 0
+            !isFilterEnabled ||
+            (!allFilterableFields &&
+                Object.keys(sqlChartTilesMetadata).length === 0)
         );
-    }, [allFilterableFields, sqlChartTilesMetadata]);
+    }, [isFilterEnabled, allFilterableFields, sqlChartTilesMetadata]);
     const filterableFieldsByTileUuid = useDashboardContext(
         (c) => c.filterableFieldsByTileUuid,
     );
@@ -119,6 +124,12 @@ const AddFilterButton: FC<Props> = ({
             {} as Record<string, FilterableDimension[]>,
         );
     }, [filterableFieldsByTileUuid, appliedDashboardTiles, filterType]);
+
+    // view mode
+    if (!isEditMode && !showAddFilterButton) return null;
+
+    // edit mode
+    if (!isFilterEnabled) return null;
 
     return (
         <>

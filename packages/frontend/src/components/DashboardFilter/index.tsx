@@ -4,9 +4,11 @@ import {
     type FilterableDimension,
     type FilterOperator,
 } from '@lightdash/common';
-import { Flex } from '@mantine/core';
+import { Checkbox, Flex } from '@mantine/core';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
+
 import { useProject } from '../../hooks/useProject';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import useTracking from '../../providers/Tracking/useTracking';
@@ -26,6 +28,8 @@ const DashboardFilter: FC<Props> = ({
     activeTabUuid,
     filterType,
 }) => {
+    const { t } = useTranslation();
+
     const { track } = useTracking();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const [openPopoverId, setPopoverId] = useState<string>();
@@ -35,6 +39,66 @@ const DashboardFilter: FC<Props> = ({
     const allFilterableFieldsMap = useDashboardContext(
         (c) => c.allFilterableFieldsMap,
     );
+
+    // filter enabled state
+    const isGlobalFilterEnabled = useDashboardContext(
+        (c) => c.isGlobalFilterEnabled,
+    );
+    const setIsGlobalFilterEnabled = useDashboardContext(
+        (c) => c.setIsGlobalFilterEnabled,
+    );
+    const isTabFilterEnabled = useDashboardContext((c) => c.isTabFilterEnabled);
+    const setIsTabFilterEnabled = useDashboardContext(
+        (c) => c.setIsTabFilterEnabled,
+    );
+
+    // show add filter button state
+    const showGlobalAddFilterButton = useDashboardContext(
+        (c) => c.showGlobalAddFilterButton,
+    );
+    const setShowGlobalAddFilterButton = useDashboardContext(
+        (c) => c.setShowGlobalAddFilterButton,
+    );
+    const showTabAddFilterButton = useDashboardContext(
+        (c) => c.showTabAddFilterButton,
+    );
+    const setShowTabAddFilterButton = useDashboardContext(
+        (c) => c.setShowTabAddFilterButton,
+    );
+
+    // use the appropriate filter enabled state based on filterType
+    const isFilterEnabled =
+        filterType === 'global'
+            ? isGlobalFilterEnabled
+            : isTabFilterEnabled[activeTabUuid || ''] ?? true;
+    const setIsFilterEnabled =
+        filterType === 'global'
+            ? setIsGlobalFilterEnabled
+            : (enabled: boolean) => {
+                  if (activeTabUuid) {
+                      setIsTabFilterEnabled((prev) => ({
+                          ...prev,
+                          [activeTabUuid]: enabled,
+                      }));
+                  }
+              };
+
+    // use the appropriate show add filter button state based on filterType
+    const showAddFilterButton =
+        filterType === 'global'
+            ? showGlobalAddFilterButton
+            : showTabAddFilterButton[activeTabUuid || ''] ?? false;
+    const setShowAddFilterButton =
+        filterType === 'global'
+            ? setShowGlobalAddFilterButton
+            : (enabled: boolean) => {
+                  if (activeTabUuid) {
+                      setShowTabAddFilterButton((prev: any) => ({
+                          ...prev,
+                          [activeTabUuid]: enabled,
+                      }));
+                  }
+              };
 
     // all filters
     const allFilters = useDashboardContext((c) => c.allFilters);
@@ -134,6 +198,8 @@ const DashboardFilter: FC<Props> = ({
                 <AddFilterButton
                     filterType={filterType}
                     isEditMode={isEditMode}
+                    isFilterEnabled={isFilterEnabled}
+                    showAddFilterButton={showAddFilterButton}
                     openPopoverId={openPopoverId}
                     activeTabUuid={activeTabUuid}
                     onPopoverOpen={handlePopoverOpen}
@@ -144,12 +210,63 @@ const DashboardFilter: FC<Props> = ({
                 <ActiveFilters
                     filterType={filterType}
                     isEditMode={isEditMode}
+                    isFilterEnabled={isFilterEnabled}
                     activeTabUuid={activeTabUuid}
                     openPopoverId={openPopoverId}
                     onPopoverOpen={handlePopoverOpen}
                     onPopoverClose={handlePopoverClose}
                     onResetDashboardFilters={appliedResetDashboardFilters}
                 />
+
+                {isEditMode && (
+                    <>
+                        <Checkbox
+                            checked={isFilterEnabled}
+                            onChange={(event) =>
+                                setIsFilterEnabled(event.currentTarget.checked)
+                            }
+                            size="sm"
+                            ml={
+                                filterType === 'global'
+                                    ? isFilterEnabled
+                                        ? 'xl'
+                                        : 'none'
+                                    : isFilterEnabled
+                                    ? 'xl'
+                                    : 'xs'
+                            }
+                            styles={{
+                                input: { cursor: 'pointer' },
+                                root: { display: 'flex', alignItems: 'center' },
+                            }}
+                            label={t(
+                                'components_dashboard_filter.enable_filter',
+                            )}
+                        />
+                        {isFilterEnabled && (
+                            <Checkbox
+                                checked={showAddFilterButton}
+                                onChange={(event) =>
+                                    setShowAddFilterButton(
+                                        event.currentTarget.checked,
+                                    )
+                                }
+                                size="sm"
+                                ml={'md'}
+                                styles={{
+                                    input: { cursor: 'pointer' },
+                                    root: {
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                    },
+                                }}
+                                label={t(
+                                    'components_dashboard_filter.show_add_filter_button',
+                                )}
+                            />
+                        )}
+                    </>
+                )}
             </Flex>
         </FiltersProvider>
     );

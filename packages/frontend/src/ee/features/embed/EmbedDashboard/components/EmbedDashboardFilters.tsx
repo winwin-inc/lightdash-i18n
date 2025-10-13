@@ -77,6 +77,7 @@ const EmbedDashboardFilters: FC<Props> = ({
                 <ActiveFilters
                     filterType="global"
                     isEditMode={false}
+                    isFilterEnabled={true}
                     onPopoverOpen={handlePopoverOpen}
                     onPopoverClose={handlePopoverClose}
                     openPopoverId={openPopoverId}
