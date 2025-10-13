@@ -44,6 +44,8 @@ import {
     type LoginParams,
 } from '../hooks/useLogin';
 
+const LOCAL_STORAGE_KEY = 'redirectUrl';
+
 const Login: FC<{}> = () => {
     const { health } = useApp();
 
@@ -82,9 +84,18 @@ const Login: FC<{}> = () => {
         oidcOptions.forceRedirect &&
         !health.data?.isAuthenticated
     ) {
-        window.location.href = `/api/v1${oidcOptions.loginPath}?redirect=${encodeURIComponent(
-            redirectUrl || window.location.href,
-        )}`;
+        const forceRedirectUrl =
+            redirectUrl ||
+            localStorage.getItem(LOCAL_STORAGE_KEY) ||
+            window.location.href;
+
+        if (redirectUrl) {
+            localStorage.setItem(LOCAL_STORAGE_KEY, redirectUrl);
+        }
+
+        window.location.href = `/api/v1${
+            oidcOptions.loginPath
+        }?redirect=${encodeURIComponent(forceRedirectUrl)}`;
     }
 
     const form = useForm<LoginParams>({
