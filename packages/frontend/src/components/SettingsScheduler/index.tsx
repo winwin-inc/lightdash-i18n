@@ -10,7 +10,7 @@ import {
     useProjectUpdateSchedulerSettings,
 } from '../../hooks/useProject';
 import SchedulersView from '../SchedulersView';
-import { SchedulerSettingsForm } from './SchedulerSettingsForm';
+import { SchedulerSettingsForm } from './schedulerSettingsForm';
 import { type schedulerSettingsSchema } from './types';
 
 type SettingsSchedulerProps = {
