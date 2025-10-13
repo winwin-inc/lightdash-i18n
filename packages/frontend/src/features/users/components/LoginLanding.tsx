@@ -70,20 +70,22 @@ const Login: FC<{}> = () => {
 
     const oidcOptions = health.data?.auth.oidc;
 
+    const redirectUrl = location.state?.from
+        ? `${location.state.from.pathname}${location.state.from.search}`
+        : redirectParam
+        ? redirectParam
+        : '/';
+
     if (
         oidcOptions &&
         oidcOptions.enabled &&
         oidcOptions.forceRedirect &&
         !health.data?.isAuthenticated
     ) {
-        window.location.href = `/api/v1${oidcOptions.loginPath}`;
+        window.location.href = `/api/v1${oidcOptions.loginPath}?redirect=${encodeURIComponent(
+            redirectUrl || window.location.href,
+        )}`;
     }
-
-    const redirectUrl = location.state?.from
-        ? `${location.state.from.pathname}${location.state.from.search}`
-        : redirectParam
-        ? redirectParam
-        : '/';
 
     const form = useForm<LoginParams>({
         initialValues: {
