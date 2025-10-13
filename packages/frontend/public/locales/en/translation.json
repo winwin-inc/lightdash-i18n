@@ -1798,8 +1798,8 @@
             "30_days": "30 days",
             "60_days": "60 days",
             "90_days": "90 days",
-            "180_days": "180 days",
-            "365_days": "365 days"
+            "6_months": "6 months",
+            "1_year": "1 year"
         },
         "at_least_one_scope_required": "At least one scope is required",
         "new_service_account": "New service account",

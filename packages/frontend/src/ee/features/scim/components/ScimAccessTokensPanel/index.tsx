@@ -57,7 +57,7 @@ const ScimAccessTokensPanel: FC = () => {
                     </Title>
                     <Text color="dimmed">
                         {t(
-                            'ai_scim_access_tokens_panel_main.use_the_url_to_connect_your_identity_provider_to_lightdash_via_scim',
+                            'ai_scim_access_tokens_panel_main.connect_your_identity_provider_to_lightdash_via_scim',
                         )}
                     </Text>
                     <Anchor

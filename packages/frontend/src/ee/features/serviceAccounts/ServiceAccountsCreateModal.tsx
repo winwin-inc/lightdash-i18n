@@ -151,7 +151,7 @@ export const ServiceAccountsCreateModal: FC<Props> = ({
                         />
 
                         <Button type="submit" ml="auto" loading={isWorking}>
-                            {t('features_service_accounts_create_modal.form.create_service_account')}
+                            {t('features_service_accounts_create_modal.create_service_account')}
                         </Button>
                     </Stack>
                 </form>

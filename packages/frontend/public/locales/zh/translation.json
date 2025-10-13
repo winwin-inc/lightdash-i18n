@@ -1783,8 +1783,8 @@
             "30_days": "30 天",
             "60_days": "60 天",
             "90_days": "90 天",
-            "180_days": "180 天",
-            "365_days": "365 天"
+            "6_months": "6 个月",
+            "1_year": "1 年"
         },
         "at_least_one_scope_required": "至少需要一个范围",
         "new_service_account": "新服务账户",
