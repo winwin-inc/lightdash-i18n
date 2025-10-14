@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
 
+import { ChartType } from '@lightdash/common';
 import type EChartsReact from 'echarts-for-react';
 import {
     base64SvgToBase64Image,
@@ -13,37 +14,75 @@ import {
 } from '../common/ChartDownload/chartDownloadUtils';
 import MantineIcon from '../common/MantineIcon';
 
-const downloadChartImage = (
+const downloadChartImage = async (
+    chartType: ChartType,
     echartRef: RefObject<EChartsReact | null> | undefined,
     chartName?: string,
 ) => {
-    const chartInstance = echartRef?.current?.getEchartsInstance();
-    if (!chartInstance) {
-        console.error('Chart instance is not available');
-        return;
-    }
+    try {
+        let base64Image = '';
+        let relativeWidth = 0;
 
-    const svgBase64 = chartInstance.getDataURL();
-    const width = chartInstance.getWidth();
-    base64SvgToBase64Image(
-        svgBase64,
-        width,
-        'png',
-        false, //isBackgroundTransparent,
-    )
-        .then((base64Image) => {
-            downloadImage(base64Image, chartName);
-        })
-        .catch((e) => {
-            console.error('Error downloading image', e);
-        });
+        if (chartType === ChartType.CUSTOM) {
+            // vega lite
+            const vegaEmbed = echartRef?.current?.vegaEmbed;
+            if (!vegaEmbed) {
+                console.error('View is not available');
+                return;
+            }
+
+            const containeRef = vegaEmbed?.current?.containerRef;
+            if (!containeRef) {
+                console.error('Container ref is not available');
+                return;
+            }
+
+            const canvas = containeRef?.current?.querySelector('canvas');
+            const canvasData = canvas?.toDataURL('image/png');
+            const width = canvas?.width;
+
+            if (!canvasData || !width) {
+                console.error('Canvas data or width is not available');
+                return;
+            }
+
+            base64Image = canvasData;
+            relativeWidth = width;
+        } else {
+            // echarts
+            const chartInstance = echartRef?.current?.getEchartsInstance();
+            if (!chartInstance) {
+                console.error('Chart instance is not available');
+                return;
+            }
+
+            base64Image = chartInstance.getDataURL();
+            relativeWidth = chartInstance.getWidth();
+        }
+
+        base64SvgToBase64Image(
+            base64Image,
+            relativeWidth,
+            'png',
+            false, //isBackgroundTransparent,
+        )
+            .then((base64Image) => {
+                downloadImage(base64Image, chartName);
+            })
+            .catch((e) => {
+                console.error('Error downloading image', e);
+            });
+    } catch (error) {
+        console.error('Error downloading image', error);
+    }
 };
 
 export const DashboardExportImage: FC<{
+    chartType: ChartType;
     echartRef: RefObject<EChartsReact | null> | undefined;
     chartName: string;
     isMinimal: boolean;
-}> = ({ echartRef, chartName, isMinimal }) => {
+}> = ({ chartType, echartRef, chartName, isMinimal }) => {
     const { t } = useTranslation();
     const { track } = useTracking();
 
@@ -54,7 +93,7 @@ export const DashboardExportImage: FC<{
                 if (isMinimal)
                     track({ name: EventName.EMBED_DOWNLOAD_IMAGE_CLICKED });
                 else track({ name: EventName.DOWNLOAD_IMAGE_CLICKED });
-                downloadChartImage(echartRef, chartName);
+                downloadChartImage(chartType, echartRef, chartName);
             }}
         >
             {t(

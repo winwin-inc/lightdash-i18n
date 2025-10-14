@@ -210,7 +210,7 @@ const MinimalDashboard: FC = () => {
             {isTabEmpty ? (
                 <SuboptimalState
                     icon={IconLayoutDashboard}
-                    title="Tab is empty"
+                    title={t('pages_minimal_dashboard.tab_is_empty')}
                     sx={{ marginTop: '40px' }}
                 />
             ) : (

@@ -1217,6 +1217,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                         chart.chartConfig.type !==
                                             ChartType.BIG_NUMBER && (
                                             <DashboardExportImage
+                                                chartType={chart.chartConfig.type}
                                                 echartRef={echartRef}
                                                 chartName={chart.name}
                                                 isMinimal={false}
@@ -1609,6 +1610,7 @@ const DashboardChartTileMinimal: FC<DashboardChartTileMainProps> = (props) => {
                                 chart.chartConfig.type !==
                                     ChartType.BIG_NUMBER && (
                                     <DashboardExportImage
+                                        chartType={chart.chartConfig.type}
                                         echartRef={echartRef}
                                         chartName={chart.name}
                                         isMinimal={true}

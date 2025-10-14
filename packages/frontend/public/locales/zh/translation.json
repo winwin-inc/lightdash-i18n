@@ -2709,9 +2709,6 @@
         "export_csv": "导出 CSV",
         "download_data": "下载数据"
     },
-    "components_dashboard_tiles_export_image": {
-        "export_image": "导出图片"
-    },
     "components_dashboard_tiles_chart_tile": {
         "edit": "编辑语义查看器图表",
         "no_data": "没有可用数据"
@@ -7509,6 +7506,7 @@
         "content": "在开始探索您的数据之前,请选择您希望在 Lightdash 中显示为表格的 dbt 模型。您随后可以在项目设置中随时调整此设置。"
     },
     "pages_dashboard": {
+        "loading": "正在加载...",
         "toast_chart_error": {
             "title": "解析图表时出错",
             "subtitle": "无法将图表保存到看板中"
@@ -7581,7 +7579,8 @@
     },
     "pages_minimal_dashboard": {
         "loading": "正在加载...",
-        "no_tiles": "没有图块"
+        "no_tiles": "没有图块",
+        "tab_is_empty": "标签页为空"
     },
     "pages_mobile_charts": {
         "loading_charts": "正在加载图表",

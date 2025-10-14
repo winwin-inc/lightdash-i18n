@@ -2724,9 +2724,6 @@
         "export_csv": "Export CSV",
         "download_data": "Download data"
     },
-    "components_dashboard_tiles_export_image": {
-        "export_image": "Export image"
-    },
     "components_dashboard_tiles_chart_tile": {
         "edit": "Edit Semantic Viewer chart",
         "no_data": "No data available"
@@ -7515,6 +7512,7 @@
         "content": "Before you start exploring your data, pick the dbt models you want to appear as tables in Lightdash. You can always adjust this in your project settings later."
     },
     "pages_dashboard": {
+        "loading": "Loading...",
         "toast_chart_error": {
             "title": "Error parsing chart",
             "subtitle": "Unable to save chart in dashboard"
@@ -7587,7 +7585,8 @@
     },
     "pages_minimal_dashboard": {
         "loading": "Loading...",
-        "no_tiles": "No tiles"
+        "no_tiles": "No tiles",
+        "tab_is_empty": "Tab is empty"
     },
     "pages_mobile_charts": {
         "loading_charts": "Loading charts",

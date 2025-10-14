@@ -20,7 +20,7 @@ type Props = {
 };
 
 const CustomVisualization: FC<Props> = (props) => {
-    const { isLoading, visualizationConfig, resultsData } =
+    const { chartRef, isLoading, visualizationConfig, resultsData } =
         useVisualizationContext();
     const { t } = useTranslation();
 
@@ -94,6 +94,7 @@ const CustomVisualization: FC<Props> = (props) => {
         >
             <Suspense fallback={<LoadingChart />}>
                 <VegaLite
+                    ref={chartRef}
                     style={{
                         width: rect.width,
                         height: rect.height,

@@ -695,7 +695,7 @@ const Dashboard: FC = () => {
     if (dashboard === undefined) {
         return (
             <Box mt="md">
-                <SuboptimalState title="Loading..." loading />
+                <SuboptimalState title={t('pages_dashboard.loading')} loading />
             </Box>
         );
     }
