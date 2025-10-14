@@ -16,7 +16,7 @@ import MantineIcon from '../common/MantineIcon';
 
 const downloadChartImage = async (
     chartType: ChartType,
-    echartRef: RefObject<EChartsReact | null> | undefined,
+    echartRef: RefObject<any | null> | undefined,
     chartName?: string,
 ) => {
     try {
@@ -79,7 +79,7 @@ const downloadChartImage = async (
 
 export const DashboardExportImage: FC<{
     chartType: ChartType;
-    echartRef: RefObject<EChartsReact | null> | undefined;
+    echartRef: RefObject<any | null> | undefined;
     chartName: string;
     isMinimal: boolean;
 }> = ({ chartType, echartRef, chartName, isMinimal }) => {

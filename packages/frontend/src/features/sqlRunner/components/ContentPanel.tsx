@@ -524,7 +524,9 @@ export const ContentPanel: FC = () => {
                             selectedChartType ? (
                                 <ChartDownload
                                     chartName={savedSqlChart?.name}
-                                    echartsInstance={activeEchartsInstance}
+                                    echartsInstance={
+                                        activeEchartsInstance as EChartsInstance
+                                    }
                                     projectUuid={projectUuid}
                                     disabled={isLoadingSqlQuery}
                                     hideLimitSelection={true}
