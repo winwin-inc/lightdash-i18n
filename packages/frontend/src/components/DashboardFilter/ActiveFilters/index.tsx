@@ -360,8 +360,6 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
         );
     }
 
-    if (!allFilterableFieldsMap) return null;
-
     const handleDragStart = (_event: DragStartEvent) => onPopoverClose();
 
     const handleDragEnd = (event: DragEndEvent) => {
@@ -384,6 +382,8 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
         });
         appliedFilterChanged(true);
     };
+
+    if (!allFilterableFieldsMap) return null;
 
     if (!isFilterEnabled) return null;
 

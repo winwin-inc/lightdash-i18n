@@ -316,19 +316,6 @@ const Dashboard: FC = () => {
 
     useEffect(() => {
         if (isSuccess) {
-            setHaveTilesChanged(false);
-            setHaveFiltersChanged(false);
-            setHaveTabFiltersChanged({});
-            setHaveFilterEnabledStatesChanged(false);
-            setHaveShowAddFilterButtonStatesChanged(false);
-            setDashboardTemporaryFilters({
-                dimensions: [],
-                metrics: [],
-                tableCalculations: [],
-            });
-            setTabTemporaryFilters({});
-            setHavePinnedParametersChanged(false);
-            reset();
             if (dashboardTabs.length > 1) {
                 void navigate(
                     `/projects/${projectUuid}/dashboards/${dashboardUuid}/view/tabs/${activeTab?.uuid}`,
@@ -348,15 +335,6 @@ const Dashboard: FC = () => {
         projectUuid,
         dashboardTabs,
         activeTab,
-        setHaveTabFiltersChanged,
-        setHaveFilterEnabledStatesChanged,
-        setHaveShowAddFilterButtonStatesChanged,
-        setDashboardTemporaryFilters,
-        setTabTemporaryFilters,
-        setHavePinnedParametersChanged,
-        setHaveFiltersChanged,
-        setHaveTilesChanged,
-        reset,
     ]);
 
     // 监听路由模式变化，当切换到 view 模式后重置状态
@@ -534,14 +512,7 @@ const Dashboard: FC = () => {
         setSavedParameters(dashboard.parameters ?? {});
         setPinnedParameters(dashboard.config?.pinnedParameters ?? []);
         setHavePinnedParametersChanged(false);
-
         setDashboardFilters(dashboard.filters);
-        setTabFilters(
-            dashboard.tabs.reduce((acc, tab) => {
-                acc[tab.uuid] = tab.filters || emptyFilters;
-                return acc;
-            }, {} as Record<string, DashboardFilters>),
-        );
         setHaveFiltersChanged(false);
         setHaveTabFiltersChanged({});
         setHaveFilterEnabledStatesChanged(false);

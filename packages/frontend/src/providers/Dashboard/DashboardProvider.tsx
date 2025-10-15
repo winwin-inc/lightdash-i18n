@@ -10,6 +10,7 @@ import {
     type Dashboard,
     type DashboardFilterRule,
     type DashboardFilters,
+    type DashboardFiltersFromSearchParam,
     type DashboardParameters,
     type FilterableDimension,
     type ParameterDefinitions,
@@ -47,7 +48,10 @@ import {
     useDashboardFilters,
 } from '../../hooks/dashboard/useDashboardFilters';
 import { useDashboardFilterState } from '../../hooks/dashboard/useDashboardFilterState';
-import { useDashboardTabFilters } from '../../hooks/dashboard/useDashboardTabFilters';
+import {
+    isEmptyTabFilters,
+    useDashboardTabFilters,
+} from '../../hooks/dashboard/useDashboardTabFilters';
 import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOverrides';
 import DashboardContext from './context';
 import { type SqlChartTileMetadata } from './types';
@@ -226,9 +230,20 @@ const DashboardProvider: React.FC<
     // by default it is enabled
     const [isDateZoomDisabled, setIsDateZoomDisabled] =
         useState<boolean>(false);
+
+    // Initialize filter enabled states from dashboard config when dashboard loads
     useEffect(() => {
         if (dashboard?.config?.isDateZoomDisabled === true) {
             setIsDateZoomDisabled(true);
+        }
+        if (dashboard?.config?.isGlobalFilterEnabled === true) {
+            setIsGlobalFilterEnabled(true);
+        }
+        if (dashboard?.config?.showGlobalAddFilterButton === true) {
+            setShowGlobalAddFilterButton(true);
+        }
+        if (dashboard?.config?.showTabAddFilterButton) {
+            setShowTabAddFilterButton(dashboard.config.showTabAddFilterButton);
         }
     }, [dashboard]);
 
@@ -531,19 +546,33 @@ const DashboardProvider: React.FC<
             }
 
             setOriginalDashboardFilters(dashboard.filters);
+
+            // tab filters
+            if (dashboard.tabs.length > 0 && isEmptyTabFilters(tabFilters)) {
+                const updatedTabFilters = dashboard.tabs.reduce((acc, tab) => {
+                    acc[tab.uuid] = tab.filters || emptyFilters;
+                    return acc;
+                }, {} as Record<string, DashboardFilters>);
+
+                setTabFilters(updatedTabFilters);
+            }
         }
     }, [
         dashboard,
         dashboardFilters,
         overridesForSavedDashboardFilters,
+        tabFilters,
         setHaveFiltersChanged,
         setDashboardFilters,
         setOriginalDashboardFilters,
+        setTabFilters,
     ]);
 
     // Updates url with temp and overridden filters and deep compare to avoid unnecessary re-renders for dashboardTemporaryFilters
     useDeepCompareEffect(() => {
         const newParams = new URLSearchParams(search);
+
+        // temp filters
         if (
             dashboardTemporaryFilters?.dimensions?.length === 0 &&
             dashboardTemporaryFilters?.metrics?.length === 0
@@ -558,6 +587,7 @@ const DashboardProvider: React.FC<
             );
         }
 
+        // overridden filters
         if (overridesForSavedDashboardFilters?.dimensions?.length === 0) {
             newParams.delete('filters');
         } else if (overridesForSavedDashboardFilters?.dimensions?.length > 0) {
@@ -578,6 +608,25 @@ const DashboardProvider: React.FC<
             },
             { replace: true },
         );
+
+        // tab filters
+        if (isEmptyTabFilters(tabTemporaryFilters)) {
+            newParams.delete('tempTabFilters');
+        } else {
+            newParams.set(
+                'tempTabFilters',
+                JSON.stringify(
+                    Object.entries(tabTemporaryFilters).reduce(
+                        (acc, [tabUuid, tabFilter]) => {
+                            acc[tabUuid] =
+                                compressDashboardFiltersToParam(tabFilter);
+                            return acc;
+                        },
+                        {} as Record<string, DashboardFiltersFromSearchParam>,
+                    ),
+                ),
+            );
+        }
     }, [
         dashboardFilters,
         dashboardTemporaryFilters,
@@ -585,6 +634,8 @@ const DashboardProvider: React.FC<
         pathname,
         overridesForSavedDashboardFilters,
         search,
+        tabFilters,
+        tabTemporaryFilters,
     ]);
 
     useEffect(() => {
@@ -641,6 +692,22 @@ const DashboardProvider: React.FC<
                 convertDashboardFiltersParamToDashboardFilters(
                     JSON.parse(tempFilterSearchParam),
                 ),
+            );
+        }
+
+        // Tab filters
+        const tempTabFilterSearchParam = searchParams.get('tempTabFilters');
+        if (tempTabFilterSearchParam) {
+            const filters = JSON.parse(tempTabFilterSearchParam);
+
+            setTabTemporaryFilters(
+                Object.entries(filters).reduce((acc, [tabUuid, tabFilter]) => {
+                    acc[tabUuid] =
+                        convertDashboardFiltersParamToDashboardFilters(
+                            tabFilter as DashboardFiltersFromSearchParam,
+                        );
+                    return acc;
+                }, {} as Record<string, DashboardFilters>),
             );
         }
     });
