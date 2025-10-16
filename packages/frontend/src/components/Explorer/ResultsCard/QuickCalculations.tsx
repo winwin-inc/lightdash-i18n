@@ -9,8 +9,10 @@ import {
 } from '@lightdash/common';
 import { Menu } from '@mantine/core';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { getUniqueTableCalculationName } from '../../../features/tableCalculation/utils';
-import { TemplateTypeLabels } from '../../../features/tableCalculation/utils/templateFormatting';
+import { useTemplateTypeLabels } from '../../../features/tableCalculation/utils/templateFormatting';
 import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
@@ -81,6 +83,9 @@ const isCalculationAvailable = (
 };
 
 const QuickCalculationMenuOptions: FC<Props> = ({ item }) => {
+    const { t } = useTranslation();
+    const templateTypeLabels = useTemplateTypeLabels();
+
     const addTableCalculation = useExplorerContext(
         (context) => context.actions.addTableCalculation,
     );
@@ -105,7 +110,7 @@ const QuickCalculationMenuOptions: FC<Props> = ({ item }) => {
     const handleQuickCalculation = (
         templateType: TableCalculationTemplateType,
     ) => {
-        const displayName = TemplateTypeLabels[templateType];
+        const displayName = templateTypeLabels[templateType];
         const name = `${displayName} of ${item.label}`;
         const uniqueName = getUniqueTableCalculationName(
             name,
@@ -132,12 +137,14 @@ const QuickCalculationMenuOptions: FC<Props> = ({ item }) => {
 
     return (
         <>
-            <Menu.Label>Add quick calculation</Menu.Label>
+            <Menu.Label>
+                {t('components_explorer_results_card_quick_calculations.title')}
+            </Menu.Label>
 
             {Object.values(TableCalculationTemplateType).map((templateType) => {
                 if (!isCalculationAvailable(templateType, item)) return null;
 
-                const displayName = TemplateTypeLabels[templateType];
+                const displayName = templateTypeLabels[templateType];
                 return (
                     <Menu.Item
                         key={templateType}

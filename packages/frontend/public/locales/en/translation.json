@@ -5160,6 +5160,21 @@
         "copy_custom_dimension": "Copy of Custom Dimension added successfully",
         "duplicate_custom_dimension": "Duplicate custom dimension"
     },
+    "components_explorer_table_metric_type_labels": {
+        "count_distinct": "Count distinct",
+        "count": "Count",
+        "min": "Min",
+        "max": "Max",
+        "sum": "Sum",
+        "percentile": "Percentile",
+        "median": "Median",
+        "average": "Average",
+        "string": "String",
+        "date": "Date",
+        "timestamp": "Timestamp",
+        "boolean": "Boolean",
+        "number": "Number"
+    },
     "components_explorer_table_tree_single_node": {
         "no_availailable": "No description available.",
         "missing": "This field from '{table}}' table is no longer available",
@@ -5420,7 +5435,8 @@
         "edit_metric": "Edit custom metric",
         "edit_dimension": " Edit custom dimension",
         "eidt_calculation": "Edit calculation",
-        "sort": "Sort"
+        "sort": "Sort",
+        "sorting": "Sorting"
     },
     "components_explorer_results_card_cell_context_menu": {
         "copied_to_clipboard": "Copied to clipboard",
@@ -5675,6 +5691,25 @@
     "components_explorer_parameters_card": {
         "title": "Parameters",
         "no_model_selected": "No model selected"
+    },
+    "components_explorer_results_card_quick_calculations": {
+        "title": "Add quick calculation",
+        "type_labels": {
+            "percent_change_from_previous": "Percent change from previous",
+            "percent_of_previous_value": "Percent of previous value",
+            "percent_of_column_total": "Percent of column total",
+            "rank_in_column": "Rank in column",
+            "running_total": "Running total",
+            "unknown": "Unknown template type"
+        },
+        "type_descriptions": {
+            "percent_change_from_previous": "Calculates the percentage change from the previous row value.",
+            "percent_of_previous_value": "Shows the current value as a percentage of the previous row value.",
+            "percent_of_column_total": "Shows each value as a percentage of the column total.",
+            "rank_in_column": "Ranks values within the column from highest to lowest.",
+            "running_total": "Calculates a cumulative sum across rows.",
+            "unknown": "Unknown template type"
+        }
     },
     "components_common_resource_view_grid": {
         "views": "views",

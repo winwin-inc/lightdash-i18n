@@ -5143,6 +5143,21 @@
         "copy_custom_dimension": "自定义维度复制成功",
         "duplicate_custom_dimension": "复制自定义维度"
     },
+    "components_explorer_table_metric_type_labels": {
+        "count_distinct": "去重计数",
+        "count": "计数",
+        "min": "最小值",
+        "max": "最大值",
+        "sum": "求和",
+        "percentile": "百分位数",
+        "median": "中位数",
+        "average": "平均值",
+        "string": "字符串",
+        "date": "日期",
+        "timestamp": "时间戳",
+        "boolean": "布尔值",
+        "number": "数字"
+    },
     "components_explorer_table_tree_single_node": {
         "no_availailable": "暂无描述。",
         "missing": "此字段来自 '{table}' 表，不再可用",
@@ -5402,7 +5417,9 @@
         "remove": "移除",
         "edit_metric": "编辑自定义指标",
         "edit_dimension": "编辑自定义维度",
-        "eidt_calculation": "编辑计算"
+        "eidt_calculation": "编辑计算",
+        "sort": "排序",
+        "sorting": "排序方式"
     },
     "components_explorer_results_card_cell_context_menu": {
         "copied_to_clipboard": "已复制到剪贴板",
@@ -5657,6 +5674,16 @@
     "components_explorer_parameters_card": {
         "title": "参数",
         "no_model_selected": "未选择模型"
+    },
+    "components_explorer_results_card_quick_calculations": {
+        "title": "添加快速计算",
+        "type_labels": {
+            "percent_change_from_previous": "前一个值的百分比变化",
+            "percent_of_previous_value": "前一个值的百分比",
+            "percent_of_column_total": "列总数的百分比",
+            "rank_in_column": "列中的排名",
+            "running_total": "运行总计"
+        }
     },
     "components_common_resource_view_grid": {
         "views": "次查看",

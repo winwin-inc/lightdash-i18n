@@ -37,6 +37,7 @@ import useExplorerContext from '../../../../../providers/Explorer/useExplorerCon
 import useTracking from '../../../../../providers/Tracking/useTracking';
 import { EventName } from '../../../../../types/Events';
 import MantineIcon from '../../../../common/MantineIcon';
+import { useTableMetricTypeLabels } from './useTableMetricType';
 
 type Props = {
     item: Metric | Dimension | AdditionalMetric | CustomDimension;
@@ -63,6 +64,8 @@ const TreeSingleNodeActions: FC<Props> = ({
     const { addFilter } = useFilteredFields();
     const { track } = useTracking();
     const { t } = useTranslation();
+
+    const tableMetricTypeLabels = useTableMetricTypeLabels();
 
     // Keep using Context actions (they have dual-dispatch to Redux in ExplorerProvider)
     const removeAdditionalMetric = useExplorerContext(
@@ -399,7 +402,7 @@ const TreeSingleNodeActions: FC<Props> = ({
                                     });
                                 }}
                             >
-                                {friendlyName(metric)}
+                                {tableMetricTypeLabels[metric]}
                             </Menu.Item>
                         ))}
                     </>

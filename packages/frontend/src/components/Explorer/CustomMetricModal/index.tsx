@@ -162,7 +162,7 @@ export const CustomMetricModal = () => {
                     (metric) => metric.name === metricName,
                 )
                     ? t(
-                          'components_explorer_custom_metric_modal.validate_metric_label.already_exists',
+                          'components_explorer_custom_metric_modal.modal.validate_metric_label.already_exists',
                       )
                     : null;
             },
@@ -170,7 +170,7 @@ export const CustomMetricModal = () => {
                 if (!percentile) return null;
                 if (percentile < 0 || percentile > 100) {
                     return t(
-                        'components_explorer_custom_metric_modal.validate_metric_label.percentile',
+                        'components_explorer_custom_metric_modal.modal.validate_metric_label.percentile',
                     );
                 }
             },
@@ -260,7 +260,7 @@ export const CustomMetricModal = () => {
                 );
                 showToastSuccess({
                     title: t(
-                        'components_explorer_custom_metric_modal.toast_submit.edit_success',
+                        'components_explorer_custom_metric_modal.modal.toast_submit.edit_success',
                     ),
                 });
             } else if (isDimension(item) && form.values.customMetricLabel) {
@@ -271,7 +271,7 @@ export const CustomMetricModal = () => {
                 });
                 showToastSuccess({
                     title: t(
-                        'components_explorer_custom_metric_modal.toast_submit.add_success',
+                        'components_explorer_custom_metric_modal.modal.toast_submit.add_success',
                     ),
                 });
             } else if (isCustomDimension(item)) {
@@ -282,7 +282,7 @@ export const CustomMetricModal = () => {
                 });
                 showToastSuccess({
                     title: t(
-                        'components_explorer_custom_metric_modal.toast_submit.add_success',
+                        'components_explorer_custom_metric_modal.modal.toast_submit.add_success',
                     ),
                 });
             }
@@ -322,10 +322,10 @@ export const CustomMetricModal = () => {
                 <Title order={4}>
                     {isEditing
                         ? t(
-                              'components_explorer_custom_metric_modal.title.edit',
+                              'components_explorer_custom_metric_modal.modal.title.edit',
                           )
                         : t(
-                              'components_explorer_custom_metric_modal.title.create',
+                              'components_explorer_custom_metric_modal.modal.title.create',
                           )}
                 </Title>
             }
@@ -334,11 +334,11 @@ export const CustomMetricModal = () => {
                 <Stack>
                     <TextInput
                         label={t(
-                            'components_explorer_custom_metric_modal.label.label',
+                            'components_explorer_custom_metric_modal.modal.label.label',
                         )}
                         required
                         placeholder={t(
-                            'components_explorer_custom_metric_modal.label.placeholder',
+                            'components_explorer_custom_metric_modal.modal.label.placeholder',
                         )}
                         {...form.getInputProps('customMetricLabel')}
                     />
@@ -349,7 +349,7 @@ export const CustomMetricModal = () => {
                             min={0}
                             required
                             label={t(
-                                'components_explorer_custom_metric_modal.percentile.label',
+                                'components_explorer_custom_metric_modal.modal.percentile.label',
                             )}
                             {...form.getInputProps('percentile')}
                         />
@@ -360,7 +360,7 @@ export const CustomMetricModal = () => {
                                 <Accordion.Control>
                                     <Text fw={500} fz="sm">
                                         {t(
-                                            'components_explorer_custom_metric_modal.format',
+                                            'components_explorer_custom_metric_modal.modal.format',
                                         )}
                                     </Text>
                                 </Accordion.Control>
@@ -379,7 +379,7 @@ export const CustomMetricModal = () => {
                             <Accordion.Control>
                                 <Text fw={500} fz="sm">
                                     {t(
-                                        'components_explorer_custom_metric_modal.filters.part_1',
+                                        'components_explorer_custom_metric_modal.modal.filters.part_1',
                                     )}
                                     <Text span fw={400} fz="xs">
                                         {customMetricFiltersWithIds.length > 0
@@ -389,7 +389,7 @@ export const CustomMetricModal = () => {
                                     <Text span fz="xs" color="gray.5" fw={400}>
                                         (
                                         {t(
-                                            'components_explorer_custom_metric_modal.filters.part_2',
+                                            'components_explorer_custom_metric_modal.modal.filters.part_2',
                                         )}
                                         )
                                     </Text>
@@ -429,10 +429,10 @@ export const CustomMetricModal = () => {
                     >
                         {isEditing
                             ? t(
-                                  'components_explorer_custom_metric_modal.save_changes',
+                                  'components_explorer_custom_metric_modal.modal.save_changes',
                               )
                             : t(
-                                  'components_explorer_custom_metric_modal.create',
+                                  'components_explorer_custom_metric_modal.modal.create',
                               )}
                     </Button>
                 </Stack>

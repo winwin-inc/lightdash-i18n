@@ -9,8 +9,8 @@ import { useTranslation } from 'react-i18next';
 
 import { useColumns } from '../../../../hooks/useColumns';
 import {
-    formatTemplateType,
-    getTemplateDescription,
+    useFormatTemplateType,
+    useGetTemplateDescription,
 } from '../../utils/templateFormatting';
 
 interface TemplateViewerProps {
@@ -21,6 +21,9 @@ interface TemplateViewerProps {
 export const TemplateViewer: FC<TemplateViewerProps> = ({ template }) => {
     const { t } = useTranslation();
     const columns = useColumns();
+
+    const formatTemplateType = useFormatTemplateType();
+    const getTemplateDescription = useGetTemplateDescription();
 
     if (!template) {
         return (

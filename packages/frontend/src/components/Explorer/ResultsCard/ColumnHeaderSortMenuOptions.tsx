@@ -58,7 +58,9 @@ const ColumnHeaderSortMenuOptions: FC<Props> = ({ item, sort }) => {
 
     return (
         <>
-            <Menu.Label>Sorting</Menu.Label>
+            <Menu.Label>{t(
+                            'components_explorer_results_card_column_context_menu.sorting',
+                        )}</Menu.Label>
             {item &&
                 getSortDirectionOrder(item).map((sortDirection) => (
                     <Menu.Item

@@ -1,3 +1,5 @@
+import { MetricType } from '@lightdash/common';
+import { useTranslation } from 'react-i18next';
 import { useContextSelector } from 'use-context-selector';
 import TreeContext from './TreeContext';
 import { type TableTreeContext } from './types';
