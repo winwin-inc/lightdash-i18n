@@ -164,10 +164,7 @@ export const useDashboardFilters = ({
                 dashboard?.filters?.dimensions ||
                 embedDashboard?.filters?.dimensions ||
                 [];
-
-            const isFilterSaved = filters.dimensions.some(
-                ({ id }) => id === item.id,
-            );
+            const isFilterSaved = filters.some(({ id }) => id === item.id);
 
             setFunction((previousFilters) => {
                 if (!isTemporary) {

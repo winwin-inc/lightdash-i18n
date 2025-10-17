@@ -18,7 +18,7 @@ import {
 import { Prism } from '@mantine/prism';
 import { IconGitBranch, IconInfoCircle } from '@tabler/icons-react';
 import * as yaml from 'js-yaml';
-import { memo, useMemo, useState } from 'react';
+import { memo, useMemo, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 

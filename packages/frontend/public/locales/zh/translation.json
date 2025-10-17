@@ -5169,7 +5169,10 @@
         "date": "日期",
         "timestamp": "时间戳",
         "boolean": "布尔值",
-        "number": "数字"
+        "number": "数字",
+        "percent_of_previous": "百分比前值",
+        "percent_of_total": "百分比总值",
+        "running_total": "累计值"
     },
     "components_explorer_table_tree_single_node": {
         "no_availailable": "暂无描述。",

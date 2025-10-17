@@ -38,5 +38,14 @@ export const useTableMetricTypeLabels = (): Record<MetricType, string> => {
         [MetricType.NUMBER]: t(
             'components_explorer_table_metric_type_labels.number',
         ),
+        [MetricType.PERCENT_OF_PREVIOUS]: t(
+            'components_explorer_table_metric_type_labels.percent_of_previous',
+        ),
+        [MetricType.PERCENT_OF_TOTAL]: t(
+            'components_explorer_table_metric_type_labels.percent_of_total',
+        ),
+        [MetricType.RUNNING_TOTAL]: t(
+            'components_explorer_table_metric_type_labels.running_total',
+        ),
     };
 };

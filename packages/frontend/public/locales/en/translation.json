@@ -5186,7 +5186,10 @@
         "date": "Date",
         "timestamp": "Timestamp",
         "boolean": "Boolean",
-        "number": "Number"
+        "number": "Number",
+        "percent_of_previous": "Percent of previous",
+        "percent_of_total": "Percent of total",
+        "running_total": "Running total"
     },
     "components_explorer_table_tree_single_node": {
         "no_availailable": "No description available.",

@@ -37,6 +37,7 @@ import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
 import { type ValueOf } from 'type-fest';
 
+import { FormatForm } from '../../../components/Explorer/FormatForm';
 import MantineIcon from '../../../components/common/MantineIcon';
 import {
     selectCustomDimensions,

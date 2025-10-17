@@ -20,6 +20,8 @@ import useEmbed from '../../../../providers/Embed/useEmbed';
 import { useEmbedDashboard } from '../hooks';
 import EmbedDashboardChartTile from './EmbedDashboardChartTile';
 import EmbedDashboardHeader from './EmbedDashboardHeader';
+import SuboptimalState from '../../../../../components/common/SuboptimalState/SuboptimalState';
+import { LockedDashboardModal } from '../../../../../components/common/modal/LockedDashboardModal';
 
 import { Group, Tabs, Title } from '@mantine/core';
 import '../../../../../styles/react-grid.css';
