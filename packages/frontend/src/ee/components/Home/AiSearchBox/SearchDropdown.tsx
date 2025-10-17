@@ -18,7 +18,7 @@ import useSearch, {
     OMNIBAR_MIN_QUERY_LENGTH,
 } from '../../../../features/omnibar/hooks/useSearch';
 import { type SearchItem } from '../../../../features/omnibar/types/searchItem';
-import { getSearchItemLabel } from '../../../../features/omnibar/utils/getSearchItemLabel';
+import { useSearchItemLabel } from '../../../../features/omnibar/utils/getSearchItemLabel';
 import { useValidationUserAbility } from '../../../../hooks/validation/useValidation';
 import styles from './SearchDropdown.module.css';
 
@@ -40,6 +40,9 @@ export const SearchDropdown: FC<Props> = ({
     footer,
 }) => {
     const navigate = useNavigate();
+
+    const getSearchItemLabel = useSearchItemLabel();
+    
     const canUserManageValidation = useValidationUserAbility(projectUuid);
     const combobox = useCombobox({
         onDropdownClose: () => combobox.resetSelectedOption(),
