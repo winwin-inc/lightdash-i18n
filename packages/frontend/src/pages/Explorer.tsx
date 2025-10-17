@@ -1,10 +1,11 @@
 import { subject } from '@casl/ability';
 import { memo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Provider } from 'react-redux';
 import { useParams } from 'react-router';
 
 import { useHotkeys } from '@mantine/hooks';
+import { useTranslation } from 'react-i18next';
+
 import Page from '../components/common/Page/Page';
 import Explorer from '../components/Explorer';
 import ExploreSideBar from '../components/Explorer/ExploreSideBar/index';
@@ -27,6 +28,8 @@ import ExplorerProvider from '../providers/Explorer/ExplorerProvider';
 import useExplorerContext from '../providers/Explorer/useExplorerContext';
 
 const ExplorerWithUrlParams = memo(() => {
+    const { t } = useTranslation();
+
     // Run the query effects hook - orchestrates all query effects
     useExplorerQueryEffects();
     useExplorerRoute();
