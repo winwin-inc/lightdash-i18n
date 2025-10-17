@@ -790,7 +790,7 @@ const Dashboard: FC = () => {
                                 size={50}
                             />
                             <Text fw={500}>
-                                t('pages_dashboard.modal.content')
+                                {t('pages_dashboard.modal.content')}
                             </Text>
                         </Group>
 
@@ -800,7 +800,7 @@ const Dashboard: FC = () => {
                                     blocker.reset();
                                 }}
                             >
-                                t('pages_dashboard.modal.stay')
+                                {t('pages_dashboard.modal.stay')}
                             </Button>
                             <Button
                                 color="red"
@@ -809,7 +809,7 @@ const Dashboard: FC = () => {
                                     blocker.proceed();
                                 }}
                             >
-                                t('pages_dashboard.modal.leave')
+                                {t('pages_dashboard.modal.leave')}
                             </Button>
                         </Group>
                     </Stack>
