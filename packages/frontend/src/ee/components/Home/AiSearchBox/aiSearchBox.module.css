@@ -1,0 +1,44 @@
+.askAiFooter {
+    border-bottom-left-radius: var(--mantine-radius-md);
+    border-bottom-right-radius: var(--mantine-radius-md);
+    overflow: hidden;
+    background: linear-gradient(
+        90deg,
+        var(--mantine-color-grape-0) 0%,
+        var(--mantine-color-violet-0) 40%,
+        var(--mantine-color-indigo-0) 100%
+    );
+    width: 100%;
+    height: 52px;
+    cursor: pointer;
+}
+
+.actionIcon {
+    background-color: var(--mantine-color-dark-5);
+    box-sizing: content-box;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--mantine-radius-xl);
+    &:where([data-disabled]) {
+        background-color: #9e9e9e;
+    }
+}
+
+.actionIconIcon {
+    color: white;
+}
+
+.paperRoot {
+    overflow: hidden;
+    border-color: var(--mantine-color-gray-3) !important;
+}
+
+.adminSettingsButtonLabel {
+    color: var(--mantine-color-gray-7);
+}
+
+.adminSettingsButtonSection {
+    &:where([data-position='left']) {
+        margin-right: 4px !important;
+    }
+}

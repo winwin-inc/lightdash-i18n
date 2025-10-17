@@ -6,8 +6,6 @@ import {
     isDimension,
     isField,
     isFilterableField,
-    isMetric,
-    isTableCalculation,
     isTimeInterval,
     timeFrameConfigs,
     type AdditionalMetric,
@@ -32,28 +30,25 @@ import { darken, lighten } from 'polished';
 import { memo, useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
-
+import {
+    explorerActions,
+    selectIsFieldActive,
+    selectIsFieldFiltered,
+    useExplorerDispatch,
+    useExplorerSelector,
+    type ExplorerStoreState,
+} from '../../../../../features/explorer/store';
 import { getItemBgColor } from '../../../../../hooks/useColumns';
-import { useFilteredFields } from '../../../../../hooks/useFilters';
+import { useAddFilter } from '../../../../../hooks/useFilters';
 import useTracking from '../../../../../providers/Tracking/useTracking';
 import { EventName } from '../../../../../types/Events';
 import FieldIcon from '../../../../common/Filters/FieldIcon';
 import MantineIcon from '../../../../common/MantineIcon';
-import { ItemDetailMarkdown, ItemDetailPreview } from '../ItemDetailPreview';
-import { useItemDetail } from '../useItemDetails';
+import { ItemDetailPreview } from '../ItemDetailPreview';
+import { getFieldIconColor } from '../utils';
 import TreeSingleNodeActions from './TreeSingleNodeActions';
 import { type Node } from './types';
 import useTableTree from './useTableTree';
-
-// TODO: Add getFieldType function to common which should return FieldType enum (which should also have CUSTOM_METRIC, CUSTOM_DIMENSION)
-const getFieldIconColor = (field: Item | AdditionalMetric) => {
-    if (isCustomDimension(field) || isDimension(field)) return 'blue.9';
-    if (isAdditionalMetric(field)) return 'yellow.9';
-    if (isTableCalculation(field)) return 'green.9';
-    if (isMetric(field)) return 'yellow.9';
-
-    return 'yellow.9';
-};
 
 const NavItemIcon = ({
     isMissing,
@@ -77,9 +72,10 @@ type Props = {
 
 const TreeSingleNodeComponent: FC<Props> = ({ node }) => {
     const { t } = useTranslation();
-
-    const itemsMap = useTableTree((context) => context.itemsMap);
-    const selectedItems = useTableTree((context) => context.selectedItems);
+    
+    const itemsMap = useTableTree((context) => {
+        return context.itemsMap;
+    });
     const isSearching = useTableTree((context) => context.isSearching);
     const searchResults = useTableTree((context) => context.searchResults);
     const searchQuery = useTableTree((context) => context.searchQuery);
@@ -91,17 +87,37 @@ const TreeSingleNodeComponent: FC<Props> = ({ node }) => {
         (context) => context.missingCustomDimensions,
     );
     const onItemClick = useTableTree((context) => context.onItemClick);
-    const { isFilteredField, addFilter } = useFilteredFields();
-    const { showItemDetail } = useItemDetail();
     const { track } = useTracking();
+
+    const addFilter = useAddFilter();
+
+    const dispatch = useExplorerDispatch();
 
     const [isHover, toggleHover] = useToggle(false);
     const [isMenuOpen, toggleMenu] = useToggle(false);
 
-    const isSelected = selectedItems.has(node.key);
     const isVisible = !isSearching || searchResults.includes(node.key);
 
     const item = itemsMap[node.key];
+
+    const fieldId = useMemo(() => getItemId(item), [item]);
+
+    const selectIsFiltered = useMemo(
+        () => (state: ExplorerStoreState) =>
+            selectIsFieldFiltered(state, fieldId),
+        [fieldId],
+    );
+    const selectIsActive = useMemo(
+        () => (state: ExplorerStoreState) =>
+            selectIsFieldActive(state, fieldId),
+        [fieldId],
+    );
+
+    const isFieldFiltered = useExplorerSelector(
+        selectIsFiltered,
+        (a, b) => a === b,
+    );
+    const isSelected = useExplorerSelector(selectIsActive, (a, b) => a === b);
 
     const metricInfo = useMemo(() => {
         if (isCompiledMetric(item)) {
@@ -140,7 +156,7 @@ const TreeSingleNodeComponent: FC<Props> = ({ node }) => {
 
     const bgColor = getItemBgColor(item);
     const alerts = itemsAlerts?.[getItemId(item)];
-    const isFiltered = isField(item) && isFilteredField(item);
+    const isFiltered = isField(item) && isFieldFiltered;
     const showFilterAction =
         (isFiltered || isHover) &&
         !isAdditionalMetric(item) &&
@@ -188,28 +204,15 @@ const TreeSingleNodeComponent: FC<Props> = ({ node }) => {
 
     const onOpenDescriptionView = useCallback(() => {
         toggleHover(false);
-        showItemDetail({
-            header: (
-                <Group>
-                    <FieldIcon
-                        item={item}
-                        color={getFieldIconColor(item)}
-                        size="md"
-                    />
-                    <Text size="md">{label}</Text>
-                </Group>
-            ),
-            detail: description ? (
-                <ItemDetailMarkdown source={description} />
-            ) : (
-                <Text color="gray">
-                    {t(
-                        'components_explorer_table_tree_single_node.no_availailable',
-                    )}
-                </Text>
-            ),
-        });
-    }, [toggleHover, showItemDetail, item, label, description, t]);
+        dispatch(
+            explorerActions.openItemDetail({
+                itemType: 'field',
+                label,
+                description,
+                fieldItem: item,
+            }),
+        );
+    }, [toggleHover, dispatch, item, label, description]);
 
     const onToggleMenu = useCallback(() => {
         toggleHover(false);
@@ -384,6 +387,7 @@ const TreeSingleNodeComponent: FC<Props> = ({ node }) => {
 };
 
 const TreeSingleNode = memo(TreeSingleNodeComponent);
+
 TreeSingleNode.displayName = 'TreeSingleNode';
 
 export default TreeSingleNode;

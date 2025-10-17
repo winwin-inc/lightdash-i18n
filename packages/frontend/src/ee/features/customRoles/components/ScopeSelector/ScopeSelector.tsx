@@ -33,8 +33,9 @@ import styles from './ScopeSelector.module.css';
 
 type ScopeSelectorProps = {
     form: UseFormReturnType<RoleFormValues>;
-    isEnterprise?: boolean;
 };
+
+const ALL_GROUPED_SCOPES = getScopesByGroup(true);
 
 const ScopeGroup: FC<{
     group: GroupedScopes;
@@ -151,26 +152,18 @@ const ScopeGroup: FC<{
     );
 };
 
-export const ScopeSelector: FC<ScopeSelectorProps> = ({
-    form,
-    isEnterprise = false,
-}) => {
+export const ScopeSelector: FC<ScopeSelectorProps> = ({ form }) => {
     const { t } = useTranslation();
-
+    
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm] = useDebouncedValue(searchTerm, 300);
 
-    const allGroupedScopes = useMemo(
-        () => getScopesByGroup(isEnterprise),
-        [isEnterprise],
-    );
-
     const filteredScopes = useMemo(
-        () => filterScopes(allGroupedScopes, debouncedSearchTerm),
-        [allGroupedScopes, debouncedSearchTerm],
+        () => filterScopes(ALL_GROUPED_SCOPES, debouncedSearchTerm),
+        [debouncedSearchTerm],
     );
 
-    const totalScopes = allGroupedScopes.reduce(
+    const totalScopes = ALL_GROUPED_SCOPES.reduce(
         (acc, group) => acc + group.scopes.length,
         0,
     );
@@ -191,15 +184,15 @@ export const ScopeSelector: FC<ScopeSelectorProps> = ({
     };
 
     const handleClickSelectAllScopes = () => {
-        const allScopesObject = allGroupedScopes
-            .flatMap((group) => group.scopes)
-            .reduce(
-                (acc, scope) => ({
-                    ...acc,
-                    [scope.name]: true,
-                }),
-                {},
-            );
+        const allScopesObject = ALL_GROUPED_SCOPES.flatMap(
+            (group) => group.scopes,
+        ).reduce(
+            (acc, scope) => ({
+                ...acc,
+                [scope.name]: true,
+            }),
+            {},
+        );
         form.setFieldValue('scopes', allScopesObject);
     };
 

@@ -1,9 +1,11 @@
 import { type AiAgentAdminThreadSummary } from '@lightdash/common';
 import {
+    Alert,
     Box,
     Button,
     Group,
     Modal,
+    Paper,
     SegmentedControl,
     Stack,
     Text,
@@ -14,6 +16,7 @@ import { useDisclosure } from '@mantine-8/hooks';
 import {
     IconChartDots,
     IconGripVertical,
+    IconInfoCircle,
     IconLock,
     IconMessageCircle,
     IconMessageCircleShare,
@@ -30,8 +33,10 @@ import { NAVBAR_HEIGHT } from '../../../../../components/common/Page/constants';
 import SuboptimalState from '../../../../../components/common/SuboptimalState/SuboptimalState';
 import useHealth from '../../../../../hooks/health/useHealth';
 import useApp from '../../../../../providers/App/useApp';
+import { useAiOrganizationSettings } from '../../hooks/useAiOrganizationSettings';
 import AiAgentAdminAgentsTable from './AiAgentAdminAgentsTable';
 import AiAgentAdminThreadsTable from './AiAgentAdminThreadsTable';
+import { AiAgentsAdminEnableFeatureToggle } from './AiAgentsAdminEnableFeatureToggle';
 import styles from './AiAgentsAdminLayout.module.css';
 import { AnalyticsEmbedDashboard } from './AnalyticsEmbedDashboard';
 import { ThreadPreviewSidebar } from './ThreadPreviewSidebar';
@@ -44,7 +49,7 @@ export const AiAgentsAdminLayout = () => {
     const theme = useMantineTheme();
     const location = useLocation();
     const navigate = useNavigate();
-
+    const { data: settings } = useAiOrganizationSettings();
     const activeTab = location.pathname.endsWith('/agents')
         ? 'agents'
         : 'threads';
@@ -108,7 +113,11 @@ export const AiAgentsAdminLayout = () => {
                     <Group justify="space-between" my="md">
                         <Box>
                             <Group>
-                                <Title order={2}>AI Agents Admin Panel</Title>
+                                <Title order={2}>
+                                    {t(
+                                        'ai_agent_form_setup_admin.admin_layout.ai_agents_admin_panel',
+                                    )}
+                                </Title>
                                 {activeTab === 'threads' &&
                                     isAnalyticsEmbedEnabled && (
                                         <Button
@@ -138,75 +147,94 @@ export const AiAgentsAdminLayout = () => {
                                       )}
                             </Text>
                         </Box>
-                        <Group>
-                            <SegmentedControl
-                                size="xs"
+                        <AiAgentsAdminEnableFeatureToggle
+                            enabled={settings?.aiAgentsVisible}
+                        />
+                    </Group>
+
+                    {settings?.aiAgentsVisible === false && (
+                        <Paper my="md">
+                            <Alert
+                                icon={<IconInfoCircle />}
                                 radius="md"
-                                value={activeTab}
-                                onChange={(value) => {
-                                    if (value === 'agents') {
-                                        handleCloseSidebar();
-                                    }
-                                    void navigate(`/ai-agents/admin/${value}`);
-                                }}
-                                data={[
-                                    {
-                                        value: 'threads',
-                                        label: (
-                                            <Group gap="xs" wrap="nowrap">
-                                                <MantineIcon
-                                                    icon={IconMessageCircle}
-                                                />
-                                                <Text fz="sm">
-                                                    {t(
-                                                        'ai_agent_form_setup_admin.admin_layout.threads',
-                                                    )}
-                                                </Text>
-                                            </Group>
-                                        ),
-                                    },
-                                    {
-                                        value: 'agents',
-                                        label: (
-                                            <Group gap="xs" wrap="nowrap">
-                                                <MantineIcon
-                                                    icon={IconRobotFace}
-                                                />
-                                                <Text fz="sm">
-                                                    {t(
-                                                        'ai_agent_form_setup_admin.admin_layout.agents',
-                                                    )}
-                                                </Text>
-                                            </Group>
-                                        ),
-                                    },
-                                ]}
-                            />
-                            {activeTab === 'threads' && (
-                                <LinkButton
-                                    href="/ai-agents"
-                                    leftIcon={IconMessageCircleShare}
-                                    variant="default"
-                                    radius="md"
-                                >
+                                variant="outline"
+                                color="orange.6"
+                                bg="orange.0"
+                                title={t(
+                                    'ai_agent_form_setup_admin.admin_layout.ai_features_disabled.title',
+                                )}
+                            >
+                                <Text c="gray.7" size="xs">
                                     {t(
-                                        'ai_agent_form_setup_admin.admin_layout.new_thread',
+                                        'ai_agent_form_setup_admin.admin_layout.ai_features_disabled.description',
                                     )}
-                                </LinkButton>
-                            )}
-                            {activeTab === 'agents' && (
-                                <LinkButton
-                                    href="/ai-agents/new"
-                                    leftIcon={IconRobotFace}
-                                    variant="default"
-                                    radius="md"
-                                >
-                                    {t(
-                                        'ai_agent_form_setup_admin.admin_layout.new_agent',
-                                    )}
-                                </LinkButton>
-                            )}
-                        </Group>
+                                </Text>
+                            </Alert>
+                        </Paper>
+                    )}
+
+                    <Group justify="space-between" my="sm">
+                        <SegmentedControl
+                            size="xs"
+                            radius="md"
+                            value={activeTab}
+                            onChange={(value) => {
+                                if (value === 'agents') {
+                                    handleCloseSidebar();
+                                }
+                                void navigate(`/ai-agents/admin/${value}`);
+                            }}
+                            data={[
+                                {
+                                    value: 'threads',
+                                    label: (
+                                        <Group gap="xs" wrap="nowrap">
+                                            <MantineIcon
+                                                icon={IconMessageCircle}
+                                            />
+                                            <Text fz="sm">{t(
+                                                'ai_agent_form_setup_admin.admin_layout.threads',
+                                            )}</Text>
+                                        </Group>
+                                    ),
+                                },
+                                {
+                                    value: 'agents',
+                                    label: (
+                                        <Group gap="xs" wrap="nowrap">
+                                            <MantineIcon icon={IconRobotFace} />
+                                            <Text fz="sm">{t(
+                                                'ai_agent_form_setup_admin.admin_layout.agents',
+                                            )}</Text>
+                                        </Group>
+                                    ),
+                                },
+                            ]}
+                        />
+                        {activeTab === 'threads' && (
+                            <LinkButton
+                                href="/ai-agents"
+                                leftIcon={IconMessageCircleShare}
+                                variant="default"
+                                radius="md"
+                            >
+                                {t(
+                                    'ai_agent_form_setup_admin.admin_layout.new_thread',
+                                )}
+                            </LinkButton>
+                        )}
+                        {activeTab === 'agents' && (
+                            <LinkButton
+                                href="/ai-agents/new"
+                                leftIcon={IconRobotFace}
+                                variant="default"
+                                radius="md"
+                            >
+                                {t(
+                                    'ai_agent_form_setup_admin.admin_layout.new_agent',
+                                )}
+                            </LinkButton>
+                        )}
                     </Group>
 
                     {activeTab === 'threads' ? (

@@ -5,7 +5,7 @@ import {
 } from '../../followUpTools';
 import { AiResultType } from '../../types';
 import { customMetricsSchema } from '../customMetrics';
-import { filtersSchema, filtersSchemaTransformed } from '../filters';
+import { filtersSchemaTransformed, filtersSchemaV2 } from '../filters';
 import { baseOutputMetadataSchema } from '../outputMetadata';
 import { tableCalcsSchema } from '../tableCalcs/tableCalcs';
 import { createToolSchema } from '../toolSchemaBuilder';
@@ -14,16 +14,16 @@ import { verticalBarMetricVizConfigSchema } from '../visualizations';
 
 export const TOOL_VERTICAL_BAR_VIZ_DESCRIPTION = `Use this tool to generate a Bar Chart Visualization.`;
 
-export const toolVerticalBarArgsSchema = createToolSchema(
-    AiResultType.VERTICAL_BAR_RESULT,
-    TOOL_VERTICAL_BAR_VIZ_DESCRIPTION,
-)
+export const toolVerticalBarArgsSchema = createToolSchema({
+    type: AiResultType.VERTICAL_BAR_RESULT,
+    description: TOOL_VERTICAL_BAR_VIZ_DESCRIPTION,
+})
     .extend({
         ...visualizationMetadataSchema.shape,
         customMetrics: customMetricsSchema,
         tableCalculations: tableCalcsSchema,
         vizConfig: verticalBarMetricVizConfigSchema,
-        filters: filtersSchema
+        filters: filtersSchemaV2
             .nullable()
             .describe(
                 'Filters to apply to the query. Filtered fields must exist in the selected explore or should be referenced from the custom metrics.',
@@ -56,10 +56,10 @@ export const toolVerticalBarArgsSchemaTransformed = toolVerticalBarArgsSchema
                 z.literal(LegacyFollowUpTools.GENERATE_TIME_SERIES_VIZ),
             ]),
         ),
+        filters: filtersSchemaTransformed,
     })
     .transform((data) => ({
         ...data,
-        filters: filtersSchemaTransformed.parse(data.filters),
         followUpTools: legacyFollowUpToolsTransform(data.followUpTools),
     }));
 

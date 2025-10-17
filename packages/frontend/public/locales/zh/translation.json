@@ -360,7 +360,9 @@
         "no_template_available": "没有可用的模板",
         "type": "类型",
         "field": "字段",
-        "orderBy": "排序"
+        "orderBy": "排序",
+        "window_function": "窗口函数",
+        "partition_by": "分区"
     },
 
     "features_omnibar": {
@@ -2357,7 +2359,8 @@
             "select_column_placeholder": "搜索列...",
             "select_column_sql": "SQL 列",
             "tooltip_reset": {
-                "label": "重置为原始值"
+                "label": "重置为原始值",
+                "reset": "重置筛选器为原始值"
             },
             "tooltip_filter_field": {
                 "label": "需要筛选字段和值",
@@ -3380,7 +3383,10 @@
         },
         "branch": {
             "loading_branch": "加载 Git 分支...",
-            "select_branch": "选择分支"
+            "select_branch": "选择分支",
+            "failed_to_load_branches": "加载 Git 分支失败",
+            "description": "项目将使用默认分支。",
+            "failed_to_load_branches_description": "无法获取分支"
         },
         "schema": {
             "label": "Schema/Dataset",
@@ -4979,7 +4985,8 @@
         "configure": "配置",
         "config_tabs": {
             "general": "常规",
-            "conditional_formating": "条件格式化"
+            "conditional_formating": "条件格式化",
+            "bar_display": "条形图显示"
         }
     },
     "components_visualization_configs_treemap": {
@@ -5019,6 +5026,11 @@
                 "max_color": "最大颜色"
             }
         }
+    },
+    "components_visualization_configs_bar_chart_display": {
+        "no_numeric_columns_available": "没有可用的数字列用于条形图显示",
+        "bar_chart_columns": "条形图列",
+        "display_numeric_values_as_bar_charts": "显示数字值为条形图"
     },
     "components_visualization_configs_custom_vis": {
         "placeholder": "开始输入您的 Vega-Lite JSON代码或从我们的预构建模板中选择以创建您的图表。",
@@ -5141,7 +5153,8 @@
         "copy_custom_metric": "自定义指标复制成功",
         "duplicate_custom_metric": "复制自定义指标",
         "copy_custom_dimension": "自定义维度复制成功",
-        "duplicate_custom_dimension": "复制自定义维度"
+        "duplicate_custom_dimension": "复制自定义维度",
+        "no_description_available": "暂无描述。"
     },
     "components_explorer_table_metric_type_labels": {
         "count_distinct": "去重计数",
@@ -5682,7 +5695,16 @@
             "percent_of_previous_value": "前一个值的百分比",
             "percent_of_column_total": "列总数的百分比",
             "rank_in_column": "列中的排名",
-            "running_total": "运行总计"
+            "running_total": "运行总计",
+            "window_function": "窗口函数"
+        },
+        "type_descriptions": {
+            "percent_change_from_previous": "计算前一个值的百分比变化。",
+            "percent_of_previous_value": "显示当前值作为前一个值的百分比。",
+            "percent_of_column_total": "显示每个值作为列总数的百分比。",
+            "rank_in_column": "在列中排名。",
+            "running_total": "计算运行总计。",
+            "window_function": "应用 SQL 窗口函数（例如 ROW_NUMBER、PERCENT_RANK）到结果集。"
         }
     },
     "components_common_resource_view_grid": {
@@ -8399,6 +8421,7 @@
             "threads": "{{total}} 个线程"
         },
         "admin_layout": {
+            "ai_agents_admin_panel": "AI 代理管理面板",
             "no_access": {
                 "title": "您没有访问此页面的权限",
                 "description": "您必须是组织管理员才能访问此页面。"
@@ -8410,7 +8433,11 @@
             "agents": "代理",
             "new_thread": "新线程",
             "new_agent": "新代理",
-            "ai_agents_insights": "AI 代理洞察"
+            "ai_agents_insights": "AI 代理洞察",
+            "ai_features_disabled": {
+                "title": "所有用户当前禁用的 AI 功能",
+                "description": "主页和导航栏上的 AI 功能已关闭。用户无法与 AI 代理交互，直到您使用上方切换重新启用此功能。"
+            }
         },
         "analytics_embed_dashboard": {
             "unable_to_load_analytics_dashboard": "无法加载分析看板",

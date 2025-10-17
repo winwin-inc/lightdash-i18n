@@ -2,17 +2,18 @@ import {
     applyCustomFormat,
     assertUnreachable,
     CartesianSeriesType,
+    createStack100TooltipFormatter,
     DimensionType,
     formatItemValue,
     formatValueWithExpression,
     friendlyName,
+    getCartesianAxisFormatterConfig as getAxisFormatterConfig,
     getAxisName,
     getCustomFormatFromLegacy,
     getDateGroupLabel,
     getItemLabelWithoutTableName,
     getItemType,
     getResultValueArray,
-    hasFormatting,
     hashFieldReference,
     hasValidFormatExpression,
     isCompleteLayout,
@@ -24,11 +25,11 @@ import {
     isMetric,
     isPivotReferenceWithValues,
     isTableCalculation,
-    isTimeInterval,
     MetricType,
+    StackType,
     TableCalculationType,
-    timeFrameConfigs,
     TimeFrames,
+    transformToPercentageStacking,
     XAxisSortType,
     type CartesianChart,
     type CustomDimension,
@@ -40,6 +41,7 @@ import {
     type ResultRow,
     type Series,
     type TableCalculation,
+    type TooltipParam,
 } from '@lightdash/common';
 import { useMantineTheme } from '@mantine/core';
 import dayjs from 'dayjs';
@@ -1086,135 +1088,6 @@ const getEchartAxes = ({
         [true, true],
     );
 
-    const getAxisFormatter = ({
-        axisItem,
-        longestLabelWidth,
-        rotate,
-        defaultNameGap,
-    }: {
-        axisItem: ItemsMap[string] | undefined;
-        longestLabelWidth?: number;
-        rotate?: number;
-        defaultNameGap?: number;
-    }) => {
-        const isTimestamp =
-            isField(axisItem) &&
-            (axisItem.type === DimensionType.DATE ||
-                axisItem.type === DimensionType.TIMESTAMP);
-        // Only apply axis formatting if the axis is NOT a date or timestamp
-        const hasFormattingConfig = !isTimestamp && hasFormatting(axisItem);
-        const axisMinInterval =
-            isDimension(axisItem) &&
-            axisItem.timeInterval &&
-            isTimeInterval(axisItem.timeInterval) &&
-            timeFrameConfigs[axisItem.timeInterval].getAxisMinInterval();
-
-        const axisLabelFormatter =
-            isDimension(axisItem) &&
-            axisItem.timeInterval &&
-            isTimeInterval(axisItem.timeInterval) &&
-            timeFrameConfigs[axisItem.timeInterval].getAxisLabelFormatter();
-
-        const axisConfig: Record<string, any> = {};
-
-        if (axisItem && (hasFormattingConfig || axisMinInterval)) {
-            axisConfig.axisLabel = {
-                formatter: (value: any) => {
-                    return formatItemValue(axisItem, value, true);
-                },
-            };
-            axisConfig.axisPointer = {
-                label: {
-                    formatter: (value: any) => {
-                        return formatItemValue(axisItem, value.value, true);
-                    },
-                },
-            };
-        } else if (axisLabelFormatter) {
-            axisConfig.axisLabel = {
-                formatter: axisLabelFormatter,
-                rich: {
-                    bold: {
-                        fontWeight: 'bold',
-                    },
-                },
-            };
-            axisConfig.axisPointer = {
-                label: {
-                    formatter: (value: any) => {
-                        return formatItemValue(axisItem, value.value, true);
-                    },
-                },
-            };
-        } else if (
-            axisItem !== undefined &&
-            isTableCalculation(axisItem) &&
-            axisItem.type === undefined
-        ) {
-            axisConfig.axisLabel = {
-                formatter: (value: any) => {
-                    return formatItemValue(axisItem, value);
-                },
-            };
-            axisConfig.axisPointer = {
-                label: {
-                    formatter: (value: any) => {
-                        return formatItemValue(axisItem, value.value);
-                    },
-                },
-            };
-        } else if (
-            axisItem &&
-            isDimension(axisItem) &&
-            axisItem.timeInterval &&
-            isTimeInterval(axisItem.timeInterval)
-        ) {
-            // Some int numbers are converted to float by default on echarts
-            // This is to ensure the value is correctly formatted on some types
-            switch (axisItem.timeInterval) {
-                case TimeFrames.WEEK_NUM:
-                case TimeFrames.WEEK:
-                    axisConfig.axisLabel = {
-                        formatter: (value: any) => {
-                            return formatItemValue(axisItem, value, true);
-                        },
-                    };
-                    axisConfig.axisPointer = {
-                        label: {
-                            formatter: (value: any) => {
-                                return formatItemValue(
-                                    axisItem,
-                                    value.value,
-                                    true,
-                                );
-                            },
-                        },
-                    };
-                    break;
-                default:
-            }
-        }
-        if (axisMinInterval) {
-            axisConfig.minInterval = axisMinInterval;
-        }
-
-        axisConfig.nameGap = defaultNameGap || 0;
-        if (rotate) {
-            const rotateRadians = (rotate * Math.PI) / 180;
-            const oppositeSide =
-                (longestLabelWidth || 0) * Math.sin(rotateRadians);
-            axisConfig.axisLabel = axisConfig.axisLabel || {};
-            axisConfig.axisLabel.rotate = rotate;
-            axisConfig.axisLabel.margin = 12;
-            axisConfig.nameGap = oppositeSide + 15;
-        } else {
-            axisConfig.axisLabel = axisConfig.axisLabel || {};
-            axisConfig.axisLabel.hideOverlap = true;
-        }
-
-        return axisConfig;
-    };
-
     const showGridX = !!validCartesianConfig.layout.showGridX;
     const showGridY =
         validCartesianConfig.layout.showGridY !== undefined
@@ -1437,17 +1310,31 @@ const getEchartAxes = ({
                   maxValue: undefined,
               };
 
+    // Check if 100% stacking is enabled
+    const stackValue = validCartesianConfig.layout?.stack;
+    const shouldStack100 = stackValue === StackType.PERCENT;
+
     const bottomAxisBounds = getMinAndMaxFromBottomAxisBounds(
         bottomAxisType,
         bottomAxisMinValue,
         bottomAxisMaxValue,
     );
 
+    // For 100% stacking with flipped axes, set X-axis max to 100
+    const maxXAxisValue =
+        bottomAxisType === 'value'
+            ? shouldStack100 && validCartesianConfig.layout.flipAxes
+                ? 100 // For 100% stacking with flipped axes, max is always 100
+                : bottomAxisBounds.max
+            : undefined;
+
     const maxYAxisValue =
         leftAxisType === 'value'
-            ? yAxisConfiguration?.[0]?.max ||
-              referenceLineMaxLeftY ||
-              maybeGetAxisDefaultMaxValue(allowFirstAxisDefaultRange)
+            ? shouldStack100 && !validCartesianConfig.layout.flipAxes
+                ? 100 // For 100% stacking without flipped axes, max is always 100
+                : yAxisConfiguration?.[0]?.max ||
+                  referenceLineMaxLeftY ||
+                  maybeGetAxisDefaultMaxValue(allowFirstAxisDefaultRange)
             : undefined;
 
     const minYAxisValue =
@@ -1461,57 +1348,79 @@ const getEchartAxes = ({
         xAxis: [
             {
                 type: bottomAxisType,
-                show: showXAxis,
-                name: validCartesianConfig.layout.flipAxes
-                    ? getAxisName({
-                          isAxisTheSameForAllSeries,
-                          selectedAxisIndex,
-                          axisIndex: 0,
-                          axisReference: 'yRef',
-                          axisName: xAxisConfiguration?.[0]?.name,
-                          itemsMap,
-                          series: validCartesianConfig.eChartsConfig.series,
-                      })
-                    : xAxisConfiguration?.[0]?.name ||
-                      (xAxisItem
-                          ? getDateGroupLabel(xAxisItem) ||
-                            getItemLabelWithoutTableName(xAxisItem)
-                          : undefined),
-                nameLocation: 'center',
-                nameTextStyle: {
-                    fontWeight: 'bold',
-                },
-                ...getAxisFormatter({
+                ...(showXAxis
+                    ? {
+                          name: validCartesianConfig.layout.flipAxes
+                              ? getAxisName({
+                                    isAxisTheSameForAllSeries,
+                                    selectedAxisIndex,
+                                    axisIndex: 0,
+                                    axisReference: 'yRef',
+                                    axisName: xAxisConfiguration?.[0]?.name,
+                                    itemsMap,
+                                    series: validCartesianConfig.eChartsConfig
+                                        .series,
+                                })
+                              : xAxisConfiguration?.[0]?.name ||
+                                (xAxisItem
+                                    ? getDateGroupLabel(xAxisItem) ||
+                                      getItemLabelWithoutTableName(xAxisItem)
+                                    : undefined),
+                          nameLocation: 'center',
+                          nameTextStyle: {
+                              fontWeight: 'bold',
+                          },
+                      }
+                    : {}),
+                ...getAxisFormatterConfig({
                     axisItem: bottomAxisXField,
                     longestLabelWidth: calculateWidthText(
                         longestValueXAxisBottom,
                     ),
                     rotate: xAxisConfiguration?.[0]?.rotate,
                     defaultNameGap: 30,
+                    show: showXAxis,
                 }),
                 splitLine: {
                     show: validCartesianConfig.layout.flipAxes
                         ? showGridY
                         : showGridX,
                 },
+                // Override formatter for 100% stacking with flipped axes
+                ...(shouldStack100 &&
+                    validCartesianConfig.layout.flipAxes &&
+                    showXAxis && {
+                        axisLabel: {
+                            formatter: '{value}%',
+                        },
+                    }),
                 inverse: !!xAxisConfiguration?.[0].inverse,
                 ...bottomAxisExtraConfig,
-                ...bottomAxisBounds,
+                min: bottomAxisBounds.min,
+                max: maxXAxisValue,
             },
             {
                 type: topAxisType,
-                show: showXAxis,
-                name: validCartesianConfig.layout.flipAxes
-                    ? getAxisName({
-                          isAxisTheSameForAllSeries,
-                          selectedAxisIndex,
-                          axisIndex: 1,
-                          axisReference: 'yRef',
-                          axisName: xAxisConfiguration?.[1]?.name,
-                          itemsMap,
-                          series: validCartesianConfig.eChartsConfig.series,
-                      })
-                    : undefined,
+                ...(showXAxis
+                    ? {
+                          name: validCartesianConfig.layout.flipAxes
+                              ? getAxisName({
+                                    isAxisTheSameForAllSeries,
+                                    selectedAxisIndex,
+                                    axisIndex: 1,
+                                    axisReference: 'yRef',
+                                    axisName: xAxisConfiguration?.[1]?.name,
+                                    itemsMap,
+                                    series: validCartesianConfig.eChartsConfig
+                                        .series,
+                                })
+                              : undefined,
+                          nameLocation: 'center',
+                          nameTextStyle: {
+                              fontWeight: 'bold',
+                          },
+                      }
+                    : {}),
                 min:
                     topAxisType === 'value'
                         ? xAxisConfiguration?.[1]?.min ||
@@ -1526,15 +1435,12 @@ const getEchartAxes = ({
                               allowSecondAxisDefaultRange,
                           )
                         : undefined,
-                nameLocation: 'center',
-                ...getAxisFormatter({
+                ...getAxisFormatterConfig({
                     axisItem: topAxisXField,
                     longestLabelWidth: calculateWidthText(longestValueXAxisTop),
                     defaultNameGap: 30,
+                    show: showXAxis,
                 }),
-                nameTextStyle: {
-                    fontWeight: 'bold',
-                },
                 splitLine: {
                     show: isAxisTheSameForAllSeries,
                 },
@@ -1544,33 +1450,46 @@ const getEchartAxes = ({
         yAxis: [
             {
                 type: leftAxisType,
-                show: showYAxis,
-                name: validCartesianConfig.layout.flipAxes
-                    ? yAxisConfiguration?.[0]?.name ||
-                      (yAxisItem
-                          ? getDateGroupLabel(yAxisItem) ||
-                            getItemLabelWithoutTableName(yAxisItem)
-                          : undefined)
-                    : getAxisName({
-                          isAxisTheSameForAllSeries,
-                          selectedAxisIndex,
-                          axisIndex: 0,
-                          axisReference: 'yRef',
-                          axisName: yAxisConfiguration?.[0]?.name,
-                          itemsMap,
-                          series: validCartesianConfig.eChartsConfig.series,
-                      }),
+                ...(showYAxis
+                    ? {
+                          name: validCartesianConfig.layout.flipAxes
+                              ? yAxisConfiguration?.[0]?.name ||
+                                (yAxisItem
+                                    ? getDateGroupLabel(yAxisItem) ||
+                                      getItemLabelWithoutTableName(yAxisItem)
+                                    : undefined)
+                              : getAxisName({
+                                    isAxisTheSameForAllSeries,
+                                    selectedAxisIndex,
+                                    axisIndex: 0,
+                                    axisReference: 'yRef',
+                                    axisName: yAxisConfiguration?.[0]?.name,
+                                    itemsMap,
+                                    series: validCartesianConfig.eChartsConfig
+                                        .series,
+                                }),
+                          nameLocation: 'center',
+                          nameTextStyle: {
+                              fontWeight: 'bold',
+                              align: 'center',
+                          },
+                      }
+                    : {}),
                 min: minYAxisValue,
                 max: maxYAxisValue,
-                nameTextStyle: {
-                    fontWeight: 'bold',
-                    align: 'center',
-                },
-                nameLocation: 'center',
-                ...getAxisFormatter({
+                ...getAxisFormatterConfig({
                     axisItem: leftAxisYField,
                     defaultNameGap: leftYaxisGap + defaultAxisLabelGap,
+                    show: showYAxis,
                 }),
+                // Override formatter for 100% stacking without flipped axes
+                ...(shouldStack100 &&
+                    !validCartesianConfig.layout.flipAxes &&
+                    showYAxis && {
+                        axisLabel: {
+                            formatter: '{value}%',
+                        },
+                    }),
                 splitLine: {
                     show: validCartesianConfig.layout.flipAxes
                         ? showGridX
@@ -1581,18 +1500,28 @@ const getEchartAxes = ({
             },
             {
                 type: rightAxisType,
-                show: showYAxis,
-                name: validCartesianConfig.layout.flipAxes
-                    ? yAxisConfiguration?.[1]?.name
-                    : getAxisName({
-                          isAxisTheSameForAllSeries,
-                          selectedAxisIndex,
-                          axisIndex: 1,
-                          axisReference: 'yRef',
-                          axisName: yAxisConfiguration?.[1]?.name,
-                          itemsMap,
-                          series: validCartesianConfig.eChartsConfig.series,
-                      }),
+                ...(showYAxis
+                    ? {
+                          name: validCartesianConfig.layout.flipAxes
+                              ? yAxisConfiguration?.[1]?.name
+                              : getAxisName({
+                                    isAxisTheSameForAllSeries,
+                                    selectedAxisIndex,
+                                    axisIndex: 1,
+                                    axisReference: 'yRef',
+                                    axisName: yAxisConfiguration?.[1]?.name,
+                                    itemsMap,
+                                    series: validCartesianConfig.eChartsConfig
+                                        .series,
+                                }),
+                          nameLocation: 'center',
+                          nameRotate: -90,
+                          nameTextStyle: {
+                              fontWeight: 'bold',
+                              align: 'center',
+                          },
+                      }
+                    : {}),
                 min:
                     rightAxisType === 'value'
                         ? yAxisConfiguration?.[1]?.min ||
@@ -1609,16 +1538,11 @@ const getEchartAxes = ({
                               allowSecondAxisDefaultRange,
                           )
                         : undefined,
-                nameTextStyle: {
-                    fontWeight: 'bold',
-                    align: 'center',
-                },
-                ...getAxisFormatter({
+                ...getAxisFormatterConfig({
                     axisItem: rightAxisYField,
                     defaultNameGap: rightYaxisGap + defaultAxisLabelGap,
+                    show: showYAxis,
                 }),
-                nameLocation: 'center',
-                nameRotate: -90,
                 splitLine: {
                     show: isAxisTheSameForAllSeries,
                 },
@@ -1915,6 +1839,7 @@ const useEchartsCartesianConfig = (
 
         try {
             if (!itemsMap) return results;
+            // Get the field that represents the X-axis visually
             const xFieldId = validCartesianConfig?.layout.flipAxes
                 ? validCartesianConfig?.layout?.yField?.[0]
                 : validCartesianConfig?.layout?.xField;
@@ -2007,6 +1932,119 @@ const useEchartsCartesianConfig = (
         resultsData?.metricQuery?.sorts,
     ]);
 
+    const sortedResultsByTotals = useMemo(() => {
+        if (!stackedSeriesWithColorAssignments?.length) return sortedResults;
+
+        const axis = validCartesianConfig?.layout.flipAxes
+            ? axes.yAxis[0]
+            : axes.xAxis[0];
+
+        const xFieldId = validCartesianConfig?.layout?.xField;
+        const xAxisConfig = validCartesianConfig?.eChartsConfig.xAxis?.[0];
+
+        if (
+            xFieldId &&
+            axis?.type === 'category' &&
+            xAxisConfig?.sortType === XAxisSortType.BAR_TOTALS
+        ) {
+            const stackTotalValueIndex = validCartesianConfig?.layout.flipAxes
+                ? 1
+                : 0;
+
+            const stackTotals = getStackTotalRows(
+                rows,
+                stackedSeriesWithColorAssignments,
+                validCartesianConfig?.layout.flipAxes,
+                validCartesianConfigLegend,
+            );
+
+            // Using entries since we cannot use a map here (cannot index with unknown)
+            // Also grouping by here since when there are no groups in the config we need to calculate the totals for bar
+            const stackTotalEntries: [unknown, number][] = Object.entries(
+                groupBy(stackTotals, (total) => total[stackTotalValueIndex]),
+            ).reduce<[unknown, number][]>((acc, [key, totals]) => {
+                acc.push([
+                    key,
+                    totals.reduce((sum, total) => sum + total[2], 0),
+                ]);
+
+                return acc;
+            }, []);
+
+            return sortedResults.sort((a, b) => {
+                const totalA =
+                    stackTotalEntries.find(
+                        (entry) => entry[0] === a[xFieldId],
+                    )?.[1] ?? 0;
+
+                const totalB =
+                    stackTotalEntries.find(
+                        (entry) => entry[0] === b[xFieldId],
+                    )?.[1] ?? 0;
+
+                return totalA - totalB; // Asc/Desc will be taken care of by inverse config
+            });
+        }
+
+        return sortedResults;
+    }, [
+        stackedSeriesWithColorAssignments,
+        sortedResults,
+        validCartesianConfig?.layout.flipAxes,
+        validCartesianConfig?.layout?.xField,
+        validCartesianConfig?.eChartsConfig.xAxis,
+        axes.yAxis,
+        axes.xAxis,
+        rows,
+        validCartesianConfigLegend,
+    ]);
+
+    // Apply 100% stacking transformation if needed
+    const { dataToRender, originalValues } = useMemo(() => {
+        const stackValue = validCartesianConfig?.layout?.stack;
+        const shouldStack100 = stackValue === StackType.PERCENT;
+        // For grouping in 100% stacking, always use the dimension field (xField)
+        // regardless of whether axes are flipped
+        const xFieldId = validCartesianConfig?.layout?.xField;
+
+        if (
+            !shouldStack100 ||
+            !xFieldId ||
+            !stackedSeriesWithColorAssignments
+        ) {
+            return {
+                dataToRender: sortedResultsByTotals,
+                originalValues: undefined,
+            };
+        }
+
+        // Collect all y-field hashes from stacked series
+        const yFieldRefs = stackedSeriesWithColorAssignments
+            .filter((serie) => serie.stack && serie.encode)
+            .map((serie) =>
+                validCartesianConfig?.layout.flipAxes
+                    ? serie.encode!.x
+                    : serie.encode!.y,
+            )
+            .filter((hash): hash is string => !!hash);
+
+        // Use shared transformation utility
+        const { transformedResults, originalValues: originalValuesMap } =
+            transformToPercentageStacking(sortedResults, xFieldId, yFieldRefs);
+
+        return {
+            dataToRender: transformedResults,
+            originalValues: originalValuesMap,
+        };
+    }, [
+        sortedResults,
+        validCartesianConfig?.layout?.stack,
+        validCartesianConfig?.layout?.xField,
+        validCartesianConfig?.layout.flipAxes,
+        stackedSeriesWithColorAssignments,
+        sortedResultsByTotals,
+    ]);
+
     const tooltip = useMemo<TooltipOption>(
         () => ({
             show: true,
@@ -2022,6 +2060,38 @@ const useEchartsCartesianConfig = (
             },
             formatter: (params) => {
                 if (!Array.isArray(params) || !itemsMap) return '';
+
+                // Check if 100% stacking is enabled and we have original values
+                const stackValue = validCartesianConfig?.layout?.stack;
+                const shouldStack100 = stackValue === StackType.PERCENT;
+                // For grouping in 100% stacking, always use the dimension field (xField)
+                const xFieldId = validCartesianConfig?.layout?.xField;
+
+                // Custom formatter for 100% stacking: show percentage and actual count
+                if (shouldStack100 && xFieldId && originalValues) {
+                    const flipAxes = validCartesianConfig?.layout.flipAxes;
+                    const s = createStack100TooltipFormatter(
+                        originalValues,
+                        (param) => {
+                            const { encode, dimensionNames } = param;
+                            if (!dimensionNames || !encode) return undefined;
+
+                            // Get the dimension name (field hash) from encode indices
+                            if (flipAxes) {
+                                return dimensionNames[1];
+                            } else {
+                                // encode.y can be a string, number, or array
+                                const yIndex = Array.isArray(encode.y)
+                                    ? encode.y[0]
+                                    : encode.y;
+                                return typeof yIndex === 'number'
+                                    ? dimensionNames[yIndex]
+                                    : undefined;
+                            }
+                        },
+                    )(params as TooltipParam[]);
+                    return s;
+                }
 
                 const flipAxes = validCartesianConfig?.layout.flipAxes;
                 const getTooltipHeader = () => {
@@ -2147,77 +2217,13 @@ const useEchartsCartesianConfig = (
         [
             itemsMap,
             validCartesianConfig?.layout.flipAxes,
+            validCartesianConfig?.layout?.stack,
+            validCartesianConfig?.layout?.xField,
             tooltipConfig,
             pivotValuesColumnsMap,
+            originalValues,
         ],
     );
-
-    const sortedResultsByTotals = useMemo(() => {
-        if (!stackedSeriesWithColorAssignments?.length) return sortedResults;
-
-        const axis = validCartesianConfig?.layout.flipAxes
-            ? axes.yAxis[0]
-            : axes.xAxis[0];
-
-        const xFieldId = validCartesianConfig?.layout?.xField;
-        const xAxisConfig = validCartesianConfig?.eChartsConfig.xAxis?.[0];
-
-        if (
-            xFieldId &&
-            axis?.type === 'category' &&
-            xAxisConfig?.sortType === XAxisSortType.BAR_TOTALS
-        ) {
-            const stackTotalValueIndex = validCartesianConfig?.layout.flipAxes
-                ? 1
-                : 0;
-
-            const stackTotals = getStackTotalRows(
-                rows,
-                stackedSeriesWithColorAssignments,
-                validCartesianConfig?.layout.flipAxes,
-                validCartesianConfigLegend,
-            );
-
-            // Using entries since we cannot use a map here (cannot index with unknown)
-            // Also grouping by here since when there are no groups in the config we need to calculate the totals for bar
-            const stackTotalEntries: [unknown, number][] = Object.entries(
-                groupBy(stackTotals, (total) => total[stackTotalValueIndex]),
-            ).reduce<[unknown, number][]>((acc, [key, totals]) => {
-                acc.push([
-                    key,
-                    totals.reduce((sum, total) => sum + total[2], 0),
-                ]);
-
-                return acc;
-            }, []);
-
-            return sortedResults.sort((a, b) => {
-                const totalA =
-                    stackTotalEntries.find(
-                        (entry) => entry[0] === a[xFieldId],
-                    )?.[1] ?? 0;
-
-                const totalB =
-                    stackTotalEntries.find(
-                        (entry) => entry[0] === b[xFieldId],
-                    )?.[1] ?? 0;
-
-                return totalA - totalB; // Asc/Desc will be taken care of by inverse config
-            });
-        }
-
-        return sortedResults;
-    }, [
-        stackedSeriesWithColorAssignments,
-        sortedResults,
-        validCartesianConfig?.layout.flipAxes,
-        validCartesianConfig?.layout?.xField,
-        validCartesianConfig?.eChartsConfig.xAxis,
-        axes.yAxis,
-        axes.xAxis,
-        rows,
-        validCartesianConfigLegend,
-    ]);
 
     const currentGrid = useMemo(() => {
         const grid = {
@@ -2276,7 +2282,7 @@ const useEchartsCartesianConfig = (
             legend: legendConfigWithInstructionsTooltip,
             dataset: {
                 id: 'lightdashResults',
-                source: sortedResultsByTotals,
+                source: dataToRender,
             },
             tooltip,
             grid: currentGrid,
@@ -2293,7 +2299,7 @@ const useEchartsCartesianConfig = (
             isInDashboard,
             minimal,
             legendConfigWithInstructionsTooltip,
-            sortedResultsByTotals,
+            dataToRender,
             tooltip,
             theme?.other.chartFont,
             currentGrid,

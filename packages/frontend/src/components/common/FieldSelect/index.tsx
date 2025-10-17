@@ -21,6 +21,7 @@ import {
 import { forwardRef, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import FieldIcon from '../Filters/FieldIcon';
+import { FILTER_SELECT_LIMIT } from '../Filters/constants';
 
 interface ItemComponentProps extends React.ComponentPropsWithoutRef<'div'> {
     item: Item;
@@ -220,6 +221,7 @@ const FieldSelect = <T extends Item = Item>({
 
     return (
         <Select
+            limit={FILTER_SELECT_LIMIT}
             ref={inputRef}
             w="100%"
             searchable

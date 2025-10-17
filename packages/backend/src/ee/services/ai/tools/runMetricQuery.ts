@@ -51,23 +51,37 @@ export const getRunMetricQuery = ({
             vizTool.vizConfig.dimensions,
             'dimension',
         );
-        validateFieldEntityType(explore, vizTool.vizConfig.metrics, 'metric');
+        validateFieldEntityType(
+            explore,
+            vizTool.vizConfig.metrics,
+            'metric',
+            vizTool.customMetrics,
+        );
         validateCustomMetricsDefinition(explore, vizTool.customMetrics);
-        validateFilterRules(explore, filterRules, vizTool.customMetrics);
+        validateFilterRules(
+            explore,
+            filterRules,
+            vizTool.customMetrics,
+            vizTool.tableCalculations,
+        );
         validateMetricDimensionFilterPlacement(
             explore,
-            vizTool.filters,
             vizTool.customMetrics,
+            vizTool.tableCalculations,
+            vizTool.filters,
         );
         validateSelectedFieldsExistence(
             explore,
             vizTool.vizConfig.sorts.map((sort) => sort.fieldId),
+            vizTool.customMetrics,
+            vizTool.tableCalculations,
         );
         validateSortFieldsAreSelected(
             vizTool.vizConfig.sorts,
             vizTool.vizConfig.dimensions,
             vizTool.vizConfig.metrics,
             vizTool.customMetrics,
+            vizTool.tableCalculations,
         );
     };
 

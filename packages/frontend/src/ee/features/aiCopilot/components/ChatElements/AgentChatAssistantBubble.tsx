@@ -77,6 +77,9 @@ const AssistantBubbleContent: FC<{
 
     const hasStreamingError =
         streamingState?.error && streamingState?.messageUuid === message.uuid;
+    const hasNoResponse = !isStreaming && !message.message;
+    const shouldShowRetry = hasStreamingError || hasNoResponse;
+
     const messageContent =
         isStreaming && streamingState
             ? streamingState.content
@@ -111,7 +114,7 @@ const AssistantBubbleContent: FC<{
 
     return (
         <>
-            {hasStreamingError && (
+            {shouldShowRetry && (
                 <Paper
                     withBorder
                     radius="md"

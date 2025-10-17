@@ -38,9 +38,12 @@ import { useToggle } from 'react-use';
 import { type ValueOf } from 'type-fest';
 
 import MantineIcon from '../../../components/common/MantineIcon';
-import { FormatForm } from '../../../components/Explorer/FormatForm';
+import {
+    selectCustomDimensions,
+    selectTableCalculations,
+    useExplorerSelector,
+} from '../../../features/explorer/store';
 import useToaster from '../../../hooks/toaster/useToaster';
-import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import { getUniqueTableCalculationName } from '../utils';
 import { SqlForm } from './SqlForm';
 import { TemplateViewer } from './TemplateViewer/TemplateViewer';
@@ -105,14 +108,8 @@ const TableCalculationModal: FC<Props> = ({
     const { t } = useTranslation();
     const { addToastError } = useToaster();
 
-    const tableCalculations = useExplorerContext(
-        (context) =>
-            context.state.unsavedChartVersion.metricQuery.tableCalculations,
-    );
-    const customDimensions = useExplorerContext(
-        (context) =>
-            context.state.unsavedChartVersion.metricQuery.customDimensions,
-    );
+    const tableCalculations = useExplorerSelector(selectTableCalculations);
+    const customDimensions = useExplorerSelector(selectCustomDimensions);
 
     const tableCalculationTypeLabels = useTableCalculationTypeLabels();
 

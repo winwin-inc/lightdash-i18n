@@ -910,7 +910,9 @@ export class CsvService extends BaseService {
         invalidateCache?: boolean;
         schedulerParameters?: ParametersValuesMap;
     }): Promise<AttachmentUrl[]> {
-        const dashboard = await this.dashboardModel.getById(dashboardUuid);
+        const dashboard = await this.dashboardModel.getByIdOrSlug(
+            dashboardUuid,
+        );
 
         const dashboardFilters = overrideDashboardFilters || dashboard.filters;
 
@@ -1305,7 +1307,9 @@ export class CsvService extends BaseService {
         dashboardFilters: DashboardFilters,
         dateZoomGranularity?: DateGranularity,
     ) {
-        const dashboard = await this.dashboardModel.getById(dashboardUuid);
+        const dashboard = await this.dashboardModel.getByIdOrSlug(
+            dashboardUuid,
+        );
         if (
             user.ability.cannot(
                 'manage',
@@ -1354,7 +1358,9 @@ export class CsvService extends BaseService {
             formatted: true,
             limit: 'table',
         };
-        const dashboard = await this.dashboardModel.getById(dashboardUuid);
+        const dashboard = await this.dashboardModel.getByIdOrSlug(
+            dashboardUuid,
+        );
 
         this.logger.info(`Exporting CSVs for dashboard ${dashboardUuid}`);
         const user = await this.userModel.findSessionUserAndOrgByUuid(

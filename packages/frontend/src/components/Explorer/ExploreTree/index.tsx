@@ -1,8 +1,8 @@
 import {
+    FeatureFlags,
     getItemId,
     type AdditionalMetric,
     type CompiledTable,
-    type CustomDimension,
     type Dimension,
     type Explore,
     type Metric,
@@ -18,44 +18,56 @@ import {
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import {
+    memo,
     useCallback,
     useEffect,
     useMemo,
+    useRef,
     useState,
     useTransition,
     type FC,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+    selectActiveFields,
+    selectAdditionalMetrics,
+    selectCustomDimensions,
+    selectMissingCustomDimensions,
+    selectMissingCustomMetrics,
+    selectMissingFieldIds,
+    useExplorerSelector,
+} from '../../../features/explorer/store';
+import { useFeatureFlag } from '../../../hooks/useFeatureFlagEnabled';
 import MantineIcon from '../../common/MantineIcon';
 import TableTree from './TableTree';
 import { getSearchResults } from './TableTree/Tree/utils';
 
 type ExploreTreeProps = {
     explore: Explore;
-    additionalMetrics: AdditionalMetric[];
     onSelectedFieldChange: (fieldId: string, isDimension: boolean) => void;
-    selectedNodes: Set<string>;
-    customDimensions?: CustomDimension[];
-    selectedDimensions?: string[];
-    missingFields?: {
-        all: string[];
-        customDimensions: CustomDimension[] | undefined;
-        customMetrics: AdditionalMetric[] | undefined;
-    };
 };
 
 type Records = Record<string, AdditionalMetric | Dimension | Metric>;
 
-const ExploreTree: FC<ExploreTreeProps> = ({
+const ExploreTreeComponent: FC<ExploreTreeProps> = ({
     explore,
-    additionalMetrics,
-    selectedNodes,
     onSelectedFieldChange,
-    customDimensions,
-    selectedDimensions,
-    missingFields,
 }) => {
     const { t } = useTranslation();
+    
+    const additionalMetrics = useExplorerSelector(selectAdditionalMetrics);
+    const customDimensions = useExplorerSelector(selectCustomDimensions);
+
+    const missingCustomMetrics = useExplorerSelector((state) =>
+        selectMissingCustomMetrics(state, explore),
+    );
+    const missingCustomDimensions = useExplorerSelector((state) =>
+        selectMissingCustomDimensions(state, explore),
+    );
+    const missingFieldIds = useExplorerSelector((state) =>
+        selectMissingFieldIds(state, explore),
+    );
+    const activeFields = useExplorerSelector(selectActiveFields);
 
     const [search, setSearch] = useState<string>('');
     const [isPending, startTransition] = useTransition();
@@ -67,6 +79,13 @@ const ExploreTree: FC<ExploreTreeProps> = ({
         const trimmedSearch = search.trim();
         return !!trimmedSearch && trimmedSearch !== '';
     }, [search]);
+    const scrollAreaViewportRef = useRef<HTMLDivElement>(null);
+    const savedScrollTopRef = useRef<number>(0);
+    const previousActiveFieldsRef = useRef(activeFields);
+
+    const { data: experimentalExplorerImprovements } = useFeatureFlag(
+        FeatureFlags.ExperimentalExplorerImprovements,
+    );
 
     const handleSearchChange = useCallback(
         (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -127,6 +146,35 @@ const ExploreTree: FC<ExploreTreeProps> = ({
             );
     }, [explore, isSearching, searchResultsMap]);
 
+    /**
+     * Preserve scroll position when fields are selected/deselected
+     *
+     * When a field is selected, it gets pinned to the top of the sidebar list.
+     * Without preservation, this DOM reordering causes the scroll to jump back to the top.
+     */
+
+    // Capture scroll position before activeFields changes
+    if (
+        experimentalExplorerImprovements?.enabled &&
+        previousActiveFieldsRef.current !== activeFields &&
+        scrollAreaViewportRef.current
+    ) {
+        savedScrollTopRef.current = scrollAreaViewportRef.current.scrollTop;
+        previousActiveFieldsRef.current = activeFields;
+    }
+
+    // Restore scroll position after DOM updates
+    useEffect(() => {
+        if (!experimentalExplorerImprovements?.enabled) {
+            return;
+        }
+
+        const viewport = scrollAreaViewportRef.current;
+        if (viewport) {
+            viewport.scrollTop = savedScrollTopRef.current;
+        }
+    }, [activeFields, experimentalExplorerImprovements]);
+
     return (
         <>
             <TextInput
@@ -154,6 +202,7 @@ const ExploreTree: FC<ExploreTreeProps> = ({
                 className="only-vertical"
                 offsetScrollbars
                 scrollbarSize={8}
+                viewportRef={scrollAreaViewportRef}
             >
                 {tableTrees.length > 0 ? (
                     tableTrees.map((table, index) => (
@@ -166,23 +215,11 @@ const ExploreTree: FC<ExploreTreeProps> = ({
                             }
                             table={table}
                             additionalMetrics={additionalMetrics}
-                            selectedItems={selectedNodes}
                             onSelectedNodeChange={onSelectedFieldChange}
                             customDimensions={customDimensions}
-                            missingCustomMetrics={
-                                table.name === explore.baseTable &&
-                                missingFields?.customMetrics
-                                    ? missingFields.customMetrics
-                                    : []
-                            }
-                            missingCustomDimensions={
-                                table.name === explore.baseTable &&
-                                missingFields?.customDimensions
-                                    ? missingFields.customDimensions
-                                    : []
-                            }
-                            missingFields={missingFields}
-                            selectedDimensions={selectedDimensions}
+                            missingCustomMetrics={missingCustomMetrics}
+                            missingCustomDimensions={missingCustomDimensions}
+                            missingFieldIds={missingFieldIds}
                             searchResults={searchResultsMap[table.name]}
                             isSearching={isSearching}
                         />
@@ -198,5 +235,9 @@ const ExploreTree: FC<ExploreTreeProps> = ({
         </>
     );
 };
+
+const ExploreTree = memo(ExploreTreeComponent);
+
+ExploreTree.displayName = 'ExploreTree';
 
 export default ExploreTree;

@@ -396,6 +396,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                     )}
                 >
                     <Button
+                        aria-label={t('components_dashboard_filter.filter_active_filters.reset_all_filters')}
                         size="xs"
                         variant="default"
                         radius="md"

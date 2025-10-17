@@ -1,9 +1,7 @@
 import {
-    getSearchItemTypeFromResultKey,
     getSearchResultId,
     type SearchFilters,
     type SearchItemType,
-    type SearchResults,
 } from '@lightdash/common';
 import {
     ActionIcon,
@@ -50,6 +48,7 @@ import OmnibarFilters from './OmnibarFilters';
 import OmnibarItemGroups from './OmnibarItemGroups';
 import { OmnibarKeyboardNav } from './OmnibarKeyboardNav';
 import OmnibarTarget from './OmnibarTarget';
+import { getSearchResultsGroupsSorted } from './utils';
 
 interface Props {
     projectUuid: string;
@@ -74,11 +73,12 @@ const Omnibar: FC<Props> = ({ projectUuid }) => {
     const [focusedItemIndex, setFocusedItemIndex] =
         useState<FocusedItemIndex>();
 
-    const { data: searchResults, isFetching } = useSearch(
+    const { data: searchResults, isFetching } = useSearch({
         projectUuid,
-        debouncedValue,
-        searchFilters,
-    );
+        query: debouncedValue,
+        filters: searchFilters,
+        source: 'omnibar',
+    });
 
     const [isOmnibarOpen, { open: openOmnibar, close: closeOmnibar }] =
         useDisclosure(false);
@@ -169,25 +169,11 @@ const Omnibar: FC<Props> = ({ projectUuid }) => {
     const hasSearchResults =
         searchResults && !isSearchResultEmpty(searchResults);
 
-    const sortedGroupEntries = useMemo(() => {
-        return searchResults
-            ? Object.entries(searchResults)
-                  .map((items) => {
-                      return [
-                          getSearchItemTypeFromResultKey(
-                              items[0] as keyof SearchResults,
-                          ),
-                          items[1],
-                      ] as [SearchItemType, SearchItem[]];
-                  })
-                  .filter(([_type, items]) => items.length > 0)
-                  .sort(
-                      ([_a, itemsA], [_b, itemsB]) =>
-                          (itemsB[0].searchRank ?? 0) -
-                          (itemsA[0].searchRank ?? 0),
-                  )
-            : [];
-    }, [searchResults]);
+    const sortedGroupEntries = useMemo(
+        () =>
+            searchResults ? getSearchResultsGroupsSorted(searchResults) : [],
+        [searchResults],
+    );
     useEffect(() => {
         setFocusedItemIndex(undefined);
     }, [query, searchFilters]);

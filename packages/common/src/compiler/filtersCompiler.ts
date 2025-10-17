@@ -10,7 +10,7 @@ import {
     isMetric,
     type CompiledCustomSqlDimension,
     type CompiledField,
-    type CompiledTableCalculation,
+    type TableCalculation,
 } from '../types/field';
 import {
     FilterOperator,
@@ -413,7 +413,7 @@ const escapeStringValuesOnFilterRule = (
 
 export const renderTableCalculationFilterRuleSql = (
     filterRule: FilterRule<FilterOperator, unknown>,
-    field: CompiledTableCalculation | undefined,
+    field: TableCalculation | undefined,
     fieldQuoteChar: string,
     stringQuoteChar: string,
     escapeString: (string: string) => string,
@@ -508,7 +508,10 @@ export const renderFilterRuleSql = (
         case MetricType.COUNT_DISTINCT:
         case MetricType.SUM:
         case MetricType.MIN:
-        case MetricType.MAX: {
+        case MetricType.MAX:
+        case MetricType.PERCENT_OF_PREVIOUS:
+        case MetricType.PERCENT_OF_TOTAL:
+        case MetricType.RUNNING_TOTAL: {
             return renderNumberFilterSql(fieldSql, escapedFilterRule);
         }
         case DimensionType.DATE:

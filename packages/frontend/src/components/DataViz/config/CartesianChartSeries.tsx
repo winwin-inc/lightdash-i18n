@@ -1,6 +1,7 @@
 import {
     ECHARTS_DEFAULT_COLORS,
     friendlyName,
+    StackType,
     type AxisSide,
     type CartesianChartDisplay,
     type ChartKind,
@@ -177,15 +178,34 @@ export const CartesianChartSeries = ({
                                             'components_dataviz_config_cartesian_chart.stacked',
                                         ),
                                     },
+                                    {
+                                        value: '100%',
+                                        label: '100%',
+                                    },
                                 ]}
-                                value={
-                                    currentConfig?.display?.stack
-                                        ? 'Stacked'
-                                        : 'None'
-                                }
+                                value={(() => {
+                                    const stackValue =
+                                        currentConfig?.display?.stack;
+                                    if (stackValue === StackType.PERCENT) {
+                                        return '100%';
+                                    }
+                                    if (
+                                        stackValue === StackType.NORMAL ||
+                                        stackValue === true
+                                    ) {
+                                        return 'Stacked';
+                                    }
+                                    return 'None';
+                                })()}
                                 onChange={(value) =>
                                     dispatch(
-                                        actions.setStacked(value === 'Stacked'),
+                                        actions.setStacked(
+                                            value === 'Stacked'
+                                                ? StackType.NORMAL
+                                                : value === '100%'
+                                                ? StackType.PERCENT
+                                                : StackType.NONE,
+                                        ),
                                     )
                                 }
                             />

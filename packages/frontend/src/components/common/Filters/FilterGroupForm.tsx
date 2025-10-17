@@ -34,6 +34,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import MantineIcon from '../MantineIcon';
 import FilterRuleForm from './FilterRuleForm';
+import { FILTER_SELECT_LIMIT } from './constants';
 
 type Props = {
     hideButtons?: boolean;
@@ -174,6 +175,7 @@ const FilterGroupForm: FC<Props> = ({
             <Group spacing="xs">
                 <Box bg="white" pos="relative" style={{ zIndex: 3 }}>
                     <Select
+                        limit={FILTER_SELECT_LIMIT}
                         size="xs"
                         w={70}
                         withinPortal

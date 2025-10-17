@@ -5,7 +5,7 @@ import {
 } from '../../followUpTools';
 import { AiResultType } from '../../types';
 import { customMetricsSchema } from '../customMetrics';
-import { filtersSchema, filtersSchemaTransformed } from '../filters';
+import { filtersSchemaTransformed, filtersSchemaV2 } from '../filters';
 import { baseOutputMetadataSchema } from '../outputMetadata';
 import { tableCalcsSchema } from '../tableCalcs/tableCalcs';
 import { createToolSchema } from '../toolSchemaBuilder';
@@ -14,16 +14,16 @@ import { timeSeriesMetricVizConfigSchema } from '../visualizations/timeSeriesViz
 
 export const TOOL_TIME_SERIES_VIZ_DESCRIPTION = `Use this tool to generate a Time Series Chart.`;
 
-export const toolTimeSeriesArgsSchema = createToolSchema(
-    AiResultType.TIME_SERIES_RESULT,
-    TOOL_TIME_SERIES_VIZ_DESCRIPTION,
-)
+export const toolTimeSeriesArgsSchema = createToolSchema({
+    type: AiResultType.TIME_SERIES_RESULT,
+    description: TOOL_TIME_SERIES_VIZ_DESCRIPTION,
+})
     .extend({
         ...visualizationMetadataSchema.shape,
         customMetrics: customMetricsSchema,
         tableCalculations: tableCalcsSchema,
         vizConfig: timeSeriesMetricVizConfigSchema,
-        filters: filtersSchema
+        filters: filtersSchemaV2
             .nullable()
             .describe(
                 'Filters to apply to the query. Filtered fields must exist in the selected explore or should be referenced from the custom metrics.',
@@ -61,10 +61,10 @@ export const toolTimeSeriesArgsSchemaTransformed = toolTimeSeriesArgsSchema
                 z.literal(LegacyFollowUpTools.GENERATE_BAR_VIZ),
             ]),
         ),
+        filters: filtersSchemaTransformed,
     })
     .transform((data) => ({
         ...data,
-        filters: filtersSchemaTransformed.parse(data.filters),
         followUpTools: legacyFollowUpToolsTransform(data.followUpTools),
     }));
 

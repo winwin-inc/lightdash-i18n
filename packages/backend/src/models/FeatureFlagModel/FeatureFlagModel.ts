@@ -36,7 +36,8 @@ export class FeatureFlagModel {
                 this.getUserGroupsEnabled.bind(this),
             [FeatureFlags.UseSqlPivotResults]:
                 this.getUseSqlPivotResults.bind(this),
-            [FeatureFlags.UseRedux]: this.getUseRedux.bind(this),
+            [FeatureFlags.ExperimentalExplorerImprovements]:
+                this.getExperimentalExplorerImprovements.bind(this),
         };
     }
 
@@ -121,12 +122,15 @@ export class FeatureFlagModel {
         };
     }
 
-    private async getUseRedux({ user, featureFlagId }: FeatureFlagLogicArgs) {
+    private async getExperimentalExplorerImprovements({
+        user,
+        featureFlagId,
+    }: FeatureFlagLogicArgs) {
         const enabled =
-            this.lightdashConfig.useRedux ||
+            this.lightdashConfig.experimentalExplorerImprovements ||
             (user
                 ? await isFeatureFlagEnabled(
-                      FeatureFlags.UseRedux,
+                      FeatureFlags.ExperimentalExplorerImprovements,
                       {
                           userUuid: user.userUuid,
                           organizationUuid: user.organizationUuid,
@@ -137,6 +141,7 @@ export class FeatureFlagModel {
                       },
                   )
                 : false);
+
         return {
             id: featureFlagId,
             enabled,

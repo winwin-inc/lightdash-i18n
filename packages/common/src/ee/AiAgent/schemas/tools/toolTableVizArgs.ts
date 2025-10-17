@@ -5,7 +5,7 @@ import {
 } from '../../followUpTools';
 import { AiResultType } from '../../types';
 import { customMetricsSchema } from '../customMetrics';
-import { filtersSchema, filtersSchemaTransformed } from '../filters';
+import { filtersSchemaTransformed, filtersSchemaV2 } from '../filters';
 import { baseOutputMetadataSchema } from '../outputMetadata';
 import { tableCalcsSchema } from '../tableCalcs/tableCalcs';
 import { createToolSchema } from '../toolSchemaBuilder';
@@ -14,16 +14,16 @@ import { tableVizConfigSchema } from '../visualizations';
 
 export const TOOL_TABLE_VIZ_DESCRIPTION = `Use this tool to query data to display in a table or summarized if limit is set to 1.`;
 
-export const toolTableVizArgsSchema = createToolSchema(
-    AiResultType.TABLE_RESULT,
-    TOOL_TABLE_VIZ_DESCRIPTION,
-)
+export const toolTableVizArgsSchema = createToolSchema({
+    type: AiResultType.TABLE_RESULT,
+    description: TOOL_TABLE_VIZ_DESCRIPTION,
+})
     .extend({
         ...visualizationMetadataSchema.shape,
         customMetrics: customMetricsSchema,
         tableCalculations: tableCalcsSchema,
         vizConfig: tableVizConfigSchema,
-        filters: filtersSchema
+        filters: filtersSchemaV2
             .nullable()
             .describe(
                 'Filters to apply to the query. Filtered fields must exist in the selected explore or should be referenced from the custom metrics.',
@@ -56,10 +56,10 @@ export const toolTableVizArgsSchemaTransformed = toolTableVizArgsSchema
                 z.literal(LegacyFollowUpTools.GENERATE_TIME_SERIES_VIZ),
             ]),
         ),
+        filters: filtersSchemaTransformed,
     })
     .transform((data) => ({
         ...data,
-        filters: filtersSchemaTransformed.parse(data.filters),
         followUpTools: legacyFollowUpToolsTransform(data.followUpTools),
     }));
 

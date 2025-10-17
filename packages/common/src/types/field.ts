@@ -313,12 +313,64 @@ export enum TableCalculationType {
     BOOLEAN = 'boolean',
 }
 
+export enum WindowFunctionType {
+    ROW_NUMBER = 'row_number',
+    PERCENT_RANK = 'percent_rank',
+    CUME_DIST = 'cume_dist',
+    RANK = 'rank',
+    SUM = 'sum',
+    AVG = 'avg',
+    COUNT = 'count',
+    MIN = 'min',
+    MAX = 'max',
+}
+
+export const nillaryWindowFunctions: WindowFunctionType[] = [
+    WindowFunctionType.ROW_NUMBER,
+    WindowFunctionType.PERCENT_RANK,
+    WindowFunctionType.CUME_DIST,
+    WindowFunctionType.RANK,
+];
+
+export const unaryWindowFunctions: WindowFunctionType[] = [
+    WindowFunctionType.SUM,
+    WindowFunctionType.AVG,
+    WindowFunctionType.COUNT,
+    WindowFunctionType.MIN,
+    WindowFunctionType.MAX,
+];
+
+export enum FrameType {
+    ROWS = 'rows',
+    RANGE = 'range',
+}
+
+export enum FrameBoundaryType {
+    UNBOUNDED_PRECEDING = 'unbounded_preceding',
+    PRECEDING = 'preceding',
+    CURRENT_ROW = 'current_row',
+    FOLLOWING = 'following',
+    UNBOUNDED_FOLLOWING = 'unbounded_following',
+}
+
+export type FrameBoundary = {
+    type: FrameBoundaryType;
+    offset?: number; // Required for PRECEDING/FOLLOWING with numeric offset
+};
+
+export type FrameClause = {
+    frameType: FrameType;
+    start?: FrameBoundary; // Optional for single boundary syntax
+    end: FrameBoundary;
+};
+
 export enum TableCalculationTemplateType {
     PERCENT_CHANGE_FROM_PREVIOUS = 'percent_change_from_previous',
     PERCENT_OF_PREVIOUS_VALUE = 'percent_of_previous_value',
     PERCENT_OF_COLUMN_TOTAL = 'percent_of_column_total',
     RANK_IN_COLUMN = 'rank_in_column',
     RUNNING_TOTAL = 'running_total',
+    WINDOW_FUNCTION = 'window_function',
 }
 
 export type TableCalculationTemplate =
@@ -341,6 +393,7 @@ export type TableCalculationTemplate =
     | {
           type: TableCalculationTemplateType.PERCENT_OF_COLUMN_TOTAL;
           fieldId: string;
+          partitionBy: string[];
       }
     | {
           type: TableCalculationTemplateType.RANK_IN_COLUMN;
@@ -349,6 +402,17 @@ export type TableCalculationTemplate =
     | {
           type: TableCalculationTemplateType.RUNNING_TOTAL;
           fieldId: string;
+      }
+    | {
+          type: TableCalculationTemplateType.WINDOW_FUNCTION;
+          windowFunction: WindowFunctionType;
+          fieldId: string | null;
+          orderBy: {
+              fieldId: string;
+              order: 'asc' | 'desc' | null;
+          }[];
+          partitionBy: string[];
+          frame?: FrameClause;
       };
 
 export type TableCalculation = {
@@ -546,6 +610,9 @@ export enum MetricType {
     SUM = 'sum',
     MIN = 'min',
     MAX = 'max',
+    PERCENT_OF_PREVIOUS = 'percent_of_previous',
+    PERCENT_OF_TOTAL = 'percent_of_total',
+    RUNNING_TOTAL = 'running_total',
     NUMBER = 'number',
     MEDIAN = 'median',
     STRING = 'string',
@@ -597,6 +664,12 @@ export const parseMetricType = (metricType: string): MetricType => {
             return MetricType.TIMESTAMP;
         case 'boolean':
             return MetricType.BOOLEAN;
+        case 'percent_of_previous':
+            return MetricType.PERCENT_OF_PREVIOUS;
+        case 'percent_of_total':
+            return MetricType.PERCENT_OF_TOTAL;
+        case 'running_total':
+            return MetricType.RUNNING_TOTAL;
         default:
             throw new Error(
                 `Cannot parse dbt metric with type '${metricType}'`,
@@ -612,6 +685,12 @@ const NonAggregateMetricTypes = [
     MetricType.BOOLEAN,
 ];
 
+export const PostCalculationMetricTypes = [
+    MetricType.PERCENT_OF_PREVIOUS,
+    MetricType.PERCENT_OF_TOTAL,
+    MetricType.RUNNING_TOTAL,
+];
+
 export const isMetric = (
     field: ItemsMap[string] | AdditionalMetric | undefined,
 ): field is Metric =>
@@ -621,6 +700,12 @@ export const isMetric = (
 
 export const isNonAggregateMetric = (field: Field): boolean =>
     isMetric(field) && NonAggregateMetricTypes.includes(field.type);
+
+export const isPostCalculationMetricType = (type: MetricType): boolean =>
+    PostCalculationMetricTypes.includes(type);
+
+export const isPostCalculationMetric = (field: Field): boolean =>
+    isMetric(field) && isPostCalculationMetricType(field.type);
 
 export const isCompiledMetric = (
     field: ItemsMap[string] | AdditionalMetric | undefined,

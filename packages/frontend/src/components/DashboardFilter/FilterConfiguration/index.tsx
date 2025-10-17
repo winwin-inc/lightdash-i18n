@@ -514,6 +514,9 @@ const FilterConfiguration: FC<Props> = ({
                             position="left"
                         >
                             <Button
+                                aria-label={t(
+                                    'components_dashboard_filter.tabs.tooltip_reset.reset',
+                                )}
                                 size="xs"
                                 variant="default"
                                 color="gray"

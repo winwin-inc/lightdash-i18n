@@ -17,6 +17,7 @@ export const useTemplateTypeLabels = (): Record<TableCalculationTemplateType, st
             t('components_explorer_results_card_quick_calculations.type_labels.percent_of_column_total'),
         [TableCalculationTemplateType.RANK_IN_COLUMN]: t('components_explorer_results_card_quick_calculations.type_labels.rank_in_column'),
         [TableCalculationTemplateType.RUNNING_TOTAL]: t('components_explorer_results_card_quick_calculations.type_labels.running_total'),
+        [TableCalculationTemplateType.WINDOW_FUNCTION]: t('components_explorer_results_card_quick_calculations.type_labels.window_function'),
     };
 }
 
@@ -40,6 +41,8 @@ export const useGetTemplateDescription = (): (type: TableCalculationTemplateType
                 return t('components_explorer_results_card_quick_calculations.type_descriptions.rank_in_column');
             case TableCalculationTemplateType.RUNNING_TOTAL:
                 return t('components_explorer_results_card_quick_calculations.type_descriptions.running_total');
+            case TableCalculationTemplateType.WINDOW_FUNCTION:
+                return t('components_explorer_results_card_quick_calculations.type_descriptions.window_function');
             default:
                 return assertUnreachable(type, t('components_explorer_results_card_quick_calculations.type_descriptions.unknown'));
         }

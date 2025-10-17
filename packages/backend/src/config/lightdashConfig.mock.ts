@@ -7,7 +7,6 @@ import { LightdashConfig } from './parseConfig';
 
 export const lightdashConfigMock: LightdashConfig = {
     allowMultiOrgs: false,
-    useRedux: false,
     auth: {
         pat: {
             enabled: false,
@@ -262,4 +261,5 @@ export const lightdashConfigMock: LightdashConfig = {
     customRoles: {
         enabled: false,
     },
+    experimentalExplorerImprovements: false,
 };

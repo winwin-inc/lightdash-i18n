@@ -4,8 +4,11 @@ import {
     booleanFilterSchema,
     CompiledField,
     convertAdditionalMetric,
+    convertAiTableCalcsSchemaToTableCalcs,
     CustomMetricBase,
     dateFilterSchema,
+    DependencyNode,
+    detectCircularDependencies,
     Explore,
     FilterRule,
     Filters,
@@ -19,36 +22,46 @@ import {
     isAdditionalMetric,
     isDimension,
     isMetric,
-    Metric,
+    isTableCalculation,
     MetricType,
+    nillaryWindowFunctions,
     numberFilterSchema,
     renderFilterRuleSql,
     renderFilterRuleSqlFromField,
+    renderTableCalculationFilterRuleSql,
     stringFilterSchema,
     SupportedDbtAdapter,
     TableCalcSchema,
     TableCalcsSchema,
+    TableCalculation,
+    ToolRunQueryArgsTransformed,
     ToolSortField,
     WeekDay,
+    WindowFunctionType,
 } from '@lightdash/common';
 import Logger from '../../../../logging/logger';
 import { populateCustomMetricsSQL } from './populateCustomMetricsSQL';
 import { serializeData } from './serializeData';
 /**
- * Validate that all selected fields exist in the explore
+ * Validate that all selected fields exist in the explore, custom metrics or table calculations
  * @param explore
  * @param selectedFieldIds
+ * @param customMetrics
+ * @param tableCalculations
  */
 export function validateSelectedFieldsExistence(
     explore: Explore,
     selectedFieldIds: string[],
     customMetrics?: (CustomMetricBase | Omit<AdditionalMetric, 'sql'>)[] | null,
+    tableCalculations?: TableCalcsSchema | TableCalculation[],
 ) {
     const exploreFieldIds = getFields(explore).map(getItemId);
     const customMetricIds = customMetrics?.map(getItemId);
+    const tableCalculationNames = tableCalculations?.map((tc) => tc.name);
     const nonExploreFields = selectedFieldIds
         .filter((f) => !exploreFieldIds.includes(f))
-        .filter((f) => !customMetricIds?.includes(f));
+        .filter((f) => !customMetricIds?.includes(f))
+        .filter((f) => !tableCalculationNames?.includes(f));
 
     if (nonExploreFields.length) {
         const errorMessage = `The following fields are neither in the explore nor in the custom metrics.
@@ -145,8 +158,12 @@ export function validateCustomMetricsDefinition(
 
 function validateFilterRule(
     filterRule: FilterRule,
-    field: CompiledField | AdditionalMetric,
+    field: CompiledField | AdditionalMetric | TableCalculation,
 ) {
+    if (!field.type) {
+        throw new Error('Field type is required');
+    }
+
     const filterType = getFilterTypeFromItemType(field.type);
 
     switch (filterType) {
@@ -231,6 +248,17 @@ function validateFilterRule(
                 WeekDay.SUNDAY,
                 SupportedDbtAdapter.BIGQUERY,
             );
+        } else if (isTableCalculation(field)) {
+            renderTableCalculationFilterRuleSql(
+                filterRule,
+                field,
+                // ! The following args are used to actually render the SQL, we don't care about the ouput, just that it doesn't throw
+                '"',
+                "'",
+                (string: string) => string.replaceAll('\\', '\\\\'),
+                SupportedDbtAdapter.BIGQUERY,
+                WeekDay.SUNDAY,
+            );
         } else {
             renderFilterRuleSqlFromField(
                 filterRule,
@@ -259,13 +287,21 @@ export function validateFilterRules(
     explore: Explore,
     filterRules: FilterRule[],
     customMetrics?: CustomMetricBase[] | null,
+    tableCalculations?: TableCalcsSchema | null,
 ) {
     const exploreFields = getFields(explore);
     const customMetricFields = populateCustomMetricsSQL(
         customMetrics || [],
         explore,
     );
-    const allFields = [...exploreFields, ...customMetricFields];
+    const tableCalcFields = tableCalculations
+        ? convertAiTableCalcsSchemaToTableCalcs(tableCalculations)
+        : [];
+    const allFields = [
+        ...exploreFields,
+        ...customMetricFields,
+        ...tableCalcFields,
+    ];
     const allFieldIds = allFields.map(getItemId);
     const filterRuleErrors: string[] = [];
 
@@ -308,15 +344,21 @@ ${filterRuleErrorStrings}`;
 }
 
 /**
- * Validate that metrics are not placed in dimension filters and vice versa
+ * Validate that filter fields match their filter group type:
+ * - Dimension filters should only contain dimension fields
+ * - Metric filters should only contain metric fields
+ * - Custom metric filters should only contain custom metric fields
+ * - Table calculation filters should only contain table calculation fields
  * @param explore - The explore containing field definitions
- * @param filters - The filters object containing dimension and metric filter groups
+ * @param filters - The filters object containing dimension, metric, and table calculation filter groups
  * @param customMetrics - Custom metrics that may be used in filters
+ * @param tableCalculations - Table calculations that may be used in filters
  */
 export function validateMetricDimensionFilterPlacement(
     explore: Explore,
+    customMetrics: CustomMetricBase[] | null,
+    tableCalculations: TableCalcsSchema | null,
     filters?: Filters,
-    customMetrics?: CustomMetricBase[] | null,
 ) {
     if (!filters) return;
 
@@ -329,15 +371,25 @@ export function validateMetricDimensionFilterPlacement(
               }),
           )
         : [];
-    const allFields = [...exploreFields, ...customMetricFields];
+    const tableCalcFields = tableCalculations
+        ? convertAiTableCalcsSchemaToTableCalcs(tableCalculations)
+        : [];
+    const allFields = [
+        ...exploreFields,
+        ...customMetricFields,
+        ...tableCalcFields,
+    ];
     const allFieldIds = allFields.map(getItemId);
     const errors: string[] = [];
 
     // Extract filter rules from filter groups
     const dimensionFilterRules = getFilterRulesFromGroup(filters.dimensions);
     const metricFilterRules = getFilterRulesFromGroup(filters.metrics);
+    const tableCalcFilterRules = getFilterRulesFromGroup(
+        filters.tableCalculations,
+    );
 
-    // Check if any dimension filter rules contain metric fields
+    // Check if any dimension filter rules contain metric or table calc fields
     dimensionFilterRules.forEach((rule) => {
         const fieldIndex = allFieldIds.indexOf(rule.target.fieldId);
         const field = allFields[fieldIndex];
@@ -361,10 +413,23 @@ Field Details:
 FilterRule:
 ${serializeData(rule, 'json')}`,
             );
+        } else if (field && isTableCalculation(field)) {
+            errors.push(
+                `Error: Table calculation field "${rule.target.fieldId}" (${
+                    field.displayName || field.name
+                }) cannot be used in dimension filters. Table calculations should be placed in table calculation filters instead.
+
+Field Details:
+- Field ID: ${rule.target.fieldId}
+- Display Name: ${field.displayName || field.name}
+
+FilterRule:
+${serializeData(rule, 'json')}`,
+            );
         }
     });
 
-    // Check if any metric filter rules contain dimension fields
+    // Check if any metric filter rules contain dimension or table calc fields
     metricFilterRules.forEach((rule) => {
         const fieldIndex = allFieldIds.indexOf(rule.target.fieldId);
         const field = allFields[fieldIndex];
@@ -384,6 +449,61 @@ Field Details:
 FilterRule:
 ${serializeData(rule, 'json')}`,
             );
+        } else if (field && isTableCalculation(field)) {
+            errors.push(
+                `Error: Table calculation field "${rule.target.fieldId}" (${
+                    field.displayName || field.name
+                }) cannot be used in metric filters. Table calculations should be placed in table calculation filters instead.
+
+Field Details:
+- Field ID: ${rule.target.fieldId}
+- Display Name: ${field.displayName || field.name}
+
+FilterRule:
+${serializeData(rule, 'json')}`,
+            );
+        }
+    });
+
+    // Check if any table calc filter rules contain dimension or metric fields
+    tableCalcFilterRules.forEach((rule) => {
+        const fieldIndex = allFieldIds.indexOf(rule.target.fieldId);
+        const field = allFields[fieldIndex];
+
+        if (field && isDimension(field)) {
+            errors.push(
+                `Error: Dimension field "${rule.target.fieldId}" (${
+                    field.label
+                }) cannot be used in table calculation filters. Dimensions should be placed in dimension filters instead.
+
+Field Details:
+- Field ID: ${rule.target.fieldId}
+- Field Label: ${field.label}
+- Field Type: ${field.fieldType}
+- Table: ${field.table}
+
+FilterRule:
+${serializeData(rule, 'json')}`,
+            );
+        } else if (field && isMetric(field)) {
+            const fieldSource = customMetricFields.includes(field)
+                ? 'custom metric'
+                : 'explore metric';
+            errors.push(
+                `Error: Metric field "${rule.target.fieldId}" (${
+                    field.label
+                }) from ${fieldSource} cannot be used in table calculation filters. Metrics should be placed in metric filters instead.
+
+Field Details:
+- Field ID: ${rule.target.fieldId}
+- Field Label: ${field.label}
+- Field Type: ${field.fieldType}
+- Table: ${field.table}
+- Source: ${fieldSource}
+
+FilterRule:
+${serializeData(rule, 'json')}`,
+            );
         }
     });
 
@@ -394,7 +514,8 @@ ${errors.join('\n\n')}
 
 Remember:
 - Dimension fields (fieldType: "dimension") should only be used in dimension filters
-- Metric fields (fieldType: "metric", including custom metrics) should only be used in metric filters`;
+- Metric fields (fieldType: "metric", including custom metrics) should only be used in metric filters
+- Table calculation fields should only be used in table calculation filters`;
 
         Logger.error(
             `[AiAgent][Validate Metric/Dimension Filter Placement] ${errorMessage}`,
@@ -410,22 +531,26 @@ Remember:
  * @param selectedDimensions - Array of selected dimension field IDs
  * @param selectedMetrics - Array of selected metric field IDs
  * @param customMetrics - Custom metrics that may be used in sorts
+ * @param tableCalculations - Table calculations that may be used in sorts
  */
 export function validateSortFieldsAreSelected(
     sorts: ToolSortField[],
     selectedDimensions: string[],
     selectedMetrics: string[],
     customMetrics?: CustomMetricBase[] | null,
+    tableCalculations?: TableCalcsSchema,
 ) {
     if (!sorts || sorts.length === 0) {
         return;
     }
 
     const customMetricIds = customMetrics?.map(getItemId) || [];
+    const tableCalculationNames = tableCalculations?.map((tc) => tc.name) || [];
     const allSelectedFieldIds = [
         ...selectedDimensions,
         ...selectedMetrics,
         ...customMetricIds,
+        ...tableCalculationNames,
     ];
 
     const errors: string[] = [];
@@ -464,33 +589,48 @@ export function validateFieldEntityType(
     explore: Explore,
     fieldIds: string[],
     expectedEntityType: 'dimension' | 'metric',
+    customMetrics?: CustomMetricBase[] | null,
 ) {
     const exploreFields = getFields(explore);
+    const customMetricsProvided =
+        customMetrics?.length && customMetrics.length > 0;
+    const customMetricFields = (customMetrics as AdditionalMetric[]) ?? [];
+    const allFields = [...exploreFields, ...customMetricFields];
     const errors: string[] = [];
 
     fieldIds.forEach((fieldId) => {
-        const field = exploreFields.find((f) => getItemId(f) === fieldId);
+        const field = allFields.find((f) => getItemId(f) === fieldId);
 
         if (!field) {
             errors.push(
-                `Error: Field with id "${fieldId}" does not exist in the explore.`,
+                `Error: Field with id "${fieldId}" does not exist in the explore or custom metrics.`,
             );
             return;
         }
 
         const isValidType =
             (expectedEntityType === 'dimension' && isDimension(field)) ||
-            (expectedEntityType === 'metric' && isMetric(field));
+            (expectedEntityType === 'metric' &&
+                (isMetric(field) ||
+                    (customMetricsProvided && isAdditionalMetric(field))));
 
         if (!isValidType) {
+            const isCustomMetric = customMetricFields.some(
+                (cm) => getItemId(cm) === fieldId,
+            );
+            const fieldSource = isCustomMetric ? 'custom metric' : 'explore';
+            const fieldType =
+                'fieldType' in field ? field.fieldType : 'custom metric';
+
             errors.push(
-                `Error: Field "${fieldId}" is a ${field.fieldType}, but expected a ${expectedEntityType}.
+                `Error: Field "${fieldId}" from ${fieldSource} is a ${fieldType}, but expected a ${expectedEntityType}.
 
 Field Details:
 - Field ID: ${fieldId}
 - Field Label: ${field.label}
-- Field Type: ${field.fieldType}
+- Field Type: ${fieldType}
 - Table: ${field.table}
+- Source: ${fieldSource}
 - Expected Type: ${expectedEntityType}`,
             );
         }
@@ -502,7 +642,10 @@ Field Details:
 ${errors.join('\n\n')}
 
 Available fields:
-${exploreFields.map((f) => `- ${getItemId(f)} (${f.fieldType})`).join('\n')}`;
+${exploreFields.map((f) => `- ${getItemId(f)} (${f.fieldType})`).join('\n')}
+${customMetricFields
+    .map((f) => `- ${getItemId(f)} (custom metric)`)
+    .join('\n')}`;
 
         Logger.error(`[AiAgent][Validate Field Entity Type] ${errorMessage}`);
 
@@ -561,6 +704,33 @@ const NUMERIC_CALCULATION_TYPES: TableCalcSchema['type'][] = [
     'running_total',
 ];
 
+function buildTableCalcSchemaDependencyGraph(
+    tableCalcs: TableCalcsSchema,
+): DependencyNode[] {
+    if (!tableCalcs) return [];
+
+    return tableCalcs.map((tc) => {
+        const deps: string[] = [];
+
+        // Add fieldId dependency if it exists
+        if ('fieldId' in tc && tc.fieldId !== null) {
+            deps.push(tc.fieldId);
+        }
+
+        // Add orderBy dependencies
+        if ('orderBy' in tc && tc.orderBy !== null) {
+            deps.push(...tc.orderBy.map((ob) => ob.fieldId));
+        }
+
+        // Add partitionBy dependencies
+        if ('partitionBy' in tc && tc.partitionBy !== null) {
+            deps.push(...tc.partitionBy);
+        }
+
+        return { name: tc.name, dependencies: deps };
+    });
+}
+
 /**
  * Validate table calculations to ensure fieldId and orderBy.fieldId reference valid metrics/custom metrics
  * with compatible types for the calculation being performed
@@ -569,7 +739,7 @@ export function validateTableCalculations(
     explore: Explore,
     tableCalcs: TableCalcsSchema,
     selectedMetrics: string[],
-    customMetrics?: CustomMetricBase[] | null,
+    customMetrics: CustomMetricBase[] | null,
 ) {
     if (!tableCalcs?.length) return;
 
@@ -580,11 +750,26 @@ export function validateTableCalculations(
     const customMetricIds = customMetricFields.map(getItemId);
     const allFields = [...exploreFields, ...customMetricFields];
     const errors: string[] = [];
+    const getTableCalcValidationError = (errs: string | string[]) =>
+        `Invalid table calculation configuration:\n\n${
+            Array.isArray(errs) ? errs.join('\n') : errs
+        }`;
+
+    // Check for circular dependencies
+    const dependencies = buildTableCalcSchemaDependencyGraph(tableCalcs);
+    try {
+        detectCircularDependencies(dependencies, 'table calculations');
+    } catch (e) {
+        throw new Error(getTableCalcValidationError(getErrorMessage(e)));
+    }
 
     // Validate orderBy fields exist
-    const orderByFieldIds = tableCalcs
-        .filter((calc) => 'orderBy' in calc)
-        .flatMap((calc) => calc.orderBy.map((order) => order.fieldId));
+    const orderByFieldIds = tableCalcs.flatMap((calc) => {
+        if ('orderBy' in calc && calc.orderBy !== null) {
+            return calc.orderBy.map((order) => order.fieldId);
+        }
+        return [];
+    });
 
     if (orderByFieldIds.length > 0) {
         try {
@@ -592,6 +777,7 @@ export function validateTableCalculations(
                 explore,
                 orderByFieldIds,
                 customMetrics,
+                tableCalcs,
             );
         } catch (e) {
             errors.push(
@@ -600,17 +786,68 @@ export function validateTableCalculations(
         }
     }
 
-    // Helper to find field by ID
+    const partitionByFieldIds = tableCalcs.flatMap((calc) => {
+        if ('partitionBy' in calc && calc.partitionBy !== null) {
+            return calc.partitionBy;
+        }
+        return [];
+    });
+
+    if (partitionByFieldIds.length > 0) {
+        try {
+            validateSelectedFieldsExistence(
+                explore,
+                partitionByFieldIds,
+                customMetrics,
+                tableCalcs,
+            );
+        } catch (e) {
+            errors.push(getErrorMessage(e));
+        }
+    }
+
     const findField = (fieldId: string) =>
         allFields.find((f) => getItemId(f) === fieldId);
 
     tableCalcs.forEach((tableCalc) => {
-        const { fieldId, type, name, displayName } = tableCalc;
+        const { type, name } = tableCalc;
+
+        if (type === 'window_function') {
+            const needsFieldId = !nillaryWindowFunctions.includes(
+                tableCalc.windowFunction,
+            );
+
+            if (!needsFieldId) {
+                return;
+            }
+
+            if (needsFieldId && tableCalc.fieldId === null) {
+                errors.push(
+                    `Window function "${name}" of type "${tableCalc.windowFunction}" requires a fieldId. ` +
+                        'Aggregate window functions (sum, avg, count, min, max) must specify a field to aggregate.',
+                );
+                return;
+            }
+        }
+
+        if (tableCalc.fieldId === null) {
+            errors.push(
+                `Table calculation "${name}" of type "${type}" requires a fieldId.`,
+            );
+            return;
+        }
+
+        const { fieldId } = tableCalc;
         const isSelectedMetric = selectedMetrics.includes(fieldId);
         const isCustomMetric = customMetricIds.includes(fieldId);
 
+        // Check if fieldId references another table calculation (potential circular dependency)
+        const isReferencingTableCalc = tableCalcs.some(
+            (tc) => tc.name === fieldId,
+        );
+
         // Check field is selected
-        if (!isSelectedMetric && !isCustomMetric) {
+        if (!isSelectedMetric && !isCustomMetric && !isReferencingTableCalc) {
             errors.push(
                 `Table calculation "${name}" references unselected field "${fieldId}". ` +
                     'The field must be included in metrics or custom metrics.',
@@ -618,7 +855,12 @@ export function validateTableCalculations(
             return;
         }
 
-        // Find and validate field
+        if (isReferencingTableCalc) {
+            // We already checked for circular dependencies
+            // We know that the fieldId is a table calculation
+            return;
+        }
+
         const field = findField(fieldId);
         if (!field) {
             errors.push(
@@ -627,7 +869,6 @@ export function validateTableCalculations(
             return;
         }
 
-        // Check field is a metric
         if (!isMetric(field) && !isAdditionalMetric(field)) {
             errors.push(
                 `Table calculation "${name}" references "${fieldId}" which is not a metric. ` +
@@ -636,7 +877,6 @@ export function validateTableCalculations(
             return;
         }
 
-        // Check type compatibility for numeric calculations
         if (
             NUMERIC_CALCULATION_TYPES.includes(type) &&
             !NUMERIC_METRIC_TYPES.includes(field.type)
@@ -649,10 +889,87 @@ export function validateTableCalculations(
     });
 
     if (errors.length > 0) {
-        const errorMessage = `Invalid table calculation configuration:\n\n${errors.join(
-            '\n',
-        )}`;
+        const errorMessage = getTableCalcValidationError(errors);
         Logger.error(`[AiAgent][Validate Table Calculations] ${errorMessage}`);
+        throw new Error(errorMessage);
+    }
+}
+
+/**
+ * Validate that groupBy fields are valid dimensions that exist in the explore and are selected in the query
+ * @param explore - The explore containing field definitions
+ * @param groupByFields - Array of field IDs to use for grouping/series breakdown
+ * @param selectedDimensions - Array of selected dimension field IDs in the query
+ */
+export function validateGroupByFields(
+    explore: Explore,
+    groupByFields: string[] | null | undefined,
+    selectedDimensions: string[],
+) {
+    if (!groupByFields || groupByFields.length === 0) {
+        return;
+    }
+
+    const exploreFields = getFields(explore);
+    const errors: string[] = [];
+
+    groupByFields.forEach((fieldId) => {
+        const field = exploreFields.find((f) => getItemId(f) === fieldId);
+
+        if (!field) {
+            errors.push(
+                `Error: groupBy field "${fieldId}" does not exist in the explore.`,
+            );
+            return;
+        }
+
+        if (!isDimension(field)) {
+            errors.push(
+                `Error: groupBy field "${fieldId}" (${field.label}) is not a dimension. Only selected dimensions can be used in groupBy for series breakdown.
+
+Field Details:
+- Field ID: ${fieldId}
+- Field Label: ${field.label}
+- Field Type: ${field.fieldType}
+- Table: ${field.table}
+- Expected Type: dimension`,
+            );
+            return;
+        }
+
+        if (!selectedDimensions.includes(fieldId)) {
+            errors.push(
+                `Error: groupBy field "${fieldId}" (${
+                    field.label
+                }) is not selected in the query dimensions. Fields used in groupBy must be included in the dimensions array.
+
+Field Details:
+- Field ID: ${fieldId}
+- Field Label: ${field.label}
+- Selected Dimensions: ${selectedDimensions.join(', ')}`,
+            );
+        }
+    });
+
+    if (errors.length > 0) {
+        const errorMessage = `Invalid groupBy configuration:
+
+${errors.join('\n\n')}
+
+Remember:
+- groupBy fields must be valid dimensions from the explore
+- groupBy fields must be included in the query's dimensions array
+- groupBy is used to split metrics into separate series (e.g., one line per region)
+- Do NOT include the x-axis dimension in groupBy - only dimensions for series breakdown
+
+Available dimensions:
+${exploreFields
+    .filter(isDimension)
+    .map((f) => `- ${getItemId(f)} (${f.label})`)
+    .join('\n')}`;
+
+        Logger.error(`[AiAgent][Validate GroupBy Fields] ${errorMessage}`);
+
         throw new Error(errorMessage);
     }
 }

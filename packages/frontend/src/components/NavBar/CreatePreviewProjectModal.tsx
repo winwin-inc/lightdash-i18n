@@ -520,6 +520,10 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
                                             ? t(
                                                   'components_navbar_create_preview_project_modal.branch.loading_branch',
                                               )
+                                            : branches.isError
+                                            ? t(
+                                                  'components_navbar_create_preview_project_modal.branch.failed_to_load_branches',
+                                              )
                                             : t(
                                                   'components_navbar_create_preview_project_modal.branch.select_branch',
                                               )
@@ -528,9 +532,10 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
                                     value={selectedBranch}
                                     readOnly={isPreviewCreating}
                                     disabled={
-                                        branches.isSuccess &&
-                                        (!branches.data ||
-                                            branches.data.length <= 0)
+                                        branches.isError ||
+                                        (branches.isSuccess &&
+                                            (!branches.data ||
+                                                branches.data.length <= 0))
                                     }
                                     data={branches.data ?? []}
                                     onChange={(value) => {
@@ -540,6 +545,41 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
                                         branches.isFetching && (
                                             <Loader size="xs" color="gray" />
                                         )
+                                    }
+                                    error={
+                                        branches.isError ? (
+                                            <Group spacing="xs" align="center">
+                                                <Text size="xs">
+                                                    {t(
+                                                        'components_navbar_create_preview_project_modal.branch.description',
+                                                    )}
+                                                </Text>
+                                                <Tooltip
+                                                    withinPortal
+                                                    label={
+                                                        branches.error?.error
+                                                            ?.message ||
+                                                        t(
+                                                            'components_navbar_create_preview_project_modal.branch.failed_to_load_branches_description',
+                                                        )
+                                                    }
+                                                    multiline
+                                                    w={250}
+                                                >
+                                                    <ActionIcon
+                                                        size="xs"
+                                                        color="red"
+                                                        variant="transparent"
+                                                    >
+                                                        <MantineIcon
+                                                            icon={
+                                                                IconHelpCircle
+                                                            }
+                                                        />
+                                                    </ActionIcon>
+                                                </Tooltip>
+                                            </Group>
+                                        ) : undefined
                                     }
                                 />{' '}
                                 {/* only show if branch changed + change label based on warehouse type? + get value from dbt cloud api */}

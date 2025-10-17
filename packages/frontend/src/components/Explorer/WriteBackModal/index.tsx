@@ -18,11 +18,15 @@ import {
 import { Prism } from '@mantine/prism';
 import { IconGitBranch, IconInfoCircle } from '@tabler/icons-react';
 import * as yaml from 'js-yaml';
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
-import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
+import {
+    explorerActions,
+    useExplorerDispatch,
+    useExplorerSelector,
+} from '../../../features/explorer/store';
 import CollapsableCard from '../../common/CollapsableCard/CollapsableCard';
 import MantineIcon from '../../common/MantineIcon';
 import { CreatedPullRequestModalContent } from './CreatedPullRequestModalContent';
@@ -610,20 +614,19 @@ const MultipleItemsModalContent = ({
     );
 };
 
-export const WriteBackModal = () => {
+export const WriteBackModal = memo(() => {
     const { t } = useTranslation();
-
-    const { isOpen, items } = useExplorerContext(
-        (context) => context.state.modals.writeBack,
+    
+    const { isOpen, items } = useExplorerSelector(
+        (state) => state.explorer.modals.writeBack,
     );
+    const dispatch = useExplorerDispatch();
 
     const { projectUuid } = useParams<{
         projectUuid: string;
     }>();
 
-    const toggleModal = useExplorerContext(
-        (context) => context.actions.toggleWriteBackModal,
-    );
+    const toggleModal = () => dispatch(explorerActions.toggleWriteBackModal());
 
     if (!isOpen) {
         return null;
@@ -657,4 +660,4 @@ export const WriteBackModal = () => {
             items={items}
         />
     );
-};
+});

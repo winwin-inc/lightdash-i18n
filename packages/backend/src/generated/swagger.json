@@ -711,6 +711,43 @@
                 "type": "object",
                 "additionalProperties": true
             },
+            "ScimListResponse_ScimSchema_": {
+                "properties": {
+                    "schemas": {
+                        "items": {
+                            "$ref": "#/components/schemas/ScimSchemaType.LIST_RESPONSE"
+                        },
+                        "type": "array"
+                    },
+                    "totalResults": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "itemsPerPage": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "startIndex": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "Resources": {
+                        "items": {
+                            "$ref": "#/components/schemas/ScimSchema"
+                        },
+                        "type": "array"
+                    }
+                },
+                "required": [
+                    "schemas",
+                    "totalResults",
+                    "itemsPerPage",
+                    "startIndex",
+                    "Resources"
+                ],
+                "type": "object",
+                "additionalProperties": true
+            },
             "ScimSchemaType.RESOURCE_TYPE": {
                 "enum": ["urn:ietf:params:scim:schemas:core:2.0:ResourceType"],
                 "type": "string"
@@ -777,6 +814,43 @@
                     }
                 },
                 "required": ["schemas", "id", "name", "endpoint", "schema"],
+                "type": "object",
+                "additionalProperties": true
+            },
+            "ScimListResponse_ScimResourceType_": {
+                "properties": {
+                    "schemas": {
+                        "items": {
+                            "$ref": "#/components/schemas/ScimSchemaType.LIST_RESPONSE"
+                        },
+                        "type": "array"
+                    },
+                    "totalResults": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "itemsPerPage": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "startIndex": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "Resources": {
+                        "items": {
+                            "$ref": "#/components/schemas/ScimResourceType"
+                        },
+                        "type": "array"
+                    }
+                },
+                "required": [
+                    "schemas",
+                    "totalResults",
+                    "itemsPerPage",
+                    "startIndex",
+                    "Resources"
+                ],
                 "type": "object",
                 "additionalProperties": true
             },
@@ -2616,6 +2690,66 @@
                 "enum": ["running_total"],
                 "type": "string"
             },
+            "TableCalculationTemplateType.WINDOW_FUNCTION": {
+                "enum": ["window_function"],
+                "type": "string"
+            },
+            "WindowFunctionType": {
+                "enum": [
+                    "row_number",
+                    "percent_rank",
+                    "cume_dist",
+                    "rank",
+                    "sum",
+                    "avg",
+                    "count",
+                    "min",
+                    "max"
+                ],
+                "type": "string"
+            },
+            "FrameType": {
+                "enum": ["rows", "range"],
+                "type": "string"
+            },
+            "FrameBoundaryType": {
+                "enum": [
+                    "unbounded_preceding",
+                    "preceding",
+                    "current_row",
+                    "following",
+                    "unbounded_following"
+                ],
+                "type": "string"
+            },
+            "FrameBoundary": {
+                "properties": {
+                    "offset": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/FrameBoundaryType"
+                    }
+                },
+                "required": ["type"],
+                "type": "object"
+            },
+            "FrameClause": {
+                "properties": {
+                    "end": {
+                        "$ref": "#/components/schemas/FrameBoundary"
+                    },
+                    "start": {
+                        "$ref": "#/components/schemas/FrameBoundary"
+                    },
+                    "frameType": {
+                        "$ref": "#/components/schemas/FrameType"
+                    }
+                },
+                "required": ["end", "frameType"],
+                "type": "object"
+            },
             "TableCalculationTemplate": {
                 "anyOf": [
                     {
@@ -2678,6 +2812,12 @@
                     },
                     {
                         "properties": {
+                            "partitionBy": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            },
                             "fieldId": {
                                 "type": "string"
                             },
@@ -2685,7 +2825,7 @@
                                 "$ref": "#/components/schemas/TableCalculationTemplateType.PERCENT_OF_COLUMN_TOTAL"
                             }
                         },
-                        "required": ["fieldId", "type"],
+                        "required": ["partitionBy", "fieldId", "type"],
                         "type": "object"
                     },
                     {
@@ -2710,6 +2850,54 @@
                             }
                         },
                         "required": ["fieldId", "type"],
+                        "type": "object"
+                    },
+                    {
+                        "properties": {
+                            "frame": {
+                                "$ref": "#/components/schemas/FrameClause"
+                            },
+                            "partitionBy": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            },
+                            "orderBy": {
+                                "items": {
+                                    "properties": {
+                                        "order": {
+                                            "type": "string",
+                                            "enum": ["asc", "desc", null],
+                                            "nullable": true
+                                        },
+                                        "fieldId": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": ["order", "fieldId"],
+                                    "type": "object"
+                                },
+                                "type": "array"
+                            },
+                            "fieldId": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "windowFunction": {
+                                "$ref": "#/components/schemas/WindowFunctionType"
+                            },
+                            "type": {
+                                "$ref": "#/components/schemas/TableCalculationTemplateType.WINDOW_FUNCTION"
+                            }
+                        },
+                        "required": [
+                            "partitionBy",
+                            "orderBy",
+                            "fieldId",
+                            "windowFunction",
+                            "type"
+                        ],
                         "type": "object"
                     }
                 ]
@@ -2771,6 +2959,9 @@
                     "sum",
                     "min",
                     "max",
+                    "percent_of_previous",
+                    "percent_of_total",
+                    "running_total",
                     "number",
                     "median",
                     "string",
@@ -3188,6 +3379,16 @@
                     },
                     "showYAxis": {
                         "type": "boolean"
+                    },
+                    "stack": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "boolean"
+                            }
+                        ]
                     }
                 },
                 "type": "object",
@@ -3809,6 +4010,10 @@
             },
             "ColumnProperties": {
                 "properties": {
+                    "displayStyle": {
+                        "type": "string",
+                        "enum": ["text", "bar"]
+                    },
                     "frozen": {
                         "type": "boolean"
                     },
@@ -4953,6 +5158,26 @@
                 "type": "object",
                 "description": "Construct a type with a set of properties K of type T"
             },
+            "FieldSetDefinition": {
+                "properties": {
+                    "fields": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    }
+                },
+                "required": ["fields"],
+                "type": "object"
+            },
+            "Record_string.FieldSetDefinition_": {
+                "properties": {},
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/FieldSetDefinition"
+                },
+                "type": "object",
+                "description": "Construct a type with a set of properties K of type T"
+            },
             "CompiledTable": {
                 "allOf": [
                     {
@@ -4960,6 +5185,9 @@
                     },
                     {
                         "properties": {
+                            "sets": {
+                                "$ref": "#/components/schemas/Record_string.FieldSetDefinition_"
+                            },
                             "parameters": {
                                 "$ref": "#/components/schemas/Record_string.LightdashProjectParameter_"
                             },
@@ -5707,7 +5935,7 @@
                 "required": ["results", "status"],
                 "type": "object"
             },
-            "Pick_AiAgent.uuid-or-name-or-integrations-or-tags-or-projectUuid-or-organizationUuid-or-createdAt-or-updatedAt-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement_": {
+            "Pick_AiAgent.uuid-or-name-or-integrations-or-tags-or-projectUuid-or-organizationUuid-or-createdAt-or-updatedAt-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement-or-version_": {
                 "properties": {
                     "name": {
                         "type": "string"
@@ -5778,6 +6006,10 @@
                     },
                     "enableSelfImprovement": {
                         "type": "boolean"
+                    },
+                    "version": {
+                        "type": "number",
+                        "format": "double"
                     }
                 },
                 "required": [
@@ -5794,13 +6026,14 @@
                     "groupAccess",
                     "userAccess",
                     "enableDataAccess",
-                    "enableSelfImprovement"
+                    "enableSelfImprovement",
+                    "version"
                 ],
                 "type": "object",
                 "description": "From T, pick a set of properties whose keys are in the union K"
             },
             "AiAgentSummary": {
-                "$ref": "#/components/schemas/Pick_AiAgent.uuid-or-name-or-integrations-or-tags-or-projectUuid-or-organizationUuid-or-createdAt-or-updatedAt-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement_"
+                "$ref": "#/components/schemas/Pick_AiAgent.uuid-or-name-or-integrations-or-tags-or-projectUuid-or-organizationUuid-or-createdAt-or-updatedAt-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement-or-version_"
             },
             "ApiAiAgentSummaryResponse": {
                 "properties": {
@@ -5858,7 +6091,7 @@
             "ApiUpdateUserAgentPreferences": {
                 "$ref": "#/components/schemas/AiAgentUserPreferences"
             },
-            "Pick_BaseAiAgent.uuid-or-projectUuid-or-organizationUuid-or-integrations-or-tags-or-name-or-createdAt-or-updatedAt-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement_": {
+            "Pick_BaseAiAgent.uuid-or-projectUuid-or-organizationUuid-or-integrations-or-tags-or-name-or-createdAt-or-updatedAt-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement-or-version_": {
                 "properties": {
                     "name": {
                         "type": "string"
@@ -5929,6 +6162,10 @@
                     },
                     "enableSelfImprovement": {
                         "type": "boolean"
+                    },
+                    "version": {
+                        "type": "number",
+                        "format": "double"
                     }
                 },
                 "required": [
@@ -5945,13 +6182,14 @@
                     "groupAccess",
                     "userAccess",
                     "enableDataAccess",
-                    "enableSelfImprovement"
+                    "enableSelfImprovement",
+                    "version"
                 ],
                 "type": "object",
                 "description": "From T, pick a set of properties whose keys are in the union K"
             },
             "AiAgent": {
-                "$ref": "#/components/schemas/Pick_BaseAiAgent.uuid-or-projectUuid-or-organizationUuid-or-integrations-or-tags-or-name-or-createdAt-or-updatedAt-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement_"
+                "$ref": "#/components/schemas/Pick_BaseAiAgent.uuid-or-projectUuid-or-organizationUuid-or-integrations-or-tags-or-name-or-createdAt-or-updatedAt-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement-or-version_"
             },
             "ApiAiAgentResponse": {
                 "properties": {
@@ -5981,7 +6219,7 @@
                 "required": ["results", "status"],
                 "type": "object"
             },
-            "Pick_AiAgent.projectUuid-or-integrations-or-tags-or-name-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement_": {
+            "Pick_AiAgent.projectUuid-or-integrations-or-tags-or-name-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement-or-version_": {
                 "properties": {
                     "name": {
                         "type": "string"
@@ -6038,6 +6276,10 @@
                     },
                     "enableSelfImprovement": {
                         "type": "boolean"
+                    },
+                    "version": {
+                        "type": "number",
+                        "format": "double"
                     }
                 },
                 "required": [
@@ -6050,15 +6292,16 @@
                     "groupAccess",
                     "userAccess",
                     "enableDataAccess",
-                    "enableSelfImprovement"
+                    "enableSelfImprovement",
+                    "version"
                 ],
                 "type": "object",
                 "description": "From T, pick a set of properties whose keys are in the union K"
             },
             "ApiCreateAiAgent": {
-                "$ref": "#/components/schemas/Pick_AiAgent.projectUuid-or-integrations-or-tags-or-name-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement_"
+                "$ref": "#/components/schemas/Pick_AiAgent.projectUuid-or-integrations-or-tags-or-name-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement-or-version_"
             },
-            "Partial_Pick_AiAgent.projectUuid-or-integrations-or-tags-or-name-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement__": {
+            "Partial_Pick_AiAgent.projectUuid-or-integrations-or-tags-or-name-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement-or-version__": {
                 "properties": {
                     "name": {
                         "type": "string"
@@ -6115,6 +6358,10 @@
                     },
                     "enableSelfImprovement": {
                         "type": "boolean"
+                    },
+                    "version": {
+                        "type": "number",
+                        "format": "double"
                     }
                 },
                 "type": "object",
@@ -6123,7 +6370,7 @@
             "ApiUpdateAiAgent": {
                 "allOf": [
                     {
-                        "$ref": "#/components/schemas/Partial_Pick_AiAgent.projectUuid-or-integrations-or-tags-or-name-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement__"
+                        "$ref": "#/components/schemas/Partial_Pick_AiAgent.projectUuid-or-integrations-or-tags-or-name-or-instruction-or-imageUrl-or-groupAccess-or-userAccess-or-enableDataAccess-or-enableSelfImprovement-or-version__"
                     },
                     {
                         "properties": {
@@ -6343,7 +6590,8 @@
                     "searchFieldValues",
                     "findDashboards",
                     "findCharts",
-                    "improveContext"
+                    "improveContext",
+                    "runQuery"
                 ],
                 "description": "Exclude from T those types that are assignable to U"
             },
@@ -6475,6 +6723,19 @@
                                                         "enum": [
                                                             "error",
                                                             "success"
+                                                        ]
+                                                    }
+                                                },
+                                                "required": ["status"],
+                                                "type": "object"
+                                            },
+                                            {
+                                                "properties": {
+                                                    "status": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "success",
+                                                            "error"
                                                         ]
                                                     }
                                                 },
@@ -6905,6 +7166,7 @@
                     "time_series_chart",
                     "vertical_bar_chart",
                     "table",
+                    "query_result",
                     "dashboard",
                     "improve_context",
                     "propose_change"
@@ -8991,6 +9253,88 @@
                 "type": "string",
                 "enum": ["createdAt", "title"]
             },
+            "AiOrganizationSettings": {
+                "properties": {
+                    "aiAgentsVisible": {
+                        "type": "boolean"
+                    },
+                    "organizationUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": ["aiAgentsVisible", "organizationUuid"],
+                "type": "object"
+            },
+            "ComputedAiOrganizationSettings": {
+                "properties": {
+                    "isTrial": {
+                        "type": "boolean"
+                    },
+                    "isCopilotEnabled": {
+                        "type": "boolean"
+                    }
+                },
+                "required": ["isTrial", "isCopilotEnabled"],
+                "type": "object"
+            },
+            "ApiSuccess_AiOrganizationSettings-and-ComputedAiOrganizationSettings_": {
+                "properties": {
+                    "results": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AiOrganizationSettings"
+                            },
+                            {
+                                "$ref": "#/components/schemas/ComputedAiOrganizationSettings"
+                            }
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiAiOrganizationSettingsResponse": {
+                "$ref": "#/components/schemas/ApiSuccess_AiOrganizationSettings-and-ComputedAiOrganizationSettings_"
+            },
+            "ApiSuccess_AiOrganizationSettings_": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/AiOrganizationSettings"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiUpdateAiOrganizationSettingsResponse": {
+                "$ref": "#/components/schemas/ApiSuccess_AiOrganizationSettings_"
+            },
+            "Pick_AiOrganizationSettings.Exclude_keyofAiOrganizationSettings.organizationUuid-or-isTrial-or-isCopilotEnabled__": {
+                "properties": {
+                    "aiAgentsVisible": {
+                        "type": "boolean"
+                    }
+                },
+                "required": ["aiAgentsVisible"],
+                "type": "object",
+                "description": "From T, pick a set of properties whose keys are in the union K"
+            },
+            "Omit_AiOrganizationSettings.organizationUuid-or-isTrial-or-isCopilotEnabled_": {
+                "$ref": "#/components/schemas/Pick_AiOrganizationSettings.Exclude_keyofAiOrganizationSettings.organizationUuid-or-isTrial-or-isCopilotEnabled__",
+                "description": "Construct a type with the properties of T except for those in type K."
+            },
+            "UpdateAiOrganizationSettings": {
+                "$ref": "#/components/schemas/Omit_AiOrganizationSettings.organizationUuid-or-isTrial-or-isCopilotEnabled_"
+            },
             "ApiJobScheduledResponse": {
                 "properties": {
                     "results": {
@@ -10817,8 +11161,22 @@
                 "enum": ["line"],
                 "type": "string"
             },
+            "StackType": {
+                "enum": ["none", "stack", "stack100"],
+                "type": "string"
+            },
             "PivotChartLayout": {
                 "properties": {
+                    "stack": {
+                        "anyOf": [
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "$ref": "#/components/schemas/StackType"
+                            }
+                        ]
+                    },
                     "sortBy": {
                         "items": {
                             "$ref": "#/components/schemas/VizSortBy"
@@ -10887,7 +11245,14 @@
             "CartesianChartDisplay": {
                 "properties": {
                     "stack": {
-                        "type": "boolean"
+                        "anyOf": [
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "$ref": "#/components/schemas/StackType"
+                            }
+                        ]
                     },
                     "legend": {
                         "properties": {
@@ -11041,6 +11406,26 @@
             },
             "VizColumnConfig": {
                 "properties": {
+                    "barConfig": {
+                        "properties": {
+                            "color": {
+                                "type": "string"
+                            },
+                            "max": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "min": {
+                                "type": "number",
+                                "format": "double"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "displayStyle": {
+                        "type": "string",
+                        "enum": ["text", "bar"]
+                    },
                     "aggregation": {
                         "$ref": "#/components/schemas/VizAggregationOptions"
                     },
@@ -15288,22 +15673,22 @@
                     }
                 ]
             },
-            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__": {
+            "PartialObjectDeep___91_x-string_93__58__description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined--name_63_-string-or-undefined__._recurseIntoArrays-true__": {
                 "properties": {},
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
-            "PartialObjectDeep__chart_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__": {
+            "PartialObjectDeep__chart_58___91_x-string_93__58__description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined--name_63_-string-or-undefined___._recurseIntoArrays-true__": {
                 "properties": {
                     "chart": {
-                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__"
+                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined--name_63_-string-or-undefined__._recurseIntoArrays-true__"
                     }
                 },
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
             "PartialDeep_ChartAsCodeLanguageMap._recurseIntoArrays-true__": {
-                "$ref": "#/components/schemas/PartialObjectDeep__chart_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__",
+                "$ref": "#/components/schemas/PartialObjectDeep__chart_58___91_x-string_93__58__description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined--name_63_-string-or-undefined___._recurseIntoArrays-true__",
                 "description": "Create a type from another type with all keys and nested keys set to optional.\n\nUse-cases:\n- Merging a default settings/config object with another object, the second object would be a deep partial of the default object.\n- Mocking and testing complex entities, where populating an entire object with its keys would be redundant in terms of the mock or test."
             },
             "ApiChartAsCodeListResponse": {
@@ -15642,22 +16027,22 @@
                     }
                 ]
             },
-            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__": {
+            "PartialObjectDeep___91_x-string_93__58__description_63_-string-or-undefined--name_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__": {
                 "properties": {},
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
-            "PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__": {
+            "PartialObjectDeep__dashboard_58___91_x-string_93__58__description_63_-string-or-undefined--name_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__": {
                 "properties": {
                     "dashboard": {
-                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__"
+                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__description_63_-string-or-undefined--name_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__"
                     }
                 },
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
             "PartialDeep_DashboardAsCodeLanguageMap._recurseIntoArrays-true__": {
-                "$ref": "#/components/schemas/PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__",
+                "$ref": "#/components/schemas/PartialObjectDeep__dashboard_58___91_x-string_93__58__description_63_-string-or-undefined--name_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__",
                 "description": "Create a type from another type with all keys and nested keys set to optional.\n\nUse-cases:\n- Merging a default settings/config object with another object, the second object would be a deep partial of the default object.\n- Mocking and testing complex entities, where populating an entire object with its keys would be redundant in terms of the mock or test."
             },
             "ApiDashboardAsCodeListResponse": {
@@ -15731,6 +16116,10 @@
                         "type": "string",
                         "format": "date-time"
                     },
+                    "version": {
+                        "type": "number",
+                        "format": "double"
+                    },
                     "slug": {
                         "type": "string"
                     },
@@ -15764,10 +16153,6 @@
                     "dashboardSlug": {
                         "type": "string"
                     },
-                    "version": {
-                        "type": "number",
-                        "format": "double"
-                    },
                     "spaceSlug": {
                         "type": "string"
                     },
@@ -15779,10 +16164,10 @@
                 "required": [
                     "name",
                     "updatedAt",
+                    "version",
                     "slug",
                     "tableName",
                     "tableConfig",
-                    "version",
                     "spaceSlug"
                 ],
                 "type": "object",
@@ -15815,6 +16200,10 @@
                         "type": "string",
                         "format": "date-time"
                     },
+                    "version": {
+                        "type": "number",
+                        "format": "double"
+                    },
                     "slug": {
                         "type": "string"
                     },
@@ -15823,10 +16212,6 @@
                             "$ref": "#/components/schemas/DashboardTab"
                         },
                         "type": "array"
-                    },
-                    "version": {
-                        "type": "number",
-                        "format": "double"
                     },
                     "spaceSlug": {
                         "type": "string"
@@ -15839,9 +16224,9 @@
                 "required": [
                     "name",
                     "updatedAt",
+                    "version",
                     "slug",
                     "tabs",
-                    "version",
                     "spaceSlug"
                 ],
                 "type": "object",
@@ -20626,7 +21011,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "0.2064.0",
+        "version": "0.2089.1",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"
@@ -30252,7 +30637,7 @@
                 }
             }
         },
-        "/api/v1/comments/dashboards/{dashboardUuid}": {
+        "/api/v1/comments/dashboards/{dashboardUuidOrSlug}": {
             "get": {
                 "operationId": "getComments",
                 "responses": {
@@ -30282,9 +30667,8 @@
                 "security": [],
                 "parameters": [
                     {
-                        "description": "the uuid of the dashboard",
                         "in": "path",
-                        "name": "dashboardUuid",
+                        "name": "dashboardUuidOrSlug",
                         "required": true,
                         "schema": {
                             "type": "string"
@@ -30461,28 +30845,6 @@
                         "required": false,
                         "schema": {
                             "$ref": "#/components/schemas/CatalogFilter"
-                        }
-                    },
-                    {
-                        "in": "query",
-                        "name": "yamlTags",
-                        "required": false,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    {
-                        "in": "query",
-                        "name": "tables",
-                        "required": false,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
                         }
                     }
                 ]

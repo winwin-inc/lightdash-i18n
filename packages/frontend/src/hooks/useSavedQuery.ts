@@ -286,6 +286,7 @@ export const useUpdateMutation = (
 ) => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const params = useParams();
     const { showToastSuccess, showToastApiError } = useToaster();
     const { t } = useTranslation();
 
@@ -316,6 +317,10 @@ export const useUpdateMutation = (
                 await queryClient.invalidateQueries(['spaces']);
 
                 queryClient.setQueryData(['saved_query', data.uuid], data);
+                queryClient.setQueryData(
+                    ['saved_query', params.savedQueryUuid],
+                    data,
+                );
 
                 if (dashboardUuid) {
                     // Invalidate dashboard chart queries to refresh charts on dashboards

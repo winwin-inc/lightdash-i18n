@@ -19,6 +19,7 @@ import {
     type SavedChartsInfoForDashboardAvailableFilters,
     type SortField,
 } from '@lightdash/common';
+import clone from 'lodash/clone';
 import isEqual from 'lodash/isEqual';
 import min from 'lodash/min';
 import React, {
@@ -30,9 +31,13 @@ import React, {
 } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useDeepCompareEffect, useMount } from 'react-use';
+import { hasSavedFilterValueChanged } from '../../components/DashboardFilter/FilterConfiguration/utils';
 import { useConditionalRuleLabelFromItem } from '../../components/common/Filters/FilterInputs/utils';
+import { type SdkFilter } from '../../ee/features/embed/EmbedDashboard/types';
+import { convertSdkFilterToDashboardFilter } from '../../ee/features/embed/EmbedDashboard/utils';
 import { LightdashEventType } from '../../ee/features/embed/events/types';
 import { useEmbedEventEmitter } from '../../ee/features/embed/hooks/useEmbedEventEmitter';
+import useEmbed from '../../ee/providers/Embed/useEmbed';
 import {
     useGetComments,
     type useDashboardCommentsCheck,
@@ -65,6 +70,7 @@ const DashboardProvider: React.FC<
         embedToken?: string;
         dashboardCommentsCheck?: ReturnType<typeof useDashboardCommentsCheck>;
         defaultInvalidateCache?: boolean;
+        sdkFilters?: SdkFilter[];
     }>
 > = ({
     schedulerFilters,
@@ -96,9 +102,6 @@ const DashboardProvider: React.FC<
 
     const [isAutoRefresh, setIsAutoRefresh] = useState<boolean>(false);
 
-    // Embedded dashboards will not be using this query hook to load the dashboard,
-    // so we need to set the dashboard manually
-    const [embedDashboard, setEmbedDashboard] = useState<Dashboard>();
     const {
         data: dashboard,
         isInitialLoading: isDashboardLoading,
@@ -164,6 +167,8 @@ const DashboardProvider: React.FC<
 
     // dashboard filters
     const {
+        embedDashboard,
+        setEmbedDashboard,
         allFilters,
         dashboardFilters,
         setDashboardFilters,
@@ -178,6 +183,7 @@ const DashboardProvider: React.FC<
         addMetricDashboardFilter,
         removeDimensionDashboardFilter,
         overridesForSavedDashboardFilters,
+        applyInteractivityFiltering,
     } = useDashboardFilters({
         dashboard,
         isFilterEnabled: isGlobalFilterEnabled,
@@ -214,6 +220,7 @@ const DashboardProvider: React.FC<
 
     // Event system for filter change tracking
     const { dispatchEmbedEvent } = useEmbedEventEmitter();
+    const embed = useEmbed();
     const previousFiltersRef = useRef<DashboardFilters | null>(null);
 
     const [chartSort, setChartSort] = useState<Record<string, SortField[]>>({});
@@ -485,7 +492,12 @@ const DashboardProvider: React.FC<
         useState<Set<string>>();
 
     // Update dashboard url date zoom change
+    // Only sync URL in regular dashboards or 'direct' embed mode (not 'sdk' mode)
     useEffect(() => {
+        if (embed.mode === 'sdk') {
+            return;
+        }
+
         const newParams = new URLSearchParams(search);
         if (dateZoomGranularity === undefined) {
             newParams.delete('dateZoom');
@@ -500,7 +512,7 @@ const DashboardProvider: React.FC<
             },
             { replace: true },
         );
-    }, [dateZoomGranularity, search, navigate, pathname]);
+    }, [dateZoomGranularity, search, navigate, pathname, embed.mode]);
 
     const savedChartUuidsAndTileUuids = useMemo(
         () =>
@@ -521,31 +533,70 @@ const DashboardProvider: React.FC<
         [dashboardTiles],
     );
 
-    useEffect(() => {
-        if (dashboard) {
-            if (dashboardFilters === emptyFilters) {
-                let updatedDashboardFilters;
 
-                if (
-                    hasSavedFiltersOverrides(overridesForSavedDashboardFilters)
-                ) {
+    // Apply filters on dashboard load in order of precedence:
+    // 1. Start with base dashboard filters
+    // 2. Apply overrides for iframe embed or replace SDK filters in SDK mode
+    // 3. Apply interactivity filtering (embedded dashboards only)
+    //
+    // This happens on the first load when emptyFilters is the initial value of dashboardFilters
+    useEffect(() => {
+        const currentDashboard = dashboard || embedDashboard;
+
+        if (!currentDashboard) return;
+
+        if (dashboardFilters === emptyFilters) {
+            let overrides = clone(overridesForSavedDashboardFilters);
+
+            // Step 1: Start with base filters
+            let updatedDashboardFilters = clone(currentDashboard.filters);
+
+            // Step 2: Apply SDK Filters
+            // For SDK mode, SDK filters replace embedded dashboard filters
+            const sdkFilters =
+                embed.mode === 'sdk' && embed.filters ? embed.filters : [];
+            if (sdkFilters.length > 0) {
+                updatedDashboardFilters.dimensions = sdkFilters.map(
+                    (sdkFilter) => convertSdkFilterToDashboardFilter(sdkFilter),
+                );
+            }
+
+            // Apply overrides from URL
+            if (embed.mode === 'direct') {
+                // For direct mode, only read from URL if not SDK mode
+                if (hasSavedFiltersOverrides(overrides)) {
                     updatedDashboardFilters = {
-                        ...dashboard.filters,
+                        ...updatedDashboardFilters,
                         dimensions: applyDimensionOverrides(
-                            dashboard.filters,
-                            overridesForSavedDashboardFilters,
+                            updatedDashboardFilters,
+                            overrides,
                         ),
                     };
                     setHaveFiltersChanged(true);
                 } else {
-                    updatedDashboardFilters = dashboard.filters;
                     setHaveFiltersChanged(false);
                 }
-
-                setDashboardFilters(updatedDashboardFilters);
+            } else {
+                if (overrides && overrides.dimensions.length > 0) {
+                    updatedDashboardFilters = {
+                        ...updatedDashboardFilters,
+                        dimensions: applyDimensionOverrides(
+                            updatedDashboardFilters,
+                            overrides,
+                        ),
+                    };
+                    setHaveFiltersChanged(true);
+                } else {
+                    setHaveFiltersChanged(false);
+                }
             }
 
-            setOriginalDashboardFilters(dashboard.filters);
+            // Step 3: Apply interactivity filtering for embedded dashboards
+            updatedDashboardFilters = applyInteractivityFiltering(
+                updatedDashboardFilters,
+            );
+
+            setDashboardFilters(updatedDashboardFilters);
 
             // tab filters
             if (dashboard.tabs.length > 0 && isEmptyTabFilters(tabFilters)) {
@@ -557,8 +608,11 @@ const DashboardProvider: React.FC<
                 setTabFilters(updatedTabFilters);
             }
         }
+
+        setOriginalDashboardFilters(currentDashboard.filters);
     }, [
         dashboard,
+        embedDashboard,
         dashboardFilters,
         overridesForSavedDashboardFilters,
         tabFilters,
@@ -566,10 +620,18 @@ const DashboardProvider: React.FC<
         setDashboardFilters,
         setOriginalDashboardFilters,
         setTabFilters,
+        embed,
+        applyInteractivityFiltering,
     ]);
 
     // Updates url with temp and overridden filters and deep compare to avoid unnecessary re-renders for dashboardTemporaryFilters
+    // Only sync URL in regular dashboards or 'direct' embed mode (not 'sdk' mode)
     useDeepCompareEffect(() => {
+        if (embed.mode === 'sdk') {
+            return;
+        }
+
+        const currentParams = new URLSearchParams(search);
         const newParams = new URLSearchParams(search);
 
         // temp filters
@@ -601,14 +663,19 @@ const DashboardProvider: React.FC<
             );
         }
 
-        void navigate(
-            {
-                pathname,
-                search: newParams.toString(),
-            },
-            { replace: true },
-        );
-
+        // Only navigate if search params actually changed
+        const newSearch = newParams.toString();
+        const currentSearch = currentParams.toString();
+        if (newSearch !== currentSearch) {
+            void navigate(
+                {
+                    pathname,
+                    search: newSearch,
+                },
+                { replace: true },
+            );
+        }
+  
         // tab filters
         if (isEmptyTabFilters(tabTemporaryFilters)) {
             newParams.delete('tempTabFilters');
@@ -636,6 +703,7 @@ const DashboardProvider: React.FC<
         search,
         tabFilters,
         tabTemporaryFilters,
+        embed.mode,
     ]);
 
     useEffect(() => {

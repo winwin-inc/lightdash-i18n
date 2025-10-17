@@ -3,7 +3,10 @@ import { Menu } from '@mantine/core';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
+import {
+    explorerActions,
+    useExplorerDispatch,
+} from '../../../features/explorer/store';
 import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
 
@@ -14,13 +17,10 @@ type Props = {
 const FormatMenuOptions: FC<Props> = ({ item }) => {
     const { track } = useTracking();
     const { t } = useTranslation();
-
-    const toggleFormatModal = useExplorerContext(
-        (context) => context.actions.toggleFormatModal,
-    );
+    const dispatch = useExplorerDispatch();
 
     const onCreate = () => {
-        toggleFormatModal({ metric: item });
+        dispatch(explorerActions.toggleFormatModal({ metric: item }));
         track({
             name: EventName.FORMAT_METRIC_BUTTON_CLICKED,
         });

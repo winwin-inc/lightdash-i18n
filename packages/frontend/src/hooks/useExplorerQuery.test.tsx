@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { explorerStore } from '../features/explorer/store';
+import ExplorerProvider from '../providers/Explorer/ExplorerProvider';
 import { useExplorerQuery } from './useExplorerQuery';
 
 // Mock the hooks that depend on external APIs
@@ -46,7 +47,9 @@ const createWrapper = () => {
     return ({ children }: { children: React.ReactNode }) => (
         <QueryClientProvider client={queryClient}>
             <Provider store={explorerStore}>
-                <MemoryRouter>{children}</MemoryRouter>
+                <MemoryRouter>
+                    <ExplorerProvider>{children}</ExplorerProvider>
+                </MemoryRouter>
             </Provider>
         </QueryClientProvider>
     );
@@ -69,7 +72,6 @@ describe('useExplorerQuery', () => {
         expect(result.current).toHaveProperty('resetQueryResults');
         expect(result.current).toHaveProperty('getDownloadQueryUuid');
         expect(result.current).toHaveProperty('activeFields');
-        expect(result.current).toHaveProperty('isValidQuery');
     });
 
     it('should compute loading state correctly', () => {
@@ -87,7 +89,6 @@ describe('useExplorerQuery', () => {
         });
 
         expect(result.current.activeFields.size).toBe(0);
-        expect(result.current.isValidQuery).toBe(false);
     });
 
     it('should provide validQueryArgs as null initially', () => {

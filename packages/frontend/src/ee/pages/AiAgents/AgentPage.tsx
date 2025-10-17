@@ -1,11 +1,10 @@
 import { type AiAgent, type AiAgentThreadSummary } from '@lightdash/common';
 import {
-    ActionIcon,
+    Alert,
     Box,
     Button,
     Group,
     Loader,
-    Menu,
     NavLink,
     Paper,
     rem,
@@ -18,18 +17,19 @@ import {
     IconBrandSlack,
     IconChevronDown,
     IconCirclePlus,
-    IconDots,
-    IconPlus,
+    IconInfoCircle,
     IconSettings,
+    IconSparkles,
 } from '@tabler/icons-react';
 import { type FC, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate, Outlet, useParams } from 'react-router';
 import MantineIcon from '../../../components/common/MantineIcon';
-import { AgentSwitcher } from '../../features/aiCopilot/components/AgentSwitcher';
+import { AgentSelector } from '../../features/aiCopilot/components/AgentSelector';
 import { AiAgentPageLayout } from '../../features/aiCopilot/components/AiAgentPageLayout/AiAgentPageLayout';
 import { SidebarButton } from '../../features/aiCopilot/components/AiAgentPageLayout/SidebarButton';
 import { useAiAgentPermission } from '../../features/aiCopilot/hooks/useAiAgentPermission';
+import { useAiOrganizationSettings } from '../../features/aiCopilot/hooks/useAiOrganizationSettings';
 import {
     useProjectAiAgent as useAiAgent,
     useAiAgentThreads,
@@ -86,6 +86,10 @@ const AgentSidebar: FC<{
     threadUuid?: string;
     isAgentSidebarCollapsed: boolean;
 }> = ({ agent, projectUuid, threadUuid, isAgentSidebarCollapsed }) => {
+    const organizationSettingsQuery = useAiOrganizationSettings();
+    const isTrial =
+        organizationSettingsQuery.isSuccess &&
+        organizationSettingsQuery.data?.isTrial;
     const { data: threads } = useAiAgentThreads(projectUuid, agent.uuid);
     const [showMaxItems, setShowMaxItems] = useState(INITIAL_MAX_THREADS);
     const { t } = useTranslation();
@@ -178,6 +182,36 @@ const AgentSidebar: FC<{
                     </Box>
                 </Stack>
             )}
+            {isTrial && (
+                <Alert
+                    icon={<MantineIcon icon={IconSparkles} />}
+                    variant="outline"
+                    color="indigo.6"
+                    bg="indigo.0"
+                    fz="xs"
+                    p="xs"
+                    title={
+                        <Text size="xs" fw={500}>
+                            You're currently using Lightdash AI Agents in free
+                            trial mode
+                        </Text>
+                    }
+                >
+                    <Button
+                        size="compact-xs"
+                        variant="light"
+                        color="indigo"
+                        leftSection={
+                            <MantineIcon icon={IconInfoCircle} size="sm" />
+                        }
+                        component={Link}
+                        to="https://docs.lightdash.com/guides/ai-agents"
+                        target="_blank"
+                    >
+                        Learn more
+                    </Button>
+                </Alert>
+            )}
         </Stack>
     );
 };
@@ -240,7 +274,7 @@ const AgentPage = () => {
                 <Group align="center" justify="space-between">
                     <Box>
                         {agentsList && agentsList.length && (
-                            <AgentSwitcher
+                            <AgentSelector
                                 projectUuid={projectUuid!}
                                 agents={agentsList}
                                 selectedAgent={agent}
@@ -248,38 +282,24 @@ const AgentPage = () => {
                         )}
                     </Box>
 
-                    <Group gap="sm">
-                        {canManageAgents && (
-                            <Menu>
-                                <Menu.Target>
-                                    <ActionIcon variant="subtle" color="gray">
-                                        <MantineIcon icon={IconDots} />
-                                    </ActionIcon>
-                                </Menu.Target>
-
-                                <Menu.Dropdown>
-                                    <Menu.Item
-                                        leftSection={
-                                            <MantineIcon icon={IconPlus} />
-                                        }
-                                        component={Link}
-                                        to={`/projects/${projectUuid}/ai-agents/new`}
-                                    >
-                                        {t('pages_embed_explore.new_agent')}
-                                    </Menu.Item>
-                                    <Menu.Item
-                                        component={Link}
-                                        to={`/projects/${projectUuid}/ai-agents/${agent.uuid}/edit`}
-                                        leftSection={
-                                            <MantineIcon icon={IconSettings} />
-                                        }
-                                    >
-                                        {t('pages_embed_explore.settings')}
-                                    </Menu.Item>
-                                </Menu.Dropdown>
-                            </Menu>
-                        )}
-                    </Group>
+                    {canManageAgents && (
+                        <Button
+                            component={Link}
+                            variant="default"
+                            to={`/projects/${projectUuid}/ai-agents/${agent.uuid}/edit`}
+                            leftSection={<MantineIcon icon={IconSettings} />}
+                            styles={(theme) => ({
+                                root: {
+                                    borderColor: theme.colors.gray[2],
+                                    boxShadow: `var(--mantine-shadow-subtle)`,
+                                    color: theme.colors.gray[7],
+                                    fontSize: theme.fontSizes.xs,
+                                },
+                            })}
+                        >
+                            {t('pages_embed_explore.settings')}
+                        </Button>
+                    )}
                 </Group>
             }
         >

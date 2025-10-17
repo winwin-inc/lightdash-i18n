@@ -13,6 +13,7 @@ import LicenseClient from './clients/License/LicenseClient';
 import OpenAi from './clients/OpenAi';
 import { CommercialSlackClient } from './clients/Slack/SlackClient';
 import { AiAgentModel } from './models/AiAgentModel';
+import { AiOrganizationSettingsModel } from './models/AiOrganizationSettingsModel';
 import { CommercialFeatureFlagModel } from './models/CommercialFeatureFlagModel';
 import { CommercialSlackAuthenticationModel } from './models/CommercialSlackAuthenticationModel';
 import { DashboardSummaryModel } from './models/DashboardSummaryModel';
@@ -22,6 +23,7 @@ import { CommercialSchedulerClient } from './scheduler/SchedulerClient';
 import { CommercialSchedulerWorker } from './scheduler/SchedulerWorker';
 import { AiAgentAdminService } from './services/AiAgentAdminService';
 import { AiAgentService } from './services/AiAgentService';
+import { AiOrganizationSettingsService } from './services/AiOrganizationSettingsService';
 import { AiService } from './services/AiService/AiService';
 import { CommercialCacheService } from './services/CommercialCacheService';
 import { CommercialSlackIntegrationService } from './services/CommercialSlackIntegrationService';
@@ -118,12 +120,22 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                     openIdIdentityModel: models.getOpenIdIdentityModel(),
                     spaceService: repository.getSpaceService(),
                     projectModel: models.getProjectModel(),
+                    aiOrganizationSettingsService:
+                        repository.getAiOrganizationSettingsService(),
                     prometheusMetrics,
                 }),
             aiAgentAdminService: ({ models, context }) =>
                 new AiAgentAdminService({
                     aiAgentModel: models.getAiAgentModel(),
                     lightdashConfig: context.lightdashConfig,
+                }),
+            aiOrganizationSettingsService: ({ models }) =>
+                new AiOrganizationSettingsService({
+                    aiOrganizationSettingsModel:
+                        models.getAiOrganizationSettingsModel(),
+                    organizationModel: models.getOrganizationModel(),
+                    commercialFeatureFlagModel:
+                        models.getFeatureFlagModel() as CommercialFeatureFlagModel,
                 }),
             scimService: ({ models, context }) =>
                 new ScimService({
@@ -307,6 +319,8 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
         },
         modelProviders: {
             aiAgentModel: ({ database }) => new AiAgentModel({ database }),
+            aiOrganizationSettingsModel: ({ database }) =>
+                new AiOrganizationSettingsModel({ database }),
             embedModel: ({ database }) => new EmbedModel({ database }),
             mcpContextModel: ({ database }) => new McpContextModel(database),
             dashboardSummaryModel: ({ database }) =>

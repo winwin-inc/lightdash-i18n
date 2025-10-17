@@ -176,50 +176,52 @@ const SnowflakeForm: FC<{
     return (
         <>
             <Stack style={{ marginTop: '8px' }}>
-                <Radio.Group
-                    value={useOrgCredentials ? 'org' : 'manual'}
-                    name="useOrgCredentials"
-                    onChange={(value) => {
-                        const useOrg = value === 'org';
-                        setUseOrgCredentials(useOrg);
-                        if (useOrg) {
-                            // Clear manual fields when switching to org credentials
-                            form.setFieldValue(
-                                'organizationWarehouseCredentialsUuid',
-                                snowflakeOrgCredentials[0]
-                                    ?.organizationWarehouseCredentialsUuid,
-                            );
-                        } else {
-                            form.setFieldValue(
-                                'organizationWarehouseCredentialsUuid',
-                                undefined,
-                            );
-                        }
-                    }}
-                    label={t(
-                        'components_project_connection_warehouse_form.snowflake.credentials_source.label',
-                    )}
-                    description={t(
-                        'components_project_connection_warehouse_form.snowflake.credentials_source.description',
-                    )}
-                >
-                    <Stack mt="xs">
-                        <Radio
-                            value="org"
-                            label={t(
-                                'components_project_connection_warehouse_form.snowflake.credentials_source.org',
-                            )}
-                            disabled={disabled}
-                        />
-                        <Radio
-                            value="manual"
-                            label={t(
-                                'components_project_connection_warehouse_form.snowflake.credentials_source.manual',
-                            )}
-                            disabled={disabled}
-                        />
-                    </Stack>
-                </Radio.Group>
+                {snowflakeOrgCredentials?.length > 0 && (
+                    <Radio.Group
+                        value={useOrgCredentials ? 'org' : 'manual'}
+                        name="useOrgCredentials"
+                        onChange={(value) => {
+                            const useOrg = value === 'org';
+                            setUseOrgCredentials(useOrg);
+                            if (useOrg) {
+                                // Clear manual fields when switching to org credentials
+                                form.setFieldValue(
+                                    'organizationWarehouseCredentialsUuid',
+                                    snowflakeOrgCredentials[0]
+                                        ?.organizationWarehouseCredentialsUuid,
+                                );
+                            } else {
+                                form.setFieldValue(
+                                    'organizationWarehouseCredentialsUuid',
+                                    undefined,
+                                );
+                            }
+                        }}
+                        label={t(
+                            'components_project_connection_warehouse_form.snowflake.credentials_source.label',
+                        )}
+                        description={t(
+                            'components_project_connection_warehouse_form.snowflake.credentials_source.description',
+                        )}
+                    >
+                        <Stack mt="xs">
+                            <Radio
+                                value="org"
+                                label={t(
+                                    'components_project_connection_warehouse_form.snowflake.credentials_source.org',
+                                )}
+                                disabled={disabled}
+                            />
+                            <Radio
+                                value="manual"
+                                label={t(
+                                    'components_project_connection_warehouse_form.snowflake.credentials_source.manual',
+                                )}
+                                disabled={disabled}
+                            />
+                        </Stack>
+                    </Radio.Group>
+                )}
                 {useOrgCredentials && snowflakeOrgCredentials.length > 0 && (
                     <Select
                         label={t(

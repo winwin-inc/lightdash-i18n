@@ -42,7 +42,10 @@ import {
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useBlocker, useLocation, useNavigate, useParams } from 'react-router';
-
+import {
+    selectIsValidQuery,
+    useExplorerSelector,
+} from '../../../features/explorer/store';
 import { PromotionConfirmDialog } from '../../../features/promotion/components/PromotionConfirmDialog';
 import {
     usePromoteChartDiffMutation,
@@ -131,13 +134,10 @@ const SavedChartsHeader: FC = () => {
         ? isUnsavedChartChanged(unsavedChartVersion)
         : false;
 
-    // Get query state from hook instead of Context
     const { query } = useExplorerQuery();
     const itemsMap = query.data?.fields;
 
-    const isValidQuery = useExplorerContext(
-        (context) => context.state.isValidQuery,
-    );
+    const isValidQuery = useExplorerSelector(selectIsValidQuery);
 
     const isPinned = useMemo(() => {
         return Boolean(savedChart?.pinnedListUuid);

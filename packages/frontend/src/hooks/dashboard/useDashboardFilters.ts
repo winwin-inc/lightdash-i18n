@@ -1,7 +1,10 @@
 import {
+    FilterInteractivityValues,
+    getFilterInteractivityValue,
     type Dashboard,
     type DashboardFilterRule,
     type DashboardFilters,
+    type InteractivityOptions,
 } from '@lightdash/common';
 import { useCallback, useMemo, useState } from 'react';
 import { hasSavedFilterValueChanged } from '../../components/DashboardFilter/FilterConfiguration/utils';
@@ -20,6 +23,12 @@ export const useDashboardFilters = ({
     isFilterEnabled: boolean;
     dashboard?: Dashboard;
 }) => {
+    // Embedded dashboards will not be using this query hook to load the dashboard,
+    // so we need to set the dashboard manually
+    const [embedDashboard, setEmbedDashboard] = useState<
+        Dashboard & InteractivityOptions
+    >();
+
     const [dashboardTemporaryFilters, setDashboardTemporaryFilters] =
         useState<DashboardFilters>(emptyFilters);
     const [dashboardFilters, setDashboardFilters] =
@@ -55,6 +64,47 @@ export const useDashboardFilters = ({
         resetSavedFilterOverrides,
     } = useSavedDashboardFiltersOverrides();
 
+    
+    /**
+     * Apply interactivity filtering for embedded dashboards
+     */
+    const applyInteractivityFiltering = useCallback(
+        (filters: DashboardFilters): DashboardFilters => {
+            if (!embedDashboard) {
+                return filters;
+            }
+
+            if (!embedDashboard.dashboardFiltersInteractivity) {
+                return emptyFilters;
+            }
+
+            const interactivityOptions =
+                embedDashboard.dashboardFiltersInteractivity;
+            const filterInteractivityValue = getFilterInteractivityValue(
+                interactivityOptions.enabled,
+            );
+
+            if (filterInteractivityValue === FilterInteractivityValues.none) {
+                return emptyFilters;
+            }
+
+            if (filterInteractivityValue === FilterInteractivityValues.some) {
+                return {
+                    ...filters,
+                    dimensions: filters.dimensions.filter((filter) =>
+                        interactivityOptions.allowedFilters?.includes(
+                            filter.id,
+                        ),
+                    ),
+                };
+            }
+
+            // If 'all', return filters as-is
+            return filters;
+        },
+        [embedDashboard],
+    );
+
     // Resets all dashboard filters. There's a bit of a race condition
     // here because we store filters in memory in two places:
     //  1. dashboardFilters: in memory
@@ -64,7 +114,13 @@ export const useDashboardFilters = ({
     // and read more centrally.
     const resetDashboardFilters = useCallback(() => {
         // reset in memory filters
-        setDashboardFilters(dashboard?.filters ?? emptyFilters);
+        const filters =
+            dashboard?.filters ?? embedDashboard?.filters ?? emptyFilters;
+        // Apply interactivity filtering for embedded dashboards
+        const filteredFilters = embedDashboard
+            ? applyInteractivityFiltering(filters)
+            : filters;
+        setDashboardFilters(filteredFilters);
         // reset temporary filters
         setDashboardTemporaryFilters(emptyFilters);
         // reset saved filter overrides which are stored in url
@@ -73,7 +129,9 @@ export const useDashboardFilters = ({
         setDashboardFilters,
         setDashboardTemporaryFilters,
         dashboard?.filters,
+        embedDashboard,
         resetSavedFilterOverrides,
+        applyInteractivityFiltering,
     ]);
 
     const addDimensionDashboardFilter = useCallback(
@@ -102,7 +160,12 @@ export const useDashboardFilters = ({
                 ? setDashboardTemporaryFilters
                 : setDashboardFilters;
 
-            const isFilterSaved = dashboard?.filters.dimensions.some(
+            const filters =
+                dashboard?.filters?.dimensions ||
+                embedDashboard?.filters?.dimensions ||
+                [];
+
+            const isFilterSaved = filters.dimensions.some(
                 ({ id }) => id === item.id,
             );
 
@@ -147,6 +210,7 @@ export const useDashboardFilters = ({
         [
             addSavedFilterOverride,
             dashboard?.filters.dimensions,
+            embedDashboard?.filters.dimensions,
             originalDashboardFilters.dimensions,
             removeSavedFilterOverride,
         ],
@@ -193,6 +257,8 @@ export const useDashboardFilters = ({
     );
 
     return {
+        setEmbedDashboard,
+        embedDashboard,
         dashboardTemporaryFilters,
         dashboardFilters,
         allFilters,
@@ -207,5 +273,6 @@ export const useDashboardFilters = ({
         addMetricDashboardFilter,
         removeDimensionDashboardFilter,
         overridesForSavedDashboardFilters,
+        applyInteractivityFiltering,
     };
 };

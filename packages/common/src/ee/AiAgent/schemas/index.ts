@@ -6,7 +6,8 @@ import {
     type ToolFindChartsOutput,
     toolFindDashboardsArgsSchema,
     type ToolFindDashboardsOutput,
-    toolFindExploresArgsSchema,
+    toolFindExploresArgsSchemaV1,
+    toolFindExploresArgsSchemaV2,
     type ToolFindExploresOutput,
     toolFindFieldsArgsSchema,
     type ToolFindFieldsOutput,
@@ -14,6 +15,8 @@ import {
     type ToolImproveContextOutput,
     toolProposeChangeArgsSchema,
     type ToolProposeChangeOutput,
+    toolRunQueryArgsSchema,
+    type ToolRunQueryOutput,
     toolSearchFieldValuesArgsSchema,
     type ToolSearchFieldValuesOutput,
     toolTableVizArgsSchema,
@@ -43,10 +46,26 @@ export const AgentToolCallArgsSchema = z.discriminatedUnion('type', [
     toolVerticalBarArgsSchema,
     toolTableVizArgsSchema,
     toolTimeSeriesArgsSchema,
-    toolFindExploresArgsSchema,
+    toolFindExploresArgsSchemaV1,
+    toolFindExploresArgsSchemaV2,
 ]);
 
-export type AgentToolCallArgs = z.infer<typeof AgentToolCallArgsSchema>;
+export const AgentToolCallArgsSchemaV2 = z.discriminatedUnion('type', [
+    toolDashboardArgsSchema,
+    toolFindChartsArgsSchema,
+    toolFindDashboardsArgsSchema,
+    toolFindFieldsArgsSchema,
+    toolImproveContextArgsSchema,
+    toolProposeChangeArgsSchema,
+    toolRunQueryArgsSchema,
+    toolSearchFieldValuesArgsSchema,
+    toolFindExploresArgsSchemaV2,
+]);
+
+// TODO: Remove usage of this schema and use switch case instead where it's used
+export type AgentToolCallArgs = z.infer<
+    typeof AgentToolCallArgsSchema | typeof AgentToolCallArgsSchemaV2
+>;
 
 export type AgentToolOutput =
     | ToolDashboardOutput
@@ -56,6 +75,7 @@ export type AgentToolOutput =
     | ToolFindFieldsOutput
     | ToolImproveContextOutput
     | ToolProposeChangeOutput
+    | ToolRunQueryOutput
     | ToolSearchFieldValuesOutput
     | ToolTableVizOutput
     | ToolTimeSeriesOutput

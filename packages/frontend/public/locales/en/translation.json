@@ -368,7 +368,9 @@
         "no_template_available": "No template available",
         "type": "Type",
         "field": "Field",
-        "orderBy": "Order By"
+        "orderBy": "Order By",
+        "window_function": "Window Function",
+        "partition_by": "Partition By"
     },
 
     "features_omnibar": {
@@ -2372,7 +2374,8 @@
             "select_column_placeholder": "Search column...",
             "select_column_sql": "SQL column",
             "tooltip_reset": {
-                "label": "Reset to original value"
+                "label": "Reset to original value",
+                "reset": "Reset filter to original value"
             },
             "tooltip_filter_field": {
                 "label": "Filter field and value required",
@@ -3395,7 +3398,10 @@
         },
         "branch": {
             "loading_branch": "Loading branches...",
-            "select_branch": "Select branch"
+            "select_branch": "Select branch",
+            "failed_to_load_branches": "Failed to load branches",
+            "description": "The project will use the default branch.",
+            "failed_to_load_branches_description": "Failed to fetch branches"
         },
         "schema": {
             "label": "Schema/Dataset",
@@ -4996,7 +5002,8 @@
         "configure": "Configure",
         "config_tabs": {
             "general": "General",
-            "conditional_formating": "Conditional formatting"
+            "conditional_formating": "Conditional formatting",
+            "bar_display": "Bar display"
         }
     },
     "components_visualization_configs_treemap": {
@@ -5036,6 +5043,11 @@
                 "max_color": "Max color"
             }
         }
+    },
+    "components_visualization_configs_bar_chart_display": {
+        "no_numeric_columns_available": "No numeric columns available for bar chart display",
+        "bar_chart_columns": "Bar chart columns",
+        "display_numeric_values_as_bar_charts": "Display numeric values as bar charts"
     },
     "components_visualization_configs_custom_vis": {
         "placeholder": "Start by entering your Vega-Lite JSON code or choose from our pre-built templates to create your chart.",
@@ -5158,7 +5170,8 @@
         "copy_custom_metric": "Copy of Custom metric added successfully",
         "duplicate_custom_metric": "Duplicate custom metric",
         "copy_custom_dimension": "Copy of Custom Dimension added successfully",
-        "duplicate_custom_dimension": "Duplicate custom dimension"
+        "duplicate_custom_dimension": "Duplicate custom dimension",
+        "no_description_available": "No description available."
     },
     "components_explorer_table_metric_type_labels": {
         "count_distinct": "Count distinct",
@@ -5700,7 +5713,8 @@
             "percent_of_column_total": "Percent of column total",
             "rank_in_column": "Rank in column",
             "running_total": "Running total",
-            "unknown": "Unknown template type"
+            "unknown": "Unknown template type",
+            "window_function": "Window function"
         },
         "type_descriptions": {
             "percent_change_from_previous": "Calculates the percentage change from the previous row value.",
@@ -5708,7 +5722,8 @@
             "percent_of_column_total": "Shows each value as a percentage of the column total.",
             "rank_in_column": "Ranks values within the column from highest to lowest.",
             "running_total": "Calculates a cumulative sum across rows.",
-            "unknown": "Unknown template type"
+            "unknown": "Unknown template type",
+            "window_function": "Applies SQL window functions (e.g., ROW_NUMBER, PERCENT_RANK) to the result set."
         }
     },
     "components_common_resource_view_grid": {
@@ -8423,6 +8438,7 @@
             "threads": "{{total}} threads"
         },
         "admin_layout": {
+            "ai_agents_admin_panel": "AI Agents Admin Panel",
             "no_access": {
                 "title": "You don't have access to this page",
                 "description": "You must be an organization admin to access this page."
@@ -8434,7 +8450,11 @@
             "agents": "Agents",
             "new_thread": "New Thread",
             "new_agent": "New Agent",
-            "ai_agents_insights": "AI Agents Insights"
+            "ai_agents_insights": "AI Agents Insights",
+            "ai_features_disabled": {
+                "title": "AI Features Currently Disabled for All Users",
+                "description": "AI features on the homepage and navbar are turned off. Users cannot interact with AI Agents until you re-enable this feature using the toggle above."
+            }
         },
         "analytics_embed_dashboard": {
             "unable_to_load_analytics_dashboard": "Unable to load analytics dashboard",

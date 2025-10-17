@@ -139,9 +139,11 @@ import type {
     ApiAiAgentThreadMessageVizResponse,
     ApiAiAgentThreadResponse,
     ApiAiAgentThreadSummaryListResponse,
+    ApiAiOrganizationSettingsResponse,
     ApiAppendInstructionResponse,
     ApiCreateEvaluationResponse,
     ApiGetUserAgentPreferencesResponse,
+    ApiUpdateAiOrganizationSettingsResponse,
     ApiUpdateUserAgentPreferencesResponse,
     DecodedEmbed,
     EmbedUrl,
@@ -317,6 +319,7 @@ export * from './utils/convertCustomMetricsToYaml';
 export * from './utils/customDimensions';
 export * from './utils/dashboard';
 export * from './utils/dbt';
+export * from './utils/dependencyGraph';
 export * from './utils/email';
 export * from './utils/fields';
 export * from './utils/filters';
@@ -341,6 +344,8 @@ export * from './utils/timeFrames';
 export * from './utils/virtualView';
 export * from './utils/warehouse';
 export * from './visualizations/CartesianChartDataModel';
+export * from './visualizations/chartTransformations';
+export * from './visualizations/helpers/getCartesianAxisFormatterConfig';
 export * from './visualizations/PieChartDataModel';
 export * from './visualizations/TableDataModel';
 export * from './visualizations/types';
@@ -974,7 +979,9 @@ type ApiResults =
     | ApiAiAgentEvaluationRunResultsResponse['results']
     | ApiCreateEvaluationResponse['results']
     | ApiAppendInstructionResponse['results']
-    | ApiGetChangeResponse['results'];
+    | ApiGetChangeResponse['results']
+    | ApiAiOrganizationSettingsResponse['results']
+    | ApiUpdateAiOrganizationSettingsResponse['results'];
 
 export type ApiResponse<T extends ApiResults = ApiResults> = {
     status: 'ok';

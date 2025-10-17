@@ -41,9 +41,10 @@ import {
     getDashboardFilterRulesForTileAndReferences,
     getDimensions,
     getErrorMessage,
-    getIntrinsicUserAttributes,
+    getFieldsFromMetricQuery,
     getItemId,
     getItemMap,
+    getMetrics,
     isCartesianChartConfig,
     isCustomBinDimension,
     isCustomDimension,
@@ -72,7 +73,6 @@ import {
     ResultRow,
     type RunQueryTags,
     S3Error,
-    SCHEDULER_TASKS,
     SchedulerFormat,
     sleep,
     type SpaceShare,
@@ -95,6 +95,7 @@ import { FeatureFlagModel } from '../../models/FeatureFlagModel/FeatureFlagModel
 import { QueryHistoryModel } from '../../models/QueryHistoryModel/QueryHistoryModel';
 import type { SavedSqlModel } from '../../models/SavedSqlModel';
 import PrometheusMetrics from '../../prometheus';
+import { compileMetricQuery } from '../../queryCompiler';
 import type { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { wrapSentryTransaction } from '../../utils';
 import { processFieldsForExport } from '../../utils/FileDownloadUtils/FileDownloadUtils';
@@ -1470,6 +1471,44 @@ export class AsyncQueryService extends ProjectService {
         }
     }
 
+    private async getMetricQueryFields({
+        metricQuery,
+        dateZoom,
+        explore,
+        warehouseSqlBuilder,
+        projectUuid,
+    }: Pick<
+        ExecuteAsyncMetricQueryArgs,
+        'metricQuery' | 'dateZoom' | 'projectUuid'
+    > & {
+        warehouseSqlBuilder: WarehouseSqlBuilder;
+        explore: Explore;
+        pivotConfiguration?: PivotConfiguration;
+    }) {
+        const availableParameterDefinitions = await this.getAvailableParameters(
+            projectUuid,
+            explore,
+        );
+        const availableParameters = Object.keys(availableParameterDefinitions);
+
+        const exploreWithOverride = ProjectService.updateExploreWithDateZoom(
+            explore,
+            metricQuery,
+            warehouseSqlBuilder,
+            availableParameters,
+            dateZoom,
+        );
+
+        const compiledMetricQuery = compileMetricQuery({
+            explore: exploreWithOverride,
+            metricQuery,
+            warehouseSqlBuilder,
+            availableParameters,
+        });
+
+        return getFieldsFromMetricQuery(compiledMetricQuery, explore);
+    }
+
     private async prepareMetricQueryAsyncQueryArgs({
         account,
         metricQuery,
@@ -1478,12 +1517,14 @@ export class AsyncQueryService extends ProjectService {
         warehouseSqlBuilder,
         parameters,
         projectUuid,
+        pivotConfiguration,
     }: Pick<
         ExecuteAsyncMetricQueryArgs,
         'account' | 'metricQuery' | 'dateZoom' | 'parameters' | 'projectUuid'
     > & {
         warehouseSqlBuilder: WarehouseSqlBuilder;
         explore: Explore;
+        pivotConfiguration?: PivotConfiguration;
     }) {
         assertIsAccountWithOrg(account);
 
@@ -1506,6 +1547,7 @@ export class AsyncQueryService extends ProjectService {
             // ! TODO: Should validate the parameters to make sure they are valid from the options
             parameters,
             availableParameterDefinitions,
+            pivotConfiguration,
         });
 
         const fieldsWithOverrides: ItemsMap = Object.fromEntries(
@@ -1891,6 +1933,7 @@ export class AsyncQueryService extends ProjectService {
             warehouseSqlBuilder,
             parameters: combinedParameters,
             projectUuid,
+            pivotConfiguration,
         });
 
         const { queryUuid, cacheMetadata } = await this.executeAsyncQuery(
@@ -2043,9 +2086,23 @@ export class AsyncQueryService extends ProjectService {
             savedChartParameters,
         );
 
+        const fields = await this.getMetricQueryFields({
+            metricQuery: metricQueryWithLimit,
+            explore,
+            warehouseSqlBuilder,
+            projectUuid,
+        });
+
+        const pivotConfiguration = pivotResults
+            ? derivePivotConfigurationFromChart(
+                  savedChart,
+                  metricQueryWithLimit,
+                  fields,
+              )
+            : undefined;
+
         const {
             sql,
-            fields,
             warnings,
             parameterReferences,
             missingParameterReferences,
@@ -2057,15 +2114,8 @@ export class AsyncQueryService extends ProjectService {
             warehouseSqlBuilder,
             parameters: combinedParameters,
             projectUuid,
+            pivotConfiguration,
         });
-
-        const pivotConfiguration = pivotResults
-            ? derivePivotConfigurationFromChart(
-                  savedChart,
-                  metricQueryWithLimit,
-                  fields,
-              )
-            : undefined;
 
         const { queryUuid, cacheMetadata } = await this.executeAsyncQuery(
             {
@@ -2287,7 +2337,9 @@ export class AsyncQueryService extends ProjectService {
             warehouseCredentials.startOfWeek,
         );
 
-        const dashboard = await this.dashboardModel.getById(dashboardUuid);
+        const dashboard = await this.dashboardModel.getByIdOrSlug(
+            dashboardUuid,
+        );
         const dashboardParameters = getDashboardParametersValuesMap(dashboard);
 
         // Combine default parameter values, dashboard parameters, and request parameters first
@@ -2298,9 +2350,23 @@ export class AsyncQueryService extends ProjectService {
             dashboardParameters,
         );
 
+        const fields = await this.getMetricQueryFields({
+            metricQuery: metricQueryWithLimit,
+            explore,
+            warehouseSqlBuilder,
+            projectUuid,
+        });
+
+        const pivotConfiguration = pivotResults
+            ? derivePivotConfigurationFromChart(
+                  savedChart,
+                  metricQueryWithLimit,
+                  fields,
+              )
+            : undefined;
+
         const {
             sql,
-            fields,
             parameterReferences,
             missingParameterReferences,
             usedParameters,
@@ -2312,15 +2378,8 @@ export class AsyncQueryService extends ProjectService {
             warehouseSqlBuilder,
             parameters: combinedParameters,
             projectUuid,
+            pivotConfiguration,
         });
-
-        const pivotConfiguration = pivotResults
-            ? derivePivotConfigurationFromChart(
-                  savedChart,
-                  metricQueryWithLimit,
-                  fields,
-              )
-            : undefined;
 
         const { queryUuid, cacheMetadata } = await this.executeAsyncQuery(
             {
@@ -2428,10 +2487,7 @@ export class AsyncQueryService extends ProjectService {
 
         const isValidNonCustomDimension = (
             dimension: CustomDimension | CompiledDimension,
-        ) =>
-            !isCustomDimension(dimension) &&
-            !dimension.timeInterval &&
-            !dimension.hidden;
+        ) => !isCustomDimension(dimension) && !dimension.hidden;
 
         const availableDimensions = allDimensions.filter(
             (dimension) =>
@@ -2445,6 +2501,16 @@ export class AsyncQueryService extends ProjectService {
                           `${dimension.table}.${dimension.name}`,
                       )
                     : true),
+        );
+        const availableMetrics = getMetrics(explore).filter(
+            (metric) =>
+                availableTables.has(metric.table) &&
+                !metric.hidden &&
+                ((itemShowUnderlyingValues?.includes(metric.name) &&
+                    itemShowUnderlyingTable === metric.table) ||
+                    itemShowUnderlyingValues?.includes(
+                        `${metric.table}.${metric.name}`,
+                    )),
         );
 
         const requestParameters: ExecuteAsyncUnderlyingDataRequestParams = {
@@ -2470,7 +2536,7 @@ export class AsyncQueryService extends ProjectService {
                 (dimension) => !isCustomBinDimension(dimension),
             ),
             filters,
-            metrics: [],
+            metrics: availableMetrics.map(getItemId),
             sorts: [],
             limit: limit ?? 500,
             tableCalculations: [],
@@ -2976,7 +3042,9 @@ export class AsyncQueryService extends ProjectService {
             throw new ForbiddenError("You don't have access to this chart");
         }
 
-        const dashboard = await this.dashboardModel.getById(dashboardUuid);
+        const dashboard = await this.dashboardModel.getByIdOrSlug(
+            dashboardUuid,
+        );
         const dashboardParameters = getDashboardParametersValuesMap(dashboard);
 
         // Combine default parameter values, dashboard parameters, and request parameters first

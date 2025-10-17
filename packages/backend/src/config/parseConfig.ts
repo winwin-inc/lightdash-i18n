@@ -688,7 +688,6 @@ export type LightdashConfig = {
         minConnections: number | undefined;
     };
     allowMultiOrgs: boolean;
-    useRedux: boolean;
     maxPayloadSize: string;
     query: {
         maxLimit: number;
@@ -846,6 +845,7 @@ export type LightdashConfig = {
         enabled: boolean;
     };
     analyticsEmbedSecret?: string;
+    experimentalExplorerImprovements: boolean;
 };
 
 export type SlackConfig = {
@@ -1407,7 +1407,6 @@ export const parseConfig = (): LightdashConfig => {
             ),
         },
         allowMultiOrgs: process.env.ALLOW_MULTIPLE_ORGS === 'true',
-        useRedux: process.env.USE_REDUX === 'true',
         maxPayloadSize: process.env.LIGHTDASH_MAX_PAYLOAD || '5mb',
         query: {
             maxLimit:
@@ -1624,5 +1623,7 @@ export const parseConfig = (): LightdashConfig => {
             enabled: process.env.CUSTOM_ROLES_ENABLED === 'true',
         },
         analyticsEmbedSecret: process.env.ANALYTICS_EMBED_SECRET,
+        experimentalExplorerImprovements:
+            process.env.EXPERIMENTAL_EXPLORER_IMPROVEMENTS === 'true',
     };
 };

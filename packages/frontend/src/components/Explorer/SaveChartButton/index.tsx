@@ -4,6 +4,10 @@ import { IconDeviceFloppy } from '@tabler/icons-react';
 import { useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import {
+    selectIsValidQuery,
+    useExplorerSelector,
+} from '../../../features/explorer/store';
 import { useExplore } from '../../../hooks/useExplore';
 import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
 import { useAddVersionMutation } from '../../../hooks/useSavedQuery';
@@ -13,20 +17,21 @@ import MantineIcon from '../../common/MantineIcon';
 import ChartCreateModal from '../../common/modal/ChartCreateModal';
 
 const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
+    // Get the merged version (Context chartConfig/pivotConfig + Redux fields)
     const unsavedChartVersion = useExplorerContext(
         (context) => context.state.mergedUnsavedChartVersion,
     );
 
-    // Get savedChart, comparison function, and isValidQuery from Context
+    // Get savedChart and comparison function from Context
     const savedChart = useExplorerContext(
         (context) => context.state.savedChart,
     );
     const isUnsavedChartChanged = useExplorerContext(
         (context) => context.actions.isUnsavedChartChanged,
     );
-    const isValidQuery = useExplorerContext(
-        (context) => context.state.isValidQuery,
-    );
+
+    // Read isValidQuery from Redux
+    const isValidQuery = useExplorerSelector(selectIsValidQuery);
     const spaceUuid = useSearchParams('fromSpace');
     const { t } = useTranslation();
 

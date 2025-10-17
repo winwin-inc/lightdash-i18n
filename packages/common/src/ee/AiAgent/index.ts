@@ -10,6 +10,7 @@ import type {
     ToolDashboardArgs,
     ToolName,
     ToolProposeChangeOutput,
+    ToolRunQueryArgs,
     ToolTableVizArgs,
     ToolTimeSeriesArgs,
     ToolVerticalBarArgs,
@@ -18,6 +19,8 @@ import { type AgentToolOutput } from './schemas';
 import { type AiMetricQuery, type AiResultType } from './types';
 
 export * from './adminTypes';
+export * from './chartConfig/slack';
+export * from './chartConfig/web';
 export * from './constants';
 export * from './filterExploreByTags';
 export * from './followUpTools';
@@ -25,6 +28,7 @@ export * from './requestTypes';
 export * from './schemas';
 export * from './types';
 export * from './utils';
+export * from './validators';
 
 export const baseAgentSchema = z.object({
     uuid: z.string(),
@@ -63,6 +67,7 @@ export const baseAgentSchema = z.object({
     userAccess: z.array(z.string()),
     enableDataAccess: z.boolean(),
     enableSelfImprovement: z.boolean(),
+    version: z.number(),
 });
 
 export type BaseAiAgent = z.infer<typeof baseAgentSchema>;
@@ -83,6 +88,7 @@ export type AiAgent = Pick<
     | 'userAccess'
     | 'enableDataAccess'
     | 'enableSelfImprovement'
+    | 'version'
 >;
 
 export type AiAgentSummary = Pick<
@@ -101,6 +107,7 @@ export type AiAgentSummary = Pick<
     | 'userAccess'
     | 'enableDataAccess'
     | 'enableSelfImprovement'
+    | 'version'
 >;
 
 export type AiAgentUser = {
@@ -193,6 +200,7 @@ export type ApiCreateAiAgent = Pick<
     | 'userAccess'
     | 'enableDataAccess'
     | 'enableSelfImprovement'
+    | 'version'
 >;
 
 export type ApiUpdateAiAgent = Partial<
@@ -208,6 +216,7 @@ export type ApiUpdateAiAgent = Partial<
         | 'userAccess'
         | 'enableDataAccess'
         | 'enableSelfImprovement'
+        | 'version'
     >
 > & {
     uuid: string;
@@ -363,6 +372,7 @@ export type AiArtifact = {
         | ToolTableVizArgs
         | ToolTimeSeriesArgs
         | ToolVerticalBarArgs
+        | ToolRunQueryArgs
         | null;
     dashboardConfig: ToolDashboardArgs | null;
     versionCreatedAt: Date;

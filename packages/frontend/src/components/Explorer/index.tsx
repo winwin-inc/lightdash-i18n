@@ -4,15 +4,14 @@ import { Stack } from '@mantine/core';
 import { memo, useEffect, useMemo, type FC } from 'react';
 import {
     explorerActions,
+    selectAdditionalMetricModal,
     selectColumnOrder,
     selectDimensions,
-    selectFromDashboard,
+    selectFormatModal,
     selectIsEditMode,
     selectMetricQuery,
     selectMetrics,
     selectParameterReferences,
-    selectPivotConfig,
-    selectPreviouslyFetchedState,
     selectSorts,
     selectTableName,
     useExplorerDispatch,
@@ -26,7 +25,6 @@ import { useExplore } from '../../hooks/useExplore';
 import { useExplorerQuery } from '../../hooks/useExplorerQuery';
 import { useProjectUuid } from '../../hooks/useProjectUuid';
 import { Can } from '../../providers/Ability';
-import useExplorerContext from '../../providers/Explorer/useExplorerContext';
 import { DrillDownModal } from '../MetricQueryData/DrillDownModal';
 import MetricQueryDataProvider from '../MetricQueryData/MetricQueryDataProvider';
 import UnderlyingDataModal from '../MetricQueryData/UnderlyingDataModal';
@@ -43,23 +41,28 @@ import { WriteBackModal } from './WriteBackModal';
 
 const Explorer: FC<{ hideHeader?: boolean }> = memo(
     ({ hideHeader = false }) => {
-        // Get state from Redux
         const tableName = useExplorerSelector(selectTableName);
         const dimensions = useExplorerSelector(selectDimensions);
         const metrics = useExplorerSelector(selectMetrics);
         const columnOrder = useExplorerSelector(selectColumnOrder);
+        const sorts = useExplorerSelector(selectSorts);
         const metricQuery = useExplorerSelector(selectMetricQuery);
         const isEditMode = useExplorerSelector(selectIsEditMode);
         const parameterReferencesFromRedux = useExplorerSelector(
             selectParameterReferences,
         );
-        const sorts = useExplorerSelector(selectSorts);
+
+        const { isOpen: isAdditionalMetricModalOpen } = useExplorerSelector(
+            selectAdditionalMetricModal,
+        );
+        const { isOpen: isFormatModalOpen } =
+            useExplorerSelector(selectFormatModal);
+
         const dispatch = useExplorerDispatch();
 
         const projectUuid = useProjectUuid();
 
-        // Get query state and actions from hook
-        const { query, fetchResults } = useExplorerQuery();
+        const { query } = useExplorerQuery();
         const queryUuid = query.data?.queryUuid;
 
         const { data: explore } = useExplore(tableName);
@@ -68,84 +71,6 @@ const Explorer: FC<{ hideHeader?: boolean }> = memo(
             enabled: !!tableName,
         });
 
-        // Keep reading savedChart from Context for now (will migrate when we add to Redux)
-        const isSavedChart = useExplorerContext(
-            (context) => !!context.state.savedChart,
-        );
-
-        // Get navigation context from Redux
-        const fromDashboard = useExplorerSelector(selectFromDashboard);
-        const previouslyFetchedState = useExplorerSelector(
-            selectPreviouslyFetchedState,
-        );
-        const pivotConfig = useExplorerSelector(selectPivotConfig);
-
-        const hasPivotConfig = !!pivotConfig;
-
-        useEffect(() => {
-            const shouldAutoFetch =
-                !previouslyFetchedState &&
-                (!!fromDashboard || isSavedChart || hasPivotConfig);
-
-            if (shouldAutoFetch) {
-                fetchResults();
-            }
-        }, [
-            previouslyFetchedState,
-            fetchResults,
-            fromDashboard,
-            isSavedChart,
-            hasPivotConfig,
-        ]);
-
-        useEffect(() => {
-            if (isError) {
-                // If there's an error, we set the parameter references to an empty array
-                dispatch(explorerActions.setParameterReferences([]));
-            } else {
-                // While there's no parameter references array the request hasn't run, so we set it explicitly to null
-                dispatch(
-                    explorerActions.setParameterReferences(
-                        parameterReferences ?? null,
-                    ),
-                );
-            }
-        }, [parameterReferences, dispatch, isError]);
-
-        // Fetch project parameters based on parameter references
-        const { data: projectParameters } = useParameters(
-            projectUuid,
-            parameterReferencesFromRedux ?? undefined,
-            {
-                enabled: !!parameterReferencesFromRedux?.length,
-            },
-        );
-
-        // Compute parameter definitions from explore tables
-        const exploreParameterDefinitions = useMemo(() => {
-            return explore
-                ? getAvailableParametersFromTables(
-                      Object.values(explore.tables),
-                  )
-                : {};
-        }, [explore]);
-
-        // Merge project and explore parameter definitions
-        const parameterDefinitions = useMemo(() => {
-            return {
-                ...(projectParameters ?? {}),
-                ...(exploreParameterDefinitions ?? {}),
-            };
-        }, [projectParameters, exploreParameterDefinitions]);
-
-        // Sync parameter definitions to Redux
-        useEffect(() => {
-            dispatch(
-                explorerActions.setParameterDefinitions(parameterDefinitions),
-            );
-        }, [parameterDefinitions, dispatch]);
-
-        // Construct object for default sort calculation using Redux values
         const chartVersionForSort = useMemo(
             () => ({
                 tableName,
@@ -162,20 +87,62 @@ const Explorer: FC<{ hideHeader?: boolean }> = memo(
 
         const defaultSort = useDefaultSortField(chartVersionForSort as any);
 
-        // Set default sort when table changes and no sorts exist
         useEffect(() => {
             if (tableName && !sorts.length && defaultSort) {
                 dispatch(explorerActions.setSortFields([defaultSort]));
             }
         }, [tableName, sorts.length, defaultSort, dispatch]);
 
+        useEffect(() => {
+            if (isError) {
+                // If there's an error, we set the parameter references to an empty array
+                dispatch(explorerActions.setParameterReferences([]));
+            } else {
+                // While there's no parameter references array the request hasn't run, so we set it explicitly to null
+                dispatch(
+                    explorerActions.setParameterReferences(
+                        parameterReferences ?? null,
+                    ),
+                );
+            }
+        }, [parameterReferences, dispatch, isError]);
+
+        const { data: projectParameters } = useParameters(
+            projectUuid,
+            parameterReferencesFromRedux ?? undefined,
+            {
+                enabled: !!parameterReferencesFromRedux?.length,
+            },
+        );
+
+        const exploreParameterDefinitions = useMemo(() => {
+            return explore
+                ? getAvailableParametersFromTables(
+                      Object.values(explore.tables),
+                  )
+                : {};
+        }, [explore]);
+
+        const parameterDefinitions = useMemo(() => {
+            return {
+                ...(projectParameters ?? {}),
+                ...(exploreParameterDefinitions ?? {}),
+            };
+        }, [projectParameters, exploreParameterDefinitions]);
+
+        useEffect(() => {
+            dispatch(
+                explorerActions.setParameterDefinitions(parameterDefinitions),
+            );
+        }, [parameterDefinitions, dispatch]);
+
         const { data: org } = useOrganization();
 
         return (
             <MetricQueryDataProvider
-                metricQuery={metricQuery}
                 tableName={tableName}
                 explore={explore}
+                metricQuery={metricQuery}
                 queryUuid={queryUuid}
             >
                 <Stack sx={{ flexGrow: 1 }}>
@@ -208,15 +175,21 @@ const Explorer: FC<{ hideHeader?: boolean }> = memo(
                     </Can>
                 </Stack>
 
+                {/* These use the metricQueryDataProvider context */}
                 <UnderlyingDataModal />
                 <DrillDownModal />
-                <CustomMetricModal />
+
+                {/* These return safely when unopened */}
                 <CustomDimensionModal />
-                <FormatModal />
                 <WriteBackModal />
+
+                {isAdditionalMetricModalOpen && <CustomMetricModal />}
+                {isFormatModalOpen && <FormatModal />}
             </MetricQueryDataProvider>
         );
     },
 );
+
+Explorer.displayName = 'Explorer';
 
 export default Explorer;

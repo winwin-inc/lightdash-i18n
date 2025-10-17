@@ -1,4 +1,4 @@
-import { DimensionType } from '../../types/field';
+import { DimensionType, TableCalculationType } from '../../types/field';
 import { type PivotConfiguration } from '../../types/pivot';
 import { type RawResultRow } from '../../types/results';
 import { ChartKind } from '../../types/savedCharts';
@@ -47,6 +47,12 @@ export enum AxisSide {
     RIGHT,
 }
 
+export enum StackType {
+    NONE = 'none',
+    NORMAL = 'stack',
+    PERCENT = 'stack100',
+}
+
 export function getColumnAxisType(dimensionType: DimensionType): VizIndexType {
     switch (dimensionType) {
         case DimensionType.DATE:
@@ -55,6 +61,18 @@ export function getColumnAxisType(dimensionType: DimensionType): VizIndexType {
         case DimensionType.BOOLEAN:
         case DimensionType.NUMBER:
         case DimensionType.STRING:
+        default:
+            return VizIndexType.CATEGORY;
+    }
+}
+
+export function getTableCalculationAxisType(
+    tableCalculationType: TableCalculationType,
+): VizIndexType {
+    switch (tableCalculationType) {
+        case TableCalculationType.DATE:
+        case TableCalculationType.TIMESTAMP:
+            return VizIndexType.TIME;
         default:
             return VizIndexType.CATEGORY;
     }
@@ -139,6 +157,7 @@ export type PivotChartLayout = {
     }[];
     groupBy: { reference: string }[] | undefined;
     sortBy?: VizSortBy[];
+    stack?: boolean | StackType; // StackType enum or boolean for backward compatibility
 };
 
 export const isPivotChartLayout = (
@@ -177,6 +196,12 @@ export type VizColumnConfig = {
     frozen: boolean;
     order?: number;
     aggregation?: VizAggregationOptions;
+    displayStyle?: 'text' | 'bar';
+    barConfig?: {
+        min?: number; // Default: auto-calculate from column
+        max?: number; // Default: auto-calculate from column
+        color?: string; // Default: '#5470c6'
+    };
 };
 
 export type VizColumnsConfig = { [key: string]: VizColumnConfig };

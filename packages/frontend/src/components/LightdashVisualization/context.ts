@@ -1,9 +1,10 @@
-import {
-    type ApiErrorDetail,
-    type ChartConfig,
-    type ChartType,
-    type ItemsMap,
-    type MetricQuery,
+import type {
+    ApiErrorDetail,
+    ChartConfig,
+    ChartType,
+    ItemsMap,
+    MetricQuery,
+    StackType,
 } from '@lightdash/common';
 import type EChartsReact from 'echarts-for-react';
 import { createContext, type RefObject } from 'react';
@@ -16,6 +17,7 @@ import { type VisualizationConfig } from './types';
 
 type VisualizationContext = {
     minimal: boolean;
+    isDashboard: boolean;
     chartRef: RefObject<EChartsReact | null>;
     pivotDimensions: string[] | undefined;
     resultsData:
@@ -29,7 +31,7 @@ type VisualizationContext = {
     itemsMap: ItemsMap | undefined;
     visualizationConfig: VisualizationConfig;
     // cartesian config related
-    setStacking: (value: boolean | undefined) => void;
+    setStacking: (value: boolean | StackType | undefined) => void;
     setCartesianType(args: CartesianTypeOptions | undefined): void;
     // --
     onSeriesContextMenu?: (

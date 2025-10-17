@@ -64,9 +64,9 @@ export enum FeatureFlags {
     UnusedContentDashboard = 'unused-content-dashboard',
 
     /**
-     * Enable Redux state management for Explorer (gradual migration from Context API)
+     * Enable experimental explorer improvements
      */
-    UseRedux = 'use-redux',
+    ExperimentalExplorerImprovements = 'experimental-explorer-improvements',
 }
 
 export type FeatureFlag = {

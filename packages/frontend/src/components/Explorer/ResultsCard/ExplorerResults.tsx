@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import {
     selectAdditionalMetrics,
+    selectColumnOrder,
     selectIsEditMode,
     selectTableCalculations,
     selectTableName,
@@ -63,6 +64,15 @@ export const ExplorerResults = memo(() => {
     const additionalMetrics = useExplorerSelector(selectAdditionalMetrics);
     const tableCalculations = useExplorerSelector(selectTableCalculations);
 
+    // Get chart config for column properties
+    const chartConfig = useExplorerContext(
+        (context) => context.state.unsavedChartVersion.chartConfig,
+    );
+    const columnProperties =
+        chartConfig.type === 'table' && chartConfig.config?.columns
+            ? chartConfig.config.columns
+            : undefined;
+
     // Get query state from new hook
     const {
         query,
@@ -76,14 +86,10 @@ export const ExplorerResults = memo(() => {
         FeatureFlags.UseSqlPivotResults,
     );
 
-    // Get metric query from new hook instead of context
     const dimensions = query.data?.metricQuery?.dimensions ?? [];
     const metrics = query.data?.metricQuery?.metrics ?? [];
-    const explorerColumnOrder = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.tableConfig.columnOrder,
-    );
+    const explorerColumnOrder = useExplorerSelector(selectColumnOrder);
 
-    // Get pivot config state outside useMemo
     const hasPivotConfig = useExplorerContext(
         (context) => !!context.state.unsavedChartVersion.pivotConfig,
     );
@@ -272,6 +278,7 @@ export const ExplorerResults = memo(() => {
                     pagination={pagination}
                     footer={footer}
                     showSubtotals={false}
+                    columnProperties={columnProperties}
                 />
                 <JsonViewerModal
                     heading={`Field: ${expandData.name}`}

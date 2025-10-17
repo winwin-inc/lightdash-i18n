@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import useEmbed from '../../../ee/providers/Embed/useEmbed';
 import {
+    selectIsValidQuery,
     selectQueryLimit,
     selectTimezone,
     useExplorerSelector,
@@ -37,7 +38,8 @@ const ExplorerHeader: FC = memo(() => {
     // Get state from Redux and new hook
     const limit = useExplorerSelector(selectQueryLimit);
     const selectedTimezone = useExplorerSelector(selectTimezone);
-    const { query, queryResults, isValidQuery } = useExplorerQuery();
+    const isValidQuery = useExplorerSelector(selectIsValidQuery);
+    const { query, queryResults } = useExplorerQuery();
 
     // Compute values from new hook data
     const showLimitWarning = useMemo(
@@ -49,8 +51,8 @@ const ExplorerHeader: FC = memo(() => {
     const savedChart = useExplorerContext(
         (context) => context.state.savedChart,
     );
-    const unsavedChartVersion = useExplorerContext(
-        (context) => context.state.unsavedChartVersion,
+    const mergedUnsavedChartVersion = useExplorerContext(
+        (context) => context.state.mergedUnsavedChartVersion,
     );
     const setTimeZone = useExplorerContext(
         (context) => context.actions.setTimeZone,
@@ -64,10 +66,10 @@ const ExplorerHeader: FC = memo(() => {
     );
 
     const urlToShare = useMemo(() => {
-        if (unsavedChartVersion) {
+        if (mergedUnsavedChartVersion) {
             const urlArgs = getExplorerUrlFromCreateSavedChartVersion(
                 projectUuid,
-                unsavedChartVersion,
+                mergedUnsavedChartVersion,
                 true,
             );
             return {
@@ -75,7 +77,7 @@ const ExplorerHeader: FC = memo(() => {
                 search: `?${urlArgs.search}`,
             };
         }
-    }, [unsavedChartVersion, projectUuid]);
+    }, [mergedUnsavedChartVersion, projectUuid]);
 
     useEffect(() => {
         const checkReload = (event: BeforeUnloadEvent) => {

@@ -59,6 +59,7 @@ const getToolIcon = (toolName: ToolName) => {
             findCharts: IconChartDots3,
             improveContext: IconSchool,
             proposeChange: IconPencil,
+            runQuery: IconTable,
         };
 
     return iconMap[toolName];
@@ -113,10 +114,26 @@ const ToolCallDescription: FC<{
 
     switch (toolArgs.type) {
         case 'find_explores':
+        case 'find_explores_v2':
             return (
                 <Text c="dimmed" size="xs">
                     {t(
                         'features_ai_copilot_chat_elements_tool_calls.searched_relevant_explores',
+                    )}{' '}
+                    {toolArgs.exploreName && (
+                        <Badge
+                            color="gray"
+                            variant="light"
+                            size="xs"
+                            mx={rem(2)}
+                            radius="sm"
+                            style={{
+                                textTransform: 'none',
+                                fontWeight: 400,
+                            }}
+                        >
+                            {toolArgs.exploreName}
+                        </Badge>
                     )}
                 </Text>
             );

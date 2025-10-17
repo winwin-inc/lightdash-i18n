@@ -1,4 +1,3 @@
-import { CommercialFeatureFlags } from '@lightdash/common';
 import {
     Avatar,
     Box,
@@ -23,9 +22,9 @@ import { Link, Navigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../components/common/MantineIcon';
-import { useFeatureFlag } from '../../../hooks/useFeatureFlagEnabled';
 import { AiAgentPageLayout } from '../../features/aiCopilot/components/AiAgentPageLayout/AiAgentPageLayout';
 import { useAiAgentPermission } from '../../features/aiCopilot/hooks/useAiAgentPermission';
+import { useAiOrganizationSettings } from '../../features/aiCopilot/hooks/useAiOrganizationSettings';
 import { useProjectAiAgents } from '../../features/aiCopilot/hooks/useProjectAiAgents';
 import { useGetUserAgentPreferences } from '../../features/aiCopilot/hooks/useUserAgentPreferences';
 
@@ -43,10 +42,12 @@ const AgentsWelcome = () => {
 
     const { projectUuid } = useParams();
     const canCreateAgent = useAiAgentPermission({ action: 'manage' });
-    const aiCopilotFlagQuery = useFeatureFlag(CommercialFeatureFlags.AiCopilot);
+    const organizationSettingsQuery = useAiOrganizationSettings();
 
-    const isAiAgentEnabled =
-        aiCopilotFlagQuery.isSuccess && aiCopilotFlagQuery.data.enabled;
+    const isAiCopilotEnabledOrTrial =
+        (organizationSettingsQuery.isSuccess &&
+            organizationSettingsQuery.data?.isCopilotEnabled) ||
+        organizationSettingsQuery.data?.isTrial;
 
     const AGENT_FEATURES = [
       {
@@ -84,17 +85,17 @@ const AgentsWelcome = () => {
         projectUuid,
         redirectOnUnauthorized: true,
         options: {
-            enabled: isAiAgentEnabled,
+            enabled: isAiCopilotEnabledOrTrial,
         },
     });
     const userAgentPreferencesQuery = useGetUserAgentPreferences(projectUuid, {
-        enabled: isAiAgentEnabled,
+        enabled: isAiCopilotEnabledOrTrial,
     });
 
-    if (aiCopilotFlagQuery.isLoading) {
+    if (organizationSettingsQuery.isLoading) {
         return <AiPageLoading />;
     }
-    if (!isAiAgentEnabled) {
+    if (!isAiCopilotEnabledOrTrial) {
         return <Navigate to="/" replace />;
     }
 
@@ -126,7 +127,7 @@ const AgentsWelcome = () => {
 
     return (
         <AiAgentPageLayout>
-            <Center h="80%">
+            <Center mt="xl">
                 <Stack gap={32}>
                     <Stack align="center" gap="xxs">
                         <Avatar size="lg" color="gray">

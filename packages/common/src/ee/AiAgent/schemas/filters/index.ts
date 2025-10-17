@@ -7,7 +7,6 @@ import type {
     FilterType,
 } from '../../../../types/filter';
 import assertUnreachable from '../../../../utils/assertUnreachable';
-
 import booleanFilterSchema from './booleanFilters';
 import dateFilterSchema from './dateFilters';
 import numberFilterSchema from './numberFilters';
@@ -49,19 +48,33 @@ const filterRuleSchemaTransformed = filterRuleSchema.transform(
     }),
 );
 
-export const filtersSchema = z.object({
+// TODO: deprecate this in 2 weeks
+const filtersSchemaV1 = z.object({
     type: filterAndOrSchema,
     dimensions: z.array(filterRuleSchema).nullable(),
     metrics: z.array(filterRuleSchema).nullable(),
 });
 
+export const filtersSchemaV2 = filtersSchemaV1.extend({
+    tableCalculations: z.array(numberFilterSchema).nullable(),
+});
+
+const filtersSchemaAndFilterRulesTransformedV1 = z.object({
+    type: filterAndOrSchema,
+    dimensions: z.array(filterRuleSchemaTransformed).nullable(),
+    metrics: z.array(filterRuleSchemaTransformed).nullable(),
+});
+
+const filtersSchemaAndFilterRulesTransformedV2 =
+    filtersSchemaAndFilterRulesTransformedV1.extend({
+        tableCalculations: z.array(filterRuleSchemaTransformed).nullable(),
+    });
+
 const filtersSchemaAndFilterRulesTransformed = z
-    .object({
-        type: filterAndOrSchema,
-        dimensions: z.array(filterRuleSchemaTransformed).nullable(),
-        metrics: z.array(filterRuleSchemaTransformed).nullable(),
-    })
-    // Filters can be null
+    .union([
+        filtersSchemaAndFilterRulesTransformedV2,
+        filtersSchemaAndFilterRulesTransformedV1,
+    ])
     .nullable();
 
 export const filtersSchemaTransformed =
@@ -70,6 +83,7 @@ export const filtersSchemaTransformed =
             return {
                 dimensions: { id: uuid(), and: [] },
                 metrics: { id: uuid(), and: [] },
+                tableCalculations: { id: uuid(), and: [] },
             };
         }
         switch (data.type) {
@@ -83,6 +97,13 @@ export const filtersSchemaTransformed =
                         id: uuid(),
                         and: data.metrics ?? [],
                     },
+                    tableCalculations: {
+                        id: uuid(),
+                        and:
+                            'tableCalculations' in data
+                                ? data.tableCalculations ?? []
+                                : [],
+                    },
                 };
             case 'or':
                 return {
@@ -93,6 +114,13 @@ export const filtersSchemaTransformed =
                     metrics: {
                         id: uuid(),
                         or: data.metrics ?? [],
+                    },
+                    tableCalculations: {
+                        id: uuid(),
+                        or:
+                            'tableCalculations' in data
+                                ? data.tableCalculations ?? []
+                                : [],
                     },
                 };
             default:

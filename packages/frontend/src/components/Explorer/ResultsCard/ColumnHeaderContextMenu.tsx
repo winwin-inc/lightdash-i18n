@@ -20,7 +20,9 @@ import { useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
+    explorerActions,
     selectAdditionalMetrics,
+    useExplorerDispatch,
     useExplorerSelector,
 } from '../../../features/explorer/store';
 import {
@@ -28,7 +30,6 @@ import {
     UpdateTableCalculationModal,
 } from '../../../features/tableCalculation';
 import { useFilters } from '../../../hooks/useFilters';
-import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
 import MantineIcon from '../../common/MantineIcon';
@@ -55,13 +56,8 @@ const ContextMenu: FC<ContextMenuProps> = ({
     const item = meta?.item;
     const sort = meta?.sort?.sort;
 
-    // Get state from Redux
     const additionalMetrics = useExplorerSelector(selectAdditionalMetrics);
-
-    // Use Context action for removeActiveField (not yet migrated to Redux)
-    const removeActiveField = useExplorerContext(
-        (context) => context.actions.removeActiveField,
-    );
+    const dispatch = useExplorerDispatch();
 
     const additionalMetric = useMemo(
         () =>
@@ -72,14 +68,6 @@ const ContextMenu: FC<ContextMenuProps> = ({
     );
 
     const isItemAdditionalMetric = !!additionalMetric;
-
-    const toggleAdditionalMetricModal = useExplorerContext(
-        (context) => context.actions.toggleAdditionalMetricModal,
-    );
-
-    const toggleCustomDimensionModal = useExplorerContext(
-        (context) => context.actions.toggleCustomDimensionModal,
-    );
 
     if (item && isField(item)) {
         const itemFieldId = getItemId(item);
@@ -127,11 +115,13 @@ const ContextMenu: FC<ContextMenuProps> = ({
                     <Menu.Item
                         icon={<MantineIcon icon={IconPencil} />}
                         onClick={() => {
-                            toggleAdditionalMetricModal({
-                                item: additionalMetric,
-                                type: additionalMetric.type,
-                                isEditing: true,
-                            });
+                            dispatch(
+                                explorerActions.toggleAdditionalMetricModal({
+                                    item: additionalMetric,
+                                    type: additionalMetric.type,
+                                    isEditing: true,
+                                }),
+                            );
                         }}
                     >
                         {t(
@@ -144,7 +134,7 @@ const ContextMenu: FC<ContextMenuProps> = ({
                     icon={<MantineIcon icon={IconTrash} />}
                     color="red"
                     onClick={() => {
-                        removeActiveField(itemFieldId);
+                        dispatch(explorerActions.removeField(itemFieldId));
                     }}
                 >
                     {t(
@@ -160,7 +150,7 @@ const ContextMenu: FC<ContextMenuProps> = ({
                     icon={<MantineIcon icon={IconTrash} />}
                     color="red"
                     onClick={() => {
-                        removeActiveField(header.column.id);
+                        dispatch(explorerActions.removeField(header.column.id));
                     }}
                 >
                     {t(
@@ -196,10 +186,12 @@ const ContextMenu: FC<ContextMenuProps> = ({
                 <Menu.Item
                     icon={<MantineIcon icon={IconPencil} />}
                     onClick={() => {
-                        toggleCustomDimensionModal({
-                            item,
-                            isEditing: true,
-                        });
+                        dispatch(
+                            explorerActions.toggleCustomDimensionModal({
+                                item,
+                                isEditing: true,
+                            }),
+                        );
                     }}
                 >
                     {t(
@@ -216,7 +208,7 @@ const ContextMenu: FC<ContextMenuProps> = ({
                     icon={<MantineIcon icon={IconTrash} />}
                     color="red"
                     onClick={() => {
-                        removeActiveField(getItemId(item));
+                        dispatch(explorerActions.removeField(getItemId(item)));
                     }}
                 >
                     {t(

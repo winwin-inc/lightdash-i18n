@@ -11,6 +11,7 @@ import {
     friendlyName,
     isCustomBinDimension,
     isNonAggregateMetric,
+    isPostCalculationMetric,
     type CompiledCustomDimension,
     type CompiledCustomSqlDimension,
     type CompiledDimension,
@@ -27,6 +28,7 @@ import {
 } from '../types/timeFrames';
 import { type WarehouseSqlBuilder } from '../types/warehouse';
 import { timeFrameConfigs } from '../utils/timeFrames';
+import { expandFieldsWithSets } from './fieldSetExpander';
 import { renderFilterRuleSqlFromField } from './filtersCompiler';
 import {
     getCategoriesFromResource,
@@ -183,6 +185,15 @@ export class ExploreCompiler {
                     (join.alias && friendlyName(join.alias)) ||
                     tables[join.table].label;
 
+                // Expand field sets if join.fields contains set references
+                let expandedFields: string[] | undefined;
+                if (join.fields) {
+                    expandedFields = expandFieldsWithSets(
+                        join.fields,
+                        tables[join.table],
+                    );
+                }
+
                 const requiredDimensionsForJoin = parseAllReferences(
                     join.sqlOn,
                     join.table,
@@ -214,17 +225,17 @@ export class ExploreCompiler {
                             const isTimeIntervalBaseDimensionVisible =
                                 dimension.timeInterval &&
                                 dimension.timeIntervalBaseDimensionName &&
-                                join.fields
-                                    ? join.fields.includes(
+                                expandedFields
+                                    ? expandedFields.includes(
                                           dimension.timeIntervalBaseDimensionName,
                                       )
                                     : false;
 
                             const isVisible =
-                                join.fields === undefined ||
-                                join.fields.includes(dimensionKey) ||
+                                expandedFields === undefined ||
+                                expandedFields.includes(dimensionKey) ||
                                 (dimension.group !== undefined &&
-                                    join.fields.includes(dimension.group)) ||
+                                    expandedFields.includes(dimension.group)) ||
                                 isTimeIntervalBaseDimensionVisible;
 
                             if (isRequired || isVisible) {
@@ -243,8 +254,8 @@ export class ExploreCompiler {
                         metrics: Object.keys(tables[join.table].metrics)
                             .filter(
                                 (d) =>
-                                    join.fields === undefined ||
-                                    join.fields.includes(d),
+                                    expandedFields === undefined ||
+                                    expandedFields.includes(d),
                             )
                             .reduce<Record<string, Metric>>(
                                 (prevMetrics, metricKey) => {
@@ -400,6 +411,47 @@ export class ExploreCompiler {
         };
     }
 
+    private static expandShowUnderlyingValueSets(
+        metric: Metric,
+        tables: Record<string, Table>,
+    ) {
+        if (!Array.isArray(metric.showUnderlyingValues)) {
+            return undefined;
+        }
+
+        const currentTable = tables[metric.table];
+        const containsSetFields = metric.showUnderlyingValues.some((field) =>
+            field.endsWith('*'),
+        );
+        if (!containsSetFields || !currentTable) {
+            return metric.showUnderlyingValues;
+        }
+
+        const expandedValues = expandFieldsWithSets(
+            [...metric.showUnderlyingValues],
+            currentTable,
+        );
+
+        expandedValues.forEach((fieldRef) => {
+            const { refTable, refName } = getParsedReference(
+                fieldRef,
+                metric.table,
+            );
+            const referencedTable = getReferencedTable(refTable, tables);
+            const isValidReference = !!(
+                referencedTable?.dimensions[refName] ||
+                referencedTable?.metrics[refName]
+            );
+            if (!isValidReference) {
+                throw new CompileError(
+                    `"show_underlying_values" for metric "${metric.name}" has a reference to an unknown field: ${fieldRef} in table "${metric.table}"`,
+                );
+            }
+        });
+
+        return expandedValues;
+    }
+
     compileMetric(
         metric: Metric,
         tables: Record<string, Table>,
@@ -410,19 +462,9 @@ export class ExploreCompiler {
             tables,
             availableParameters,
         );
-        metric.showUnderlyingValues?.forEach((dimReference) => {
-            const { refTable, refName } = getParsedReference(
-                dimReference,
-                metric.table,
-            );
-            const referencedTable = getReferencedTable(refTable, tables);
-            const isValidReference = !!referencedTable?.dimensions[refName];
-            if (!isValidReference) {
-                throw new CompileError(
-                    `"show_underlying_values" for metric "${metric.name}" has a reference to an unknown dimension: ${dimReference} in table "${metric.table}"`,
-                );
-            }
-        });
+
+        const showUnderlyingValues =
+            ExploreCompiler.expandShowUnderlyingValueSets(metric, tables);
         const tablesRequiredAttributes = Array.from(
             compiledMetric.tablesReferences,
         ).reduce<Record<string, Record<string, string | string[]>>>(
@@ -450,6 +492,7 @@ export class ExploreCompiler {
         return {
             ...metric,
             compiledSql,
+            showUnderlyingValues,
             tablesReferences: Array.from(compiledMetric.tablesReferences),
             ...(Object.keys(tablesRequiredAttributes).length
                 ? { tablesRequiredAttributes }
@@ -483,14 +526,20 @@ export class ExploreCompiler {
                     );
                 }
 
-                const compiledReference = isNonAggregateMetric(metric)
-                    ? this.compileMetricReference(
-                          p1,
-                          tables,
-                          metric.table,
-                          availableParameters,
-                      )
-                    : this.compileDimensionReference(p1, tables, metric.table);
+                const compiledReference =
+                    isNonAggregateMetric(metric) ||
+                    isPostCalculationMetric(metric)
+                        ? this.compileMetricReference(
+                              p1,
+                              tables,
+                              metric.table,
+                              availableParameters,
+                          )
+                        : this.compileDimensionReference(
+                              p1,
+                              tables,
+                              metric.table,
+                          );
                 tablesReferences = new Set([
                     ...tablesReferences,
                     ...compiledReference.tablesReferences,
@@ -499,9 +548,12 @@ export class ExploreCompiler {
             },
         );
         if (metric.filters !== undefined && metric.filters.length > 0) {
-            if (isNonAggregateMetric(metric)) {
+            if (
+                isNonAggregateMetric(metric) ||
+                isPostCalculationMetric(metric)
+            ) {
                 throw new CompileError(
-                    `Error: ${metric.name} - metric filters cannot be used with non-aggregate metrics`,
+                    `Error: ${metric.name} - metric filters cannot be used with non-aggregate or post-calculation metrics`,
                 );
             }
 

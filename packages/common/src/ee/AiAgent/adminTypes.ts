@@ -59,3 +59,28 @@ export type AiAgentAdminConversationsSummary = {
 export type ApiAiAgentAdminConversationsResponse = ApiSuccess<
     KnexPaginatedData<AiAgentAdminConversationsSummary>
 >;
+
+export type ComputedAiOrganizationSettings = {
+    isCopilotEnabled: boolean;
+    isTrial: boolean;
+};
+
+// AI Organization Settings Types
+export type AiOrganizationSettings = {
+    organizationUuid: string;
+    aiAgentsVisible: boolean;
+};
+
+export type CreateAiOrganizationSettings = AiOrganizationSettings;
+
+export type UpdateAiOrganizationSettings = Omit<
+    AiOrganizationSettings,
+    'organizationUuid' | 'isTrial' | 'isCopilotEnabled'
+>;
+
+export type ApiAiOrganizationSettingsResponse = ApiSuccess<
+    AiOrganizationSettings & ComputedAiOrganizationSettings
+>;
+
+export type ApiUpdateAiOrganizationSettingsResponse =
+    ApiSuccess<AiOrganizationSettings>;

@@ -1,9 +1,9 @@
 import {
+    getWebAiChartConfig,
     type ApiAiAgentThreadMessageVizQuery,
     type CreateSavedChartVersion,
     type DashboardVisualization,
 } from '@lightdash/common';
-import { getChartConfigFromAiAgentVizConfig } from './echarts';
 
 function convertAiVisualizationToCreateSavedChartVersion(
     aiVizData: ApiAiAgentThreadMessageVizQuery,
@@ -20,10 +20,9 @@ function convertAiVisualizationToCreateSavedChartVersion(
     const { query, metadata } = aiVizData;
     const { metricQuery } = query;
 
-    const chartConfig = getChartConfigFromAiAgentVizConfig({
+    const chartConfig = getWebAiChartConfig({
         vizConfig: dashboardVisualization,
         metricQuery,
-        rows: [], // Empty rows array - charts will load data dynamically
         maxQueryLimit: options.maxQueryLimit,
         fieldsMap: aiVizData.query.fields,
     });

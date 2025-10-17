@@ -41,7 +41,6 @@ import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
 import { useProject } from '../../../hooks/useProject';
 import { useProjectUuid } from '../../../hooks/useProjectUuid';
 import { ExplorerSection } from '../../../providers/Explorer/types';
-import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
 import CollapsableCard from '../../common/CollapsableCard/CollapsableCard';
 import FiltersForm from '../../common/Filters';
 import { useConditionalRuleLabelFromItem } from '../../common/Filters/FilterInputs/utils';
@@ -186,16 +185,11 @@ const FiltersCard: FC = memo(() => {
     const { queryResults } = useExplorerQuery();
     const rows = queryResults.rows;
 
-    const setFiltersInContext = useExplorerContext(
-        (context) => context.actions.setFilters,
-    );
-
     const setFilters = useCallback(
         (newFilters: Filters) => {
             dispatch(explorerActions.setFilters(newFilters));
-            setFiltersInContext(newFilters);
         },
-        [dispatch, setFiltersInContext],
+        [dispatch],
     );
     const toggleExpandedSection = useCallback(
         (section: ExplorerSection) => {

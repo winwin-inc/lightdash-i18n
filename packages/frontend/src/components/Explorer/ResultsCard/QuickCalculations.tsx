@@ -11,6 +11,8 @@ import { Menu } from '@mantine/core';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { selectSorts } from '../../../features/explorer/store';
+import { useExplorerSelector } from '../../../features/explorer/store/hooks';
 import { getUniqueTableCalculationName } from '../../../features/tableCalculation/utils';
 import { useTemplateTypeLabels } from '../../../features/tableCalculation/utils/templateFormatting';
 import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
@@ -42,6 +44,8 @@ const getFormatForQuickCalculation = (
                 type: CustomFormatType.NUMBER,
                 round: 2,
             };
+        case TableCalculationTemplateType.WINDOW_FUNCTION:
+            return undefined; // Window functions not available in quick calcs TODO throw
         default:
             assertUnreachable(
                 templateType,
@@ -73,6 +77,8 @@ const isCalculationAvailable = (
             return numericTypes.includes(item.type);
         case TableCalculationTemplateType.RANK_IN_COLUMN:
             return true; // any type
+        case TableCalculationTemplateType.WINDOW_FUNCTION:
+            return false; // Window functions not available in quick calcs TODO throw
 
         default:
             return assertUnreachable(
@@ -96,9 +102,9 @@ const QuickCalculationMenuOptions: FC<Props> = ({ item }) => {
             name: EventName.CREATE_QUICK_TABLE_CALCULATION_BUTTON_CLICKED,
         });
     };
-    const sorts = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.metricQuery.sorts,
-    );
+
+    const sorts = useExplorerSelector(selectSorts);
+
     const tableCalculations = useExplorerContext(
         (context) =>
             context.state.unsavedChartVersion.metricQuery.tableCalculations,
