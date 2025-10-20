@@ -143,7 +143,19 @@ export const getFormattedValueCell = (
         console.error(`Unable to format value for bar display cell ${error}`);
     }
 
-    return formatCellContent(cellValue);
+    const currentItem = info.column.columnDef.meta?.item; 
+
+    if (!currentItem) return formatCellContent(cellValue);
+
+    if (
+        isField(currentItem) &&
+        (currentItem.type === DimensionType.DATE ||
+            currentItem.type === DimensionType.TIMESTAMP)
+    ) {
+        return formatCellContent(cellValue);
+    }
+
+    return formatItemValue(currentItem, cellValue.value.raw);
 };
 
 export const getValueCell = (info: CellContext<RawResultRow, string>) => {

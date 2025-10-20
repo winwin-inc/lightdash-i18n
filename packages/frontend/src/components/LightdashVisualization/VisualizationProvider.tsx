@@ -16,6 +16,7 @@ import {
 } from '@lightdash/common';
 import type EChartsReact from 'echarts-for-react';
 import isEqual from 'lodash/isEqual';
+import omit from 'lodash/omit';
 import {
     useCallback,
     useEffect,
@@ -109,7 +110,27 @@ const VisualizationProvider: FC<
     unsavedMetricQuery,
 }) => {
     const itemsMap = useMemo(() => {
-        return resultsData?.fields;
+        const metricOverrides = resultsData?.metricQuery?.metricOverrides;
+        const resultItemsMap = resultsData?.fields;
+    
+        if (!metricOverrides) return resultItemsMap;
+
+        return Object.fromEntries(
+            Object.entries(resultItemsMap || {}).map(([key, value]) => {
+                if (!metricOverrides?.[key]) return [key, value];
+                const itemWithoutLegacyFormat = omit(value, [
+                    'format',
+                    'round',
+                ]);
+                return [
+                    key,
+                    {
+                        ...itemWithoutLegacyFormat,
+                        ...metricOverrides[key],
+                    },
+                ];
+            }),
+        );
     }, [resultsData]);
 
     const chartRef = useRef<EChartsReact | null>(null);
