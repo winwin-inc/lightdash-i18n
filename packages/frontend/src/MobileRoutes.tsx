@@ -243,11 +243,19 @@ const MINIMAL_ROUTES: RouteObject[] = [
             },
             {
                 path: '/minimal/projects/:projectUuid/dashboards/:dashboardUuid',
-                element: <MinimalDashboard />,
+                element: (
+                    <TrackPage name={PageName.DASHBOARD}>
+                        <MinimalDashboard />
+                    </TrackPage>
+                ),
             },
             {
                 path: '/minimal/projects/:projectUuid/dashboards/:dashboardUuid/view/tabs/:tabUuid',
-                element: <MinimalDashboard />,
+                element: (
+                    <TrackPage name={PageName.DASHBOARD}>
+                        <MinimalDashboard />
+                    </TrackPage>
+                ),
             },
         ],
     },

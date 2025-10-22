@@ -78,12 +78,14 @@ const Login: FC<{}> = () => {
         ? redirectParam
         : '/';
 
-    if (
+    // If OIDC is enabled and force redirect is enabled, check if the user is authenticated
+    const isOidcForceRedirect =
         oidcOptions &&
         oidcOptions.enabled &&
         oidcOptions.forceRedirect &&
-        !health.data?.isAuthenticated
-    ) {
+        !health.data?.isAuthenticated;
+
+    if (isOidcForceRedirect) {
         const validRedirectUrl =
             redirectUrl && redirectUrl !== '/' ? redirectUrl : null;
 
@@ -205,6 +207,11 @@ const Login: FC<{}> = () => {
             mutate(form.values);
         }
     }, [form.values, formStage, isEmailLoginAvailable, mutate]);
+
+    // If OIDC is enabled and force redirect is enabled, and the user is not authenticated, show loading spinner
+    if (isOidcForceRedirect) {
+        return <PageSpinner />;
+    }
 
     const isFormLoading =
         isLoginOptionsLoadingDebounced ||
