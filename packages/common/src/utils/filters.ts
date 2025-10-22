@@ -755,7 +755,7 @@ export const getTabUuidsForFilterRules = (
 
         const filterIdsForTile = getDashboardFilterRulesForTile(
             tile.uuid,
-            filters.dimensions,
+            filters?.dimensions ?? [],
         )
             .filter((filterRule) => {
                 const tileConfig = filterRule.tileTargets?.[tile.uuid];

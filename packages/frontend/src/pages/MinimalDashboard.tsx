@@ -9,6 +9,7 @@ import {
     isDashboardScheduler,
     SessionStorageKeys,
 } from '@lightdash/common';
+import { Group } from '@mantine/core';
 import { useSessionStorage } from '@mantine/hooks';
 import { IconLayoutDashboard } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
@@ -17,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
+import DashboardFilter from '../components/DashboardFilter';
 import {
     getReactGridLayoutConfig,
     getResponsiveGridLayoutProps,
@@ -27,10 +29,10 @@ import MarkdownTile from '../components/DashboardTiles/DashboardMarkdownTile';
 import SqlChartTile from '../components/DashboardTiles/DashboardSqlChartTile';
 import MinimalDashboardTabs from '../components/MinimalDashboardTabs';
 import { useScheduler } from '../features/scheduler/hooks/useScheduler';
-import { useDashboardQuery } from '../hooks/dashboard/useDashboard';
 import { useDateZoomGranularitySearch } from '../hooks/useExplorerRoute';
 import useSearchParams from '../hooks/useSearchParams';
 import DashboardProvider from '../providers/Dashboard/DashboardProvider';
+import useDashboardContext from '../providers/Dashboard/useDashboardContext';
 import '../styles/react-grid.css';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
@@ -38,36 +40,27 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 const MinimalDashboard: FC = () => {
     const { t } = useTranslation();
 
+    const schedulerUuid = useSearchParams('schedulerUuid');
+    const schedulerTabs = useSearchParams('selectedTabs');
+
     const { projectUuid, dashboardUuid, tabUuid } = useParams<{
         projectUuid: string;
         dashboardUuid: string;
         tabUuid?: string;
     }>();
 
-    const schedulerUuid = useSearchParams('schedulerUuid');
-
-    const [sendNowSchedulerFilters] = useSessionStorage<
-        DashboardFilterRule[] | undefined
-    >({
-        key: SessionStorageKeys.SEND_NOW_SCHEDULER_FILTERS,
-    });
-
-    const [sendNowSchedulerParameters] = useSessionStorage<
-        ParametersValuesMap | undefined
-    >({
-        key: SessionStorageKeys.SEND_NOW_SCHEDULER_PARAMETERS,
-    });
-
-    const schedulerTabs = useSearchParams('selectedTabs');
-    const dateZoom = useDateZoomGranularitySearch();
-
-    const {
-        data: dashboard,
-        isError: isDashboardError,
-        error: dashboardError,
-    } = useDashboardQuery(dashboardUuid);
+    const isDashboardLoading = useDashboardContext((c) => c.isDashboardLoading);
+    const dashboard = useDashboardContext((c) => c.dashboard);
+    const dashboardError = useDashboardContext((c) => c.dashboardError);
 
     const [activeTab, setActiveTab] = useState<DashboardTab | null>(null);
+
+    const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
+    const setDashboardTiles = useDashboardContext((c) => c.setDashboardTiles);
+
+    const hasTilesThatSupportFilters = useDashboardContext(
+        (c) => c.hasTilesThatSupportFilters,
+    );
 
     useEffect(() => {
         const matchedTab =
@@ -76,29 +69,12 @@ const MinimalDashboard: FC = () => {
         setActiveTab(matchedTab || null);
     }, [tabUuid, dashboard?.tabs]);
 
-    const {
-        data: scheduler,
-        isError: isSchedulerError,
-        error: schedulerError,
-    } = useScheduler(schedulerUuid, {
-        enabled: !!schedulerUuid && !sendNowSchedulerFilters,
-    });
+    useEffect(() => {
+        if (isDashboardLoading) return;
+        if (dashboardTiles) return;
 
-    const schedulerFilters = useMemo(() => {
-        if (schedulerUuid && scheduler && isDashboardScheduler(scheduler)) {
-            return scheduler.filters;
-        }
-
-        return sendNowSchedulerFilters;
-    }, [scheduler, schedulerUuid, sendNowSchedulerFilters]);
-
-    const schedulerParameters = useMemo(() => {
-        if (schedulerUuid && scheduler && isDashboardScheduler(scheduler)) {
-            return scheduler.parameters;
-        }
-
-        return sendNowSchedulerParameters;
-    }, [scheduler, schedulerUuid, sendNowSchedulerParameters]);
+        setDashboardTiles(dashboard?.tiles ?? []);
+    }, [isDashboardLoading, dashboard, dashboardTiles, setDashboardTiles]);
 
     const schedulerTabsSelected = useMemo(() => {
         if (schedulerTabs) {
@@ -106,6 +82,19 @@ const MinimalDashboard: FC = () => {
         }
         return undefined;
     }, [schedulerTabs]);
+
+    const [sendNowSchedulerFilters] = useSessionStorage<
+        DashboardFilterRule[] | undefined
+    >({
+        key: SessionStorageKeys.SEND_NOW_SCHEDULER_FILTERS,
+    });
+
+    const { data: scheduler, error: schedulerError } = useScheduler(
+        schedulerUuid,
+        {
+            enabled: !!schedulerUuid && !sendNowSchedulerFilters,
+        },
+    );
 
     const generateTabUrl = useCallback(
         (tabId: string) =>
@@ -168,7 +157,14 @@ const MinimalDashboard: FC = () => {
         );
     }, [dashboard?.tiles, schedulerTabsSelected, activeTab]);
 
-    if (isDashboardError || isSchedulerError) {
+    const isTabEmpty =
+        activeTab &&
+        !dashboard?.tiles?.find((tile) => tile.tabUuid === activeTab.uuid);
+
+    const canNavigateBetweenTabs =
+        !schedulerTabsSelected && tabsWithUrls.length > 0;
+
+    if (dashboardError || schedulerError) {
         if (dashboardError) return <>{dashboardError.error.message}</>;
         if (schedulerError) return <>{schedulerError.error.message}</>;
     }
@@ -185,26 +181,68 @@ const MinimalDashboard: FC = () => {
         return <>{t('pages_minimal_dashboard.no_tiles')}</>;
     }
 
-    const isTabEmpty =
-        activeTab &&
-        !dashboard.tiles.find((tile) => tile.tabUuid === activeTab.uuid);
-
-    const canNavigateBetweenTabs =
-        !schedulerTabsSelected && tabsWithUrls.length > 0;
-
     return (
-        <DashboardProvider
-            schedulerFilters={schedulerFilters}
-            schedulerParameters={schedulerParameters}
-            dateZoom={dateZoom}
-            defaultInvalidateCache={true}
-        >
+        <>
+            {/* dashboard global filters */}
+            {hasTilesThatSupportFilters && sortedTabs.length === 0 && (
+                <Group
+                    position="apart"
+                    align="flex-start"
+                    noWrap
+                    px={'md'}
+                    mt={'md'}
+                >
+                    <Group
+                        position="apart"
+                        align="flex-start"
+                        noWrap
+                        grow
+                        sx={{
+                            overflow: 'auto',
+                        }}
+                    >
+                        <DashboardFilter
+                            isEditMode={false}
+                            activeTabUuid={activeTab?.uuid}
+                            filterType="global"
+                        />
+                    </Group>
+                </Group>
+            )}
+
             {/* This is when viewing a dashboard with tabs in mobile mode - you can navigate between tabs. */}
             {canNavigateBetweenTabs && (
                 <MinimalDashboardTabs
                     tabs={tabsWithUrls}
                     activeTabId={activeTab?.uuid || null}
                 />
+            )}
+
+            {/* dashboard tab filters */}
+            {hasTilesThatSupportFilters && activeTab?.uuid && (
+                <Group
+                    position="apart"
+                    align="flex-start"
+                    noWrap
+                    px={'md'}
+                    mt={'md'}
+                >
+                    <Group
+                        position="apart"
+                        align="flex-start"
+                        noWrap
+                        grow
+                        sx={{
+                            overflow: 'auto',
+                        }}
+                    >
+                        <DashboardFilter
+                            isEditMode={false}
+                            activeTabUuid={activeTab?.uuid}
+                            filterType="tab"
+                        />
+                    </Group>
+                </Group>
             )}
 
             {isTabEmpty ? (
@@ -260,8 +298,64 @@ const MinimalDashboard: FC = () => {
                     ))}
                 </ResponsiveGridLayout>
             )}
+        </>
+    );
+};
+
+const MinimalDashboardPage: FC = () => {
+    const { projectUuid } = useParams<{
+        projectUuid: string;
+        dashboardUuid: string;
+        tabUuid?: string;
+    }>();
+
+    const schedulerUuid = useSearchParams('schedulerUuid');
+
+    const [sendNowSchedulerFilters] = useSessionStorage<
+        DashboardFilterRule[] | undefined
+    >({
+        key: SessionStorageKeys.SEND_NOW_SCHEDULER_FILTERS,
+    });
+
+    const [sendNowSchedulerParameters] = useSessionStorage<
+        ParametersValuesMap | undefined
+    >({
+        key: SessionStorageKeys.SEND_NOW_SCHEDULER_PARAMETERS,
+    });
+
+    const dateZoom = useDateZoomGranularitySearch();
+
+    const { data: scheduler } = useScheduler(schedulerUuid, {
+        enabled: !!schedulerUuid && !sendNowSchedulerFilters,
+    });
+
+    const schedulerFilters = useMemo(() => {
+        if (schedulerUuid && scheduler && isDashboardScheduler(scheduler)) {
+            return scheduler.filters;
+        }
+
+        return sendNowSchedulerFilters;
+    }, [scheduler, schedulerUuid, sendNowSchedulerFilters]);
+
+    const schedulerParameters = useMemo(() => {
+        if (schedulerUuid && scheduler && isDashboardScheduler(scheduler)) {
+            return scheduler.parameters;
+        }
+
+        return sendNowSchedulerParameters;
+    }, [scheduler, schedulerUuid, sendNowSchedulerParameters]);
+
+    return (
+        <DashboardProvider
+            projectUuid={projectUuid}
+            schedulerFilters={schedulerFilters}
+            schedulerParameters={schedulerParameters}
+            dateZoom={dateZoom}
+            defaultInvalidateCache={true}
+        >
+            <MinimalDashboard />
         </DashboardProvider>
     );
 };
 
-export default MinimalDashboard;
+export default MinimalDashboardPage;

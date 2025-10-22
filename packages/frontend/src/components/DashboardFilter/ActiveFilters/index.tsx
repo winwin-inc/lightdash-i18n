@@ -27,6 +27,7 @@ import { IconRotate2 } from '@tabler/icons-react';
 import { useCallback, useMemo, type FC, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { emptyFilters } from '../../../hooks/dashboard/useDashboardFilters';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../../common/MantineIcon';
 import InvalidFilter from '../InvalidFilter';
@@ -200,14 +201,14 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
         if (filterType === 'global') {
             return dashboardFilters;
         }
-        return tabFilters[activeTabUuid || ''];
+        return tabFilters[activeTabUuid || ''] ?? emptyFilters;
     }, [filterType, activeTabUuid, dashboardFilters, tabFilters]);
 
     const appliedTemporaryFilters = useMemo(() => {
         if (filterType === 'global') {
             return dashboardTemporaryFilters;
         }
-        return tabTemporaryFilters[activeTabUuid || ''];
+        return tabTemporaryFilters[activeTabUuid || ''] ?? emptyFilters;
     }, [
         filterType,
         activeTabUuid,
@@ -396,7 +397,9 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                     )}
                 >
                     <Button
-                        aria-label={t('components_dashboard_filter.filter_active_filters.reset_all_filters')}
+                        aria-label={t(
+                            'components_dashboard_filter.filter_active_filters.reset_all_filters',
+                        )}
                         size="xs"
                         variant="default"
                         radius="md"
@@ -476,7 +479,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                 <DragOverlay />
             </DndContext>
 
-            {dashboardTemporaryFilters.dimensions.map((item, index) => {
+            {appliedTemporaryFilters?.dimensions?.map((item, index) => {
                 const field = allFilterableFieldsMap[item.target.fieldId];
                 const appliesToTabs = getTabsUsingTemporaryFilter(item.id);
                 return field || item.target.isSqlColumn ? (
