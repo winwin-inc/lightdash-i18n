@@ -173,7 +173,10 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
     ): Promise<{ fileUrl: string; truncated: boolean }> {
         // File format configuration map
         const formatConfig = new Map([
-            ['csv', { contentType: 'text/csv', extension: 'csv' }],
+            [
+                'csv',
+                { contentType: 'text/csv; charset=utf-8', extension: 'csv' },
+            ],
             [
                 'xlsx',
                 {
@@ -182,7 +185,13 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
                     extension: 'xlsx',
                 },
             ],
-            ['jsonl', { contentType: 'application/jsonl', extension: 'jsonl' }],
+            [
+                'jsonl',
+                {
+                    contentType: 'application/jsonl; charset=utf-8',
+                    extension: 'jsonl',
+                },
+            ],
         ]);
 
         // Determine file format from extension

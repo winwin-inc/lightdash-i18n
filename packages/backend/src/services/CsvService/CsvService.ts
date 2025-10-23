@@ -562,7 +562,7 @@ export class CsvService extends BaseService {
         await fsPromise.writeFile(filePath, csvWithBOM);
 
         if (this.s3Client.isEnabled()) {
-            const s3Url = await this.s3Client.uploadCsv(csvContent, fileId);
+            const s3Url = await this.s3Client.uploadCsv(csvWithBOM, fileId);
 
             // Delete local file in 10 minutes, we could still read from the local file to upload to google sheets
             setTimeout(async () => {

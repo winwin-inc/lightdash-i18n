@@ -147,7 +147,7 @@ export class S3Client {
         csv: PutObjectCommandInput['Body'],
         csvName: string,
     ): Promise<string> {
-        return this.uploadFile(csvName, csv, 'text/csv');
+        return this.uploadFile(csvName, csv, 'text/csv; charset=utf-8');
     }
 
     async uploadZip(zip: ReadStream, zipName: string): Promise<string> {
@@ -173,7 +173,7 @@ export class S3Client {
                 Bucket: this.lightdashConfig.s3.bucket,
                 Key: fileId,
                 Body: buffer,
-                ContentType: `application/jsonl`,
+                ContentType: `application/jsonl; charset=utf-8`,
                 ACL: 'private',
                 ContentDisposition: createContentDispositionHeader(fileId),
             },
