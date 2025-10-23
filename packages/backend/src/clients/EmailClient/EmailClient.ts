@@ -65,7 +65,7 @@ export default class EmailClient {
         const contentType =
             format === SchedulerFormat.XLSX
                 ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                : 'text/csv';
+                : 'text/csv; charset=utf-8';
 
         const fileExtension =
             format === SchedulerFormat.XLSX

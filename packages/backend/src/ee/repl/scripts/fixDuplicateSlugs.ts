@@ -206,7 +206,7 @@ export function getFixDuplicateSlugsScripts(
                     const attachment = {
                         filename: csvFilename,
                         content: csvContent,
-                        contentType: 'text/csv',
+                        contentType: 'text/csv; charset=utf-8',
                     };
 
                     await clients

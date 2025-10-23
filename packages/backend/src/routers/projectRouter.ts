@@ -14,6 +14,7 @@ import {
     isAuthenticated,
     unauthorisedInDemo,
 } from '../controllers/authentication';
+import { createContentDispositionHeader } from '../utils/FileDownloadUtils/FileDownloadUtils';
 
 const fs = require('fs');
 
@@ -88,10 +89,10 @@ projectRouter.get(
             if (!fs.existsSync(normalizedPath)) {
                 throw new NotFoundError(`File not found: ${filename}`);
             }
-            res.set('Content-Type', 'text/csv');
+            res.set('Content-Type', 'text/csv; charset=utf-8');
             res.set(
                 'Content-Disposition',
-                `attachment; filename="${filename}"`,
+                createContentDispositionHeader(filename),
             );
             res.sendFile(normalizedPath);
         } catch (error) {
