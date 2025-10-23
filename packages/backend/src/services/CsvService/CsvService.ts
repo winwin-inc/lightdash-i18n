@@ -15,7 +15,6 @@ import {
     ExportCsvDashboardPayload,
     ForbiddenError,
     formatItemValue,
-    formatRows,
     friendlyName,
     getCustomLabelsFromTableConfig,
     getDashboardFiltersForTileAndTables,
@@ -35,10 +34,7 @@ import {
     ItemsMap,
     MetricQuery,
     MissingConfigError,
-    ParameterError,
     ParametersValuesMap,
-    PivotConfig,
-    pivotResultsAsCsv,
     QueryExecutionContext,
     SCHEDULER_TASKS,
     SchedulerCsvOptions,
@@ -72,7 +68,6 @@ import {
 import * as Account from '../../auth/account';
 import { S3Client } from '../../clients/Aws/S3Client';
 import { AttachmentUrl } from '../../clients/EmailClient/EmailClient';
-import { S3ResultsFileStorageClient } from '../../clients/ResultsFileStorageClients/S3ResultsFileStorageClient';
 import { LightdashConfig } from '../../config/parseConfig';
 import Logger from '../../logging/logger';
 import { DashboardModel } from '../../models/DashboardModel/DashboardModel';
@@ -82,7 +77,7 @@ import { SavedChartModel } from '../../models/SavedChartModel';
 import { SavedSqlModel } from '../../models/SavedSqlModel';
 import { UserModel } from '../../models/UserModel';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
-import { runWorkerThread, wrapSentryTransaction } from '../../utils';
+import { runWorkerThread } from '../../utils';
 import {
     generateGenericFileId,
     isRowValueDate,
@@ -366,8 +361,10 @@ export class CsvService extends BaseService {
     }
 
     /**
-     * Stream JSONL data to CSV file with proper streaming patterns
-     * Processes data row-by-row to minimize memory usage
+     * Stream S3 JSONL data to CSV file
+     * This method is specifically designed to handle JSONL data from S3 storage
+     * and convert it to CSV format.
+     * Uses the proven ExcelService streaming pattern with shared streamJsonlData utility.
      */
     static async streamJsonlRowsToFile(
         onlyRaw: boolean,
@@ -380,66 +377,72 @@ export class CsvService extends BaseService {
         }: { readStream: Readable; writeStream: Writable },
     ): Promise<{ truncated: boolean }> {
         return new Promise((resolve, reject) => {
-            // Write CSV header with BOM immediately
-            const headerWithBOM = Buffer.concat([
-                Buffer.from('\uFEFF', 'utf8'),
-                Buffer.from(`${csvHeader.join(',')}\n`, 'utf8'),
-            ]);
-            writeStream.write(headerWithBOM);
+            const stringifier = stringify({
+                delimiter: ',',
+                header: true,
+                columns: csvHeader,
+                bom: true,
+            });
 
-            let lineBuffer = '';
-            let rowCount = 0;
+            let truncated = false;
+            let waitingForDrain = false;
 
-            readStream.on('data', (chunk: Buffer) => {
-                lineBuffer += chunk.toString();
-                const lines = lineBuffer.split('\n');
+            // Define the drain handler outside the loop to avoid ESLint no-loop-func warning
+            const handleDrain = () => {
+                waitingForDrain = false;
+                stringifier.resume();
+            };
 
-                // Keep last incomplete line in buffer
-                lineBuffer = lines.pop() || '';
-
-                // Process complete lines
-                for (const line of lines) {
-                    const csvString = CsvService.processJsonLineToCsv(
-                        line,
-                        itemMap,
-                        onlyRaw,
-                        sortedFieldIds,
-                    );
-
-                    if (csvString) {
-                        writeStream.write(`${csvString}\n`);
-                        rowCount += 1;
+            stringifier.on('readable', () => {
+                let chunk;
+                // eslint-disable-next-line no-cond-assign
+                while ((chunk = stringifier.read()) !== null) {
+                    /*
+                     * CRITICAL BACKPRESSURE HANDLING:
+                     * writeStream.write() returns false when the internal buffer is full.
+                     * This means the destination (file/S3) can't keep up with data production.
+                     *
+                     * This implements proper stream backpressure - essential for
+                     * handling large CSV files without memory issues.
+                     */
+                    if (!writeStream.write(chunk)) {
+                        stringifier.pause();
+                        // Only add drain listener if we're not already waiting for one
+                        if (!waitingForDrain) {
+                            waitingForDrain = true;
+                            writeStream.once('drain', handleDrain);
+                        }
+                        break;
                     }
                 }
             });
 
-            readStream.on('end', () => {
-                // Process any remaining line in buffer
-                const csvString = CsvService.processJsonLineToCsv(
-                    lineBuffer,
-                    itemMap,
-                    onlyRaw,
-                    sortedFieldIds,
-                );
-
-                if (csvString) {
-                    writeStream.write(`${csvString}\n`);
-                    rowCount += 1;
-                }
-
-                Logger.debug(
-                    `streamJsonlRowsToFile: Processed ${rowCount} rows successfully`,
-                );
-                resolve({ truncated: false });
+            stringifier.on('error', (err) => {
+                Logger.error(`Stringifier failed ${err}`);
+                reject(err);
             });
 
-            readStream.on('error', (error) => {
-                Logger.error(
-                    'streamJsonlRowsToFile: Read stream error:',
-                    error,
-                );
-                reject(error);
+            stringifier.on('finish', () => {
+                writeStream.end();
+                resolve({ truncated });
             });
+
+            streamJsonlData({
+                readStream,
+                onRow: (parsedRow) => {
+                    const csvRow = CsvService.convertRowToCsv(
+                        parsedRow,
+                        itemMap,
+                        onlyRaw,
+                        sortedFieldIds,
+                    );
+                    stringifier.write(csvRow);
+                },
+                onComplete: (_, isTruncated) => {
+                    truncated = isTruncated;
+                    stringifier.end();
+                },
+            }).catch(reject);
         });
     }
 
