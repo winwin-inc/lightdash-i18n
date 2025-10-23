@@ -28,4 +28,3 @@ Lightdash 使用 [i18next](https://www.i18next.com/) 进行国际化。
 ## 如何使用 Docker 镜像？
 
 和官方 Lightdash 使用方式一致，参考 [Lightdash 官方文档](https://docs.lightdash.com)
-
