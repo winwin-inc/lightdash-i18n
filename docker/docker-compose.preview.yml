@@ -71,6 +71,9 @@ services:
             S3_ENDPOINT: ${S3_ENDPOINT}
             S3_REGION: ${S3_REGION}
             S3_BUCKET: ${S3_BUCKET}
+            S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE}
+            S3_EXPIRATION_TIME: ${S3_EXPIRATION_TIME}
+            S3_PATH_PREFIX: ${S3_PATH_PREFIX}
             MCP_ENABLED: true
             CUSTOM_ROLES_ENABLED: true
 

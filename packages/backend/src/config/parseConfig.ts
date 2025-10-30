@@ -496,6 +496,7 @@ export const parseBaseS3Config = (): LightdashConfig['s3'] => {
         process.env.S3_EXPIRATION_TIME || '259200', // 3 days in seconds
         10,
     );
+    const pathPrefix = process.env.S3_PATH_PREFIX;
 
     if (!endpoint || !bucket || !region) {
         return undefined;
@@ -509,6 +510,7 @@ export const parseBaseS3Config = (): LightdashConfig['s3'] => {
         secretKey,
         expirationTime,
         forcePathStyle,
+        pathPrefix,
     };
 };
 
@@ -526,6 +528,7 @@ export const parseResultsS3Config = (): LightdashConfig['results']['s3'] => {
         accessKey: baseAccessKey,
         secretKey: baseSecretKey,
         forcePathStyle: baseForcePathStyle,
+        pathPrefix: basePathPrefix,
     } = baseS3Config;
 
     const bucket =
@@ -548,6 +551,7 @@ export const parseResultsS3Config = (): LightdashConfig['results']['s3'] => {
     return {
         endpoint: baseEndpoint, // ! For now we keep reusing the S3_ENDPOINT like we have been so far, we are just going to enforce it
         forcePathStyle: baseForcePathStyle, // ! For now we keep reusing the S3_FORCE_PATH_STYLE like we have been so far, we are just going to enforce it
+        pathPrefix: basePathPrefix,
         bucket,
         region,
         accessKey,
@@ -873,6 +877,7 @@ export type S3Config = {
     accessKey?: string;
     secretKey?: string;
     forcePathStyle?: boolean;
+    pathPrefix?: string;
 };
 export type IntercomConfig = {
     appId: string;

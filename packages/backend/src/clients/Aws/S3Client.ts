@@ -57,6 +57,20 @@ export class S3Client {
         }
     }
 
+    private getPrefixedFileId(fileId: string): string {
+        const prefix = this.lightdashConfig.s3?.pathPrefix;
+        if (!prefix) {
+            return fileId;
+        }
+
+        const normalizedPrefix = prefix.replace(/^\/+|\/+$/g, '');
+        const normalizedFileId = fileId.replace(/^\/+/, '');
+
+        if (!normalizedPrefix) return normalizedFileId;
+
+        return `${normalizedPrefix}/${normalizedFileId}`;
+    }
+
     private async uploadFile(
         fileId: string,
         file: PutObjectCommandInput['Body'],
@@ -68,11 +82,12 @@ export class S3Client {
                 "Missing S3 bucket configuration, can't upload files",
             );
         }
+        const prefixedKey = this.getPrefixedFileId(fileId);
         const upload = new Upload({
             client: this.s3,
             params: {
                 Bucket: this.lightdashConfig.s3.bucket,
-                Key: fileId,
+                Key: prefixedKey,
                 Body: file,
                 ContentType: contentType,
                 ACL: 'private',
@@ -85,7 +100,7 @@ export class S3Client {
                 this.s3,
                 new GetObjectCommand({
                     Bucket: this.lightdashConfig.s3.bucket,
-                    Key: fileId,
+                    Key: prefixedKey,
                 }),
                 {
                     expiresIn: this.lightdashConfig.s3.expirationTime,
@@ -167,11 +182,12 @@ export class S3Client {
                 "Missing S3 bucket configuration, can't upload files",
             );
         }
+        const prefixedKey = this.getPrefixedFileId(fileId);
         const upload = new Upload({
             client: this.s3,
             params: {
                 Bucket: this.lightdashConfig.s3.bucket,
-                Key: fileId,
+                Key: prefixedKey,
                 Body: buffer,
                 ContentType: `application/jsonl; charset=utf-8`,
                 ACL: 'private',
@@ -217,9 +233,10 @@ export class S3Client {
     }
 
     async getS3FileStream(fileId: string): Promise<Readable> {
+        const prefixedKey = this.getPrefixedFileId(fileId);
         const command = new GetObjectCommand({
             Bucket: this.lightdashConfig.s3?.bucket,
-            Key: fileId,
+            Key: prefixedKey,
         });
 
         try {

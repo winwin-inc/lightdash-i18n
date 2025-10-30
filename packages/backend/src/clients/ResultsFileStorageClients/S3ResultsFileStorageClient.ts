@@ -60,11 +60,12 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
             `Creating upload stream for ${this.configuration.bucket}/${fileName} with content disposition: ${contentDisposition} and contentType: ${opts.contentType}`,
         );
 
+        const prefixedKey = this.getPrefixedFileId(fileName);
         const upload = new Upload({
             client: this.s3,
             params: {
                 Bucket: this.configuration.bucket,
-                Key: fileName,
+                Key: prefixedKey,
                 Body: passThrough,
                 ContentType: opts.contentType,
                 ContentDisposition: contentDisposition,
@@ -147,12 +148,13 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
             fileExtension,
         );
 
+        const prefixedKey = this.getPrefixedFileId(key);
         // Get the S3 URL
         const url = await getSignedUrl(
             this.s3,
             new GetObjectCommand({
                 Bucket: this.configuration.bucket,
-                Key: key,
+                Key: prefixedKey,
             }),
             {
                 expiresIn: this.s3ExpiresIn,
@@ -247,11 +249,12 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
 
         const fileStream = fs.createReadStream(filePath);
 
+        const prefixedKey = this.getPrefixedFileId(fileName);
         const upload = new Upload({
             client: this.s3,
             params: {
                 Bucket: this.configuration.bucket,
-                Key: fileName,
+                Key: prefixedKey,
                 Body: fileStream,
                 ContentType: options.contentType,
                 ContentDisposition: createContentDispositionHeader(

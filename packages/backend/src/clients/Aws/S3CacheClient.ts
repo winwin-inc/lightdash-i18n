@@ -61,6 +61,20 @@ export class S3CacheClient {
         this.s3 = new S3(s3Config);
     }
 
+    protected getPrefixedFileId(fileId: string): string {
+        const prefix = this.configuration?.pathPrefix;
+        if (!prefix) {
+            return fileId;
+        }
+
+        const normalizedPrefix = prefix.replace(/^\/+|\/+$/g, '');
+        const normalizedFileId = fileId.replace(/^\/+/, '');
+
+        if (!normalizedPrefix) return normalizedFileId;
+
+        return `${normalizedPrefix}/${normalizedFileId}`;
+    }
+
     async uploadResults(
         key: string,
         results: PutObjectCommandInput['Body'],
@@ -85,9 +99,10 @@ export class S3CacheClient {
                       )
                     : {};
 
+                const prefixedKey = this.getPrefixedFileId(`${key}.json`);
                 const command = new PutObjectCommand({
                     Bucket: this.configuration.bucket,
-                    Key: `${key}.json`,
+                    Key: prefixedKey,
                     Body: results,
                     ContentType: 'application/json',
                     Metadata: sanitizedMetadata,
@@ -132,9 +147,10 @@ export class S3CacheClient {
                 }
 
                 try {
+                    const prefixedKey = this.getPrefixedFileId(`${key}.json`);
                     const command = new HeadObjectCommand({
                         Bucket: this.configuration.bucket,
-                        Key: `${key}.json`,
+                        Key: prefixedKey,
                     });
                     return await this.s3.send(command);
                 } catch (error) {
@@ -178,9 +194,12 @@ export class S3CacheClient {
             }
 
             try {
+                const prefixedKey = this.getPrefixedFileId(
+                    `${key}.${extension}`,
+                );
                 const command = new GetObjectCommand({
                     Bucket: this.configuration.bucket,
-                    Key: `${key}.${extension}`,
+                    Key: prefixedKey,
                 });
                 return await this.s3.send(command);
             } catch (error) {
