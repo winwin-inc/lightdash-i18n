@@ -589,6 +589,8 @@ const DashboardHeader = ({
                                     </Tooltip>
                                 )}
 
+                                {/* 需要开启 headless-browser 模式才可以使用导出功能，这里暂时隐藏 */}
+                                {/* 
                                 {(userCanExportData ||
                                     userCanManageDashboard) && (
                                     <Menu.Item
@@ -599,7 +601,7 @@ const DashboardHeader = ({
                                             'components_common_dashboard_header.menus.export_dashboard',
                                         )}
                                     </Menu.Item>
-                                )}
+                                )} */}
 
                                 {userCanManageDashboard && (
                                     <>

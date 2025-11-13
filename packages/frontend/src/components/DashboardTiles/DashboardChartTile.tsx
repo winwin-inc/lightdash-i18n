@@ -435,6 +435,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
     const {
         tile: {
             uuid: tileUuid,
+            tabUuid,
             properties: {
                 savedChartUuid,
                 hideTitle,
@@ -876,6 +877,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
     const { getDownloadQueryUuid } = useDashboardChartDownload(
         tileUuid,
         chart.uuid,
+        tabUuid ?? '',
         projectUuid,
         dashboardUuid,
         dashboardChartReadyQuery.executeQueryResponse.queryUuid,

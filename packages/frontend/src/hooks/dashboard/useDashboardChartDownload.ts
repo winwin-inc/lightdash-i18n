@@ -12,16 +12,22 @@ import { pollForResults } from '../../features/queryRunner/executeQuery';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import { useFeatureFlag } from '../useFeatureFlagEnabled';
 import useDashboardFiltersForTile from './useDashboardFiltersForTile';
+import useDashboardTabFiltersForTile from './useDashboardTabFiltersForTile';
 
 export const useDashboardChartDownload = (
     tileUuid: string,
     chartUuid: string,
+    tabUuid: string,
     projectUuid: string | undefined,
     dashboardUuid: string | undefined,
     originalQueryUuid: string,
 ) => {
     // Get dashboard filters and sorts for this tile
     const dashboardFilters = useDashboardFiltersForTile(tileUuid);
+    const dashboardTabFilters = useDashboardTabFiltersForTile(
+        tabUuid,
+        tileUuid,
+    );
     const chartSort = useDashboardContext((c) => c.chartSort);
     const parameters = useDashboardContext((c) => c.parameterValues);
     const dashboardSorts = useMemo(
@@ -31,6 +37,14 @@ export const useDashboardChartDownload = (
     const dateZoomGranularity = useDashboardContext(
         (c) => c.dateZoomGranularity,
     );
+
+    const effectiveDashboardFilters = useMemo(() => {
+        if (tabUuid) {
+            return dashboardTabFilters;
+        }
+
+        return dashboardFilters;
+    }, [tabUuid, dashboardTabFilters, dashboardFilters]);
 
     const { data: useSqlPivotResults } = useFeatureFlag(
         FeatureFlags.UseSqlPivotResults,
@@ -57,7 +71,7 @@ export const useDashboardChartDownload = (
                         context: QueryExecutionContext.DASHBOARD,
                         chartUuid,
                         dashboardUuid,
-                        dashboardFilters: dashboardFilters || {},
+                        dashboardFilters: effectiveDashboardFilters || {},
                         dashboardSorts: dashboardSorts || [],
                         dateZoom: dateZoomGranularity
                             ? { granularity: dateZoomGranularity }
@@ -89,7 +103,7 @@ export const useDashboardChartDownload = (
             projectUuid,
             dashboardUuid,
             chartUuid,
-            dashboardFilters,
+            effectiveDashboardFilters,
             dashboardSorts,
             dateZoomGranularity,
             parameters,
