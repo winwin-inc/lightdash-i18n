@@ -168,6 +168,8 @@ const DashboardHeader = ({
         toggleDashboardPinning({ uuid: dashboardUuid });
     }, [dashboardUuid, toggleDashboardPinning]);
 
+    const isCustomerUse = project?.isCustomerUse ?? false;
+
     const { user } = useApp();
     const userCanManageDashboard = user.data?.ability.can(
         'manage',
@@ -236,56 +238,58 @@ const DashboardHeader = ({
                     {dashboard.name}
                 </Title>
 
-                <Popover
-                    withinPortal
-                    withArrow
-                    offset={{
-                        mainAxis: -2,
-                        crossAxis: 6,
-                    }}
-                >
-                    <Popover.Target>
-                        <ActionIcon color="dark">
-                            <MantineIcon icon={IconInfoCircle} />
-                        </ActionIcon>
-                    </Popover.Target>
+                {!isCustomerUse && (
+                    <Popover
+                        withinPortal
+                        withArrow
+                        offset={{
+                            mainAxis: -2,
+                            crossAxis: 6,
+                        }}
+                    >
+                        <Popover.Target>
+                            <ActionIcon color="dark">
+                                <MantineIcon icon={IconInfoCircle} />
+                            </ActionIcon>
+                        </Popover.Target>
 
-                    <Popover.Dropdown maw={500}>
-                        <Stack spacing="xs">
-                            {dashboard.description && (
-                                <Text
-                                    fz="xs"
-                                    color="gray.7"
-                                    fw={500}
-                                    style={{ whiteSpace: 'pre-line' }}
-                                >
-                                    {dashboard.description}
-                                </Text>
-                            )}
+                        <Popover.Dropdown maw={500}>
+                            <Stack spacing="xs">
+                                {dashboard.description && (
+                                    <Text
+                                        fz="xs"
+                                        color="gray.7"
+                                        fw={500}
+                                        style={{ whiteSpace: 'pre-line' }}
+                                    >
+                                        {dashboard.description}
+                                    </Text>
+                                )}
 
-                            <UpdatedInfo
-                                updatedAt={dashboard.updatedAt}
-                                user={dashboard.updatedByUser}
-                            />
-
-                            <ViewInfo
-                                views={dashboard.views}
-                                firstViewedAt={dashboard.firstViewedAt}
-                            />
-
-                            <SlugInfo slug={dashboard.slug} />
-
-                            {dashboard.spaceName && (
-                                <SpaceAndDashboardInfo
-                                    space={{
-                                        link: `/projects/${projectUuid}/spaces/${dashboard.spaceUuid}`,
-                                        name: dashboard.spaceName,
-                                    }}
+                                <UpdatedInfo
+                                    updatedAt={dashboard.updatedAt}
+                                    user={dashboard.updatedByUser}
                                 />
-                            )}
-                        </Stack>
-                    </Popover.Dropdown>
-                </Popover>
+
+                                <ViewInfo
+                                    views={dashboard.views}
+                                    firstViewedAt={dashboard.firstViewedAt}
+                                />
+
+                                <SlugInfo slug={dashboard.slug} />
+
+                                {dashboard.spaceName && (
+                                    <SpaceAndDashboardInfo
+                                        space={{
+                                            link: `/projects/${projectUuid}/spaces/${dashboard.spaceUuid}`,
+                                            name: dashboard.spaceName,
+                                        }}
+                                    />
+                                )}
+                            </Stack>
+                        </Popover.Dropdown>
+                    </Popover>
+                )}
 
                 {isEditMode && userCanManageDashboard && (
                     <ActionIcon

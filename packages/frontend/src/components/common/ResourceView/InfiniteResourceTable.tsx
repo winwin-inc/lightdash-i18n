@@ -40,8 +40,8 @@ import {
     type MRT_TableOptions,
     type MRT_Virtualizer,
 } from 'mantine-react-table';
-import { MRT_Localization_ZH_HANS } from 'mantine-react-table/locales/zh-Hans';
 import { MRT_Localization_EN } from 'mantine-react-table/locales/en';
+import { MRT_Localization_ZH_HANS } from 'mantine-react-table/locales/zh-Hans';
 import {
     useCallback,
     useDeferredValue,
@@ -84,10 +84,12 @@ type ResourceView2Props = Partial<MRT_TableOptions<ResourceViewItem>> & {
     filters: Pick<ContentArgs, 'spaceUuids' | 'contentTypes'> & {
         projectUuid: string;
     };
+
     contentTypeFilter?: {
         defaultValue: ContentType | undefined;
         options: ContentType[];
     };
+    isCustomerUse: boolean;
     columnVisibility?: ColumnVisibilityConfig;
     adminContentView?: boolean;
     initialAdminContentViewValue?: 'all' | 'shared';
@@ -98,6 +100,7 @@ const defaultSpaces: SpaceSummary[] = [];
 const InfiniteResourceTable = ({
     filters,
     contentTypeFilter,
+    isCustomerUse,
     columnVisibility,
     adminContentView = false,
     initialAdminContentViewValue = 'shared',
@@ -262,6 +265,12 @@ const InfiniteResourceTable = ({
             },
         },
     ];
+
+    if (isCustomerUse) {
+        // remove
+        ResourceColumns.splice(1);
+    }
+
     const initialSorting: MRT_SortingState = [
         {
             id: ContentSortByColumns.LAST_UPDATED_AT,

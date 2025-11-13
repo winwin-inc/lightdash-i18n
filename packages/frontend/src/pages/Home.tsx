@@ -46,6 +46,8 @@ const Home: FC = () => {
         isMostPopularAndRecentlyUpdatedLoading ||
         pinnedItems.isInitialLoading;
 
+    const isCustomerUse = project.data?.isCustomerUse;
+
     const error = onboarding.error || project.error;
 
     useUnmount(() => onboarding.remove());
@@ -79,6 +81,7 @@ const Home: FC = () => {
                         <LandingPanel
                             userName={user.data?.firstName}
                             projectUuid={project.data.projectUuid}
+                            isCustomerUse={isCustomerUse ?? false}
                         />
                         {isAiAgentsEnabled && (
                             <AiSearchBox
@@ -101,10 +104,13 @@ const Home: FC = () => {
                                 )}
                             />
                         </PinnedItemsProvider>
-                        <MostPopularAndRecentlyUpdatedPanel
-                            data={mostPopularAndRecentlyUpdated}
-                            projectUuid={project.data.projectUuid}
-                        />
+
+                        {!isCustomerUse && (
+                            <MostPopularAndRecentlyUpdatedPanel
+                                data={mostPopularAndRecentlyUpdated}
+                                projectUuid={project.data.projectUuid}
+                            />
+                        )}
                     </>
                 )}
             </Stack>

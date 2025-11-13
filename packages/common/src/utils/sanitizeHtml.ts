@@ -272,6 +272,8 @@ export const HTML_SANITIZE_MARKDOWN_TILE_RULES: sanitize.IOptions = {
         ...(HTML_SANITIZE_DEFAULT_RULES.allowedTags || []),
         'iframe',
         'img',
+        'picture',
+        'source',
     ],
 
     allowedAttributes: {
@@ -279,7 +281,9 @@ export const HTML_SANITIZE_MARKDOWN_TILE_RULES: sanitize.IOptions = {
 
         div: ['style'], // Allow style attribute on div tags
         iframe: ['width', 'height', 'src', 'name'],
-        img: ['src', 'width', 'height', 'alt', 'style'],
+        img: ['src', 'width', 'height', 'alt', 'style', 'srcset', 'sizes'],
+        picture: [],
+        source: ['media', 'srcset', 'sizes', 'type'],
 
         ...Object.fromEntries(
             tagNamesAllowingTextStyling.map((tagName) => [

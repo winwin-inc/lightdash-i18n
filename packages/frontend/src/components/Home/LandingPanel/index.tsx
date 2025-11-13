@@ -11,9 +11,10 @@ import MantineLinkButton from '../../common/MantineLinkButton';
 interface Props {
     userName: string | undefined;
     projectUuid: string;
+    isCustomerUse: boolean;
 }
 
-const LandingPanel: FC<Props> = ({ userName, projectUuid }) => {
+const LandingPanel: FC<Props> = ({ userName, projectUuid, isCustomerUse }) => {
     const { user } = useApp();
     const { t } = useTranslation();
 
@@ -26,10 +27,12 @@ const LandingPanel: FC<Props> = ({ userName, projectUuid }) => {
                     }${t('welcome.part_2')}!`}{' '}
                     ⚡️
                 </Title>
-                <Text color="gray.7">
-                    {' '}
-                    {t('components_landing_panel.tip')}{' '}
-                </Text>
+                {!isCustomerUse && (
+                    <Text color="gray.7">
+                        {' '}
+                        {t('components_landing_panel.tip')}{' '}
+                    </Text>
+                )}
             </Stack>
             <Can
                 I="manage"

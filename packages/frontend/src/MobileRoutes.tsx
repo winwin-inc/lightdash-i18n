@@ -39,6 +39,7 @@ import PrivateRoute from './components/PrivateRoute';
 import ProjectRoute from './components/ProjectRoute';
 import { useAiAgentButtonVisibility } from './ee/features/aiCopilot/hooks/useAiAgentsButtonVisibility';
 import { useActiveProjectUuid } from './hooks/useActiveProject';
+import { useProject } from './hooks/useProject';
 import useLogoutMutation from './hooks/user/useUserLogoutMutation';
 import AuthPopupResult, {
     SuccessAuthPopupResult,
@@ -96,6 +97,9 @@ export const MobileNavBar: FC = () => {
         },
     });
 
+    const project = useProject(activeProjectUuid);
+    const isCustomerUse = project.data?.isCustomerUse ?? false;
+
     const isAiAgentButtonVisible = useAiAgentButtonVisibility();
 
     return (
@@ -129,6 +133,7 @@ export const MobileNavBar: FC = () => {
                 </Title>
                 <ProjectSwitcher />
                 <Divider my="lg" />
+
                 <RouterNavLink
                     exact
                     label={t('mobile_navbar.home')}
@@ -136,13 +141,15 @@ export const MobileNavBar: FC = () => {
                     icon={<MantineIcon icon={IconHome} />}
                     onClick={toggleMenu}
                 />
-                <RouterNavLink
-                    exact
-                    label={t('mobile_navbar.spaces')}
-                    to={`/projects/${activeProjectUuid}/spaces`}
-                    icon={<MantineIcon icon={IconFolders} />}
-                    onClick={toggleMenu}
-                />
+                {!isCustomerUse && (
+                    <RouterNavLink
+                        exact
+                        label={t('mobile_navbar.spaces')}
+                        to={`/projects/${activeProjectUuid}/spaces`}
+                        icon={<MantineIcon icon={IconFolders} />}
+                        onClick={toggleMenu}
+                    />
+                )}
                 <RouterNavLink
                     exact
                     label={t('mobile_navbar.dashboards')}
@@ -150,13 +157,15 @@ export const MobileNavBar: FC = () => {
                     icon={<MantineIcon icon={IconLayoutDashboard} />}
                     onClick={toggleMenu}
                 />
-                <RouterNavLink
-                    exact
-                    label={t('mobile_navbar.charts')}
-                    to={`/projects/${activeProjectUuid}/saved`}
-                    icon={<MantineIcon icon={IconChartAreaLine} />}
-                    onClick={toggleMenu}
-                />
+                {!isCustomerUse && (
+                    <RouterNavLink
+                        exact
+                        label={t('mobile_navbar.charts')}
+                        to={`/projects/${activeProjectUuid}/saved`}
+                        icon={<MantineIcon icon={IconChartAreaLine} />}
+                        onClick={toggleMenu}
+                    />
+                )}
                 {isAiAgentButtonVisible && (
                     <RouterNavLink
                         exact

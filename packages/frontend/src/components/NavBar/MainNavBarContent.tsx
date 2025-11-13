@@ -21,11 +21,13 @@ import UserMenu from './UserMenu';
 type Props = {
     activeProjectUuid: string | undefined;
     isLoadingActiveProject: boolean;
+    isCustomerUse: boolean;
 };
 
 export const MainNavBarContent: FC<Props> = ({
     activeProjectUuid,
     isLoadingActiveProject,
+    isCustomerUse,
 }) => {
     const { t } = useTranslation();
 
@@ -52,13 +54,18 @@ export const MainNavBarContent: FC<Props> = ({
                     <>
                         <Button.Group>
                             <ExploreMenu projectUuid={activeProjectUuid} />
-                            <BrowseMenu projectUuid={activeProjectUuid} />
-                            {hasMetrics && (
+                            <BrowseMenu
+                                projectUuid={activeProjectUuid}
+                                isCustomerUse={isCustomerUse}
+                            />
+                            {hasMetrics && !isCustomerUse && (
                                 <MetricsLink projectUuid={activeProjectUuid} />
                             )}
                             <AiAgentsButton />
                         </Button.Group>
-                        <Omnibar projectUuid={activeProjectUuid} />
+                        {!isCustomerUse && (
+                            <Omnibar projectUuid={activeProjectUuid} />
+                        )}
                     </>
                 )}
             </Group>

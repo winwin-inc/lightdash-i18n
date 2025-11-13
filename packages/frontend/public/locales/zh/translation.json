@@ -7652,7 +7652,7 @@
         "loading_dashboards": "正在加载看板",
         "bread_crumbs": {
             "home": "首页",
-            "all_dashboards": "所有看板"
+            "all_dashboards": "全部看板"
         },
         "search": "搜索",
         "no_dashboards_added_yet": "还没有添加任何看板"
@@ -7745,7 +7745,7 @@
         "loading_dashboards": "正在加载看板",
         "bread_crumbs": {
             "home": "首页",
-            "all_dashboards": "所有看板"
+            "all_dashboards": "全部看板"
         },
         "create_dashbord": "创建看板",
         "no_dashboards_added_yet": "还没有添加任何看板",

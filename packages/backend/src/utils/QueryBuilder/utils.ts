@@ -149,6 +149,28 @@ const getWrapChars = (wrapChar: string): [string, string] => {
     }
 };
 
+/**
+ * Extracts a relevant SQL snippet containing the missing attribute for better error messages
+ */
+const getSqlSnippetForError = (sql: string, sqlAttribute: string): string => {
+    // Escape special regex characters in the attribute pattern
+    const attributePattern = sqlAttribute.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        '\\$&',
+    );
+    const sqlMatch = sql.match(
+        new RegExp(`.{0,50}${attributePattern}.{0,50}`, 'i'),
+    );
+    if (sqlMatch) {
+        return `...${sqlMatch[0]}...`;
+    }
+    // If no match found, truncate the SQL if it's too long
+    if (sql.length > 100) {
+        return `${sql.substring(0, 100)}...`;
+    }
+    return sql;
+};
+
 export const replaceLightdashValues = (
     regex: RegExp,
     sql: string,
@@ -191,8 +213,9 @@ export const replaceLightdashValues = (
             if (attributeValues === undefined) {
                 missingReferences.add(attribute);
                 if (!throwOnMissing) return acc;
+                const sqlSnippet = getSqlSnippetForError(sql, sqlAttribute);
                 throw new ForbiddenError(
-                    `Missing ${replacementName} "${attribute}": "${sql}"`,
+                    `Missing ${replacementName} "${attribute}": "${sqlSnippet}"`,
                 );
             }
 
@@ -203,8 +226,9 @@ export const replaceLightdashValues = (
             ) {
                 missingReferences.add(attribute);
                 if (!throwOnMissing) return acc;
+                const sqlSnippet = getSqlSnippetForError(sql, sqlAttribute);
                 throw new ForbiddenError(
-                    `Invalid or missing ${replacementName} "${attribute}": "${sql}"`,
+                    `Invalid or missing ${replacementName} "${attribute}": "${sqlSnippet}"`,
                 );
             }
 

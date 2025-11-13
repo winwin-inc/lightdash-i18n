@@ -41,6 +41,7 @@ const useNavBarMode = () => {
 const NavBar = memo(() => {
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { data: projects } = useProjects();
+
     const { activeProjectUuid, isLoading: isLoadingActiveProject } =
         useActiveProjectUuid({ refetchOnMount: true });
     const { isFullscreen } = useFullscreen();
@@ -52,6 +53,9 @@ const NavBar = memo(() => {
             project.projectUuid === activeProjectUuid &&
             project.type === ProjectType.PREVIEW,
     );
+    const isCustomerUse =
+        projects?.find((project) => project.projectUuid === activeProjectUuid)
+            ?.isCustomerUse ?? false;
 
     const getHeaderStyles = useCallback(
         (theme: MantineTheme) => ({
@@ -77,6 +81,7 @@ const NavBar = memo(() => {
                     <MainNavBarContent
                         activeProjectUuid={activeProjectUuid}
                         isLoadingActiveProject={isLoadingActiveProject}
+                        isCustomerUse={isCustomerUse}
                     />
                 );
             default:

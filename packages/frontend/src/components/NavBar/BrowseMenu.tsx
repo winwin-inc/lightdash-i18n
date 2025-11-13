@@ -16,9 +16,10 @@ import { MetricsLink } from './MetricsLink';
 
 interface Props {
     projectUuid: string;
+    isCustomerUse: boolean;
 }
 
-const BrowseMenu: FC<Props> = ({ projectUuid }) => {
+const BrowseMenu: FC<Props> = ({ projectUuid, isCustomerUse }) => {
     const { t } = useTranslation();
 
     const { data: spaces, isInitialLoading } = useSpaceSummaries(
@@ -31,6 +32,43 @@ const BrowseMenu: FC<Props> = ({ projectUuid }) => {
     const { data: hasMetrics } = useHasMetricsInCatalog({
         projectUuid,
     });
+
+    if (isCustomerUse) {
+        return (
+            <Menu
+                withArrow
+                withinPortal
+                shadow="lg"
+                position="bottom-start"
+                arrowOffset={16}
+                offset={-2}
+            >
+                <Menu.Target>
+                    <Button
+                        variant="default"
+                        size="xs"
+                        fz="sm"
+                        leftIcon={
+                            <MantineIcon color="#adb5bd" icon={IconCategory} />
+                        }
+                    >
+                        {t('components_navbar_browse_menu.title')}
+                    </Button>
+                </Menu.Target>
+                <Menu.Dropdown>
+                    <Menu.Item
+                        component={Link}
+                        to={`/projects/${projectUuid}/dashboards`}
+                        icon={<MantineIcon icon={IconLayoutDashboard} />}
+                    >
+                        {t(
+                            'components_navbar_browse_menu.menus.dashboards.title',
+                        )}
+                    </Menu.Item>
+                </Menu.Dropdown>
+            </Menu>
+        );
+    }
 
     return (
         <Menu

@@ -32,6 +32,8 @@ const MobileHome: FC = () => {
         project.data?.pinnedListUuid,
     );
 
+    const isCustomerUse = project.data?.isCustomerUse ?? false;
+
     const {
         data: mostPopularAndRecentlyUpdated,
         isInitialLoading: isMostPopularAndRecentlyUpdatedLoading,
@@ -55,7 +57,9 @@ const MobileHome: FC = () => {
                 category: ResourceItemCategory.PINNED,
             })) ?? [];
 
-        return [...pinnedItemsWithCategory, ...mostPopularItems];
+        return isCustomerUse
+            ? pinnedItemsWithCategory
+            : [...pinnedItemsWithCategory, ...mostPopularItems];
     }, [mostPopularAndRecentlyUpdated, pinnedItems]);
 
     const isLoading =
