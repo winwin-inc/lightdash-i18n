@@ -31,8 +31,8 @@ import React, {
 } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useDeepCompareEffect, useMount } from 'react-use';
-import { hasSavedFilterValueChanged } from '../../components/DashboardFilter/FilterConfiguration/utils';
 import { useConditionalRuleLabelFromItem } from '../../components/common/Filters/FilterInputs/utils';
+import { hasSavedFilterValueChanged } from '../../components/DashboardFilter/FilterConfiguration/utils';
 import { type SdkFilter } from '../../ee/features/embed/EmbedDashboard/types';
 import { convertSdkFilterToDashboardFilter } from '../../ee/features/embed/EmbedDashboard/utils';
 import { LightdashEventType } from '../../ee/features/embed/events/types';
@@ -243,11 +243,13 @@ const DashboardProvider: React.FC<
         if (dashboard?.config?.isDateZoomDisabled === true) {
             setIsDateZoomDisabled(true);
         }
-        if (dashboard?.config?.isGlobalFilterEnabled === true) {
-            setIsGlobalFilterEnabled(true);
+        if (dashboard?.config?.isGlobalFilterEnabled !== undefined) {
+            setIsGlobalFilterEnabled(dashboard.config.isGlobalFilterEnabled);
         }
-        if (dashboard?.config?.showGlobalAddFilterButton === true) {
-            setShowGlobalAddFilterButton(true);
+        if (dashboard?.config?.showGlobalAddFilterButton !== undefined) {
+            setShowGlobalAddFilterButton(
+                dashboard.config.showGlobalAddFilterButton,
+            );
         }
         if (dashboard?.config?.showTabAddFilterButton) {
             setShowTabAddFilterButton(dashboard.config.showTabAddFilterButton);
@@ -533,7 +535,6 @@ const DashboardProvider: React.FC<
         [dashboardTiles],
     );
 
-
     // Apply filters on dashboard load in order of precedence:
     // 1. Start with base dashboard filters
     // 2. Apply overrides for iframe embed or replace SDK filters in SDK mode
@@ -599,11 +600,17 @@ const DashboardProvider: React.FC<
             setDashboardFilters(updatedDashboardFilters);
 
             // tab filters
-            if (currentDashboard.tabs.length > 0 && isEmptyTabFilters(tabFilters)) {
-                const updatedTabFilters = currentDashboard.tabs.reduce((acc, tab) => {
-                    acc[tab.uuid] = tab.filters || emptyFilters;
-                    return acc;
-                }, {} as Record<string, DashboardFilters>);
+            if (
+                currentDashboard.tabs.length > 0 &&
+                isEmptyTabFilters(tabFilters)
+            ) {
+                const updatedTabFilters = currentDashboard.tabs.reduce(
+                    (acc, tab) => {
+                        acc[tab.uuid] = tab.filters || emptyFilters;
+                        return acc;
+                    },
+                    {} as Record<string, DashboardFilters>,
+                );
 
                 setTabFilters(updatedTabFilters);
             }
@@ -675,7 +682,7 @@ const DashboardProvider: React.FC<
                 { replace: true },
             );
         }
-  
+
         // tab filters
         if (isEmptyTabFilters(tabTemporaryFilters)) {
             newParams.delete('tempTabFilters');
