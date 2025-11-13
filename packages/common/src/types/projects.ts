@@ -455,6 +455,11 @@ export type Project = {
     schedulerTimezone: string;
     createdByUserUuid: string | null;
     organizationWarehouseCredentialsUuid?: string;
+    /**
+     * Whether this project is for customer use
+     * If true, certain features/content may be hidden
+     */
+    isCustomerUse?: boolean;
 };
 
 export type ProjectSummary = Pick<

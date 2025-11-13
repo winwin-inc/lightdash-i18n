@@ -65,6 +65,11 @@ export type OrganizationProject = {
     upstreamProjectUuid: string | null;
     warehouseType?: WarehouseTypes;
     requireUserCredentials?: boolean;
+    /**
+     * Whether this project is for customer use
+     * If true, certain features/content may be hidden
+     */
+    isCustomerUse?: boolean;
 };
 
 /**

@@ -4188,9 +4188,14 @@
         "project_management_settings": "Project management settings",
         "create_new": "Create new",
         "delete": "Delete {{length}} selected",
+        "customer_use_updated": "Customer use status updated",
+        "customer_use_update_error": "Failed to update customer use status",
         "table": {
             "select_all": "Select all",
-            "name": "Name"
+            "name": "Name",
+            "status": "Status",
+            "customer_use": "Customer Use",
+            "actions": "Actions"
         },
         "tabs": {
             "all": "All",

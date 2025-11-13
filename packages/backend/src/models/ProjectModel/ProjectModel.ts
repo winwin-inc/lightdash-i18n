@@ -318,6 +318,7 @@ export class ProjectModel {
                 'projects.created_at',
                 `projects.copied_from_project_uuid`,
                 `projects.created_by_user_uuid`,
+                `projects.is_customer_use`,
                 `${WarehouseCredentialTableName}.warehouse_type`,
                 `${WarehouseCredentialTableName}.encrypted_credentials`,
                 this.database.raw(
@@ -354,6 +355,7 @@ export class ProjectModel {
                 created_at,
                 created_by_user_uuid,
                 copied_from_project_uuid,
+                is_customer_use,
                 warehouse_type,
                 encrypted_credentials,
             }) => {
@@ -379,6 +381,7 @@ export class ProjectModel {
                                 : undefined,
                         requireUserCredentials:
                             !!warehouseCredentials?.requireUserCredentials,
+                        isCustomerUse: is_customer_use ?? false,
                     };
                 } catch (e) {
                     throw new UnexpectedServerError(
@@ -624,6 +627,7 @@ export class ProjectModel {
                   scheduler_timezone: string;
                   created_by_user_uuid: string | null;
                   organization_warehouse_credentials_uuid: string | null;
+                  is_customer_use: boolean;
               }
             | {
                   name: string;
@@ -638,6 +642,7 @@ export class ProjectModel {
                   scheduler_timezone: string;
                   created_by_user_uuid: string | null;
                   organization_warehouse_credentials_uuid: string | null;
+                  is_customer_use: boolean;
               }
         )[];
         return wrapSentryTransaction(
@@ -695,6 +700,9 @@ export class ProjectModel {
                         this.database
                             .ref('organization_warehouse_credentials_uuid')
                             .withSchema(ProjectTableName),
+                        this.database
+                            .ref('is_customer_use')
+                            .withSchema(ProjectTableName),
                     ])
                     .select<QueryResult>()
                     .where('projects.project_uuid', projectUuid);
@@ -734,6 +742,7 @@ export class ProjectModel {
                     organizationWarehouseCredentialsUuid:
                         project.organization_warehouse_credentials_uuid ??
                         undefined,
+                    isCustomerUse: project.is_customer_use ?? false,
                 };
 
                 // If project uses organization warehouse credentials, load them
@@ -926,6 +935,7 @@ export class ProjectModel {
             type: project.type,
             dbtConnection: nonSensitiveDbtCredentials,
             warehouseConnection: nonSensitiveCredentialsWithDefaults,
+            isCustomerUse: project.isCustomerUse ?? false,
             pinnedListUuid: project.pinnedListUuid,
             dbtVersion: project.dbtVersion,
             upstreamProjectUuid: project.upstreamProjectUuid || undefined,
@@ -1515,11 +1525,21 @@ export class ProjectModel {
         projectUuid: string,
         data: UpdateMetadata,
     ): Promise<void> {
-        await this.database('projects')
-            .update({
-                copied_from_project_uuid: data.upstreamProjectUuid, // if upstreamProjectUuid is undefined, it will do nothing, if it is null, it will be unset
-            })
-            .where('project_uuid', projectUuid);
+        const updateData: Partial<DbProject> = {};
+        
+        if (data.upstreamProjectUuid !== undefined) {
+            updateData.copied_from_project_uuid = data.upstreamProjectUuid; // if upstreamProjectUuid is undefined, it will do nothing, if it is null, it will be unset
+        }
+        
+        if (data.isCustomerUse !== undefined) {
+            updateData.is_customer_use = data.isCustomerUse;
+        }
+
+        if (Object.keys(updateData).length > 0) {
+            await this.database('projects')
+                .update(updateData)
+                .where('project_uuid', projectUuid);
+        }
     }
 
     async deleteProjectAccess(

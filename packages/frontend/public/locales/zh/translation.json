@@ -4173,9 +4173,14 @@
         "project_management_settings": "项目管理设置",
         "create_new": "新建项目",
         "delete": "删除选中的 {{length}} 项",
+        "customer_use_updated": "客户使用状态已更新",
+        "customer_use_update_error": "更新客户使用状态失败",
         "table": {
             "select_all": "全选",
-            "name": "名称"
+            "name": "名称",
+            "status": "状态",
+            "customer_use": "客户使用",
+            "actions": "操作"
         },
         "tabs": {
             "all": "全部",
