@@ -1,4 +1,4 @@
-import { DimensionType, MetricType } from '@lightdash/common';
+import { MetricType } from '@lightdash/common';
 import { useTranslation } from 'react-i18next';
 
 export const useTableMetricTypeLabels = (): Record<MetricType, string> => {

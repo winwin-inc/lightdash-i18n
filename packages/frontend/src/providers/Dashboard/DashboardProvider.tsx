@@ -32,7 +32,6 @@ import React, {
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useDeepCompareEffect, useMount } from 'react-use';
 import { useConditionalRuleLabelFromItem } from '../../components/common/Filters/FilterInputs/utils';
-import { hasSavedFilterValueChanged } from '../../components/DashboardFilter/FilterConfiguration/utils';
 import { type SdkFilter } from '../../ee/features/embed/EmbedDashboard/types';
 import { convertSdkFilterToDashboardFilter } from '../../ee/features/embed/EmbedDashboard/utils';
 import { LightdashEventType } from '../../ee/features/embed/events/types';
@@ -254,7 +253,12 @@ const DashboardProvider: React.FC<
         if (dashboard?.config?.showTabAddFilterButton) {
             setShowTabAddFilterButton(dashboard.config.showTabAddFilterButton);
         }
-    }, [dashboard]);
+    }, [
+        dashboard,
+        setIsGlobalFilterEnabled,
+        setShowGlobalAddFilterButton,
+        setShowTabAddFilterButton,
+    ]);
 
     const [parameterDefinitions, setParameterDefinitions] =
         useState<ParameterDefinitions>({});
@@ -304,7 +308,7 @@ const DashboardProvider: React.FC<
     useEffect(() => {
         if (dashboardTabs && dashboardTabs.length > 0) {
             const matchedTab =
-                dashboardTabs.find((tab) => tab.uuid === tabUuid) ??
+                dashboardTabs.find((item) => item.uuid === tabUuid) ??
                 dashboardTabs[0];
 
             setActiveTab(matchedTab);
@@ -691,9 +695,8 @@ const DashboardProvider: React.FC<
                 'tempTabFilters',
                 JSON.stringify(
                     Object.entries(tabTemporaryFilters).reduce(
-                        (acc, [tabUuid, tabFilter]) => {
-                            acc[tabUuid] =
-                                compressDashboardFiltersToParam(tabFilter);
+                        (acc, [uuid, filter]) => {
+                            acc[uuid] = compressDashboardFiltersToParam(filter);
                             return acc;
                         },
                         {} as Record<string, DashboardFiltersFromSearchParam>,
@@ -776,11 +779,10 @@ const DashboardProvider: React.FC<
             const filters = JSON.parse(tempTabFilterSearchParam);
 
             setTabTemporaryFilters(
-                Object.entries(filters).reduce((acc, [tabUuid, tabFilter]) => {
-                    acc[tabUuid] =
-                        convertDashboardFiltersParamToDashboardFilters(
-                            tabFilter as DashboardFiltersFromSearchParam,
-                        );
+                Object.entries(filters).reduce((acc, [uuid, filter]) => {
+                    acc[uuid] = convertDashboardFiltersParamToDashboardFilters(
+                        filter as DashboardFiltersFromSearchParam,
+                    );
                     return acc;
                 }, {} as Record<string, DashboardFilters>),
             );

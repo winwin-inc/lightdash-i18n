@@ -32,7 +32,6 @@ import {
     IconPinnedOff,
     IconSend,
     IconTrash,
-    IconUpload,
 } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -112,7 +111,6 @@ const DashboardHeader = ({
     onDelete,
     onDuplicate,
     onMoveToSpace,
-    onExport,
     onToggleFullscreen,
     setAddingTab,
     onEditClicked,

@@ -7,7 +7,6 @@ import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
 
 import { ChartType } from '@lightdash/common';
-import type EChartsReact from 'echarts-for-react';
 import {
     base64SvgToBase64Image,
     downloadImage,
@@ -66,8 +65,8 @@ const downloadChartImage = async (
             'png',
             false, //isBackgroundTransparent,
         )
-            .then((base64Image) => {
-                downloadImage(base64Image, chartName);
+            .then((base64ImageData) => {
+                downloadImage(base64ImageData, chartName);
             })
             .catch((e) => {
                 console.error('Error downloading image', e);
@@ -93,7 +92,7 @@ export const DashboardExportImage: FC<{
                 if (isMinimal)
                     track({ name: EventName.EMBED_DOWNLOAD_IMAGE_CLICKED });
                 else track({ name: EventName.DOWNLOAD_IMAGE_CLICKED });
-                downloadChartImage(chartType, echartRef, chartName);
+                await downloadChartImage(chartType, echartRef, chartName);
             }}
         >
             {t(

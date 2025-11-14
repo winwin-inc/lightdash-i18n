@@ -603,6 +603,7 @@ const usePieChartConfig: PieChartConfigFn = (
             legendPosition,
             legendMaxItemLength,
             debouncedValueLabelTemplate,
+            useCustomFormat,
         ],
     );
 

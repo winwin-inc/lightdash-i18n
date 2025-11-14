@@ -1,7 +1,5 @@
 import {
-    CustomFormatType,
     formatItemValue,
-    getCustomFormat,
     PieChartLegendLabelMaxLengthDefault,
     PieChartTooltipLabelMaxLength,
     type PieChart,
@@ -120,7 +118,6 @@ const useEchartsPieConfig = (
                             // params.value is the raw numeric value we passed in
                             // params.percent is the calculated percentage (0-100)
                             // params.data contains our custom data object with meta
-                            const dataPoint = params.data as PieSeriesDataPoint;
                             const percentValue =
                                 typeof params.percent === 'number'
                                     ? params.percent

@@ -6,8 +6,8 @@ import {
 import { IconUnlink } from '@tabler/icons-react';
 import { useEffect, useMemo, type FC } from 'react';
 import { Responsive, WidthProvider, type Layout } from 'react-grid-layout';
-import { useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useLocation, useNavigate } from 'react-router';
 import {
     getReactGridLayoutConfig,
     getResponsiveGridLayoutProps,
@@ -15,13 +15,13 @@ import {
 } from '../../../../../components/DashboardTabs/gridUtils';
 import LoomTile from '../../../../../components/DashboardTiles/DashboardLoomTile';
 import SqlChartTile from '../../../../../components/DashboardTiles/DashboardSqlChartTile';
+import SuboptimalState from '../../../../../components/common/SuboptimalState/SuboptimalState';
+import { LockedDashboardModal } from '../../../../../components/common/modal/LockedDashboardModal';
 import useDashboardContext from '../../../../../providers/Dashboard/useDashboardContext';
 import useEmbed from '../../../../providers/Embed/useEmbed';
 import { useEmbedDashboard } from '../hooks';
 import EmbedDashboardChartTile from './EmbedDashboardChartTile';
 import EmbedDashboardHeader from './EmbedDashboardHeader';
-import SuboptimalState from '../../../../../components/common/SuboptimalState/SuboptimalState';
-import { LockedDashboardModal } from '../../../../../components/common/modal/LockedDashboardModal';
 
 import { Group, Tabs, Title } from '@mantine/core';
 import '../../../../../styles/react-grid.css';
@@ -220,7 +220,9 @@ const EmbedDashboard: FC<{
                     const tileHasNoTab = !tile.tabUuid;
                     const isFirstTab = tab.uuid === sortedTabs[0]?.uuid;
 
-                    return tileBelongsToActiveTab || (tileHasNoTab && isFirstTab);
+                    return (
+                        tileBelongsToActiveTab || (tileHasNoTab && isFirstTab)
+                    );
                 });
             } else {
                 tiles = [];
@@ -234,7 +236,7 @@ const EmbedDashboard: FC<{
             }
             return a.y - b.y;
         });
-    }, [dashboard?.tiles, sortedTabs, activeTab]);
+    }, [sortedTabs, activeTab, dashboard]);
 
     // Check if tabs should be enabled (more than one tab)
     const tabsEnabled = sortedTabs.length > 1;
@@ -312,7 +314,7 @@ const EmbedDashboard: FC<{
     // SDK mode does not sync URL when user changes tab because
     // the SDK app uses the same URL as the embedding app.
     const handleTabChange = (tabUuid: string) => {
-        const tab = sortedTabs.find((t) => t.uuid === tabUuid);
+        const tab = sortedTabs.find((item) => item.uuid === tabUuid);
         if (tab) {
             setActiveTab(tab);
 

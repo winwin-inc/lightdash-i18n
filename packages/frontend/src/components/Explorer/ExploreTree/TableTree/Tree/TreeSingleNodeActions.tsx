@@ -1,7 +1,6 @@
 import {
     DimensionType,
     FeatureFlags,
-    friendlyName,
     getCustomMetricType,
     getItemId,
     isAdditionalMetric,

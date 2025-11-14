@@ -60,7 +60,7 @@ const MobileHome: FC = () => {
         return isCustomerUse
             ? pinnedItemsWithCategory
             : [...pinnedItemsWithCategory, ...mostPopularItems];
-    }, [mostPopularAndRecentlyUpdated, pinnedItems]);
+    }, [mostPopularAndRecentlyUpdated, pinnedItems, isCustomerUse]);
 
     const isLoading =
         project.isInitialLoading ||
