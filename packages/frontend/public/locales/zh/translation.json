@@ -4787,8 +4787,8 @@
         "sort": {
             "ascending": "升序",
             "descending": "降序",
-            "bars_ascending": "条形图升序",
-            "bars_descending": "条形图降序"
+            "bars_ascending": "柱状图升序",
+            "bars_descending": "柱状图降序"
         },
         "layout": {
             "flip_axis": "翻转轴",
@@ -4823,7 +4823,7 @@
         },
         "series": {
             "type_options": {
-                "bar": "条形图",
+                "bar": "柱状图",
                 "line": "折线图",
                 "area": "面积图",
                 "scatter": "散点图"
@@ -4999,7 +4999,7 @@
         "config_tabs": {
             "general": "常规",
             "conditional_formating": "条件格式化",
-            "bar_display": "条形图显示"
+            "bar_display": "柱状图显示"
         }
     },
     "components_visualization_configs_treemap": {
@@ -5041,14 +5041,14 @@
         }
     },
     "components_visualization_configs_bar_chart_display": {
-        "no_numeric_columns_available": "没有可用的数字列用于条形图显示",
-        "bar_chart_columns": "条形图列",
-        "display_numeric_values_as_bar_charts": "显示数字值为条形图"
+        "no_numeric_columns_available": "没有可用的数字列用于柱状图显示",
+        "bar_chart_columns": "柱状图列",
+        "display_numeric_values_as_bar_charts": "显示数字值为柱状图"
     },
     "components_visualization_configs_custom_vis": {
         "placeholder": "开始输入您的 Vega-Lite JSON代码或从我们的预构建模板中选择以创建您的图表。",
         "templates": {
-            "bar_chart": "条形图",
+            "bar_chart": "柱状图",
             "heatmap": "热图",
             "bubble_plots": "气泡图",
             "funnel_chart": "漏斗图",
@@ -5645,8 +5645,8 @@
             "mixed": "混合",
             "area_chart": "面积图",
             "line_chart": "折线图",
-            "horizontal_bar_chart": "水平条形图",
-            "bar_chart": "条形图",
+            "horizontal_bar_chart": "条形图",
+            "bar_chart": "柱状图",
             "scatter_chart": "散点图",
             "table": "表格",
             "big_value": "大数值",
@@ -5657,8 +5657,8 @@
             "unknown": "未知图表类型"
         },
         "menus": {
-            "bar_chart": "条形图",
-            "horizontal_bar_chart": "水平条形图",
+            "bar_chart": "柱状图",
+            "horizontal_bar_chart": "条形图",
             "line_chart": "折线图",
             "area_chart": "面积图",
             "scatter_chart": "散点图",
@@ -5797,8 +5797,8 @@
             "space": "空间"
         },
         "resource_view_chart_labels": {
-            "bar": "条形图",
-            "horizontal_bar": "水平条形图",
+            "bar": "柱状图",
+            "horizontal_bar": "条形图",
             "line": "折线图",
             "scatter": "散点图",
             "area": "面积图",
@@ -5861,8 +5861,8 @@
         "resource_type_names": {
             "dashboard": "看板",
             "space": "空间",
-            "bar_chart": "条形图",
-            "horizontal_bar_chart": "水平条形图",
+            "bar_chart": "柱状图",
+            "horizontal_bar_chart": "条形图",
             "line_chart": "折线图",
             "scatter_chart": "散点图",
             "area_chart": "面积图",
@@ -7904,7 +7904,7 @@
             "instructions": {
                 "label": "Instructions 指令",
                 "description": "设置代理的整体行为和任务。这定义了它应该如何响应以及它的目的是什么。",
-                "placeholder": "您是营销分析专家。专注于活动表现、客户获取成本和 ROI 指标。始终使用条形图和表格来可视化数据。",
+                "placeholder": "您是营销分析专家。专注于活动表现、客户获取成本和 ROI 指标。始终使用柱状图和表格来可视化数据。",
                 "character_count": "{{count}}个字符"
             },
             "quick_templates": {
@@ -8273,7 +8273,7 @@
             "title": "知识 & 专业",
             "label": "指令",
             "description": "设置代理的整体行为和任务。这定义了它应该如何响应以及它的目的是什么。",
-            "placeholder": "您是一个营销分析专家。专注于营销表现、客户获取成本和 ROI 指标。始终使用条形图和表格来可视化数据。",
+            "placeholder": "您是一个营销分析专家。专注于营销表现、客户获取成本和 ROI 指标。始终使用柱状图和表格来可视化数据。",
             "characters": "字符"
         },
         "quick_templates": {
