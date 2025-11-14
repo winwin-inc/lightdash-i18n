@@ -15,6 +15,7 @@ import { ColumnVisibility } from '../components/common/ResourceView/types';
 import SpaceActionModal from '../components/common/SpaceActionModal';
 import { ActionType } from '../components/common/SpaceActionModal/types';
 import useApp from '../providers/App/useApp';
+import { useProject } from '../hooks/useProject';
 
 const Spaces: FC = () => {
     const { t } = useTranslation();
@@ -22,6 +23,8 @@ const Spaces: FC = () => {
     const { projectUuid } = useParams() as {
         projectUuid: string;
     };
+    const project = useProject(projectUuid);
+    const isCustomerUse = project.data?.isCustomerUse ?? false;
 
     const { user, health } = useApp();
 
@@ -90,6 +93,7 @@ const Spaces: FC = () => {
                     </Group>
                 </Group>
                 <InfiniteResourceTable
+                    isCustomerUse={isCustomerUse}
                     filters={{
                         projectUuid,
                         spaceUuids: [],

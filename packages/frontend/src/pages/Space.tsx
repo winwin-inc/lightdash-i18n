@@ -38,6 +38,7 @@ import { AddToSpaceResources } from '../components/Explorer/SpaceBrowser/types';
 import ForbiddenPanel from '../components/ForbiddenPanel';
 import { useSpacePinningMutation } from '../hooks/pinning/useSpaceMutation';
 import { useContentAction } from '../hooks/useContent';
+import { useProject } from '../hooks/useProject';
 import { useSpace, useSpaceSummaries } from '../hooks/useSpaces';
 import { Can } from '../providers/Ability';
 import useApp from '../providers/App/useApp';
@@ -62,6 +63,9 @@ const Space: FC = () => {
     const { mutate: pinSpace } = useSpacePinningMutation(projectUuid);
     const { user, health } = useApp();
     const { track } = useTracking();
+
+    const project = useProject(projectUuid);
+    const isCustomerUse = project.data?.isCustomerUse ?? false;
 
     const userCanManageSpace = user.data?.ability?.can(
         'create',
@@ -346,6 +350,7 @@ const Space: FC = () => {
                     </Group>
                 </Group>
                 <InfiniteResourceTable
+                    isCustomerUse={isCustomerUse}
                     filters={{
                         projectUuid,
                         spaceUuids: [spaceUuid],
