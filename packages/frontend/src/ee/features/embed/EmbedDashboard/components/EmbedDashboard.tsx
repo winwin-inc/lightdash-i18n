@@ -201,29 +201,39 @@ const EmbedDashboard: FC<{
             return [];
         }
 
+        let tiles: typeof dashboard.tiles;
+
         // If no tabs or only one tab, show all tiles
         if (sortedTabs.length <= 1) {
-            return dashboard.tiles;
+            tiles = dashboard.tiles;
+        } else {
+            // Make sure we have a tab selected
+            const tab = activeTab || sortedTabs[0];
+
+            // If there are tabs, filter tiles by active tab
+            if (tab) {
+                tiles = dashboard.tiles.filter((tile) => {
+                    // Show tiles that belong to the active tab
+                    const tileBelongsToActiveTab = tile.tabUuid === tab.uuid;
+
+                    // Show tiles that don't belong to any tab (legacy tiles) on the first tab
+                    const tileHasNoTab = !tile.tabUuid;
+                    const isFirstTab = tab.uuid === sortedTabs[0]?.uuid;
+
+                    return tileBelongsToActiveTab || (tileHasNoTab && isFirstTab);
+                });
+            } else {
+                tiles = [];
+            }
         }
 
-        // Make sure we have a tab selected
-        const tab = activeTab || sortedTabs[0];
-
-        // If there are tabs, filter tiles by active tab
-        if (tab) {
-            return dashboard.tiles.filter((tile) => {
-                // Show tiles that belong to the active tab
-                const tileBelongsToActiveTab = tile.tabUuid === tab.uuid;
-
-                // Show tiles that don't belong to any tab (legacy tiles) on the first tab
-                const tileHasNoTab = !tile.tabUuid;
-                const isFirstTab = tab.uuid === sortedTabs[0]?.uuid;
-
-                return tileBelongsToActiveTab || (tileHasNoTab && isFirstTab);
-            });
-        }
-
-        return [];
+        // Sort tiles by y (row) then x (column) for consistent left-to-right, top-to-bottom order
+        return tiles.sort((a, b) => {
+            if (a.y === b.y) {
+                return a.x - b.x;
+            }
+            return a.y - b.y;
+        });
     }, [dashboard?.tiles, sortedTabs, activeTab]);
 
     // Check if tabs should be enabled (more than one tab)
