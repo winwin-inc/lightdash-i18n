@@ -4933,10 +4933,18 @@
             "value_position": "Value position",
             "show_value": "Show value",
             "show_percentage": "Show percentage",
+            "use_custom_format": "custom format",
+            "custom_format": {
+                "label": "Custom format",
+                "placeholder": "e.g. {{example}}",
+                "hint": "Use {{tokens}} placeholders. Examples: {percent}% - {value}, {value} ({percent}%), {name}: {value}",
+                "reset": "Reset override"
+            },
             "options": {
                 "hidden": "Hidden",
                 "inside": "Inside",
                 "outside": "Outside",
+                "custom": "Custom",
                 "mixed": "Mixed"
             }
         }

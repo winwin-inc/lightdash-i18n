@@ -4916,10 +4916,18 @@
             "value_position": "值位置",
             "show_value": "显示值",
             "show_percentage": "显示百分比",
+            "use_custom_format": "自定义格式",
+            "custom_format": {
+                "label": "自定义格式",
+                "placeholder": "例如 {{example}}",
+                "hint": "可使用 {{tokens}} 占位符，支持添加连字符、中括号等符号。示例：{percent}% - {value}、{value} ({percent}%)、{name}: {value}",
+                "reset": "恢复继承"
+            },
             "options": {
                 "hidden": "隐藏",
                 "inside": "内部",
                 "outside": "外部",
+                "custom": "自定义",
                 "mixed": "混合"
             }
         }

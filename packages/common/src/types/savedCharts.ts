@@ -71,6 +71,8 @@ export type PieChartValueOptions = {
     valueLabel: PieChartValueLabel;
     showValue: boolean;
     showPercentage: boolean;
+    useCustomFormat?: boolean;
+    labelTemplate?: string;
 };
 
 export const PieChartLegendPositions = {
@@ -95,6 +97,8 @@ export type PieChart = {
     valueLabel?: PieChartValueOptions['valueLabel'];
     showValue?: PieChartValueOptions['showValue'];
     showPercentage?: PieChartValueOptions['showPercentage'];
+    useCustomFormat?: PieChartValueOptions['useCustomFormat'];
+    valueLabelTemplate?: PieChartValueOptions['labelTemplate'];
     groupLabelOverrides?: Record<string, string>;
     groupColorOverrides?: Record<string, string>;
     groupValueOptionOverrides?: Record<string, Partial<PieChartValueOptions>>;

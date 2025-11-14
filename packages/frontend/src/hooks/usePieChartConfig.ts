@@ -28,8 +28,14 @@ import pickBy from 'lodash/pickBy';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type InfiniteQueryResults } from './useQueryResults';
 
+type PieChartWithTemplate = PieChart & {
+    valueLabelTemplate?: PieChartValueOptions['labelTemplate'];
+    useCustomFormat?: PieChartValueOptions['useCustomFormat'];
+    groupValueOptionOverrides?: Record<string, Partial<PieChartValueOptions>>;
+};
+
 type PieChartConfig = {
-    validConfig: PieChart;
+    validConfig: PieChartWithTemplate;
 
     groupFieldIds: (string | null)[];
     groupAdd: () => void;
@@ -49,10 +55,18 @@ type PieChartConfig = {
     toggleShowValue: () => void;
     showPercentage: PieChartValueOptions['showPercentage'];
     toggleShowPercentage: () => void;
+    useCustomFormat: PieChartValueOptions['useCustomFormat'];
+    toggleUseCustomFormat: () => void;
+    valueLabelTemplate: PieChartValueOptions['labelTemplate'];
+    valueLabelTemplateChange: (
+        template: PieChartValueOptions['labelTemplate'],
+    ) => void;
 
     isValueLabelOverriden: boolean;
     isShowValueOverriden: boolean;
     isShowPercentageOverriden: boolean;
+    isUseCustomFormatOverriden: boolean;
+    isValueLabelTemplateOverriden: boolean;
 
     sortedGroupLabels: string[];
     groupLabelOverrides: Record<string, string>;
@@ -86,7 +100,7 @@ type PieChartConfig = {
 
 export type PieChartConfigFn = (
     resultsData: InfiniteQueryResults | undefined,
-    pieChartConfig: PieChart | undefined,
+    pieChartConfig: PieChartWithTemplate | undefined,
     itemsMap: ItemsMap | undefined,
     dimensions: Record<string, CustomDimension | Dimension>,
     numericMetrics: Record<string, Metric | TableCalculation>,
@@ -110,9 +124,9 @@ const usePieChartConfig: PieChartConfigFn = (
     const [metricId, setMetricId] = useState(pieChartConfig?.metricId ?? null);
 
     const [isDonut, setIsDonut] = useState(pieChartConfig?.isDonut ?? true);
-    const [valueLabel, setValueLabel] = useState(
-        pieChartConfig?.valueLabel ?? 'hidden',
-    );
+    const [valueLabel, setValueLabel] = useState<
+        PieChartValueOptions['valueLabel']
+    >(pieChartConfig?.valueLabel ?? 'hidden');
 
     const [showValue, setShowValue] = useState(
         pieChartConfig?.showValue ?? false,
@@ -120,6 +134,19 @@ const usePieChartConfig: PieChartConfigFn = (
 
     const [showPercentage, setShowPercentage] = useState(
         pieChartConfig?.showPercentage ?? true,
+    );
+
+    const [useCustomFormat, setUseCustomFormat] = useState(
+        pieChartConfig?.useCustomFormat ?? false,
+    );
+
+    const [valueLabelTemplate, setValueLabelTemplate] = useState<
+        PieChartValueOptions['labelTemplate']
+    >(pieChartConfig?.valueLabelTemplate ?? undefined);
+
+    const [debouncedValueLabelTemplate] = useDebouncedValue(
+        valueLabelTemplate,
+        500,
     );
 
     const [groupLabelOverrides, setGroupLabelOverrides] = useState(
@@ -140,9 +167,9 @@ const usePieChartConfig: PieChartConfigFn = (
         500,
     );
 
-    const [groupValueOptionOverrides, setGroupValueOptionOverrides] = useState(
-        pieChartConfig?.groupValueOptionOverrides ?? {},
-    );
+    const [groupValueOptionOverrides, setGroupValueOptionOverrides] = useState<
+        Record<string, Partial<PieChartValueOptions>>
+    >(pieChartConfig?.groupValueOptionOverrides ?? {});
 
     const [groupSortOverrides, setGroupSortOverrides] = useState(
         pieChartConfig?.groupSortOverrides ?? [],
@@ -237,6 +264,18 @@ const usePieChartConfig: PieChartConfigFn = (
     const isShowPercentageOverriden = useMemo(() => {
         return Object.values(groupValueOptionOverrides).some(
             (value) => value.showPercentage !== undefined,
+        );
+    }, [groupValueOptionOverrides]);
+
+    const isUseCustomFormatOverriden = useMemo(() => {
+        return Object.values(groupValueOptionOverrides).some(
+            (value) => value.useCustomFormat !== undefined,
+        );
+    }, [groupValueOptionOverrides]);
+
+    const isValueLabelTemplateOverriden = useMemo(() => {
+        return Object.values(groupValueOptionOverrides).some(
+            (value) => value.labelTemplate !== undefined,
         );
     }, [groupValueOptionOverrides]);
 
@@ -369,20 +408,71 @@ const usePieChartConfig: PieChartConfigFn = (
     );
 
     const handleToggleShowValue = useCallback(() => {
-        setShowValue((prev) => !prev);
+        setShowValue((prev) => {
+            const newValue = !prev;
+            // When enabling showValue, automatically uncheck showPercentage and useCustomFormat
+            if (newValue) {
+                if (showPercentage) {
+                    setShowPercentage(false);
+                }
+                if (useCustomFormat) {
+                    setUseCustomFormat(false);
+                }
+            }
+            return newValue;
+        });
 
         setGroupValueOptionOverrides((prev) =>
             mapValues(prev, ({ showValue: _, ...rest }) => ({ ...rest })),
         );
-    }, []);
+    }, [showPercentage, useCustomFormat]);
 
     const handleToggleShowPercentage = useCallback(() => {
-        setShowPercentage((prev) => !prev);
+        setShowPercentage((prev) => {
+            const newValue = !prev;
+            // When enabling showPercentage, automatically uncheck showValue and useCustomFormat
+            if (newValue) {
+                if (showValue) {
+                    setShowValue(false);
+                }
+                if (useCustomFormat) {
+                    setUseCustomFormat(false);
+                }
+            }
+            return newValue;
+        });
 
         setGroupValueOptionOverrides((prev) =>
             mapValues(prev, ({ showPercentage: _, ...rest }) => ({ ...rest })),
         );
-    }, []);
+    }, [showValue, useCustomFormat]);
+
+    const handleToggleUseCustomFormat = useCallback(() => {
+        const newValue = !useCustomFormat;
+        setUseCustomFormat(newValue);
+
+        // When enabling custom format, automatically uncheck showValue and showPercentage
+        if (newValue) {
+            if (showValue) {
+                setShowValue(false);
+            }
+            if (showPercentage) {
+                setShowPercentage(false);
+            }
+        }
+
+        // Clear group overrides for useCustomFormat
+        setGroupValueOptionOverrides((prev) =>
+            mapValues(prev, ({ useCustomFormat: _, ...rest }) => ({ ...rest })),
+        );
+    }, [useCustomFormat, showValue, showPercentage]);
+
+    const handleValueLabelTemplateChange = useCallback(
+        (template: PieChartValueOptions['labelTemplate']) => {
+            setValueLabelTemplate(template);
+        },
+        [],
+    );
 
     const handleGroupLabelChange = useCallback((key: string, value: string) => {
         setGroupLabelOverrides(({ [key]: _, ...rest }) => {
@@ -399,7 +489,38 @@ const usePieChartConfig: PieChartConfigFn = (
     const handleGroupValueOptionChange = useCallback(
         (label: string, value: Partial<PieChartValueOptions>) => {
             setGroupValueOptionOverrides((prev) => {
-                return { ...prev, [label]: { ...prev[label], ...value } };
+                const previous =
+                    (prev[label] as Partial<PieChartValueOptions>) ?? {};
+
+                const merged: Partial<PieChartValueOptions> = {
+                    ...previous,
+                    ...value,
+                };
+
+                if (value.valueLabel === undefined) {
+                    delete merged.valueLabel;
+                }
+                if (value.showValue === undefined) {
+                    delete merged.showValue;
+                }
+                if (value.showPercentage === undefined) {
+                    delete merged.showPercentage;
+                }
+                if ('labelTemplate' in value) {
+                    const template = value.labelTemplate;
+                    if (template && template.trim() !== '') {
+                        merged.labelTemplate = template.trim();
+                    } else {
+                        delete merged.labelTemplate;
+                    }
+                }
+
+                if (Object.keys(merged).length === 0) {
+                    const { [label]: _, ...rest } = prev;
+                    return rest;
+                }
+
+                return { ...prev, [label]: merged };
             });
         },
         [],
@@ -433,7 +554,7 @@ const usePieChartConfig: PieChartConfigFn = (
         [],
     );
 
-    const validConfig: PieChart = useMemo(
+    const validConfig: PieChartWithTemplate = useMemo(
         () => ({
             groupFieldIds,
             metricId: metricId ?? undefined,
@@ -441,6 +562,12 @@ const usePieChartConfig: PieChartConfigFn = (
             valueLabel,
             showValue,
             showPercentage,
+            useCustomFormat,
+            valueLabelTemplate:
+                debouncedValueLabelTemplate &&
+                debouncedValueLabelTemplate.trim() !== ''
+                    ? debouncedValueLabelTemplate
+                    : undefined,
             groupLabelOverrides: pick(
                 debouncedGroupLabelOverrides,
                 groupLabels,
@@ -475,6 +602,7 @@ const usePieChartConfig: PieChartConfigFn = (
             showLegend,
             legendPosition,
             legendMaxItemLength,
+            debouncedValueLabelTemplate,
         ],
     );
 
@@ -499,10 +627,16 @@ const usePieChartConfig: PieChartConfigFn = (
         toggleShowValue: handleToggleShowValue,
         showPercentage,
         toggleShowPercentage: handleToggleShowPercentage,
+        useCustomFormat,
+        toggleUseCustomFormat: handleToggleUseCustomFormat,
+        valueLabelTemplate,
+        valueLabelTemplateChange: handleValueLabelTemplateChange,
 
         isValueLabelOverriden,
         isShowValueOverriden,
         isShowPercentageOverriden,
+        isUseCustomFormatOverriden,
+        isValueLabelTemplateOverriden,
 
         sortedGroupLabels,
         groupLabelOverrides,

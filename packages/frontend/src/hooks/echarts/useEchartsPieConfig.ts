@@ -1,7 +1,11 @@
 import {
+    CustomFormatType,
     formatItemValue,
+    getCustomFormat,
     PieChartLegendLabelMaxLengthDefault,
     PieChartTooltipLabelMaxLength,
+    type PieChart,
+    type PieChartValueOptions,
     type ResultRow,
     type ResultValue,
 } from '@lightdash/common';
@@ -18,6 +22,12 @@ export type PieSeriesDataPoint = NonNullable<
         value: ResultValue;
         rows: ResultRow[];
     };
+};
+
+type PieChartWithTemplate = PieChart & {
+    useCustomFormat?: PieChartValueOptions['useCustomFormat'];
+    valueLabelTemplate?: PieChartValueOptions['labelTemplate'];
+    groupValueOptionOverrides?: Record<string, Partial<PieChartValueOptions>>;
 };
 
 const useEchartsPieConfig = (
@@ -42,15 +52,25 @@ const useEchartsPieConfig = (
             data,
             sortedGroupLabels,
             groupFieldIds,
-            validConfig: {
-                valueLabel: valueLabelDefault,
-                showValue: showValueDefault,
-                showPercentage: showPercentageDefault,
-                groupLabelOverrides,
-                groupValueOptionOverrides,
-                groupColorOverrides,
-            },
+            validConfig,
         } = chartConfig;
+
+        const validConfigWithTemplate = validConfig as PieChartWithTemplate;
+
+        const {
+            valueLabel: valueLabelDefault,
+            showValue: showValueDefault,
+            showPercentage: showPercentageDefault,
+            useCustomFormat: useCustomFormatDefault,
+            groupLabelOverrides,
+            groupValueOptionOverrides,
+            groupColorOverrides,
+            valueLabelTemplate: valueLabelTemplateDefault,
+        } = validConfigWithTemplate;
+
+        const groupValueOptionsMap:
+            | Record<string, Partial<PieChartValueOptions>>
+            | undefined = groupValueOptionOverrides;
 
         if (!selectedMetric) return;
 
@@ -62,14 +82,20 @@ const useEchartsPieConfig = (
             )
             .map(({ name, value, meta }) => {
                 const valueLabel =
-                    groupValueOptionOverrides?.[name]?.valueLabel ??
+                    groupValueOptionsMap?.[name]?.valueLabel ??
                     valueLabelDefault;
                 const showValue =
-                    groupValueOptionOverrides?.[name]?.showValue ??
-                    showValueDefault;
+                    groupValueOptionsMap?.[name]?.showValue ?? showValueDefault;
                 const showPercentage =
-                    groupValueOptionOverrides?.[name]?.showPercentage ??
+                    groupValueOptionsMap?.[name]?.showPercentage ??
                     showPercentageDefault;
+                const useCustomFormat =
+                    groupValueOptionsMap?.[name]?.useCustomFormat ??
+                    useCustomFormatDefault ??
+                    false;
+                const labelTemplate =
+                    groupValueOptionsMap?.[name]?.labelTemplate ??
+                    valueLabelTemplateDefault;
 
                 // Use all group field IDs as the group prefix for color assignment:
                 const groupPrefix = groupFieldIds.join('_');
@@ -90,14 +116,69 @@ const useEchartsPieConfig = (
                         position:
                             valueLabel === 'outside' ? 'outside' : 'inside',
                         formatter: (params) => {
+                            // In ECharts pie chart formatter:
+                            // params.value is the raw numeric value we passed in
+                            // params.percent is the calculated percentage (0-100)
+                            // params.data contains our custom data object with meta
+                            const dataPoint = params.data as PieSeriesDataPoint;
+                            const percentValue =
+                                typeof params.percent === 'number'
+                                    ? params.percent
+                                    : Number(params.percent) || 0;
+
+                            // Get the raw value from params (ECharts provides this)
+                            const rawValueFromParams =
+                                typeof params.value === 'number'
+                                    ? params.value
+                                    : Number(params.value) || 0;
+
+                            // Use custom template if useCustomFormat is true and template is provided
+                            if (
+                                useCustomFormat &&
+                                labelTemplate &&
+                                labelTemplate.trim() !== ''
+                            ) {
+                                // Replace placeholders with actual values
+                                // In custom format mode, always show values regardless of showValue/showPercentage
+                                // {name} - the group name
+                                // {value} - the formatted numeric value (keeps original format, e.g., "1,234.56" or "50%")
+                                //   Note: For percentage format metrics, this will include the % symbol
+                                // {rawValue} - the raw numeric value (e.g., 1234.56)
+                                // {percent} - the percentage value (0-100, user can add % symbol in template)
+
+                                // Use the original formatted value to preserve the format
+                                // The format is determined by the metric's formatOptions/format settings
+                                // For percentage format metrics (CustomFormatType.PERCENT), this will include the % symbol
+                                const formattedValue =
+                                    meta.value.formatted ?? '';
+
+                                let formattedLabel = labelTemplate
+                                    .replaceAll('{name}', params.name ?? '')
+                                    .replaceAll('{value}', formattedValue)
+                                    .replaceAll(
+                                        '{rawValue}',
+                                        `${
+                                            meta.value.raw ?? rawValueFromParams
+                                        }`,
+                                    )
+                                    .replaceAll('{percent}', `${percentValue}`);
+
+                                formattedLabel = formattedLabel.trim();
+
+                                if (formattedLabel.length > 0) {
+                                    return formattedLabel;
+                                }
+                            }
+
+                            // Default behavior for non-custom modes
                             return valueLabel !== 'hidden' &&
                                 showValue &&
                                 showPercentage
-                                ? `${params.percent}% - ${meta.value.formatted}`
+                                ? `${percentValue}% - ${meta.value.formatted}`
                                 : showValue
                                 ? `${meta.value.formatted}`
                                 : showPercentage
-                                ? `${params.percent}%`
+                                ? `${percentValue}%`
                                 : `${params.name}`;
                         },
                     },

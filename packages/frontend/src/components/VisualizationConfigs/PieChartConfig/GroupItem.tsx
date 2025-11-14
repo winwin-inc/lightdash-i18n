@@ -25,6 +25,7 @@ import { EditableText } from '../common/EditableText';
 import { GrabIcon } from '../common/GrabIcon';
 import { ValueOptions } from './ValueOptions';
 
+
 type GroupItemProps = {
     isOnlyItem: boolean;
 
@@ -41,6 +42,9 @@ type GroupItemProps = {
     valueLabel: PieChartValueLabel;
     showValue: boolean;
     showPercentage: boolean;
+    useCustomFormat: boolean;
+    labelTemplate: string;
+    isLabelTemplateOverriden: boolean;
 
     onColorChange: (label: string, newColor: string) => void;
     onLabelChange: (label: string, newLabel: string) => void;
@@ -48,6 +52,7 @@ type GroupItemProps = {
         label: string,
         newOptions: Partial<PieChartValueOptions>,
     ) => void;
+    onResetLabelTemplate: (label: string) => void;
 };
 
 export const GroupItem = forwardRef<
@@ -71,10 +76,14 @@ export const GroupItem = forwardRef<
             valueLabel,
             showValue,
             showPercentage,
+            useCustomFormat,
+            labelTemplate,
+            isLabelTemplateOverriden,
 
             onColorChange,
             onLabelChange,
             onValueOptionsChange,
+            onResetLabelTemplate,
 
             ...rest
         },
@@ -146,6 +155,22 @@ export const GroupItem = forwardRef<
                                 onValueOptionsChange(defaultLabel, {
                                     showPercentage: newValue,
                                 })
+                            }
+                            useCustomFormat={useCustomFormat}
+                            onToggleUseCustomFormat={() =>
+                                onValueOptionsChange(defaultLabel, {
+                                    useCustomFormat: !useCustomFormat,
+                                })
+                            }
+                            labelTemplate={labelTemplate}
+                            isLabelTemplateOverriden={isLabelTemplateOverriden}
+                            onLabelTemplateChange={(newValue) =>
+                                onValueOptionsChange(defaultLabel, {
+                                    labelTemplate: newValue,
+                                })
+                            }
+                            onResetLabelTemplate={() =>
+                                onResetLabelTemplate(defaultLabel)
                             }
                         />
                     </Stack>

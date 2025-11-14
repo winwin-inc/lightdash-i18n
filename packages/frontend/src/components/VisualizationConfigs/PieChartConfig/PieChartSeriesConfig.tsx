@@ -47,9 +47,15 @@ export const Series: FC = () => {
         toggleShowValue,
         showPercentage,
         toggleShowPercentage,
+        useCustomFormat,
+        toggleUseCustomFormat,
+        valueLabelTemplate,
+        valueLabelTemplateChange,
         isValueLabelOverriden,
         isShowValueOverriden,
         isShowPercentageOverriden,
+        isUseCustomFormatOverriden,
+        isValueLabelTemplateOverriden,
         sortedGroupLabels,
         groupLabelOverrides,
         groupLabelChange,
@@ -75,12 +81,18 @@ export const Series: FC = () => {
                         isValueLabelOverriden={isValueLabelOverriden}
                         isShowValueOverriden={isShowValueOverriden}
                         isShowPercentageOverriden={isShowPercentageOverriden}
+                        isUseCustomFormatOverriden={isUseCustomFormatOverriden}
+                        isLabelTemplateOverriden={isValueLabelTemplateOverriden}
                         valueLabel={valueLabel}
                         onValueLabelChange={valueLabelChange}
                         showValue={showValue}
                         onToggleShowValue={toggleShowValue}
                         showPercentage={showPercentage}
                         onToggleShowPercentage={toggleShowPercentage}
+                        useCustomFormat={useCustomFormat ?? false}
+                        onToggleUseCustomFormat={toggleUseCustomFormat}
+                        labelTemplate={valueLabelTemplate ?? ''}
+                        onLabelTemplateChange={valueLabelTemplateChange}
                     />
                 </Config.Section>
             </Config>
@@ -198,6 +210,29 @@ export const Series: FC = () => {
                                                                     ?.showPercentage ??
                                                                 showPercentage
                                                             }
+                                                            useCustomFormat={
+                                                                groupValueOptionOverrides[
+                                                                    groupLabel
+                                                                ]
+                                                                    ?.useCustomFormat ??
+                                                                useCustomFormat ??
+                                                                false
+                                                            }
+                                                            labelTemplate={
+                                                                groupValueOptionOverrides[
+                                                                    groupLabel
+                                                                ]
+                                                                    ?.labelTemplate ??
+                                                                valueLabelTemplate ??
+                                                                ''
+                                                            }
+                                                            isLabelTemplateOverriden={
+                                                                groupValueOptionOverrides[
+                                                                    groupLabel
+                                                                ]
+                                                                    ?.labelTemplate !==
+                                                                undefined
+                                                            }
                                                             onLabelChange={
                                                                 groupLabelChange
                                                             }
@@ -206,6 +241,17 @@ export const Series: FC = () => {
                                                             }
                                                             onValueOptionsChange={
                                                                 groupValueOptionChange
+                                                            }
+                                                            onResetLabelTemplate={(
+                                                                targetLabel,
+                                                            ) =>
+                                                                groupValueOptionChange(
+                                                                    targetLabel,
+                                                                    {
+                                                                        labelTemplate:
+                                                                            undefined,
+                                                                    },
+                                                                )
                                                             }
                                                         />
                                                     )}
