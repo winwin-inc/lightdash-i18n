@@ -17,12 +17,20 @@ import {
 import { notifications } from '@mantine/notifications';
 import { IconTableExport } from '@tabler/icons-react';
 import { useMutation } from '@tanstack/react-query';
-import { memo, useState, type FC, type ReactNode } from 'react';
+import {
+    memo,
+    useEffect,
+    useMemo,
+    useState,
+    type FC,
+    type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { pollJobStatus } from '../../features/scheduler/hooks/useScheduler';
 import useHealth from '../../hooks/health/useHealth';
 import useToaster from '../../hooks/toaster/useToaster';
+import { useProject } from '../../hooks/useProject';
 import { scheduleDownloadQuery } from '../../hooks/useQueryResults';
 import useUser from '../../hooks/user/useUser';
 import { Can } from '../../providers/Ability';
@@ -79,12 +87,42 @@ const ExportResults: FC<ExportResultsProps> = memo(
 
         const user = useUser(true);
         const health = useHealth();
-        const [limit, setLimit] = useState<Limit>(Limit.TABLE);
+        const { data: project } = useProject(projectUuid);
+
+        // Check if user has permission to change CSV results limit
+        const canChangeCsvResults =
+            user.data?.ability?.can(
+                'manage',
+                subject('ChangeCsvResults', {
+                    organizationUuid: user.data?.organizationUuid,
+                    projectUuid: projectUuid,
+                }),
+            ) ?? false;
+
+        // Determine default limit based on isCustomerUse and permissions
+        // If isCustomerUse and user doesn't have permission to see limit options, default to ALL
+        // Otherwise, default to TABLE
+        const isCustomerUse = project?.isCustomerUse ?? false;
+        const defaultLimit = useMemo(() => {
+            if (isCustomerUse && !canChangeCsvResults) {
+                // User mode without permission to see limit options, default to all results
+                return Limit.ALL;
+            }
+            // User can see limit options, default to table results
+            return Limit.TABLE;
+        }, [isCustomerUse, canChangeCsvResults]);
+
+        const [limit, setLimit] = useState<Limit>(defaultLimit);
         const [customLimit, setCustomLimit] = useState<number>(1);
         const [format, setFormat] = useState<string>(Values.FORMATTED);
         const [fileType, setFileType] = useState<DownloadFileType>(
             DownloadFileType.CSV,
         );
+
+        // Update limit when project data is loaded and defaultLimit changes
+        useEffect(() => {
+            setLimit(defaultLimit);
+        }, [defaultLimit]);
 
         const { isLoading: isExporting, mutateAsync: exportMutation } =
             useMutation(
