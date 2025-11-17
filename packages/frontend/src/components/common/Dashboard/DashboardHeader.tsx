@@ -203,6 +203,24 @@ const DashboardHeader = ({
         }),
     );
 
+    const hasDashboardMenuActions = useMemo(
+        () =>
+            Boolean(
+                userCanManageDashboard ||
+                    userCanPinDashboard ||
+                    userCanCreateDeliveries ||
+                    userCanPromoteDashboard
+                    // userCanExportData,
+            ),
+        [
+            userCanManageDashboard,
+            userCanPinDashboard,
+            userCanCreateDeliveries,
+            userCanPromoteDashboard,
+            // userCanExportData,
+        ],
+    );
+
     const handleDashboardRefreshUpdateEvent = useCallback(
         (intervalMin?: number) => {
             track({
@@ -461,16 +479,13 @@ const DashboardHeader = ({
                         <ShareLinkButton url={`${window.location.href}`} />
                     )}
 
-                    {!isFullscreen && (
+                    {!isFullscreen && hasDashboardMenuActions && (
                         <Menu
                             data-testid="dashboard-header-menu"
                             position="bottom"
                             withArrow
                             withinPortal
                             shadow="md"
-                            disabled={
-                                !userCanManageDashboard && !userCanExportData
-                            }
                         >
                             <Menu.Target>
                                 <ActionIcon variant="default">
