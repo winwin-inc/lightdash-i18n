@@ -42,15 +42,25 @@ const FiltersProvider = <T extends DefaultFieldsMap = DefaultFieldsMap>({
             if (!dashboardFilters || !isField(item)) {
                 return undefined;
             }
+
+            // Find the index of the current filter in the dimensions array
+            const currentFilterIndex = dashboardFilters.dimensions.findIndex(
+                (dimensionFilterRule) => dimensionFilterRule.id === filterId,
+            );
+
+            // If filter not found (creating new filter), include all filters for cascading
+            // If filter found (editing existing filter), only include filters before it (left to right cascade)
+            // This ensures that:
+            // - When creating: new filter is affected by all existing filters
+            // - When editing: filter is only affected by previous filters, not subsequent ones
+            // - Global filters only affect subsequent global filters
+            // - Tab filters are affected by all global filters (which come first) and previous tab filters
             return {
                 id: uuid4(),
-                and: dashboardFilters.dimensions.filter(
-                    (dimensionFilterRule) => {
-                        const isNotSelectedFilter =
-                            dimensionFilterRule.id !== filterId;
-                        return isNotSelectedFilter;
-                    },
-                ),
+                and:
+                    currentFilterIndex === -1
+                        ? dashboardFilters.dimensions
+                        : dashboardFilters.dimensions.slice(0, currentFilterIndex),
             };
         },
         [dashboardFilters],
