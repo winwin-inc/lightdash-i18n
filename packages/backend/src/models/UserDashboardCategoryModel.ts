@@ -11,10 +11,14 @@ type UserDashboardCategoryModelArguments = {
 };
 
 export class UserDashboardCategoryModel {
-    private database: Knex;
+    private readonly database: Knex;
 
     constructor(args: UserDashboardCategoryModelArguments) {
         this.database = args.database;
+    }
+
+    getDatabase(): Knex {
+        return this.database;
     }
 
     async find(filters: {

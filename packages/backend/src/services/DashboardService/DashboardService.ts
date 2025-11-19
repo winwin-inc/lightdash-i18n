@@ -210,7 +210,7 @@ export class DashboardService
         user: SessionUser,
         projectUuid: string,
     ): Promise<Set<string> | undefined> {
-        const db = (this.userDashboardCategoryModel as any).database as Knex;
+        const db = this.userDashboardCategoryModel.getDatabase();
 
         // Get project info
         const project = await db
@@ -302,10 +302,6 @@ export class DashboardService
         const userCategories = await this.userDashboardCategoryModel.find({
             email: normalizedEmail,
         });
-
-        this.logger.debug(
-            `Found ${userCategories.length} dashboard categories for user ${normalizedEmail} in project ${projectUuid}`,
-        );
 
         const allowedUuids = new Set(
             userCategories.map((cat) => cat.dashboard_uuid).filter(Boolean),

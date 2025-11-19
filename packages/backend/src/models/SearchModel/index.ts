@@ -191,24 +191,27 @@ export class SearchModel {
                 'direct_charts.dashboard_uuid',
             )
             // Join with charts that are in dashboard through tiles
-            .leftJoin('dashboard_tiles', function () {
+            .leftJoin('dashboard_tiles', function joinDashboardTiles() {
                 this.on(
                     'dashboard_tiles.dashboard_version_id',
                     '=',
                     `last_version.dashboard_version_id`,
                 );
             })
-            .leftJoin('dashboard_tile_charts', function () {
-                this.on(
-                    'dashboard_tile_charts.dashboard_version_id',
-                    '=',
-                    'dashboard_tiles.dashboard_version_id',
-                ).andOn(
-                    'dashboard_tile_charts.dashboard_tile_uuid',
-                    '=',
-                    'dashboard_tiles.dashboard_tile_uuid',
-                );
-            })
+            .leftJoin(
+                'dashboard_tile_charts',
+                function joinDashboardTileCharts() {
+                    this.on(
+                        'dashboard_tile_charts.dashboard_version_id',
+                        '=',
+                        'dashboard_tiles.dashboard_version_id',
+                    ).andOn(
+                        'dashboard_tile_charts.dashboard_tile_uuid',
+                        '=',
+                        'dashboard_tiles.dashboard_tile_uuid',
+                    );
+                },
+            )
             .leftJoin(
                 `${SavedChartsTableName} as tile_charts`,
                 'tile_charts.saved_query_id',
@@ -327,7 +330,7 @@ export class SearchModel {
                 'dashboard_versions.dashboard_version_id',
                 'dashboard_tiles.dashboard_version_id',
             )
-            .join('dashboard_tile_charts', function () {
+            .join('dashboard_tile_charts', function joinTileCharts() {
                 this.on(
                     'dashboard_tile_charts.dashboard_version_id',
                     '=',

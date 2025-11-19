@@ -141,16 +141,27 @@ export class ContentService extends BaseService {
         if (shouldFilterDashboards) {
             // Get allowed dashboard UUIDs for each project
             const allowedDashboardUuidsMap = new Map<string, Set<string>>();
-            for (const projectUuid of allowedProjectUuids) {
-                const allowedUuids =
-                    await this.dashboardService.getAllowedDashboardUuidsForViewer(
-                        user,
-                        projectUuid,
+            const allowedDashboardEntries = await Promise.all(
+                allowedProjectUuids.map(async (projectUuid) => {
+                    const allowedUuids =
+                        await this.dashboardService.getAllowedDashboardUuidsForViewer(
+                            user,
+                            projectUuid,
+                        );
+                    if (allowedUuids !== undefined) {
+                        return { projectUuid, allowedUuids };
+                    }
+                    return undefined;
+                }),
+            );
+            allowedDashboardEntries.forEach((entry) => {
+                if (entry) {
+                    allowedDashboardUuidsMap.set(
+                        entry.projectUuid,
+                        entry.allowedUuids,
                     );
-                if (allowedUuids !== undefined) {
-                    allowedDashboardUuidsMap.set(projectUuid, allowedUuids);
                 }
-            }
+            });
 
             // Filter dashboard content
             if (allowedDashboardUuidsMap.size > 0) {
