@@ -47,10 +47,7 @@ import {
     PasswordLoginTableName,
 } from '../database/entities/passwordLogins';
 import { DbPersonalAccessToken } from '../database/entities/personalAccessTokens';
-import {
-    RolesTableName,
-    ScopedRolesTableName,
-} from '../database/entities/roles';
+import { ScopedRolesTableName } from '../database/entities/roles';
 import {
     DbUser,
     DbUserIn,
