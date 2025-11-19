@@ -18,6 +18,7 @@ import type { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
 import { SchedulerModel } from '../../models/SchedulerModel';
 import { SpaceModel } from '../../models/SpaceModel';
+import { UserDashboardCategoryModel } from '../../models/UserDashboardCategoryModel';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { SavedChartService } from '../SavedChartsService/SavedChartService';
 import { DashboardService } from './DashboardService';
@@ -71,6 +72,9 @@ const savedChartModel = {
         projectUuid: 'project_uuid',
     })),
 };
+const userDashboardCategoryModel = {
+    getDatabase: jest.fn(),
+};
 
 jest.spyOn(analyticsMock, 'track');
 describe('DashboardService', () => {
@@ -89,6 +93,8 @@ describe('DashboardService', () => {
         slackClient: {} as SlackClient,
         schedulerClient: {} as SchedulerClient,
         catalogModel: {} as CatalogModel,
+        userDashboardCategoryModel:
+            userDashboardCategoryModel as unknown as UserDashboardCategoryModel,
     });
     afterEach(() => {
         jest.clearAllMocks();
