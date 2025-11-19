@@ -118,7 +118,7 @@ export class ContentService extends BaseService {
             )
             .map((space) => space.uuid);
 
-        return this.contentModel.findSummaryContents(
+        const result = await this.contentModel.findSummaryContents(
             {
                 ...filters,
                 projectUuids: allowedProjectUuids,
@@ -131,6 +131,52 @@ export class ContentService extends BaseService {
             queryArgs,
             paginateArgs,
         );
+
+        // Filter dashboards for viewer users in customer use projects
+        // Only apply if contentTypes includes dashboard or is undefined (all types)
+        const shouldFilterDashboards =
+            !filters.contentTypes ||
+            filters.contentTypes.includes(ContentType.DASHBOARD);
+
+        if (shouldFilterDashboards) {
+            // Get allowed dashboard UUIDs for each project
+            const allowedDashboardUuidsMap = new Map<string, Set<string>>();
+            for (const projectUuid of allowedProjectUuids) {
+                const allowedUuids =
+                    await this.dashboardService.getAllowedDashboardUuidsForViewer(
+                        user,
+                        projectUuid,
+                    );
+                if (allowedUuids !== undefined) {
+                    allowedDashboardUuidsMap.set(projectUuid, allowedUuids);
+                }
+            }
+
+            // Filter dashboard content
+            if (allowedDashboardUuidsMap.size > 0) {
+                result.data = result.data.filter((content) => {
+                    if (content.contentType !== ContentType.DASHBOARD) {
+                        return true; // Keep non-dashboard content
+                    }
+
+                    // Check if dashboard is in allowed list for its project
+                    const allowedUuids = allowedDashboardUuidsMap.get(
+                        content.project.uuid,
+                    );
+                    if (allowedUuids === undefined) {
+                        return true; // No filtering needed for this project
+                    }
+
+                    // Filter: only keep if dashboard UUID is in allowed list
+                    return allowedUuids.has(content.uuid);
+                });
+
+                // Note: pagination.totalResults reflects pre-filtered count
+                // This is acceptable as filtering happens after database query
+            }
+        }
+
+        return result;
     }
 
     async bulkMove(

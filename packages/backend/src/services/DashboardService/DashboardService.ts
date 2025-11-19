@@ -13,13 +13,16 @@ import {
     DashboardVersionedFields,
     ExploreType,
     ForbiddenError,
+    OrganizationMemberRole,
     ParameterError,
+    ProjectMemberRole,
     SchedulerAndTargets,
     SchedulerFormat,
     SessionUser,
     TogglePinnedItemInfo,
     UpdateDashboard,
     UpdateMultipleDashboards,
+    convertOrganizationRoleToProjectRole,
     generateSlug,
     hasChartsInDashboard,
     isChartScheduler,
@@ -38,7 +41,6 @@ import {
 } from '@lightdash/common';
 import cronstrue from 'cronstrue';
 import { type Knex } from 'knex';
-import { uniq } from 'lodash';
 import { v4 as uuidv4 } from 'uuid';
 import {
     CreateDashboardOrVersionEvent,
@@ -58,6 +60,7 @@ import type { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
 import { SchedulerModel } from '../../models/SchedulerModel';
 import { SpaceModel } from '../../models/SpaceModel';
+import { UserDashboardCategoryModel } from '../../models/UserDashboardCategoryModel';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { createTwoColumnTiles } from '../../utils/dashboardTileUtils';
 import { BaseService } from '../BaseService';
@@ -77,6 +80,7 @@ type DashboardServiceArguments = {
     slackClient: SlackClient;
     projectModel: ProjectModel;
     catalogModel: CatalogModel;
+    userDashboardCategoryModel: UserDashboardCategoryModel;
 };
 
 export class DashboardService
@@ -107,6 +111,8 @@ export class DashboardService
 
     slackClient: SlackClient;
 
+    userDashboardCategoryModel: UserDashboardCategoryModel;
+
     constructor({
         analytics,
         dashboardModel,
@@ -120,6 +126,7 @@ export class DashboardService
         slackClient,
         projectModel,
         catalogModel,
+        userDashboardCategoryModel,
     }: DashboardServiceArguments) {
         super();
         this.analytics = analytics;
@@ -134,6 +141,7 @@ export class DashboardService
         this.catalogModel = catalogModel;
         this.schedulerClient = schedulerClient;
         this.slackClient = slackClient;
+        this.userDashboardCategoryModel = userDashboardCategoryModel;
     }
 
     static getCreateEventProperties(
@@ -192,6 +200,126 @@ export class DashboardService
         );
     }
 
+    /**
+     * Get allowed dashboard UUIDs for viewer users in customer use projects
+     * Returns undefined if filtering is not needed, or a Set of allowed dashboard UUIDs
+     * Can be used for a single project or multiple projects
+     */
+    async getAllowedDashboardUuidsForViewer(
+        user: SessionUser,
+        projectUuid: string,
+    ): Promise<Set<string> | undefined> {
+        const db = (this.userDashboardCategoryModel as any).database as Knex;
+
+        // Get project info
+        const project = await db
+            .from('projects')
+            .where('project_uuid', projectUuid)
+            .select('project_id', 'is_customer_use', 'organization_id')
+            .first();
+        if (!project) {
+            return undefined;
+        }
+
+        const isCustomerUse = project.is_customer_use ?? false;
+        if (!isCustomerUse) {
+            return undefined;
+        }
+
+        // Get user's userId (needed for group_memberships query)
+        const userRecord = await db
+            .from('users')
+            .where('user_uuid', user.userUuid)
+            .select('user_id')
+            .first();
+
+        if (!userRecord) {
+            return undefined;
+        }
+
+        // Get user's project role from direct membership
+        const directMembership = await db
+            .from('project_memberships')
+            .where('project_memberships.project_id', project.project_id)
+            .where('project_memberships.user_id', userRecord.user_id)
+            .select('project_memberships.role')
+            .first();
+
+        // Get user's project role from group membership
+        const groupMembership = await db
+            .from('group_memberships')
+            .innerJoin(
+                'project_group_access',
+                'project_group_access.group_uuid',
+                'group_memberships.group_uuid',
+            )
+            .where('group_memberships.organization_id', project.organization_id)
+            .where('group_memberships.user_id', userRecord.user_id)
+            .where('project_group_access.project_uuid', projectUuid)
+            .select('project_group_access.role')
+            .first();
+
+        // Get user's organization role (fallback if no project-level role)
+        const orgMembership = await db
+            .from('organization_memberships')
+            .where(
+                'organization_memberships.organization_id',
+                project.organization_id,
+            )
+            .where('organization_memberships.user_id', userRecord.user_id)
+            .select('organization_memberships.role')
+            .first();
+
+        // Determine user's role:
+        // 1. Direct project membership (highest priority)
+        // 2. Group membership
+        // 3. Organization role converted to project role (fallback)
+        let userRole = directMembership?.role || groupMembership?.role;
+        if (!userRole && orgMembership?.role) {
+            userRole = convertOrganizationRoleToProjectRole(
+                orgMembership.role as OrganizationMemberRole,
+            );
+        }
+
+        const isViewer = userRole === ProjectMemberRole.VIEWER;
+
+        // Only filter if user is viewer and project has customer use enabled
+        if (!isViewer) {
+            return undefined;
+        }
+
+        // Get allowed dashboards from user_dashboard_category table
+        // If user.email is missing, return empty Set to filter out all dashboards
+        if (!user.email) {
+            this.logger.warn(
+                `User ${user.userUuid} has no email, filtering out all dashboards for project ${projectUuid}`,
+            );
+            return new Set<string>();
+        }
+
+        const normalizedEmail = user.email.trim().toLowerCase();
+        const userCategories = await this.userDashboardCategoryModel.find({
+            email: normalizedEmail,
+        });
+
+        this.logger.debug(
+            `Found ${userCategories.length} dashboard categories for user ${normalizedEmail} in project ${projectUuid}`,
+        );
+
+        const allowedUuids = new Set(
+            userCategories.map((cat) => cat.dashboard_uuid).filter(Boolean),
+        );
+
+        // If no matching categories found, return empty Set to filter out all dashboards
+        if (allowedUuids.size === 0) {
+            this.logger.warn(
+                `No dashboard categories found for user ${normalizedEmail} in project ${projectUuid}, filtering out all dashboards`,
+            );
+        }
+
+        return allowedUuids;
+    }
+
     async getAllByProject(
         user: SessionUser,
         projectUuid: string,
@@ -214,6 +342,11 @@ export class DashboardService
             user.userUuid,
             spaces.map((s) => s.uuid),
         );
+
+        // Get allowed dashboard UUIDs for viewer users in customer use projects
+        const allowedDashboardUuids =
+            await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
+
         return dashboards.filter((dashboard) => {
             const dashboardSpace = spaces.find(
                 (space) => space.uuid === dashboard.spaceUuid,
@@ -227,6 +360,17 @@ export class DashboardService
                     access: spacesAccess[dashboard.spaceUuid] ?? [],
                 }),
             );
+
+            // Filter by user_dashboard_category if viewer and customer use enabled
+            // If allowedDashboardUuids is an empty Set, all dashboards will be filtered out
+            // (which is correct: if no records in user_dashboard_category, user sees nothing)
+            if (
+                allowedDashboardUuids &&
+                !allowedDashboardUuids.has(dashboard.uuid)
+            ) {
+                return false;
+            }
+
             return (
                 dashboardSpace &&
                 (includePrivate

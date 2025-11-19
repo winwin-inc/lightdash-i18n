@@ -323,6 +323,8 @@ export class ServiceRepository
                     schedulerClient: this.clients.getSchedulerClient(),
                     slackClient: this.clients.getSlackClient(),
                     catalogModel: this.models.getCatalogModel(),
+                    userDashboardCategoryModel:
+                        this.models.getUserDashboardCategoryModel(),
                 }),
         );
     }
@@ -653,6 +655,7 @@ export class ServiceRepository
                     searchModel: this.models.getSearchModel(),
                     spaceModel: this.models.getSpaceModel(),
                     userAttributesModel: this.models.getUserAttributesModel(),
+                    dashboardService: this.getDashboardService(),
                 }),
         );
     }

@@ -19,6 +19,7 @@ import { SearchModel } from '../../models/SearchModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { UserAttributesModel } from '../../models/UserAttributesModel';
 import { BaseService } from '../BaseService';
+import { DashboardService } from '../DashboardService/DashboardService';
 import { hasViewAccessToSpace } from '../SpaceService/SpaceService';
 import { hasUserAttributes } from '../UserAttributesService/UserAttributeUtils';
 
@@ -28,6 +29,7 @@ type SearchServiceArguments = {
     projectModel: ProjectModel;
     spaceModel: SpaceModel;
     userAttributesModel: UserAttributesModel;
+    dashboardService: DashboardService;
 };
 
 export class SearchService extends BaseService {
@@ -41,6 +43,8 @@ export class SearchService extends BaseService {
 
     private readonly userAttributesModel: UserAttributesModel;
 
+    private readonly dashboardService: DashboardService;
+
     constructor(args: SearchServiceArguments) {
         super();
         this.analytics = args.analytics;
@@ -48,6 +52,7 @@ export class SearchService extends BaseService {
         this.projectModel = args.projectModel;
         this.spaceModel = args.spaceModel;
         this.userAttributesModel = args.userAttributesModel;
+        this.dashboardService = args.dashboardService;
     }
 
     async getSearchResults(
@@ -187,6 +192,13 @@ export class SearchService extends BaseService {
             results.dashboards.map(filterItem),
         );
 
+        // Filter dashboards for viewer users in customer use projects
+        const allowedDashboardUuids =
+            await this.dashboardService.getAllowedDashboardUuidsForViewer(
+                user,
+                projectUuid,
+            );
+
         const hasDashboardTabAccess = await Promise.all(
             results.dashboardTabs.map(filterItem),
         );
@@ -202,13 +214,24 @@ export class SearchService extends BaseService {
             results.spaces.map(filterItem),
         );
 
+        // Apply dashboard filtering based on user_dashboard_category
+        let filteredDashboards = results.dashboards.filter(
+            (_, index) => hasDashboardAccess[index],
+        );
+
+        // If filtering is needed (allowedDashboardUuids is not undefined),
+        // filter by allowed dashboard UUIDs
+        if (allowedDashboardUuids !== undefined) {
+            filteredDashboards = filteredDashboards.filter((dashboard) =>
+                allowedDashboardUuids.has(dashboard.uuid),
+            );
+        }
+
         const filteredResults = {
             ...results,
             tables: filteredTables,
             fields: filteredFields,
-            dashboards: results.dashboards.filter(
-                (_, index) => hasDashboardAccess[index],
-            ),
+            dashboards: filteredDashboards,
             dashboardTabs: results.dashboardTabs.filter(
                 (_, index) => hasDashboardTabAccess[index],
             ),
