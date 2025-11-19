@@ -33,3 +33,4 @@ export type UserDashboardCategoryTable = Knex.CompositeTableType<
     Partial<Omit<DbUserDashboardCategory, 'id' | 'create_time'>>
 >;
 
+

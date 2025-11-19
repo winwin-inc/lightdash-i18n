@@ -35,6 +35,7 @@ import {
     isValidTimezone,
     type ChartFieldUpdates,
     type DashboardBasicDetailsWithTileTypes,
+    type DashboardConfig,
     type DuplicateDashboardParams,
     type Explore,
     type ExploreError,
@@ -568,6 +569,40 @@ export class DashboardService
             newUuid: uuidv4(), // generate new uuid for copied tabs
         }));
 
+        const remapTabConfigProperty = <T>(
+            property?: Record<string, T>,
+        ): Record<string, T> | undefined => {
+            if (!property) return property;
+            return Object.entries(property).reduce<Record<string, T>>(
+                (acc, [tabUuid, value]) => {
+                    const newUuid = newTabsMap.find(
+                        (tabMap) => tabMap.uuid === tabUuid,
+                    )?.newUuid;
+                    if (!newUuid) return acc;
+                    return {
+                        ...acc,
+                        [newUuid]: value,
+                    };
+                },
+                {},
+            );
+        };
+
+        const remapDashboardConfig = (
+            config?: DashboardConfig,
+        ): DashboardConfig | undefined => {
+            if (!config) return config;
+            return {
+                ...config,
+                tabFilterEnabled: remapTabConfigProperty(
+                    config.tabFilterEnabled,
+                ),
+                showTabAddFilterButton: remapTabConfigProperty(
+                    config.showTabAddFilterButton,
+                ),
+            };
+        };
+
         const newTabs: DashboardTab[] = dashboard.tabs.map((tab) => ({
             ...tab,
             uuid: newTabsMap.find((tabMap) => tabMap.uuid === tab.uuid)
@@ -585,6 +620,7 @@ export class DashboardService
             name: data.dashboardName,
             slug: generateSlug(dashboard.name),
             tabs: newTabs,
+            config: remapDashboardConfig(dashboard.config),
         };
 
         const newDashboard = await this.dashboardModel.create(
@@ -692,6 +728,8 @@ export class DashboardService
                     tiles: [...updatedTiles],
                     filters: newDashboard.filters,
                     tabs: newTabs,
+                    parameters: newDashboard.parameters,
+                    config: newDashboard.config,
                 },
                 user,
                 projectUuid,
