@@ -855,7 +855,11 @@ export class PromoteService extends BaseService {
 
         const updatedDashboard = await this.dashboardModel.addVersion(
             promotedDashboard.uuid,
-            promotedDashboard,
+            {
+                ...promotedDashboard,
+                tabs: promotedDashboard.tabs || [],
+                updatedByUser: user,
+            },
             user,
             promotedDashboard.projectUuid,
         );
