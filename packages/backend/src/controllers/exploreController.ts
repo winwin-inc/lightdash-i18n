@@ -89,14 +89,25 @@ export class ExploreController extends BaseController {
     @OperationId('GetExplore')
     async GetExplore(
         @Path() exploreId: string,
-
         @Path() projectUuid: string,
         @Request() req: express.Request,
     ): Promise<{ status: 'ok'; results: ApiExploreResults }> {
         this.setStatus(200);
+        // Get dashboardUuid from query parameter if provided
+        const dashboardUuid =
+            typeof req.query.dashboardUuid === 'string'
+                ? req.query.dashboardUuid
+                : undefined;
         const results = await this.services
             .getProjectService()
-            .getExplore(req.account!, projectUuid, exploreId, undefined, false);
+            .getExplore(
+                req.account!,
+                projectUuid,
+                exploreId,
+                undefined,
+                false,
+                dashboardUuid,
+            );
 
         return {
             status: 'ok',

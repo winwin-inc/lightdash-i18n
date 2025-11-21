@@ -588,6 +588,7 @@ export class PromoteService extends BaseService {
                 ...dashboardChange,
                 data: {
                     ...dashboardChange.data,
+                    tabs: dashboardChange.data.tabs ?? [], // Preserve tabs
                     tiles: dashboardChange.data.tiles.map((tile) => {
                         if (
                             isDashboardChartTileType(tile) &&
@@ -855,7 +856,10 @@ export class PromoteService extends BaseService {
 
         const updatedDashboard = await this.dashboardModel.addVersion(
             promotedDashboard.uuid,
-            promotedDashboard,
+            {
+                ...promotedDashboard,
+                updatedByUser: user,
+            },
             user,
             promotedDashboard.projectUuid,
         );

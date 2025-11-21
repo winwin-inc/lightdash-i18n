@@ -1518,6 +1518,7 @@ export class AsyncQueryService extends ProjectService {
         parameters,
         projectUuid,
         pivotConfiguration,
+        context,
     }: Pick<
         ExecuteAsyncMetricQueryArgs,
         'account' | 'metricQuery' | 'dateZoom' | 'parameters' | 'projectUuid'
@@ -1525,11 +1526,15 @@ export class AsyncQueryService extends ProjectService {
         warehouseSqlBuilder: WarehouseSqlBuilder;
         explore: Explore;
         pivotConfiguration?: PivotConfiguration;
+        context?: {
+            dashboardSlug?: string;
+            dashboardName?: string;
+        };
     }) {
         assertIsAccountWithOrg(account);
 
         const { userAttributes, intrinsicUserAttributes } =
-            await this.getUserAttributes({ account });
+            await this.getUserAttributes({ account, context });
 
         const availableParameterDefinitions = await this.getAvailableParameters(
             projectUuid,
@@ -2379,6 +2384,10 @@ export class AsyncQueryService extends ProjectService {
             parameters: combinedParameters,
             projectUuid,
             pivotConfiguration,
+            context: {
+                dashboardSlug: dashboard.slug,
+                dashboardName: dashboard.name,
+            },
         });
 
         const { queryUuid, cacheMetadata } = await this.executeAsyncQuery(
@@ -2438,14 +2447,41 @@ export class AsyncQueryService extends ProjectService {
             throw new ForbiddenError();
         }
 
-        const { metricQuery, fields: metricQueryFields } =
-            await this.queryHistoryModel.get(
-                underlyingDataSourceQueryUuid,
-                projectUuid,
-                account,
-            );
+        const queryHistory = await this.queryHistoryModel.get(
+            underlyingDataSourceQueryUuid,
+            projectUuid,
+            account,
+        );
+
+        const {
+            metricQuery,
+            fields: metricQueryFields,
+            requestParameters,
+        } = queryHistory;
 
         const { exploreName } = metricQuery;
+
+        // Check if the original query was from a dashboard context
+        const isDashboardContext =
+            'dashboardUuid' in requestParameters &&
+            typeof requestParameters.dashboardUuid === 'string';
+
+        // Get dashboard info if available
+        let dashboardContext:
+            | {
+                  dashboardSlug?: string;
+                  dashboardName?: string;
+              }
+            | undefined;
+        if (isDashboardContext) {
+            const dashboard = await this.dashboardModel.getByIdOrSlug(
+                requestParameters.dashboardUuid,
+            );
+            dashboardContext = {
+                dashboardSlug: dashboard.slug,
+                dashboardName: dashboard.name,
+            };
+        }
 
         const explore = await this.getExplore(
             account,
@@ -2513,12 +2549,13 @@ export class AsyncQueryService extends ProjectService {
                     )),
         );
 
-        const requestParameters: ExecuteAsyncUnderlyingDataRequestParams = {
-            context,
-            underlyingDataSourceQueryUuid,
-            filters,
-            underlyingDataItemId,
-        };
+        const underlyingDataRequestParameters: ExecuteAsyncUnderlyingDataRequestParams =
+            {
+                context,
+                underlyingDataSourceQueryUuid,
+                filters,
+                underlyingDataItemId,
+            };
 
         const queryTags: RunQueryTags = {
             ...this.getUserQueryTags(account),
@@ -2576,6 +2613,7 @@ export class AsyncQueryService extends ProjectService {
             warehouseSqlBuilder,
             parameters: combinedParameters,
             projectUuid,
+            context: dashboardContext,
         });
 
         const { queryUuid: underlyingDataQueryUuid, cacheMetadata } =
@@ -2594,7 +2632,7 @@ export class AsyncQueryService extends ProjectService {
                     originalColumns: undefined,
                     missingParameterReferences,
                 },
-                requestParameters,
+                underlyingDataRequestParameters,
             );
 
         return {
@@ -2703,6 +2741,8 @@ export class AsyncQueryService extends ProjectService {
         limit,
         tileUuid,
         parameters,
+        dashboardSlug,
+        dashboardName,
     }: {
         account: Account;
         projectUuid: string;
@@ -2715,6 +2755,8 @@ export class AsyncQueryService extends ProjectService {
         limit?: number;
         tileUuid?: string;
         parameters?: ParametersValuesMap;
+        dashboardSlug?: string;
+        dashboardName?: string;
     }) {
         const warehouseConnection = await this._getWarehouseClient(
             projectUuid,
@@ -2736,8 +2778,23 @@ export class AsyncQueryService extends ProjectService {
         const columns: { name: string; type: DimensionType }[] = [];
 
         // Get user attributes for replacement
+        const contextParam:
+            | {
+                  dashboardSlug?: string;
+                  dashboardName?: string;
+              }
+            | undefined =
+            dashboardSlug || dashboardName
+                ? {
+                      dashboardSlug,
+                      dashboardName,
+                  }
+                : undefined;
         const { userAttributes, intrinsicUserAttributes } =
-            await this.getUserAttributes({ account });
+            await this.getUserAttributes({
+                account,
+                context: contextParam,
+            });
 
         // Replace user attributes first
         const sqlWithUserAttributes = replaceUserAttributesAsStrings(
@@ -3079,6 +3136,8 @@ export class AsyncQueryService extends ProjectService {
             dashboardSorts,
             limit: limit ?? savedChart.limit,
             parameters: combinedParameters,
+            dashboardSlug: dashboard.slug,
+            dashboardName: dashboard.name,
         });
 
         // Disconnect the ssh tunnel to avoid leaking connections, another client is created in the scheduler task

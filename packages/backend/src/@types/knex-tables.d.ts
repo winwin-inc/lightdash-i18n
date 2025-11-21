@@ -233,6 +233,10 @@ import {
     UserAttributeTable,
 } from '../database/entities/userAttributes';
 import {
+    UserDashboardCategoryTable,
+    UserDashboardCategoryTableName,
+} from '../database/entities/userDashboardCategory';
+import {
     ProjectUserWarehouseCredentialPreferenceTable,
     ProjectUserWarehouseCredentialPreferenceTableName,
     UserWarehouseCredentialsTable,
@@ -415,5 +419,6 @@ declare module 'knex/types/tables' {
         [AiEvalRunResultTableName]: AiEvalRunResultTable;
         [ChangesetsTableName]: ChangesetsTable;
         [ChangesTableName]: ChangesTable;
+        [UserDashboardCategoryTableName]: UserDashboardCategoryTable;
     }
 }

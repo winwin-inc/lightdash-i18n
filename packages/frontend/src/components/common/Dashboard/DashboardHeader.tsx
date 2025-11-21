@@ -1,5 +1,6 @@
 import { subject } from '@casl/ability';
 import {
+    OrganizationMemberRole,
     ResourceViewItemType,
     type Dashboard,
     type FeatureFlags,
@@ -209,8 +210,8 @@ const DashboardHeader = ({
                 userCanManageDashboard ||
                     userCanPinDashboard ||
                     userCanCreateDeliveries ||
-                    userCanPromoteDashboard
-                    // userCanExportData,
+                    userCanPromoteDashboard,
+                // userCanExportData,
             ),
         [
             userCanManageDashboard,
@@ -254,7 +255,8 @@ const DashboardHeader = ({
                     {dashboard.name}
                 </Title>
 
-                {!isCustomerUse && (
+                {(!isCustomerUse ||
+                    user.data?.role === OrganizationMemberRole.ADMIN) && (
                     <Popover
                         withinPortal
                         withArrow

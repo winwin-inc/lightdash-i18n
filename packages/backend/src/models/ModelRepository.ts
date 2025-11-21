@@ -45,6 +45,7 @@ import { SpotlightTableConfigModel } from './SpotlightTableConfigModel';
 import { SshKeyPairModel } from './SshKeyPairModel';
 import { TagsModel } from './TagsModel';
 import { UserAttributesModel } from './UserAttributesModel';
+import { UserDashboardCategoryModel } from './UserDashboardCategoryModel';
 import { UserModel } from './UserModel';
 import { UserWarehouseCredentialsModel } from './UserWarehouseCredentials/UserWarehouseCredentialsModel';
 import { ValidationModel } from './ValidationModel/ValidationModel';
@@ -90,6 +91,7 @@ export type ModelManifest = {
     spaceModel: SpaceModel;
     sshKeyPairModel: SshKeyPairModel;
     userAttributesModel: UserAttributesModel;
+    userDashboardCategoryModel: UserDashboardCategoryModel;
     userModel: UserModel;
     userWarehouseCredentialsModel: UserWarehouseCredentialsModel;
     warehouseAvailableTablesModel: WarehouseAvailableTablesModel;
@@ -484,6 +486,14 @@ export class ModelRepository
         return this.getModel(
             'userAttributesModel',
             () => new UserAttributesModel({ database: this.database }),
+        );
+    }
+
+    public getUserDashboardCategoryModel(): UserDashboardCategoryModel {
+        return this.getModel(
+            'userDashboardCategoryModel',
+            () =>
+                new UserDashboardCategoryModel({ database: this.database }),
         );
     }
 

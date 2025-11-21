@@ -4,6 +4,7 @@ import type {
     Dashboard,
     DashboardAsCodeLanguageMap,
     DashboardChartTileProperties,
+    DashboardConfig,
     DashboardFilterRule,
     DashboardFilters,
     DashboardLoomTileProperties,
@@ -86,6 +87,7 @@ export type DashboardAsCode = Pick<
     filters: Omit<DashboardFilters, 'dimensions'> & {
         dimensions: Omit<DashboardFilterRule, 'id'>[];
     };
+    config?: DashboardConfig;
 };
 
 export type ApiDashboardAsCodeListResponse = {
