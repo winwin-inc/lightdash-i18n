@@ -966,34 +966,39 @@ export class ProjectController extends BaseController {
     ): Promise<ApiDashboardAsCodeUpsertResponse> {
         // Fix: TSOA validation strips filters from tabs due to complex nested types
         // Restore tabs with filters from raw request body
-        const rawBody = req.body as any;
+        const rawBody = req.body as Partial<DashboardAsCode> & {
+            tabs?: Array<Partial<DashboardTab>>;
+        };
         const dashboardWithFilters: DashboardAsCode = {
             ...dashboard,
             description: dashboard.description ?? undefined,
             // Restore tabs with filters from raw body if they exist
             tabs:
-                rawBody.tabs?.map((rawTab: any, index: number) => {
-                    const parsedTab = dashboard.tabs?.[index];
-                    return {
-                        ...parsedTab,
-                        uuid: parsedTab?.uuid || rawTab.uuid,
-                        name: parsedTab?.name || rawTab.name,
-                        order: parsedTab?.order ?? rawTab.order ?? index,
-                        // Restore filters from raw body - TSOA strips them during validation
-                        filters: rawTab.filters || parsedTab?.filters,
-                    };
-                }) || dashboard.tabs,
+                rawBody.tabs?.map(
+                    (rawTab: Partial<DashboardTab>, index: number) => {
+                        const parsedTab = dashboard.tabs?.[index];
+                        return {
+                            uuid: parsedTab?.uuid || rawTab.uuid || '',
+                            name: parsedTab?.name || rawTab.name || '',
+                            order: parsedTab?.order ?? rawTab.order ?? index,
+                            // Restore filters from raw body - TSOA strips them during validation
+                            filters: rawTab.filters || parsedTab?.filters,
+                        };
+                    },
+                ) || dashboard.tabs,
         };
         this.setStatus(200);
         return {
             status: 'ok',
-            results: await this.services.getCoderService().upsertDashboard(
-                req.user!,
-                projectUuid,
-                slug,
-                dashboardWithFilters,
-                dashboard.skipSpaceCreate,
-            ),
+            results: await this.services
+                .getCoderService()
+                .upsertDashboard(
+                    req.user!,
+                    projectUuid,
+                    slug,
+                    dashboardWithFilters,
+                    dashboard.skipSpaceCreate,
+                ),
         };
     }
 

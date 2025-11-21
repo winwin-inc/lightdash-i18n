@@ -647,11 +647,17 @@ export class ProjectService extends BaseService {
             });
 
         const emailStatus = await this.emailModel.getPrimaryEmailStatus(userId);
-        const intrinsicUserAttributes = emailStatus.isVerified
-            ? getIntrinsicUserAttributes({ email }, context)
-            : context
-            ? getIntrinsicUserAttributes({ email: undefined }, context)
-            : {};
+        let intrinsicUserAttributes: IntrinsicUserAttributes;
+        if (emailStatus.isVerified) {
+            intrinsicUserAttributes = getIntrinsicUserAttributes({ email }, context);
+        } else if (context) {
+            intrinsicUserAttributes = getIntrinsicUserAttributes(
+                { email: undefined },
+                context,
+            );
+        } else {
+            intrinsicUserAttributes = {};
+        }
 
         // Debug logging to help troubleshoot context passing
         if (context) {
