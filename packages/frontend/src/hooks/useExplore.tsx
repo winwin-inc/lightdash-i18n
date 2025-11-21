@@ -4,10 +4,17 @@ import { lightdashApi } from '../api';
 import { useProjectUuid } from './useProjectUuid';
 import useQueryError from './useQueryError';
 
-const getExplore = async (projectUuid: string, exploreId: string) => {
+const getExplore = async (
+    projectUuid: string,
+    exploreId: string,
+    dashboardUuid?: string,
+) => {
     try {
+        const url = `/projects/${projectUuid}/explores/${exploreId}${
+            dashboardUuid ? `?dashboardUuid=${dashboardUuid}` : ''
+        }`;
         return await lightdashApi<ApiExploreResults>({
-            url: `/projects/${projectUuid}/explores/${exploreId}`,
+            url,
             method: 'GET',
         });
     } catch (error) {
@@ -19,14 +26,16 @@ const getExplore = async (projectUuid: string, exploreId: string) => {
 export const useExplore = (
     activeTableName: string | undefined,
     useQueryOptions?: UseQueryOptions<ApiExploreResults, ApiError>,
+    dashboardUuid?: string,
 ) => {
     const projectUuid = useProjectUuid();
     const setErrorResponse = useQueryError();
 
-    const queryKey = ['tables', activeTableName, projectUuid];
+    const queryKey = ['tables', activeTableName, projectUuid, dashboardUuid];
     return useQuery<ApiExploreResults, ApiError>({
         queryKey,
-        queryFn: () => getExplore(projectUuid!, activeTableName || ''),
+        queryFn: () =>
+            getExplore(projectUuid!, activeTableName || '', dashboardUuid),
         enabled: !!activeTableName && !!projectUuid,
         onError: (result) => setErrorResponse(result),
         retry: false,

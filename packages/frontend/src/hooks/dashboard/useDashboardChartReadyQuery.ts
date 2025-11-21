@@ -109,6 +109,8 @@ export const useDashboardChartReadyQuery = (
 
     const { data: explore } = useExplore(
         chartQuery.data?.metricQuery?.exploreName,
+        undefined,
+        dashboardUuid || undefined,
     );
 
     useEffect(() => {

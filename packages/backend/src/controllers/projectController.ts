@@ -20,6 +20,8 @@ import {
     ChartAsCode,
     CreateProjectMember,
     DashboardAsCode,
+    DashboardFilterRule,
+    DashboardTab,
     DbtExposure,
     DbtProjectEnvironmentVariable,
     LightdashRequestMethodHeader,
@@ -962,6 +964,26 @@ export class ProjectController extends BaseController {
         }, // Simplify filter type for tsoa
         @Request() req: express.Request,
     ): Promise<ApiDashboardAsCodeUpsertResponse> {
+        // Fix: TSOA validation strips filters from tabs due to complex nested types
+        // Restore tabs with filters from raw request body
+        const rawBody = req.body as any;
+        const dashboardWithFilters: DashboardAsCode = {
+            ...dashboard,
+            description: dashboard.description ?? undefined,
+            // Restore tabs with filters from raw body if they exist
+            tabs:
+                rawBody.tabs?.map((rawTab: any, index: number) => {
+                    const parsedTab = dashboard.tabs?.[index];
+                    return {
+                        ...parsedTab,
+                        uuid: parsedTab?.uuid || rawTab.uuid,
+                        name: parsedTab?.name || rawTab.name,
+                        order: parsedTab?.order ?? rawTab.order ?? index,
+                        // Restore filters from raw body - TSOA strips them during validation
+                        filters: rawTab.filters || parsedTab?.filters,
+                    };
+                }) || dashboard.tabs,
+        };
         this.setStatus(200);
         return {
             status: 'ok',
@@ -969,10 +991,7 @@ export class ProjectController extends BaseController {
                 req.user!,
                 projectUuid,
                 slug,
-                {
-                    ...dashboard,
-                    description: dashboard.description ?? undefined,
-                },
+                dashboardWithFilters,
                 dashboard.skipSpaceCreate,
             ),
         };

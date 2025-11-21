@@ -588,6 +588,7 @@ export class PromoteService extends BaseService {
                 ...dashboardChange,
                 data: {
                     ...dashboardChange.data,
+                    tabs: dashboardChange.data.tabs ?? [], // Preserve tabs
                     tiles: dashboardChange.data.tiles.map((tile) => {
                         if (
                             isDashboardChartTileType(tile) &&
@@ -857,7 +858,6 @@ export class PromoteService extends BaseService {
             promotedDashboard.uuid,
             {
                 ...promotedDashboard,
-                tabs: promotedDashboard.tabs || [],
                 updatedByUser: user,
             },
             user,

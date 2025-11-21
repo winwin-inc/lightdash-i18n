@@ -54,12 +54,18 @@ savedChartRouter.get(
     '/:savedQueryUuid/availableFilters',
     allowApiKeyAuthentication,
     isAuthenticated,
-    async (req, res, next) =>
+    async (req, res, next) => {
+        // Get dashboardUuid from query parameter if provided
+        const dashboardUuid =
+            typeof req.query.dashboardUuid === 'string'
+                ? req.query.dashboardUuid
+                : undefined;
         req.services
             .getProjectService()
             .getAvailableFiltersForSavedQuery(
                 req.account!,
                 getObjectValue(req.params, 'savedQueryUuid'),
+                dashboardUuid,
             )
             .then((results) => {
                 res.json({
@@ -67,7 +73,8 @@ savedChartRouter.get(
                     results,
                 });
             })
-            .catch(next),
+            .catch(next);
+    },
 );
 
 savedChartRouter.delete(

@@ -603,14 +603,23 @@ export class ProjectService extends BaseService {
     async getUserAttributes({
         account,
         user,
+        context,
     }:
         | {
               account: Account;
               user?: never;
+              context?: {
+                  dashboardSlug?: string;
+                  dashboardName?: string;
+              };
           }
         | {
               user: SessionUser;
               account?: never;
+              context?: {
+                  dashboardSlug?: string;
+                  dashboardName?: string;
+              };
           }): Promise<UserAccessControls> {
         // Embedded JWT users may come with an email, but they aren't customers
         // within Lightdash that have verified their email.
@@ -639,8 +648,28 @@ export class ProjectService extends BaseService {
 
         const emailStatus = await this.emailModel.getPrimaryEmailStatus(userId);
         const intrinsicUserAttributes = emailStatus.isVerified
-            ? getIntrinsicUserAttributes({ email })
+            ? getIntrinsicUserAttributes({ email }, context)
+            : context
+            ? getIntrinsicUserAttributes({ email: undefined }, context)
             : {};
+
+        // Debug logging to help troubleshoot context passing
+        if (context) {
+            this.logger.info(
+                `[USER_ATTRIBUTES_DEBUG] Context provided: ${JSON.stringify({
+                    context,
+                    dashboardSlug: context.dashboardSlug,
+                    dashboardName: context.dashboardName,
+                    emailStatus: emailStatus.isVerified,
+                    email,
+                    intrinsicUserAttributes,
+                })}`,
+            );
+        } else {
+            this.logger.debug(
+                `[USER_ATTRIBUTES_DEBUG] No context provided (not in dashboard context)`,
+            );
+        }
 
         return { userAttributes, intrinsicUserAttributes };
     }
@@ -4076,6 +4105,7 @@ export class ProjectService extends BaseService {
         exploreName: string,
         organizationUuid?: string,
         includeUnfilteredTables: boolean = true,
+        dashboardUuid?: string,
     ): Promise<Explore> {
         return Sentry.startSpan(
             {
@@ -4083,11 +4113,37 @@ export class ProjectService extends BaseService {
                 name: 'ProjectService.getExplore',
             },
             async () => {
+                // Get dashboard context if dashboardUuid is provided
+                let dashboardContext:
+                    | {
+                          dashboardSlug?: string;
+                          dashboardName?: string;
+                      }
+                    | undefined;
+                if (dashboardUuid) {
+                    try {
+                        const dashboard =
+                            await this.dashboardModel.getByIdOrSlug(
+                                dashboardUuid,
+                            );
+                        dashboardContext = {
+                            dashboardSlug: dashboard.slug,
+                            dashboardName: dashboard.name,
+                        };
+                    } catch (error) {
+                        // If dashboard not found, continue without context
+                        this.logger.warn(
+                            `Dashboard ${dashboardUuid} not found, continuing without dashboard context`,
+                        );
+                    }
+                }
+
                 const exploresMap = await this.findExplores({
                     account,
                     projectUuid,
                     exploreNames: [exploreName],
                     organizationUuid,
+                    context: dashboardContext,
                 });
                 const explore = exploresMap[exploreName];
 
@@ -4114,11 +4170,16 @@ export class ProjectService extends BaseService {
         projectUuid,
         exploreNames,
         organizationUuid,
+        context,
     }: {
         account: Account;
         projectUuid: string;
         exploreNames: string[];
         organizationUuid?: string;
+        context?: {
+            dashboardSlug?: string;
+            dashboardName?: string;
+        };
     }): Promise<Record<string, Explore | ExploreError>> {
         return Sentry.startSpan(
             {
@@ -4154,6 +4215,7 @@ export class ProjectService extends BaseService {
 
                 const { userAttributes } = await this.getUserAttributes({
                     account,
+                    context,
                 });
 
                 return Object.values(explores).reduce<
@@ -4481,6 +4543,7 @@ export class ProjectService extends BaseService {
     async getAvailableFiltersForSavedQuery(
         account: Account,
         savedChartUuid: string,
+        dashboardUuid?: string,
     ): Promise<FilterableDimension[]> {
         return Sentry.startSpan(
             {
@@ -4519,6 +4582,9 @@ export class ProjectService extends BaseService {
                     account,
                     savedChart.projectUuid,
                     savedChart.tableName,
+                    undefined,
+                    true,
+                    dashboardUuid,
                 );
 
                 return getDimensions(explore).filter(

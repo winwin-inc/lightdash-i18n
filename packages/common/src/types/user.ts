@@ -152,10 +152,22 @@ export type ApiGetLoginOptionsResponse = {
 
 export type IntrinsicUserAttributes = {
     email?: string;
+    dashboardSlug?: string;
+    dashboardName?: string;
 };
 
 export const getIntrinsicUserAttributes = (
     user: Pick<LightdashUser, 'email'>,
+    context?: {
+        dashboardSlug?: string;
+        dashboardName?: string;
+    },
 ): IntrinsicUserAttributes => ({
     email: user.email,
+    ...(context?.dashboardSlug !== undefined && {
+        dashboardSlug: context.dashboardSlug,
+    }),
+    ...(context?.dashboardName !== undefined && {
+        dashboardName: context.dashboardName,
+    }),
 });

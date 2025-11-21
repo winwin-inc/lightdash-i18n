@@ -10,6 +10,7 @@ import {
     DashboardAsCode,
     DashboardAsCodeInternalization,
     DashboardDAO,
+    DashboardTab,
     DashboardTile,
     DashboardTileAsCode,
     DashboardTileTarget,
@@ -18,9 +19,7 @@ import {
     friendlyName,
     getContentAsCodePathFromLtreePath,
     getLtreePathFromContentAsCodePath,
-    getLtreePathFromSlug,
     NotFoundError,
-    ParameterError,
     Project,
     PromotionAction,
     PromotionChanges,
@@ -250,6 +249,124 @@ export class CoderService extends BaseService {
         };
     }
 
+    /* Convert tab filters from tile uuids to tile slugs
+     * DashboardDAO to DashboardAsCode
+     */
+    static getTabFiltersWithTileSlugs(
+        dashboard: DashboardDAO,
+        tabs: DashboardDAO['tabs'],
+    ): DashboardAsCode['tabs'] {
+        return tabs.map((tab) => {
+            if (!tab.filters) return tab;
+
+            const dimensionFiltersWithoutUuids = tab.filters.dimensions.map(
+                (filter) => {
+                    const tileTargets = Object.entries(
+                        filter.tileTargets ?? {},
+                    ).reduce<Record<string, DashboardTileTarget>>(
+                        (acc, [tileUuid, target]) => {
+                            const tileSlug =
+                                CoderService.getChartSlugForTileUuid(
+                                    dashboard,
+                                    tileUuid,
+                                );
+                            if (!tileSlug) return acc;
+                            return {
+                                ...acc,
+                                [tileSlug]: target,
+                            };
+                        },
+                        {},
+                    );
+                    const { id, ...filterWithoutId } = filter;
+                    return {
+                        ...filterWithoutId,
+                        tileTargets,
+                    };
+                },
+            );
+
+            return {
+                ...tab,
+                filters: {
+                    ...tab.filters,
+                    dimensions: dimensionFiltersWithoutUuids,
+                },
+            } as DashboardTab; // Type assertion: id removed for export format
+        }) as DashboardAsCode['tabs'];
+    }
+
+    /* Convert tab filters from tile slugs to tile uuids
+     * DashboardAsCode to DashboardDAO
+     */
+    static getTabFiltersWithTileUuids(
+        dashboardAsCode: DashboardAsCode,
+        tilesWithUuids: DashboardTileWithSlug[],
+    ): DashboardDAO['tabs'] {
+        return (dashboardAsCode.tabs || []).map((tab) => {
+            if (!tab.filters) {
+                return tab;
+            }
+
+            const convertTileTargets = (
+                tileTargets: Record<string, DashboardTileTarget> | undefined,
+            ): Record<string, DashboardTileTarget> => {
+                if (!tileTargets) return {};
+                return Object.entries(tileTargets).reduce<
+                    Record<string, DashboardTileTarget>
+                >((acc, [tileSlug, target]) => {
+                    const matchingTile = tilesWithUuids.find(
+                        (t) =>
+                            isAnyChartTile(t) &&
+                            // Match first by tileSlug, then by chartSlug (for the case of tile not having a slug)
+                            (t.tileSlug === tileSlug ||
+                                t.properties.chartSlug === tileSlug),
+                    );
+                    if (!matchingTile) {
+                        return acc;
+                    }
+                    return {
+                        ...acc,
+                        [matchingTile.uuid]: target,
+                    };
+                }, {});
+            };
+
+            const dimensionFiltersWithUuids = tab.filters.dimensions.map(
+                (filter) => ({
+                    ...filter,
+                    id: uuidv4(),
+                    tileTargets: convertTileTargets(filter.tileTargets),
+                }),
+            );
+
+            const metricFiltersWithUuids = (tab.filters.metrics || []).map(
+                (filter) => ({
+                    ...filter,
+                    id: uuidv4(),
+                    tileTargets: convertTileTargets(filter.tileTargets),
+                }),
+            );
+
+            const tableCalculationFiltersWithUuids = (
+                tab.filters.tableCalculations || []
+            ).map((filter) => ({
+                ...filter,
+                id: uuidv4(),
+                tileTargets: convertTileTargets(filter.tileTargets),
+            }));
+
+            return {
+                ...tab,
+                filters: {
+                    dimensions: dimensionFiltersWithUuids,
+                    metrics: metricFiltersWithUuids,
+                    tableCalculations: tableCalculationFiltersWithUuids,
+                },
+            };
+        });
+    }
+
     private static transformDashboard(
         dashboard: DashboardDAO,
         spaceSummary: Pick<SpaceSummary, 'uuid' | 'path'>[],
@@ -299,7 +416,10 @@ export class CoderService extends BaseService {
             tiles: tilesWithoutUuids,
 
             filters: CoderService.getFiltersWithTileSlugs(dashboard),
-            tabs: dashboard.tabs,
+            tabs: CoderService.getTabFiltersWithTileSlugs(
+                dashboard,
+                dashboard.tabs,
+            ),
             slug: dashboard.slug,
             config: dashboard.config,
 
@@ -344,6 +464,7 @@ export class CoderService extends BaseService {
                 return {
                     ...tile,
                     uuid: uuidv4(),
+                    tileSlug: tile.tileSlug, // Preserve tileSlug for filter matching
                     properties: {
                         ...tile.properties,
                         savedChartUuid: savedChart.uuid,
@@ -351,7 +472,10 @@ export class CoderService extends BaseService {
                 } as DashboardTileWithSlug;
             }
 
-            return tile as DashboardTileWithSlug;
+            return {
+                ...tile,
+                tileSlug: tile.tileSlug, // Preserve tileSlug even for non-chart tiles
+            } as DashboardTileWithSlug;
         });
     }
 
@@ -1012,6 +1136,11 @@ export class CoderService extends BaseService {
             dashboardAsCode,
             tilesWithUuids,
         );
+        const tabsWithUuids = CoderService.getTabFiltersWithTileUuids(
+            dashboardAsCode,
+            tilesWithUuids,
+        );
+
         // If chart does not exist, we can't use promoteService,
         // since it relies on information that's not available in ChartAsCode, and other uuids
         if (dashboardSummary === undefined) {
@@ -1028,6 +1157,7 @@ export class CoderService extends BaseService {
                 {
                     ...dashboardAsCode,
                     tiles: tilesWithUuids,
+                    tabs: tabsWithUuids,
                     forceSlug: true,
                     filters: dashboardFilters,
                 },
@@ -1060,24 +1190,26 @@ export class CoderService extends BaseService {
             dashboardSummary.uuid,
         );
 
-        console.info(
+        this.logger.info(
             `Updating dashboard "${dashboard.name}" on project ${projectUuid}`,
         );
 
         const dashboardWithUuids = {
             ...dashboardAsCode,
             tiles: tilesWithUuids,
+            tabs: tabsWithUuids,
+        };
+        const mergedDashboard = {
+            ...dashboard,
+            ...dashboardWithUuids,
+            filters: dashboardFilters,
+            projectUuid,
+            organizationUuid: project.organizationUuid,
         };
         const { promotedDashboard, upstreamDashboard } =
             await this.promoteService.getPromotedDashboard(
                 user,
-                {
-                    ...dashboard,
-                    ...dashboardWithUuids,
-                    filters: dashboardFilters,
-                    projectUuid,
-                    organizationUuid: project.organizationUuid,
-                },
+                mergedDashboard,
                 projectUuid, // We use the same projectUuid for both promoted and upstream
             );
 
@@ -1129,7 +1261,7 @@ export class CoderService extends BaseService {
             promotionChanges,
         );
 
-        console.info(
+        this.logger.info(
             `Finished updating dashboard "${dashboard.name}" on project ${projectUuid}: ${promotionChanges.dashboards[0].action}`,
         );
         return promotionChanges;
