@@ -197,7 +197,7 @@ const MinimalDashboard: FC = () => {
     return (
         <>
             {/* dashboard global filters */}
-            {hasTilesThatSupportFilters && sortedTabs.length === 0 && (
+            {hasTilesThatSupportFilters && (
                 <Group
                     position="apart"
                     align="flex-start"
