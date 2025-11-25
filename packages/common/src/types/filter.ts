@@ -144,6 +144,7 @@ export type DashboardFilterRule<
     tileTargets?: Record<string, DashboardTileTarget>;
     label: undefined | string;
     singleValue?: boolean;
+    categoryLevel?: 1 | 2 | 3 | 4;
 };
 
 export type FilterDashboardToRule = DashboardFilterRule & {

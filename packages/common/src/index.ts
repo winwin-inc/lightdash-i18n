@@ -161,6 +161,7 @@ import {
     type ApiGetMetricsTree,
     type ApiMetricsCatalog,
 } from './types/catalog';
+import { type UserCategoryList } from './types/category';
 import {
     type ApiChartAsCodeListResponse,
     type ApiChartAsCodeUpsertResponse,
@@ -237,6 +238,7 @@ export * from './types/api/uuid';
 export * from './types/auth';
 export * from './types/bigQuerySSO';
 export * from './types/catalog';
+export * from './types/category';
 export * from './types/changeset';
 export * from './types/coder';
 export * from './types/comments';
@@ -982,7 +984,8 @@ type ApiResults =
     | ApiAppendInstructionResponse['results']
     | ApiGetChangeResponse['results']
     | ApiAiOrganizationSettingsResponse['results']
-    | ApiUpdateAiOrganizationSettingsResponse['results'];
+    | ApiUpdateAiOrganizationSettingsResponse['results']
+    | UserCategoryList;
 
 export type ApiResponse<T extends ApiResults = ApiResults> = {
     status: 'ok';

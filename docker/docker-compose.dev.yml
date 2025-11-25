@@ -73,6 +73,8 @@ x-lightdash-environment: &lightdash-environment
     RESULTS_S3_SECRET_KEY: ${RESULTS_S3_SECRET_KEY:-${RESULTS_CACHE_S3_SECRET_KEY}}
     RESULTS_S3_ACCESS_KEY: ${RESULTS_S3_ACCESS_KEY:-${RESULTS_CACHE_S3_ACCESS_KEY}}
     LIGHTDASH_PROMETHEUS_ENABLED: ${LIGHTDASH_PROMETHEUS_ENABLED}
+    ADMIN_API_HOST: ${ADMIN_API_HOST}
+    ADMIN_API_KEY: ${ADMIN_API_KEY}
 
 x-lightdash-base: &lightdash-base
     build: *lightdash-build

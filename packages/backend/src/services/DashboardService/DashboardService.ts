@@ -33,12 +33,14 @@ import {
     isUserWithOrg,
     isValidFrequency,
     isValidTimezone,
+    type CategoryTreeNode,
     type ChartFieldUpdates,
     type DashboardBasicDetailsWithTileTypes,
     type DashboardConfig,
     type DuplicateDashboardParams,
     type Explore,
     type ExploreError,
+    type UserCategoryList,
 } from '@lightdash/common';
 import cronstrue from 'cronstrue';
 import { type Knex } from 'knex';
@@ -48,6 +50,7 @@ import {
     LightdashAnalytics,
     SchedulerDashboardUpsertEvent,
 } from '../../analytics/LightdashAnalytics';
+import { CategoryRpcClient } from '../../clients/CategoryRpcClient/CategoryRpcClient';
 import { SlackClient } from '../../clients/Slack/SlackClient';
 import { getSchedulerTargetType } from '../../database/entities/scheduler';
 import { CaslAuditWrapper } from '../../logging/caslAuditWrapper';
@@ -82,6 +85,7 @@ type DashboardServiceArguments = {
     projectModel: ProjectModel;
     catalogModel: CatalogModel;
     userDashboardCategoryModel: UserDashboardCategoryModel;
+    categoryRpcClient: CategoryRpcClient;
 };
 
 export class DashboardService
@@ -114,6 +118,8 @@ export class DashboardService
 
     userDashboardCategoryModel: UserDashboardCategoryModel;
 
+    categoryRpcClient: CategoryRpcClient;
+
     constructor({
         analytics,
         dashboardModel,
@@ -128,6 +134,7 @@ export class DashboardService
         projectModel,
         catalogModel,
         userDashboardCategoryModel,
+        categoryRpcClient,
     }: DashboardServiceArguments) {
         super();
         this.analytics = analytics;
@@ -143,6 +150,7 @@ export class DashboardService
         this.schedulerClient = schedulerClient;
         this.slackClient = slackClient;
         this.userDashboardCategoryModel = userDashboardCategoryModel;
+        this.categoryRpcClient = categoryRpcClient;
     }
 
     static getCreateEventProperties(
@@ -1457,5 +1465,312 @@ export class DashboardService
             }
             throw error;
         }
+    }
+
+    /**
+     * 获取用户的项目角色
+     * 优先级：直接项目成员 > 组成员 > 组织角色转换
+     */
+    private async getUserProjectRole(
+        user: SessionUser,
+        projectId: number,
+        organizationId: number,
+        projectUuid: string,
+    ): Promise<ProjectMemberRole | null> {
+        const db = this.userDashboardCategoryModel.getDatabase();
+
+        // Get user's userId (needed for group_memberships query)
+        const userRecord = await db
+            .from('users')
+            .where('user_uuid', user.userUuid)
+            .select('user_id')
+            .first();
+
+        if (!userRecord) {
+            return null;
+        }
+
+        // Get user's project role from direct membership
+        const directMembership = await db
+            .from('project_memberships')
+            .where('project_memberships.project_id', projectId)
+            .where('project_memberships.user_id', userRecord.user_id)
+            .select('project_memberships.role')
+            .first();
+
+        // Get user's project role from group membership
+        const groupMembership = await db
+            .from('group_memberships')
+            .innerJoin(
+                'project_group_access',
+                'project_group_access.group_uuid',
+                'group_memberships.group_uuid',
+            )
+            .where('group_memberships.organization_id', organizationId)
+            .where('group_memberships.user_id', userRecord.user_id)
+            .where('project_group_access.project_uuid', projectUuid)
+            .select('project_group_access.role')
+            .first();
+
+        // Get user's organization role (fallback if no project-level role)
+        const orgMembership = await db
+            .from('organization_memberships')
+            .where('organization_memberships.organization_id', organizationId)
+            .where('organization_memberships.user_id', userRecord.user_id)
+            .select('organization_memberships.role')
+            .first();
+
+        // Determine user's role:
+        // 1. Direct project membership (highest priority)
+        // 2. Group membership
+        // 3. Organization role converted to project role (fallback)
+        let userRole = directMembership?.role || groupMembership?.role;
+        if (!userRole && orgMembership?.role) {
+            userRole = convertOrganizationRoleToProjectRole(
+                orgMembership.role as OrganizationMemberRole,
+            );
+        }
+
+        return userRole || null;
+    }
+
+    /**
+     * 获取当前用户的类目列表
+     * 根据用户在看板类目权限表中的权限，构建一级、二级、三级、四级的类目树
+     * 权限生效范围：客户使用模式下的所有用户都需要进行类目权限过滤
+     */
+    async getUserCategories(
+        user: SessionUser,
+        projectUuid: string,
+    ): Promise<UserCategoryList> {
+        // 检查是否为客户使用模式
+        const db = this.userDashboardCategoryModel.getDatabase();
+        const project = await db
+            .from('projects')
+            .where('project_uuid', projectUuid)
+            .select('project_id', 'is_customer_use', 'organization_id')
+            .first();
+
+        if (!project) {
+            throw new ParameterError(`Project ${projectUuid} not found`);
+        }
+
+        const isCustomerUse = project.is_customer_use ?? false;
+        if (!isCustomerUse) {
+            // 如果不是客户使用模式，返回空列表
+            return {
+                level1: [],
+                level2: [],
+                level3: [],
+                level4: [],
+            };
+        }
+
+        // 在客户使用模式下，所有角色（查看者、编辑者、开发者等）都需要进行类目权限过滤
+        // 只有配置了类目权限的用户才能看到对应的类目
+        // 获取用户在看板类目权限表中的类目ID列表
+        if (!user.email) {
+            this.logger.warn(
+                `User ${user.userUuid} has no email, returning empty category list`,
+            );
+            return {
+                level1: [],
+                level2: [],
+                level3: [],
+                level4: [],
+            };
+        }
+
+        const normalizedEmail = user.email.trim().toLowerCase();
+        const userCategories = await this.userDashboardCategoryModel.find({
+            email: normalizedEmail,
+        });
+
+        // 提取用户有权限的类目ID（可能是任意层级）
+        const allowedCategoryIds = new Set(
+            userCategories.map((cat) => cat.category_id).filter(Boolean),
+        );
+
+        if (allowedCategoryIds.size === 0) {
+            this.logger.warn(
+                `No categories found for user ${normalizedEmail} in project ${projectUuid}`,
+            );
+            return { level1: [],  level2: [],  level3: [],  level4: [] };
+        }
+
+        // 调用 RPC 接口获取所有类目
+        const allCategories = await this.categoryRpcClient.findAllCategories();
+
+        this.logger.info(
+            `User ${normalizedEmail} has ${allowedCategoryIds.size} allowed category ids in project ${projectUuid}`,
+        );
+        this.logger.warn(
+            `top 10 categories: ${JSON.stringify(allCategories.slice(0, 10))}`,
+        );
+
+        // 构建类目映射表
+        const categoryMap = new Map<string, CategoryTreeNode>();
+        allCategories.forEach((cat) => {
+            categoryMap.set(cat.categoryId, {
+                categoryId: cat.categoryId,
+                parentId: cat.parentId,
+                name: cat.name,
+                nameEn: cat.nameEn,
+                level: cat.level,
+                children: [],
+            });
+        });
+
+        // 找出用户有权限的类目及其所有父级和子级类目
+        const relevantCategoryIds = new Set<string>();
+
+        // 对于每个用户有权限的类目，添加其所有父级和子级
+        allowedCategoryIds.forEach((categoryId) => {
+            // 添加当前类目
+            relevantCategoryIds.add(categoryId);
+
+            // 向上查找所有父级
+            let currentId = categoryId;
+            while (currentId) {
+                const category = categoryMap.get(currentId);
+                if (!category) break;
+                relevantCategoryIds.add(category.categoryId);
+                currentId = category.parentId || '';
+            }
+
+            // 向下查找所有子级（递归）
+            const addChildren = (id: string) => {
+                allCategories.forEach((cat) => {
+                    if (cat.parentId === id) {
+                        relevantCategoryIds.add(cat.categoryId);
+                        addChildren(cat.categoryId);
+                    }
+                });
+            };
+            addChildren(categoryId);
+        });
+
+        // 构建类目树（只包含相关类目）
+        const buildTree = (parentId: string): CategoryTreeNode[] => {
+            const children: CategoryTreeNode[] = [];
+            allCategories.forEach((cat) => {
+                if (
+                    cat.parentId === parentId &&
+                    relevantCategoryIds.has(cat.categoryId)
+                ) {
+                    const node: CategoryTreeNode = {
+                        categoryId: cat.categoryId,
+                        parentId: cat.parentId,
+                        name: cat.name,
+                        nameEn: cat.nameEn,
+                        level: cat.level,
+                    };
+
+                    // 递归添加子节点
+                    const childNodes = buildTree(cat.categoryId);
+                    if (childNodes.length > 0) {
+                        node.children = childNodes;
+                    }
+
+                    children.push(node);
+                }
+            });
+            return children;
+        };
+
+        // 构建完整的类目树（从根开始）
+        const fullTree = buildTree('');
+
+        // 从完整树中提取各级类目
+        const extractByLevel = (
+            nodes: CategoryTreeNode[],
+            targetLevel: number,
+        ): CategoryTreeNode[] => {
+            const result: CategoryTreeNode[] = [];
+            const traverse = (nodeList: CategoryTreeNode[]) => {
+                nodeList.forEach((node) => {
+                    if (node.level === targetLevel) {
+                        // 创建节点副本，但不包含子节点（因为这是平铺列表）
+                        const flatNode: CategoryTreeNode = {
+                            categoryId: node.categoryId,
+                            parentId: node.parentId,
+                            name: node.name,
+                            nameEn: node.nameEn,
+                            level: node.level,
+                        };
+                        result.push(flatNode);
+                    }
+                    if (node.children) {
+                        traverse(node.children);
+                    }
+                });
+            };
+            traverse(nodes);
+            return result;
+        };
+
+        return {
+            level1: extractByLevel(fullTree, 1),
+            level2: extractByLevel(fullTree, 2),
+            level3: extractByLevel(fullTree, 3),
+            level4: extractByLevel(fullTree, 4),
+        };
+    }
+
+    /**
+     * 验证筛选器中的类目值是否在用户权限范围内
+     * 用于检查看板筛选器中绑定的类目字段（如 cls_1、cls_2）的值是否合法
+     * @param user 用户
+     * @param projectUuid 项目UUID
+     * @param categoryFieldName 类目字段名（如 'cls_1', 'cls_2'）
+     * @param categoryValue 类目值（categoryId）
+     * @returns 是否在权限范围内
+     */
+    async validateCategoryFilterValue(
+        user: SessionUser,
+        projectUuid: string,
+        categoryFieldName: string,
+        categoryValue: string,
+    ): Promise<boolean> {
+        // 获取用户的类目权限树
+        const userCategories = await this.getUserCategories(user, projectUuid);
+
+        // 根据字段名确定类目层级
+        let allowedCategoryIds: string[] = [];
+        if (categoryFieldName === 'cls_1' || categoryFieldName === 'cls1') {
+            allowedCategoryIds = userCategories.level1.map(
+                (cat) => cat.categoryId,
+            );
+        } else if (
+            categoryFieldName === 'cls_2' ||
+            categoryFieldName === 'cls2'
+        ) {
+            allowedCategoryIds = userCategories.level2.map(
+                (cat) => cat.categoryId,
+            );
+        } else if (
+            categoryFieldName === 'cls_3' ||
+            categoryFieldName === 'cls3'
+        ) {
+            allowedCategoryIds = userCategories.level3.map(
+                (cat) => cat.categoryId,
+            );
+        } else if (
+            categoryFieldName === 'cls_4' ||
+            categoryFieldName === 'cls4'
+        ) {
+            allowedCategoryIds = userCategories.level4.map(
+                (cat) => cat.categoryId,
+            );
+        } else {
+            // 如果不是已知的类目字段，返回 false
+            this.logger.warn(
+                `Unknown category field name: ${categoryFieldName} for user ${user.userUuid}`,
+            );
+            return false;
+        }
+
+        // 检查值是否在允许的类目ID列表中
+        return allowedCategoryIds.includes(categoryValue);
     }
 }

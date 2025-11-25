@@ -56,7 +56,14 @@ import {
     isEmptyTabFilters,
     useDashboardTabFilters,
 } from '../../hooks/dashboard/useDashboardTabFilters';
+import { useProject } from '../../hooks/useProject';
 import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOverrides';
+import { useUserCategories } from '../../hooks/useUserCategories';
+import {
+    initializeCategoryFilters,
+    isCategoryField,
+    updateCategoryFilterCascade,
+} from '../../utils/categoryFilters';
 import DashboardContext from './context';
 import { type SqlChartTileMetadata } from './types';
 
@@ -164,6 +171,15 @@ const DashboardProvider: React.FC<
         setHaveShowAddFilterButtonStatesChanged,
     } = useDashboardFilterState({ dashboard });
 
+    // Get project info to check if customer use mode is enabled
+    const { data: project } = useProject(projectUuid);
+
+    // Get user categories for category filter initialization (only in customer use mode)
+    const isCustomerUse = project?.isCustomerUse ?? false;
+    const { data: userCategories } = useUserCategories({
+        enabled: !!projectUuid && isCustomerUse,
+    });
+
     // dashboard filters
     const {
         embedDashboard,
@@ -177,8 +193,8 @@ const DashboardProvider: React.FC<
         dashboardTemporaryFilters,
         setDashboardTemporaryFilters,
         resetDashboardFilters,
-        addDimensionDashboardFilter,
-        updateDimensionDashboardFilter,
+        addDimensionDashboardFilter: originalAddDimensionDashboardFilter,
+        updateDimensionDashboardFilter: originalUpdateDimensionDashboardFilter,
         addMetricDashboardFilter,
         removeDimensionDashboardFilter,
         overridesForSavedDashboardFilters,
@@ -187,6 +203,72 @@ const DashboardProvider: React.FC<
         dashboard,
         isFilterEnabled: isGlobalFilterEnabled,
     });
+
+    // Wrap updateDimensionDashboardFilter to handle category filter cascade
+    const updateDimensionDashboardFilter = useCallback(
+        (
+            item: DashboardFilterRule,
+            index: number,
+            isTemporary: boolean,
+            isEditMode: boolean,
+        ) => {
+            // First update the filter
+            originalUpdateDimensionDashboardFilter(
+                item,
+                index,
+                isTemporary,
+                isEditMode,
+            );
+
+            // Then handle category filter cascade if needed (only in customer use mode)
+            if (isCustomerUse && userCategories) {
+                if (isCategoryField(item)) {
+                    const newValue =
+                        item.values && item.values.length > 0
+                            ? String(item.values[0])
+                            : null;
+
+                    // Update filters with cascade logic
+                    setDashboardFilters((prevFilters) =>
+                        updateCategoryFilterCascade(
+                            prevFilters,
+                            item,
+                            newValue,
+                            userCategories,
+                        ),
+                    );
+                }
+            }
+        },
+        [
+            originalUpdateDimensionDashboardFilter,
+            isCustomerUse,
+            userCategories,
+            setDashboardFilters,
+        ],
+    );
+
+    // Wrap addDimensionDashboardFilter to handle category filter initialization
+    const addDimensionDashboardFilter = useCallback(
+        (filter: DashboardFilterRule, isTemporary: boolean) => {
+            originalAddDimensionDashboardFilter(filter, isTemporary);
+
+            // Initialize category filter if needed (only in customer use mode)
+            if (isCustomerUse && userCategories && !isTemporary) {
+                if (isCategoryField(filter)) {
+                    setDashboardFilters((prevFilters) =>
+                        initializeCategoryFilters(prevFilters, userCategories),
+                    );
+                }
+            }
+        },
+        [
+            originalAddDimensionDashboardFilter,
+            isCustomerUse,
+            userCategories,
+            setDashboardFilters,
+        ],
+    );
 
     // dashboard tab filter
     const {
@@ -601,6 +683,14 @@ const DashboardProvider: React.FC<
                 updatedDashboardFilters,
             );
 
+            // Step 4: Initialize category filters based on user permissions (only in customer use mode)
+            if (isCustomerUse && userCategories) {
+                updatedDashboardFilters = initializeCategoryFilters(
+                    updatedDashboardFilters,
+                    userCategories,
+                );
+            }
+
             setDashboardFilters(updatedDashboardFilters);
 
             // tab filters
@@ -622,16 +712,18 @@ const DashboardProvider: React.FC<
 
         setOriginalDashboardFilters(currentDashboard.filters);
     }, [
+        embed,
         dashboard,
         embedDashboard,
         dashboardFilters,
         overridesForSavedDashboardFilters,
         tabFilters,
+        isCustomerUse,
+        userCategories,
         setHaveFiltersChanged,
         setDashboardFilters,
         setOriginalDashboardFilters,
         setTabFilters,
-        embed,
         applyInteractivityFiltering,
     ]);
 

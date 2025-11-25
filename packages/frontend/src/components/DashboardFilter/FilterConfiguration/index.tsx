@@ -35,7 +35,9 @@ import { IconRotate2, IconSql } from '@tabler/icons-react';
 import { produce } from 'immer';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useParams } from 'react-router';
 
+import { useProject } from '../../../hooks/useProject';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import FieldSelect from '../../common/FieldSelect';
 import FieldIcon from '../../common/Filters/FieldIcon';
@@ -94,6 +96,9 @@ const FilterConfiguration: FC<Props> = ({
     onSave,
 }) => {
     const { t } = useTranslation();
+    const { projectUuid } = useParams<{ projectUuid: string }>();
+    const { data: project } = useProject(projectUuid);
+    const isCustomerUse = project?.isCustomerUse ?? false;
 
     const [selectedTabId, setSelectedTabId] = useState<FilterTabs>(DEFAULT_TAB);
     const [selectedField, setSelectedField] = useState<
@@ -474,6 +479,7 @@ const FilterConfiguration: FC<Props> = ({
                                 filterRule={draftFilterRule}
                                 onChangeFilterRule={handleChangeFilterRule}
                                 popoverProps={popoverProps}
+                                isCustomerUse={isCustomerUse}
                             />
                         )}
                     </Stack>
