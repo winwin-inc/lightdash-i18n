@@ -259,18 +259,18 @@ const DashboardProvider: React.FC<
             item: DashboardFilterRule,
             index: number,
             isTemporary: boolean,
-            isEditMode: boolean,
+            isEdit: boolean,
         ) => {
             // First update the filter
             originalUpdateDimensionDashboardFilter(
                 item,
                 index,
                 isTemporary,
-                isEditMode,
+                isEdit,
             );
 
             // Then handle category filter cascade if needed (only in customer use mode)
-            if (isCustomerUse && userCategories && !isEditMode) {
+            if (isCustomerUse && userCategories && !isEdit) {
                 if (isCategoryField(item)) {
                     const newValue =
                         item.values && item.values.length > 0
@@ -326,13 +326,13 @@ const DashboardProvider: React.FC<
     // Wrap updateTabDimensionFilter to handle category filter cascade
     const wrappedUpdateTabDimensionFilter = useCallback(
         (
-            tabUuid: string,
+            uuid: string,
             item: DashboardFilterRule,
             index: number,
             isTemporary: boolean,
         ) => {
             // First update the filter
-            updateTabDimensionFilter(tabUuid, item, index, isTemporary);
+            updateTabDimensionFilter(uuid, item, index, isTemporary);
 
             // Then handle category filter cascade if needed (only in customer use mode & view mode)
             if (isCustomerUse && userCategories && !isEditMode) {
@@ -344,8 +344,8 @@ const DashboardProvider: React.FC<
 
                     // Update tab filters with cascade logic
                     setTabFilters((prevTabFilters) => {
-                        const tabFilter = prevTabFilters[tabUuid]
-                            ? clone(prevTabFilters[tabUuid])
+                        const tabFilter = prevTabFilters[uuid]
+                            ? clone(prevTabFilters[uuid])
                             : emptyFilters;
                         const updatedTabFilter = updateCategoryFilterCascade(
                             tabFilter,
@@ -359,7 +359,7 @@ const DashboardProvider: React.FC<
                             );
                         return {
                             ...prevTabFilters,
-                            [tabUuid]: initializedTabFilter,
+                            [uuid]: initializedTabFilter,
                         };
                     });
                 }
@@ -821,6 +821,7 @@ const DashboardProvider: React.FC<
     }, [
         isCustomerUse,
         userCategories,
+        dashboardFilters,
         isEditMode,
         setDashboardFilters,
         initializeCategoryFiltersSequentially,
@@ -837,11 +838,11 @@ const DashboardProvider: React.FC<
             const updated = { ...prevTabFilters };
             let hasChanges = false;
 
-            Object.entries(prevTabFilters).forEach(([tabUuid, filters]) => {
+            Object.entries(prevTabFilters).forEach(([uuid, filters]) => {
                 const initialized =
                     initializeCategoryFiltersSequentially(filters);
                 if (initialized !== filters) {
-                    updated[tabUuid] = initialized;
+                    updated[uuid] = initialized;
                     hasChanges = true;
                 }
             });
@@ -852,6 +853,7 @@ const DashboardProvider: React.FC<
         isCustomerUse,
         userCategories,
         isEditMode,
+        tabFilters,
         setTabFilters,
         initializeCategoryFiltersSequentially,
     ]);

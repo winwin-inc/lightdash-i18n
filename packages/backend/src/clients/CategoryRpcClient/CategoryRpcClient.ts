@@ -40,7 +40,7 @@ export class CategoryRpcClient {
             };
 
             if (apiKey) {
-                headers['apikey'] = apiKey;
+                headers.apikey = apiKey;
             }
 
             const response = await fetch(url, {

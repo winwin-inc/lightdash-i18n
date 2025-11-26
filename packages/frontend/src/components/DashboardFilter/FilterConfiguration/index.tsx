@@ -403,6 +403,7 @@ const FilterConfiguration: FC<Props> = ({
         isCustomerUse,
         draftFilterRule,
         filterScope,
+        allFiltersFromContext,
         dashboardFiltersFromContext,
         tabFiltersFromContext,
         tabUuid,

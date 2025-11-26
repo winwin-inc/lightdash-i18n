@@ -150,47 +150,25 @@ export const isCategoryLabelAllowed = (
 };
 
 /**
- * 根据用户权限初始化单个类目筛选器的 values
- * 如果配置了父级筛选器，根据父级值获取子级类目列表；否则使用当前层级的所有类目
- * 如果当前值在类目列表中保持不变，否则选择第一个
- * 只有当 filter 有默认值配置（disabled === false）时才处理
+ * 根据父级类目值过滤子级类目列表
  */
-export const initializeCategoryFilterValuesByPermission = (
-    filter: DashboardFilterRule,
-    filters: DashboardFilters,
-    userCategories: UserCategoryList,
-): DashboardFilterRule | null => {
-    if (!isCategoryField(filter) || filter.disabled) {
-        return null;
-    }
-
-    const resolvedValue = resolveCategoryFilterValue({
-        filter,
-        filters,
-        userCategories,
-    });
-
-    if (!resolvedValue) {
-        return null;
-    }
-
-    const currentValue = filter.values?.[0];
-    if (currentValue && String(currentValue) === resolvedValue) {
-        return null;
-    }
-
-    return {
-        ...filter,
-        values: [resolvedValue],
-        operator: FilterOperator.EQUALS,
-    };
+export const filterCategoriesByParent = (
+    categories: CategoryTreeNode[],
+    parentId: string,
+): CategoryTreeNode[] => {
+    return categories.filter((cat) => cat.parentId === parentId);
 };
 
-type ResolveCategoryValueArgs = {
-    filter: DashboardFilterRule;
-    filters: DashboardFilters;
-    userCategories: UserCategoryList;
-    parentValueOverride?: string | null;
+/**
+ * 根据父级类目值获取子级类目
+ */
+export const getChildCategoriesForLevel = (
+    parentCategoryId: string,
+    userCategories: UserCategoryList,
+    targetLevel: Exclude<CategoryLevel, 1>,
+): CategoryTreeNode[] => {
+    const targetCategories = getCategoriesForLevel(targetLevel, userCategories);
+    return filterCategoriesByParent(targetCategories, parentCategoryId);
 };
 
 /**
@@ -270,25 +248,47 @@ const resolveCategoryFilterValue = ({
 };
 
 /**
- * 根据父级类目值过滤子级类目列表
+ * 根据用户权限初始化单个类目筛选器的 values
+ * 如果配置了父级筛选器，根据父级值获取子级类目列表；否则使用当前层级的所有类目
+ * 如果当前值在类目列表中保持不变，否则选择第一个
+ * 只有当 filter 有默认值配置（disabled === false）时才处理
  */
-export const filterCategoriesByParent = (
-    categories: CategoryTreeNode[],
-    parentId: string,
-): CategoryTreeNode[] => {
-    return categories.filter((cat) => cat.parentId === parentId);
+export const initializeCategoryFilterValuesByPermission = (
+    filter: DashboardFilterRule,
+    filters: DashboardFilters,
+    userCategories: UserCategoryList,
+): DashboardFilterRule | null => {
+    if (!isCategoryField(filter) || filter.disabled) {
+        return null;
+    }
+
+    const resolvedValue = resolveCategoryFilterValue({
+        filter,
+        filters,
+        userCategories,
+    });
+
+    if (!resolvedValue) {
+        return null;
+    }
+
+    const currentValue = filter.values?.[0];
+    if (currentValue && String(currentValue) === resolvedValue) {
+        return null;
+    }
+
+    return {
+        ...filter,
+        values: [resolvedValue],
+        operator: FilterOperator.EQUALS,
+    };
 };
 
-/**
- * 根据父级类目值获取子级类目
- */
-export const getChildCategoriesForLevel = (
-    parentCategoryId: string,
-    userCategories: UserCategoryList,
-    targetLevel: Exclude<CategoryLevel, 1>,
-): CategoryTreeNode[] => {
-    const targetCategories = getCategoriesForLevel(targetLevel, userCategories);
-    return filterCategoriesByParent(targetCategories, parentCategoryId);
+type ResolveCategoryValueArgs = {
+    filter: DashboardFilterRule;
+    filters: DashboardFilters;
+    userCategories: UserCategoryList;
+    parentValueOverride?: string | null;
 };
 
 /**
