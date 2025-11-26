@@ -156,6 +156,8 @@ export type IntrinsicUserAttributes = {
     dashboardName?: string;
 };
 
+export const DEFAULT_DASHBOARD_ATTRIBUTE_VALUE = 'NA';
+
 export const getIntrinsicUserAttributes = (
     user: Pick<LightdashUser, 'email'>,
     context?: {
@@ -164,10 +166,8 @@ export const getIntrinsicUserAttributes = (
     },
 ): IntrinsicUserAttributes => ({
     email: user.email,
-    ...(context?.dashboardSlug !== undefined && {
-        dashboardSlug: context.dashboardSlug,
-    }),
-    ...(context?.dashboardName !== undefined && {
-        dashboardName: context.dashboardName,
-    }),
+    dashboardSlug:
+        context?.dashboardSlug ?? DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
+    dashboardName:
+        context?.dashboardName ?? DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
 });

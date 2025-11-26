@@ -75,7 +75,12 @@ const FilterStringAutoComplete: FC<Props> = ({
     const { t } = useTranslation();
 
     const multiSelectRef = useRef<HTMLInputElement>(null);
-    const { projectUuid, getAutocompleteFilterGroup } = useFiltersContext();
+    const {
+        projectUuid,
+        getAutocompleteFilterGroup,
+        dashboardSlug,
+        dashboardName,
+    } = useFiltersContext();
     if (!projectUuid) {
         throw new Error(t('components_common_filters_inputs.filters_error'));
     }
@@ -113,6 +118,11 @@ const FilterStringAutoComplete: FC<Props> = ({
         forceRefresh,
         {
             refetchOnMount: 'always',
+        },
+        undefined,
+        {
+            dashboardSlug,
+            dashboardName,
         },
     );
 

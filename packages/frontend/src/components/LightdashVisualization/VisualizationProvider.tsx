@@ -80,6 +80,8 @@ export type VisualizationProviderProps = {
     setEchartsRef?: (ref: RefObject<EChartsReact | null>) => void;
     computedSeries?: Series[];
     apiErrorDetail?: ApiErrorDetail | null;
+    dashboardSlug?: string;
+    dashboardName?: string;
 };
 
 const VisualizationProvider: FC<
@@ -108,6 +110,8 @@ const VisualizationProvider: FC<
     apiErrorDetail,
     parameters,
     unsavedMetricQuery,
+    dashboardSlug,
+    dashboardName,
 }) => {
     const itemsMap = useMemo(() => {
         const metricOverrides = resultsData?.metricQuery?.metricOverrides;
@@ -457,6 +461,8 @@ const VisualizationProvider: FC<
                     dashboardFilters={dashboardFilters}
                     invalidateCache={invalidateCache}
                     parameters={parameters}
+                    dashboardSlug={dashboardSlug}
+                    dashboardName={dashboardName}
                 >
                     {({ visualizationConfig }) => (
                         <Context.Provider

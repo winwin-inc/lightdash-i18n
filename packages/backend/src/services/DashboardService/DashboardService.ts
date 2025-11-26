@@ -1604,7 +1604,7 @@ export class DashboardService
         this.logger.info(
             `User ${normalizedEmail} has ${allowedCategoryIds.size} allowed category ids in project ${projectUuid}`,
         );
-        this.logger.warn(
+        this.logger.info(
             `top 10 categories: ${JSON.stringify(allCategories.slice(0, 10))}`,
         );
 

@@ -15,6 +15,8 @@ export type DefaultFieldsMap = Record<
 
 export type FiltersContext<T extends DefaultFieldsMap = DefaultFieldsMap> = {
     projectUuid?: string;
+    dashboardSlug?: string;
+    dashboardName?: string;
     itemsMap: T;
     baseTable?: string;
     startOfWeek?: WeekDay;

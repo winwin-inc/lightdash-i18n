@@ -12,6 +12,7 @@ const EmbedDashboardFilters: FC = () => {
     );
 
     const projectUuid = useDashboardContext((c) => c.projectUuid);
+    const dashboard = useDashboardContext((c) => c.dashboard);
 
     const handlePopoverOpen = useCallback((id: string) => {
         setPopoverId(id);
@@ -25,6 +26,8 @@ const EmbedDashboardFilters: FC = () => {
     return (
         <FiltersProvider
             projectUuid={projectUuid}
+            dashboardSlug={dashboard?.slug}
+            dashboardName={dashboard?.name}
             itemsMap={{}}
             startOfWeek={undefined}
         >

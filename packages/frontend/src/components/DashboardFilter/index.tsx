@@ -36,6 +36,7 @@ const DashboardFilter: FC<Props> = ({
 
     const project = useProject(projectUuid);
 
+    const dashboard = useDashboardContext((c) => c.dashboard);
     const allFilterableFieldsMap = useDashboardContext(
         (c) => c.allFilterableFieldsMap,
     );
@@ -188,6 +189,8 @@ const DashboardFilter: FC<Props> = ({
     return (
         <FiltersProvider<Record<string, FilterableDimension>>
             projectUuid={projectUuid}
+            dashboardSlug={dashboard?.slug}
+            dashboardName={dashboard?.name}
             itemsMap={allFilterableFieldsMap}
             startOfWeek={
                 project.data?.warehouseConnection?.startOfWeek ?? undefined

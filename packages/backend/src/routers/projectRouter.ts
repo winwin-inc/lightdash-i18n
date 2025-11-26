@@ -119,6 +119,10 @@ projectRouter.post(
                     req.body.filters,
                     req.body.forceRefresh,
                     req.body.parameters,
+                    {
+                        dashboardSlug: req.body.dashboardSlug,
+                        dashboardName: req.body.dashboardName,
+                    },
                 );
 
             res.json({

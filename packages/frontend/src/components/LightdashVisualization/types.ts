@@ -151,6 +151,8 @@ export type VisualizationTableConfigProps =
         dashboardFilters: DashboardFilters | undefined;
         invalidateCache: boolean | undefined;
         parameters?: ParametersValuesMap;
+        dashboardSlug?: string;
+        dashboardName?: string;
     };
 
 // Treemap

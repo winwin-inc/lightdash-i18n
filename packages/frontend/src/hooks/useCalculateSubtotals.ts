@@ -14,6 +14,11 @@ import {
 } from '../utils/dateFilter';
 import { useProjectUuid } from './useProjectUuid';
 
+type DashboardContextInput = {
+    dashboardSlug?: string;
+    dashboardName?: string;
+};
+
 const calculateSubtotalsFromQuery = async (
     projectUuid: string,
     explore: string,
@@ -21,6 +26,7 @@ const calculateSubtotalsFromQuery = async (
     columnOrder: string[],
     pivotDimensions?: string[],
     parameters?: ParametersValuesMap,
+    dashboardContext?: DashboardContextInput,
 ): Promise<ApiCalculateSubtotalsResponse['results']> => {
     const timezoneFixPayload: CalculateSubtotalsFromQuery = {
         explore: explore,
@@ -35,7 +41,11 @@ const calculateSubtotalsFromQuery = async (
     return lightdashApi<ApiCalculateSubtotalsResponse['results']>({
         url: `/projects/${projectUuid}/calculate-subtotals`,
         method: 'POST',
-        body: JSON.stringify(timezoneFixPayload),
+        body: JSON.stringify({
+            ...timezoneFixPayload,
+            dashboardSlug: dashboardContext?.dashboardSlug,
+            dashboardName: dashboardContext?.dashboardName,
+        }),
     });
 };
 
@@ -77,6 +87,7 @@ export const useCalculateSubtotals = ({
     invalidateCache,
     embedToken,
     parameters,
+    dashboardContext,
 }: {
     metricQuery?: MetricQuery;
     explore?: string;
@@ -88,6 +99,7 @@ export const useCalculateSubtotals = ({
     invalidateCache?: boolean;
     embedToken?: string;
     parameters?: ParametersValuesMap;
+    dashboardContext?: DashboardContextInput;
 }) => {
     const projectUuid = useProjectUuid();
 
@@ -124,6 +136,7 @@ export const useCalculateSubtotals = ({
                       columnOrder,
                       pivotDimensions,
                       parameters,
+                      dashboardContext,
                   )
                 : Promise.reject(),
         {

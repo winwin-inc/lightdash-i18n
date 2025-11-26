@@ -274,6 +274,9 @@ const ValidDashboardChartTile: FC<{
         ],
     );
 
+    const dashboardSlug = useDashboardContext((c) => c.dashboard?.slug);
+    const dashboardName = useDashboardContext((c) => c.dashboard?.name);
+
     if (health.isInitialLoading || !health.data) {
         return null;
     }
@@ -298,6 +301,8 @@ const ValidDashboardChartTile: FC<{
                 dashboardChartReadyQuery.executeQueryResponse
                     .usedParametersValues
             }
+            dashboardSlug={dashboardSlug}
+            dashboardName={dashboardName}
         >
             <LightdashVisualization
                 isDashboard
@@ -366,6 +371,9 @@ const ValidDashboardChartTileMinimal: FC<{
         ],
     );
 
+    const dashboardSlug = useDashboardContext((c) => c.dashboard?.slug);
+    const dashboardName = useDashboardContext((c) => c.dashboard?.name);
+
     if (health.isInitialLoading || !health.data) {
         return null;
     }
@@ -390,6 +398,8 @@ const ValidDashboardChartTileMinimal: FC<{
                 dashboardChartReadyQuery.executeQueryResponse
                     .usedParametersValues
             }
+            dashboardSlug={dashboardSlug}
+            dashboardName={dashboardName}
         >
             <LightdashVisualization
                 isDashboard
