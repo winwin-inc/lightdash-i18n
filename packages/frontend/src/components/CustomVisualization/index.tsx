@@ -20,8 +20,13 @@ type Props = {
 };
 
 const CustomVisualization: FC<Props> = (props) => {
-    const { chartRef, isLoading, visualizationConfig, resultsData, isDashboard } =
-        useVisualizationContext();
+    const {
+        chartRef,
+        isLoading,
+        visualizationConfig,
+        resultsData,
+        isDashboard,
+    } = useVisualizationContext();
     const { t } = useTranslation();
 
     const [ref, rect] = useResizeObserver();

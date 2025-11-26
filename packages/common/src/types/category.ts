@@ -41,6 +41,3 @@ export type UserCategoryList = {
     level3: CategoryTreeNode[];
     level4: CategoryTreeNode[];
 };
-
-
-

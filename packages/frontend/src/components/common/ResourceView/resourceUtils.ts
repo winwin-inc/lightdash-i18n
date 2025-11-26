@@ -88,7 +88,7 @@ export const useResourceTypeName = () => {
                 return assertUnreachable(item, 'Resource type not supported');
         }
     };
-}
+};
 
 const getChartResourceUrl = (
     projectUuid: string,

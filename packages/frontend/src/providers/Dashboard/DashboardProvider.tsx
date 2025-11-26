@@ -60,9 +60,9 @@ import { useProject } from '../../hooks/useProject';
 import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOverrides';
 import { useUserCategories } from '../../hooks/useUserCategories';
 import {
+    initializeCategoryFilterValuesByPermission,
     isCategoryField,
     updateCategoryFilterCascade,
-    initializeCategoryFilterValuesByPermission,
 } from '../../utils/categoryFilters';
 import DashboardContext from './context';
 import { type SqlChartTileMetadata } from './types';
@@ -808,8 +808,8 @@ const DashboardProvider: React.FC<
         if (dashboardFilters === emptyFilters) return; // Skip if filters haven't been initialized yet
 
         // Check if category filters need to be initialized or validated
-        const hasCategoryFields = dashboardFilters.dimensions.some(
-            (filter) => isCategoryField(filter),
+        const hasCategoryFields = dashboardFilters.dimensions.some((filter) =>
+            isCategoryField(filter),
         );
         if (!hasCategoryFields) return;
 
@@ -838,9 +838,8 @@ const DashboardProvider: React.FC<
             let hasChanges = false;
 
             Object.entries(prevTabFilters).forEach(([tabUuid, filters]) => {
-                const initialized = initializeCategoryFiltersSequentially(
-                    filters,
-                );
+                const initialized =
+                    initializeCategoryFiltersSequentially(filters);
                 if (initialized !== filters) {
                     updated[tabUuid] = initialized;
                     hasChanges = true;

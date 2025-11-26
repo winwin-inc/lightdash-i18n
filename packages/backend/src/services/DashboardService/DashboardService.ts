@@ -1595,7 +1595,7 @@ export class DashboardService
             this.logger.warn(
                 `No categories found for user ${normalizedEmail} in project ${projectUuid}`,
             );
-            return { level1: [],  level2: [],  level3: [],  level4: [] };
+            return { level1: [], level2: [], level3: [], level4: [] };
         }
 
         // 调用 RPC 接口获取所有类目

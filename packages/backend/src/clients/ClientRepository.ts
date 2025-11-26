@@ -118,8 +118,7 @@ export class ClientRepository
     public getCategoryRpcClient(): CategoryRpcClient {
         return this.getClient(
             'categoryRpcClient',
-            () =>
-                new CategoryRpcClient(this.context.lightdashConfig),
+            () => new CategoryRpcClient(this.context.lightdashConfig),
         );
     }
 

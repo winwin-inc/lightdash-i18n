@@ -384,11 +384,10 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                         onChangeFilterRule({
                                             ...filterRule,
                                             categoryLevel: value
-                                                ? (Number.parseInt(value, 10) as
-                                                      | 1
-                                                      | 2
-                                                      | 3
-                                                      | 4)
+                                                ? (Number.parseInt(
+                                                      value,
+                                                      10,
+                                                  ) as 1 | 2 | 3 | 4)
                                                 : undefined,
                                         });
                                     }}
@@ -398,9 +397,11 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                     size="xs"
                                     data={parentFilterOptions}
                                     value={
-                                        (filterRule as DashboardFilterRule & {
-                                            parentFieldId?: string;
-                                        }).parentFieldId ?? null
+                                        (
+                                            filterRule as DashboardFilterRule & {
+                                                parentFieldId?: string;
+                                            }
+                                        ).parentFieldId ?? null
                                     }
                                     label={t(
                                         'components_dashboard_filter.configuration.category_level.parent_filter_label',

@@ -78,20 +78,34 @@ export const SqlEditorPreferencesPopover: FC = () => {
                 {settings && (
                     <Stack spacing="sm">
                         <Text size="xs" fw={500}>
-                            {t('features_sql_runner_sql_editor_preferences_popover.autocomplete_preferences')}
+                            {t(
+                                'features_sql_runner_sql_editor_preferences_popover.autocomplete_preferences',
+                            )}
                         </Text>
 
                         <Group>
                             <Text size="xs" c="dimmed" fw={500}>
-                                {t('features_sql_runner_sql_editor_preferences_popover.quotes')}
+                                {t(
+                                    'features_sql_runner_sql_editor_preferences_popover.quotes',
+                                )}
                             </Text>
 
                             <SegmentedControl
                                 size="xs"
                                 radius="md"
                                 data={[
-                                    { label: t('features_sql_runner_sql_editor_preferences_popover.always'), value: 'always' },
-                                    { label: t('features_sql_runner_sql_editor_preferences_popover.never'), value: 'never' },
+                                    {
+                                        label: t(
+                                            'features_sql_runner_sql_editor_preferences_popover.always',
+                                        ),
+                                        value: 'always',
+                                    },
+                                    {
+                                        label: t(
+                                            'features_sql_runner_sql_editor_preferences_popover.never',
+                                        ),
+                                        value: 'never',
+                                    },
                                 ]}
                                 value={settings.quotePreference}
                                 onChange={(
@@ -102,14 +116,26 @@ export const SqlEditorPreferencesPopover: FC = () => {
 
                         <Group>
                             <Text size="xs" c="dimmed" fw={500}>
-                                {t('features_sql_runner_sql_editor_preferences_popover.casing')}
+                                {t(
+                                    'features_sql_runner_sql_editor_preferences_popover.casing',
+                                )}
                             </Text>
                             <SegmentedControl
                                 size="xs"
                                 radius="md"
                                 data={[
-                                    { label: t('features_sql_runner_sql_editor_preferences_popover.uppercase'), value: 'uppercase' },
-                                    { label: t('features_sql_runner_sql_editor_preferences_popover.lowercase'), value: 'lowercase' },
+                                    {
+                                        label: t(
+                                            'features_sql_runner_sql_editor_preferences_popover.uppercase',
+                                        ),
+                                        value: 'uppercase',
+                                    },
+                                    {
+                                        label: t(
+                                            'features_sql_runner_sql_editor_preferences_popover.lowercase',
+                                        ),
+                                        value: 'lowercase',
+                                    },
                                 ]}
                                 value={settings.casePreference}
                                 onChange={(

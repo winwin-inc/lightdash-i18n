@@ -166,8 +166,6 @@ export const getIntrinsicUserAttributes = (
     },
 ): IntrinsicUserAttributes => ({
     email: user.email,
-    dashboardSlug:
-        context?.dashboardSlug ?? DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
-    dashboardName:
-        context?.dashboardName ?? DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
+    dashboardSlug: context?.dashboardSlug ?? DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
+    dashboardName: context?.dashboardName ?? DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
 });

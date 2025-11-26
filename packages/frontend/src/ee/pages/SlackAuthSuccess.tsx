@@ -1,8 +1,8 @@
 import { Button } from '@mantine/core';
 import { IconBrandSlack } from '@tabler/icons-react';
 import { useMemo } from 'react';
-import { useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router';
 
 import { EmptyState } from '../../components/common/EmptyState';
 import MantineIcon from '../../components/common/MantineIcon';
@@ -47,7 +47,9 @@ export const SlackAuthSuccess = () => {
             title={t('pages_slack_auth_success.title')}
             description={t('pages_slack_auth_success.description')}
         >
-            <Button onClick={() => window.open(slackUrl)}>{t('pages_slack_auth_success.open_slack')}</Button>
+            <Button onClick={() => window.open(slackUrl)}>
+                {t('pages_slack_auth_success.open_slack')}
+            </Button>
         </EmptyState>
     );
 };

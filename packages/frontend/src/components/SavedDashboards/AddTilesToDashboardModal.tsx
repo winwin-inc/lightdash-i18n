@@ -22,8 +22,8 @@ import {
     IconPlus,
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useState, type FC } from 'react';
-import { v4 as uuid4 } from 'uuid';
 import { useTranslation } from 'react-i18next';
+import { v4 as uuid4 } from 'uuid';
 
 import { useSavedSqlChart } from '../../features/sqlRunner/hooks/useSavedSqlCharts';
 import {

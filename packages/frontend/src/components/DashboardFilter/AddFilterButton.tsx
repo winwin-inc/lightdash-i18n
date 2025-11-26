@@ -212,7 +212,11 @@ const AddFilterButton: FC<Props> = ({
                                 onClose: closeSubPopover,
                             }}
                             filterScope={filterScope}
-                            tabUuid={filterScope === 'tab' ? activeTabUuid : undefined}
+                            tabUuid={
+                                filterScope === 'tab'
+                                    ? activeTabUuid
+                                    : undefined
+                            }
                         />
                     )}
                 </Popover.Dropdown>

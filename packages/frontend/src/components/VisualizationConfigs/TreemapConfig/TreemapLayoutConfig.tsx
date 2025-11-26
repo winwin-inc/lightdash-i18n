@@ -108,13 +108,19 @@ export const Layout: React.FC = () => {
             <Config>
                 <Config.Section>
                     <Group spacing="xs">
-                        <Config.Heading>{t('components_visualization_configs_treemap.layout_config.dimension_hierarchy.label')}</Config.Heading>
+                        <Config.Heading>
+                            {t(
+                                'components_visualization_configs_treemap.layout_config.dimension_hierarchy.label',
+                            )}
+                        </Config.Heading>
                         <Tooltip
                             withinPortal={true}
                             maw={350}
                             variant="xs"
                             multiline
-                            label={t('components_visualization_configs_treemap.layout_config.dimension_hierarchy.tooltip')}
+                            label={t(
+                                'components_visualization_configs_treemap.layout_config.dimension_hierarchy.tooltip',
+                            )}
                         >
                             <MantineIcon
                                 icon={IconHelpCircle}
@@ -151,13 +157,19 @@ export const Layout: React.FC = () => {
             <Config>
                 <Config.Section>
                     <Group spacing="xs">
-                        <Config.Heading>{t('components_visualization_configs_treemap.layout_config.size_metric.label')}</Config.Heading>
+                        <Config.Heading>
+                            {t(
+                                'components_visualization_configs_treemap.layout_config.size_metric.label',
+                            )}
+                        </Config.Heading>
                         <Tooltip
                             withinPortal={true}
                             maw={350}
                             variant="xs"
                             multiline
-                            label={t('components_visualization_configs_treemap.layout_config.size_metric.tooltip')}
+                            label={t(
+                                'components_visualization_configs_treemap.layout_config.size_metric.tooltip',
+                            )}
                         >
                             <MantineIcon
                                 icon={IconHelpCircle}
@@ -169,7 +181,9 @@ export const Layout: React.FC = () => {
                     </Group>
                     <Group>
                         <FieldSelect<Metric | TableCalculation>
-                            placeholder={t('components_visualization_configs_treemap.layout_config.size_metric.select_metric')}
+                            placeholder={t(
+                                'components_visualization_configs_treemap.layout_config.size_metric.select_metric',
+                            )}
                             disabled={numericMetrics.length === 0}
                             item={selectedSizeMetric}
                             items={numericMetrics}
@@ -192,13 +206,19 @@ export const Layout: React.FC = () => {
             <Config>
                 <Config.Section>
                     <Group spacing="xs">
-                        <Config.Heading>{t('components_visualization_configs_treemap.layout_config.color_metric.label')}</Config.Heading>
+                        <Config.Heading>
+                            {t(
+                                'components_visualization_configs_treemap.layout_config.color_metric.label',
+                            )}
+                        </Config.Heading>
                         <Tooltip
                             withinPortal={true}
                             maw={350}
                             variant="xs"
                             multiline
-                            label={t('components_visualization_configs_treemap.layout_config.color_metric.tooltip')}
+                            label={t(
+                                'components_visualization_configs_treemap.layout_config.color_metric.tooltip',
+                            )}
                         >
                             <MantineIcon
                                 icon={IconHelpCircle}
@@ -215,7 +235,9 @@ export const Layout: React.FC = () => {
                     {useDynamicColors ? (
                         <Group spacing="xs">
                             <FieldSelect<Metric | TableCalculation>
-                                placeholder={t('components_visualization_configs_treemap.layout_config.color_metric.select_metric')}
+                                placeholder={t(
+                                    'components_visualization_configs_treemap.layout_config.color_metric.select_metric',
+                                )}
                                 disabled={numericMetrics.length === 0}
                                 item={selectedColorMetric}
                                 items={numericMetrics}
@@ -232,37 +254,57 @@ export const Layout: React.FC = () => {
                                 hasGrouping
                             />
                             <Group spacing="xs">
-                                <Config.Label>{t('components_visualization_configs_treemap.layout_config.color_metric.min_color')}</Config.Label>
+                                <Config.Label>
+                                    {t(
+                                        'components_visualization_configs_treemap.layout_config.color_metric.min_color',
+                                    )}
+                                </Config.Label>
                                 <ColorSelector
                                     color={startColor}
                                     swatches={ECHARTS_DEFAULT_COLORS}
                                     withAlpha
                                     onColorChange={onStartColorChange}
                                 />
-                                <Config.Label>{t('components_visualization_configs_treemap.layout_config.color_metric.threshold')}</Config.Label>
+                                <Config.Label>
+                                    {t(
+                                        'components_visualization_configs_treemap.layout_config.color_metric.threshold',
+                                    )}
+                                </Config.Label>
                                 <NumberInput
                                     value={startColorThreshold}
                                     onChange={setStartColorThreshold}
                                     hideControls={true}
                                     precision={2}
-                                    placeholder={t('components_visualization_configs_treemap.layout_config.color_metric.auto')}
+                                    placeholder={t(
+                                        'components_visualization_configs_treemap.layout_config.color_metric.auto',
+                                    )}
                                 />
                             </Group>
                             <Group spacing="xs">
-                                <Config.Label>{t('components_visualization_configs_treemap.layout_config.color_metric.max_color')}</Config.Label>
+                                <Config.Label>
+                                    {t(
+                                        'components_visualization_configs_treemap.layout_config.color_metric.max_color',
+                                    )}
+                                </Config.Label>
                                 <ColorSelector
                                     color={endColor}
                                     swatches={ECHARTS_DEFAULT_COLORS}
                                     withAlpha
                                     onColorChange={onEndColorChange}
                                 />
-                                <Config.Label>{t('components_visualization_configs_treemap.layout_config.color_metric.threshold')}</Config.Label>
+                                <Config.Label>
+                                    {t(
+                                        'components_visualization_configs_treemap.layout_config.color_metric.threshold',
+                                    )}
+                                </Config.Label>
                                 <NumberInput
                                     value={endColorThreshold}
                                     onChange={setEndColorThreshold}
                                     hideControls={true}
                                     precision={2}
-                                    placeholder={t('components_visualization_configs_treemap.layout_config.color_metric.auto')}
+                                    placeholder={t(
+                                        'components_visualization_configs_treemap.layout_config.color_metric.auto',
+                                    )}
                                 />
                             </Group>
                         </Group>

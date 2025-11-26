@@ -28,8 +28,12 @@ const FormatMenuOptions: FC<Props> = ({ item }) => {
 
     return (
         <>
-            <Menu.Label>{t("components_explorer_results_card.format")}</Menu.Label>
-            <Menu.Item onClick={onCreate}>{t("components_explorer_results_card.edit_format")}</Menu.Item>
+            <Menu.Label>
+                {t('components_explorer_results_card.format')}
+            </Menu.Label>
+            <Menu.Item onClick={onCreate}>
+                {t('components_explorer_results_card.edit_format')}
+            </Menu.Item>
         </>
     );
 };

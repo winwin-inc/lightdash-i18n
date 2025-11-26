@@ -42,7 +42,7 @@ export const SearchDropdown: FC<Props> = ({
     const navigate = useNavigate();
 
     const getSearchItemLabel = useSearchItemLabel();
-    
+
     const canUserManageValidation = useValidationUserAbility(projectUuid);
     const combobox = useCombobox({
         onDropdownClose: () => combobox.resetSelectedOption(),

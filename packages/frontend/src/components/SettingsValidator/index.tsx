@@ -398,9 +398,12 @@ export const SettingsValidator: FC<{ projectUuid: string }> = ({
                 >
                     <Text fw={500} fz="xs" c="gray.6">
                         {!!data?.length
-                            ? t('components_settings_validator.last_validated_at', {
-                                date: formatTime(data[0].createdAt),
-                            })
+                            ? t(
+                                  'components_settings_validator.last_validated_at',
+                                  {
+                                      date: formatTime(data[0].createdAt),
+                                  },
+                              )
                             : null}
                     </Text>
                     <Button

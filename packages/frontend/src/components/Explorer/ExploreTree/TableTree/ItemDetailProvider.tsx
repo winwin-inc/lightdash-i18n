@@ -68,7 +68,11 @@ export const ItemDetailProvider: FC<PropsWithChildren<{}>> = ({ children }) => {
         if (itemDetail.description) {
             return <ItemDetailMarkdown source={itemDetail.description} />;
         }
-        return <Text color="gray">{t('components_explorer_table_tree.no_description_available')}</Text>;
+        return (
+            <Text color="gray">
+                {t('components_explorer_table_tree.no_description_available')}
+            </Text>
+        );
     }, [itemDetail.description, t]);
 
     return (

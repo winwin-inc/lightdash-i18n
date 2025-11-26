@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { Navigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { Navigate } from 'react-router';
 
 import PageSpinner from '../../../components/PageSpinner';
 import useToaster from '../../../hooks/toaster/useToaster';

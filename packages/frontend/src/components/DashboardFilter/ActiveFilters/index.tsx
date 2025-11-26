@@ -225,7 +225,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
 
     const appliedRemoveDimensionFilter = useCallback(
         (index: number, isTemporary: boolean) => {
-        if (filterScope === 'global') {
+            if (filterScope === 'global') {
                 removeDimensionDashboardFilter(index, isTemporary);
             } else {
                 removeTabDimensionFilter(
@@ -436,7 +436,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                                 {field || item.target.isSqlColumn ? (
                                     <Filter
                                         key={item.id}
-                                       filterScope={filterScope}
+                                        filterScope={filterScope}
                                         isEditMode={isEditMode}
                                         field={field}
                                         filterRule={item}
@@ -485,7 +485,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                 return field || item.target.isSqlColumn ? (
                     <Filter
                         key={item.id}
-                       filterScope={filterScope}
+                        filterScope={filterScope}
                         isTemporary
                         isEditMode={isEditMode}
                         field={field}

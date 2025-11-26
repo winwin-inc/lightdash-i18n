@@ -19,8 +19,8 @@ const EmptyChart = () => {
                 icon={IconChartTreemap}
             />
         </div>
-    )
-}
+    );
+};
 
 const LoadingChart = () => {
     const { t } = useTranslation();
@@ -33,8 +33,8 @@ const LoadingChart = () => {
                 className="loading_chart"
             />
         </div>
-    )
-}
+    );
+};
 
 type SimpleTreemapProps = Omit<EChartsReactProps, 'option'> & {
     isInDashboard: boolean;

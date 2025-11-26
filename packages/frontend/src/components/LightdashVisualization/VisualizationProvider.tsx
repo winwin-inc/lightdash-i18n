@@ -116,7 +116,7 @@ const VisualizationProvider: FC<
     const itemsMap = useMemo(() => {
         const metricOverrides = resultsData?.metricQuery?.metricOverrides;
         const resultItemsMap = resultsData?.fields;
-    
+
         if (!metricOverrides) return resultItemsMap;
 
         return Object.fromEntries(

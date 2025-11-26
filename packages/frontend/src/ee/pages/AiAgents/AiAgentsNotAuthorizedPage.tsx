@@ -69,7 +69,9 @@ const AiAgentsNotAuthorizedPage: FC = () => {
                                 component={Link}
                                 to={`/projects/${projectUuid}/home`}
                             >
-                                {t('pages_ai_agents_not_authorized.go_back_to_project_home')}
+                                {t(
+                                    'pages_ai_agents_not_authorized.go_back_to_project_home',
+                                )}
                             </Button>
                         </Stack>
                     </Paper>

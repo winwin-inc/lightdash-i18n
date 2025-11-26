@@ -311,8 +311,12 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                                         }
                                     >
                                         {isVisualizationConfigOpen
-                                            ? t('components_explorer_visualization_card.close_configure')
-                                            : t('components_explorer_visualization_card.configure')}
+                                            ? t(
+                                                  'components_explorer_visualization_card.close_configure',
+                                              )
+                                            : t(
+                                                  'components_explorer_visualization_card.configure',
+                                              )}
                                     </Button>
                                 ) : null}
 

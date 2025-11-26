@@ -27,8 +27,8 @@ import {
     useQueryClient,
     type UseQueryOptions,
 } from '@tanstack/react-query';
-import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router';
 
 import { lightdashApi } from '../../../../api';
 import useHealth from '../../../../hooks/health/useHealth';

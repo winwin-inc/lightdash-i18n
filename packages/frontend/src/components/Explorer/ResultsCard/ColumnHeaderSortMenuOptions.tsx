@@ -58,16 +58,18 @@ const ColumnHeaderSortMenuOptions: FC<Props> = ({ item, sort }) => {
 
     return (
         <>
-            <Menu.Label>{t(
-                            'components_explorer_results_card_column_context_menu.sorting',
-                        )}</Menu.Label>
+            <Menu.Label>
+                {t(
+                    'components_explorer_results_card_column_context_menu.sorting',
+                )}
+            </Menu.Label>
             {item &&
                 getSortDirectionOrder(item).map((sortDirection) => (
                     <Menu.Item
                         key={sortDirection}
                         icon={
                             hasSort &&
-                                selectedSortDirection === sortDirection ? (
+                            selectedSortDirection === sortDirection ? (
                                 <MantineIcon icon={IconCheck} />
                             ) : undefined
                         }

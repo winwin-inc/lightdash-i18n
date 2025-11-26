@@ -72,7 +72,7 @@ type Props = {
 
 const TreeSingleNodeComponent: FC<Props> = ({ node }) => {
     const { t } = useTranslation();
-    
+
     const itemsMap = useTableTree((context) => {
         return context.itemsMap;
     });

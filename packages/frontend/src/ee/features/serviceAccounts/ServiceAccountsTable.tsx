@@ -55,11 +55,17 @@ const TableRow: FC<{
                 {scopes.length > 2 ? (
                     <HoverCard offset={-20}>
                         <HoverCard.Target>
-                            <Group>{`${scopes.length} ${t('features_service_accounts_table.scopes')}`}</Group>
+                            <Group>{`${scopes.length} ${t(
+                                'features_service_accounts_table.scopes',
+                            )}`}</Group>
                         </HoverCard.Target>
                         <HoverCard.Dropdown>
                             <Stack>
-                                <Text fw="700">{t('features_service_accounts_table.selected_scopes')}</Text>
+                                <Text fw="700">
+                                    {t(
+                                        'features_service_accounts_table.selected_scopes',
+                                    )}
+                                </Text>
                                 {scopeBadges}
                             </Stack>
                         </HoverCard.Dropdown>
@@ -70,15 +76,19 @@ const TableRow: FC<{
             </td>
             <td>
                 <Group align="center" position="left" spacing="xs">
-                    {expiresAt ? formatDate(expiresAt) : t('features_service_accounts_table.no_expiration_date')}
+                    {expiresAt
+                        ? formatDate(expiresAt)
+                        : t(
+                              'features_service_accounts_table.no_expiration_date',
+                          )}
                     {rotatedAt && (
                         <Tooltip
                             withinPortal
                             position="top"
                             maw={350}
-                            label={`${t('features_service_accounts_table.last_rotated_at')} ${formatTimestamp(
-                                rotatedAt,
-                            )}`}
+                            label={`${t(
+                                'features_service_accounts_table.last_rotated_at',
+                            )} ${formatTimestamp(rotatedAt)}`}
                         >
                             <MantineIcon
                                 icon={IconInfoCircle}
@@ -157,10 +167,26 @@ export const ServiceAccountsTable: FC<TableProps> = ({
                 <Table className={cx(classes.root, classes.alignLastTdRight)}>
                     <thead>
                         <tr>
-                            <th>{t('features_service_accounts_table.columns.description')}</th>
-                            <th>{t('features_service_accounts_table.columns.scopes')}</th>
-                            <th>{t('features_service_accounts_table.columns.expires_at')}</th>
-                            <th>{t('features_service_accounts_table.columns.last_used_at')}</th>
+                            <th>
+                                {t(
+                                    'features_service_accounts_table.columns.description',
+                                )}
+                            </th>
+                            <th>
+                                {t(
+                                    'features_service_accounts_table.columns.scopes',
+                                )}
+                            </th>
+                            <th>
+                                {t(
+                                    'features_service_accounts_table.columns.expires_at',
+                                )}
+                            </th>
+                            <th>
+                                {t(
+                                    'features_service_accounts_table.columns.last_used_at',
+                                )}
+                            </th>
                             <th></th>
                         </tr>
                     </thead>

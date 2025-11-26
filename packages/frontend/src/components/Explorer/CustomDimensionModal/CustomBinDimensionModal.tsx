@@ -53,7 +53,7 @@ export const CustomBinDimensionModal: FC<{
     item: Dimension | CustomBinDimension;
 }> = ({ isEditing, item }) => {
     const { t } = useTranslation();
-    
+
     const { showToastSuccess } = useToaster();
     const dispatch = useExplorerDispatch();
     const customDimensions = useExplorerSelector(selectCustomDimensions);

@@ -224,8 +224,8 @@ const resolveCategoryFilterValue = ({
             parentValueOverride !== undefined
                 ? parentValueOverride ?? undefined
                 : parentFilter.values && parentFilter.values.length > 0
-                  ? String(parentFilter.values[0])
-                  : undefined;
+                ? String(parentFilter.values[0])
+                : undefined;
 
         if (!parentLabel) {
             return undefined;
@@ -290,7 +290,6 @@ export const getChildCategoriesForLevel = (
     const targetCategories = getCategoriesForLevel(targetLevel, userCategories);
     return filterCategoriesByParent(targetCategories, parentCategoryId);
 };
-
 
 /**
  * 处理类目筛选器联动

@@ -18,8 +18,8 @@ import {
     IconPlus,
     IconRobot,
 } from '@tabler/icons-react';
-import { Link, Navigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { Link, Navigate, useParams } from 'react-router';
 
 import MantineIcon from '../../../components/common/MantineIcon';
 import { AiAgentPageLayout } from '../../features/aiCopilot/components/AiAgentPageLayout/AiAgentPageLayout';
@@ -27,7 +27,6 @@ import { useAiAgentPermission } from '../../features/aiCopilot/hooks/useAiAgentP
 import { useAiOrganizationSettings } from '../../features/aiCopilot/hooks/useAiOrganizationSettings';
 import { useProjectAiAgents } from '../../features/aiCopilot/hooks/useProjectAiAgents';
 import { useGetUserAgentPreferences } from '../../features/aiCopilot/hooks/useUserAgentPreferences';
-
 
 const AiPageLoading = () => (
     <AiAgentPageLayout>
@@ -50,36 +49,45 @@ const AgentsWelcome = () => {
         organizationSettingsQuery.data?.isTrial;
 
     const AGENT_FEATURES = [
-      {
-          icon: IconClipboardData,
-          color: 'cyan',
-          title: t('pages_ai_agents_welcome.agent_features.analyze.title'),
-          description:
-              t('pages_ai_agents_welcome.agent_features.analyze.description'),
-      },
-      {
-          icon: IconBulb,
-          color: 'grape',
-          title: t('pages_ai_agents_welcome.agent_features.get_insights.title'),
-          description:
-              t('pages_ai_agents_welcome.agent_features.get_insights.description'),
-      },
-      {
-          icon: IconChartHistogram,
-          color: 'lime',
-          title: t('pages_ai_agents_welcome.agent_features.create_visualizations.title'),
-          description:
-              t('pages_ai_agents_welcome.agent_features.create_visualizations.description'),
-      },
-      {
-          icon: IconMessageChatbot,
-          color: 'orange',
-          title: t('pages_ai_agents_welcome.agent_features.specialized_agents.title'),
-          description:
-              t('pages_ai_agents_welcome.agent_features.specialized_agents.description'),
-      },
+        {
+            icon: IconClipboardData,
+            color: 'cyan',
+            title: t('pages_ai_agents_welcome.agent_features.analyze.title'),
+            description: t(
+                'pages_ai_agents_welcome.agent_features.analyze.description',
+            ),
+        },
+        {
+            icon: IconBulb,
+            color: 'grape',
+            title: t(
+                'pages_ai_agents_welcome.agent_features.get_insights.title',
+            ),
+            description: t(
+                'pages_ai_agents_welcome.agent_features.get_insights.description',
+            ),
+        },
+        {
+            icon: IconChartHistogram,
+            color: 'lime',
+            title: t(
+                'pages_ai_agents_welcome.agent_features.create_visualizations.title',
+            ),
+            description: t(
+                'pages_ai_agents_welcome.agent_features.create_visualizations.description',
+            ),
+        },
+        {
+            icon: IconMessageChatbot,
+            color: 'orange',
+            title: t(
+                'pages_ai_agents_welcome.agent_features.specialized_agents.title',
+            ),
+            description: t(
+                'pages_ai_agents_welcome.agent_features.specialized_agents.description',
+            ),
+        },
     ] as const;
-      
 
     const agentsQuery = useProjectAiAgents({
         projectUuid,
@@ -133,16 +141,23 @@ const AgentsWelcome = () => {
                         <Avatar size="lg" color="gray">
                             <MantineIcon icon={IconRobot} size="xxl" />
                         </Avatar>
-                        <Title order={2}>{t('pages_ai_agents_welcome.welcome')}</Title>
+                        <Title order={2}>
+                            {t('pages_ai_agents_welcome.welcome')}
+                        </Title>
                         <Text c="dimmed" size="sm">
-                            {t('pages_ai_agents_welcome.your_ai_powered_bi_assistants')}
+                            {t(
+                                'pages_ai_agents_welcome.your_ai_powered_bi_assistants',
+                            )}
                         </Text>
                     </Stack>
 
                     <Paper p="xl" shadow="subtle">
                         <Stack>
                             <Title order={5}>
-                                {t('pages_ai_agents_welcome.what_you_can_do_with_ai_agents')}:
+                                {t(
+                                    'pages_ai_agents_welcome.what_you_can_do_with_ai_agents',
+                                )}
+                                :
                             </Title>
 
                             <List
@@ -195,9 +210,13 @@ const AgentsWelcome = () => {
                         withBorder
                         style={{ borderStyle: 'dashed' }}
                     >
-                        <Title order={5}>{t('pages_ai_agents_welcome.ready_to_get_started')}</Title>
+                        <Title order={5}>
+                            {t('pages_ai_agents_welcome.ready_to_get_started')}
+                        </Title>
                         <Text size="sm" c="dimmed">
-                            {t('pages_ai_agents_welcome.create_your_first_agent')}
+                            {t(
+                                'pages_ai_agents_welcome.create_your_first_agent',
+                            )}
                         </Text>
                         <Box mt="lg">
                             {canCreateAgent ? (
@@ -209,7 +228,9 @@ const AgentsWelcome = () => {
                                     component={Link}
                                     to={`/projects/${projectUuid}/ai-agents/new`}
                                 >
-                                    {t('pages_ai_agents_welcome.create_your_first_agent_button')}
+                                    {t(
+                                        'pages_ai_agents_welcome.create_your_first_agent_button',
+                                    )}
                                 </Button>
                             ) : (
                                 <Text size="sm" c="dimmed" fs="italic">

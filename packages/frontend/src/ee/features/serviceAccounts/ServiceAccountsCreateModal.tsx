@@ -28,7 +28,6 @@ const AVAILABLE_SCOPES = Object.values(ServiceAccountScope)
     }))
     .filter((scope) => scope.group !== 'scim');
 
-
 type Props = {
     isOpen: boolean;
     onClose: () => void;
@@ -48,31 +47,45 @@ export const ServiceAccountsCreateModal: FC<Props> = ({
 
     const expireOptions = [
         {
-            label: t('features_service_accounts_create_modal.expire_options.no_expiration'),
+            label: t(
+                'features_service_accounts_create_modal.expire_options.no_expiration',
+            ),
             value: '',
         },
         {
-            label: t('features_service_accounts_create_modal.expire_options.7_days'),
+            label: t(
+                'features_service_accounts_create_modal.expire_options.7_days',
+            ),
             value: '7',
         },
         {
-            label: t('features_service_accounts_create_modal.expire_options.30_days'),
+            label: t(
+                'features_service_accounts_create_modal.expire_options.30_days',
+            ),
             value: '30',
         },
         {
-            label: t('features_service_accounts_create_modal.expire_options.60_days'),
+            label: t(
+                'features_service_accounts_create_modal.expire_options.60_days',
+            ),
             value: '60',
         },
         {
-            label: t('features_service_accounts_create_modal.expire_options.90_days'),
+            label: t(
+                'features_service_accounts_create_modal.expire_options.90_days',
+            ),
             value: '90',
         },
         {
-            label: t('features_service_accounts_create_modal.expire_options.6_months'),
+            label: t(
+                'features_service_accounts_create_modal.expire_options.6_months',
+            ),
             value: '180',
         },
         {
-            label: t('features_service_accounts_create_modal.expire_options.1_year'),
+            label: t(
+                'features_service_accounts_create_modal.expire_options.1_year',
+            ),
             value: '365',
         },
     ];
@@ -93,7 +106,9 @@ export const ServiceAccountsCreateModal: FC<Props> = ({
         validate: {
             scopes: (value) => {
                 if (value.length === 0) {
-                    return t('features_service_accounts_create_modal.at_least_one_scope_required');
+                    return t(
+                        'features_service_accounts_create_modal.at_least_one_scope_required',
+                    );
                 }
                 return null;
             },
@@ -116,7 +131,9 @@ export const ServiceAccountsCreateModal: FC<Props> = ({
         <Modal
             opened={isOpen}
             onClose={closeModal}
-            title={t('features_service_accounts_create_modal.new_service_account')}
+            title={t(
+                'features_service_accounts_create_modal.new_service_account',
+            )}
             styles={(theme) => ({
                 title: { fontWeight: 'bold', fontSize: theme.fontSizes.lg },
             })}
@@ -125,8 +142,12 @@ export const ServiceAccountsCreateModal: FC<Props> = ({
                 <form onSubmit={handleOnSubmit}>
                     <Stack spacing="md">
                         <TextInput
-                            label={t('features_service_accounts_create_modal.form.description.label')}
-                            placeholder={t('features_service_accounts_create_modal.form.description.placeholder')}
+                            label={t(
+                                'features_service_accounts_create_modal.form.description.label',
+                            )}
+                            placeholder={t(
+                                'features_service_accounts_create_modal.form.description.placeholder',
+                            )}
                             required
                             disabled={isWorking}
                             {...form.getInputProps('description')}
@@ -134,14 +155,20 @@ export const ServiceAccountsCreateModal: FC<Props> = ({
                         <Select
                             withinPortal
                             defaultValue={expireOptions[0].value}
-                            label={t('features_service_accounts_create_modal.form.expires_at.label')}
+                            label={t(
+                                'features_service_accounts_create_modal.form.expires_at.label',
+                            )}
                             data={expireOptions}
                             disabled={isWorking}
                             {...form.getInputProps('expiresAt')}
                         ></Select>
                         <MultiSelect
-                            label={t('features_service_accounts_create_modal.form.scopes.label')}
-                            placeholder={t('features_service_accounts_create_modal.form.scopes.placeholder')}
+                            label={t(
+                                'features_service_accounts_create_modal.form.scopes.label',
+                            )}
+                            placeholder={t(
+                                'features_service_accounts_create_modal.form.scopes.placeholder',
+                            )}
                             data={AVAILABLE_SCOPES}
                             required
                             searchable
@@ -151,14 +178,18 @@ export const ServiceAccountsCreateModal: FC<Props> = ({
                         />
 
                         <Button type="submit" ml="auto" loading={isWorking}>
-                            {t('features_service_accounts_create_modal.create_service_account')}
+                            {t(
+                                'features_service_accounts_create_modal.create_service_account',
+                            )}
                         </Button>
                     </Stack>
                 </form>
             ) : (
                 <Stack spacing="md">
                     <TextInput
-                        label={t('features_service_accounts_create_modal.token')}
+                        label={t(
+                            'features_service_accounts_create_modal.token',
+                        )}
                         readOnly
                         className="sentry-block ph-no-capture"
                         value={token}
@@ -166,7 +197,15 @@ export const ServiceAccountsCreateModal: FC<Props> = ({
                             <CopyButton value={token}>
                                 {({ copied, copy }) => (
                                     <Tooltip
-                                        label={copied ? t('features_service_accounts_create_modal.copied') : t('features_service_accounts_create_modal.copy')}
+                                        label={
+                                            copied
+                                                ? t(
+                                                      'features_service_accounts_create_modal.copied',
+                                                  )
+                                                : t(
+                                                      'features_service_accounts_create_modal.copy',
+                                                  )
+                                        }
                                         withArrow
                                         position="right"
                                     >
@@ -188,7 +227,9 @@ export const ServiceAccountsCreateModal: FC<Props> = ({
                         }
                     />
                     <Alert icon={<MantineIcon icon={IconAlertCircle} />}>
-                        {t('features_service_accounts_create_modal.make_sure_to_copy_token')}
+                        {t(
+                            'features_service_accounts_create_modal.make_sure_to_copy_token',
+                        )}
                     </Alert>
                     <Button onClick={closeModal} ml="auto">
                         {t('features_service_accounts_create_modal.done')}

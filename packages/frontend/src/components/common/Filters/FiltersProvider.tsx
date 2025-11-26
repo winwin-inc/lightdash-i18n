@@ -64,7 +64,10 @@ const FiltersProvider = <T extends DefaultFieldsMap = DefaultFieldsMap>({
                 and:
                     currentFilterIndex === -1
                         ? dashboardFilters.dimensions
-                        : dashboardFilters.dimensions.slice(0, currentFilterIndex),
+                        : dashboardFilters.dimensions.slice(
+                              0,
+                              currentFilterIndex,
+                          ),
             };
         },
         [dashboardFilters],

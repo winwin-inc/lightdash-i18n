@@ -5,9 +5,9 @@ import Editor, {
 } from '@monaco-editor/react';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { format } from 'sql-formatter';
-import { useTranslation } from 'react-i18next';
 
 import { getLanguage } from '../features/sqlRunner/store/sqlRunnerSlice';
 import {

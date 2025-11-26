@@ -381,7 +381,10 @@ const FilterStringAutoComplete: FC<Props> = ({
                     ) : isError ? (
                         <Tooltip
                             label={
-                                error?.error?.message || t('components_common_filters_inputs.filter_not_available')
+                                error?.error?.message ||
+                                t(
+                                    'components_common_filters_inputs.filter_not_available',
+                                )
                             }
                             withinPortal
                         >

@@ -14,8 +14,8 @@ import { ColumnVisibility } from '../components/common/ResourceView/types';
 
 import SpaceActionModal from '../components/common/SpaceActionModal';
 import { ActionType } from '../components/common/SpaceActionModal/types';
-import useApp from '../providers/App/useApp';
 import { useProject } from '../hooks/useProject';
+import useApp from '../providers/App/useApp';
 
 const Spaces: FC = () => {
     const { t } = useTranslation();

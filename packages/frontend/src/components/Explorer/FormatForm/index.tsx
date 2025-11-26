@@ -20,8 +20,8 @@ import {
 } from '@mantine/core';
 import { type GetInputProps } from '@mantine/form/lib/types';
 import { useMemo, type FC } from 'react';
-import { type ValueOf } from 'type-fest';
 import { useTranslation } from 'react-i18next';
+import { type ValueOf } from 'type-fest';
 
 type Props = {
     formatInputProps: (
@@ -45,21 +45,41 @@ const formatTypeOptions = [
 ];
 
 const useFormatTypeLabels = () => {
-  const { t } = useTranslation();
+    const { t } = useTranslation();
 
-  return {
-    [CustomFormatType.ID]: t("components_explorer_format_form.type_labels.id"),
-    [CustomFormatType.DATE]: t("components_explorer_format_form.type_labels.date"),
-    [CustomFormatType.TIMESTAMP]: t("components_explorer_format_form.type_labels.timestamp"),
-    [CustomFormatType.DEFAULT]: t("components_explorer_format_form.type_labels.default"),
-    [CustomFormatType.PERCENT]: t("components_explorer_format_form.type_labels.percent"),
-    [CustomFormatType.CURRENCY]: t("components_explorer_format_form.type_labels.currency"),
-    [CustomFormatType.NUMBER]: t("components_explorer_format_form.type_labels.number"),
-    [CustomFormatType.BYTES_SI]: t("components_explorer_format_form.type_labels.bytes_si"),
-    [CustomFormatType.BYTES_IEC]: t("components_explorer_format_form.type_labels.bytes_iec"),
-    [CustomFormatType.CUSTOM]: t("components_explorer_format_form.type_labels.custom"),
-  } as const;
-}
+    return {
+        [CustomFormatType.ID]: t(
+            'components_explorer_format_form.type_labels.id',
+        ),
+        [CustomFormatType.DATE]: t(
+            'components_explorer_format_form.type_labels.date',
+        ),
+        [CustomFormatType.TIMESTAMP]: t(
+            'components_explorer_format_form.type_labels.timestamp',
+        ),
+        [CustomFormatType.DEFAULT]: t(
+            'components_explorer_format_form.type_labels.default',
+        ),
+        [CustomFormatType.PERCENT]: t(
+            'components_explorer_format_form.type_labels.percent',
+        ),
+        [CustomFormatType.CURRENCY]: t(
+            'components_explorer_format_form.type_labels.currency',
+        ),
+        [CustomFormatType.NUMBER]: t(
+            'components_explorer_format_form.type_labels.number',
+        ),
+        [CustomFormatType.BYTES_SI]: t(
+            'components_explorer_format_form.type_labels.bytes_si',
+        ),
+        [CustomFormatType.BYTES_IEC]: t(
+            'components_explorer_format_form.type_labels.bytes_iec',
+        ),
+        [CustomFormatType.CUSTOM]: t(
+            'components_explorer_format_form.type_labels.custom',
+        ),
+    } as const;
+};
 
 const formatCurrencyOptions = currencies.map((c) => {
     const currencyFormat = Intl.NumberFormat(undefined, {
@@ -96,28 +116,27 @@ export const FormatForm: FC<Props> = ({
     }, [format.compact, formatType]);
 
     const formatSeparatorOptions = [
-      {
-          value: NumberSeparator.DEFAULT,
-          label: t("components_explorer_format_form.default_separator"),
-      },
-      {
-          value: NumberSeparator.COMMA_PERIOD,
-          label: '100,000.00',
-      },
-      {
-          value: NumberSeparator.SPACE_PERIOD,
-          label: '100 000.00',
-      },
-      {
-          value: NumberSeparator.PERIOD_COMMA,
-          label: '100.000,00',
-      },
-      {
-          value: NumberSeparator.NO_SEPARATOR_PERIOD,
-          label: '100000.00',
-      },
+        {
+            value: NumberSeparator.DEFAULT,
+            label: t('components_explorer_format_form.default_separator'),
+        },
+        {
+            value: NumberSeparator.COMMA_PERIOD,
+            label: '100,000.00',
+        },
+        {
+            value: NumberSeparator.SPACE_PERIOD,
+            label: '100 000.00',
+        },
+        {
+            value: NumberSeparator.PERIOD_COMMA,
+            label: '100.000,00',
+        },
+        {
+            value: NumberSeparator.NO_SEPARATOR_PERIOD,
+            label: '100000.00',
+        },
     ];
-
 
     const formatTypeLabels = useFormatTypeLabels();
 
@@ -127,14 +146,18 @@ export const FormatForm: FC<Props> = ({
                 <Select
                     withinPortal
                     w={200}
-                    label={t("components_explorer_format_form.type.label")}
+                    label={t('components_explorer_format_form.type.label')}
                     data={formatTypeOptions.map((type) => ({
                         value: type,
                         label:
                             type === CustomFormatType.BYTES_SI
-                                ? t("components_explorer_format_form.type.data.bytes_si")
+                                ? t(
+                                      'components_explorer_format_form.type.data.bytes_si',
+                                  )
                                 : type === CustomFormatType.BYTES_IEC
-                                ? t("components_explorer_format_form.type.data.bytes_iec")
+                                ? t(
+                                      'components_explorer_format_form.type.data.bytes_iec',
+                                  )
                                 : formatTypeLabels[type],
                     }))}
                     {...{
@@ -169,25 +192,33 @@ export const FormatForm: FC<Props> = ({
                     CustomFormatType.BYTES_IEC,
                 ].includes(formatType) && (
                     <Text ml="md" mt={30} w={200} color="gray.6">
-                        {t("components_explorer_format_form.format.format")}:{' '}
+                        {t('components_explorer_format_form.format.format')}:{' '}
                         {convertCustomFormatToFormatExpression(format)}
                     </Text>
                 )}
             </Flex>
             {formatType === CustomFormatType.CUSTOM && (
                 <TextInput
-                    label={t("components_explorer_format_form.format.label")}
-                    placeholder={t("components_explorer_format_form.format.placeholder")}
+                    label={t('components_explorer_format_form.format.label')}
+                    placeholder={t(
+                        'components_explorer_format_form.format.placeholder',
+                    )}
                     description={
                         <p>
-                            {t("components_explorer_format_form.format.description.part_1")}
+                            {t(
+                                'components_explorer_format_form.format.description.part_1',
+                            )}
                             <Anchor
                                 href="https://customformats.com"
                                 target="_blank"
                             >
-                                {t("components_explorer_format_form.format.description.part_2")}
+                                {t(
+                                    'components_explorer_format_form.format.description.part_2',
+                                )}
                             </Anchor>
-                            {t("components_explorer_format_form.format.description.part_3")}
+                            {t(
+                                'components_explorer_format_form.format.description.part_3',
+                            )}
                         </p>
                     }
                     {...formatInputProps('custom')}
@@ -258,13 +289,21 @@ export const FormatForm: FC<Props> = ({
                         mr="md"
                         w={200}
                         clearable
-                        label={t("components_explorer_format_form.compact.label")}
+                        label={t(
+                            'components_explorer_format_form.compact.label',
+                        )}
                         placeholder={
                             formatType === CustomFormatType.BYTES_SI
-                                ? t("components_explorer_format_form.compact.placeholder.part_1")
+                                ? t(
+                                      'components_explorer_format_form.compact.placeholder.part_1',
+                                  )
                                 : formatType === CustomFormatType.BYTES_IEC
-                                ? t("components_explorer_format_form.compact.placeholder.part_2")
-                                : t("components_explorer_format_form.compact.placeholder.part_3")
+                                ? t(
+                                      'components_explorer_format_form.compact.placeholder.part_2',
+                                  )
+                                : t(
+                                      'components_explorer_format_form.compact.placeholder.part_3',
+                                  )
                         }
                         data={getCompactOptionsForFormatType(formatType).map(
                             (c) => ({

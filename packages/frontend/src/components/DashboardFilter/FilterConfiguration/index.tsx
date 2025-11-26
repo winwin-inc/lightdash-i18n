@@ -39,6 +39,7 @@ import { useParams } from 'react-router';
 
 import { useProject } from '../../../hooks/useProject';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
+import { isCategoryField } from '../../../utils/categoryFilters';
 import FieldSelect from '../../common/FieldSelect';
 import FieldIcon from '../../common/Filters/FieldIcon';
 import FieldLabel from '../../common/Filters/FieldLabel';
@@ -52,7 +53,6 @@ import {
     hasSavedFilterValueChanged,
     isFilterEnabled,
 } from './utils';
-import { isCategoryField } from '../../../utils/categoryFilters';
 
 interface Props {
     tiles: DashboardTile[];
@@ -358,8 +358,8 @@ const FilterConfiguration: FC<Props> = ({
             filterScope === 'global'
                 ? globalFilters
                 : tabUuid
-                  ? tabFiltersFromContext?.[tabUuid]?.dimensions ?? []
-                  : [];
+                ? tabFiltersFromContext?.[tabUuid]?.dimensions ?? []
+                : [];
 
         const childLevel = draftFilterRule.categoryLevel;
         const currentId = draftFilterRule.id;
@@ -386,7 +386,6 @@ const FilterConfiguration: FC<Props> = ({
                     candidate.target.fieldLabel ||
                     candidate.target.fieldId;
 
-
                 const levelLabel = candidate.categoryLevel
                     ? t(
                           `components_dashboard_filter.configuration.category_level.level${candidate.categoryLevel}`,
@@ -395,7 +394,9 @@ const FilterConfiguration: FC<Props> = ({
 
                 return {
                     value: candidate.target.fieldId,
-                    label: levelLabel ? `${baseLabel} • ${levelLabel}` : baseLabel,
+                    label: levelLabel
+                        ? `${baseLabel} • ${levelLabel}`
+                        : baseLabel,
                 };
             });
     }, [

@@ -192,9 +192,11 @@ export const AiAgentsAdminLayout = () => {
                                             <MantineIcon
                                                 icon={IconMessageCircle}
                                             />
-                                            <Text fz="sm">{t(
-                                                'ai_agent_form_setup_admin.admin_layout.threads',
-                                            )}</Text>
+                                            <Text fz="sm">
+                                                {t(
+                                                    'ai_agent_form_setup_admin.admin_layout.threads',
+                                                )}
+                                            </Text>
                                         </Group>
                                     ),
                                 },
@@ -203,9 +205,11 @@ export const AiAgentsAdminLayout = () => {
                                     label: (
                                         <Group gap="xs" wrap="nowrap">
                                             <MantineIcon icon={IconRobotFace} />
-                                            <Text fz="sm">{t(
-                                                'ai_agent_form_setup_admin.admin_layout.agents',
-                                            )}</Text>
+                                            <Text fz="sm">
+                                                {t(
+                                                    'ai_agent_form_setup_admin.admin_layout.agents',
+                                                )}
+                                            </Text>
                                         </Group>
                                     ),
                                 },

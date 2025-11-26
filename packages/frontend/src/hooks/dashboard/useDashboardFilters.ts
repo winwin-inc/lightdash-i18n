@@ -64,7 +64,6 @@ export const useDashboardFilters = ({
         resetSavedFilterOverrides,
     } = useSavedDashboardFiltersOverrides();
 
-    
     /**
      * Apply interactivity filtering for embedded dashboards
      */
