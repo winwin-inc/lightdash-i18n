@@ -52,7 +52,7 @@ type Props = {
     isTemporary?: boolean;
     field: FilterableDimension | undefined;
     filterRule: DashboardFilterRule;
-    appliesToTabs: String[];
+    appliesToTabs: string[];
     openPopoverId: string | undefined;
     activeTabUuid: string | undefined;
     onPopoverOpen: (popoverId: string) => void;
