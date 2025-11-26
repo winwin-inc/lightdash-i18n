@@ -71,6 +71,33 @@ export const getCategoryLevel = (
 };
 
 /**
+ * 获取筛选器的父级筛选器字段ID
+ * 从 filter.parentFieldId 配置属性中读取
+ */
+export const getParentFieldId = (
+    filter: DashboardFilterRule,
+): string | null => {
+    return (
+        (filter as DashboardFilterRule & { parentFieldId?: string })
+            .parentFieldId || null
+    );
+};
+
+/**
+ * 根据父级筛选器字段ID查找父级筛选器
+ */
+export const findParentFilter = (
+    filters: DashboardFilters,
+    parentFieldId: string,
+): DashboardFilterRule | null => {
+    return (
+        filters.dimensions.find(
+            (filter) => filter.target.fieldId === parentFieldId,
+        ) || null
+    );
+};
+
+/**
  * 根据层级获取全部可用的类目
  */
 const getCategoriesForLevel = (
@@ -106,13 +133,140 @@ export const getCategoryListForFilter = (
 /**
  * 检查类目值是否在用户权限范围内
  */
-export const isCategoryValueAllowed = (
+const getCategoryName = (category: CategoryTreeNode): string | undefined =>
+    category.name ? String(category.name) : undefined;
+
+/**
+ * 检查类目 label（name）是否在用户权限范围内
+ * 使用 label（name）查询
+ */
+export const isCategoryLabelAllowed = (
     filter: DashboardFilterRule,
-    categoryValue: string,
+    categoryLabel: string,
     userCategories: UserCategoryList,
 ): boolean => {
     const categoryList = getCategoryListForFilter(filter, userCategories);
-    return categoryList.some((cat) => cat.categoryId === categoryValue);
+    return categoryList.some((cat) => getCategoryName(cat) === categoryLabel);
+};
+
+/**
+ * 根据用户权限初始化单个类目筛选器的 values
+ * 如果配置了父级筛选器，根据父级值获取子级类目列表；否则使用当前层级的所有类目
+ * 如果当前值在类目列表中保持不变，否则选择第一个
+ * 只有当 filter 有默认值配置（disabled === false）时才处理
+ */
+export const initializeCategoryFilterValuesByPermission = (
+    filter: DashboardFilterRule,
+    filters: DashboardFilters,
+    userCategories: UserCategoryList,
+): DashboardFilterRule | null => {
+    if (!isCategoryField(filter) || filter.disabled) {
+        return null;
+    }
+
+    const resolvedValue = resolveCategoryFilterValue({
+        filter,
+        filters,
+        userCategories,
+    });
+
+    if (!resolvedValue) {
+        return null;
+    }
+
+    const currentValue = filter.values?.[0];
+    if (currentValue && String(currentValue) === resolvedValue) {
+        return null;
+    }
+
+    return {
+        ...filter,
+        values: [resolvedValue],
+        operator: FilterOperator.EQUALS,
+    };
+};
+
+type ResolveCategoryValueArgs = {
+    filter: DashboardFilterRule;
+    filters: DashboardFilters;
+    userCategories: UserCategoryList;
+    parentValueOverride?: string | null;
+};
+
+/**
+ * 解析类目筛选器的值
+ * 根据父级筛选器值获取子级类目列表
+ * 如果父级筛选器值不在用户权限范围内，返回 undefined
+ * 如果当前筛选器值在用户权限范围内，返回当前值
+ * 如果当前筛选器值不在用户权限范围内，返回第一个可用类目
+ */
+const resolveCategoryFilterValue = ({
+    filter,
+    filters,
+    userCategories,
+    parentValueOverride,
+}: ResolveCategoryValueArgs): string | undefined => {
+    if (!isCategoryField(filter)) return undefined;
+
+    const level = getCategoryLevel(filter);
+    if (!level) return undefined;
+
+    const parentFieldId = getParentFieldId(filter);
+    let availableCategories: CategoryTreeNode[] = [];
+
+    if (parentFieldId) {
+        const parentFilter = findParentFilter(filters, parentFieldId);
+        if (!parentFilter || !isCategoryField(parentFilter)) {
+            return undefined;
+        }
+
+        const parentLabel =
+            parentValueOverride !== undefined
+                ? parentValueOverride ?? undefined
+                : parentFilter.values && parentFilter.values.length > 0
+                  ? String(parentFilter.values[0])
+                  : undefined;
+
+        if (!parentLabel) {
+            return undefined;
+        }
+
+        const parentCategoryNode = getCategoryListForFilter(
+            parentFilter,
+            userCategories,
+        ).find((cat) => getCategoryName(cat) === parentLabel);
+
+        if (!parentCategoryNode) {
+            return undefined;
+        }
+
+        availableCategories = getChildCategoriesForLevel(
+            parentCategoryNode.categoryId,
+            userCategories,
+            level as Exclude<CategoryLevel, 1>,
+        );
+    } else {
+        availableCategories = getCategoriesForLevel(level, userCategories);
+    }
+
+    const availableLabels = availableCategories
+        .map((cat) => getCategoryName(cat))
+        .filter((label): label is string => !!label);
+
+    if (availableLabels.length === 0) {
+        return undefined;
+    }
+
+    const currentValue =
+        filter.values && filter.values.length > 0
+            ? String(filter.values[0])
+            : undefined;
+
+    if (currentValue && availableLabels.includes(currentValue)) {
+        return currentValue;
+    }
+
+    return availableLabels[0];
 };
 
 /**
@@ -137,116 +291,6 @@ export const getChildCategoriesForLevel = (
     return filterCategoriesByParent(targetCategories, parentCategoryId);
 };
 
-/**
- * 初始化类目筛选器
- * 根据用户权限设置默认值，并过滤掉不在权限范围内的值
- */
-export const initializeCategoryFilters = (
-    filters: DashboardFilters,
-    userCategories: UserCategoryList,
-): DashboardFilters => {
-    const resolvedSelections = new Map<CategoryLevel, string>();
-
-    const getExistingValidValueForLevel = (
-        level: CategoryLevel,
-    ): string | undefined => {
-        const filter = filters.dimensions.find(
-            (item) => getCategoryLevel(item) === level,
-        );
-        if (!filter || !filter.values) return undefined;
-        const validValue = filter.values.find((value) =>
-            isCategoryValueAllowed(filter, String(value), userCategories),
-        );
-        return validValue ? String(validValue) : undefined;
-    };
-
-    const computeDefaultForLevel = (
-        level: CategoryLevel,
-    ): string | null => {
-        const existingSelection =
-            resolvedSelections.get(level) ||
-            getExistingValidValueForLevel(level);
-        if (existingSelection) {
-            resolvedSelections.set(level, existingSelection);
-            return existingSelection;
-        }
-
-        if (level === 1) {
-            const firstLevel1 =
-                getCategoriesForLevel(1, userCategories)[0]?.categoryId;
-            if (firstLevel1) {
-                resolvedSelections.set(1, firstLevel1);
-                return firstLevel1;
-            }
-            return null;
-        }
-
-        const parentLevel = (level - 1) as CategoryLevel;
-        const parentSelection =
-            resolvedSelections.get(parentLevel) ||
-            computeDefaultForLevel(parentLevel);
-
-        if (!parentSelection) return null;
-
-        const childCategories = getChildCategoriesForLevel(
-            parentSelection,
-            userCategories,
-            level as Exclude<CategoryLevel, 1>,
-        );
-        const firstChild = childCategories[0]?.categoryId ?? null;
-        if (firstChild) {
-            resolvedSelections.set(level, firstChild);
-        }
-        return firstChild;
-    };
-
-    const updatedDimensions = filters.dimensions.map((filter) => {
-        // 检查是否是类目筛选器（通过 categoryLevel 配置）
-        if (!isCategoryField(filter)) {
-            return filter;
-        }
-
-        const level = getCategoryLevel(filter);
-        if (!level) return filter;
-
-        const validValues = filter.values?.filter((value) =>
-            isCategoryValueAllowed(filter, String(value), userCategories),
-        );
-        const firstValidValue =
-            validValues && validValues.length > 0 ? String(validValues[0]) : null;
-
-        if (firstValidValue) {
-            resolvedSelections.set(level, firstValidValue);
-            if (validValues.length !== filter.values?.length) {
-                return {
-                    ...filter,
-                    values: validValues,
-                };
-            }
-            return filter;
-        }
-
-        const defaultValue = computeDefaultForLevel(level);
-        if (defaultValue) {
-            resolvedSelections.set(level, defaultValue);
-            return {
-                ...filter,
-                values: [defaultValue],
-                operator: FilterOperator.EQUALS,
-            };
-        }
-
-        return {
-            ...filter,
-            values: undefined,
-        };
-    });
-
-    return {
-        ...filters,
-        dimensions: updatedDimensions,
-    };
-};
 
 /**
  * 处理类目筛选器联动
@@ -258,63 +302,95 @@ export const updateCategoryFilterCascade = (
     newValue: string | null,
     userCategories: UserCategoryList,
 ): DashboardFilters => {
-    const changedLevel = getCategoryLevel(changedFilter);
-    if (!changedLevel) return filters;
+    if (!isCategoryField(changedFilter)) return filters;
 
-    const updatedDimensions = filters.dimensions.map((filter) => {
-        // 检查是否是类目筛选器
-        if (!isCategoryField(filter)) {
-            return filter;
-        }
+    const cascadeChildren = (
+        currentFilters: DashboardFilters,
+        parentFieldId: string,
+        parentValue: string | null,
+    ): { filters: DashboardFilters; hasChanges: boolean } => {
+        let updatedFilters = currentFilters;
+        let hasChanges = false;
 
-        const filterLevel = getCategoryLevel(filter);
-        if (!filterLevel) return filter;
+        currentFilters.dimensions.forEach((originalFilter) => {
+            const filter =
+                updatedFilters.dimensions.find(
+                    (dimension) => dimension.id === originalFilter.id,
+                ) ?? originalFilter;
 
-        // 如果是子级类目，且父级类目已改变，需要更新
-        if (filterLevel > changedLevel) {
-            if (newValue) {
-                // 根据新的父级值过滤子级类目
-                const childCategories = getChildCategoriesForLevel(
-                    newValue,
-                    userCategories,
-                    filterLevel as Exclude<CategoryLevel, 1>,
-                );
+            if (!isCategoryField(filter)) return;
 
-                // 检查当前值是否在新的子级列表中
-                const currentValue = filter.values?.[0];
-                const isValidChild =
-                    currentValue &&
-                    childCategories.some(
-                        (cat) => cat.categoryId === currentValue,
-                    );
+            const filterParentFieldId = getParentFieldId(filter);
+            if (!filterParentFieldId || filterParentFieldId !== parentFieldId)
+                return;
 
-                if (isValidChild) {
-                    // 值仍然有效，保持不变
-                    return filter;
-                } else {
-                    // 值无效，设置为第一个可用的子级类目
-                    return {
-                        ...filter,
-                        values:
-                            childCategories.length > 0
-                                ? [childCategories[0].categoryId]
-                                : undefined,
-                    };
-                }
-            } else {
-                // 父级值被清空，清空子级值
-                return {
+            const resolvedValue = resolveCategoryFilterValue({
+                filter,
+                filters: updatedFilters,
+                userCategories,
+                parentValueOverride: parentValue,
+            });
+
+            const currentValue =
+                filter.values && filter.values.length > 0
+                    ? String(filter.values[0])
+                    : undefined;
+
+            if (resolvedValue !== currentValue) {
+                hasChanges = true;
+
+                const updatedFilter: DashboardFilterRule = {
                     ...filter,
-                    values: undefined,
+                    values: resolvedValue ? [resolvedValue] : undefined,
+                    operator: resolvedValue
+                        ? FilterOperator.EQUALS
+                        : filter.operator,
+                };
+
+                updatedFilters = {
+                    ...updatedFilters,
+                    dimensions: updatedFilters.dimensions.map((dimension) =>
+                        dimension.id === filter.id ? updatedFilter : dimension,
+                    ),
                 };
             }
-        }
 
-        return filter;
-    });
+            const appliedFilter =
+                updatedFilters.dimensions.find(
+                    (dimension) => dimension.id === filter.id,
+                ) ?? filter;
 
-    return {
-        ...filters,
-        dimensions: updatedDimensions,
+            const childValue =
+                appliedFilter.values && appliedFilter.values.length > 0
+                    ? String(appliedFilter.values[0])
+                    : null;
+
+            const childResult = cascadeChildren(
+                updatedFilters,
+                appliedFilter.target.fieldId,
+                childValue,
+            );
+
+            if (childResult.hasChanges) {
+                hasChanges = true;
+                updatedFilters = childResult.filters;
+            }
+        });
+
+        return { filters: updatedFilters, hasChanges };
     };
+
+    const normalizedValue = newValue ? String(newValue) : null;
+
+    const result = cascadeChildren(
+        filters,
+        changedFilter.target.fieldId,
+        normalizedValue,
+    );
+
+    if (!result.hasChanges) {
+        return filters;
+    }
+
+    return result.filters;
 };

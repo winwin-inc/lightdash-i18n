@@ -217,7 +217,7 @@ const MinimalDashboard: FC = () => {
                         <DashboardFilter
                             isEditMode={false}
                             activeTabUuid={activeTab?.uuid}
-                            filterType="global"
+                            filterScope="global"
                         />
                     </Group>
                 </Group>
@@ -252,7 +252,7 @@ const MinimalDashboard: FC = () => {
                         <DashboardFilter
                             isEditMode={false}
                             activeTabUuid={activeTab?.uuid}
-                            filterType="tab"
+                            filterScope="tab"
                         />
                     </Group>
                 </Group>

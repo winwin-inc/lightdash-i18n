@@ -2366,7 +2366,9 @@
                 "level1": "Level 1 Category",
                 "level2": "Level 2 Category",
                 "level3": "Level 3 Category",
-                "level4": "Level 4 Category"
+                "level4": "Level 4 Category",
+                "parent_filter_label": "Parent filter",
+                "parent_filter_placeholder": "No parent filter"
             }
         },
         "tabs": {

@@ -872,7 +872,7 @@ const Dashboard: FC = () => {
                             <DashboardFilter
                                 isEditMode={isEditMode}
                                 activeTabUuid={activeTab?.uuid}
-                                filterType="global"
+                                filterScope="global"
                             />
                         )}
                     </Group>

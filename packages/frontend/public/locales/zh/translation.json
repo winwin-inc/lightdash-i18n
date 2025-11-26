@@ -2351,7 +2351,9 @@
                 "level1": "一级类目",
                 "level2": "二级类目",
                 "level3": "三级类目",
-                "level4": "四级类目"
+                "level4": "四级类目",
+                "parent_filter_label": "父级筛选器",
+                "parent_filter_placeholder": "不设置父级筛选器"
             }
         },
         "tabs": {

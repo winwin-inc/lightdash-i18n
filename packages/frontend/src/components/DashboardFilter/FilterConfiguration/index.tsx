@@ -52,6 +52,7 @@ import {
     hasSavedFilterValueChanged,
     isFilterEnabled,
 } from './utils';
+import { isCategoryField } from '../../../utils/categoryFilters';
 
 interface Props {
     tiles: DashboardTile[];
@@ -67,6 +68,8 @@ interface Props {
     isCreatingNew?: boolean;
     isTemporary?: boolean;
     onSave: (value: DashboardFilterRule) => void;
+    filterScope: 'global' | 'tab';
+    tabUuid?: string;
 }
 
 const getDefaultField = (
@@ -94,6 +97,8 @@ const FilterConfiguration: FC<Props> = ({
     defaultFilterRule,
     popoverProps,
     onSave,
+    filterScope,
+    tabUuid,
 }) => {
     const { t } = useTranslation();
     const { projectUuid } = useParams<{ projectUuid: string }>();
@@ -158,6 +163,11 @@ const FilterConfiguration: FC<Props> = ({
     const sqlChartTilesMetadata = useDashboardContext(
         (c) => c.sqlChartTilesMetadata,
     );
+    const dashboardFiltersFromContext = useDashboardContext(
+        (c) => c.dashboardFilters,
+    );
+    const allFiltersFromContext = useDashboardContext((c) => c.allFilters);
+    const tabFiltersFromContext = useDashboardContext((c) => c.tabFilters);
     const columnsOptions = useMemo(() => {
         const allColumns = Object.values(sqlChartTilesMetadata).flatMap(
             (tileMetadata) => tileMetadata.columns,
@@ -335,6 +345,69 @@ const FilterConfiguration: FC<Props> = ({
         isCreatingNew,
     );
 
+    const parentFilterOptions = useMemo(() => {
+        if (!isCustomerUse || !draftFilterRule?.target) return [];
+
+        const globalFilters =
+            dashboardFiltersFromContext?.dimensions &&
+            dashboardFiltersFromContext.dimensions.length > 0
+                ? dashboardFiltersFromContext.dimensions
+                : allFiltersFromContext?.dimensions ?? [];
+
+        const sourceFilters =
+            filterScope === 'global'
+                ? globalFilters
+                : tabUuid
+                  ? tabFiltersFromContext?.[tabUuid]?.dimensions ?? []
+                  : [];
+
+        const childLevel = draftFilterRule.categoryLevel;
+        const currentId = draftFilterRule.id;
+        const currentFieldId = draftFilterRule.target.fieldId;
+
+        return sourceFilters
+            .filter((candidate) => {
+                if (!isCategoryField(candidate)) return false;
+                if (candidate.id && currentId && candidate.id === currentId)
+                    return false;
+                if (candidate.target.fieldId === currentFieldId) return false;
+                if (
+                    childLevel &&
+                    candidate.categoryLevel &&
+                    candidate.categoryLevel >= childLevel
+                ) {
+                    return false;
+                }
+                return true;
+            })
+            .map((candidate) => {
+                const baseLabel =
+                    candidate.label ||
+                    candidate.target.fieldLabel ||
+                    candidate.target.fieldId;
+
+
+                const levelLabel = candidate.categoryLevel
+                    ? t(
+                          `components_dashboard_filter.configuration.category_level.level${candidate.categoryLevel}`,
+                      )
+                    : undefined;
+
+                return {
+                    value: candidate.target.fieldId,
+                    label: levelLabel ? `${baseLabel} • ${levelLabel}` : baseLabel,
+                };
+            });
+    }, [
+        isCustomerUse,
+        draftFilterRule,
+        filterScope,
+        dashboardFiltersFromContext,
+        tabFiltersFromContext,
+        tabUuid,
+        t,
+    ]);
+
     return (
         <Stack>
             <Tabs
@@ -480,6 +553,7 @@ const FilterConfiguration: FC<Props> = ({
                                 onChangeFilterRule={handleChangeFilterRule}
                                 popoverProps={popoverProps}
                                 isCustomerUse={isCustomerUse}
+                                parentFilterOptions={parentFilterOptions}
                             />
                         )}
                     </Stack>

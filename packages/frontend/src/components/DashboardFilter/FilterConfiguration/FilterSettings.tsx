@@ -29,6 +29,11 @@ import { useFilterOperatorOptions } from '../../common/Filters/FilterInputs/util
 import { usePlaceholderByFilterTypeAndOperator } from '../../common/Filters/utils/getPlaceholderByFilterTypeAndOperator';
 import MantineIcon from '../../common/MantineIcon';
 
+type ParentFilterOption = {
+    value: string;
+    label: string;
+};
+
 interface FilterSettingsProps {
     isEditMode: boolean;
     isCreatingNew: boolean;
@@ -38,6 +43,7 @@ interface FilterSettingsProps {
     popoverProps?: Omit<PopoverProps, 'children'>;
     onChangeFilterRule: (value: DashboardFilterRule) => void;
     isCustomerUse?: boolean;
+    parentFilterOptions?: ParentFilterOption[];
 }
 
 const FilterSettings: FC<FilterSettingsProps> = ({
@@ -49,6 +55,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     popoverProps,
     onChangeFilterRule,
     isCustomerUse = false,
+    parentFilterOptions = [],
 }) => {
     const { t } = useTranslation();
 
@@ -385,6 +392,32 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                                 : undefined,
                                         });
                                     }}
+                                />
+                                <Select
+                                    mt="xs"
+                                    size="xs"
+                                    data={parentFilterOptions}
+                                    value={
+                                        (filterRule as DashboardFilterRule & {
+                                            parentFieldId?: string;
+                                        }).parentFieldId ?? null
+                                    }
+                                    label={t(
+                                        'components_dashboard_filter.configuration.category_level.parent_filter_label',
+                                    )}
+                                    placeholder={t(
+                                        'components_dashboard_filter.configuration.category_level.parent_filter_placeholder',
+                                    )}
+                                    disabled={parentFilterOptions.length === 0}
+                                    clearable
+                                    onChange={(value) =>
+                                        onChangeFilterRule({
+                                            ...filterRule,
+                                            parentFieldId: value || undefined,
+                                        } as DashboardFilterRule & {
+                                            parentFieldId?: string;
+                                        })
+                                    }
                                 />
                             </Box>
                         )}
