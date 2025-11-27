@@ -4,28 +4,40 @@ import { lightdashApi } from '../api';
 import { useProjectUuid } from './useProjectUuid';
 import useQueryError from './useQueryError';
 
-const getUserCategories = async (projectUuid: string) =>
-    lightdashApi<UserCategoryList>({
-        url: `/projects/${projectUuid}/dashboard-categories`,
+const getUserCategories = async (
+    projectUuid: string,
+    dashboardUuid?: string,
+) => {
+    const url = `/projects/${projectUuid}/dashboard-categories${
+        dashboardUuid ? `?dashboardUuid=${dashboardUuid}` : ''
+    }`;
+    return lightdashApi<UserCategoryList>({
+        url,
         method: 'GET',
         body: undefined,
     });
+};
 
 export const useUserCategories = (
-    useQueryOptions?: UseQueryOptions<UserCategoryList, ApiError>,
+    options?: {
+        dashboardUuid?: string;
+        useQueryOptions?: UseQueryOptions<UserCategoryList, ApiError>;
+    },
 ) => {
     const projectUuid = useProjectUuid();
     const setErrorResponse = useQueryError();
+    const { dashboardUuid, useQueryOptions } = options || {};
 
     return useQuery<UserCategoryList, ApiError>({
-        queryKey: ['user-categories', projectUuid],
-        queryFn: () => getUserCategories(projectUuid ?? ''),
+        queryKey: ['user-categories', projectUuid, dashboardUuid],
+        queryFn: () => getUserCategories(projectUuid ?? '', dashboardUuid),
         retry: false,
         onError: (result) => {
             setErrorResponse(result);
         },
         ...useQueryOptions,
         // Merge enabled condition: require projectUuid AND respect external enabled option
-        enabled: !!projectUuid && (useQueryOptions?.enabled ?? true),
+        enabled:
+            !!projectUuid && (useQueryOptions?.enabled ?? true),
     });
 };
