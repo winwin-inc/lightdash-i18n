@@ -268,9 +268,10 @@ projectRouter.get(
     async (req, res, next) => {
         try {
             const projectUuid = getObjectValue(req.params, 'projectUuid');
+            const dashboardUuid = req.query.dashboardUuid as string | undefined;
             const results = await req.services
                 .getDashboardService()
-                .getUserCategories(req.user!, projectUuid);
+                .getUserCategories(req.user!, projectUuid, dashboardUuid);
 
             res.json({
                 status: 'ok',

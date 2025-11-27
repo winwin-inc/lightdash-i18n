@@ -187,7 +187,10 @@ const DashboardProvider: React.FC<
     // Get user categories for category filter initialization (only in customer use mode)
     const isCustomerUse = project?.isCustomerUse ?? false;
     const { data: userCategories } = useUserCategories({
-        enabled: !!projectUuid && isCustomerUse,
+        dashboardUuid, // 传递当前看板的 UUID，以便根据看板过滤类目
+        useQueryOptions: {
+            enabled: !!projectUuid && isCustomerUse,
+        },
     });
 
     // dashboard filters

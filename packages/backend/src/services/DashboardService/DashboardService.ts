@@ -1538,10 +1538,14 @@ export class DashboardService
      * 获取当前用户的类目列表
      * 根据用户在看板类目权限表中的权限，构建一级、二级、三级、四级的类目树
      * 权限生效范围：客户使用模式下的所有用户都需要进行类目权限过滤
+     * @param user 用户
+     * @param projectUuid 项目UUID
+     * @param dashboardUuid 看板UUID（可选），如果提供则只返回该看板相关的类目
      */
     async getUserCategories(
         user: SessionUser,
         projectUuid: string,
+        dashboardUuid?: string,
     ): Promise<UserCategoryList> {
         // 检查是否为客户使用模式
         const db = this.userDashboardCategoryModel.getDatabase();
@@ -1584,6 +1588,7 @@ export class DashboardService
         const normalizedEmail = user.email.trim().toLowerCase();
         const userCategories = await this.userDashboardCategoryModel.find({
             email: normalizedEmail,
+            dashboardUuid, // 如果提供了 dashboardUuid，则根据看板过滤
         });
 
         // 提取用户有权限的类目ID（可能是任意层级）
