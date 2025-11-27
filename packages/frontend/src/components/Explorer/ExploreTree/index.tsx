@@ -54,7 +54,7 @@ const ExploreTreeComponent: FC<ExploreTreeProps> = ({
     onSelectedFieldChange,
 }) => {
     const { t } = useTranslation();
-    
+
     const additionalMetrics = useExplorerSelector(selectAdditionalMetrics);
     const customDimensions = useExplorerSelector(selectCustomDimensions);
 

@@ -11,6 +11,7 @@ import {
     Box,
     Button,
     Checkbox,
+    Group,
     Select,
     Stack,
     Switch,
@@ -28,6 +29,11 @@ import { useFilterOperatorOptions } from '../../common/Filters/FilterInputs/util
 import { usePlaceholderByFilterTypeAndOperator } from '../../common/Filters/utils/getPlaceholderByFilterTypeAndOperator';
 import MantineIcon from '../../common/MantineIcon';
 
+type ParentFilterOption = {
+    value: string;
+    label: string;
+};
+
 interface FilterSettingsProps {
     isEditMode: boolean;
     isCreatingNew: boolean;
@@ -36,6 +42,8 @@ interface FilterSettingsProps {
     filterRule: DashboardFilterRule;
     popoverProps?: Omit<PopoverProps, 'children'>;
     onChangeFilterRule: (value: DashboardFilterRule) => void;
+    isCustomerUse?: boolean;
+    parentFilterOptions?: ParentFilterOption[];
 }
 
 const FilterSettings: FC<FilterSettingsProps> = ({
@@ -46,6 +54,8 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     filterRule,
     popoverProps,
     onChangeFilterRule,
+    isCustomerUse = false,
+    parentFilterOptions = [],
 }) => {
     const { t } = useTranslation();
 
@@ -314,6 +324,104 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 'components_dashboard_filter.configuration.require',
                             )}
                         />
+
+                        {/* 类目层级配置 - 仅在客户使用模式下显示 */}
+                        {isCustomerUse && (
+                            <Box mt="xs">
+                                <Group spacing="xs" mb="xs">
+                                    <Text size="xs" fw={500}>
+                                        {t(
+                                            'components_dashboard_filter.configuration.category_level.label',
+                                        )}
+                                    </Text>
+                                    <Tooltip
+                                        withinPortal
+                                        variant="xs"
+                                        label={t(
+                                            'components_dashboard_filter.configuration.category_level.tooltip',
+                                        )}
+                                    >
+                                        <MantineIcon
+                                            size="sm"
+                                            icon={IconHelpCircle}
+                                        />
+                                    </Tooltip>
+                                </Group>
+                                <Select
+                                    size="xs"
+                                    placeholder={t(
+                                        'components_dashboard_filter.configuration.category_level.placeholder',
+                                    )}
+                                    clearable
+                                    data={[
+                                        {
+                                            value: '1',
+                                            label: t(
+                                                'components_dashboard_filter.configuration.category_level.level1',
+                                            ),
+                                        },
+                                        {
+                                            value: '2',
+                                            label: t(
+                                                'components_dashboard_filter.configuration.category_level.level2',
+                                            ),
+                                        },
+                                        {
+                                            value: '3',
+                                            label: t(
+                                                'components_dashboard_filter.configuration.category_level.level3',
+                                            ),
+                                        },
+                                        {
+                                            value: '4',
+                                            label: t(
+                                                'components_dashboard_filter.configuration.category_level.level4',
+                                            ),
+                                        },
+                                    ]}
+                                    value={filterRule.categoryLevel?.toString()}
+                                    onChange={(value) => {
+                                        onChangeFilterRule({
+                                            ...filterRule,
+                                            categoryLevel: value
+                                                ? (Number.parseInt(
+                                                      value,
+                                                      10,
+                                                  ) as 1 | 2 | 3 | 4)
+                                                : undefined,
+                                        });
+                                    }}
+                                />
+                                <Select
+                                    mt="xs"
+                                    size="xs"
+                                    data={parentFilterOptions}
+                                    value={
+                                        (
+                                            filterRule as DashboardFilterRule & {
+                                                parentFieldId?: string;
+                                            }
+                                        ).parentFieldId ?? null
+                                    }
+                                    label={t(
+                                        'components_dashboard_filter.configuration.category_level.parent_filter_label',
+                                    )}
+                                    placeholder={t(
+                                        'components_dashboard_filter.configuration.category_level.parent_filter_placeholder',
+                                    )}
+                                    disabled={parentFilterOptions.length === 0}
+                                    clearable
+                                    onChange={(value) =>
+                                        onChangeFilterRule({
+                                            ...filterRule,
+                                            parentFieldId: value || undefined,
+                                        } as DashboardFilterRule & {
+                                            parentFieldId?: string;
+                                        })
+                                    }
+                                />
+                            </Box>
+                        )}
                     </>
                 )}
             </Stack>

@@ -492,8 +492,7 @@ export class ModelRepository
     public getUserDashboardCategoryModel(): UserDashboardCategoryModel {
         return this.getModel(
             'userDashboardCategoryModel',
-            () =>
-                new UserDashboardCategoryModel({ database: this.database }),
+            () => new UserDashboardCategoryModel({ database: this.database }),
         );
     }
 

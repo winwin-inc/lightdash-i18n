@@ -325,6 +325,7 @@ export class ServiceRepository
                     catalogModel: this.models.getCatalogModel(),
                     userDashboardCategoryModel:
                         this.models.getUserDashboardCategoryModel(),
+                    categoryRpcClient: this.clients.getCategoryRpcClient(),
                 }),
         );
     }

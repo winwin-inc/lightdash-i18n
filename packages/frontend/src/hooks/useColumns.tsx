@@ -143,7 +143,7 @@ export const getFormattedValueCell = (
         console.error(`Unable to format value for bar display cell ${error}`);
     }
 
-    const currentItem = info.column.columnDef.meta?.item; 
+    const currentItem = info.column.columnDef.meta?.item;
 
     if (!currentItem) return formatCellContent(cellValue);
 

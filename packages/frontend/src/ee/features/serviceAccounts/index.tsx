@@ -34,7 +34,9 @@ export function ServiceAccountsPage() {
             {hasAccounts ? (
                 <>
                     <Group position="apart">
-                        <Title size="h5">{t('features_service_accounts.service_accounts')}</Title>
+                        <Title size="h5">
+                            {t('features_service_accounts.service_accounts')}
+                        </Title>
                         <Button onClick={open} size="xs">
                             {t('features_service_accounts.add_service_account')}
                         </Button>
@@ -56,9 +58,13 @@ export function ServiceAccountsPage() {
                         />
                     }
                     title={t('features_service_accounts.no_service_accounts')}
-                    description={t('features_service_accounts.no_service_accounts_description')}
+                    description={t(
+                        'features_service_accounts.no_service_accounts_description',
+                    )}
                 >
-                    <Button onClick={open}>{t('features_service_accounts.create_service_account')}</Button>
+                    <Button onClick={open}>
+                        {t('features_service_accounts.create_service_account')}
+                    </Button>
                 </EmptyState>
             )}
 

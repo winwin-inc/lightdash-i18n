@@ -80,7 +80,10 @@ export const TemplateViewer: FC<TemplateViewerProps> = ({ template }) => {
             {'windowFunction' in template && (
                 <Group>
                     <Text fw={600} size="sm">
-                        {t('features_table_calculation_template_viewer.window_function')}:
+                        {t(
+                            'features_table_calculation_template_viewer.window_function',
+                        )}
+                        :
                     </Text>
                     <Text size="sm">
                         {formatWindowFunction(template.windowFunction)}
@@ -125,7 +128,10 @@ export const TemplateViewer: FC<TemplateViewerProps> = ({ template }) => {
                 template.partitionBy.length > 0 && (
                     <Group>
                         <Text fw={600} size="sm">
-                            {t('features_table_calculation_template_viewer.partition_by')}:
+                            {t(
+                                'features_table_calculation_template_viewer.partition_by',
+                            )}
+                            :
                         </Text>
                         <Text size="sm">
                             {template.partitionBy

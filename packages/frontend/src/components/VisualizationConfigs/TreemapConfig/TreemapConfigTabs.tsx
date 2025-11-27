@@ -14,10 +14,14 @@ export const ConfigTabs: FC = memo(() => {
             <Tabs defaultValue="layout" keepMounted={false}>
                 <Tabs.List mb="sm">
                     <Tabs.Tab px="sm" value="layout">
-                        {t('components_visualization_configs_treemap.tabs.layout')}
+                        {t(
+                            'components_visualization_configs_treemap.tabs.layout',
+                        )}
                     </Tabs.Tab>
                     <Tabs.Tab px="sm" value="display">
-                        {t('components_visualization_configs_treemap.tabs.display')}
+                        {t(
+                            'components_visualization_configs_treemap.tabs.display',
+                        )}
                     </Tabs.Tab>
                 </Tabs.List>
 

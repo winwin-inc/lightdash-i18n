@@ -1,7 +1,7 @@
 import { Box } from '@mantine-8/core';
 import { memo, useCallback, useMemo } from 'react';
-import { useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useParams } from 'react-router';
 import {
     explorerActions,
     selectIsEditMode,
@@ -75,7 +75,13 @@ const ParametersCard = memo(
                 isOpen={paramsIsOpen}
                 title={t('components_explorer_parameters_card.title')}
                 disabled={!tableName}
-                toggleTooltip={!tableName ? t('components_explorer_parameters_card.no_model_selected') : ''}
+                toggleTooltip={
+                    !tableName
+                        ? t(
+                              'components_explorer_parameters_card.no_model_selected',
+                          )
+                        : ''
+                }
                 onToggle={() =>
                     toggleExpandedSection(ExplorerSection.PARAMETERS)
                 }

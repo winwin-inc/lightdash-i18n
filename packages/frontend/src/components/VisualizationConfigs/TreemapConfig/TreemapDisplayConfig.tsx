@@ -23,13 +23,19 @@ export const Display: React.FC = () => {
             <Config>
                 <Stack spacing="xs">
                     <Group spacing="xs">
-                        <Config.Heading>{t('components_visualization_configs_treemap.display_config.minimum_section_size.label')}</Config.Heading>
+                        <Config.Heading>
+                            {t(
+                                'components_visualization_configs_treemap.display_config.minimum_section_size.label',
+                            )}
+                        </Config.Heading>
                         <Tooltip
                             withinPortal={true}
                             maw={350}
                             variant="xs"
                             multiline
-                            label={t('components_visualization_configs_treemap.display_config.minimum_section_size.tooltip')}
+                            label={t(
+                                'components_visualization_configs_treemap.display_config.minimum_section_size.tooltip',
+                            )}
                         >
                             <MantineIcon
                                 icon={IconHelpCircle}
@@ -52,13 +58,19 @@ export const Display: React.FC = () => {
                         />
                     </Group>
                     <Group spacing="xs">
-                        <Config.Heading>{t('components_visualization_configs_treemap.display_config.max_leaf_depth.label')}</Config.Heading>
+                        <Config.Heading>
+                            {t(
+                                'components_visualization_configs_treemap.display_config.max_leaf_depth.label',
+                            )}
+                        </Config.Heading>
                         <Tooltip
                             withinPortal={true}
                             maw={350}
                             variant="xs"
                             multiline
-                            label={t('components_visualization_configs_treemap.display_config.max_leaf_depth.tooltip')}
+                            label={t(
+                                'components_visualization_configs_treemap.display_config.max_leaf_depth.tooltip',
+                            )}
                         >
                             <MantineIcon
                                 icon={IconHelpCircle}
@@ -71,7 +83,9 @@ export const Display: React.FC = () => {
                             value={leafDepth}
                             onChange={setLeafDepth}
                             min={1}
-                            placeholder={t('components_visualization_configs_treemap.display_config.max_leaf_depth.no_limit')}
+                            placeholder={t(
+                                'components_visualization_configs_treemap.display_config.max_leaf_depth.no_limit',
+                            )}
                         />
                     </Group>
                 </Stack>

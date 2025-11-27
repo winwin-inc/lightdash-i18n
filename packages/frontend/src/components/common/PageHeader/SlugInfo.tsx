@@ -11,12 +11,16 @@ interface SlugInfoProps {
 
 const SlugInfo: FC<SlugInfoProps> = ({ slug }) => {
     const { t } = useTranslation();
-    
+
     return (
         <InfoContainer icon={IconKey}>
             {t('components_common_page_header.slug')}:{' '}
             <div style={{ display: 'inline-block' }}>
-                <TextCopy variant="code" text={slug} tooltipLabel={t('components_common_page_header.copy_slug')} />
+                <TextCopy
+                    variant="code"
+                    text={slug}
+                    tooltipLabel={t('components_common_page_header.copy_slug')}
+                />
             </div>
         </InfoContainer>
     );

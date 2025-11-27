@@ -13,7 +13,7 @@ import MantineIcon from '../common/MantineIcon';
 import FilterConfiguration from './FilterConfiguration';
 
 type Props = {
-    filterType: 'global' | 'tab';
+    filterScope: 'global' | 'tab';
     isEditMode: boolean;
     isFilterEnabled: boolean;
     showAddFilterButton: boolean;
@@ -25,7 +25,7 @@ type Props = {
 };
 
 const AddFilterButton: FC<Props> = ({
-    filterType,
+    filterScope,
     isEditMode,
     isFilterEnabled,
     showAddFilterButton,
@@ -82,7 +82,7 @@ const AddFilterButton: FC<Props> = ({
     );
 
     const buttonText =
-        filterType === 'global'
+        filterScope === 'global'
             ? t(
                   'components_dashboard_filter.filter.tooltip_creating_new.content.add_global_filter',
               )
@@ -91,21 +91,21 @@ const AddFilterButton: FC<Props> = ({
               );
 
     const appliedDashboardTabs = useMemo(() => {
-        if (filterType === 'global') {
+        if (filterScope === 'global') {
             return dashboardTabs;
         }
         return dashboardTabs?.filter((tab) => tab.uuid === activeTabUuid);
-    }, [dashboardTabs, activeTabUuid, filterType]);
+    }, [dashboardTabs, activeTabUuid, filterScope]);
 
     const appliedDashboardTiles = useMemo(() => {
-        if (filterType === 'global') {
+        if (filterScope === 'global') {
             return dashboardTiles;
         }
         return dashboardTiles?.filter((tile) => tile.tabUuid === activeTabUuid);
-    }, [dashboardTiles, activeTabUuid, filterType]);
+    }, [dashboardTiles, activeTabUuid, filterScope]);
 
     const appliedFilterableFieldsByTileUuid = useMemo(() => {
-        if (filterType === 'global') {
+        if (filterScope === 'global') {
             return filterableFieldsByTileUuid;
         }
         return Object.keys(filterableFieldsByTileUuid ?? {}).reduce(
@@ -123,7 +123,7 @@ const AddFilterButton: FC<Props> = ({
             },
             {} as Record<string, FilterableDimension[]>,
         );
-    }, [filterableFieldsByTileUuid, appliedDashboardTiles, filterType]);
+    }, [filterableFieldsByTileUuid, appliedDashboardTiles, filterScope]);
 
     // view mode
     if (!isEditMode && !showAddFilterButton) return null;
@@ -211,6 +211,12 @@ const AddFilterButton: FC<Props> = ({
                                 onOpen: openSubPopover,
                                 onClose: closeSubPopover,
                             }}
+                            filterScope={filterScope}
+                            tabUuid={
+                                filterScope === 'tab'
+                                    ? activeTabUuid
+                                    : undefined
+                            }
                         />
                     )}
                 </Popover.Dropdown>

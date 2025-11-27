@@ -28,8 +28,12 @@ export const SqlEditorActions: FC<{
             <Tooltip
                 label={
                     isSoftWrapEnabled
-                        ? t("components_sql_runner_actions.disable_editor_soft_wrap")
-                        : t("components_sql_runner_actions.enable_editor_soft_wrap")
+                        ? t(
+                              'components_sql_runner_actions.disable_editor_soft_wrap',
+                          )
+                        : t(
+                              'components_sql_runner_actions.enable_editor_soft_wrap',
+                          )
                 }
                 withArrow
                 position="left"
@@ -45,7 +49,13 @@ export const SqlEditorActions: FC<{
             <CopyButton value={clipboardContent ?? ''} timeout={2000}>
                 {({ copied, copy }) => (
                     <Tooltip
-                        label={copied ? t("components_sql_runner_actions.copied_to_clipboard") : t("components_sql_runner_actions.copy")}
+                        label={
+                            copied
+                                ? t(
+                                      'components_sql_runner_actions.copied_to_clipboard',
+                                  )
+                                : t('components_sql_runner_actions.copy')
+                        }
                         withArrow
                         position="right"
                         color={copied ? 'green' : 'dark'}

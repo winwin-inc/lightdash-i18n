@@ -37,6 +37,11 @@ const getEmbedFilterValues = async (options: {
     });
 };
 
+type DashboardFilterContext = {
+    dashboardSlug?: string;
+    dashboardName?: string;
+};
+
 const getFieldValues = async (
     projectId: string,
     table: string | undefined,
@@ -46,6 +51,7 @@ const getFieldValues = async (
     filters: AndFilterGroup | undefined,
     limit: number = MAX_AUTOCOMPLETE_RESULTS,
     parameterValues?: ParametersValuesMap,
+    dashboardContext?: DashboardFilterContext,
 ) => {
     if (!table) {
         throw new Error('Table is required to search for field values');
@@ -61,6 +67,8 @@ const getFieldValues = async (
             filters,
             forceRefresh,
             parameters: parameterValues,
+            dashboardSlug: dashboardContext?.dashboardSlug,
+            dashboardName: dashboardContext?.dashboardName,
         }),
     });
 };
@@ -76,6 +84,7 @@ export const useFieldValues = (
     forceRefresh: boolean = false,
     useQueryOptions?: UseQueryOptions<FieldValueSearchResult, ApiError>,
     parameterValues?: ParametersValuesMap,
+    dashboardContext?: DashboardFilterContext,
 ) => {
     const { embedToken } = useEmbed();
     const [fieldName, setFieldName] = useState<string>(field.name);
@@ -151,6 +160,7 @@ export const useFieldValues = (
                     filters,
                     undefined,
                     parameterValues,
+                    dashboardContext,
                 );
             }
         },

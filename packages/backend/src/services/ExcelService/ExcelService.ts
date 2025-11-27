@@ -85,7 +85,9 @@ export class ExcelService {
                 // }
                 if (item && 'type' in item) {
                     if (item.type === DimensionType.TIMESTAMP) {
-                        return moment(rawValue).format('YYYY-MM-DD HH:mm:ss.SSS');
+                        return moment(rawValue).format(
+                            'YYYY-MM-DD HH:mm:ss.SSS',
+                        );
                     }
                     if (item.type === DimensionType.DATE) {
                         return moment(rawValue).format('YYYY-MM-DD');

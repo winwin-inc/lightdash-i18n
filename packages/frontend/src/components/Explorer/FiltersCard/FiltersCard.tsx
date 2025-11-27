@@ -284,7 +284,7 @@ const FiltersCard: FC = memo(() => {
                     <div key={field.name}>
                         {filterRuleLabels.field}: {filterRuleLabels.operator}{' '}
                         {filterRule.operator !== FilterOperator.NULL &&
-                            filterRule.operator !== FilterOperator.NOT_NULL ? (
+                        filterRule.operator !== FilterOperator.NOT_NULL ? (
                             <Text span fw={700}>
                                 {filterRuleLabels.value}
                             </Text>
@@ -294,8 +294,9 @@ const FiltersCard: FC = memo(() => {
                     </div>
                 );
             }
-            return `${t('components_explorer_filters_card.rule_error')} ${filterRule.target.fieldId
-                }`;
+            return `${t('components_explorer_filters_card.rule_error')} ${
+                filterRule.target.fieldId
+            }`;
         },
         [data, t, getConditionalRuleLabelFromItem],
     );
@@ -343,9 +344,11 @@ const FiltersCard: FC = memo(() => {
                                             count: totalActiveFilters,
                                         },
                                     )}
-                                    {totalActiveFilters === 1 ? '' : t(
-                                        'components_explorer_filters_card.active_filter_suffix',
-                                    )}
+                                    {totalActiveFilters === 1
+                                        ? ''
+                                        : t(
+                                              'components_explorer_filters_card.active_filter_suffix',
+                                          )}
                                 </Text>
                             </Badge>
                         </Tooltip>

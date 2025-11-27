@@ -9,6 +9,7 @@ import {
 } from '@lightdash/common';
 
 import { analyticsMock } from '../../analytics/LightdashAnalytics.mock';
+import { CategoryRpcClient } from '../../clients/CategoryRpcClient/CategoryRpcClient';
 import { SlackClient } from '../../clients/Slack/SlackClient';
 import { AnalyticsModel } from '../../models/AnalyticsModel';
 import type { CatalogModel } from '../../models/CatalogModel/CatalogModel';
@@ -95,6 +96,7 @@ describe('DashboardService', () => {
         catalogModel: {} as CatalogModel,
         userDashboardCategoryModel:
             userDashboardCategoryModel as unknown as UserDashboardCategoryModel,
+        categoryRpcClient: {} as CategoryRpcClient,
     });
     afterEach(() => {
         jest.clearAllMocks();

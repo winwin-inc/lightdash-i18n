@@ -105,6 +105,9 @@ services:
             EMAIL_SMTP_USER: ${EMAIL_SMTP_SENDER_USER}
             DBT_CLOUD_ENVIRONMENT_ID: ${DBT_CLOUD_ENVIRONMENT_ID}
             DBT_CLOUD_BEARER_TOKEN: ${DBT_CLOUD_BEARER_TOKEN}
+
+            ADMIN_API_HOST: ${ADMIN_API_HOST}
+            ADMIN_API_KEY: ${ADMIN_API_KEY}
         ports:
             - '8080:8080'
         command: ['pnpm', 'start']

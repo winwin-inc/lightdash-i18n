@@ -38,7 +38,7 @@ interface ActiveFiltersProps {
     isFilterEnabled: boolean;
     activeTabUuid: string | undefined;
     openPopoverId: string | undefined;
-    filterType: 'global' | 'tab';
+    filterScope: 'global' | 'tab';
     onPopoverOpen: (popoverId: string) => void;
     onPopoverClose: () => void;
     onResetDashboardFilters: () => void;
@@ -73,9 +73,9 @@ const DraggableItem: FC<{
 const DroppableArea: FC<{
     id: string;
     children: ReactNode;
-    filterType: 'global' | 'tab';
+    filterScope: 'global' | 'tab';
     activeTabUuid: string | undefined;
-}> = ({ filterType, activeTabUuid, id, children }) => {
+}> = ({ filterScope, activeTabUuid, id, children }) => {
     const { active, isOver, over, setNodeRef } = useDroppable({ id });
     const { colors } = useMantineTheme();
 
@@ -83,7 +83,7 @@ const DroppableArea: FC<{
     const tabFilters = useDashboardContext((c) => c.tabFilters);
 
     const appliedFilters =
-        filterType === 'global'
+        filterScope === 'global'
             ? dashboardFilters
             : tabFilters[activeTabUuid || ''];
 
@@ -111,7 +111,7 @@ const DroppableArea: FC<{
 };
 
 const ActiveFilters: FC<ActiveFiltersProps> = ({
-    filterType,
+    filterScope,
     isEditMode,
     isFilterEnabled,
     activeTabUuid,
@@ -198,34 +198,34 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
 
     // applied variables
     const appliedFilters = useMemo(() => {
-        if (filterType === 'global') {
+        if (filterScope === 'global') {
             return dashboardFilters;
         }
         return tabFilters[activeTabUuid || ''] ?? emptyFilters;
-    }, [filterType, activeTabUuid, dashboardFilters, tabFilters]);
+    }, [filterScope, activeTabUuid, dashboardFilters, tabFilters]);
 
     const appliedTemporaryFilters = useMemo(() => {
-        if (filterType === 'global') {
+        if (filterScope === 'global') {
             return dashboardTemporaryFilters;
         }
         return tabTemporaryFilters[activeTabUuid || ''] ?? emptyFilters;
     }, [
-        filterType,
+        filterScope,
         activeTabUuid,
         dashboardTemporaryFilters,
         tabTemporaryFilters,
     ]);
 
     const appliedFiltersChanged = useMemo(() => {
-        if (filterType === 'global') {
+        if (filterScope === 'global') {
             return haveFiltersChanged;
         }
         return haveTabFiltersChanged || false;
-    }, [filterType, haveFiltersChanged, haveTabFiltersChanged]);
+    }, [filterScope, haveFiltersChanged, haveTabFiltersChanged]);
 
     const appliedRemoveDimensionFilter = useCallback(
         (index: number, isTemporary: boolean) => {
-            if (filterType === 'global') {
+            if (filterScope === 'global') {
                 removeDimensionDashboardFilter(index, isTemporary);
             } else {
                 removeTabDimensionFilter(
@@ -236,7 +236,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
             }
         },
         [
-            filterType,
+            filterScope,
             removeDimensionDashboardFilter,
             removeTabDimensionFilter,
             activeTabUuid,
@@ -245,7 +245,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
 
     const appliedUpdateDimensionFilter = useCallback(
         (value: DashboardFilterRule, index: number, isTemporary: boolean) => {
-            if (filterType === 'global') {
+            if (filterScope === 'global') {
                 updateDimensionDashboardFilter(
                     value,
                     index,
@@ -262,7 +262,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
             }
         },
         [
-            filterType,
+            filterScope,
             updateDimensionDashboardFilter,
             updateTabDimensionFilter,
             activeTabUuid,
@@ -272,7 +272,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
 
     const appliedChangeFilters = useCallback(
         (filters: DashboardFilters) => {
-            if (filterType === 'global') {
+            if (filterScope === 'global') {
                 setDashboardFilters(filters);
             } else {
                 setTabFilters({
@@ -282,7 +282,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
             }
         },
         [
-            filterType,
+            filterScope,
             setDashboardFilters,
             setTabFilters,
             activeTabUuid,
@@ -292,7 +292,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
 
     const appliedFilterChanged = useCallback(
         (isTemporary: boolean) => {
-            if (filterType === 'global') {
+            if (filterScope === 'global') {
                 setHaveFiltersChanged(isTemporary);
             } else {
                 setHaveTabFiltersChanged((prev) => ({
@@ -302,7 +302,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
             }
         },
         [
-            filterType,
+            filterScope,
             setHaveFiltersChanged,
             setHaveTabFiltersChanged,
             activeTabUuid,
@@ -425,7 +425,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                         <DroppableArea
                             key={item.id}
                             id={item.id}
-                            filterType={filterType}
+                            filterScope={filterScope}
                             activeTabUuid={activeTabUuid}
                         >
                             <DraggableItem
@@ -436,7 +436,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                                 {field || item.target.isSqlColumn ? (
                                     <Filter
                                         key={item.id}
-                                        filterType={filterType}
+                                        filterScope={filterScope}
                                         isEditMode={isEditMode}
                                         field={field}
                                         filterRule={item}
@@ -485,7 +485,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                 return field || item.target.isSqlColumn ? (
                     <Filter
                         key={item.id}
-                        filterType={filterType}
+                        filterScope={filterScope}
                         isTemporary
                         isEditMode={isEditMode}
                         field={field}

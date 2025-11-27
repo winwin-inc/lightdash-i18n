@@ -48,6 +48,8 @@ const useTableConfig = (
     dashboardFilters?: DashboardFilters,
     invalidateCache?: boolean,
     parameters?: ParametersValuesMap,
+    dashboardSlug?: string,
+    dashboardName?: string,
 ) => {
     const { embedToken } = useEmbed();
 
@@ -202,6 +204,11 @@ const useTableConfig = (
             setShowSubtotals(false);
     }, [dimensions.length, numUnpivotedDimensions]);
 
+    const dashboardContext =
+        dashboardSlug || dashboardName
+            ? { dashboardSlug, dashboardName }
+            : undefined;
+
     const { data: totalCalculations } = useCalculateTotal(
         savedChartUuid
             ? {
@@ -214,6 +221,7 @@ const useTableConfig = (
                       tableChartConfig?.showColumnCalculation,
                   embedToken,
                   parameters,
+                  dashboardContext,
               }
             : {
                   metricQuery: resultsData?.metricQuery,
@@ -225,6 +233,7 @@ const useTableConfig = (
                   // embed token is not necessary here because embeds don't use metricQuery for table calculations
                   embedToken: undefined,
                   parameters,
+                  dashboardContext,
               },
     );
 
@@ -238,6 +247,7 @@ const useTableConfig = (
                   columnOrder,
                   pivotDimensions,
                   embedToken,
+                  dashboardContext,
               }
             : {
                   metricQuery: resultsData?.metricQuery,
@@ -247,6 +257,7 @@ const useTableConfig = (
                   pivotDimensions,
                   embedToken: undefined,
                   parameters,
+                  dashboardContext,
               },
     );
 

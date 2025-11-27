@@ -17,8 +17,8 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import Fuse from 'fuse.js';
 import { memo, useCallback, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router';
 
 import {
     explorerActions,
@@ -96,9 +96,9 @@ const BasePanel = () => {
                                         explore.groupLabel
                                     ]
                                         ? [
-                                            ...acc[0][explore.groupLabel],
-                                            explore,
-                                        ]
+                                              ...acc[0][explore.groupLabel],
+                                              explore,
+                                          ]
                                         : [explore],
                                 },
                                 acc[1],
@@ -143,7 +143,14 @@ const BasePanel = () => {
                         >
                             <PageBreadcrumbs
                                 size="md"
-                                items={[{ title: t('components_explorer_sider_bar.title'), active: true }]}
+                                items={[
+                                    {
+                                        title: t(
+                                            'components_explorer_sider_bar.title',
+                                        ),
+                                        active: true,
+                                    },
+                                ]}
                             />
                         </Can>
 

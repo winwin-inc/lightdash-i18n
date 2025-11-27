@@ -64,18 +64,28 @@ const ApiErrorDisplay = ({
             </Text>
             <Group spacing="xxs" align="flex-start">
                 <Text mb={0} weight="bold">
-                    {t('hooks_toaster.contact_support.error_id')}: {apiError.sentryEventId || 'n/a'}
+                    {t('hooks_toaster.contact_support.error_id')}:{' '}
+                    {apiError.sentryEventId || 'n/a'}
                     <br />
-                    {t('hooks_toaster.contact_support.trace_id')}: {apiError.sentryTraceId || 'n/a'}
+                    {t('hooks_toaster.contact_support.trace_id')}:{' '}
+                    {apiError.sentryTraceId || 'n/a'}
                 </Text>
                 <CopyButton
                     value={`${t('hooks_toaster.contact_support.error_id')}: ${
                         apiError.sentryEventId || 'n/a'
-                    } ${t('hooks_toaster.contact_support.trace_id')}: ${apiError.sentryTraceId || 'n/a'}`}
+                    } ${t('hooks_toaster.contact_support.trace_id')}: ${
+                        apiError.sentryTraceId || 'n/a'
+                    }`}
                 >
                     {({ copied, copy }) => (
                         <Tooltip
-                            label={copied ? t('hooks_toaster.contact_support.copied') : t('hooks_toaster.contact_support.copy_error_id')}
+                            label={
+                                copied
+                                    ? t('hooks_toaster.contact_support.copied')
+                                    : t(
+                                          'hooks_toaster.contact_support.copy_error_id',
+                                      )
+                            }
                             withArrow
                             position="right"
                         >

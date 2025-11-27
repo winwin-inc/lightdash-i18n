@@ -380,7 +380,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                                     activeTabUuid={
                                                         activeTab?.uuid
                                                     }
-                                                    filterType="tab"
+                                                    filterScope="tab"
                                                 />
                                             )}
                                     </Group>

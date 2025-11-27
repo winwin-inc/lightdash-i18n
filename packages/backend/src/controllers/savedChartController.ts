@@ -279,6 +279,8 @@ export class SavedChartController extends BaseController {
             dashboardFilters?: AnyType; // DashboardFilters; temp disable validation
             invalidateCache?: boolean;
             parameters?: ParametersValuesMap;
+            dashboardSlug?: string;
+            dashboardName?: string;
         },
         @Request() req: express.Request,
     ): Promise<ApiCalculateTotalResponse> {
@@ -291,6 +293,10 @@ export class SavedChartController extends BaseController {
                 body.dashboardFilters,
                 body.invalidateCache,
                 body.parameters,
+                {
+                    dashboardSlug: body.dashboardSlug,
+                    dashboardName: body.dashboardName,
+                },
             );
         return {
             status: 'ok',

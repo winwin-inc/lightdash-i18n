@@ -20,13 +20,13 @@ import AddFilterButton from './AddFilterButton';
 interface Props {
     isEditMode: boolean;
     activeTabUuid: string | undefined;
-    filterType: 'global' | 'tab';
+    filterScope: 'global' | 'tab';
 }
 
 const DashboardFilter: FC<Props> = ({
     isEditMode,
     activeTabUuid,
-    filterType,
+    filterScope,
 }) => {
     const { t } = useTranslation();
 
@@ -36,6 +36,7 @@ const DashboardFilter: FC<Props> = ({
 
     const project = useProject(projectUuid);
 
+    const dashboard = useDashboardContext((c) => c.dashboard);
     const allFilterableFieldsMap = useDashboardContext(
         (c) => c.allFilterableFieldsMap,
     );
@@ -66,13 +67,13 @@ const DashboardFilter: FC<Props> = ({
         (c) => c.setShowTabAddFilterButton,
     );
 
-    // use the appropriate filter enabled state based on filterType
+    // use the appropriate filter enabled state based on filterScope
     const isFilterEnabled =
-        filterType === 'global'
+        filterScope === 'global'
             ? isGlobalFilterEnabled
             : isTabFilterEnabled[activeTabUuid || ''] ?? true;
     const setIsFilterEnabled =
-        filterType === 'global'
+        filterScope === 'global'
             ? setIsGlobalFilterEnabled
             : (enabled: boolean) => {
                   if (activeTabUuid) {
@@ -83,13 +84,13 @@ const DashboardFilter: FC<Props> = ({
                   }
               };
 
-    // use the appropriate show add filter button state based on filterType
+    // use the appropriate show add filter button state based on filterScope
     const showAddFilterButton =
-        filterType === 'global'
+        filterScope === 'global'
             ? showGlobalAddFilterButton
             : showTabAddFilterButton[activeTabUuid || ''] ?? false;
     const setShowAddFilterButton =
-        filterType === 'global'
+        filterScope === 'global'
             ? setShowGlobalAddFilterButton
             : (enabled: boolean) => {
                   if (activeTabUuid) {
@@ -120,18 +121,18 @@ const DashboardFilter: FC<Props> = ({
 
     // apply filters
     const appliedFilters = useMemo(() => {
-        if (filterType === 'global') {
+        if (filterScope === 'global') {
             return allFilters;
         }
         return getMergedFiltersForTab(activeTabUuid || '');
-    }, [filterType, activeTabUuid, getMergedFiltersForTab, allFilters]);
+    }, [filterScope, activeTabUuid, getMergedFiltersForTab, allFilters]);
     const appliedResetDashboardFilters = useCallback(() => {
-        if (filterType === 'global') {
+        if (filterScope === 'global') {
             resetDashboardFilters();
         } else {
             resetTabFilters(activeTabUuid || '');
         }
-    }, [filterType, resetDashboardFilters, resetTabFilters, activeTabUuid]);
+    }, [filterScope, resetDashboardFilters, resetTabFilters, activeTabUuid]);
 
     const appliedAddDimensionDashboardFilter = useCallback(
         (
@@ -143,14 +144,14 @@ const DashboardFilter: FC<Props> = ({
             >,
             isTemporary: boolean,
         ) => {
-            if (filterType === 'global') {
+            if (filterScope === 'global') {
                 addDimensionDashboardFilter(filter, isTemporary);
             } else {
                 addTabDimensionFilter(activeTabUuid || '', filter, isTemporary);
             }
         },
         [
-            filterType,
+            filterScope,
             addDimensionDashboardFilter,
             addTabDimensionFilter,
             activeTabUuid,
@@ -188,6 +189,8 @@ const DashboardFilter: FC<Props> = ({
     return (
         <FiltersProvider<Record<string, FilterableDimension>>
             projectUuid={projectUuid}
+            dashboardSlug={dashboard?.slug}
+            dashboardName={dashboard?.name}
             itemsMap={allFilterableFieldsMap}
             startOfWeek={
                 project.data?.warehouseConnection?.startOfWeek ?? undefined
@@ -196,7 +199,7 @@ const DashboardFilter: FC<Props> = ({
         >
             <Flex gap="xs" wrap="wrap" mb="xs" align="center">
                 <AddFilterButton
-                    filterType={filterType}
+                    filterScope={filterScope}
                     isEditMode={isEditMode}
                     isFilterEnabled={isFilterEnabled}
                     showAddFilterButton={showAddFilterButton}
@@ -208,7 +211,7 @@ const DashboardFilter: FC<Props> = ({
                 />
 
                 <ActiveFilters
-                    filterType={filterType}
+                    filterScope={filterScope}
                     isEditMode={isEditMode}
                     isFilterEnabled={isFilterEnabled}
                     activeTabUuid={activeTabUuid}
@@ -227,7 +230,7 @@ const DashboardFilter: FC<Props> = ({
                             }
                             size="sm"
                             ml={
-                                filterType === 'global'
+                                filterScope === 'global'
                                     ? isFilterEnabled
                                         ? 'xl'
                                         : 'none'

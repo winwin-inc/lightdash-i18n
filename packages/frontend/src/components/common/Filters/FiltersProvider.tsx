@@ -12,6 +12,8 @@ import Context, { type DefaultFieldsMap } from './context';
 
 type Props<T extends DefaultFieldsMap> = {
     projectUuid?: string;
+    dashboardSlug?: string;
+    dashboardName?: string;
     itemsMap?: T;
     baseTable?: string;
     startOfWeek?: WeekDay;
@@ -22,6 +24,8 @@ type Props<T extends DefaultFieldsMap> = {
 
 const FiltersProvider = <T extends DefaultFieldsMap = DefaultFieldsMap>({
     projectUuid,
+    dashboardSlug,
+    dashboardName,
     itemsMap = {} as T,
     baseTable,
     startOfWeek,
@@ -60,7 +64,10 @@ const FiltersProvider = <T extends DefaultFieldsMap = DefaultFieldsMap>({
                 and:
                     currentFilterIndex === -1
                         ? dashboardFilters.dimensions
-                        : dashboardFilters.dimensions.slice(0, currentFilterIndex),
+                        : dashboardFilters.dimensions.slice(
+                              0,
+                              currentFilterIndex,
+                          ),
             };
         },
         [dashboardFilters],
@@ -69,6 +76,8 @@ const FiltersProvider = <T extends DefaultFieldsMap = DefaultFieldsMap>({
         <Context.Provider
             value={{
                 projectUuid,
+                dashboardSlug,
+                dashboardName,
                 itemsMap,
                 startOfWeek,
                 baseTable,

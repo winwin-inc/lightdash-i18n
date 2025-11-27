@@ -20,8 +20,8 @@ import {
     Tooltip,
 } from '@mantine/core';
 import { IconRotate360 } from '@tabler/icons-react';
-import { useTranslation } from 'react-i18next';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { EMPTY_X_AXIS } from '../../../../hooks/cartesianChartConfig/useCartesianChartConfig';
 import { isCartesianVisualizationConfig } from '../../../LightdashVisualization/types';

@@ -30,7 +30,11 @@ export const ServiceAccountsDeleteModal: FC<Props> = ({
             title={
                 <Group spacing="xs">
                     <MantineIcon icon={IconAlertCircle} color="red" />
-                    <span>{t('features_service_accounts_delete_modal.delete_service_account')}</span>
+                    <span>
+                        {t(
+                            'features_service_accounts_delete_modal.delete_service_account',
+                        )}
+                    </span>
                 </Group>
             }
             styles={(theme) => ({

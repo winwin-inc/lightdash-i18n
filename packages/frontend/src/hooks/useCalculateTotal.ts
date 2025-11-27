@@ -20,11 +20,17 @@ import {
     convertDateFilters,
 } from '../utils/dateFilter';
 
+type DashboardContextInput = {
+    dashboardSlug?: string;
+    dashboardName?: string;
+};
+
 const calculateTotalFromQuery = async (
     projectUuid: string,
     metricQuery?: MetricQuery,
     explore?: string,
     parameters?: ParametersValuesMap,
+    dashboardContext?: DashboardContextInput,
 ): Promise<ApiCalculateTotalResponse['results']> => {
     if (!metricQuery || !explore) {
         throw new Error(
@@ -43,7 +49,11 @@ const calculateTotalFromQuery = async (
     return lightdashApi<ApiCalculateTotalResponse['results']>({
         url: `/projects/${projectUuid}/calculate-total`,
         method: 'POST',
-        body: JSON.stringify(timezoneFixPayload),
+        body: JSON.stringify({
+            ...timezoneFixPayload,
+            dashboardSlug: dashboardContext?.dashboardSlug,
+            dashboardName: dashboardContext?.dashboardName,
+        }),
     });
 };
 
@@ -52,6 +62,7 @@ const calculateTotalFromSavedChart = async (
     dashboardFilters?: DashboardFilters,
     invalidateCache?: boolean,
     parameters?: ParametersValuesMap,
+    dashboardContext?: DashboardContextInput,
 ): Promise<ApiCalculateTotalResponse['results']> => {
     const timezoneFixFilters =
         dashboardFilters && convertDateDashboardFilters(dashboardFilters);
@@ -63,6 +74,8 @@ const calculateTotalFromSavedChart = async (
             dashboardFilters: timezoneFixFilters,
             invalidateCache,
             parameters,
+            dashboardSlug: dashboardContext?.dashboardSlug,
+            dashboardName: dashboardContext?.dashboardName,
         }),
     });
 };
@@ -115,6 +128,7 @@ export const useCalculateTotal = ({
     showColumnCalculation,
     embedToken,
     parameters,
+    dashboardContext,
 }: {
     metricQuery?: MetricQueryRequest;
     explore?: string;
@@ -126,6 +140,7 @@ export const useCalculateTotal = ({
     showColumnCalculation?: boolean;
     embedToken: string | undefined;
     parameters?: ParametersValuesMap;
+    dashboardContext?: DashboardContextInput;
 }) => {
     const metricsWithTotals = useMemo(() => {
         if (!fieldIds || !itemsMap) return [];
@@ -161,6 +176,7 @@ export const useCalculateTotal = ({
                       dashboardFilters,
                       invalidateCache,
                       parameters,
+                      dashboardContext,
                   )
                 : projectUuid
                 ? calculateTotalFromQuery(
@@ -168,6 +184,7 @@ export const useCalculateTotal = ({
                       metricQuery,
                       explore,
                       parameters,
+                      dashboardContext,
                   )
                 : Promise.reject(),
         retry: false,

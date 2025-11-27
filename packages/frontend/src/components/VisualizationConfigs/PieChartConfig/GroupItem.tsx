@@ -25,7 +25,6 @@ import { EditableText } from '../common/EditableText';
 import { GrabIcon } from '../common/GrabIcon';
 import { ValueOptions } from './ValueOptions';
 
-
 type GroupItemProps = {
     isOnlyItem: boolean;
 

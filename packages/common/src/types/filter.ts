@@ -123,6 +123,9 @@ export type DashboardFieldTarget = {
     tableName: string;
     isSqlColumn?: boolean; // If true, fieldId is a SQL column name and tableName is redundant
     fallbackType?: DimensionType; // Used to infer filter type when field/column is not available
+    tableLabel?: string;
+    fieldName?: string;
+    fieldLabel?: string;
 };
 
 export const isDashboardFieldTarget = (
@@ -144,6 +147,8 @@ export type DashboardFilterRule<
     tileTargets?: Record<string, DashboardTileTarget>;
     label: undefined | string;
     singleValue?: boolean;
+    categoryLevel?: 1 | 2 | 3 | 4;
+    parentFieldId?: string;
 };
 
 export type FilterDashboardToRule = DashboardFilterRule & {

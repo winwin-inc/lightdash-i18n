@@ -2343,6 +2343,17 @@
                 "prevent_multiple_values": "防止选择多个值",
                 "single_value": "单个值",
                 "multi_values": "多个值"
+            },
+            "category_level": {
+                "label": "类目层级",
+                "tooltip": "将此筛选器绑定到类目字段，用于类目筛选器联动",
+                "placeholder": "不绑定类目",
+                "level1": "一级类目",
+                "level2": "二级类目",
+                "level3": "三级类目",
+                "level4": "四级类目",
+                "parent_filter_label": "父级筛选器",
+                "parent_filter_placeholder": "不设置父级筛选器"
             }
         },
         "tabs": {

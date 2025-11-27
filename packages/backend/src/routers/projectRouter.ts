@@ -119,6 +119,10 @@ projectRouter.post(
                     req.body.filters,
                     req.body.forceRefresh,
                     req.body.parameters,
+                    {
+                        dashboardSlug: req.body.dashboardSlug,
+                        dashboardName: req.body.dashboardName,
+                    },
                 );
 
             res.json({
@@ -247,6 +251,27 @@ projectRouter.get(
                     req.user!,
                     getObjectValue(req.params, 'projectUuid'),
                 );
+            res.json({
+                status: 'ok',
+                results,
+            });
+        } catch (e) {
+            next(e);
+        }
+    },
+);
+
+projectRouter.get(
+    '/dashboard-categories',
+    allowApiKeyAuthentication,
+    isAuthenticated,
+    async (req, res, next) => {
+        try {
+            const projectUuid = getObjectValue(req.params, 'projectUuid');
+            const results = await req.services
+                .getDashboardService()
+                .getUserCategories(req.user!, projectUuid);
+
             res.json({
                 status: 'ok',
                 results,

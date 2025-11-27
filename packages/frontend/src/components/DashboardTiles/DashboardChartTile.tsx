@@ -274,6 +274,9 @@ const ValidDashboardChartTile: FC<{
         ],
     );
 
+    const dashboardSlug = useDashboardContext((c) => c.dashboard?.slug);
+    const dashboardName = useDashboardContext((c) => c.dashboard?.name);
+
     if (health.isInitialLoading || !health.data) {
         return null;
     }
@@ -298,6 +301,8 @@ const ValidDashboardChartTile: FC<{
                 dashboardChartReadyQuery.executeQueryResponse
                     .usedParametersValues
             }
+            dashboardSlug={dashboardSlug}
+            dashboardName={dashboardName}
         >
             <LightdashVisualization
                 isDashboard
@@ -366,6 +371,9 @@ const ValidDashboardChartTileMinimal: FC<{
         ],
     );
 
+    const dashboardSlug = useDashboardContext((c) => c.dashboard?.slug);
+    const dashboardName = useDashboardContext((c) => c.dashboard?.name);
+
     if (health.isInitialLoading || !health.data) {
         return null;
     }
@@ -390,6 +398,8 @@ const ValidDashboardChartTileMinimal: FC<{
                 dashboardChartReadyQuery.executeQueryResponse
                     .usedParametersValues
             }
+            dashboardSlug={dashboardSlug}
+            dashboardName={dashboardName}
         >
             <LightdashVisualization
                 isDashboard
@@ -1221,7 +1231,9 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                         chart.chartConfig.type !==
                                             ChartType.BIG_NUMBER && (
                                             <DashboardExportImage
-                                                chartType={chart.chartConfig.type}
+                                                chartType={
+                                                    chart.chartConfig.type
+                                                }
                                                 echartRef={echartRef}
                                                 chartName={chart.name}
                                                 isMinimal={false}

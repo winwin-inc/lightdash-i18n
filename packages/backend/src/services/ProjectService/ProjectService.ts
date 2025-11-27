@@ -40,7 +40,6 @@ import {
     CustomSqlQueryForbiddenError,
     DashboardAvailableFilters,
     DashboardBasicDetails,
-    type DashboardDAO,
     DashboardFilters,
     DateZoom,
     DbtExposure,
@@ -56,7 +55,6 @@ import {
     Explore,
     ExploreError,
     ExploreType,
-    FeatureFlags,
     FilterableDimension,
     FilterGroupItem,
     FilterOperator,
@@ -66,20 +64,16 @@ import {
     ForbiddenError,
     formatRawRows,
     formatRows,
-    getAggregatedField,
     getAvailableParametersFromTables,
     getDashboardFilterRulesForTables,
     getDateDimension,
     getDimensions,
     getErrorMessage,
-    getFieldQuoteChar,
     getFields,
     getIntrinsicUserAttributes,
     getItemId,
     getMetrics,
-    getSubtotalKey,
     getTimezoneLabel,
-    GroupByColumn,
     hasIntersection,
     hasWarehouseCredentials,
     IntrinsicUserAttributes,
@@ -99,7 +93,6 @@ import {
     JobType,
     LightdashError,
     LightdashProjectConfig,
-    MAX_PIVOT_COLUMN_LIMIT,
     maybeOverrideDbtConnection,
     maybeOverrideWarehouseConnection,
     maybeReplaceFieldsInChartVersion,
@@ -649,31 +642,33 @@ export class ProjectService extends BaseService {
         const emailStatus = await this.emailModel.getPrimaryEmailStatus(userId);
         let intrinsicUserAttributes: IntrinsicUserAttributes;
         if (emailStatus.isVerified) {
-            intrinsicUserAttributes = getIntrinsicUserAttributes({ email }, context);
-        } else if (context) {
+            intrinsicUserAttributes = getIntrinsicUserAttributes(
+                { email },
+                context,
+            );
+        } else {
             intrinsicUserAttributes = getIntrinsicUserAttributes(
                 { email: undefined },
                 context,
             );
-        } else {
-            intrinsicUserAttributes = {};
         }
 
         // Debug logging to help troubleshoot context passing
         if (context) {
             this.logger.info(
-                `[USER_ATTRIBUTES_DEBUG] Context provided: ${JSON.stringify({
-                    context,
-                    dashboardSlug: context.dashboardSlug,
-                    dashboardName: context.dashboardName,
-                    emailStatus: emailStatus.isVerified,
-                    email,
-                    intrinsicUserAttributes,
-                })}`,
+                `[USER_ATTRIBUTES_DEBUG][ProjectService.getUserAttributes] Context provided ${JSON.stringify(
+                    {
+                        dashboardSlug: context.dashboardSlug,
+                        dashboardName: context.dashboardName,
+                        emailStatus: emailStatus.isVerified,
+                        email,
+                        intrinsicUserAttributes,
+                    },
+                )}`,
             );
         } else {
-            this.logger.debug(
-                `[USER_ATTRIBUTES_DEBUG] No context provided (not in dashboard context)`,
+            this.logger.warn(
+                `[USER_ATTRIBUTES_DEBUG][ProjectService.getUserAttributes] No context provided`,
             );
         }
 
@@ -2865,6 +2860,7 @@ export class ProjectService extends BaseService {
         dateZoom,
         chartUuid,
         parameters,
+        dashboardContext,
     }: {
         account: Account;
         metricQuery: MetricQuery;
@@ -2878,6 +2874,7 @@ export class ProjectService extends BaseService {
         dateZoom?: DateZoom;
         chartUuid: string | undefined; // for analytics
         parameters?: ParametersValuesMap;
+        dashboardContext?: { dashboardSlug?: string; dashboardName?: string };
     }): Promise<{
         rows: Record<string, AnyType>[];
         cacheMetadata: CacheMetadata;
@@ -2933,9 +2930,11 @@ export class ProjectService extends BaseService {
                         );
 
                     const { userAttributes, intrinsicUserAttributes } =
-                        await this.getUserAttributes({
-                            account,
-                        });
+                        await this.getUserAttributes(
+                            dashboardContext
+                                ? { account, context: dashboardContext }
+                                : { account },
+                        );
 
                     const availableParameterDefinitions =
                         await this.getAvailableParameters(projectUuid, explore);
@@ -3511,6 +3510,7 @@ export class ProjectService extends BaseService {
         filters: AndFilterGroup | undefined,
         forceRefresh: boolean = false,
         parameters?: ParametersValuesMap,
+        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
     ) {
         const { organizationUuid } = await this.projectModel.getSummary(
             projectUuid,
@@ -3547,8 +3547,35 @@ export class ProjectService extends BaseService {
                 databricksCompute: explore.databricksCompute,
             },
         );
+        const contextWithValues =
+            dashboardContext &&
+            (dashboardContext.dashboardSlug || dashboardContext.dashboardName)
+                ? dashboardContext
+                : undefined;
+        if (contextWithValues) {
+            this.logger.info(
+                `[USER_ATTRIBUTES_DEBUG][ProjectService.searchFieldUniqueValues] Dashboard context detected ${JSON.stringify(
+                    {
+                        projectUuid,
+                        userUuid: user.userUuid,
+                        dashboardSlug: contextWithValues.dashboardSlug,
+                        dashboardName: contextWithValues.dashboardName,
+                    },
+                )}`,
+            );
+        } else {
+            this.logger.warn(
+                `[USER_ATTRIBUTES_DEBUG][ProjectService.searchFieldUniqueValues] Missing dashboard context ${JSON.stringify(
+                    { projectUuid, userUuid: user.userUuid },
+                )}`,
+            );
+        }
         const { userAttributes, intrinsicUserAttributes } =
-            await this.getUserAttributes({ user });
+            await this.getUserAttributes(
+                contextWithValues
+                    ? { user, context: contextWithValues }
+                    : { user },
+            );
 
         const availableParameterDefinitions = await this.getAvailableParameters(
             projectUuid,
@@ -5374,6 +5401,7 @@ export class ProjectService extends BaseService {
         metricQuery: MetricQuery,
         organizationUuid: string,
         parameters?: ParametersValuesMap,
+        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
     ) {
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
@@ -5389,7 +5417,11 @@ export class ProjectService extends BaseService {
         );
 
         const { userAttributes, intrinsicUserAttributes } =
-            await this.getUserAttributes({ account });
+            await this.getUserAttributes(
+                dashboardContext
+                    ? { account, context: dashboardContext }
+                    : { account },
+            );
 
         const availableParameterDefinitions = await this.getAvailableParameters(
             projectUuid,
@@ -5435,6 +5467,7 @@ export class ProjectService extends BaseService {
         invalidateCache: boolean,
         organizationUuid: string,
         parameters?: ParametersValuesMap,
+        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
     ) {
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
@@ -5450,7 +5483,11 @@ export class ProjectService extends BaseService {
         );
 
         const { userAttributes, intrinsicUserAttributes } =
-            await this.getUserAttributes({ account });
+            await this.getUserAttributes(
+                dashboardContext
+                    ? { account, context: dashboardContext }
+                    : { account },
+            );
 
         const availableParameterDefinitions = await this.getAvailableParameters(
             projectUuid,
@@ -5503,6 +5540,7 @@ export class ProjectService extends BaseService {
         dashboardFilters?: DashboardFilters,
         invalidateCache: boolean = false,
         parameters?: ParametersValuesMap,
+        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
     ) {
         assertIsAccountWithOrg(account);
 
@@ -5588,6 +5626,7 @@ export class ProjectService extends BaseService {
             invalidateCache,
             savedChart.organizationUuid,
             combinedParameters,
+            dashboardContext,
         );
         return results.row;
     }
@@ -5642,6 +5681,10 @@ export class ProjectService extends BaseService {
             data.metricQuery,
             organizationUuid,
             combinedParameters,
+            {
+                dashboardSlug: data.dashboardSlug,
+                dashboardName: data.dashboardName,
+            },
         );
         return results.row;
     }
@@ -5653,6 +5696,7 @@ export class ProjectService extends BaseService {
         explore: Explore,
         organizationUuid: string,
         parameters?: ParametersValuesMap,
+        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
     ) {
         const {
             explore: exploreName,
@@ -5703,6 +5747,7 @@ export class ProjectService extends BaseService {
                 csvLimit: null,
                 chartUuid: undefined,
                 parameters,
+                dashboardContext,
             });
 
             return formatRawRows(rows, fields);
@@ -5792,6 +5837,10 @@ export class ProjectService extends BaseService {
             explore,
             organizationUuid,
             combinedParameters,
+            {
+                dashboardSlug: data.dashboardSlug,
+                dashboardName: data.dashboardName,
+            },
         );
     }
 

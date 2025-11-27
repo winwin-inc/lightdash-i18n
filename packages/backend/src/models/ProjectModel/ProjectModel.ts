@@ -1526,11 +1526,11 @@ export class ProjectModel {
         data: UpdateMetadata,
     ): Promise<void> {
         const updateData: Partial<DbProject> = {};
-        
+
         if (data.upstreamProjectUuid !== undefined) {
             updateData.copied_from_project_uuid = data.upstreamProjectUuid; // if upstreamProjectUuid is undefined, it will do nothing, if it is null, it will be unset
         }
-        
+
         if (data.isCustomerUse !== undefined) {
             updateData.is_customer_use = data.isCustomerUse;
         }

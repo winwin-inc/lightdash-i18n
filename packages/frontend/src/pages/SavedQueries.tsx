@@ -8,9 +8,9 @@ import { useNavigate, useParams } from 'react-router';
 import Page from '../components/common/Page/Page';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import InfiniteResourceTable from '../components/common/ResourceView/InfiniteResourceTable';
+import { useProject } from '../hooks/useProject';
 import useCreateInAnySpaceAccess from '../hooks/user/useCreateInAnySpaceAccess';
 import useApp from '../providers/App/useApp';
-import { useProject } from '../hooks/useProject';
 
 const SavedQueries: FC = () => {
     const { t } = useTranslation();
@@ -70,7 +70,7 @@ const SavedQueries: FC = () => {
 
                 {projectUuid ? (
                     <InfiniteResourceTable
-                    isCustomerUse={isCustomerUse}
+                        isCustomerUse={isCustomerUse}
                         filters={{
                             projectUuid,
                             contentTypes: [ContentType.CHART],

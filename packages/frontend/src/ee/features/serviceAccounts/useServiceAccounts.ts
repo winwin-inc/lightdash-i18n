@@ -39,12 +39,16 @@ export const useServiceAccounts = () => {
         onSuccess: async () => {
             await queryClient.invalidateQueries([CACHE_KEY]);
             showToastSuccess({
-                title: t('features_service_accounts_hooks.service_account_created'),
+                title: t(
+                    'features_service_accounts_hooks.service_account_created',
+                ),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: t('features_service_accounts_hooks.failed_to_create_service_account'),
+                title: t(
+                    'features_service_accounts_hooks.failed_to_create_service_account',
+                ),
                 apiError: error,
             });
         },
@@ -60,12 +64,16 @@ export const useServiceAccounts = () => {
         onSuccess: async () => {
             await queryClient.invalidateQueries([CACHE_KEY]);
             showToastSuccess({
-                title: t('features_service_accounts_hooks.service_account_deleted'),
+                title: t(
+                    'features_service_accounts_hooks.service_account_deleted',
+                ),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: t('features_service_accounts_hooks.failed_to_delete_service_account'),
+                title: t(
+                    'features_service_accounts_hooks.failed_to_delete_service_account',
+                ),
                 apiError: error,
             });
         },

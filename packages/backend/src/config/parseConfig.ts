@@ -850,6 +850,10 @@ export type LightdashConfig = {
     };
     analyticsEmbedSecret?: string;
     experimentalExplorerImprovements: boolean;
+    adminApi?: {
+        host?: string;
+        apiKey?: string;
+    };
 };
 
 export type SlackConfig = {
@@ -1630,5 +1634,9 @@ export const parseConfig = (): LightdashConfig => {
         analyticsEmbedSecret: process.env.ANALYTICS_EMBED_SECRET,
         experimentalExplorerImprovements:
             process.env.EXPERIMENTAL_EXPLORER_IMPROVEMENTS === 'true',
+        adminApi: {
+            host: process.env.ADMIN_API_HOST,
+            apiKey: process.env.ADMIN_API_KEY,
+        },
     };
 };

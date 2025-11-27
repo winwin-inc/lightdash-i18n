@@ -48,11 +48,11 @@ const useDashboardFilterStyles = createStyles((theme) => ({
 
 type Props = {
     isEditMode: boolean;
-    filterType: 'global' | 'tab';
+    filterScope: 'global' | 'tab';
     isTemporary?: boolean;
     field: FilterableDimension | undefined;
     filterRule: DashboardFilterRule;
-    appliesToTabs: String[];
+    appliesToTabs: string[];
     openPopoverId: string | undefined;
     activeTabUuid: string | undefined;
     onPopoverOpen: (popoverId: string) => void;
@@ -63,7 +63,7 @@ type Props = {
 
 const Filter: FC<Props> = ({
     isEditMode,
-    filterType,
+    filterScope,
     isTemporary,
     field,
     filterRule,
@@ -205,21 +205,21 @@ const Filter: FC<Props> = ({
     );
 
     const appliedDashboardTabs = useMemo(() => {
-        if (filterType === 'global') {
+        if (filterScope === 'global') {
             return dashboardTabs;
         }
         return dashboardTabs?.filter((tab) => tab.uuid === activeTabUuid);
-    }, [dashboardTabs, activeTabUuid, filterType]);
+    }, [dashboardTabs, activeTabUuid, filterScope]);
 
     const appliedDashboardTiles = useMemo(() => {
-        if (filterType === 'global') {
+        if (filterScope === 'global') {
             return dashboardTiles;
         }
         return dashboardTiles?.filter((tl) => tl.tabUuid === activeTabUuid);
-    }, [dashboardTiles, activeTabUuid, filterType]);
+    }, [dashboardTiles, activeTabUuid, filterScope]);
 
     const appliedFilterableFieldsByTileUuid = useMemo(() => {
-        if (filterType === 'global') {
+        if (filterScope === 'global') {
             return filterableFieldsByTileUuid;
         }
         return Object.keys(filterableFieldsByTileUuid ?? {}).reduce(
@@ -237,7 +237,7 @@ const Filter: FC<Props> = ({
             },
             {} as Record<string, FilterableDimension[]>,
         );
-    }, [filterableFieldsByTileUuid, appliedDashboardTiles, filterType]);
+    }, [filterableFieldsByTileUuid, appliedDashboardTiles, filterScope]);
 
     return (
         <>
@@ -423,6 +423,12 @@ const Filter: FC<Props> = ({
                                 onOpen: openSubPopover,
                                 onClose: closeSubPopover,
                             }}
+                            filterScope={filterScope}
+                            tabUuid={
+                                filterScope === 'tab'
+                                    ? appliesToTabs[0] ?? activeTabUuid
+                                    : undefined
+                            }
                         />
                     )}
                 </Popover.Dropdown>

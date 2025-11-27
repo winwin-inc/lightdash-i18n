@@ -2790,6 +2790,29 @@ export class AsyncQueryService extends ProjectService {
                       dashboardName,
                   }
                 : undefined;
+        if (contextParam) {
+            this.logger.info(
+                `[USER_ATTRIBUTES_DEBUG][AsyncQueryService.prepareSqlChartAsyncQueryArgs] Dashboard context detected ${JSON.stringify(
+                    {
+                        projectUuid,
+                        organizationUuid,
+                        userUuid: account.user.id,
+                        dashboardSlug: contextParam.dashboardSlug,
+                        dashboardName: contextParam.dashboardName,
+                    },
+                )}`,
+            );
+        } else {
+            this.logger.warn(
+                `[USER_ATTRIBUTES_DEBUG][AsyncQueryService.prepareSqlChartAsyncQueryArgs] Missing dashboard context ${JSON.stringify(
+                    {
+                        projectUuid,
+                        organizationUuid,
+                        userUuid: account.user.id,
+                    },
+                )}`,
+            );
+        }
         const { userAttributes, intrinsicUserAttributes } =
             await this.getUserAttributes({
                 account,

@@ -56,7 +56,14 @@ import {
     isEmptyTabFilters,
     useDashboardTabFilters,
 } from '../../hooks/dashboard/useDashboardTabFilters';
+import { useProject } from '../../hooks/useProject';
 import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOverrides';
+import { useUserCategories } from '../../hooks/useUserCategories';
+import {
+    initializeCategoryFilterValuesByPermission,
+    isCategoryField,
+    updateCategoryFilterCascade,
+} from '../../utils/categoryFilters';
 import DashboardContext from './context';
 import { type SqlChartTileMetadata } from './types';
 
@@ -86,13 +93,23 @@ const DashboardProvider: React.FC<
 
     const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
-    const { dashboardUuid, tabUuid } = useParams<{
+    const { dashboardUuid, tabUuid, mode } = useParams<{
         dashboardUuid: string;
         tabUuid?: string;
+        mode?: string;
     }>() as {
         dashboardUuid: string;
         tabUuid?: string;
+        mode?: string;
     };
+
+    // 判断是否是编辑模式：从 URL 参数 mode 或 pathname 判断
+    // 当点击编辑看板时，URL 会变成 /projects/.../dashboards/.../edit，mode 会是 'edit'
+    const isEditMode = useMemo(() => {
+        if (mode === 'edit') return true;
+        // 备用判断：检查 pathname 是否包含 '/edit'
+        return pathname.includes('/edit');
+    }, [mode, pathname]);
 
     const {
         mutateAsync: versionRefresh,
@@ -164,6 +181,15 @@ const DashboardProvider: React.FC<
         setHaveShowAddFilterButtonStatesChanged,
     } = useDashboardFilterState({ dashboard });
 
+    // Get project info to check if customer use mode is enabled
+    const { data: project } = useProject(projectUuid);
+
+    // Get user categories for category filter initialization (only in customer use mode)
+    const isCustomerUse = project?.isCustomerUse ?? false;
+    const { data: userCategories } = useUserCategories({
+        enabled: !!projectUuid && isCustomerUse,
+    });
+
     // dashboard filters
     const {
         embedDashboard,
@@ -178,7 +204,7 @@ const DashboardProvider: React.FC<
         setDashboardTemporaryFilters,
         resetDashboardFilters,
         addDimensionDashboardFilter,
-        updateDimensionDashboardFilter,
+        updateDimensionDashboardFilter: originalUpdateDimensionDashboardFilter,
         addMetricDashboardFilter,
         removeDimensionDashboardFilter,
         overridesForSavedDashboardFilters,
@@ -187,6 +213,91 @@ const DashboardProvider: React.FC<
         dashboard,
         isFilterEnabled: isGlobalFilterEnabled,
     });
+
+    const initializeCategoryFiltersSequentially = useCallback(
+        (filters: DashboardFilters): DashboardFilters => {
+            if (!isCustomerUse || !userCategories) return filters;
+
+            let workingFilters = filters;
+            let hasChanges = false;
+
+            const validatedDimensions = filters.dimensions.map((filter) => {
+                const initializedFilter =
+                    initializeCategoryFilterValuesByPermission(
+                        filter,
+                        workingFilters,
+                        userCategories,
+                    );
+                if (initializedFilter) {
+                    hasChanges = true;
+                    workingFilters = {
+                        ...workingFilters,
+                        dimensions: workingFilters.dimensions.map((dimension) =>
+                            dimension.id === filter.id
+                                ? initializedFilter
+                                : dimension,
+                        ),
+                    };
+                    return initializedFilter;
+                }
+                return filter;
+            });
+
+            if (!hasChanges) return filters;
+
+            return {
+                ...workingFilters,
+                dimensions: validatedDimensions,
+            };
+        },
+        [isCustomerUse, userCategories],
+    );
+
+    // Wrap updateDimensionDashboardFilter to handle category filter cascade
+    const updateDimensionDashboardFilter = useCallback(
+        (
+            item: DashboardFilterRule,
+            index: number,
+            isTemporary: boolean,
+            isEdit: boolean,
+        ) => {
+            // First update the filter
+            originalUpdateDimensionDashboardFilter(
+                item,
+                index,
+                isTemporary,
+                isEdit,
+            );
+
+            // Then handle category filter cascade if needed (only in customer use mode)
+            if (isCustomerUse && userCategories && !isEdit) {
+                if (isCategoryField(item)) {
+                    const newValue =
+                        item.values && item.values.length > 0
+                            ? String(item.values[0])
+                            : null;
+
+                    // Update filters with cascade logic
+                    setDashboardFilters((prevFilters) => {
+                        const cascaded = updateCategoryFilterCascade(
+                            prevFilters,
+                            item,
+                            newValue,
+                            userCategories,
+                        );
+                        return initializeCategoryFiltersSequentially(cascaded);
+                    });
+                }
+            }
+        },
+        [
+            originalUpdateDimensionDashboardFilter,
+            isCustomerUse,
+            userCategories,
+            setDashboardFilters,
+            initializeCategoryFiltersSequentially,
+        ],
+    );
 
     // dashboard tab filter
     const {
@@ -211,6 +322,58 @@ const DashboardProvider: React.FC<
         dashboardTemporaryFilters,
         isFilterEnabled: (uuid: string) => isTabFilterEnabled[uuid] ?? true,
     });
+
+    // Wrap updateTabDimensionFilter to handle category filter cascade
+    const wrappedUpdateTabDimensionFilter = useCallback(
+        (
+            uuid: string,
+            item: DashboardFilterRule,
+            index: number,
+            isTemporary: boolean,
+        ) => {
+            // First update the filter
+            updateTabDimensionFilter(uuid, item, index, isTemporary);
+
+            // Then handle category filter cascade if needed (only in customer use mode & view mode)
+            if (isCustomerUse && userCategories && !isEditMode) {
+                if (isCategoryField(item)) {
+                    const newValue =
+                        item.values && item.values.length > 0
+                            ? String(item.values[0])
+                            : null;
+
+                    // Update tab filters with cascade logic
+                    setTabFilters((prevTabFilters) => {
+                        const tabFilter = prevTabFilters[uuid]
+                            ? clone(prevTabFilters[uuid])
+                            : emptyFilters;
+                        const updatedTabFilter = updateCategoryFilterCascade(
+                            tabFilter,
+                            item,
+                            newValue,
+                            userCategories,
+                        );
+                        const initializedTabFilter =
+                            initializeCategoryFiltersSequentially(
+                                updatedTabFilter,
+                            );
+                        return {
+                            ...prevTabFilters,
+                            [uuid]: initializedTabFilter,
+                        };
+                    });
+                }
+            }
+        },
+        [
+            updateTabDimensionFilter,
+            isCustomerUse,
+            userCategories,
+            setTabFilters,
+            isEditMode,
+            initializeCategoryFiltersSequentially,
+        ],
+    );
 
     const [resultsCacheTimes, setResultsCacheTimes] = useState<Date[]>([]);
     const [invalidateCache, setInvalidateCache] = useState<boolean>(
@@ -601,6 +764,8 @@ const DashboardProvider: React.FC<
                 updatedDashboardFilters,
             );
 
+            // Step 4: Initialize category filters based on user permissions (only in customer use mode)
+            // Note: This will be applied when userCategories loads (see useEffect below)
             setDashboardFilters(updatedDashboardFilters);
 
             // tab filters
@@ -610,7 +775,8 @@ const DashboardProvider: React.FC<
             ) {
                 const updatedTabFilters = currentDashboard.tabs.reduce(
                     (acc, tab) => {
-                        acc[tab.uuid] = tab.filters || emptyFilters;
+                        // Deep clone to avoid mutating the original object
+                        acc[tab.uuid] = tab.filters ?? emptyFilters;
                         return acc;
                     },
                     {} as Record<string, DashboardFilters>,
@@ -622,6 +788,7 @@ const DashboardProvider: React.FC<
 
         setOriginalDashboardFilters(currentDashboard.filters);
     }, [
+        embed,
         dashboard,
         embedDashboard,
         dashboardFilters,
@@ -631,8 +798,64 @@ const DashboardProvider: React.FC<
         setDashboardFilters,
         setOriginalDashboardFilters,
         setTabFilters,
-        embed,
         applyInteractivityFiltering,
+    ]);
+
+    // Apply category filters when userCategories loads (only in customer use mode)
+    // This ensures category filters are initialized even if userCategories loads after dashboard
+    useEffect(() => {
+        if (!isCustomerUse || !userCategories || isEditMode) return;
+        if (dashboardFilters === emptyFilters) return; // Skip if filters haven't been initialized yet
+
+        // Check if category filters need to be initialized or validated
+        const hasCategoryFields = dashboardFilters.dimensions.some((filter) =>
+            isCategoryField(filter),
+        );
+        if (!hasCategoryFields) return;
+
+        // Apply category filter validation and initialization
+        // Use functional update to avoid dependency on dashboardFilters
+        setDashboardFilters((prevFilters) =>
+            initializeCategoryFiltersSequentially(prevFilters),
+        );
+    }, [
+        isCustomerUse,
+        userCategories,
+        dashboardFilters,
+        isEditMode,
+        setDashboardFilters,
+        initializeCategoryFiltersSequentially,
+    ]);
+
+    // Apply category filters to tab filters when userCategories loads
+    useEffect(() => {
+        if (!isCustomerUse || !userCategories || isEditMode) return;
+        if (isEmptyTabFilters(tabFilters)) return; // Skip if tab filters haven't been initialized yet
+
+        // Apply category filter validation and initialization to each tab
+        // Use functional update to avoid dependency on tabFilters
+        setTabFilters((prevTabFilters) => {
+            const updated = { ...prevTabFilters };
+            let hasChanges = false;
+
+            Object.entries(prevTabFilters).forEach(([uuid, filters]) => {
+                const initialized =
+                    initializeCategoryFiltersSequentially(filters);
+                if (initialized !== filters) {
+                    updated[uuid] = initialized;
+                    hasChanges = true;
+                }
+            });
+
+            return hasChanges ? updated : prevTabFilters;
+        });
+    }, [
+        isCustomerUse,
+        userCategories,
+        isEditMode,
+        tabFilters,
+        setTabFilters,
+        initializeCategoryFiltersSequentially,
     ]);
 
     // Updates url with temp and overridden filters and deep compare to avoid unnecessary re-renders for dashboardTemporaryFilters
@@ -1090,7 +1313,7 @@ const DashboardProvider: React.FC<
         getActiveTabTemporaryFilters,
         getMergedFiltersForTab,
         addTabDimensionFilter,
-        updateTabDimensionFilter,
+        updateTabDimensionFilter: wrappedUpdateTabDimensionFilter,
         removeTabDimensionFilter,
         resetTabFilters,
         // tab filters end

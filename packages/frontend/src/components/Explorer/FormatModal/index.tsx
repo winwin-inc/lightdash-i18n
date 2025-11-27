@@ -10,8 +10,8 @@ import {
 import { Button, Group, Modal, Stack, Title } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import isEqual from 'lodash/isEqual';
-import { useTranslation } from 'react-i18next';
 import { memo, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { type ValueOf } from 'type-fest';
 import {
     explorerActions,
@@ -34,7 +34,7 @@ const DEFAULT_FORMAT: CustomFormat = {
 
 export const FormatModal = memo(() => {
     const { t } = useTranslation();
-    
+
     const dispatch = useExplorerDispatch();
     const { isOpen, metric } = useExplorerSelector(selectFormatModal);
     const metricQuery = useExplorerSelector(selectMetricQuery);
@@ -107,7 +107,11 @@ export const FormatModal = memo(() => {
             onClick={(e) => e.stopPropagation()}
             opened={isOpen}
             onClose={handleClose}
-            title={<Title order={4}>{t("components_explorer_format_modal.format_metric")}</Title>}
+            title={
+                <Title order={4}>
+                    {t('components_explorer_format_modal.format_metric')}
+                </Title>
+            }
         >
             <form onSubmit={handleOnSubmit}>
                 <Stack>

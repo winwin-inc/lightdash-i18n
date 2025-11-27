@@ -27,9 +27,9 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { type ValueOf } from 'type-fest';
 import { v4 as uuidv4 } from 'uuid';
-import { useTranslation } from 'react-i18next';
 
 import {
     explorerActions,
@@ -52,7 +52,7 @@ import {
 
 export const CustomMetricModal = memo(() => {
     const { t } = useTranslation();
-    
+
     const {
         isOpen,
         isEditing,

@@ -154,7 +154,7 @@ const ScopeGroup: FC<{
 
 export const ScopeSelector: FC<ScopeSelectorProps> = ({ form }) => {
     const { t } = useTranslation();
-    
+
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm] = useDebouncedValue(searchTerm, 300);
 

@@ -11,8 +11,8 @@ import {
 import { IconAlertCircle } from '@tabler/icons-react';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 import { Fragment, useState, type FC } from 'react';
-import rehypeExternalLinks from 'rehype-external-links';
 import { useTranslation } from 'react-i18next';
+import rehypeExternalLinks from 'rehype-external-links';
 
 import MantineIcon from '../../common/MantineIcon';
 import PaginateControl from '../../common/PaginateControl';

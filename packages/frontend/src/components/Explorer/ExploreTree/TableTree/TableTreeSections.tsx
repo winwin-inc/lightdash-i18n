@@ -18,9 +18,9 @@ import {
 } from '@mantine/core';
 import { IconAlertTriangle, IconCode, IconPlus } from '@tabler/icons-react';
 import { useCallback, useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { shallowEqual } from 'react-redux';
 import { useParams } from 'react-router';
-import { useTranslation } from 'react-i18next';
 
 import {
     explorerActions,
@@ -66,7 +66,7 @@ const TableTreeSections: FC<Props> = ({
     isSearching,
 }) => {
     const { t } = useTranslation();
-    
+
     const selectedDimensions = useExplorerSelector(selectDimensions);
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { user } = useApp();

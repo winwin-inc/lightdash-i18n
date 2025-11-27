@@ -1,8 +1,8 @@
 import { Anchor } from '@mantine/core';
 import { IconFolder } from '@tabler/icons-react';
 import { type FC } from 'react';
-import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 
 import InfoContainer from './InfoContainer';
 

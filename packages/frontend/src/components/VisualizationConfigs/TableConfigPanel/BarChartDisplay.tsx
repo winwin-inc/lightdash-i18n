@@ -48,7 +48,9 @@ export const BarChartDisplay: FC = () => {
     if (numericFields.length === 0) {
         return (
             <Text c="dimmed" size="sm">
-                {t('components_visualization_configs_bar_chart_display.no_numeric_columns_available')}
+                {t(
+                    'components_visualization_configs_bar_chart_display.no_numeric_columns_available',
+                )}
             </Text>
         );
     }
@@ -56,10 +58,16 @@ export const BarChartDisplay: FC = () => {
     return (
         <Config>
             <Config.Section>
-                <Config.Heading>{t('components_visualization_configs_bar_chart_display.bar_chart_columns')}</Config.Heading>
+                <Config.Heading>
+                    {t(
+                        'components_visualization_configs_bar_chart_display.bar_chart_columns',
+                    )}
+                </Config.Heading>
                 <Stack spacing="md">
                     <Text size="sm" c="dimmed">
-                        {t('components_visualization_configs_bar_chart_display.display_numeric_values_as_bar_charts')}
+                        {t(
+                            'components_visualization_configs_bar_chart_display.display_numeric_values_as_bar_charts',
+                        )}
                     </Text>
 
                     {numericFields.map((field) => {
