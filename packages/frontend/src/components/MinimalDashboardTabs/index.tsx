@@ -80,26 +80,38 @@ const MinimalDashboardTabs = ({
                                 borderRadius: theme.radius.md,
                             })}
                         >
-                            {tabs.map((tab) => (
-                                <Menu.Item
-                                    key={tab.uuid}
-                                    onClick={() => {
-                                        void navigate(tab.selfUrl);
-                                    }}
-                                >
-                                    <Text
-                                        fw={
-                                            activeTab.uuid === tab.uuid
-                                                ? 500
-                                                : 400
-                                        }
-                                        truncate
-                                        maw="160px"
+                            {tabs.map((tab) => {
+                                const isActive = activeTab.uuid === tab.uuid;
+
+                                return (
+                                    <Menu.Item
+                                        key={tab.uuid}
+                                        onClick={() => {
+                                            void navigate(tab.selfUrl);
+                                        }}
+                                        sx={(theme) => ({
+                                            backgroundColor: isActive
+                                                ? theme.colors[
+                                                      theme.primaryColor
+                                                  ][0]
+                                                : undefined,
+                                            color: isActive
+                                                ? theme.colors[
+                                                      theme.primaryColor
+                                                  ][6]
+                                                : theme.colors.gray[8],
+                                            fontWeight: isActive ? 600 : 400,
+                                        })}
                                     >
-                                        {tab.name}
-                                    </Text>
-                                </Menu.Item>
-                            ))}
+                                        <Text
+                                            truncate
+                                            maw="160px"
+                                        >
+                                            {tab.name}
+                                        </Text>
+                                    </Menu.Item>
+                                );
+                            })}
                         </Menu.Dropdown>
                     </Menu>
                 </Tooltip>

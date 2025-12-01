@@ -128,6 +128,7 @@
         "use-local-storage-state": "17",
         "uuid": "^8.3.2",
         "vega-lite": "^5.16.1",
+        "weixin-js-sdk": "^1.6.5",
         "zod": "^3.25.55"
     },
     "devDependencies": {
@@ -157,6 +158,7 @@
         "@types/styled-components": "^5.1.34",
         "@types/uuid": "^8.3.4",
         "@vitejs/plugin-react": "^4.4.1",
+        "@vitejs/plugin-legacy": "^7.2.1",
         "eslint-plugin-css-modules": "^2.11.0",
         "eslint-plugin-jest-dom": "^5.1.0",
         "eslint-plugin-jsx-a11y": "^6.6.1",

@@ -40,6 +40,7 @@ import ProjectRoute from './components/ProjectRoute';
 import { useAiAgentButtonVisibility } from './ee/features/aiCopilot/hooks/useAiAgentsButtonVisibility';
 import { useActiveProjectUuid } from './hooks/useActiveProject';
 import { useProject } from './hooks/useProject';
+import { useWeChatMiniProgram } from './hooks/useWeChatMiniProgram';
 import useLogoutMutation from './hooks/user/useUserLogoutMutation';
 import AuthPopupResult, {
     SuccessAuthPopupResult,
@@ -81,6 +82,8 @@ const RedirectToResource: FC = () => {
 
 export const MobileNavBar: FC = () => {
     const { t } = useTranslation();
+    const { isMiniProgram, isReady } = useWeChatMiniProgram();
+
 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const toggleMenu = useCallback(
@@ -104,29 +107,34 @@ export const MobileNavBar: FC = () => {
 
     return (
         <MantineProvider inherit theme={{ colorScheme: 'dark' }}>
-            <Header
-                height={50}
-                display="flex"
-                px="md"
-                zIndex={getDefaultZIndex('app')}
-                sx={{
-                    alignItems: 'center',
-                    boxShadow: 'lg',
-                }}
-            >
-                <Group align="center" position="apart" sx={{ flex: 1 }}>
-                    <ActionIcon
-                        component={Link}
-                        to={'/'}
-                        title={t('mobile_navbar.home')}
-                        size="lg"
-                    >
-                        <Logo />
-                    </ActionIcon>
-                    <Burger opened={isMenuOpen} onClick={toggleMenu} />
-                </Group>
-            </Header>
-
+            {
+                isReady && isMiniProgram ? null : (
+                    <Header
+                    height={50}
+                    display="flex"
+                    px="md"
+                    zIndex={getDefaultZIndex('app')}
+                    sx={{
+                        alignItems: 'center',
+                        boxShadow: 'lg',
+                    }}
+                >
+                    <Group align="center" position="apart" sx={{ flex: 1 }}>
+                        <ActionIcon
+                            component={Link}
+                            to={'/'}
+                            title={t('mobile_navbar.home')}
+                            size="lg"
+                        >
+                            <Logo />
+                        </ActionIcon>
+                        <Burger opened={isMenuOpen} onClick={toggleMenu} />
+                    </Group>
+                </Header>
+    
+                )
+            }
+           
             <Drawer opened={isMenuOpen} onClose={toggleMenu} size="75%">
                 <Title order={6} fw={600} mb="xs">
                     {t('mobile_navbar.project')}
