@@ -103,10 +103,7 @@ const MinimalDashboardTabs = ({
                                             fontWeight: isActive ? 600 : 400,
                                         })}
                                     >
-                                        <Text
-                                            truncate
-                                            maw="160px"
-                                        >
+                                        <Text truncate maw="160px">
                                             {tab.name}
                                         </Text>
                                     </Menu.Item>

@@ -4,12 +4,18 @@ declare global {
     interface Window {
         __wxjs_environment?: string;
         WeixinJSBridge?: {
-            invoke: (method: string, options: any, callback?: (res: any) => void) => void;
+            invoke: (
+                method: string,
+                options: any,
+                callback?: (res: any) => void,
+            ) => void;
             ready?: (callback: () => void) => void;
         };
         wx?: {
             miniProgram?: {
-                getEnv: (callback: (res: { miniprogram: boolean }) => void) => void;
+                getEnv: (
+                    callback: (res: { miniprogram: boolean }) => void,
+                ) => void;
                 navigateBack: (options?: { delta?: number }) => void;
             };
         };
@@ -48,9 +54,16 @@ export const useWeChatMiniProgram = () => {
         if (!window.WeixinJSBridge || !window.WeixinJSBridge.invoke) {
             const readyHandler = () => {
                 checkEnvironment();
-                document.removeEventListener('WeixinJSBridgeReady', readyHandler);
+                document.removeEventListener(
+                    'WeixinJSBridgeReady',
+                    readyHandler,
+                );
             };
-            document.addEventListener('WeixinJSBridgeReady', readyHandler, false);
+            document.addEventListener(
+                'WeixinJSBridgeReady',
+                readyHandler,
+                false,
+            );
         } else {
             checkEnvironment();
         }
@@ -68,4 +81,3 @@ export const useWeChatMiniProgram = () => {
         navigateBack,
     };
 };
-

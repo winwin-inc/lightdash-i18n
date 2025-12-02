@@ -40,8 +40,8 @@ import ProjectRoute from './components/ProjectRoute';
 import { useAiAgentButtonVisibility } from './ee/features/aiCopilot/hooks/useAiAgentsButtonVisibility';
 import { useActiveProjectUuid } from './hooks/useActiveProject';
 import { useProject } from './hooks/useProject';
-import { useWeChatMiniProgram } from './hooks/useWeChatMiniProgram';
 import useLogoutMutation from './hooks/user/useUserLogoutMutation';
+import { useWeChatMiniProgram } from './hooks/useWeChatMiniProgram';
 import AuthPopupResult, {
     SuccessAuthPopupResult,
 } from './pages/AuthPopupResult';
@@ -84,7 +84,6 @@ export const MobileNavBar: FC = () => {
     const { t } = useTranslation();
     const { isMiniProgram, isReady } = useWeChatMiniProgram();
 
-
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const toggleMenu = useCallback(
         () => setIsMenuOpen((prevValue) => !prevValue),
@@ -107,9 +106,8 @@ export const MobileNavBar: FC = () => {
 
     return (
         <MantineProvider inherit theme={{ colorScheme: 'dark' }}>
-            {
-                isReady && isMiniProgram ? null : (
-                    <Header
+            {isReady && isMiniProgram ? null : (
+                <Header
                     height={50}
                     display="flex"
                     px="md"
@@ -131,10 +129,8 @@ export const MobileNavBar: FC = () => {
                         <Burger opened={isMenuOpen} onClick={toggleMenu} />
                     </Group>
                 </Header>
-    
-                )
-            }
-           
+            )}
+
             <Drawer opened={isMenuOpen} onClose={toggleMenu} size="75%">
                 <Title order={6} fw={600} mb="xs">
                     {t('mobile_navbar.project')}

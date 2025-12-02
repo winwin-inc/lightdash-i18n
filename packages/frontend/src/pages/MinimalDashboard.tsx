@@ -360,7 +360,6 @@ const MinimalDashboardPage: FC = () => {
         return sendNowSchedulerParameters;
     }, [scheduler, schedulerUuid, sendNowSchedulerParameters]);
 
-
     // Handle browser back button in WeChat Mini Program
     useEffect(() => {
         if (!isMiniProgram || !isReady) return;
@@ -369,7 +368,7 @@ const MinimalDashboardPage: FC = () => {
         // This creates a history entry so we can detect when user tries to go back
         window.history.pushState({ isWeChatMiniProgram: true }, '');
 
-        const handlePopState = (event: PopStateEvent) => {
+        const handlePopState = (_event: PopStateEvent) => {
             // When user clicks back button, navigate back to mini program
             if (window.wx?.miniProgram) {
                 navigateBack(1);
