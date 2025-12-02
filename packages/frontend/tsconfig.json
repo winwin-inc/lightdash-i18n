@@ -16,7 +16,7 @@
         "forceConsistentCasingInFileNames": true,
         "noFallthroughCasesInSwitch": true,
         "module": "ESNext",
-        "moduleResolution": "bundler",
+        "moduleResolution": "node16",
         "resolveJsonModule": true,
         "isolatedModules": true,
         "importHelpers": true,

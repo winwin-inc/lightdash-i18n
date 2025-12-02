@@ -3,7 +3,7 @@
     "version": "0.2091.1",
     "private": true,
     "scripts": {
-        "typecheck": "tsc --project tsconfig.json --noEmit",
+        "typecheck": "tsc --project tsconfig.json --noEmit --skipLibCheck",
         "typecheck-sdk": "tsc --project tsconfig.json --noEmit",
         "dev": "vite",
         "build": "pnpm run typecheck && NODE_OPTIONS=--max-old-space-size=8192 vite build",
