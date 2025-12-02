@@ -31,7 +31,7 @@ import MinimalDashboardTabs from '../components/MinimalDashboardTabs';
 import { useScheduler } from '../features/scheduler/hooks/useScheduler';
 import { useDateZoomGranularitySearch } from '../hooks/useExplorerRoute';
 import useSearchParams from '../hooks/useSearchParams';
-import { useWeChatMiniProgram } from '../hooks/useWeChatMiniProgram';
+import { useWeChatMiniProgramBackHandler } from '../hooks/useWeChatMiniProgram';
 import DashboardProvider from '../providers/Dashboard/DashboardProvider';
 import useDashboardContext from '../providers/Dashboard/useDashboardContext';
 import '../styles/react-grid.css';
@@ -324,7 +324,9 @@ const MinimalDashboardPage: FC = () => {
     }>();
 
     const schedulerUuid = useSearchParams('schedulerUuid');
-    const { isMiniProgram, isReady, navigateBack } = useWeChatMiniProgram();
+    
+    // 处理微信小程序回退
+    useWeChatMiniProgramBackHandler();
 
     const [sendNowSchedulerFilters] = useSessionStorage<
         DashboardFilterRule[] | undefined
@@ -359,28 +361,6 @@ const MinimalDashboardPage: FC = () => {
 
         return sendNowSchedulerParameters;
     }, [scheduler, schedulerUuid, sendNowSchedulerParameters]);
-
-    // Handle browser back button in WeChat Mini Program
-    useEffect(() => {
-        if (!isMiniProgram || !isReady) return;
-
-        // Push a state to enable popstate detection
-        // This creates a history entry so we can detect when user tries to go back
-        window.history.pushState({ isWeChatMiniProgram: true }, '');
-
-        const handlePopState = (_event: PopStateEvent) => {
-            // When user clicks back button, navigate back to mini program
-            if (window.wx?.miniProgram) {
-                navigateBack(1);
-            }
-        };
-
-        window.addEventListener('popstate', handlePopState);
-
-        return () => {
-            window.removeEventListener('popstate', handlePopState);
-        };
-    }, [isMiniProgram, isReady, navigateBack]);
 
     return (
         <DashboardProvider

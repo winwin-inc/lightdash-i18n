@@ -54,13 +54,13 @@ export default defineConfig({
     optimizeDeps: {
         exclude: ['@lightdash/common'],
         esbuildOptions: {
-            // 确保开发环境下预打包的依赖也降级到 ES2018，避免依赖代码里的新语法在微信等环境报错
-            target: 'es2018',
+            // 降低到 ES2017 以避免命名捕获组等 ES2018 特性在旧浏览器中报错
+            target: 'es2017',
         },
     },
     esbuild: {
-        // 开发环境中对源码和依赖的 transform 也使用 ES2018 作为语法目标
-        target: 'es2018',
+        // 降低到 ES2017 以避免正则表达式命名捕获组等 ES2018 特性在旧浏览器中报错
+        target: 'es2017',
     },
     resolve: {
         alias:
@@ -80,9 +80,9 @@ export default defineConfig({
     build: {
         outDir: 'build',
         emptyOutDir: false,
-        // 降低 modern bundle 的语法目标，避免在「伪现代」浏览器（如部分微信 WebView）中保留 class static block 等 ES2022 语法
+        // 降低到 ES2017 以避免正则表达式命名捕获组等 ES2018 特性在旧浏览器中报错
         // legacy 插件继续为更老的环境注入 polyfill
-        target: 'es2018',
+        target: 'es2017',
         minify: true,
         sourcemap: true,
 
