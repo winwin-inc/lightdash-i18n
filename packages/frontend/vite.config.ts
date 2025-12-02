@@ -1,7 +1,9 @@
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import reactPlugin from '@vitejs/plugin-react';
-import path from 'path';
+import * as path from 'path';
 import { compression } from 'vite-plugin-compression2';
+// @ts-expect-error: types for @vitejs/plugin-legacy are not resolved under our TS moduleResolution, but runtime usage is valid
+import legacy from '@vitejs/plugin-legacy';
 import monacoEditorPlugin from 'vite-plugin-monaco-editor';
 import svgrPlugin from 'vite-plugin-svgr';
 import { defineConfig } from 'vitest/config';
@@ -20,6 +22,10 @@ export default defineConfig({
     plugins: [
         svgrPlugin(),
         reactPlugin(),
+        legacy({
+            targets: ['defaults', 'not IE 11'],
+            modernPolyfills: true,
+        }),
         compression({
             include: [/\.(js)$/, /\.(css)$/],
             filename: '[path][base].gzip',
@@ -47,6 +53,14 @@ export default defineConfig({
     },
     optimizeDeps: {
         exclude: ['@lightdash/common'],
+        esbuildOptions: {
+            // 确保开发环境下预打包的依赖也降级到 ES2018，避免依赖代码里的新语法在微信等环境报错
+            target: 'es2018',
+        },
+    },
+    esbuild: {
+        // 开发环境中对源码和依赖的 transform 也使用 ES2018 作为语法目标
+        target: 'es2018',
     },
     resolve: {
         alias:
@@ -66,7 +80,9 @@ export default defineConfig({
     build: {
         outDir: 'build',
         emptyOutDir: false,
-        target: 'es2020',
+        // 降低 modern bundle 的语法目标，避免在「伪现代」浏览器（如部分微信 WebView）中保留 class static block 等 ES2022 语法
+        // legacy 插件继续为更老的环境注入 polyfill
+        target: 'es2018',
         minify: true,
         sourcemap: true,
 

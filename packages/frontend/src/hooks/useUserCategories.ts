@@ -18,12 +18,10 @@ const getUserCategories = async (
     });
 };
 
-export const useUserCategories = (
-    options?: {
-        dashboardUuid?: string;
-        useQueryOptions?: UseQueryOptions<UserCategoryList, ApiError>;
-    },
-) => {
+export const useUserCategories = (options?: {
+    dashboardUuid?: string;
+    useQueryOptions?: UseQueryOptions<UserCategoryList, ApiError>;
+}) => {
     const projectUuid = useProjectUuid();
     const setErrorResponse = useQueryError();
     const { dashboardUuid, useQueryOptions } = options || {};
@@ -37,7 +35,6 @@ export const useUserCategories = (
         },
         ...useQueryOptions,
         // Merge enabled condition: require projectUuid AND respect external enabled option
-        enabled:
-            !!projectUuid && (useQueryOptions?.enabled ?? true),
+        enabled: !!projectUuid && (useQueryOptions?.enabled ?? true),
     });
 };
