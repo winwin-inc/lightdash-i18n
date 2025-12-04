@@ -197,7 +197,16 @@ const DashboardFilter: FC<Props> = ({
             }
             dashboardFilters={appliedFilters}
         >
-            <Flex gap="xs" wrap="wrap" mb="xs" align="center">
+            <Flex
+                gap="xs"
+                wrap="wrap"
+                mb="xs"
+                align="center"
+                sx={{
+                    width: '100%',
+                    maxWidth: '100%',
+                }}
+            >
                 <AddFilterButton
                     filterScope={filterScope}
                     isEditMode={isEditMode}

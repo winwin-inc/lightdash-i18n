@@ -358,6 +358,23 @@ const FilterStringAutoComplete: FC<Props> = ({
                             background: 'white',
                         },
                     },
+                    values: {
+                        maxWidth: '100%',
+                        flexWrap: 'wrap',
+                    },
+                    value: {
+                        maxWidth: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                    },
+                    input: {
+                        maxWidth: '100%',
+                        flex: '1 1 auto',
+                        minWidth: 0,
+                    },
+                    wrapper: {
+                        maxWidth: '100%',
+                    },
                 }}
                 disableSelectedItemFiltering
                 searchable

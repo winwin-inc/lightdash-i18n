@@ -111,7 +111,12 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     }, [filterRule.operator, isFilterDisabled, isEditMode]);
 
     return (
-        <Stack>
+        <Stack
+            sx={{
+                width: '100%',
+                maxWidth: '100%',
+            }}
+        >
             <Stack spacing="xs">
                 {isEditMode && (
                     <TextInput

@@ -202,17 +202,20 @@ const MinimalDashboard: FC = () => {
                 <Group
                     position="apart"
                     align="flex-start"
-                    noWrap
                     px={'md'}
                     mt={'md'}
+                    sx={{
+                        width: '100%',
+                        maxWidth: '100%',
+                    }}
                 >
                     <Group
                         position="apart"
                         align="flex-start"
-                        noWrap
                         grow
                         sx={{
-                            overflow: 'auto',
+                            width: '100%',
+                            maxWidth: '100%',
                         }}
                     >
                         <DashboardFilter
@@ -237,17 +240,20 @@ const MinimalDashboard: FC = () => {
                 <Group
                     position="apart"
                     align="flex-start"
-                    noWrap
                     px={'md'}
                     mt={'md'}
+                    sx={{
+                        width: '100%',
+                        maxWidth: '100%',
+                    }}
                 >
                     <Group
                         position="apart"
                         align="flex-start"
-                        noWrap
                         grow
                         sx={{
-                            overflow: 'auto',
+                            width: '100%',
+                            maxWidth: '100%',
                         }}
                     >
                         <DashboardFilter

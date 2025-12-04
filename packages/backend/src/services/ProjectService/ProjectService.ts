@@ -2941,6 +2941,10 @@ export class ProjectService extends BaseService {
                     // This ensures that only fields the user has permission to access are included in the query
                     const filteredExplore = getFilteredExplore(explore, userAttributes);
 
+                    this.logger.info(
+                        `[SQL_DEBUG][ProjectService.runMetricQuery] Filtered explore - Original tables: ${Object.keys(explore.tables).length}, Filtered tables: ${Object.keys(filteredExplore.tables).length}`,
+                    );
+
                     const availableParameterDefinitions =
                         await this.getAvailableParameters(projectUuid, filteredExplore);
 
@@ -2957,6 +2961,23 @@ export class ProjectService extends BaseService {
                     });
 
                     const { query } = fullQuery;
+
+                    // Log the compiled SQL for debugging
+                    this.logger.info(
+                        `[SQL_DEBUG][ProjectService.runMetricQuery] Executing SQL query for explore ${exploreName}`,
+                    );
+                    this.logger.info(
+                        `[SQL_DEBUG][ProjectService.runMetricQuery] SQL: ${query}`,
+                    );
+                    this.logger.info(
+                        `[SQL_DEBUG][ProjectService.runMetricQuery] User attributes: ${JSON.stringify(userAttributes)}`,
+                    );
+                    this.logger.info(
+                        `[SQL_DEBUG][ProjectService.runMetricQuery] Intrinsic user attributes: ${JSON.stringify(intrinsicUserAttributes)}`,
+                    );
+                    this.logger.info(
+                        `[SQL_DEBUG][ProjectService.runMetricQuery] Context: ${context}, Project: ${projectUuid}, Explore: ${exploreName}`,
+                    );
 
                     const fieldsWithOverrides: ItemsMap = Object.fromEntries(
                         Object.entries(fullQuery.fields).map(([key, value]) => {
@@ -3701,6 +3722,20 @@ export class ProjectService extends BaseService {
             parameters,
             availableParameterDefinitions,
         });
+
+        // Log the compiled SQL for debugging
+        this.logger.info(
+            `[SQL_DEBUG][ProjectService.searchFieldUniqueValues] Executing SQL query for field ${fieldId}`,
+        );
+        this.logger.info(
+            `[SQL_DEBUG][ProjectService.searchFieldUniqueValues] SQL: ${query}`,
+        );
+        this.logger.info(
+            `[SQL_DEBUG][ProjectService.searchFieldUniqueValues] User attributes: ${JSON.stringify(userAttributes)}`,
+        );
+        this.logger.info(
+            `[SQL_DEBUG][ProjectService.searchFieldUniqueValues] Intrinsic user attributes: ${JSON.stringify(intrinsicUserAttributes)}`,
+        );
 
         // Add a cache_autocomplete prefix to the query hash to avoid collisions with the results cache
         // Use filteredMetricQuery instead of metricQuery to ensure cache key includes permission-based filters
