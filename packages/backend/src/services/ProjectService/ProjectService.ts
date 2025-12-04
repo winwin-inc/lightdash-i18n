@@ -3577,14 +3577,33 @@ export class ProjectService extends BaseService {
                     : { user },
             );
 
+        // Filter the explore access and fields based on the user attributes
+        // This ensures that only fields the user has permission to access are included in the query
+        const filteredExplore = getFilteredExplore(explore, userAttributes);
+
+        // Verify that the field still exists in the filtered explore
+        // If not, the user doesn't have permission to access this field
+        // Return empty results instead of throwing an error for better UX
+        const fieldId = getItemId(field);
+        const filteredField = findFieldByIdInExplore(filteredExplore, fieldId);
+        if (!filteredField) {
+            // User doesn't have permission to access this field, return empty results
+            return {
+                search,
+                results: [],
+                refreshedAt: new Date(),
+                cached: false,
+            };
+        }
+
         const availableParameterDefinitions = await this.getAvailableParameters(
             projectUuid,
-            explore,
+            filteredExplore,
         );
 
         const { query } = await ProjectService._compileQuery({
             metricQuery,
-            explore,
+            explore: filteredExplore,
             warehouseSqlBuilder: warehouseClient,
             intrinsicUserAttributes,
             userAttributes,

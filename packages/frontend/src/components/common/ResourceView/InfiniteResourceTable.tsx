@@ -329,7 +329,7 @@ const InfiniteResourceTable = ({
                 sortBy: sortBy?.sortBy,
                 sortDirection: sortBy?.sortDirection,
             },
-            { keepPreviousData: true },
+            { keepPreviousData: true, refetchOnMount: true },
         );
 
     const flatData = useMemo(() => {
