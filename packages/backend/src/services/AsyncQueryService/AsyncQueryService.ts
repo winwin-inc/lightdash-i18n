@@ -100,6 +100,7 @@ import type { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { wrapSentryTransaction } from '../../utils';
 import { processFieldsForExport } from '../../utils/FileDownloadUtils/FileDownloadUtils';
 import { safeReplaceParametersWithSqlBuilder } from '../../utils/QueryBuilder/parameters';
+import { getFilteredExplore } from '../UserAttributesService/UserAttributeUtils';
 import { PivotQueryBuilder } from '../../utils/QueryBuilder/PivotQueryBuilder';
 import {
     ReferenceMap,
@@ -1536,14 +1537,22 @@ export class AsyncQueryService extends ProjectService {
         const { userAttributes, intrinsicUserAttributes } =
             await this.getUserAttributes({ account, context });
 
+        // Filter the explore access and fields based on the user attributes
+        // This ensures that only fields the user has permission to access are included in the query
+        const filteredExplore = getFilteredExplore(explore, userAttributes);
+
+        this.logger.info(
+            `[SQL_DEBUG][AsyncQueryService.prepareMetricQueryAsyncQueryArgs] Filtered explore - Original tables: ${Object.keys(explore.tables).length}, Filtered tables: ${Object.keys(filteredExplore.tables).length}`,
+        );
+
         const availableParameterDefinitions = await this.getAvailableParameters(
             projectUuid,
-            explore,
+            filteredExplore,
         );
 
         const fullQuery = await ProjectService._compileQuery({
             metricQuery,
-            explore,
+            explore: filteredExplore,
             warehouseSqlBuilder,
             intrinsicUserAttributes,
             userAttributes,
@@ -1554,6 +1563,23 @@ export class AsyncQueryService extends ProjectService {
             availableParameterDefinitions,
             pivotConfiguration,
         });
+
+        // Log the compiled SQL for debugging
+        this.logger.info(
+            `[SQL_DEBUG][AsyncQueryService.prepareMetricQueryAsyncQueryArgs] Compiled SQL query for explore ${metricQuery.exploreName}`,
+        );
+        this.logger.info(
+            `[SQL_DEBUG][AsyncQueryService.prepareMetricQueryAsyncQueryArgs] SQL: ${fullQuery.query}`,
+        );
+        this.logger.info(
+            `[SQL_DEBUG][AsyncQueryService.prepareMetricQueryAsyncQueryArgs] User attributes: ${JSON.stringify(userAttributes)}`,
+        );
+        this.logger.info(
+            `[SQL_DEBUG][AsyncQueryService.prepareMetricQueryAsyncQueryArgs] Intrinsic user attributes: ${JSON.stringify(intrinsicUserAttributes)}`,
+        );
+        this.logger.info(
+            `[SQL_DEBUG][AsyncQueryService.prepareMetricQueryAsyncQueryArgs] Context: ${JSON.stringify(context)}, Project: ${projectUuid}`,
+        );
 
         const fieldsWithOverrides: ItemsMap = Object.fromEntries(
             Object.entries(fullQuery.fields).map(([key, value]) => {
@@ -1815,6 +1841,16 @@ export class AsyncQueryService extends ProjectService {
 
                     this.logger.info(
                         `Executing query ${queryHistoryUuid} in the main loop`,
+                    );
+                    // Log the SQL that will be executed
+                    this.logger.info(
+                        `[SQL_DEBUG][AsyncQueryService.executeAsyncQuery] Executing SQL query ${queryHistoryUuid}`,
+                    );
+                    this.logger.info(
+                        `[SQL_DEBUG][AsyncQueryService.executeAsyncQuery] SQL: ${query}`,
+                    );
+                    this.logger.info(
+                        `[SQL_DEBUG][AsyncQueryService.executeAsyncQuery] Context: ${context}, Project: ${projectUuid}, Explore: ${explore.name}`,
                     );
                     void this.runAsyncWarehouseQuery({
                         userId: account.user.id,

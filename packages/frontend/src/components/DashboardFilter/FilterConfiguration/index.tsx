@@ -411,7 +411,12 @@ const FilterConfiguration: FC<Props> = ({
     ]);
 
     return (
-        <Stack>
+        <Stack
+            sx={{
+                width: '100%',
+                maxWidth: '100%',
+            }}
+        >
             <Tabs
                 value={selectedTabId}
                 onTabChange={(tabId: FilterTabs) => setSelectedTabId(tabId)}

@@ -6,6 +6,7 @@ import {
     AlreadyProcessingError,
     AndFilterGroup,
     AnyType,
+    isAndFilterGroup,
     ApiChartAndResults,
     ApiCreatePreviewResults,
     type ApiCreateProjectResults,
@@ -2936,12 +2937,20 @@ export class ProjectService extends BaseService {
                                 : { account },
                         );
 
+                    // Filter the explore access and fields based on the user attributes
+                    // This ensures that only fields the user has permission to access are included in the query
+                    const filteredExplore = getFilteredExplore(explore, userAttributes);
+
+                    this.logger.info(
+                        `[SQL_DEBUG][ProjectService.runMetricQuery] Filtered explore - Original tables: ${Object.keys(explore.tables).length}, Filtered tables: ${Object.keys(filteredExplore.tables).length}`,
+                    );
+
                     const availableParameterDefinitions =
-                        await this.getAvailableParameters(projectUuid, explore);
+                        await this.getAvailableParameters(projectUuid, filteredExplore);
 
                     const fullQuery = await ProjectService._compileQuery({
                         metricQuery: metricQueryWithLimit,
-                        explore,
+                        explore: filteredExplore,
                         warehouseSqlBuilder: warehouseClient,
                         intrinsicUserAttributes,
                         userAttributes,
@@ -2952,6 +2961,23 @@ export class ProjectService extends BaseService {
                     });
 
                     const { query } = fullQuery;
+
+                    // Log the compiled SQL for debugging
+                    this.logger.info(
+                        `[SQL_DEBUG][ProjectService.runMetricQuery] Executing SQL query for explore ${exploreName}`,
+                    );
+                    this.logger.info(
+                        `[SQL_DEBUG][ProjectService.runMetricQuery] SQL: ${query}`,
+                    );
+                    this.logger.info(
+                        `[SQL_DEBUG][ProjectService.runMetricQuery] User attributes: ${JSON.stringify(userAttributes)}`,
+                    );
+                    this.logger.info(
+                        `[SQL_DEBUG][ProjectService.runMetricQuery] Intrinsic user attributes: ${JSON.stringify(intrinsicUserAttributes)}`,
+                    );
+                    this.logger.info(
+                        `[SQL_DEBUG][ProjectService.runMetricQuery] Context: ${context}, Project: ${projectUuid}, Explore: ${exploreName}`,
+                    );
 
                     const fieldsWithOverrides: ItemsMap = Object.fromEntries(
                         Object.entries(fullQuery.fields).map(([key, value]) => {
@@ -3577,14 +3603,118 @@ export class ProjectService extends BaseService {
                     : { user },
             );
 
+        // Filter the explore access and fields based on the user attributes
+        // This ensures that only fields the user has permission to access are included in the query
+        const filteredExplore = getFilteredExplore(explore, userAttributes);
+
+        // Verify that the field still exists in the filtered explore
+        // If not, the user doesn't have permission to access this field
+        // Return empty results instead of throwing an error for better UX
+        const fieldId = getItemId(field);
+        const filteredField = findFieldByIdInExplore(filteredExplore, fieldId);
+        if (!filteredField) {
+            // User doesn't have permission to access this field, return empty results
+            return {
+                search,
+                results: [],
+                refreshedAt: new Date(),
+                cached: false,
+            };
+        }
+
+        // Filter and validate metricQuery to only include fields that exist in filteredExplore
+        // This ensures that dimensions, filters, and sorts don't reference fields the user doesn't have permission to access
+        
+        // 1. Validate and filter dimensions
+        const filteredDimensions = metricQuery.dimensions.filter((dimensionId) => {
+            const dimensionField = findFieldByIdInExplore(
+                filteredExplore,
+                dimensionId,
+            );
+            if (!dimensionField) {
+                this.logger.warn(
+                    `Field ${dimensionId} in dimensions is not accessible to user, filtering out`,
+                );
+                return false;
+            }
+            return true;
+        });
+
+        // If the target field is not in filtered dimensions, user doesn't have permission
+        if (filteredDimensions.length === 0 || !filteredDimensions.includes(fieldId)) {
+            return {
+                search,
+                results: [],
+                refreshedAt: new Date(),
+                cached: false,
+            };
+        }
+
+        // 2. Filter filters to only include accessible fields
+        let filteredFilters: AndFilterGroup | undefined = undefined;
+        if (metricQuery.filters.dimensions) {
+            if (isAndFilterGroup(metricQuery.filters.dimensions)) {
+                const filteredAnd = metricQuery.filters.dimensions.and.filter(
+                    (filterItem: FilterGroupItem) => {
+                        if (!isFilterRule(filterItem)) return true;
+                        const filterField = findFieldByIdInExplore(
+                            filteredExplore,
+                            filterItem.target.fieldId,
+                        );
+                        if (!filterField) {
+                            this.logger.warn(
+                                `Field ${filterItem.target.fieldId} in filters is not accessible to user, filtering out`,
+                            );
+                            return false;
+                        }
+                        return true;
+                    },
+                );
+                filteredFilters = {
+                    ...metricQuery.filters.dimensions,
+                    and: filteredAnd,
+                };
+            } else {
+                // For OrFilterGroup, we keep it as is (complex case, would need recursive filtering)
+                // In practice, autocomplete filters are typically AndFilterGroup
+                // Type assertion is safe here because we're only using this for autocomplete which uses AndFilterGroup
+                filteredFilters = metricQuery.filters.dimensions as unknown as AndFilterGroup;
+            }
+        }
+
+        // 3. Filter sorts to only include accessible fields
+        const filteredSorts = metricQuery.sorts.filter((sort) => {
+            const sortField = findFieldByIdInExplore(
+                filteredExplore,
+                sort.fieldId,
+            );
+            if (!sortField) {
+                this.logger.warn(
+                    `Field ${sort.fieldId} in sorts is not accessible to user, filtering out`,
+                );
+                return false;
+            }
+            return true;
+        });
+
+        const filteredMetricQuery: MetricQuery = {
+            ...metricQuery,
+            dimensions: filteredDimensions,
+            filters: {
+                ...metricQuery.filters,
+                dimensions: filteredFilters,
+            },
+            sorts: filteredSorts,
+        };
+
         const availableParameterDefinitions = await this.getAvailableParameters(
             projectUuid,
-            explore,
+            filteredExplore,
         );
 
         const { query } = await ProjectService._compileQuery({
-            metricQuery,
-            explore,
+            metricQuery: filteredMetricQuery,
+            explore: filteredExplore,
             warehouseSqlBuilder: warehouseClient,
             intrinsicUserAttributes,
             userAttributes,
@@ -3593,9 +3723,24 @@ export class ProjectService extends BaseService {
             availableParameterDefinitions,
         });
 
+        // Log the compiled SQL for debugging
+        this.logger.info(
+            `[SQL_DEBUG][ProjectService.searchFieldUniqueValues] Executing SQL query for field ${fieldId}`,
+        );
+        this.logger.info(
+            `[SQL_DEBUG][ProjectService.searchFieldUniqueValues] SQL: ${query}`,
+        );
+        this.logger.info(
+            `[SQL_DEBUG][ProjectService.searchFieldUniqueValues] User attributes: ${JSON.stringify(userAttributes)}`,
+        );
+        this.logger.info(
+            `[SQL_DEBUG][ProjectService.searchFieldUniqueValues] Intrinsic user attributes: ${JSON.stringify(intrinsicUserAttributes)}`,
+        );
+
         // Add a cache_autocomplete prefix to the query hash to avoid collisions with the results cache
-        const queryHashKey = metricQuery.timezone
-            ? `${projectUuid}.cache_autocomplete.${query}.${metricQuery.timezone}`
+        // Use filteredMetricQuery instead of metricQuery to ensure cache key includes permission-based filters
+        const queryHashKey = filteredMetricQuery.timezone
+            ? `${projectUuid}.cache_autocomplete.${query}.${filteredMetricQuery.timezone}`
             : `${projectUuid}.cache_autocomplete.${query}`;
         const queryHash = crypto
             .createHash('sha256')

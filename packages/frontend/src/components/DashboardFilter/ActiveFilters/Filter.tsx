@@ -329,6 +329,10 @@ const Filter: FC<Props> = ({
                                         overflow: 'hidden',
                                         textOverflow: 'ellipsis',
                                     },
+                                    root: {
+                                        maxWidth: '100%',
+                                        flexShrink: 1,
+                                    },
                                 }}
                                 onClick={() =>
                                     isPopoverOpen
@@ -402,7 +406,12 @@ const Filter: FC<Props> = ({
                     </Indicator>
                 </Popover.Target>
 
-                <Popover.Dropdown>
+                <Popover.Dropdown
+                    sx={{
+                        maxWidth: 'min(90vw, 500px)',
+                        width: 'min(90vw, 500px)',
+                    }}
+                >
                     {appliedDashboardTiles && (
                         <FilterConfiguration
                             isCreatingNew={false}
