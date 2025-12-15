@@ -8667,7 +8667,8 @@
     "pages_no_dashboard_permission": {
         "title": "You do not have dashboard access permission",
         "description": "Please contact customer service to enable dashboard access permission",
-        "scan": "Scan code to add customer service",
+        "scan_pc": "Scan code to add customer service\"大圣来也\"(17612234299)",
+        "scan_mobile": "Scan code to add customer service\"大圣来也\"",
         "copied": "Copied",
         "lins": {
             "mobile": "Contact by phone",

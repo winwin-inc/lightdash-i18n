@@ -48,7 +48,8 @@ const router = sentryCreateBrowserRouter([
                     <ThirdPartyProvider enabled={isMobile || !isMinimalPage}>
                         <ErrorBoundary wrapper={{ mt: '4xl' }}>
                             <TrackingProvider
-                                enabled={isMobile || !isMinimalPage}
+                                // Always enable tracking provider to avoid context errors on minimal pages
+                                enabled={true}
                             >
                                 <AbilityProvider>
                                     <ActiveJobProvider>

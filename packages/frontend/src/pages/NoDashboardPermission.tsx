@@ -25,8 +25,8 @@ const CUSTOMER_SERVICE = {
 
 const NoDashboardPermission = () => {
     const { t } = useTranslation();
-    const { showToastSuccess } = useToaster();
     const [isCopied, setIsCopied] = useState(false);
+    const { showToastSuccess } = useToaster();
 
     const handleCopyWeChatId = useCallback(async () => {
         try {
@@ -51,21 +51,18 @@ const NoDashboardPermission = () => {
             h="100vh"
             sx={{
                 display: 'flex',
-                alignItems: 'center',
                 justifyContent: 'center',
-                padding: isMobile ? 'sm' : 'xl',
+                padding: isMobile ? 'xs' : 'sm',
+                backgroundColor: '#fff',
             }}
         >
-            <Stack
-                align="center"
-                spacing={isMobile ? 'xl' : 'lg'}
-                justify="center"
-                w="100%"
-                maw={isMobile ? '100%' : '500px'}
-            >
+            <Stack align="center" style={{ marginTop: '15vh' }} w="100%">
                 {/* 锁图标 */}
                 <Image
-                    style={{ width: 350, height: 235 }}
+                    style={{
+                        width: isMobile ? 228 : 318,
+                        height: isMobile ? 154 : 213,
+                    }}
                     src={CUSTOMER_SERVICE.lockUrl}
                     alt="Customer Service Lock"
                 />
@@ -74,21 +71,24 @@ const NoDashboardPermission = () => {
                 <Stack
                     spacing="xs"
                     align="center"
-                    style={{ marginTop: '-60px' }}
+                    style={{ marginTop: isMobile ? -30 : 0 }}
                 >
                     <Title
                         ta="center"
-                        order={isMobile ? 4 : 2}
                         fw={600}
-                        c="gray.9"
-                        style={{ fontSize: isMobile ? '18px' : '22px' }}
+                        style={{
+                            color: '#1F1F1F',
+                            fontSize: isMobile ? '18px' : '22px',
+                        }}
                     >
                         {t('pages_no_dashboard_permission.title')}
                     </Title>
                     <Text
                         ta="center"
-                        c="gray.6"
-                        style={{ fontSize: isMobile ? '14px' : '16px' }}
+                        style={{
+                            color: '#9A9A9A',
+                            fontSize: isMobile ? '14px' : '14px',
+                        }}
                         maw={isMobile ? '100%' : '400px'}
                     >
                         {t('pages_no_dashboard_permission.description')}
@@ -97,49 +97,43 @@ const NoDashboardPermission = () => {
 
                 {/* 客服联系卡片 */}
                 <Card
-                    shadow="sm"
-                    padding={isMobile ? 'lg' : 'xl'}
                     radius="md"
                     w="100%"
                     maw={isMobile ? '80%' : '420px'}
                     mt={isMobile ? '20px' : '60px'}
-                    style={{ background: '#FCFDFF', borderColor: '#EAEAEA' }}
+                    withBorder
+                    style={{
+                        borderColor: '#EAEAEA',
+                        backgroundColor: '#FCFDFF',
+                    }}
                 >
                     <Stack spacing="md" align="center">
                         {/* 扫码提示文字 */}
                         <Text
                             ta="center"
-                            style={{ fontSize: isMobile ? '16px' : '18px' }}
                             fw={500}
-                            c="gray.8"
+                            style={{
+                                color: '#1F1F1F',
+                                fontSize: isMobile ? '16px' : '18px',
+                            }}
                         >
-                            {t('pages_no_dashboard_permission.scan')}
+                            {isMobile
+                                ? t('pages_no_dashboard_permission.scan_mobile')
+                                : t('pages_no_dashboard_permission.scan_pc')}
                         </Text>
 
                         {/* 二维码 */}
-                        <Box
-                            sx={{
-                                width: isMobile ? '200px' : '240px',
-                                height: isMobile ? '200px' : '240px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backgroundColor: '#f8f9fa',
-                                borderRadius: '8px',
-                                border: '1px solid #e9ecef',
-                            }}
-                        >
-                            <Image
-                                src={CUSTOMER_SERVICE.qrCodeUrl}
-                                alt="Customer Service QR Code"
-                                width={isMobile ? 180 : 220}
-                                height={isMobile ? 180 : 220}
-                                onError={(e) => {
-                                    // 如果图片加载失败，显示占位符
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = 'none';
-                                    if (target.parentElement) {
-                                        target.parentElement.innerHTML = `
+                        <Image
+                            src={CUSTOMER_SERVICE.qrCodeUrl}
+                            alt="Customer Service QR Code"
+                            width={isMobile ? 180 : 240}
+                            height={isMobile ? 180 : 240}
+                            onError={(e) => {
+                                // 如果图片加载失败，显示占位符
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                if (target.parentElement) {
+                                    target.parentElement.innerHTML = `
                                             <div style="
                                                 width: 100%;
                                                 height: 100%;
@@ -152,14 +146,22 @@ const NoDashboardPermission = () => {
                                                 二维码图片
                                             </div>
                                         `;
-                                    }
-                                }}
-                            />
-                        </Box>
+                                }
+                            }}
+                        />
 
                         {/* 按钮组 */}
                         {isMobile ? (
-                            <Group spacing="md" w="100%">
+                            <Group
+                                mt="xs"
+                                w="100%"
+                                spacing={0}
+                                style={{
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                }}
+                            >
                                 <Button
                                     variant="outline"
                                     onClick={handlePhoneCall}
@@ -169,6 +171,15 @@ const NoDashboardPermission = () => {
                                         borderRadius: 55,
                                         color: '#5490FF',
                                         borderColor: '#5490FF',
+                                        transition: 'none',
+                                    }}
+                                    sx={{
+                                        '&:active': {
+                                            transform: 'none',
+                                            backgroundColor: 'transparent',
+                                        },
+                                        '&:focus': { outline: 'none' },
+                                        '&:focus-visible': { outline: 'none' },
                                     }}
                                 >
                                     {t(
@@ -183,6 +194,7 @@ const NoDashboardPermission = () => {
                                         height: 40,
                                         borderRadius: 55,
                                         backgroundColor: '#5490FF',
+                                        marginLeft: 32,
                                     }}
                                 >
                                     {isCopied
