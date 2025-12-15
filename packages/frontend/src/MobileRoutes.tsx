@@ -53,6 +53,7 @@ import MobileDashboards from './pages/MobileDashboards';
 import MobileHome from './pages/MobileHome';
 import MobileSpace from './pages/MobileSpace';
 import MobileSpaces from './pages/MobileSpaces';
+import NoDashboardPermission from './pages/NoDashboardPermission';
 import Projects from './pages/Projects';
 import ShareRedirect from './pages/ShareRedirect';
 import { TrackPage } from './providers/Tracking/TrackingProvider';
@@ -77,7 +78,9 @@ const RedirectToResource: FC = () => {
             />
         );
     }
-    return <Navigate to="/no-mobile-page" />;
+    // hack: 暂时屏蔽移动端无权限页面，直接跳转到无权限页面
+    // return <Navigate to="/no-mobile-page" />;
+    return <Navigate to="/no-dashboard-access" />;
 };
 
 export const MobileNavBar: FC = () => {
@@ -232,13 +235,23 @@ const PUBLIC_ROUTES: RouteObject[] = [
         element: <MobileView />,
     },
     {
+        path: '/no-dashboard-access',
+        element: (
+            <PrivateRoute>
+                <NoDashboardPermission />
+            </PrivateRoute>
+        ),
+    },
+    {
         // Autoclose popup after github installation
         path: '/generalSettings/integrations',
         element: <SuccessAuthPopupResult />,
     },
     ...routesNotSupportedInMobile.map((route) => ({
         path: route,
-        element: <Navigate to="/no-mobile-page" />,
+        // hack: 暂时屏蔽移动端无权限页面，直接跳转到无权限页面
+        // element: <Navigate to="/no-mobile-page" />,
+        element: <Navigate to="/no-dashboard-access" />,
     })),
 ];
 
@@ -364,14 +377,6 @@ const PRIVATE_ROUTES: RouteObject[] = [
             {
                 path: '/',
                 element: <Navigate to="/projects" replace />,
-            },
-            {
-                path: '/no-access',
-                element: (
-                    <TrackPage name={PageName.NO_ACCESS}>
-                        <ForbiddenPanel />
-                    </TrackPage>
-                ),
             },
             {
                 path: '/no-access',

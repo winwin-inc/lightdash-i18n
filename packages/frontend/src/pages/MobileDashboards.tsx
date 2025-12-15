@@ -10,19 +10,30 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
+import { useEffect } from 'react';
 import LoadingState from '../components/common/LoadingState';
 import MantineIcon from '../components/common/MantineIcon';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import ResourceView from '../components/common/ResourceView';
 import { ResourceSortDirection } from '../components/common/ResourceView/types';
 import { useDashboards } from '../hooks/dashboard/useDashboards';
+import { useNavigate } from 'react-router';
 
 const MobileDashboards = () => {
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const { projectUuid } = useParams<{ projectUuid: string }>();
-    const { isInitialLoading, data: dashboards = [] } =
+    
+    const { isInitialLoading, data: dashboards = [], error } =
         useDashboards(projectUuid);
     const [search, setSearch] = useState<string>('');
+
+    // Handle 403 Forbidden error - redirect to no permission page
+    useEffect(() => {
+        if (error?.error?.statusCode === 403) {
+            navigate('/no-dashboard-access', { replace: true });
+        }
+    }, [error, navigate]);
     const visibleItems = useMemo(() => {
         const items = wrapResourceView(
             dashboards,

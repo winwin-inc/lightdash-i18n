@@ -407,6 +407,27 @@ export class DashboardService
             access: spaceAccess,
         };
 
+        // Check dashboard permission for viewer users in customer use projects
+        // This check should happen before CASL ability check
+        const allowedDashboardUuids = await this.getAllowedDashboardUuidsForViewer(
+            user,
+            dashboard.projectUuid,
+        );
+
+        // If allowedDashboardUuids is defined (not undefined), it means we need to check permissions
+        // If it's an empty Set, user has no dashboard access at all
+        // If it's a Set with values, check if this dashboard is in the allowed list
+        if (allowedDashboardUuids !== undefined) {
+            if (
+                allowedDashboardUuids.size === 0 ||
+                !allowedDashboardUuids.has(dashboard.uuid)
+            ) {
+                throw new ForbiddenError(
+                    "You don't have permission to view this dashboard. Please contact your administrator to configure dashboard access permissions.",
+                );
+            }
+        }
+
         // TODO: normally this would be pre-constructed (perhaps in the Service Repository or on the user object when we create the CASL type)
         const auditedAbility = new CaslAuditWrapper(user.ability, user, {
             auditLogger: logAuditEvent,

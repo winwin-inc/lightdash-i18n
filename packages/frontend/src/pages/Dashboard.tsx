@@ -61,6 +61,16 @@ const Dashboard: FC = () => {
     const isDashboardLoading = useDashboardContext((c) => c.isDashboardLoading);
     const dashboard = useDashboardContext((c) => c.dashboard);
     const dashboardError = useDashboardContext((c) => c.dashboardError);
+
+    // Handle 403 Forbidden error - redirect to no permission page
+    useEffect(() => {
+        if (
+            dashboardError?.error?.statusCode === 403 &&
+            dashboardError.error.message?.includes('dashboard')
+        ) {
+            navigate('/no-dashboard-access', { replace: true });
+        }
+    }, [dashboardError, navigate]);
     const requiredDashboardFilters = useDashboardContext(
         (c) => c.requiredDashboardFilters,
     );
