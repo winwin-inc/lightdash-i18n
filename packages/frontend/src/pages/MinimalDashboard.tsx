@@ -15,7 +15,7 @@ import { IconLayoutDashboard } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
 import { Responsive, WidthProvider, type Layout } from 'react-grid-layout';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
 import DashboardFilter from '../components/DashboardFilter';
@@ -40,6 +40,7 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 
 const MinimalDashboard: FC = () => {
     const { t } = useTranslation();
+    const navigate = useNavigate();
 
     const schedulerUuid = useSearchParams('schedulerUuid');
     const schedulerTabs = useSearchParams('selectedTabs');
@@ -53,6 +54,16 @@ const MinimalDashboard: FC = () => {
     const isDashboardLoading = useDashboardContext((c) => c.isDashboardLoading);
     const dashboard = useDashboardContext((c) => c.dashboard);
     const dashboardError = useDashboardContext((c) => c.dashboardError);
+
+    // Handle 403 Forbidden error - redirect to no permission page
+    useEffect(() => {
+        if (
+            dashboardError?.error?.statusCode === 403 &&
+            dashboardError.error.message?.includes('dashboard')
+        ) {
+            void navigate('/no-dashboard-access', { replace: true });
+        }
+    }, [dashboardError, navigate]);
 
     const [activeTab, setActiveTab] = useState<DashboardTab | null>(null);
 
@@ -330,7 +341,7 @@ const MinimalDashboardPage: FC = () => {
     }>();
 
     const schedulerUuid = useSearchParams('schedulerUuid');
-    
+
     // 处理微信小程序回退
     useWeChatMiniProgramBackHandler();
 

@@ -24,6 +24,7 @@ import Login from './pages/Login';
 import MetricsCatalog from './pages/MetricsCatalog';
 import MinimalDashboard from './pages/MinimalDashboard';
 import MinimalSavedExplorer from './pages/MinimalSavedExplorer';
+import NoDashboardPermission from './pages/NoDashboardPermission';
 import PasswordRecovery from './pages/PasswordRecovery';
 import PasswordReset from './pages/PasswordReset';
 import Projects from './pages/Projects';
@@ -479,6 +480,10 @@ const PRIVATE_ROUTES: RouteObject[] = [
                         </TrackPage>
                     </>
                 ),
+            },
+            {
+                path: '/no-dashboard-access',
+                element: <NoDashboardPermission />,
             },
             {
                 path: '/share/:shareNanoid',

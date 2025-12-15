@@ -6,9 +6,9 @@ import {
 import { ActionIcon, Group, Stack, TextInput } from '@mantine/core';
 import { IconLayoutDashboard, IconSearch, IconX } from '@tabler/icons-react';
 import Fuse from 'fuse.js';
-import { useMemo, useState } from 'react';
+import { useMemo, useState , useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router';
+import { useParams , useNavigate } from 'react-router';
 
 import LoadingState from '../components/common/LoadingState';
 import MantineIcon from '../components/common/MantineIcon';
@@ -19,10 +19,22 @@ import { useDashboards } from '../hooks/dashboard/useDashboards';
 
 const MobileDashboards = () => {
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const { projectUuid } = useParams<{ projectUuid: string }>();
-    const { isInitialLoading, data: dashboards = [] } =
-        useDashboards(projectUuid);
+
+    const {
+        isInitialLoading,
+        data: dashboards = [],
+        error,
+    } = useDashboards(projectUuid);
     const [search, setSearch] = useState<string>('');
+
+    // Handle 403 Forbidden error - redirect to no permission page
+    useEffect(() => {
+        if (error?.error?.statusCode === 403) {
+            void navigate('/no-dashboard-access', { replace: true });
+        }
+    }, [error, navigate]);
     const visibleItems = useMemo(() => {
         const items = wrapResourceView(
             dashboards,

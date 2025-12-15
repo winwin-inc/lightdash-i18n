@@ -8663,5 +8663,15 @@
             "failed_to_fetch_artifact": "Failed to fetch artifact",
             "failed_to_fetch_artifact_version": "Failed to fetch artifact version"
         }
+    },
+    "pages_no_dashboard_permission": {
+        "title": "You do not have dashboard access permission",
+        "description": "Please contact customer service to enable dashboard access permission",
+        "scan": "Scan code to add customer service",
+        "copied": "Copied",
+        "lins": {
+            "mobile": "Contact by phone",
+            "copy": "Copy WeChat ID"
+        }
     }
 }

@@ -100,7 +100,6 @@ import type { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { wrapSentryTransaction } from '../../utils';
 import { processFieldsForExport } from '../../utils/FileDownloadUtils/FileDownloadUtils';
 import { safeReplaceParametersWithSqlBuilder } from '../../utils/QueryBuilder/parameters';
-import { getFilteredExplore } from '../UserAttributesService/UserAttributeUtils';
 import { PivotQueryBuilder } from '../../utils/QueryBuilder/PivotQueryBuilder';
 import {
     ReferenceMap,
@@ -125,6 +124,7 @@ import {
     getNextAndPreviousPage,
     validatePagination,
 } from '../ProjectService/resultsPagination';
+import { getFilteredExplore } from '../UserAttributesService/UserAttributeUtils';
 import { getPivotedColumns } from './getPivotedColumns';
 import { getUnpivotedColumns } from './getUnpivotedColumns';
 import {
@@ -1542,7 +1542,9 @@ export class AsyncQueryService extends ProjectService {
         const filteredExplore = getFilteredExplore(explore, userAttributes);
 
         this.logger.info(
-            `[SQL_DEBUG][AsyncQueryService.prepareMetricQueryAsyncQueryArgs] Filtered explore - Original tables: ${Object.keys(explore.tables).length}, Filtered tables: ${Object.keys(filteredExplore.tables).length}`,
+            `[SQL_DEBUG][AsyncQueryService.prepareMetricQueryAsyncQueryArgs] Filtered explore - Original tables: ${
+                Object.keys(explore.tables).length
+            }, Filtered tables: ${Object.keys(filteredExplore.tables).length}`,
         );
 
         const availableParameterDefinitions = await this.getAvailableParameters(
@@ -1572,13 +1574,19 @@ export class AsyncQueryService extends ProjectService {
             `[SQL_DEBUG][AsyncQueryService.prepareMetricQueryAsyncQueryArgs] SQL: ${fullQuery.query}`,
         );
         this.logger.info(
-            `[SQL_DEBUG][AsyncQueryService.prepareMetricQueryAsyncQueryArgs] User attributes: ${JSON.stringify(userAttributes)}`,
+            `[SQL_DEBUG][AsyncQueryService.prepareMetricQueryAsyncQueryArgs] User attributes: ${JSON.stringify(
+                userAttributes,
+            )}`,
         );
         this.logger.info(
-            `[SQL_DEBUG][AsyncQueryService.prepareMetricQueryAsyncQueryArgs] Intrinsic user attributes: ${JSON.stringify(intrinsicUserAttributes)}`,
+            `[SQL_DEBUG][AsyncQueryService.prepareMetricQueryAsyncQueryArgs] Intrinsic user attributes: ${JSON.stringify(
+                intrinsicUserAttributes,
+            )}`,
         );
         this.logger.info(
-            `[SQL_DEBUG][AsyncQueryService.prepareMetricQueryAsyncQueryArgs] Context: ${JSON.stringify(context)}, Project: ${projectUuid}`,
+            `[SQL_DEBUG][AsyncQueryService.prepareMetricQueryAsyncQueryArgs] Context: ${JSON.stringify(
+                context,
+            )}, Project: ${projectUuid}`,
         );
 
         const fieldsWithOverrides: ItemsMap = Object.fromEntries(

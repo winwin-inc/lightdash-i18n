@@ -1,7 +1,7 @@
 import { ContentType, LightdashMode } from '@lightdash/common';
 import { Button, Group, Stack } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
@@ -21,8 +21,18 @@ const SavedDashboards = () => {
 
     const navigate = useNavigate();
     const { projectUuid } = useParams<{ projectUuid: string }>();
-    const { isInitialLoading, data: dashboards = [] } =
-        useDashboards(projectUuid);
+    const {
+        isInitialLoading,
+        data: dashboards = [],
+        error,
+    } = useDashboards(projectUuid);
+
+    // Handle 403 Forbidden error - redirect to no permission page
+    useEffect(() => {
+        if (error?.error?.statusCode === 403) {
+            void navigate('/no-dashboard-access', { replace: true });
+        }
+    }, [error, navigate]);
     const [isCreateDashboardOpen, setIsCreateDashboardOpen] =
         useState<boolean>(false);
 
