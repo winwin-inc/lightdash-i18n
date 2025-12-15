@@ -68,7 +68,7 @@ const Dashboard: FC = () => {
             dashboardError?.error?.statusCode === 403 &&
             dashboardError.error.message?.includes('dashboard')
         ) {
-            navigate('/no-dashboard-access', { replace: true });
+            void navigate('/no-dashboard-access', { replace: true });
         }
     }, [dashboardError, navigate]);
     const requiredDashboardFilters = useDashboardContext(

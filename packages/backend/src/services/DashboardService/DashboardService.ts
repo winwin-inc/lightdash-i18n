@@ -409,10 +409,11 @@ export class DashboardService
 
         // Check dashboard permission for viewer users in customer use projects
         // This check should happen before CASL ability check
-        const allowedDashboardUuids = await this.getAllowedDashboardUuidsForViewer(
-            user,
-            dashboard.projectUuid,
-        );
+        const allowedDashboardUuids =
+            await this.getAllowedDashboardUuidsForViewer(
+                user,
+                dashboard.projectUuid,
+            );
 
         // If allowedDashboardUuids is defined (not undefined), it means we need to check permissions
         // If it's an empty Set, user has no dashboard access at all

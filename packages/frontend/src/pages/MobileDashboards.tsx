@@ -6,32 +6,33 @@ import {
 import { ActionIcon, Group, Stack, TextInput } from '@mantine/core';
 import { IconLayoutDashboard, IconSearch, IconX } from '@tabler/icons-react';
 import Fuse from 'fuse.js';
-import { useMemo, useState } from 'react';
+import { useMemo, useState , useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router';
+import { useParams , useNavigate } from 'react-router';
 
-import { useEffect } from 'react';
 import LoadingState from '../components/common/LoadingState';
 import MantineIcon from '../components/common/MantineIcon';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import ResourceView from '../components/common/ResourceView';
 import { ResourceSortDirection } from '../components/common/ResourceView/types';
 import { useDashboards } from '../hooks/dashboard/useDashboards';
-import { useNavigate } from 'react-router';
 
 const MobileDashboards = () => {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const { projectUuid } = useParams<{ projectUuid: string }>();
-    
-    const { isInitialLoading, data: dashboards = [], error } =
-        useDashboards(projectUuid);
+
+    const {
+        isInitialLoading,
+        data: dashboards = [],
+        error,
+    } = useDashboards(projectUuid);
     const [search, setSearch] = useState<string>('');
 
     // Handle 403 Forbidden error - redirect to no permission page
     useEffect(() => {
         if (error?.error?.statusCode === 403) {
-            navigate('/no-dashboard-access', { replace: true });
+            void navigate('/no-dashboard-access', { replace: true });
         }
     }, [error, navigate]);
     const visibleItems = useMemo(() => {

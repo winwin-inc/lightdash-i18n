@@ -88,7 +88,10 @@ export const useWeChatMiniProgramBackHandler = () => {
                 // 页面隐藏时，检查是否是返回操作
                 // 延迟执行，避免误触发
                 setTimeout(() => {
-                    if (document.hidden && window.history.length <= initialHistoryLength) {
+                    if (
+                        document.hidden &&
+                        window.history.length <= initialHistoryLength
+                    ) {
                         miniProgram.navigateBack({ delta: 1 });
                     }
                 }, 100);
@@ -115,7 +118,10 @@ export const useWeChatMiniProgramBackHandler = () => {
         return () => {
             window.removeEventListener('popstate', handlePopState);
             window.removeEventListener('pageshow', handlePageShow);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            document.removeEventListener(
+                'visibilitychange',
+                handleVisibilityChange,
+            );
             clearInterval(historyCheckInterval);
         };
     }, [isMiniProgram, isReady]);

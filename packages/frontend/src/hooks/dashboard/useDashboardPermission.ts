@@ -73,7 +73,7 @@ export const useDashboardPermissionCheck = (
         );
 
         if (!hasPermission) {
-            navigate(redirectPath, { replace: true });
+            void navigate(redirectPath, { replace: true });
         }
     }, [
         isCustomerUse,
@@ -88,4 +88,3 @@ export const useDashboardPermissionCheck = (
         isChecking: isInitialLoading,
     };
 };
-

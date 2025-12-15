@@ -21,13 +21,16 @@ const SavedDashboards = () => {
 
     const navigate = useNavigate();
     const { projectUuid } = useParams<{ projectUuid: string }>();
-    const { isInitialLoading, data: dashboards = [], error } =
-        useDashboards(projectUuid);
+    const {
+        isInitialLoading,
+        data: dashboards = [],
+        error,
+    } = useDashboards(projectUuid);
 
     // Handle 403 Forbidden error - redirect to no permission page
     useEffect(() => {
         if (error?.error?.statusCode === 403) {
-            navigate('/no-dashboard-access', { replace: true });
+            void navigate('/no-dashboard-access', { replace: true });
         }
     }, [error, navigate]);
     const [isCreateDashboardOpen, setIsCreateDashboardOpen] =

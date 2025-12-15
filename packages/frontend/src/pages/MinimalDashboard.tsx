@@ -61,7 +61,7 @@ const MinimalDashboard: FC = () => {
             dashboardError?.error?.statusCode === 403 &&
             dashboardError.error.message?.includes('dashboard')
         ) {
-            navigate('/no-dashboard-access', { replace: true });
+            void navigate('/no-dashboard-access', { replace: true });
         }
     }, [dashboardError, navigate]);
 
@@ -341,7 +341,7 @@ const MinimalDashboardPage: FC = () => {
     }>();
 
     const schedulerUuid = useSearchParams('schedulerUuid');
-    
+
     // 处理微信小程序回退
     useWeChatMiniProgramBackHandler();
 

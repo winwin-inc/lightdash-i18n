@@ -24,6 +24,7 @@ import Login from './pages/Login';
 import MetricsCatalog from './pages/MetricsCatalog';
 import MinimalDashboard from './pages/MinimalDashboard';
 import MinimalSavedExplorer from './pages/MinimalSavedExplorer';
+import NoDashboardPermission from './pages/NoDashboardPermission';
 import PasswordRecovery from './pages/PasswordRecovery';
 import PasswordReset from './pages/PasswordReset';
 import Projects from './pages/Projects';
@@ -40,7 +41,6 @@ import UnusedContent from './pages/UnusedContent';
 import UserActivity from './pages/UserActivity';
 import VerifyEmailPage from './pages/VerifyEmail';
 import ViewSqlChart from './pages/ViewSqlChart';
-import NoDashboardPermission from './pages/NoDashboardPermission';
 import { TrackPage } from './providers/Tracking/TrackingProvider';
 import { PageName } from './types/Events';
 
