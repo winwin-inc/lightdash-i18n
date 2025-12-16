@@ -835,6 +835,49 @@ export class UserService extends BaseService {
             await this.joinOrg(createdUser, organizationUuid); // Join automatically the whitelisted org so we can apply groups
         }
 
+        // Auto-join first organization and set setup complete if oidcForceRedirect is enabled
+        if (
+            !organizationUuid &&
+            !inviteCode &&
+            this.lightdashConfig.auth.oidc.clientForceRedirect
+        ) {
+            const orgUuids = await this.organizationModel.getOrgUuids();
+            if (orgUuids.length > 0) {
+                const firstOrgUuid = orgUuids[0];
+                this.logger.info(
+                    `OIDC force redirect enabled - Automatically joining user '${createdUser.email}' to first organization ${firstOrgUuid}`,
+                );
+                try {
+                    await this.joinOrg(createdUser, firstOrgUuid);
+                    organizationUuid = firstOrgUuid;
+
+                    // Set is_setup_complete to true only after successfully joining organization
+                    await this.userModel.updateUser(
+                        createdUser.userUuid,
+                        createdUser.email,
+                        {
+                            isSetupComplete: true,
+                        },
+                    );
+                    this.logger.info(
+                        `Successfully joined user ${createdUser.userUuid} to organization ${firstOrgUuid} and set is_setup_complete to true`,
+                    );
+                } catch (error) {
+                    this.logger.warn(
+                        `Failed to auto-join user to first organization: ${
+                            error instanceof Error
+                                ? error.message
+                                : String(error)
+                        }. User will need to join an organization manually.`,
+                    );
+                }
+            } else {
+                this.logger.warn(
+                    `OIDC force redirect enabled but no organizations found. User ${createdUser.userUuid} will need to join an organization manually.`,
+                );
+            }
+        }
+
         if (hasGroups && organizationUuid) {
             this.logger.info(
                 `Syncing groups for new user ${
@@ -848,9 +891,14 @@ export class UserService extends BaseService {
             });
         }
 
+        // Refresh user to get updated organizationUuid and isSetupComplete
+        const updatedUser = await this.userModel.findSessionUserByUUID(
+            createdUser.userUuid,
+        );
+
         return {
-            ...createdUser,
-            organizationUuid,
+            ...updatedUser,
+            organizationUuid: updatedUser.organizationUuid || organizationUuid,
         };
     }
 
