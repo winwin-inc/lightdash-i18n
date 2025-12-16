@@ -1,6 +1,6 @@
 {
     "name": "@lightdash/sdk-next-test-app",
-    "version": "0.0.0",
+    "version": "0.2091.37",
     "private": true,
     "scripts": {
         "dev": "next dev --turbopack --port 9898",
