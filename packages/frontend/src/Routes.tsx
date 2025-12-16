@@ -1,4 +1,3 @@
-import { Stack } from '@mantine/core';
 import { type FC } from 'react';
 import {
     Navigate,
