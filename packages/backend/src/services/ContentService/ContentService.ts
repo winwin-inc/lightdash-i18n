@@ -7,6 +7,7 @@ import {
     ContentActionMove,
     ContentType,
     ForbiddenError,
+    isUserWithOrg,
     KnexPaginateArgs,
     KnexPaginatedData,
     NotExistsError,
@@ -164,7 +165,9 @@ export class ContentService extends BaseService {
             });
 
             // Filter dashboard content
-            if (allowedDashboardUuidsMap.size > 0) {
+            // Only filter if user has joined organization and has identity
+            // Otherwise, let CASL check handle it (e.g., for users who need to join organization)
+            if (allowedDashboardUuidsMap.size > 0 && isUserWithOrg(user)) {
                 result.data = result.data.filter((content) => {
                     if (content.contentType !== ContentType.DASHBOARD) {
                         return true; // Keep non-dashboard content

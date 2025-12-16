@@ -5,6 +5,7 @@ import {
     FieldSearchResult,
     ForbiddenError,
     isTableErrorSearchResult,
+    isUserWithOrg,
     SavedChartSearchResult,
     SearchFilters,
     SearchResults,
@@ -214,14 +215,16 @@ export class SearchService extends BaseService {
             results.spaces.map(filterItem),
         );
 
-        // Apply dashboard filtering based on user_dashboard_category
+        // Apply dashboard filtering based on RPC interface
         let filteredDashboards = results.dashboards.filter(
             (_, index) => hasDashboardAccess[index],
         );
 
         // If filtering is needed (allowedDashboardUuids is not undefined),
         // filter by allowed dashboard UUIDs
-        if (allowedDashboardUuids !== undefined) {
+        // Only filter if user has joined organization and has identity
+        // Otherwise, let CASL check handle it (e.g., for users who need to join organization)
+        if (allowedDashboardUuids !== undefined && isUserWithOrg(user)) {
             filteredDashboards = filteredDashboards.filter((dashboard) =>
                 allowedDashboardUuids.has(dashboard.uuid),
             );

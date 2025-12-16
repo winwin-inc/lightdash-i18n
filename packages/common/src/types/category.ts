@@ -41,3 +41,28 @@ export type UserCategoryList = {
     level3: CategoryTreeNode[];
     level4: CategoryTreeNode[];
 };
+
+/**
+ * 通过手机号查询看板权限返回的看板项
+ */
+export type DashboardByMobileItem = {
+    dashboardId: number;
+    projectUuid: string;
+    spaceUuid: string;
+    dashboardUuid: string;
+    dashboardName: string;
+    shortName: string;
+    status: number;
+    dashboardUrl: string;
+    categoryLevel: number;
+    leafCategories: string[];
+};
+
+/**
+ * 通过手机号查询看板权限的 JSONRPC 响应格式
+ */
+export type DashboardByMobileRpcResponse = {
+    jsonrpc: string;
+    id: number;
+    result: DashboardByMobileItem[];
+};
