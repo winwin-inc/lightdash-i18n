@@ -190,8 +190,14 @@ const MinimalDashboard: FC = () => {
         !schedulerTabsSelected && tabsWithUrls.length > 0;
 
     if (dashboardError || schedulerError) {
-        if (dashboardError) return <>{dashboardError.error.message}</>;
-        if (schedulerError) return <>{schedulerError.error.message}</>;
+        if (dashboardError) {
+            if (dashboardError.error.name === 'NetworkError') return null;
+            return <>{dashboardError.error.message}</>;
+        }
+        if (schedulerError) {
+            if (schedulerError.error.name === 'NetworkError') return null;
+            return <>{schedulerError.error.message}</>;
+        }
     }
 
     if (!dashboard) {

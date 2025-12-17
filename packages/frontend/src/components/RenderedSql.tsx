@@ -74,6 +74,7 @@ export const RenderedSql = () => {
     }
 
     if (error?.error.message) {
+        if (error.error.name === 'NetworkError') return null;
         return (
             <div style={{ margin: 10 }}>
                 <Alert

@@ -15,6 +15,10 @@ import ApiErrorDisplay from './ApiErrorDisplay';
 import MultipleToastBody from './MultipleToastBody';
 import { type NotificationData } from './types';
 
+const shouldSuppressNetworkSubtitle = (subtitle: NotificationData['subtitle']) =>
+    typeof subtitle === 'string' &&
+    /unable to reach the (lightdash|lghtdash) server/i.test(subtitle);
+
 const useToaster = () => {
     const openedKeys = useRef(new Set<string>());
     const currentErrors = useRef<Record<string, NotificationData[]>>({});
@@ -160,6 +164,9 @@ const useToaster = () => {
 
     const showToastError = useCallback(
         (props: NotificationData) => {
+            // Some call-sites pass network errors as plain subtitle strings (no ApiError object).
+            // Suppress these to avoid noisy "unable to reach server" toasts.
+            if (shouldSuppressNetworkSubtitle(props.subtitle)) return;
             showToast({
                 color: 'red',
                 bg: 'red',
@@ -178,6 +185,10 @@ const useToaster = () => {
                 apiError: ApiErrorDetail;
             },
         ) => {
+            // Hide generic network connectivity errors (e.g. "unable to reach server")
+            // These can be noisy and are usually not actionable for the user.
+            if (props.apiError?.name === 'NetworkError') return;
+
             const title: ReactNode | undefined = props.title ?? 'Error';
 
             const subtitle: ReactNode = props.apiError ? (
@@ -259,6 +270,9 @@ const useToaster = () => {
                 messageKey,
                 ...restProps
             } = errorData;
+
+            // Hide generic network connectivity errors (e.g. "unable to reach server")
+            if (apiError?.name === 'NetworkError') return;
 
             if (!subtitle && !title && !apiError) return;
 
