@@ -43,7 +43,7 @@ const NoDashboardPermission = () => {
             align="center"
             w="100vw"
             mih="100vh"
-            pt={isMobile ? '10vh' : '15vh'}
+            pt={isMobile ? '8vh' : '12vh'}
             pb={isMobile ? '10vh' : '15vh'}
             style={{
                 display: 'flex',
@@ -58,6 +58,7 @@ const NoDashboardPermission = () => {
                 style={{
                     width: isMobile ? 228 : 318,
                     height: isMobile ? 154 : 213,
+                    scale: isMobile ? 1 : 0.8,
                 }}
                 src={CUSTOMER_SERVICE.lockUrl}
                 alt="Customer Service Lock"
