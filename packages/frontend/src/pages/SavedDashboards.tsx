@@ -1,7 +1,8 @@
+import { subject } from '@casl/ability';
 import { ContentType, LightdashMode } from '@lightdash/common';
 import { Button, Group, Stack } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
@@ -39,7 +40,7 @@ const SavedDashboards = () => {
     const project = useProject(projectUuid);
     const isCustomerUse = project.data?.isCustomerUse ?? false;
 
-    const { health } = useApp();
+    const { health, user } = useApp();
     const isDemo = health.data?.mode === LightdashMode.DEMO;
     const { data: spaces, isInitialLoading: isLoadingSpaces } =
         useSpaceSummaries(projectUuid);
@@ -49,6 +50,38 @@ const SavedDashboards = () => {
         projectUuid,
         'Dashboard',
     );
+
+    // 检查用户是否有管理员权限（manage Project）
+    const userCanManageProject = user.data?.ability?.can(
+        'manage',
+        subject('Project', {
+            organizationUuid: user.data?.organizationUuid,
+            projectUuid,
+        }),
+    );
+
+    // 客户使用模式 + 查看者权限时，隐藏首页面包屑
+    const shouldHideHomeBreadcrumb = isCustomerUse && !userCanManageProject;
+
+    // 根据条件构建面包屑项
+    const breadcrumbItems = useMemo(() => {
+        const items = [];
+        if (!shouldHideHomeBreadcrumb) {
+            items.push({
+                title: t(
+                    'pages_saved_dashboards.bread_crumbs.home',
+                ),
+                to: '/home',
+            });
+        }
+        items.push({
+            title: t(
+                'pages_saved_dashboards.bread_crumbs.all_dashboards',
+            ),
+            active: true,
+        });
+        return items;
+    }, [shouldHideHomeBreadcrumb, t]);
 
     if (!projectUuid) {
         return null;
@@ -76,22 +109,7 @@ const SavedDashboards = () => {
         >
             <Stack spacing="xxl" w="100%">
                 <Group position="apart">
-                    <PageBreadcrumbs
-                        items={[
-                            {
-                                title: t(
-                                    'pages_saved_dashboards.bread_crumbs.home',
-                                ),
-                                to: '/home',
-                            },
-                            {
-                                title: t(
-                                    'pages_saved_dashboards.bread_crumbs.all_dashboards',
-                                ),
-                                active: true,
-                            },
-                        ]}
-                    />
+                    <PageBreadcrumbs items={breadcrumbItems} />
 
                     {dashboards.length > 0 &&
                         userCanCreateDashboards &&

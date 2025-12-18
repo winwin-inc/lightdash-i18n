@@ -1,3 +1,4 @@
+import { subject } from '@casl/ability';
 import { ActionIcon, Box, Button, Group } from '@mantine/core';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +7,7 @@ import { Link } from 'react-router';
 import { useHasMetricsInCatalog } from '../../features/metricsCatalog/hooks/useMetricsCatalog';
 import Omnibar from '../../features/omnibar';
 import Logo from '../../svgs/logo-icon.svg?react';
+import useApp from '../../providers/App/useApp';
 import { AiAgentsButton } from './AiAgentsButton';
 import BrowseMenu from './BrowseMenu';
 import ExploreMenu from './ExploreMenu';
@@ -30,6 +32,7 @@ export const MainNavBarContent: FC<Props> = ({
     isCustomerUse,
 }) => {
     const { t } = useTranslation();
+    const { user } = useApp();
 
     const homeUrl = activeProjectUuid
         ? `/projects/${activeProjectUuid}/home`
@@ -38,17 +41,31 @@ export const MainNavBarContent: FC<Props> = ({
         projectUuid: activeProjectUuid,
     });
 
+    // 检查用户是否有管理员权限（manage Project）
+    const userCanManageProject = user.data?.ability?.can(
+        'manage',
+        subject('Project', {
+            organizationUuid: user.data?.organizationUuid,
+            projectUuid: activeProjectUuid,
+        }),
+    );
+
+    // 客户使用模式 + 查看者权限（不能 manage Project）时隐藏 Logo
+    const shouldHideLogo = isCustomerUse && !userCanManageProject;
+
     return (
         <>
             <Group align="center" sx={{ flexShrink: 0 }}>
-                <ActionIcon
-                    component={Link}
-                    to={homeUrl}
-                    title={t('components_navbar_main_navbar_content.home')}
-                    size="lg"
-                >
-                    <Logo />
-                </ActionIcon>
+                {!shouldHideLogo && (
+                    <ActionIcon
+                        component={Link}
+                        to={homeUrl}
+                        title={t('components_navbar_main_navbar_content.home')}
+                        size="lg"
+                    >
+                        <Logo />
+                    </ActionIcon>
+                )}
 
                 {!isLoadingActiveProject && activeProjectUuid && (
                     <>
