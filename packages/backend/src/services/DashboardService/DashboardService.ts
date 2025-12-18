@@ -297,7 +297,7 @@ export class DashboardService
             return undefined;
         }
 
-        // Get allowed dashboards from user_dashboard_category table
+        // Get allowed dashboards from RPC interface
         // If user.email is missing, return empty Set to filter out all dashboards
         if (!user.email) {
             this.logger.warn(
@@ -306,23 +306,51 @@ export class DashboardService
             return new Set<string>();
         }
 
+        // Extract mobile number from email (remove @ and everything after it)
         const normalizedEmail = user.email.trim().toLowerCase();
-        const userCategories = await this.userDashboardCategoryModel.find({
-            email: normalizedEmail,
-        });
+        const mobile = normalizedEmail.split('@')[0];
 
-        const allowedUuids = new Set(
-            userCategories.map((cat) => cat.dashboard_uuid).filter(Boolean),
-        );
-
-        // If no matching categories found, return empty Set to filter out all dashboards
-        if (allowedUuids.size === 0) {
+        if (!mobile) {
             this.logger.warn(
-                `No dashboard categories found for user ${normalizedEmail} in project ${projectUuid}, filtering out all dashboards`,
+                `User ${user.userUuid} email ${normalizedEmail} has no mobile part, filtering out all dashboards for project ${projectUuid}`,
             );
+            return new Set<string>();
         }
 
-        return allowedUuids;
+        try {
+            // Call RPC interface to get dashboards by mobile
+            const dashboardsByMobile =
+                await this.categoryRpcClient.findAllDashboardByMobile(mobile);
+
+            // Filter dashboards by projectUuid
+            // All returned dashboards are authorized (including those without categories)
+            // Dashboards without categories: categoryLevel = 0 and leafCategories = []
+            const allowedUuids = new Set(
+                dashboardsByMobile
+                    .filter(
+                        (dashboard) => dashboard.projectUuid === projectUuid,
+                    )
+                    .map((dashboard) => dashboard.dashboardUuid)
+                    .filter(Boolean),
+            );
+
+            // If no matching dashboards found, return empty Set to filter out all dashboards
+            if (allowedUuids.size === 0) {
+                this.logger.warn(
+                    `No dashboards found for mobile ${mobile} in project ${projectUuid}, filtering out all dashboards`,
+                );
+            }
+
+            return allowedUuids;
+        } catch (error) {
+            this.logger.error(
+                `Error fetching dashboards by mobile ${mobile}: ${
+                    error instanceof Error ? error.message : String(error)
+                }`,
+            );
+            // On error, return empty Set to filter out all dashboards
+            return new Set<string>();
+        }
     }
 
     async getAllByProject(
@@ -366,11 +394,12 @@ export class DashboardService
                 }),
             );
 
-            // Filter by user_dashboard_category if viewer and customer use enabled
-            // If allowedDashboardUuids is an empty Set, all dashboards will be filtered out
-            // (which is correct: if no records in user_dashboard_category, user sees nothing)
+            // Filter by RPC interface if viewer and customer use enabled
+            // Only filter if user has joined organization and has identity
+            // Otherwise, let CASL check handle it (e.g., for users who need to join organization)
             if (
                 allowedDashboardUuids &&
+                isUserWithOrg(user) &&
                 !allowedDashboardUuids.has(dashboard.uuid)
             ) {
                 return false;
@@ -418,14 +447,21 @@ export class DashboardService
         // If allowedDashboardUuids is defined (not undefined), it means we need to check permissions
         // If it's an empty Set, user has no dashboard access at all
         // If it's a Set with values, check if this dashboard is in the allowed list
+        // Only throw error if user has joined organization and has identity
+        // Otherwise, let other logic handle it (e.g., redirect to join organization)
         if (allowedDashboardUuids !== undefined) {
             if (
                 allowedDashboardUuids.size === 0 ||
                 !allowedDashboardUuids.has(dashboard.uuid)
             ) {
-                throw new ForbiddenError(
-                    "You don't have permission to view this dashboard. Please contact your administrator to configure dashboard access permissions.",
-                );
+                // Only throw permission error if user has joined organization and has identity
+                // Otherwise, let the CASL check handle it
+                if (isUserWithOrg(user)) {
+                    throw new ForbiddenError(
+                        "You don't have permission to view this dashboard. Please contact your administrator to configure dashboard access permissions.",
+                    );
+                }
+                // If user hasn't joined organization, let the CASL check handle it
             }
         }
 
@@ -1592,9 +1628,28 @@ export class DashboardService
             };
         }
 
-        // 在客户使用模式下，所有角色（查看者、编辑者、开发者等）都需要进行类目权限过滤
-        // 只有配置了类目权限的用户才能看到对应的类目
-        // 获取用户在看板类目权限表中的类目ID列表
+        // Get user's project role to check if user is viewer
+        const userRole = await this.getUserProjectRole(
+            user,
+            project.project_id,
+            project.organization_id,
+            projectUuid,
+        );
+
+        const isViewer = userRole === ProjectMemberRole.VIEWER;
+
+        // Only filter categories if user is viewer and project has customer use enabled
+        if (!isViewer) {
+            // If user is not viewer, return empty category list (no category filtering needed)
+            return {
+                level1: [],
+                level2: [],
+                level3: [],
+                level4: [],
+            };
+        }
+
+        // If user has no email, return empty category list
         if (!user.email) {
             this.logger.warn(
                 `User ${user.userUuid} has no email, returning empty category list`,
@@ -1607,21 +1662,79 @@ export class DashboardService
             };
         }
 
+        // Extract mobile number from email (remove @ and everything after it)
         const normalizedEmail = user.email.trim().toLowerCase();
-        const userCategories = await this.userDashboardCategoryModel.find({
-            email: normalizedEmail,
-            dashboardUuid, // 如果提供了 dashboardUuid，则根据看板过滤
-        });
+        const mobile = normalizedEmail.split('@')[0];
 
-        // 提取用户有权限的类目ID（可能是任意层级）
-        const allowedCategoryIds = new Set(
-            userCategories.map((cat) => cat.category_id).filter(Boolean),
-        );
-
-        if (allowedCategoryIds.size === 0) {
+        if (!mobile) {
             this.logger.warn(
-                `No categories found for user ${normalizedEmail} in project ${projectUuid}`,
+                `User ${user.userUuid} email ${normalizedEmail} has no mobile part, returning empty category list`,
             );
+            return {
+                level1: [],
+                level2: [],
+                level3: [],
+                level4: [],
+            };
+        }
+
+        let allowedCategoryIds: Set<string>;
+        try {
+            // Call RPC interface to get dashboards by mobile
+            const dashboardsByMobile =
+                await this.categoryRpcClient.findAllDashboardByMobile(mobile);
+
+            // Filter dashboards by projectUuid
+            let filteredDashboards = dashboardsByMobile.filter(
+                (dashboard) => dashboard.projectUuid === projectUuid,
+            );
+
+            // If dashboardUuid is provided, filter by it
+            if (dashboardUuid) {
+                filteredDashboards = filteredDashboards.filter(
+                    (dashboard) => dashboard.dashboardUuid === dashboardUuid,
+                );
+            }
+
+            // Extract all leaf category IDs from dashboards with categories
+            // Dashboards without categories (categoryLevel = 0 and leafCategories = [])
+            // should not contribute to category list - return empty categories
+            // This means no category filters are needed, frontend won't show category filters
+            allowedCategoryIds = new Set<string>();
+            filteredDashboards.forEach((dashboard) => {
+                // Skip dashboards without categories
+                // These dashboards don't need category filtering, so return empty categories
+                if (
+                    dashboard.categoryLevel === 0 &&
+                    (!dashboard.leafCategories ||
+                        dashboard.leafCategories.length === 0)
+                ) {
+                    // Dashboard without categories - skip, will return empty categories
+                    // Frontend won't show category filters for these dashboards
+                    return;
+                }
+                dashboard.leafCategories.forEach(
+                    (categoryId: string | undefined) => {
+                        if (categoryId) {
+                            allowedCategoryIds.add(categoryId);
+                        }
+                    },
+                );
+            });
+
+            if (allowedCategoryIds.size === 0) {
+                this.logger.warn(
+                    `No categories found for mobile ${mobile} in project ${projectUuid}`,
+                );
+                return { level1: [], level2: [], level3: [], level4: [] };
+            }
+        } catch (error) {
+            this.logger.error(
+                `Error fetching dashboards by mobile ${mobile}: ${
+                    error instanceof Error ? error.message : String(error)
+                }`,
+            );
+            // On error, return empty category list
             return { level1: [], level2: [], level3: [], level4: [] };
         }
 

@@ -61,8 +61,24 @@ import Logo from './svgs/logo-icon.svg?react';
 import { PageName } from './types/Events';
 
 const RedirectToResource: FC = () => {
-    const { projectUuid, savedQueryUuid, dashboardUuid } = useParams();
+    const { projectUuid, savedQueryUuid, dashboardUuid, tabUuid, mode } =
+        useParams();
+
+    // Dashboard deep links from desktop
     if (dashboardUuid) {
+        // 如果包含 tabUuid（/view/tabs/:tabUuid），尽量保留当前 tab
+        if (tabUuid || mode === 'view') {
+            return (
+                <Navigate
+                    to={`/minimal/projects/${projectUuid}/dashboards/${dashboardUuid}/view${
+                        tabUuid ? `/tabs/${tabUuid}` : ''
+                    }`}
+                    replace
+                />
+            );
+        }
+
+        // 其他模式（如 /edit）暂时跳转到最简单的 minimal 看板
         return (
             <Navigate
                 to={`/minimal/projects/${projectUuid}/dashboards/${dashboardUuid}`}
@@ -70,6 +86,8 @@ const RedirectToResource: FC = () => {
             />
         );
     }
+
+    // Saved chart deep links from desktop
     if (savedQueryUuid) {
         return (
             <Navigate
@@ -276,6 +294,14 @@ const MINIMAL_ROUTES: RouteObject[] = [
                 ),
             },
             {
+                path: '/minimal/projects/:projectUuid/dashboards/:dashboardUuid/view',
+                element: (
+                    <TrackPage name={PageName.DASHBOARD}>
+                        <MinimalDashboard />
+                    </TrackPage>
+                ),
+            },
+            {
                 path: '/minimal/projects/:projectUuid/dashboards/:dashboardUuid/view/tabs/:tabUuid',
                 element: (
                     <TrackPage name={PageName.DASHBOARD}>
@@ -308,6 +334,19 @@ const APP_ROUTES: RouteObject[] = [
                     </ProjectRoute>
                 ),
                 children: [
+                    // Dashboard routes should be before /home to ensure proper matching
+                    {
+                        path: '/projects/:projectUuid/dashboards/:dashboardUuid/:mode/tabs/:tabUuid?',
+                        element: <RedirectToResource />,
+                    },
+                    {
+                        path: '/projects/:projectUuid/dashboards/:dashboardUuid/:mode?',
+                        element: <RedirectToResource />,
+                    },
+                    {
+                        path: '/projects/:projectUuid/saved/:savedQueryUuid/:mode?',
+                        element: <RedirectToResource />,
+                    },
                     {
                         path: '/projects/:projectUuid/home',
                         element: (
@@ -315,14 +354,6 @@ const APP_ROUTES: RouteObject[] = [
                                 <MobileHome />
                             </TrackPage>
                         ),
-                    },
-                    {
-                        path: '/projects/:projectUuid/saved/:savedQueryUuid/:mode?',
-                        element: <RedirectToResource />,
-                    },
-                    {
-                        path: '/projects/:projectUuid/dashboards/:dashboardUuid/:mode?',
-                        element: <RedirectToResource />,
                     },
                     {
                         path: '/projects/:projectUuid/saved',

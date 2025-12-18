@@ -32,8 +32,6 @@ import '@mantine-8/core/styles.css';
 
 const isMobile = window.innerWidth < 768;
 
-const isMinimalPage = window.location.pathname.startsWith('/minimal');
-
 // Sentry wrapper for createBrowserRouter
 const sentryCreateBrowserRouter =
     wrapCreateBrowserRouterV7(createBrowserRouter);
@@ -43,12 +41,13 @@ const router = sentryCreateBrowserRouter([
         path: '/',
         element: (
             <AppProvider>
-                <FullscreenProvider enabled={isMobile || !isMinimalPage}>
+                <FullscreenProvider enabled={isMobile}>
                     <VersionAutoUpdater />
-                    <ThirdPartyProvider enabled={isMobile || !isMinimalPage}>
+                    <ThirdPartyProvider enabled={true}>
                         <ErrorBoundary wrapper={{ mt: '4xl' }}>
                             <TrackingProvider
-                                enabled={isMobile || !isMinimalPage}
+                                // Always enable tracking provider to avoid context errors on minimal pages
+                                enabled={true}
                             >
                                 <AbilityProvider>
                                     <ActiveJobProvider>

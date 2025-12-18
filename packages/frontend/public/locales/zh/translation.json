@@ -8650,7 +8650,8 @@
     "pages_no_dashboard_permission": {
         "title": "您没有看板访问权限",
         "description": "请您联系客服开通看板访问权限",
-        "scan": "扫码添加客服\"大圣来也\"",
+        "scan_pc": "扫码添加客服\"大圣来也\"(17612234299)",
+        "scan_mobile": "扫码添加客服\"大圣来也\"",
         "copied": "已复制",
         "lins": {
             "mobile": "电话联系",

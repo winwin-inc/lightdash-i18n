@@ -27,6 +27,10 @@ const ErrorState: FC<{
         if (!error) {
             return defaultErrorProps;
         }
+        // Hide generic network connectivity errors (e.g. "unable to reach server")
+        if (error.name === 'NetworkError') {
+            return defaultErrorProps;
+        }
         try {
             const description = (
                 <>

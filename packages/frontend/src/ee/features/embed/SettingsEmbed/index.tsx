@@ -66,6 +66,7 @@ const useEmbedConfigCreateMutation = (projectUuid: string) => {
                 });
             },
             onError: (error) => {
+                if (error.error.name === 'NetworkError') return;
                 showToastError({
                     title: t('ai_embed_settings_embed.create_tips.error'),
                     subtitle: error.error.message,
@@ -99,6 +100,7 @@ const useEmbedConfigUpdateMutation = (projectUuid: string) => {
                 });
             },
             onError: (error) => {
+                if (error.error.name === 'NetworkError') return;
                 showToastError({
                     title: t('ai_embed_settings_embed.update_tips.error'),
                     subtitle: error.error.message,
@@ -147,6 +149,7 @@ const SettingsEmbed: FC<{ projectUuid: string }> = ({ projectUuid }) => {
     }
 
     if (error && error.error.statusCode !== 404) {
+        if (error.error.name === 'NetworkError') return null;
         return (
             <div style={{ marginTop: '20px' }}>
                 <SuboptimalState

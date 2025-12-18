@@ -91,6 +91,7 @@ const MinimalSavedExplorer: FC = () => {
     }
 
     if (isError) {
+        if (error.error.name === 'NetworkError') return null;
         return <>{error.error.message}</>;
     }
 

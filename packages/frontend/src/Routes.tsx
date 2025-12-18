@@ -1,6 +1,11 @@
-import { Stack } from '@mantine/core';
 import { type FC } from 'react';
-import { Navigate, Outlet, useParams, type RouteObject } from 'react-router';
+import {
+    Navigate,
+    Outlet,
+    useLocation,
+    useParams,
+    type RouteObject,
+} from 'react-router';
 import AppRoute from './components/AppRoute';
 import ForbiddenPanel from './components/ForbiddenPanel';
 import JobDetailsDrawer from './components/JobDetailsDrawer';
@@ -22,8 +27,6 @@ import JoinOrganization from './pages/JoinOrganization';
 import LegacySqlRunner from './pages/LegacySqlRunner';
 import Login from './pages/Login';
 import MetricsCatalog from './pages/MetricsCatalog';
-import MinimalDashboard from './pages/MinimalDashboard';
-import MinimalSavedExplorer from './pages/MinimalSavedExplorer';
 import NoDashboardPermission from './pages/NoDashboardPermission';
 import PasswordRecovery from './pages/PasswordRecovery';
 import PasswordReset from './pages/PasswordReset';
@@ -125,21 +128,74 @@ const PUBLIC_ROUTES: RouteObject[] = [
     },
 ];
 
+// Component to redirect mobile minimal routes to PC routes
+const RedirectFromMinimal: FC = () => {
+    const { projectUuid, savedQueryUuid, dashboardUuid, tabUuid } = useParams();
+    const location = useLocation();
+
+    // Dashboard deep links from mobile
+    if (dashboardUuid) {
+        // Check if URL contains /view/tabs/ pattern
+        const hasViewTabs = location.pathname.includes('/view/tabs/');
+        if (hasViewTabs && tabUuid) {
+            return (
+                <Navigate
+                    to={`/projects/${projectUuid}/dashboards/${dashboardUuid}/view/tabs/${tabUuid}`}
+                    replace
+                />
+            );
+        }
+        // If it's a view mode without tabs, redirect to view
+        if (location.pathname.includes('/view')) {
+            return (
+                <Navigate
+                    to={`/projects/${projectUuid}/dashboards/${dashboardUuid}/view`}
+                    replace
+                />
+            );
+        }
+        // Default: redirect to view mode
+        return (
+            <Navigate
+                to={`/projects/${projectUuid}/dashboards/${dashboardUuid}/view`}
+                replace
+            />
+        );
+    }
+
+    // Saved chart deep links from mobile
+    if (savedQueryUuid) {
+        return (
+            <Navigate
+                to={`/projects/${projectUuid}/saved/${savedQueryUuid}`}
+                replace
+            />
+        );
+    }
+
+    // Fallback: redirect to projects
+    return <Navigate to="/projects" replace />;
+};
+
 const MINIMAL_ROUTES: RouteObject[] = [
     {
         path: '/minimal',
         children: [
             {
                 path: '/minimal/projects/:projectUuid/saved/:savedQueryUuid',
-                element: (
-                    <Stack p="lg" h="100vh">
-                        <MinimalSavedExplorer />
-                    </Stack>
-                ),
+                element: <RedirectFromMinimal />,
             },
             {
                 path: '/minimal/projects/:projectUuid/dashboards/:dashboardUuid',
-                element: <MinimalDashboard />,
+                element: <RedirectFromMinimal />,
+            },
+            {
+                path: '/minimal/projects/:projectUuid/dashboards/:dashboardUuid/view',
+                element: <RedirectFromMinimal />,
+            },
+            {
+                path: '/minimal/projects/:projectUuid/dashboards/:dashboardUuid/view/tabs/:tabUuid',
+                element: <RedirectFromMinimal />,
             },
         ],
     },
@@ -200,13 +256,14 @@ const DASHBOARD_ROUTES: RouteObject[] = [
     },
     {
         path: '/projects/:projectUuid/dashboards/:dashboardUuid',
+        element: <Outlet />,
         children: [
             {
-                path: '/projects/:projectUuid/dashboards/:dashboardUuid/:mode?',
+                path: '/projects/:projectUuid/dashboards/:dashboardUuid/:mode/tabs/:tabUuid?',
                 element: <DashboardPageWrapper />,
             },
             {
-                path: '/projects/:projectUuid/dashboards/:dashboardUuid/:mode/tabs/:tabUuid?',
+                path: '/projects/:projectUuid/dashboards/:dashboardUuid/:mode?',
                 element: <DashboardPageWrapper />,
             },
         ],
