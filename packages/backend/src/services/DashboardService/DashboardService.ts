@@ -227,11 +227,17 @@ export class DashboardService
             .select('project_id', 'is_customer_use', 'organization_id')
             .first();
         if (!project) {
+            this.logger.warn(
+                `Project ${projectUuid} not found in projects table, skipping RPC filtering`,
+            );
             return undefined;
         }
 
         const isCustomerUse = project.is_customer_use ?? false;
         if (!isCustomerUse) {
+            this.logger.warn(
+                `Project ${projectUuid} is not in customer use mode, skipping RPC filtering`,
+            );
             return undefined;
         }
 
@@ -243,6 +249,9 @@ export class DashboardService
             .first();
 
         if (!userRecord) {
+            this.logger.warn(
+                `User ${user.userUuid} not found in users table, skipping RPC filtering`,
+            );
             return undefined;
         }
 
@@ -294,16 +303,20 @@ export class DashboardService
 
         // Only filter if user is viewer and project has customer use enabled
         if (!isViewer) {
+            this.logger.warn(
+                `User ${user.userUuid} (VIEWER) has no viewer role in project ${projectUuid}, skipping RPC filtering`,
+            );
             return undefined;
         }
 
-        // Get allowed dashboards from RPC interface
-        // If user.email is missing, return empty Set to filter out all dashboards
+        // For VIEWER users in customer use mode, RPC interface is required
+        // If user.email is missing (e.g., API token users), skip RPC filtering
+        // Return undefined to let CASL permissions handle access control
         if (!user.email) {
             this.logger.warn(
-                `User ${user.userUuid} has no email, filtering out all dashboards for project ${projectUuid}`,
+                `User ${user.userUuid} (VIEWER) has no email in customer use project ${projectUuid}, skipping RPC filtering. This may be an API token user.`,
             );
-            return new Set<string>();
+            return undefined;
         }
 
         // Extract mobile number from email (remove @ and everything after it)
@@ -312,9 +325,9 @@ export class DashboardService
 
         if (!mobile) {
             this.logger.warn(
-                `User ${user.userUuid} email ${normalizedEmail} has no mobile part, filtering out all dashboards for project ${projectUuid}`,
+                `User ${user.userUuid} (VIEWER) email ${normalizedEmail} has no mobile part in customer use project ${projectUuid}, skipping RPC filtering`,
             );
-            return new Set<string>();
+            return undefined;
         }
 
         try {
@@ -348,8 +361,9 @@ export class DashboardService
                     error instanceof Error ? error.message : String(error)
                 }`,
             );
-            // On error, return empty Set to filter out all dashboards
-            return new Set<string>();
+            // On error, return undefined to skip RPC filtering
+            // Let CASL permissions handle access control instead
+            return undefined;
         }
     }
 
@@ -395,14 +409,20 @@ export class DashboardService
             );
 
             // Filter by RPC interface if viewer and customer use enabled
-            // Only filter if user has joined organization and has identity
-            // Otherwise, let CASL check handle it (e.g., for users who need to join organization)
-            if (
-                allowedDashboardUuids &&
-                isUserWithOrg(user) &&
-                !allowedDashboardUuids.has(dashboard.uuid)
-            ) {
-                return false;
+            // If allowedDashboardUuids is undefined, skip RPC filtering (e.g., API token users without email, non-VIEWER users, or non-customer-use projects)
+            // If allowedDashboardUuids is defined (not undefined), it means RPC filtering is required
+            // - If it's an empty Set, user has no dashboard access (RPC returned no dashboards)
+            // - If it has values, check if this dashboard is in the allowed list
+            // Only apply filtering if user has joined organization, otherwise let CASL check handle it
+            if (allowedDashboardUuids !== undefined && isUserWithOrg(user)) {
+                // Empty Set means no access at all (RPC returned no dashboards for this user)
+                if (allowedDashboardUuids.size === 0) {
+                    return false;
+                }
+                // Check if dashboard is in allowed list
+                if (!allowedDashboardUuids.has(dashboard.uuid)) {
+                    return false;
+                }
             }
 
             return (
