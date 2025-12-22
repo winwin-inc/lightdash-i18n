@@ -192,8 +192,8 @@ const AgentSidebar: FC<{
                     p="xs"
                     title={
                         <Text size="xs" fw={500}>
-                            You're currently using Lightdash AI Agents in free
-                            trial mode
+                            You're currently using MSY X AI Agents in free trial
+                            mode
                         </Text>
                     }
                 >

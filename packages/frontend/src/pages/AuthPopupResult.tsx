@@ -67,7 +67,7 @@ export const SuccessAuthPopupResult: FC = () => {
 
     return (
         <>
-            <title>Authentication - Lightdash</title>
+            <title>Authentication - 马上赢X</title>
 
             <Stack>
                 <Image

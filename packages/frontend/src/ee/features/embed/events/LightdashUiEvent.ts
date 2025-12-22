@@ -93,7 +93,7 @@ export class LightdashUiEvent {
     }
 
     /**
-     * Dispatches a Lightdash event with the specified type and payload.
+     * Dispatches a MSY X event with the specified type and payload.
      *
      * @param eventType - The type of event to dispatch
      * @param payload - The event payload (will be sanitized)

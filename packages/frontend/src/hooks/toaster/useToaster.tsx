@@ -15,7 +15,9 @@ import ApiErrorDisplay from './ApiErrorDisplay';
 import MultipleToastBody from './MultipleToastBody';
 import { type NotificationData } from './types';
 
-const shouldSuppressNetworkSubtitle = (subtitle: NotificationData['subtitle']) =>
+const shouldSuppressNetworkSubtitle = (
+    subtitle: NotificationData['subtitle'],
+) =>
     typeof subtitle === 'string' &&
     /unable to reach the (lightdash|lghtdash) server/i.test(subtitle);
 
@@ -113,7 +115,7 @@ const useToaster = () => {
                                     onClick={() => {
                                         modals.open({
                                             id: 'support-drawer',
-                                            title: 'Share with Lightdash Support',
+                                            title: 'Share with MSY X Support',
                                             size: 'lg',
                                             children: <SupportDrawerContent />,
                                             yOffset: 100,
@@ -121,7 +123,7 @@ const useToaster = () => {
                                         });
                                     }}
                                 >
-                                    Share with Lightdash
+                                    Share with MSY X
                                 </Button>
                             )*/}
                         </Stack>

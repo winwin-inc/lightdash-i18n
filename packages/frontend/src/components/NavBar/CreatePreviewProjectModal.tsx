@@ -313,7 +313,7 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
         try {
             const parsed = JSON.parse(manifestString);
 
-            // Keep only the keys that Lightdash actually needs
+            // Keep only the keys that MSY X actually needs
             // Removes unused keys like exposures, selectors, unit_tests, etc
             const reducedManifest = {
                 nodes: parsed.nodes || {},

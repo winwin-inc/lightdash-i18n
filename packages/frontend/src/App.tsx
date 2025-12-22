@@ -69,7 +69,7 @@ const router = sentryCreateBrowserRouter([
 ]);
 const App = () => (
     <>
-        <title>Lightdash</title>
+        <title>马上赢X</title>
 
         <ReactQueryProvider>
             <MantineProvider withGlobalStyles withNormalizeCSS withCSSVariables>

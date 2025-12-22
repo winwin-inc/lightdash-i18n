@@ -1,5 +1,5 @@
 <summary>
-React components for creating and managing scheduled deliveries in Lightdash. Handles scheduling dashboard and chart exports via email, Slack, Microsoft Teams, and Google Sheets with support for filters, parameters, custom formatting, and delivery frequency options.
+React components for creating and managing scheduled deliveries in MSY X. Handles scheduling dashboard and chart exports via email, Slack, Microsoft Teams, and Google Sheets with support for filters, parameters, custom formatting, and delivery frequency options.
 </summary>
 
 <howToUse>
