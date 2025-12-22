@@ -75,6 +75,11 @@ export interface LightdashUserWithAbilityRules extends LightdashUser {
 
 export interface SessionUser extends LightdashUserWithAbilityRules {
     ability: MemberAbility;
+    /**
+     * Whether this user session was authenticated via API token (Personal Access Token)
+     * This is set by the authentication middleware to indicate API token-based authentication
+     */
+    isApiTokenRequest?: boolean;
 }
 
 export interface UpdatedByUser {

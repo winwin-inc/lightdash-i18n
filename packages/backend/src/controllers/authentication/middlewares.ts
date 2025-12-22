@@ -123,6 +123,8 @@ export const allowApiKeyAuthentication: RequestHandler = (req, res, next) => {
                 }
 
                 if (req.user) {
+                    // Mark this user session as authenticated via API token
+                    req.user.isApiTokenRequest = true;
                     req.account = fromApiKey(
                         req.user!,
                         req.headers.authorization || '',

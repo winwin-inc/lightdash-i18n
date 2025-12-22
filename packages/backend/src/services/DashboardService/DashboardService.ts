@@ -218,6 +218,14 @@ export class DashboardService
         user: SessionUser,
         projectUuid: string,
     ): Promise<Set<string> | undefined> {
+        // If this is an API token request, skip RPC filtering and let CASL handle permissions
+        if (user.isApiTokenRequest) {
+            this.logger.warn(
+                `API token request detected for user ${user.userUuid} in project ${projectUuid}, skipping RPC filtering.`,
+            );
+            return undefined;
+        }
+
         const db = this.userDashboardCategoryModel.getDatabase();
 
         // Get project info
@@ -304,19 +312,19 @@ export class DashboardService
         // Only filter if user is viewer and project has customer use enabled
         if (!isViewer) {
             this.logger.warn(
-                `User ${user.userUuid} (VIEWER) has no viewer role in project ${projectUuid}, skipping RPC filtering`,
+                `User ${user.userUuid} is ${userRole} in project ${projectUuid}, skipping RPC filtering`,
             );
             return undefined;
         }
 
         // For VIEWER users in customer use mode, RPC interface is required
-        // If user.email is missing (e.g., API token users), skip RPC filtering
-        // Return undefined to let CASL permissions handle access control
+        // If user.email is missing, cannot verify permissions via RPC
+        // Return empty Set to filter out all dashboards (cannot verify = no access)
         if (!user.email) {
             this.logger.warn(
-                `User ${user.userUuid} (VIEWER) has no email in customer use project ${projectUuid}, skipping RPC filtering. This may be an API token user.`,
+                `User ${user.userUuid} (VIEWER) has no email in customer use project ${projectUuid}, filtering out all dashboards.`,
             );
-            return undefined;
+            return new Set<string>();
         }
 
         // Extract mobile number from email (remove @ and everything after it)
@@ -361,9 +369,9 @@ export class DashboardService
                     error instanceof Error ? error.message : String(error)
                 }`,
             );
-            // On error, return undefined to skip RPC filtering
-            // Let CASL permissions handle access control instead
-            return undefined;
+            // On error, return empty Set to filter out all dashboards
+            // For VIEWER users in customer use mode, RPC interface is required
+            return new Set<string>();
         }
     }
 
@@ -391,6 +399,7 @@ export class DashboardService
         );
 
         // Get allowed dashboard UUIDs for viewer users in customer use projects
+        // API token requests are handled inside getAllowedDashboardUuidsForViewer
         const allowedDashboardUuids =
             await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
 
@@ -458,6 +467,7 @@ export class DashboardService
 
         // Check dashboard permission for viewer users in customer use projects
         // This check should happen before CASL ability check
+        // API token requests are handled inside getAllowedDashboardUuidsForViewer
         const allowedDashboardUuids =
             await this.getAllowedDashboardUuidsForViewer(
                 user,
