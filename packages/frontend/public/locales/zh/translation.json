@@ -5096,14 +5096,8 @@
         "copied": "复制"
     },
     "components_forbidden_panel": {
-        "title": {
-            "part_1": "你没有权限",
-            "part_2": "访问此"
-        },
-        "description": {
-            "part_1": "请联系管理员请求访问权限。",
-            "part_2": "或创建一个新项目。"
-        }
+        "title": "您没有看板访问权限",
+        "description": "请联系管理员请求访问权限"
     },
     "components_json_viewer_modal": {
         "copied": "已复制",

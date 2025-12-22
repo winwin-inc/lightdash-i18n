@@ -5113,14 +5113,8 @@
         "copied": "Copied"
     },
     "components_forbidden_panel": {
-        "title": {
-            "part_1": "You don't have access",
-            "part_2": "to this"
-        },
-        "description": {
-            "part_1": "Please contact the admin to request access.",
-            "part_2": "Or create a new project."
-        }
+        "title": "You do not have dashboard access permission",
+        "description": "Please contact the administrator to request access permission"
     },
     "components_json_viewer_modal": {
         "copied": "Copied",

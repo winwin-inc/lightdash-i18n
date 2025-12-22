@@ -1,6 +1,6 @@
 import { Box, Center, Loader, Overlay, rem } from '@mantine/core';
 import { type FC } from 'react';
-import Logo from '../../svgs/logo-icon.svg?react';
+import Logo from '../../svgs/grey-icon-logo.svg?react';
 
 const PageSpinner: FC = () => (
     <Center
