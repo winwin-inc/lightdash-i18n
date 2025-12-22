@@ -68,16 +68,12 @@ const SavedDashboards = () => {
         const items = [];
         if (!shouldHideHomeBreadcrumb) {
             items.push({
-                title: t(
-                    'pages_saved_dashboards.bread_crumbs.home',
-                ),
+                title: t('pages_saved_dashboards.bread_crumbs.home'),
                 to: '/home',
             });
         }
         items.push({
-            title: t(
-                'pages_saved_dashboards.bread_crumbs.all_dashboards',
-            ),
+            title: t('pages_saved_dashboards.bread_crumbs.all_dashboards'),
             active: true,
         });
         return items;
