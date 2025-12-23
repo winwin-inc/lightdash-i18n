@@ -29,57 +29,6 @@ type PieChartWithTemplate = PieChart & {
     groupValueOptionOverrides?: Record<string, Partial<PieChartValueOptions>>;
 };
 
-/**
- * 计算饼图的半径和中心位置
- * @param isDonut - 是否为环形图
- * @param isMobile - 是否为移动端
- * @param hasOutsideLabels - 是否有外侧标签
- * @param showLegend - 是否显示图例
- * @param legendPosition - 图例位置
- * @returns 包含 radius 和 center 的配置对象
- */
-const getPieChartLayout = ({
-    isDonut,
-    isMobile,
-    hasOutsideLabels,
-    showLegend,
-    legendPosition,
-}: {
-    isDonut: boolean;
-    isMobile: boolean;
-    hasOutsideLabels: boolean;
-    showLegend: boolean;
-    legendPosition: 'horizontal' | 'vertical';
-}): {
-    radius: string | [string, string];
-    center: [string, string];
-} => {
-    // 移动端外侧标签：减小半径，为标签和图例留出空间
-    const shouldOptimizeForMobile = isMobile && hasOutsideLabels;
-
-    const radius: string | [string, string] = shouldOptimizeForMobile
-        ? isDonut
-            ? (['20%', '45%'] as [string, string]) // 移动端外侧标签：减小半径
-            : '45%' // 移动端外侧标签：减小半径
-        : isDonut
-        ? (['30%', '70%'] as [string, string])
-        : '70%';
-
-    // 移动端外侧标签：中心位置上移，为底部图例留出空间
-    const center: [string, string] =
-        legendPosition === 'horizontal'
-            ? shouldOptimizeForMobile
-                ? (['50%', '45%'] as [string, string]) // 移动端外侧标签：上移，为底部图例留空间
-                : showLegend
-                ? (['50%', '52%'] as [string, string]) // 桌面端有图例时稍微下移
-                : (['50%', '50%'] as [string, string]) // 桌面端无图例时居中
-            : shouldOptimizeForMobile
-            ? (['50%', '45%'] as [string, string]) // 移动端外侧标签：上移
-            : (['50%', '50%'] as [string, string]); // 垂直图例时居中
-
-    return { radius, center };
-};
-
 const useEchartsPieConfig = (
     selectedLegends?: Record<string, boolean>,
     isInDashboard?: boolean,
@@ -88,7 +37,7 @@ const useEchartsPieConfig = (
         useVisualizationContext();
 
     const theme = useMantineTheme();
-    const isMobile = useMediaQuery('(max-width: 768px)') ?? false;
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const chartConfig = useMemo(() => {
         if (!isPieVisualizationConfig(visualizationConfig)) return;
@@ -154,9 +103,8 @@ const useEchartsPieConfig = (
                     groupColorOverrides?.[name] ??
                     getGroupColor(groupPrefix, name);
 
-                // 移动端优化：当标签在外侧时，调整标签配置以避免超出屏幕和文字折叠
                 const isOutsideLabel = valueLabel === 'outside';
-                const shouldOptimizeLabelForMobile = isMobile && isOutsideLabel;
+                const isMobileOutsideLabel = isMobile && isOutsideLabel;
 
                 const config: PieSeriesDataPoint = {
                     id: name,
@@ -169,14 +117,12 @@ const useEchartsPieConfig = (
                     label: {
                         show: valueLabel !== 'hidden',
                         position: isOutsideLabel ? 'outside' : 'inside',
-                        // 移动端外侧标签优化：配置标签样式，确保数字清晰可读且不被省略
-                        ...(shouldOptimizeLabelForMobile
+                        // 移动端外侧标签优化：设置宽度和字体大小，防止文本截断
+                        ...(isMobileOutsideLabel
                             ? {
-                                  distance: 8, // 标签到饼图边缘的距离（像素）
-                                  alignTo: 'edge', // 对齐到边缘
-                                  margin: 4, // 标签之间的最小间距
-                                  fontSize: 11, // 移动端字体大小，确保数字清晰可读
-                                  // 容器已设置 overflow: visible，标签可以完整显示
+                                  width: 120, // 设置标签宽度为 120px，为文本留出更多空间
+                                  fontSize: 11, // 移动端使用稍小的字体
+                                  lineHeight: 14, // 设置行高，支持多行显示
                               }
                             : {}),
                         formatter: (params) => {
@@ -228,6 +174,51 @@ const useEchartsPieConfig = (
 
                                 formattedLabel = formattedLabel.trim();
 
+                                // 移动端外侧标签：如果自定义模板文本较长，在合适位置插入换行符
+                                if (
+                                    isMobileOutsideLabel &&
+                                    formattedLabel.length > 15
+                                ) {
+                                    // 如果包含 " - "，在 " - " 处换行
+                                    if (formattedLabel.includes(' - ')) {
+                                        formattedLabel = formattedLabel.replace(
+                                            ' - ',
+                                            '\n- ',
+                                        );
+                                    }
+                                    // 如果文本仍然很长，在中间位置换行
+                                    else if (formattedLabel.length > 20) {
+                                        const midPoint = Math.floor(
+                                            formattedLabel.length / 2,
+                                        );
+                                        // 尝试在空格处换行，如果没有空格则在中间换行
+                                        const spaceIndex =
+                                            formattedLabel.lastIndexOf(
+                                                ' ',
+                                                midPoint,
+                                            );
+                                        if (spaceIndex > 0) {
+                                            formattedLabel =
+                                                formattedLabel.slice(
+                                                    0,
+                                                    spaceIndex,
+                                                ) +
+                                                '\n' +
+                                                formattedLabel.slice(
+                                                    spaceIndex + 1,
+                                                );
+                                        } else {
+                                            formattedLabel =
+                                                formattedLabel.slice(
+                                                    0,
+                                                    midPoint,
+                                                ) +
+                                                '\n' +
+                                                formattedLabel.slice(midPoint);
+                                        }
+                                    }
+                                }
+
                                 if (formattedLabel.length > 0) {
                                     return formattedLabel;
                                 }
@@ -244,6 +235,39 @@ const useEchartsPieConfig = (
                                     : showPercentage
                                     ? `${percentValue}%`
                                     : `${params.name}`;
+
+                            // 移动端外侧标签：如果文本较长，在合适位置插入换行符
+                            if (isMobileOutsideLabel && labelText.length > 15) {
+                                // 如果包含 " - "，在 " - " 处换行
+                                if (labelText.includes(' - ')) {
+                                    labelText = labelText.replace(
+                                        ' - ',
+                                        '\n- ',
+                                    );
+                                }
+                                // 如果文本仍然很长，在中间位置换行
+                                else if (labelText.length > 20) {
+                                    const midPoint = Math.floor(
+                                        labelText.length / 2,
+                                    );
+                                    // 尝试在空格处换行，如果没有空格则在中间换行
+                                    const spaceIndex = labelText.lastIndexOf(
+                                        ' ',
+                                        midPoint,
+                                    );
+                                    if (spaceIndex > 0) {
+                                        labelText =
+                                            labelText.slice(0, spaceIndex) +
+                                            '\n' +
+                                            labelText.slice(spaceIndex + 1);
+                                    } else {
+                                        labelText =
+                                            labelText.slice(0, midPoint) +
+                                            '\n' +
+                                            labelText.slice(midPoint);
+                                    }
+                                }
+                            }
 
                             return labelText;
                         },
@@ -271,45 +295,52 @@ const useEchartsPieConfig = (
         } = chartConfig;
 
         // 检测是否有外侧标签
-        const hasOutsideLabels =
-            valueLabelDefault === 'outside' &&
-            (showValueDefault || showPercentageDefault);
-        const shouldOptimizeForMobile = isMobile && hasOutsideLabels;
+        const hasOutsideLabels = seriesData?.some(
+            (item) =>
+                typeof item === 'object' &&
+                item !== null &&
+                'label' in item &&
+                typeof item.label === 'object' &&
+                item.label !== null &&
+                'position' in item.label &&
+                item.label.position === 'outside',
+        );
 
-        // 使用抽离的函数计算饼图的布局（半径和中心位置）
-        const { radius, center } = getPieChartLayout({
-            isDonut: Boolean(isDonut),
-            isMobile: Boolean(isMobile),
-            hasOutsideLabels: Boolean(hasOutsideLabels),
-            showLegend: Boolean(showLegend),
-            legendPosition: (legendPosition ?? 'horizontal') as
-                | 'horizontal'
-                | 'vertical',
-        });
+        // 移动端优化：如果有外侧标签，减小半径并调整中心位置
+        const isMobileWithOutsideLabels = isMobile && hasOutsideLabels;
+
+        // 移动端外侧标签时，减小半径以留出标签空间
+        const radius = isMobileWithOutsideLabels
+            ? isDonut
+                ? ['20%', '50%']
+                : '50%'
+            : isDonut
+            ? ['30%', '70%']
+            : '70%';
+
+        // 移动端外侧标签时，调整中心位置以留出标签空间
+        let center: [string, string];
+        if (isMobileWithOutsideLabels) {
+            // 移动端外侧标签：居中但稍微上移，为下方标签留出空间
+            center = ['50%', '45%'];
+        } else if (legendPosition === 'horizontal') {
+            center =
+                showLegend &&
+                valueLabelDefault === 'outside' &&
+                (showValueDefault || showPercentageDefault)
+                    ? ['50%', '55%']
+                    : showLegend
+                    ? ['50%', '52%']
+                    : ['50%', '50%'];
+        } else {
+            center = ['50%', '50%'];
+        }
 
         return {
             type: 'pie',
             data: seriesData,
             radius,
             center,
-            // 启用防止标签重叠
-            // 注意：avoidLabelOverlap 可能会隐藏部分重叠的标签，但可以调整标签位置避免重叠
-            avoidLabelOverlap: true,
-            // 外侧标签：始终显示引导线
-            labelLine: hasOutsideLabels
-                ? {
-                      show: true,
-                      length: 15, // 引导线第一段长度
-                      length2: 10, // 引导线第二段长度
-                      smooth: 0, // 使用直线
-                      lineStyle: {
-                          width: 1,
-                          color: '#666', // 引导线颜色
-                      },
-                  }
-                : {
-                      show: false, // 内侧标签不显示引导线
-                  },
             tooltip: {
                 trigger: 'item',
                 formatter: ({ marker, name, value, percent }) => {
@@ -338,21 +369,8 @@ const useEchartsPieConfig = (
         if (!chartConfig || !pieSeriesOption) return;
 
         const {
-            validConfig: {
-                showLegend,
-                legendPosition,
-                legendMaxItemLength,
-                valueLabel: valueLabelDefault,
-                showValue: showValueDefault,
-                showPercentage: showPercentageDefault,
-            },
+            validConfig: { showLegend, legendPosition, legendMaxItemLength },
         } = chartConfig;
-
-        // 检测是否有外侧标签（用于图例位置优化）
-        const hasOutsideLabels =
-            valueLabelDefault === 'outside' &&
-            (showValueDefault || showPercentageDefault);
-        const shouldOptimizeForMobile = isMobile && hasOutsideLabels;
 
         return {
             textStyle: {
@@ -375,13 +393,6 @@ const useEchartsPieConfig = (
                 },
                 tooltip: legendDoubleClickTooltip,
                 selected: selectedLegends,
-                // 移动端外侧标签：图例放在底部，避免与标签重叠
-                ...(shouldOptimizeForMobile
-                    ? {
-                          padding: [0, 0], // 移除图例 padding
-                          itemGap: 8, // 减少图例项间距
-                      }
-                    : {}),
                 ...(legendPosition === 'vertical'
                     ? {
                           left: 'left',
@@ -390,9 +401,7 @@ const useEchartsPieConfig = (
                       }
                     : {
                           left: 'center',
-                          // 移动端外侧标签：图例放在底部
-                          top: shouldOptimizeForMobile ? undefined : 'top',
-                          bottom: shouldOptimizeForMobile ? 5 : undefined,
+                          top: 'top',
                           align: 'auto',
                       }),
             },
@@ -410,7 +419,6 @@ const useEchartsPieConfig = (
         minimal,
         pieSeriesOption,
         theme,
-        isMobile,
     ]);
 
     if (!itemsMap) return;

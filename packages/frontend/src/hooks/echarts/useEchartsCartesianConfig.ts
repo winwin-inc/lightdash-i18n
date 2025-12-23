@@ -1431,8 +1431,8 @@ const getEchartAxes = ({
             ? shouldUseAlignedMinForLeftAxis
                 ? String(alignedMinValue) // 使用对齐后的 min 值，以对齐零轴
                 : yAxisConfiguration?.[0]?.min ||
-                  referenceLineMinLeftY ||
-                  maybeGetAxisDefaultMinValue(allowFirstAxisDefaultRange)
+              referenceLineMinLeftY ||
+              maybeGetAxisDefaultMinValue(allowFirstAxisDefaultRange)
             : undefined;
 
     return {
@@ -1570,14 +1570,14 @@ const getEchartAxes = ({
                 max: maxYAxisValue,
                 ...(() => {
                     const baseConfig = getAxisFormatterConfig({
-                        axisItem: leftAxisYField,
+                    axisItem: leftAxisYField,
                         defaultNameGap: isMobile
                             ? Math.max(
                                   20,
                                   (leftYaxisGap + defaultAxisLabelGap) * 0.7,
                               ) // 移动端减少 30% 的 nameGap
                             : leftYaxisGap + defaultAxisLabelGap,
-                        show: showYAxis,
+                    show: showYAxis,
                     });
 
                     // 移动端优化：减小 Y 轴标题和标签字体大小
@@ -1656,10 +1656,10 @@ const getEchartAxes = ({
                         ? shouldUseAlignedMinForRightAxis
                             ? String(alignedMinValue) // 使用对齐后的 min 值，以对齐零轴
                             : yAxisConfiguration?.[1]?.min ||
-                              referenceLineMinRightY ||
-                              maybeGetAxisDefaultMinValue(
-                                  allowSecondAxisDefaultRange,
-                              )
+                          referenceLineMinRightY ||
+                          maybeGetAxisDefaultMinValue(
+                              allowSecondAxisDefaultRange,
+                          )
                         : undefined,
                 max:
                     rightAxisType === 'value'
@@ -1950,19 +1950,19 @@ const useEchartsCartesianConfig = (
             isMobile && dataPointCount > 0 && dataPointCount <= 5;
 
         if (shouldAdjustForMobile) {
-            // 移动端且数据点少时，使用较小的柱状图宽度和较大的间距
+            // 移动端且数据点少时，使用适中的柱状图宽度和较大的间距
             // barWidth: 柱状图宽度，可以是像素值或百分比字符串
             // barCategoryGap: 同一类目内不同系列的间距，百分比字符串
             // barGap: 不同类目之间的间距，百分比字符串
-            // 根据数据点数量动态调整宽度：数据点越少，柱状图越窄
+            // 根据数据点数量动态调整宽度：数据点越少，柱状图越宽（但不超过合理范围）
             const calculatedWidth = Math.max(
-                15,
-                Math.min(35, (100 / dataPointCount) * 0.3),
+                25, // 最小宽度从 15% 增加到 25%
+                Math.min(50, (100 / dataPointCount) * 0.5), // 最大宽度从 35% 增加到 50%，系数从 0.3 增加到 0.5
             );
             return {
                 barWidth: `${calculatedWidth}%`, // 使用百分比，更灵活
-                barCategoryGap: '30%', // 增加类别内间距
-                barGap: '20%', // 增加类别间间距
+                barCategoryGap: '20%', // 类别内间距从 30% 减少到 20%
+                barGap: '15%', // 类别间间距从 20% 减少到 15%
             };
         }
 
