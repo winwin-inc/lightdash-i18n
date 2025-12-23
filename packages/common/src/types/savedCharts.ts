@@ -248,6 +248,7 @@ export type Series = {
     smooth?: boolean;
     markLine?: MarkLine;
     isFilteredOut?: boolean;
+    tooltipSortByValue?: 'asc' | 'desc';
 };
 
 export type EchartsLegend = {

@@ -1431,8 +1431,8 @@ const getEchartAxes = ({
             ? shouldUseAlignedMinForLeftAxis
                 ? String(alignedMinValue) // 使用对齐后的 min 值，以对齐零轴
                 : yAxisConfiguration?.[0]?.min ||
-              referenceLineMinLeftY ||
-              maybeGetAxisDefaultMinValue(allowFirstAxisDefaultRange)
+                  referenceLineMinLeftY ||
+                  maybeGetAxisDefaultMinValue(allowFirstAxisDefaultRange)
             : undefined;
 
     return {
@@ -1570,14 +1570,14 @@ const getEchartAxes = ({
                 max: maxYAxisValue,
                 ...(() => {
                     const baseConfig = getAxisFormatterConfig({
-                    axisItem: leftAxisYField,
+                        axisItem: leftAxisYField,
                         defaultNameGap: isMobile
                             ? Math.max(
                                   20,
                                   (leftYaxisGap + defaultAxisLabelGap) * 0.7,
                               ) // 移动端减少 30% 的 nameGap
                             : leftYaxisGap + defaultAxisLabelGap,
-                    show: showYAxis,
+                        show: showYAxis,
                     });
 
                     // 移动端优化：减小 Y 轴标题和标签字体大小
@@ -1656,10 +1656,10 @@ const getEchartAxes = ({
                         ? shouldUseAlignedMinForRightAxis
                             ? String(alignedMinValue) // 使用对齐后的 min 值，以对齐零轴
                             : yAxisConfiguration?.[1]?.min ||
-                          referenceLineMinRightY ||
-                          maybeGetAxisDefaultMinValue(
-                              allowSecondAxisDefaultRange,
-                          )
+                              referenceLineMinRightY ||
+                              maybeGetAxisDefaultMinValue(
+                                  allowSecondAxisDefaultRange,
+                              )
                         : undefined,
                 max:
                     rightAxisType === 'value'
@@ -2275,15 +2275,112 @@ const useEchartsCartesianConfig = (
                 }
 
                 const flipAxes = validCartesianConfig?.layout.flipAxes;
-                const getTooltipHeader = () => {
-                    if (flipAxes && !('axisDim' in params[0])) {
-                        // When flipping axes, the axisValueLabel is the value, not the serie name
-                        return params[0].seriesName;
+
+                // Check if any series has tooltipSortByValue enabled and get the sort direction
+                const sortDirection = (() => {
+                    const series = validCartesianConfig?.eChartsConfig.series;
+                    if (!series) return undefined;
+                    for (const s of series) {
+                        const sortValue = s.tooltipSortByValue as
+                            | 'asc'
+                            | 'desc'
+                            | undefined;
+                        if (sortValue === 'asc' || sortValue === 'desc') {
+                            return sortValue;
+                        }
                     }
-                    return params[0].axisValueLabel;
+                    return undefined;
+                })();
+
+                // Sort params by value if tooltipSortByValue is enabled
+                let sortedParams = params;
+                if (sortDirection && Array.isArray(params)) {
+                    sortedParams = [...params].sort((a, b) => {
+                        const {
+                            dimensionNames: dimensionNamesA,
+                            encode: encodeA,
+                            value: valueA,
+                        } = a;
+                        const {
+                            dimensionNames: dimensionNamesB,
+                            encode: encodeB,
+                            value: valueB,
+                        } = b;
+
+                        if (
+                            !dimensionNamesA ||
+                            !dimensionNamesB ||
+                            !encodeA ||
+                            !encodeB
+                        ) {
+                            return 0;
+                        }
+
+                        // Get the dimension name (field hash) for y value
+                        let dimA = '';
+                        let dimB = '';
+                        if (flipAxes) {
+                            dimA = dimensionNamesA[1] || '';
+                            dimB = dimensionNamesB[1] || '';
+                        } else {
+                            const yIndexA = Array.isArray(encodeA.y)
+                                ? encodeA.y[0]
+                                : encodeA.y;
+                            const yIndexB = Array.isArray(encodeB.y)
+                                ? encodeB.y[0]
+                                : encodeB.y;
+                            dimA =
+                                typeof yIndexA === 'number'
+                                    ? dimensionNamesA[yIndexA] || ''
+                                    : '';
+                            dimB =
+                                typeof yIndexB === 'number'
+                                    ? dimensionNamesB[yIndexB] || ''
+                                    : '';
+                        }
+
+                        // Get the actual values
+                        const valA =
+                            valueA &&
+                            typeof valueA === 'object' &&
+                            !Array.isArray(valueA) &&
+                            dimA in valueA
+                                ? (valueA as Record<string, unknown>)[dimA]
+                                : null;
+                        const valB =
+                            valueB &&
+                            typeof valueB === 'object' &&
+                            !Array.isArray(valueB) &&
+                            dimB in valueB
+                                ? (valueB as Record<string, unknown>)[dimB]
+                                : null;
+
+                        // Convert to numbers for comparison
+                        const numA =
+                            valA !== null && valA !== undefined
+                                ? toNumber(valA)
+                                : -Infinity;
+                        const numB =
+                            valB !== null && valB !== undefined
+                                ? toNumber(valB)
+                                : -Infinity;
+
+                        // Sort based on direction: 'desc' (largest first) or 'asc' (smallest first)
+                        return sortDirection === 'desc'
+                            ? numB - numA
+                            : numA - numB;
+                    });
+                }
+
+                const getTooltipHeader = () => {
+                    if (flipAxes && !('axisDim' in sortedParams[0])) {
+                        // When flipping axes, the axisValueLabel is the value, not the serie name
+                        return sortedParams[0].seriesName;
+                    }
+                    return sortedParams[0].axisValueLabel;
                 };
                 // When flipping axes, we get all series in the chart
-                const tooltipRows = params
+                const tooltipRows = sortedParams
                     .map((param) => {
                         const {
                             marker,
@@ -2338,7 +2435,7 @@ const useEchartsCartesianConfig = (
                 if (tooltipHtml) {
                     // Sanitize HTML code to avoid XSS
                     tooltipHtml = DOMPurify.sanitize(tooltipHtml);
-                    const firstValue = params[0].value as Record<
+                    const firstValue = sortedParams[0].value as Record<
                         string,
                         unknown
                     >;
@@ -2364,7 +2461,7 @@ const useEchartsCartesianConfig = (
                     });
                 }
 
-                const dimensionId = params[0].dimensionNames?.[0];
+                const dimensionId = sortedParams[0].dimensionNames?.[0];
                 if (dimensionId !== undefined) {
                     const field = itemsMap[dimensionId];
                     if (isTableCalculation(field)) {
@@ -2400,6 +2497,7 @@ const useEchartsCartesianConfig = (
             validCartesianConfig?.layout.flipAxes,
             validCartesianConfig?.layout?.stack,
             validCartesianConfig?.layout?.xField,
+            validCartesianConfig?.eChartsConfig.series,
             tooltipConfig,
             pivotValuesColumnsMap,
             originalValues,

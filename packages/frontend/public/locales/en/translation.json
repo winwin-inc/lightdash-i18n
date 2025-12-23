@@ -4887,6 +4887,12 @@
             "total": "Total",
             "show_symbol": "Show symbol",
             "smooth": "Smooth",
+            "tooltip_sort_by_value": "Sort by value",
+            "tooltip_sort_direction": "Sort direction",
+            "tooltip_sort_by_value_options": {
+                "desc": "Descending",
+                "asc": "Ascending"
+            },
             "tried": "Tried to reference field with unknown id:"
         }
     },

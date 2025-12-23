@@ -4870,6 +4870,12 @@
             "total": "总计",
             "show_symbol": "显示符号",
             "smooth": "平滑",
+            "tooltip_sort_by_value": "值排序",
+            "tooltip_sort_direction": "排序方向",
+            "tooltip_sort_by_value_options": {
+                "desc": "降序",
+                "asc": "升序"
+            },
             "tried": "尝试引用未知ID的字段:"
         }
     },
