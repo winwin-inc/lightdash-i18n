@@ -626,6 +626,12 @@ const getMinAndMaxReferenceLines = (
             maxReferenceLineRightY > maxValueRightY
                 ? maxReferenceLineRightY
                 : undefined,
+
+        // 返回实际数据范围，用于零轴对齐
+        dataMinLeftY: minValueLeftY,
+        dataMaxLeftY: maxValueLeftY,
+        dataMinRightY: minValueRightY,
+        dataMaxRightY: maxValueRightY,
     };
 };
 type GetPivotSeriesArg = {
@@ -1184,6 +1190,10 @@ const getEchartAxes = ({
         referenceLineMaxLeftY,
         referenceLineMinRightY,
         referenceLineMaxRightY,
+        dataMinLeftY,
+        dataMaxLeftY,
+        dataMinRightY,
+        dataMaxRightY,
     } = getMinAndMaxReferenceLines(
         leftAxisYFieldIds,
         rightAxisYFieldIds,
@@ -1328,6 +1338,76 @@ const getEchartAxes = ({
                 : bottomAxisBounds.max
             : undefined;
 
+    // 零轴对齐：如果双轴图表中一个轴有负数，另一个没有，需要对齐零轴
+    // 检查所有使用左轴和右轴的系列，获取它们的最小值
+    const getAxisDataMin = (
+        axisFieldIds: string[] | undefined,
+        fallbackValue: string | number | undefined,
+    ): number | undefined => {
+        if (!axisFieldIds || axisFieldIds.length === 0) return undefined;
+
+        // 优先使用 minsAndMaxes 获取更准确的数据范围
+        // 检查所有使用该轴的字段，取最小值
+        let minValue: number | undefined = undefined;
+        for (const fieldId of axisFieldIds) {
+            if (minsAndMaxes?.[fieldId]) {
+                const fieldMin = minsAndMaxes[fieldId].min;
+                if (minValue === undefined || fieldMin < minValue) {
+                    minValue = fieldMin;
+                }
+            }
+        }
+
+        // 如果没有从 minsAndMaxes 获取到值，使用 fallback 值
+        if (minValue === undefined && fallbackValue !== undefined) {
+            const numericValue =
+                typeof fallbackValue === 'number'
+                    ? fallbackValue
+                    : parseFloat(String(fallbackValue));
+            if (!isNaN(numericValue)) {
+                minValue = numericValue;
+            }
+        }
+
+        return minValue;
+    };
+
+    const leftAxisDataMin = getAxisDataMin(leftAxisYFieldIds, dataMinLeftY);
+    const rightAxisDataMin = getAxisDataMin(rightAxisYFieldIds, dataMinRightY);
+
+    const shouldAlignZeroAxis =
+        leftAxisType === 'value' &&
+        rightAxisType === 'value' &&
+        rightAxisYFieldIds &&
+        rightAxisYFieldIds.length > 0 &&
+        leftAxisDataMin !== undefined &&
+        rightAxisDataMin !== undefined;
+
+    // 检测左轴和右轴是否有负数（只要任一轴存在负数，就需要考虑对齐）
+    const leftAxisHasNegative = shouldAlignZeroAxis && leftAxisDataMin < 0;
+    const rightAxisHasNegative = shouldAlignZeroAxis && rightAxisDataMin < 0;
+
+    const hasAnyNegative =
+        shouldAlignZeroAxis && (leftAxisHasNegative || rightAxisHasNegative);
+
+    // 零轴对齐：只要一个轴存在负数，另外一个轴也按统一的最小值作为起点
+    // 对齐方式：取两个轴的最小值中更小的那个，作为两个轴共同的 min 值
+    // 但只有在用户没有手动设置各自的 min 值时才自动调整
+    const alignedMinValue =
+        hasAnyNegative && leftAxisDataMin !== undefined && rightAxisDataMin !== undefined
+            ? Math.min(leftAxisDataMin, rightAxisDataMin)
+            : undefined;
+
+    const shouldUseAlignedMinForLeftAxis =
+        hasAnyNegative &&
+        alignedMinValue !== undefined &&
+        yAxisConfiguration?.[0]?.min === undefined;
+
+    const shouldUseAlignedMinForRightAxis =
+        hasAnyNegative &&
+        alignedMinValue !== undefined &&
+        yAxisConfiguration?.[1]?.min === undefined;
+
     const maxYAxisValue =
         leftAxisType === 'value'
             ? shouldStack100 && !validCartesianConfig.layout.flipAxes
@@ -1339,9 +1419,11 @@ const getEchartAxes = ({
 
     const minYAxisValue =
         leftAxisType === 'value'
-            ? yAxisConfiguration?.[0]?.min ||
-              referenceLineMinLeftY ||
-              maybeGetAxisDefaultMinValue(allowFirstAxisDefaultRange)
+            ? shouldUseAlignedMinForLeftAxis
+                ? String(alignedMinValue) // 使用对齐后的 min 值，以对齐零轴
+                : yAxisConfiguration?.[0]?.min ||
+                  referenceLineMinLeftY ||
+                  maybeGetAxisDefaultMinValue(allowFirstAxisDefaultRange)
             : undefined;
 
     return {
@@ -1524,11 +1606,13 @@ const getEchartAxes = ({
                     : {}),
                 min:
                     rightAxisType === 'value'
-                        ? yAxisConfiguration?.[1]?.min ||
-                          referenceLineMinRightY ||
-                          maybeGetAxisDefaultMinValue(
-                              allowSecondAxisDefaultRange,
-                          )
+                        ? shouldUseAlignedMinForRightAxis
+                            ? String(alignedMinValue) // 使用对齐后的 min 值，以对齐零轴
+                            : yAxisConfiguration?.[1]?.min ||
+                              referenceLineMinRightY ||
+                              maybeGetAxisDefaultMinValue(
+                                  allowSecondAxisDefaultRange,
+                              )
                         : undefined,
                 max:
                     rightAxisType === 'value'
