@@ -1,7 +1,16 @@
 {
+    "app": {
+        "title": "马上赢X"
+    },
+    "about_footer": {
+        "about_msy_x": "关于 马上赢X"
+    },
     "welcome": {
         "part_1": "欢迎",
         "part_2": " 来到 马上赢X"
+    },
+    "auth_popup_result": {
+        "title": "身份验证 - 马上赢X"
     },
     "hooks_pinning": {
         "toast_chart_pinned": {

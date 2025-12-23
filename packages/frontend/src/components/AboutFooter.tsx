@@ -62,7 +62,7 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                         loading={healthState.isInitialLoading}
                         onClick={() => setIsOpen(true)}
                     >
-                        {!minimal && '马上赢X - '}
+                        {!minimal && `${t('app.title')} - `}
                         {healthState.data && `v${healthState.data.version}`}
                         {showUpdateBadge && (
                             <Badge
@@ -121,7 +121,8 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                 onClose={() => setIsOpen(false)}
                 title={
                     <Group align="center" justify="flex-start" gap="xs">
-                        <IconInfoCircle size={17} color="gray" /> About 马上赢X
+                        <IconInfoCircle size={17} color="gray" />{' '}
+                        {t('about_footer.about_msy_x')}
                     </Group>
                 }
             >

@@ -59,6 +59,8 @@ const AuthPopupResult: FC = () => {
  * Fixed version of AuthPopupResult that is used in Github authentication
  */
 export const SuccessAuthPopupResult: FC = () => {
+    const { t } = useTranslation();
+
     useMount(() => {
         setTimeout(() => {
             window.close();
@@ -67,7 +69,7 @@ export const SuccessAuthPopupResult: FC = () => {
 
     return (
         <>
-            <title>Authentication - 马上赢X</title>
+            <title>{t('auth_popup_result.title')}</title>
 
             <Stack>
                 <Image

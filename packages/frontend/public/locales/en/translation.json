@@ -1,7 +1,16 @@
 {
+    "app": {
+        "title": "MSY X"
+    },
+    "about_footer": {
+        "about_msy_x": "About MSY X"
+    },
     "welcome": {
         "part_1": "Welcome",
         "part_2": " to MSY X"
+    },
+    "auth_popup_result": {
+        "title": "Authentication - MSY X"
     },
     "hooks_pinning": {
         "toast_chart_pinned": {
