@@ -270,11 +270,11 @@ const Page: FC<React.PropsWithChildren<Props>> = ({
 
     return (
         <>
-            {title ? (
-                <title>
-                    {title} - {t('components_common_page.lightdash')}
-                </title>
-            ) : null}
+            <title>
+                {title
+                    ? `${title} - ${t('components_common_page.lightdash')}`
+                    : t('components_common_page.lightdash')}
+            </title>
 
             {header}
 
