@@ -1658,27 +1658,8 @@ export class DashboardService
             };
         }
 
-        // Get user's project role to check if user is viewer
-        const userRole = await this.getUserProjectRole(
-            user,
-            project.project_id,
-            project.organization_id,
-            projectUuid,
-        );
-
-        const isViewer = userRole === ProjectMemberRole.VIEWER;
-
-        // Only filter categories if user is viewer and project has customer use enabled
-        if (!isViewer) {
-            // If user is not viewer, return empty category list (no category filtering needed)
-            return {
-                level1: [],
-                level2: [],
-                level3: [],
-                level4: [],
-            };
-        }
-
+        // 类目权限过滤适用于所有用户，不区分角色
+        // 只有没有 email 或 mobile 时才返回空列表
         // If user has no email, return empty category list
         if (!user.email) {
             this.logger.warn(
