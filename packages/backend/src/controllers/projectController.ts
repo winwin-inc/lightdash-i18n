@@ -20,7 +20,6 @@ import {
     ChartAsCode,
     CreateProjectMember,
     DashboardAsCode,
-    DashboardFilterRule,
     DashboardTab,
     DbtExposure,
     DbtProjectEnvironmentVariable,

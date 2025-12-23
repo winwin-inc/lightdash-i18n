@@ -94,7 +94,6 @@ const MobileHome: FC = () => {
                             ? ', ' + user.data?.firstName
                             : t('pages_mobile_home.welcome.part_2')
                     }!`}{' '}
-                    ⚡️
                 </Title>
             </Stack>
             <ResourceView

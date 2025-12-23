@@ -1,4 +1,4 @@
-# Lightdash Frontend Style Guide
+# MSY X Frontend Style Guide
 
 ## Mantine 8 Migration
 

@@ -6,12 +6,12 @@ import { Link } from 'react-router';
 
 import { useHasMetricsInCatalog } from '../../features/metricsCatalog/hooks/useMetricsCatalog';
 import Omnibar from '../../features/omnibar';
-import Logo from '../../svgs/logo-icon.svg?react';
 import useApp from '../../providers/App/useApp';
+import Logo from '../../svgs/logo-icon.svg?react';
 import { AiAgentsButton } from './AiAgentsButton';
 import BrowseMenu from './BrowseMenu';
 import ExploreMenu from './ExploreMenu';
-import HelpMenu from './HelpMenu';
+// import HelpMenu from './HelpMenu';
 import { MetricsLink } from './MetricsLink';
 import { NotificationsMenu } from './NotificationsMenu';
 import ProjectSwitcher from './ProjectSwitcher';
@@ -97,7 +97,7 @@ export const MainNavBarContent: FC<Props> = ({
                         <NotificationsMenu projectUuid={activeProjectUuid} />
                     )}
 
-                    <HelpMenu />
+                    {/* <HelpMenu /> */}
 
                     <ProjectSwitcher />
                 </Button.Group>

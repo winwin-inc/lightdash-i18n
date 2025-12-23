@@ -1,6 +1,5 @@
 import { LightdashMode } from '@lightdash/common';
 import {
-    ActionIcon,
     Alert,
     Anchor,
     Badge,
@@ -13,7 +12,7 @@ import {
     Text,
     Title,
 } from '@mantine-8/core';
-import { IconBook, IconInfoCircle } from '@tabler/icons-react';
+import { IconInfoCircle } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -22,9 +21,7 @@ import {
     TrackPage,
     TrackSection,
 } from '../providers/Tracking/TrackingProvider';
-import Logo from '../svgs/grey-icon-logo.svg?react';
 import { PageName, PageType, SectionName } from '../types/Events';
-import MantineIcon from './common/MantineIcon';
 import MantineLinkButton from './common/MantineLinkButton';
 import {
     FOOTER_HEIGHT,
@@ -62,11 +59,10 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                         color="gray.7"
                         p="xs"
                         fw="500"
-                        leftSection={<Logo />}
                         loading={healthState.isInitialLoading}
                         onClick={() => setIsOpen(true)}
                     >
-                        {!minimal && 'Lightdash - '}
+                        {!minimal && `${t('app.title')} - `}
                         {healthState.data && `v${healthState.data.version}`}
                         {showUpdateBadge && (
                             <Badge
@@ -80,7 +76,7 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                         )}
                     </Button>
 
-                    {minimal ? (
+                    {/* {minimal ? (
                         <Anchor
                             href="https://docs.lightdash.com/"
                             target="_blank"
@@ -116,7 +112,7 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                         >
                             {t('components_about_footer.documentation')}
                         </MantineLinkButton>
-                    )}
+                    )} */}
                 </Group>
             </Box>
 
@@ -125,8 +121,8 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                 onClose={() => setIsOpen(false)}
                 title={
                     <Group align="center" justify="flex-start" gap="xs">
-                        <IconInfoCircle size={17} color="gray" /> About
-                        Lightdash
+                        <IconInfoCircle size={17} color="gray" />{' '}
+                        {t('about_footer.about_msy_x')}
                     </Group>
                 }
             >

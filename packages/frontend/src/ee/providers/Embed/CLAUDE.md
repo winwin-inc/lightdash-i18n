@@ -1,5 +1,5 @@
 <summary>
-The Embed provider enables secure embedding of Lightdash dashboards and charts in external applications. It manages JWT authentication, project context, filters, and navigation between embedded views while supporting content customization for white-label deployments.
+The Embed provider enables secure embedding of MSY X dashboards and charts in external applications. It manages JWT authentication, project context, filters, and navigation between embedded views while supporting content customization for white-label deployments.
 </summary>
 
 <howToUse>

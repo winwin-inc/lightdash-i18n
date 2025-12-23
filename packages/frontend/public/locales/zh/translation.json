@@ -1,7 +1,16 @@
 {
+    "app": {
+        "title": "马上赢X"
+    },
+    "about_footer": {
+        "about_msy_x": "关于 马上赢X"
+    },
     "welcome": {
         "part_1": "欢迎",
-        "part_2": " 来到 Lightdash"
+        "part_2": " 来到 马上赢X"
+    },
+    "auth_popup_result": {
+        "title": "身份验证 - 马上赢X"
     },
     "hooks_pinning": {
         "toast_chart_pinned": {
@@ -243,10 +252,10 @@
         },
         "include_image": "包含此图片",
         "more_details": "您还有其他要分享的细节吗？",
-        "allow_access": "允许 Lightdash 支持访问您的实例",
+        "allow_access": "允许 马上赢X 支持访问您的实例",
         "tips": {
-            "part_1": "勾选此框，您同意给予 Lightdash 支持访问您的组织 12 小时以调查此问题。",
-            "part_2": "我们还将分享您的 Lightdash 日志和最近的网络请求，以帮助我们调查此问题。",
+            "part_1": "勾选此框，您同意给予 马上赢X 支持访问您的组织 12 小时以调查此问题。",
+            "part_2": "我们还将分享您的 马上赢X 日志和最近的网络请求，以帮助我们调查此问题。",
             "part_3": "分享"
         }
     },
@@ -975,7 +984,7 @@
             "part_1": "未找到 Slack 集成",
             "part_2": "要创建 Slack 交付计划，您需要",
             "part_3": "设置 Slack",
-            "part_4": "适用于您的 Lightdash 实例"
+            "part_4": "适用于您的 马上赢X 实例"
         },
         "missing_scopes": {
             "part_1": "需要重新安装 Slack 集成",
@@ -1012,7 +1021,7 @@
                 "trigger_notification": "每当达到阈值条件时,您将按指定频率收到通知",
                 "run_frequency": "运行频率",
                 "delivery_frequency": "交付频率",
-                "threshold_alert": "这是Lightdash查询数据变化的频率。(如果满足最新数值的条件,您将收到通知)",
+                "threshold_alert": "这是 马上赢X 查询数据变化的频率。(如果满足最新数值的条件,您将收到通知)",
                 "default_project": "项目默认",
                 "format": "格式",
                 "image_disabled": {
@@ -1044,16 +1053,16 @@
                     "part_1": "未找到电子邮件集成",
                     "part_2": "要创建电子邮件定期交付, 您需要添加",
                     "part_3": "SMTP 环境变量",
-                    "part_4": "到您的 Lightdash 实例"
+                    "part_4": "到您的 马上赢X 实例"
                 },
                 "search_slack_channels": "搜索 Slack 频道",
                 "send_to_private_channel": "发送到私有频道 #{{query}}",
-                "add_slack_disabled": "如果要投放到私有 Slack 频道, 请在输入框中准确输入该频道在 Slack 中的名称。同时确保您已邀请 Lightdash Slackbot 加入该频道。"
+                "add_slack_disabled": "如果要投放到私有 Slack 频道, 请在输入框中准确输入该频道在 Slack 中的名称。同时确保您已邀请 马上赢X Slackbot 加入该频道。"
             },
             "tabs_panel_customization": {
                 "title": "自定义交付消息正文",
-                "switch": "包含指向 Lightdash 的链接",
-                "tooltip": "包含您 Lightdash 项目中共享内容的链接。\n 如果您与没有访问权限的用户共享，建议关闭此选项。"
+                "switch": "包含指向 马上赢X 的链接",
+                "tooltip": "包含您 马上赢X 项目中共享内容的链接。\n 如果您与没有访问权限的用户共享，建议关闭此选项。"
             }
         }
     },
@@ -1273,7 +1282,7 @@
             },
             "user_data_policy": "Google API 服务用户数据政策",
             "tip_user_data_policy": {
-                "part_1": "Lightdash 使用和传输从 Google API 接收的信息遵守",
+                "part_1": "马上赢X 使用和传输从 Google API 接收的信息遵守",
                 "part_2": "Google API 服务用户数据政策",
                 "part_3": "，包括有限使用要求。"
             },
@@ -1295,7 +1304,7 @@
         "learn_more": {
             "title": "了解更多",
             "content": {
-                "part_1": "✨ Lightdash Spotlight 来了！",
+                "part_1": "马上赢X Spotlight 来了！",
                 "part_2": "在",
                 "part_3": "目录",
                 "part_4": "中探索和整理您的关键指标，并点击可视化它们的时间变化",
@@ -1651,7 +1660,7 @@
     },
     "features_ai_copilot_slack_integration_steps": {
         "allow_integration_access": "允许集成访问",
-        "connect_slack": "连接您的 Slack 账户到 Lightdash",
+        "connect_slack": "连接您的 Slack 账户到 马上赢X",
         "select_channels": {
             "label": "选择频道",
             "description": "选择您想要连接到此代理的频道"
@@ -1964,7 +1973,7 @@
         "no_active_changesets": "没有找到活动的变更集。",
         "no_changes_found_in_active_changesets": "没有找到活动的变更集。",
         "changesets": "变更集",
-        "changesets_description": "跟踪项目的变化。变更集是您的 Lightdash 语义层的更新。",
+        "changesets_description": "跟踪项目的变化。变更集是您的 马上赢X 语义层的更新。",
         "revert_all": "撤销所有"
     },
 
@@ -2254,7 +2263,7 @@
         "row_component_render_error": "行组件无法在 RowContext 组件外部渲染"
     },
     "components_common_page": {
-        "lightdash": "Lightdash"
+        "lightdash": "马上赢X"
     },
     "components_common_pivot_table": {
         "invalid_pivot_data": "无效的透视数据",
@@ -2511,7 +2520,7 @@
         "form": {
             "title": "dbt 语义层",
             "content": {
-                "part_1": "dbt 语义层现在已在 Lightdash Cloud 中推出。要进行设置,请联系您的 Lightdash 支持代表或发送电子邮件至 support@lightdash.com, 以便在您的帐户中启用此功能。",
+                "part_1": "dbt 语义层现在已在 马上赢X Cloud 中推出。要进行设置,请联系您的 马上赢X 支持代表或发送电子邮件至 support@lightdash.com, 以便在您的帐户中启用此功能。",
                 "part_2": "在我们的",
                 "part_3": "文档指南中了解更多关于使用 dbt 语义层的信息"
             },
@@ -2532,7 +2541,7 @@
         }
     },
     "components_settings_usage_analytics": {
-        "tip": "Lightdash 精选的看板,显示有关您项目的使用和性能信息。",
+        "tip": "马上赢X 精选的看板,显示有关您项目的使用和性能信息。",
         "user_activity": "用户活动",
         "least_viewed_content": "最少查看内容"
     },
@@ -2623,7 +2632,7 @@
         },
         "content": {
             "part_1": "语义层集成",
-            "part_2": "连接您的第三方语义层，以便在 Lightdash 中探索和报告您的指标定义。",
+            "part_2": "连接您的第三方语义层，以便在 马上赢X 中探索和报告您的指标定义。",
             "part_3": "了解更多"
         },
         "cube": {
@@ -3097,14 +3106,14 @@
             "label": "表格选择",
             "radio_all": {
                 "label": "显示整个项目",
-                "description": "在 Lightdash 中显示您的 dbt 项目中的所有模型。"
+                "description": "在 马上赢X 中显示您的 dbt 项目中的所有模型。"
             },
             "radio_with_tags": {
                 "label": "显示带有这些标签的模型",
                 "description": "写下您想要包含的标签列表，用逗号分隔。虚拟视图默认包含在内。",
                 "select": {
                     "label": "标签",
-                    "placeholder": "例如 lightdash, prod",
+                    "placeholder": "例如 msy x, prod",
                     "nothingFound": {
                         "loading": "正在加载...",
                         "no_results": "未找到结果"
@@ -3172,7 +3181,7 @@
         "refresh": "刷新 dbt",
         "tip": {
             "part_1": "你仍然连接到通过 CLI 创建的 dbt 项目。",
-            "part_2": "为保持 Lightdash 项目与 dbt 项目同步,",
+            "part_2": "为保持 马上赢X 项目与 dbt 项目同步,",
             "part_3": "你需要",
             "part_4": "更改连接类型",
             "part_5": "、设置",
@@ -3182,7 +3191,7 @@
             "part_9": "。"
         },
         "tooltip_preview": {
-            "label": "开发者预览版是临时的 Lightdash 项目",
+            "label": "开发者预览版是临时的 马上赢X 项目",
             "text": "开发人员预览"
         },
         "tooltip_refresh": {
@@ -3333,20 +3342,20 @@
             },
             "view_docs": {
                 "title": "查看文档",
-                "description": "了解如何部署、使用和贡献 Lightdash。"
+                "description": "了解如何部署、使用和贡献 马上赢X。"
             },
             "join": {
                 "title": "加入 Slack 社区",
                 "description": "获取建议并与其他用户分享最佳实践。"
             },
             "feedback": {
-                "title": "Lightdash 的反馈",
-                "description": "提交功能请求或错误报告以改进 Lightdash。"
+                "title": "马上赢X 的反馈",
+                "description": "提交功能请求或错误报告以改进 马上赢X。"
             },
             "share_with_support": {
-                "title": "与 Lightdash 支持团队分享",
-                "report_issue": "向 Lightdash 支持团队报告问题",
-                "description": "与 Lightdash 支持团队分享详细的问题报告"
+                "title": "与 马上赢X 支持团队分享",
+                "report_issue": "向 马上赢X 支持团队报告问题",
+                "description": "与 马上赢X 支持团队分享详细的问题报告"
             }
         }
     },
@@ -3765,7 +3774,7 @@
     },
     "components_onboarding_panel": {
         "query": "运行您的第一个查询！",
-        "exploring": "您已准备好开始探索。您可以使用 Lightdash 进行以下操作：",
+        "exploring": "您已准备好开始探索。您可以使用 马上赢X 进行以下操作：",
         "steps": {
             "part_1": {
                 "title": "1. 运行查询",
@@ -3891,7 +3900,7 @@
                 "label": "允许使用 @{{email}} 的用户作为查看者加入该组织"
             },
             "keep_updated": {
-                "label": "让我了解 Lightdash 的新功能"
+                "label": "让我了解 马上赢X 的新功能"
             },
             "usage_data": {
                 "label": "匿名化我的使用数据"
@@ -4054,7 +4063,7 @@
         "form": {
             "organization_name": {
                 "label": "组织名称",
-                "placeholder": "Lightdash"
+                "placeholder": "马上赢X"
             }
         },
         "cancel": "取消",
@@ -4403,7 +4412,7 @@
         "customize_color_palettes": "自定义图表和可视化中使用的调色板。",
         "color_palettes": {
             "default_colors": "默认颜色",
-            "lightdash_of_colors": "Lightdash 颜色",
+            "lightdash_of_colors": "马上赢X 颜色",
             "sunrise_erenity": "日出宁静",
             "autumn_sunset": "秋日日落",
             "oceanic_bules": "海洋蓝",
@@ -4454,7 +4463,7 @@
         },
         "title": "GitHub",
         "content": {
-            "part_1": "安装 GitHub 应用允许 Lightdash 访问您的 GitHub 仓库并创建拉取请求。",
+            "part_1": "安装 GitHub 应用允许 马上赢X 访问您的 GitHub 仓库并创建拉取请求。",
             "part_2": "您的 GitHub 集成没有访问任何仓库。",
             "part_3": "您的 GitHub 集成可以访问以下仓库："
         },
@@ -4601,7 +4610,7 @@
     "components_user_settings_gitlab_settings_panel": {
         "title": "GitLab",
         "content": {
-            "part_1": "连接您的 GitLab 账号允许 Lightdash 访问您的仓库并创建合并请求。",
+            "part_1": "连接您的 GitLab 账号允许 马上赢X 访问您的仓库并创建合并请求。",
             "part_2": "您的 GitLab 集成没有访问任何项目。",
             "part_3": "您的 GitLab 集成可以访问以下项目："
         },
@@ -4723,7 +4732,7 @@
         },
         "url_override": {
             "label": "Snowflake URL 覆盖",
-            "description": "通常 Lightdash 会连接到默认 url: account.snowflakecomputing.com。如果您想覆盖此设置（例如 dbt 服务器），您可以在此处指定完整的自定义 URL。"
+            "description": "通常 马上赢X 会连接到默认 url: account.snowflakecomputing.com。如果您想覆盖此设置（例如 dbt 服务器），您可以在此处指定完整的自定义 URL。"
         },
         "start_of_week": {
             "label": "周开始",
@@ -4734,7 +4743,7 @@
     },
 
     "components_version_auto_updater": {
-        "title": "Lightdash 的新版本已经准备好了!"
+        "title": "马上赢X 的新版本已经准备好了!"
     },
     "components_visualization_configs_common": {
         "remove": "删除",
@@ -5096,14 +5105,8 @@
         "copied": "复制"
     },
     "components_forbidden_panel": {
-        "title": {
-            "part_1": "你没有权限",
-            "part_2": "访问此"
-        },
-        "description": {
-            "part_1": "请联系管理员请求访问权限。",
-            "part_2": "或创建一个新项目。"
-        }
+        "title": "您没有看板访问权限",
+        "description": "请联系管理员请求访问权限"
     },
     "components_json_viewer_modal": {
         "copied": "已复制",
@@ -6349,7 +6352,7 @@
     },
     "pages_project_settings": {
         "loading_project": "正在加载项目",
-        "title": "项目设置 - Lightdash",
+        "title": "项目设置 - 马上赢X",
         "bread_crumbs": {
             "all_projects": "所有项目"
         }
@@ -6372,7 +6375,7 @@
             "form_error": "表单错误"
         },
         "alert_preview": {
-            "title": "开发者预览是临时的 Lightdash 项目,无法更改设置",
+            "title": "开发者预览是临时的 马上赢X 项目,无法更改设置",
             "part_1": "阅读文档",
             "part_2": "这里",
             "part_3": "了解更多信息。"
@@ -6389,7 +6392,7 @@
         "target_name": "目标名称",
         "target_tip": {
             "part_1": "目标",
-            "part_2": "是 Lightdash 将在您的数据仓库中查找您的 dbt 模型的数据集/模式。默认情况下,我们将其设置为与您在 profiles.yml 文件中的默认值相同。"
+            "part_2": "是 马上赢X 将在您的数据仓库中查找您的 dbt 模型的数据集/模式。默认情况下,我们将其设置为与您在 profiles.yml 文件中的默认值相同。"
         },
         "advanced": {
             "title": "高级",
@@ -6432,7 +6435,7 @@
             "branch": {
                 "label": "分支",
                 "description": {
-                    "part_1": "这是 Lightdash 应该同步到的 Azure DevOps 存储库中的分支。例如",
+                    "part_1": "这是 马上赢X 应该同步到的 Azure DevOps 存储库中的分支。例如",
                     "part_2": "main",
                     "part_3": "master",
                     "part_4": "或",
@@ -6494,7 +6497,7 @@
             "branch": {
                 "label": "分支",
                 "description": {
-                    "part_1": "这是 Lightdash 应该同步到的你的 Bitbucket 仓库中的分支。例如 ",
+                    "part_1": "这是 马上赢X 应该同步到的你的 Bitbucket 仓库中的分支。例如 ",
                     "part_2": "main",
                     "part_3": "master",
                     "part_4": "或者",
@@ -6537,7 +6540,7 @@
                 "content": {
                     "part_1": "构建您的项目的 dbt 作业必须",
                     "part_2": "生成文档",
-                    "part_3": "您的作业完成后,需要在 Lightdash 中单击\"刷新 dbt\"按钮来同步您的项目。"
+                    "part_3": "您的作业完成后,需要在 马上赢X 中单击\"刷新 dbt\"按钮来同步您的项目。"
                 }
             },
             "api_key": {
@@ -6576,7 +6579,7 @@
             },
             "alert": {
                 "part_1": "在使用安装脚本时,当您被询问",
-                "part_2": "您希望如何设置 Lightdash ",
+                "part_2": "您希望如何设置 马上赢X ",
                 "part_3": "时, 选择选项",
                 "part_4": "使用本地 dbt",
                 "part_5": "并提供您的 dbt 项目的绝对路径。",
@@ -6587,7 +6590,7 @@
         },
         "dbt_none": {
             "alert": {
-                "part_1": "此项目是从命令行界面创建的。如果您想保持 Lightdash 与您的 dbt 项目同步,您需要",
+                "part_1": "此项目是从命令行界面创建的。如果您想保持 马上赢X 与您的 dbt 项目同步,您需要",
                 "part_2": "更改您的连接类型",
                 "part_3": "、设置",
                 "part_4": "GitHub 操作",
@@ -6652,7 +6655,7 @@
             "branch": {
                 "label": "分支",
                 "description": {
-                    "part_1": "这是 Lightdash 应该同步到的您 GitHub 仓库中的分支。例如",
+                    "part_1": "这是 马上赢X 应该同步到的您 GitHub 仓库中的分支。例如",
                     "part_2": "main",
                     "part_3": "master",
                     "part_4": "或者 ",
@@ -6701,7 +6704,7 @@
             "branch": {
                 "label": "分支",
                 "description": {
-                    "part_1": "这是 Lightdash 应该同步到的您 GitLab 仓库中的分支。例如 ",
+                    "part_1": "这是 马上赢X 应该同步到的您 GitLab 仓库中的分支。例如 ",
                     "part_2": "main",
                     "part_3": "master",
                     "part_4": " 或 ",
@@ -6746,7 +6749,7 @@
         "connect_manually_step_1": {
             "back": "返回",
             "content": {
-                "part_1": "我们强烈建议您在 .yml 中定义列,以便在 Lightdash 中查看表格。例如:",
+                "part_1": "我们强烈建议您在 .yml 中定义列,以便在 马上赢X 中查看表格。例如:",
                 "part_2": "将您想要探索的列添加到 dbt 项目中的 .yml 文件中。点击查看文档。",
                 "part_3": "了解如何定义它们",
                 "part_4": "我已经定义了它们!"
@@ -6764,7 +6767,7 @@
             "button": "开始使用数据吧!"
         },
         "connect_using_cli": {
-            "generated": "由 Lightdash UI for CLI 生成于 ",
+            "generated": "由 马上赢X UI for CLI 生成于 ",
             "commands_copied": "命令已复制到剪贴板!",
             "back": "返回",
             "content": {
@@ -6778,14 +6781,14 @@
         },
         "invite_expert_footer": {
             "part_1": "此步骤最好由您组织的分析专家完成。如果您不是其中一员,",
-            "part_2": "请邀请他们加入 Lightdash!"
+            "part_2": "请邀请他们加入 马上赢X!"
         },
         "select_connect_method": {
             "back": "返回",
             "content": {
                 "part_1": "要开始使用,请选择如何上传您的 dbt 项目:",
                 "part_2": "使用",
-                "part_3": "lightdash 部署",
+                "part_3": "马上赢X 部署",
                 "part_4": "使用您的 CLI",
                 "part_5": "从 git 存储库拉取项目",
                 "part_6": "手动"
@@ -6794,7 +6797,7 @@
         },
         "select_warehouse": {
             "alert": {
-                "part_1": "您没有权限创建新项目。请联系您的 Lightdash 管理员请求项目创建权限或分配项目给您。"
+                "part_1": "您没有权限创建新项目。请联系您的 马上赢X 管理员请求项目创建权限或分配项目给您。"
             },
             "select_your_warehouse": "选择您的仓库:"
         },
@@ -7254,7 +7257,7 @@
             },
             "snowflake_url_override": {
                 "label": "Snowflake URL 覆盖",
-                "description": "通常情况下,Lightdash 会连接到默认 URL: account.snowflakecomputing.com。如果您想要覆盖这个 URL(例如对于 dbt 服务器),您可以在这里指定一个完整的自定义 URL。"
+                "description": "通常情况下,马上赢X 会连接到默认 URL: account.snowflakecomputing.com。如果您想要覆盖这个 URL(例如对于 dbt 服务器),您可以在这里指定一个完整的自定义 URL。"
             },
             "advanced_configuration_options": "高级配置选项"
         },
@@ -7311,7 +7314,7 @@
         "dbt_version": "dbt 版本"
     },
     "components_project_connection_dbt_manifest": {
-        "part_1": "这个项目是从一个 manifest.json 文件创建的。如果您希望 Lightdash 与您的 dbt 项目保持同步，您需要",
+        "part_1": "这个项目是从一个 manifest.json 文件创建的。如果您希望 马上赢X 与您的 dbt 项目保持同步，您需要",
         "part_2": "更改您的连接类型",
         "part_3": "设置一个",
         "part_4": "GitHub action",
@@ -7359,7 +7362,7 @@
     },
 
     "components_project_parameters": {
-        "lightdash_config": "Lightdash 配置",
+        "lightdash_config": "马上赢X 配置",
         "model": "模型",
         "view_configuration": "查看配置",
         "failed_to_load_parameters": "加载参数失败",
@@ -7479,7 +7482,7 @@
         "create": {
             "title": "创建虚拟视图",
             "content": {
-                "part_1": "创建一个虚拟视图，以便其他人可以在 Lightdash 中重用此查询。该查询不会保存到您的 dbt 项目中，也不会进行管理。",
+                "part_1": "创建一个虚拟视图，以便其他人可以在 马上赢X 中重用此查询。该查询不会保存到您的 dbt 项目中，也不会进行管理。",
                 "part_2": "如果您希望定期重用此查询，我们建议将其写回到 dbt。"
             },
             "cancel": "取消",
@@ -7579,7 +7582,7 @@
     },
     "pages_create_project_settings": {
         "title": "您的项目已成功连接!",
-        "content": "在开始探索您的数据之前,请选择您希望在 Lightdash 中显示为表格的 dbt 模型。您随后可以在项目设置中随时调整此设置。"
+        "content": "在开始探索您的数据之前,请选择您希望在 马上赢X 中显示为表格的 dbt 模型。您随后可以在项目设置中随时调整此设置。"
     },
     "pages_dashboard": {
         "loading": "正在加载...",
@@ -7606,7 +7609,7 @@
         "content": {
             "part_1": "您的队友",
             "part_2": "在",
-            "part_3": "正在使用 Lightdash 发现和分享数据洞见。在接下来的 72 小时内点击下面的链接加入您的团队,开始探索您的数据!"
+            "part_3": "正在使用 马上赢X 发现和分享数据洞见。在接下来的 72 小时内点击下面的链接加入您的团队,开始探索您的数据!"
         },
         "join_your_team": "加入您的团队",
         "not_you": {
@@ -7679,7 +7682,7 @@
     "pages_mobile_home": {
         "welcome": {
             "part_1": "欢迎",
-            "part_2": "使用 Lightdash"
+            "part_2": "使用 马上赢X"
         },
         "tabs": {
             "pinned": "已固定",
@@ -7800,8 +7803,8 @@
         }
     },
     "pages_auth_popup_result": {
-        "title": "身份验证 - Lightdash",
-        "logo": "lightdash 标志",
+        "title": "身份验证 - 马上赢X",
+        "logo": "马上赢X 标志",
         "success": {
             "title": "感谢您的身份验证",
             "description": "此窗口将自动关闭"
@@ -7948,7 +7951,7 @@
                 "refresh_slack_channels": {
                     "part_1": "选择此代理可用的频道。",
                     "part_2": "标记 Slack 应用",
-                    "part_3": "Lightdash"
+                    "part_3": "马上赢X"
                 },
                 "channels": {
                     "label": "频道",
@@ -8240,7 +8243,7 @@
         "new_thread": "新线程",
         "settings": "设置",
         "instructions": "指令",
-        "lightdash_data_sources": "Lightdash 数据源",
+        "lightdash_data_sources": "马上赢X 数据源",
         "threads": "线程",
         "view_more": "查看更多"
     },

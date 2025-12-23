@@ -85,7 +85,7 @@ const handleError = (err: any): ApiError => {
             name: 'NetworkError',
             statusCode: 500,
             message:
-                'We are currently unable to reach the Lightdash server. Please try again in a few moments.',
+                'We are currently unable to reach the MSY X server. Please try again in a few moments.',
             data: err,
         },
     };

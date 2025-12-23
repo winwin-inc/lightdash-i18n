@@ -1,7 +1,16 @@
 {
+    "app": {
+        "title": "MSY X"
+    },
+    "about_footer": {
+        "about_msy_x": "About MSY X"
+    },
     "welcome": {
         "part_1": "Welcome",
-        "part_2": " to Lightdash"
+        "part_2": " to MSY X"
+    },
+    "auth_popup_result": {
+        "title": "Authentication - MSY X"
     },
     "hooks_pinning": {
         "toast_chart_pinned": {
@@ -243,10 +252,10 @@
         },
         "include_image": "Include this image",
         "more_details": "Do you have and other details you'd like to share?",
-        "allow_access": "Allow Lightdash support access to your instance",
+        "allow_access": "Allow MSY X support access to your instance",
         "tips": {
-            "part_1": "By ticking this box, you agree to give Lightdash Support access to your organization for 12 hours to investigate this issue.",
-            "part_2": "We will also share your Lightdash logs and your recent network requests to help us investigate this issue.",
+            "part_1": "By ticking this box, you agree to give MSY X Support access to your organization for 12 hours to investigate this issue.",
+            "part_2": "We will also share your MSY X logs and your recent network requests to help us investigate this issue.",
             "part_3": "Share"
         }
     },
@@ -531,7 +540,7 @@
         },
         "no_results_tables": {
             "title": "No tables found in this project",
-            "description": "Tables are the starting point to any data exploration in Lightdash. They come from dbt models that have been defined in your dbt project's .yml files.",
+            "description": "Tables are the starting point to any data exploration in MSY X. They come from dbt models that have been defined in your dbt project's .yml files.",
             "learn_more": "Learn more"
         },
         "no_results_search": {
@@ -982,7 +991,7 @@
             "part_1": "No Slack integration found",
             "part_2": "To create a slack scheduled delivery, you need to",
             "part_3": "setup Slack",
-            "part_4": "for your Lightdash instance"
+            "part_4": "for your MSY X instance"
         },
         "missing_scopes": {
             "part_1": "Slack integration needs to be reinstalled",
@@ -1019,7 +1028,7 @@
                 "trigger_notification": "You will be notified at the specified frequency whenever the threshold conditions are met",
                 "run_frequency": "Run frequency",
                 "delivery_frequency": "Delivery frequency",
-                "threshold_alert": " This is the frequency at which Lightdash runs a query to check your data for changes. (You will be notified if the conditions on the latest value are met) ",
+                "threshold_alert": " This is the frequency at which MSY X runs a query to check your data for changes. (You will be notified if the conditions on the latest value are met) ",
                 "default_project": "Project Default",
                 "format": "Format",
                 "image_disabled": {
@@ -1051,16 +1060,16 @@
                     "part_1": "No Email integration found",
                     "part_2": "To create an email scheduled delivery, you need to add",
                     "part_3": "SMTP environment variables",
-                    "part_4": "for your Lightdash instance"
+                    "part_4": "for your MSY X instance"
                 },
                 "search_slack_channels": "Search Slack channels",
                 "send_to_private_channel": "Send to private channel #{{query}}",
-                "add_slack_disabled": "If delivering to a private Slack channel, please type the name of the channel in the input box exactly as it appears in Slack. Also ensure you invite the Lightdash Slackbot into that channel."
+                "add_slack_disabled": "If delivering to a private Slack channel, please type the name of the channel in the input box exactly as it appears in Slack. Also ensure you invite the MSY X Slackbot into that channel."
             },
             "tabs_panel_customization": {
                 "title": "Customize delivery message body",
-                "switch": "Include links to Lightdash",
-                "tooltip": "Include links to the shared content in your Lightdash project. \n We recommend turning this off if you're sharing with users who do not have access to your Lightdash project"
+                "switch": "Include links to MSY X",
+                "tooltip": "Include links to the shared content in your MSY X project. \n We recommend turning this off if you're sharing with users who do not have access to your MSY X project"
             }
         }
     },
@@ -1280,7 +1289,7 @@
             },
             "user_data_policy": "Google API Services User Data Policy",
             "tip_user_data_policy": {
-                "part_1": "Lightdash's use and transfer of information received from Google APIs adhere to",
+                "part_1": "MSY X's use and transfer of information received from Google APIs adhere to",
                 "part_2": "Google API Services User Data Policy",
                 "part_3": ", including the Limited Use requirements."
             },
@@ -1302,7 +1311,7 @@
         "learn_more": {
             "title": "Learn more",
             "content": {
-                "part_1": "✨ Lightdash Spotlight is here!",
+                "part_1": "MSY X Spotlight is here!",
                 "part_2": "Explore and curate your key Metrics in the",
                 "part_3": "Catalog",
                 "part_4": "and click to visualize them over time in the",
@@ -1661,7 +1670,7 @@
     },
     "features_ai_copilot_slack_integration_steps": {
         "allow_integration_access": "Allow integration access",
-        "connect_slack": " Connect your Slack account to Lightdash",
+        "connect_slack": " Connect your Slack account to MSY X",
         "select_channels": {
             "label": "Select channels",
             "description": "Select the channels you want to connect to this agent"
@@ -1979,7 +1988,7 @@
         "no_active_changesets": "No active changesets found.",
         "no_changes_found_in_active_changesets": "No changes found in active changesets.",
         "changesets": "Changesets",
-        "changesets_description": "Track changes to your project over time. Changesets are updates to your Lightdash Semantic Layer.",
+        "changesets_description": "Track changes to your project over time. Changesets are updates to your MSY X Semantic Layer.",
         "revert_all": "Revert All"
     },
 
@@ -2269,7 +2278,7 @@
         "row_component_render_error": "Row components cannot be rendered outside the RowContext component"
     },
     "components_common_page": {
-        "lightdash": "Lightdash"
+        "lightdash": "MSY X"
     },
     "components_common_pivot_table": {
         "invalid_pivot_data": "Invalid pivot data",
@@ -2526,7 +2535,7 @@
         "form": {
             "title": "dbt Semantic Layer",
             "content": {
-                "part_1": "dbt Semantic Layer is available now in Lightdash Cloud. To get setup, reach out to your Lightdash support rep or email support@lightdash.com to have this activated in your account.",
+                "part_1": "dbt Semantic Layer is available now in MSY X Cloud. To get setup, reach out to your MSY X support rep or email support@lightdash.com to have this activated in your account.",
                 "part_2": "Read more about using dbt Semantic Layer in our",
                 "part_3": "docs guide"
             },
@@ -2547,7 +2556,7 @@
         }
     },
     "components_settings_usage_analytics": {
-        "tip": "Lightdash curated dashboards that show usage and performance information about your project.",
+        "tip": "MSY X curated dashboards that show usage and performance information about your project.",
         "user_activity": "User Activity",
         "least_viewed_content": "Least viewed content"
     },
@@ -2638,7 +2647,7 @@
         },
         "content": {
             "part_1": "Semantic Layer Integration",
-            "part_2": "Connect your third-party Semantic Layer so you can explore and report on your metric definitions in Lightdash.",
+            "part_2": "Connect your third-party Semantic Layer so you can explore and report on your metric definitions in MSY X.",
             "part_3": "Learn more"
         },
         "cube": {
@@ -3112,14 +3121,14 @@
             "label": "Table selection",
             "radio_all": {
                 "label": "Show entire project",
-                "description": "Show all of the models in your dbt project in Lightdash."
+                "description": "Show all of the models in your dbt project in MSY X."
             },
             "radio_with_tags": {
                 "label": "Show models with any of these tags",
                 "description": "Write a list of tags you want to include, separated by commas. Virtual views are included by default.",
                 "select": {
                     "label": "Tags",
-                    "placeholder": "e.g lightdash, prod",
+                    "placeholder": "e.g MSY X, prod",
                     "nothingFound": {
                         "loading": "Loading...",
                         "no_results": "No results found"
@@ -3187,7 +3196,7 @@
         "refresh": "Refresh dbt",
         "tip": {
             "part_1": "You're still connected to a dbt project created from the CLI.",
-            "part_2": "To keep your Lightdash project in sync with your dbt project,",
+            "part_2": "To keep your MSY X project in sync with your dbt project,",
             "part_3": "you need to either",
             "part_4": "change your connection type",
             "part_5": ", setup a",
@@ -3197,11 +3206,11 @@
             "part_9": "from your command line."
         },
         "tooltip_preview": {
-            "label": "Developer previews are temporary Lightdash projects",
+            "label": "Developer previews are temporary MSY X projects",
             "text": "Developer preview"
         },
         "tooltip_refresh": {
-            "label": "If you've updated your YAML files, you can sync your changes to Lightdash by clicking this button.",
+            "label": "If you've updated your YAML files, you can sync your changes to MSY X by clicking this button.",
             "loading_text": "Refreshing dbt",
             "normal_text": "Refresh dbt"
         }
@@ -3348,20 +3357,20 @@
             },
             "view_docs": {
                 "title": "View Docs",
-                "description": "Learn how to deploy, use, contribute to Lightdash."
+                "description": "Learn how to deploy, use, contribute to MSY X."
             },
             "join": {
                 "title": "Join Slack community",
                 "description": "Get advice share best practices with other users."
             },
             "feedback": {
-                "title": "Feedback on Lightdash",
-                "description": "Submit a feature request or bug report to improve Lightdash."
+                "title": "Feedback on MSY X",
+                "description": "Submit a feature request or bug report to improve MSY X."
             },
             "share_with_support": {
-                "title": "Share with Lightdash Support",
-                "report_issue": "Report an issue to Lightdash Support",
-                "description": "Share a detailed issue report with Lightdash Support"
+                "title": "Share with MSY X Support",
+                "report_issue": "Report an issue to MSY X Support",
+                "description": "Share a detailed issue report with MSY X Support"
             }
         }
     },
@@ -3781,7 +3790,7 @@
     },
     "components_onboarding_panel": {
         "query": "Run your first query!",
-        "exploring": "You&apos;re ready to start exploring. Here&apos;s what you can do with Lightdash:",
+        "exploring": "You&apos;re ready to start exploring. Here&apos;s what you can do with MSY X:",
         "steps": {
             "part_1": {
                 "title": "1. Run queries",
@@ -3907,7 +3916,7 @@
                 "label": "Allow users with @{{email}} to join the organization as a viewer"
             },
             "keep_updated": {
-                "label": "Keep me updated on new Lightdash features"
+                "label": "Keep me updated on new MSY X features"
             },
             "usage_data": {
                 "label": "Anonymize my usage data"
@@ -4070,7 +4079,7 @@
         "form": {
             "organization_name": {
                 "label": "Organization name",
-                "placeholder": "Lightdash"
+                "placeholder": "MSY X"
             }
         },
         "cancel": "Cancel",
@@ -4152,7 +4161,7 @@
             "invalid_project": "Invalid project"
         },
         "content": {
-            "part_1": "Sharing in Slack allows you to unfurl Lightdash URLs and schedule deliveries to specific people or channels within your Slack workspace.",
+            "part_1": "Sharing in Slack allows you to unfurl MSY X URLs and schedule deliveries to specific people or channels within your Slack workspace.",
             "part_2": "View docs"
         },
         "form": {
@@ -4418,7 +4427,7 @@
         "customize_color_palettes": "Customize the color palettes used in your charts and visualizations.",
         "color_palettes": {
             "default_colors": "Default colors",
-            "lightdash_of_colors": "Lightdash of colors",
+            "lightdash_of_colors": "MSY X of colors",
             "sunrise_erenity": "Sunrise Erenity",
             "autumn_sunset": "Autumn Sunset",
             "oceanic_bules": "Oceanic Bules",
@@ -4469,7 +4478,7 @@
         },
         "title": "GitHub",
         "content": {
-            "part_1": "Installing GitHub App allows Lightdash to access your GitHub repositories and create pull requests.",
+            "part_1": "Installing GitHub App allows MSY X to access your GitHub repositories and create pull requests.",
             "part_2": "Your GitHub integration doesn't have access to any repository.",
             "part_3": "Your GitHub integration has access to the following repositories:"
         },
@@ -4618,7 +4627,7 @@
     "components_user_settings_gitlab_settings_panel": {
         "title": "GitLab",
         "content": {
-            "part_1": "Connecting your GitLab account allows Lightdash to access your repositories and create merge requests.",
+            "part_1": "Connecting your GitLab account allows MSY X to access your repositories and create merge requests.",
             "part_2": "Your GitLab integration doesn't have access to any projects.",
             "part_3": "Your GitLab integration has access to the following projects:"
         },
@@ -4740,7 +4749,7 @@
         },
         "url_override": {
             "label": "Snowflake URL override",
-            "description": "Usually Lightdash would connect to a default url: account.snowflakecomputing.com. If you'd like to override this (e.g. for the dbt server) you can specify a full custom URL here."
+            "description": "Usually MSY X would connect to a default url: account.snowflakecomputing.com. If you'd like to override this (e.g. for the dbt server) you can specify a full custom URL here."
         },
         "start_of_week": {
             "label": "Start of week",
@@ -4751,7 +4760,7 @@
     },
 
     "components_version_auto_updater": {
-        "title": "A new version of Lightdash is ready for you!"
+        "title": "A new version of MSY X is ready for you!"
     },
     "components_visualization_configs_common": {
         "remove": "Remove",
@@ -5113,14 +5122,8 @@
         "copied": "Copied"
     },
     "components_forbidden_panel": {
-        "title": {
-            "part_1": "You don't have access",
-            "part_2": "to this"
-        },
-        "description": {
-            "part_1": "Please contact the admin to request access.",
-            "part_2": "Or create a new project."
-        }
+        "title": "You do not have dashboard access permission",
+        "description": "Please contact the administrator to request access permission"
     },
     "components_json_viewer_modal": {
         "copied": "Copied",
@@ -6262,7 +6265,7 @@
     },
     "pages_project_settings": {
         "loading_project": "Loading project",
-        "title": "Project Settings - Lightdash",
+        "title": "Project Settings - MSY X",
         "bread_crumbs": {
             "all_projects": "All projects"
         }
@@ -6380,7 +6383,7 @@
             "form_error": "Form errors"
         },
         "alert_preview": {
-            "title": "Developer previews are temporary Lightdash projects where settings cannot be changed",
+            "title": "Developer previews are temporary MSY X projects where settings cannot be changed",
             "part_1": "Read docs",
             "part_2": "here",
             "part_3": "to know more."
@@ -6397,7 +6400,7 @@
         "target_name": "Target name",
         "target_tip": {
             "part_1": "target",
-            "part_2": "is the dataset/schema in your data warehouse that Lightdash will look for your dbt models. By default, we set this to be the same value as you have as the default in your profiles.yml file."
+            "part_2": "is the dataset/schema in your data warehouse that MSY X will look for your dbt models. By default, we set this to be the same value as you have as the default in your profiles.yml file."
         },
         "advanced": {
             "title": "Advanced",
@@ -6440,7 +6443,7 @@
             "branch": {
                 "label": "Branch",
                 "description": {
-                    "part_1": "This is the branch in your Azure DevOps repo that Lightdash should sync to. e.g.",
+                    "part_1": "This is the branch in your Azure DevOps repo that MSY X should sync to. e.g.",
                     "part_2": "main",
                     "part_3": "master",
                     "part_4": "or",
@@ -6502,7 +6505,7 @@
             "branch": {
                 "label": "Branch",
                 "description": {
-                    "part_1": "This is the branch in your Bitbucket repo that Lightdash should sync to. e.g. ",
+                    "part_1": "This is the branch in your Bitbucket repo that MSY X should sync to. e.g. ",
                     "part_2": "main",
                     "part_3": "master",
                     "part_4": "or",
@@ -6545,7 +6548,7 @@
                 "content": {
                     "part_1": "The dbt job that builds your project must",
                     "part_2": "generate docs",
-                    "part_3": "After your job finish you need to click the \"refresh dbt\" button in Lightdash to sync your project."
+                    "part_3": "After your job finish you need to click the \"refresh dbt\" button in MSY X to sync your project."
                 }
             },
             "api_key": {
@@ -6584,7 +6587,7 @@
             },
             "alert": {
                 "part_1": "When using the install script, when you&apos;re asked",
-                "part_2": "How do you want to setup Lightdash ",
+                "part_2": "How do you want to setup MSY X ",
                 "part_3": ", select the option ",
                 "part_4": "with local dbt",
                 "part_5": " and then provide the absolute path to your dbt project.",
@@ -6595,7 +6598,7 @@
         },
         "dbt_none": {
             "alert": {
-                "part_1": "This project was created from the CLI. If you want to keep Lightdash in sync with your dbt project, you need to either",
+                "part_1": "This project was created from the CLI. If you want to keep MSY X in sync with your dbt project, you need to either",
                 "part_2": "change your connection type",
                 "part_3": ", setup a",
                 "part_4": "GitHub action",
@@ -6656,7 +6659,7 @@
             "branch": {
                 "label": "Branch",
                 "description": {
-                    "part_1": "This is the branch in your GitHub repo that Lightdash should sync to. e.g. ",
+                    "part_1": "This is the branch in your GitHub repo that MSY X should sync to. e.g. ",
                     "part_2": "main",
                     "part_3": "master",
                     "part_4": "or ",
@@ -6710,7 +6713,7 @@
             "branch": {
                 "label": "Branch",
                 "description": {
-                    "part_1": "This is the branch in your GitLab repo that Lightdash should sync to. e.g. ",
+                    "part_1": "This is the branch in your GitLab repo that MSY X should sync to. e.g. ",
                     "part_2": "main",
                     "part_3": "master",
                     "part_4": "or ",
@@ -6755,7 +6758,7 @@
         "connect_manually_step_1": {
             "back": "Back",
             "content": {
-                "part_1": "We strongly recommend that you define columns in your .yml to see a table in Lightdash. eg:",
+                "part_1": "We strongly recommend that you define columns in your .yml to see a table in MSY X. eg:",
                 "part_2": "Add the columns you want to explore to your .yml files in your dbt project. Click to view docs.",
                 "part_3": "Learn how to define them",
                 "part_4": "I’ve defined them!"
@@ -6773,7 +6776,7 @@
             "button": "Let's do some data!"
         },
         "connect_using_cli": {
-            "generated": "Generated by the Lightdash UI for CLI at ",
+            "generated": "Generated by the MSY X UI for CLI at ",
             "commands_copied": "Commands copied to clipboard!",
             "back": "Back",
             "content": {
@@ -6787,7 +6790,7 @@
         },
         "invite_expert_footer": {
             "part_1": "This step is best carried out by your organization’s analytics experts. If this is not you,",
-            "part_2": "invite them to Lightdash!"
+            "part_2": "invite them to MSY X!"
         },
         "select_connect_method": {
             "back": "Back",
@@ -6803,7 +6806,7 @@
         },
         "select_warehouse": {
             "alert": {
-                "part_1": "You don't have permission to create new projects. Contact your Lightdash administrator to request project creation access or to have a project assigned to you."
+                "part_1": "You don't have permission to create new projects. Contact your MSY X administrator to request project creation access or to have a project assigned to you."
             },
             "select_your_warehouse": "Select your warehouse:"
         },
@@ -7261,7 +7264,7 @@
             },
             "snowflake_url_override": {
                 "label": "Snowflake URL Override",
-                "description": "Usually Lightdash would connect to a default url: account.snowflakecomputing.com. If you'd like to override this (e.g. for the dbt server) you can specify a full custom URL here."
+                "description": "Usually MSY X would connect to a default url: account.snowflakecomputing.com. If you'd like to override this (e.g. for the dbt server) you can specify a full custom URL here."
             },
             "advanced_configuration_options": "Advanced configuration options"
         },
@@ -7318,7 +7321,7 @@
         "dbt_version": "dbt version"
     },
     "components_project_connection_dbt_manifest": {
-        "part_1": "This project was created from a manifest.json file. If you want to keep Lightdash in sync with your dbt project, you need to either",
+        "part_1": "This project was created from a manifest.json file. If you want to keep MSY X in sync with your dbt project, you need to either",
         "part_2": "change your connection type",
         "part_3": "setup a",
         "part_4": "GitHub action",
@@ -7366,7 +7369,7 @@
     },
 
     "components_project_parameters": {
-        "lightdash_config": "Lightdash Config",
+        "lightdash_config": "MSY X Config",
         "model": "Model",
         "view_configuration": "View configuration",
         "failed_to_load_parameters": "Failed to load parameters",
@@ -7486,7 +7489,7 @@
         "create": {
             "title": "Create virtual view",
             "content": {
-                "part_1": "Create a virtual view so others can reuse this query in Lightdash. The query won’t be saved to or managed in your dbt project.",
+                "part_1": "Create a virtual view so others can reuse this query in MSY X. The query won’t be saved to or managed in your dbt project.",
                 "part_2": "If you’re expecting to reuse this query regularly, we suggest writing it back to dbt."
             },
             "cancel": "Cancel",
@@ -7586,7 +7589,7 @@
     },
     "pages_create_project_settings": {
         "title": "Your project has connected successfully!",
-        "content": "Before you start exploring your data, pick the dbt models you want to appear as tables in Lightdash. You can always adjust this in your project settings later."
+        "content": "Before you start exploring your data, pick the dbt models you want to appear as tables in MSY X. You can always adjust this in your project settings later."
     },
     "pages_dashboard": {
         "loading": "Loading...",
@@ -7613,7 +7616,7 @@
         "content": {
             "part_1": "Your teammates ",
             "part_2": "at",
-            "part_3": "are using Lightdash to discover and share data insights. Click on the link below within the next 72 hours to join your team and start exploring your data!"
+            "part_3": "are using MSY X to discover and share data insights. Click on the link below within the next 72 hours to join your team and start exploring your data!"
         },
         "join_your_team": "Join your team",
         "not_you": {
@@ -7686,7 +7689,7 @@
     "pages_mobile_home": {
         "welcome": {
             "part_1": "Welcome",
-            "part_2": " to Lightdash"
+            "part_2": " to MSY X"
         },
         "tabs": {
             "pinned": "Pinned",
@@ -7811,13 +7814,13 @@
         "continue": "Continue",
         "verify_your_email": "Verify your email",
         "should_tip": {
-            "part_1": "You need to verify your email to get access to Lightdash. If you need help, you can",
+            "part_1": "You need to verify your email to get access to MSY X. If you need help, you can",
             "part_2": "chat to support here."
         }
     },
     "pages_auth_popup_result": {
-        "title": "Authentication - Lightdash",
-        "logo": "lightdash logo",
+        "title": "Authentication - MSY X",
+        "logo": "MSY X logo",
         "success": {
             "title": "Thank you for authenticating",
             "description": "This window will close automatically"
@@ -7842,7 +7845,7 @@
     },
     "pages_slack_auth_success": {
         "title": "Slack connected successfully!",
-        "description": "Your Slack account is now connected to Lightdash. You can now use AI Agent by mentioning the bot in your Slack channels."
+        "description": "Your Slack account is now connected to MSY X. You can now use AI Agent by mentioning the bot in your Slack channels."
     },
     "pages_ai_agents_redirect": {
         "not_allowed": "You are not allowed to access this view"
@@ -7964,7 +7967,7 @@
                 "refresh_slack_channels": {
                     "part_1": "Select the channels where this agent will be available.",
                     "part_2": "Tag the Slack app",
-                    "part_3": "Lightdash"
+                    "part_3": "MSY X"
                 },
                 "channels": {
                     "label": "Channels",
@@ -8057,7 +8060,7 @@
         },
         "ai_bot_channel_mappings": {
             "title": "AI Bot channel mappings",
-            "content": "Map which project is associated with which Slack channel. When a user asks a question in a channel, Lightdash will look for the answer in the associated project."
+            "content": "Map which project is associated with which Slack channel. When a user asks a question in a channel, MSY X will look for the answer in the associated project."
         },
         "tooltip_refresh": {
             "label": "Refresh Slack channel list",
@@ -8188,7 +8191,7 @@
         "scim_access_tokens": "SCIM access tokens",
         "generate_new_token": "Generate new token",
         "scim_url": "SCIM URL",
-        "connect_your_identity_provider_to_lightdash_via_scim": "Connect your identity provider to Lightdash via SCIM.",
+        "connect_your_identity_provider_to_lightdash_via_scim": "Connect your identity provider to MSY X via SCIM.",
         "learn_more": "Learn more",
         "has_available_tokens": "You haven't generated any tokens yet."
     },
@@ -8257,7 +8260,7 @@
         "new_thread": "New thread",
         "settings": "Settings",
         "instructions": "Instructions",
-        "lightdash_data_sources": "Lightdash Data Sources",
+        "lightdash_data_sources": "MSY X Data Sources",
         "threads": "Threads",
         "view_more": "View more"
     },

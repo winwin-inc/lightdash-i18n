@@ -29,7 +29,7 @@ const HEADER_STYLES = {
     border: 0,
 } satisfies MantineStyleProp;
 /**
- * Component overrides for MDEditor.Markdown to match Lightdash design system.
+ * Component overrides for MDEditor.Markdown to match MSY X design system.
  * Provides consistent styling for markdown headers and dividers.
  */
 export const mdEditorComponents: React.ComponentProps<

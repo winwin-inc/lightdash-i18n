@@ -1,5 +1,5 @@
 /**
- * Enum of all supported Lightdash embed event types
+ * Enum of all supported MSY X embed event types
  */
 export enum LightdashEventType {
     FilterChanged = 'filterChanged',
@@ -55,10 +55,10 @@ export type LightdashEventPayload =
     | AllTilesLoadedPayload;
 
 /**
- * Generic event structure for all Lightdash events
+ * Generic event structure for all MSY X events
  */
 export type LightdashEmbedEvent<T extends LightdashEventPayload | undefined> = {
-    /** Namespaced event type (e.g., 'lightdash:filterChanged') */
+    /** Namespaced event type (e.g., 'msy_x:filterChanged') */
     type: string;
     /** Event-specific payload data */
     payload?: T;

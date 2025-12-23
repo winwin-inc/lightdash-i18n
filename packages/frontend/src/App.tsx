@@ -1,6 +1,8 @@
 import { ModalsProvider } from '@mantine/modals';
 import { wrapCreateBrowserRouterV7 } from '@sentry/react';
+import { useTranslation } from 'react-i18next';
 import { createBrowserRouter, Outlet, RouterProvider } from 'react-router';
+
 import VersionAutoUpdater from './components/VersionAutoUpdater/VersionAutoUpdater';
 import {
     CommercialMobileRoutes,
@@ -67,20 +69,29 @@ const router = sentryCreateBrowserRouter([
             : [...Routes, ...CommercialWebAppRoutes],
     },
 ]);
-const App = () => (
-    <>
-        <title>Lightdash</title>
 
-        <ReactQueryProvider>
-            <MantineProvider withGlobalStyles withNormalizeCSS withCSSVariables>
-                <Mantine8Provider>
-                    <ModalsProvider>
-                        <RouterProvider router={router} />
-                    </ModalsProvider>
-                </Mantine8Provider>
-            </MantineProvider>
-        </ReactQueryProvider>
-    </>
-);
+const App = () => {
+    const { t } = useTranslation();
+
+    return (
+        <>
+            <title>{t('app.title')}</title>
+
+            <ReactQueryProvider>
+                <MantineProvider
+                    withGlobalStyles
+                    withNormalizeCSS
+                    withCSSVariables
+                >
+                    <Mantine8Provider>
+                        <ModalsProvider>
+                            <RouterProvider router={router} />
+                        </ModalsProvider>
+                    </Mantine8Provider>
+                </MantineProvider>
+            </ReactQueryProvider>
+        </>
+    );
+};
 
 export default App;

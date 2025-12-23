@@ -17,6 +17,8 @@ export const apiKeyPassportStrategy = ({
                 const user = await userService.loginWithPersonalAccessToken(
                     token,
                 );
+                // Mark this user session as authenticated via API token
+                user.isApiTokenRequest = true;
                 return done(null, user);
             } catch {
                 return done(
