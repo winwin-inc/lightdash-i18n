@@ -44,6 +44,7 @@ import {
     type TooltipParam,
 } from '@lightdash/common';
 import { useMantineTheme } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import dayjs from 'dayjs';
 import DOMPurify from 'dompurify';
 import {
@@ -332,6 +333,10 @@ export type EChartSeries = {
     data?: unknown[];
     showSymbol?: boolean;
     symbolSize?: number;
+    // 柱状图宽度配置
+    barWidth?: number | string;
+    barGap?: string;
+    barCategoryGap?: string;
 };
 
 const convertPivotValuesColumnsIntoMap = (
@@ -1046,12 +1051,14 @@ const getEchartAxes = ({
     series,
     resultsData,
     minsAndMaxes,
+    isMobile = false,
 }: {
     validCartesianConfig: CartesianChart;
     itemsMap: ItemsMap;
     series: EChartSeries[];
     resultsData: InfiniteQueryResults | undefined;
     minsAndMaxes: ReturnType<typeof getResultValueArray>['minsAndMaxes'];
+    isMobile?: boolean;
 }) => {
     const xAxisItemId = validCartesianConfig.layout.flipAxes
         ? validCartesianConfig.layout?.yField?.[0]
@@ -1394,7 +1401,9 @@ const getEchartAxes = ({
     // 对齐方式：取两个轴的最小值中更小的那个，作为两个轴共同的 min 值
     // 但只有在用户没有手动设置各自的 min 值时才自动调整
     const alignedMinValue =
-        hasAnyNegative && leftAxisDataMin !== undefined && rightAxisDataMin !== undefined
+        hasAnyNegative &&
+        leftAxisDataMin !== undefined &&
+        rightAxisDataMin !== undefined
             ? Math.min(leftAxisDataMin, rightAxisDataMin)
             : undefined;
 
@@ -1559,11 +1568,49 @@ const getEchartAxes = ({
                     : {}),
                 min: minYAxisValue,
                 max: maxYAxisValue,
-                ...getAxisFormatterConfig({
-                    axisItem: leftAxisYField,
-                    defaultNameGap: leftYaxisGap + defaultAxisLabelGap,
-                    show: showYAxis,
-                }),
+                ...(() => {
+                    const baseConfig = getAxisFormatterConfig({
+                        axisItem: leftAxisYField,
+                        defaultNameGap: isMobile
+                            ? Math.max(
+                                  20,
+                                  (leftYaxisGap + defaultAxisLabelGap) * 0.7,
+                              ) // 移动端减少 30% 的 nameGap
+                            : leftYaxisGap + defaultAxisLabelGap,
+                        show: showYAxis,
+                    });
+
+                    // 移动端优化：减小 Y 轴标题和标签字体大小
+                    if (isMobile && showYAxis) {
+                        return {
+                            ...baseConfig,
+                            nameTextStyle: baseConfig.nameTextStyle
+                                ? {
+                                      ...baseConfig.nameTextStyle,
+                                      fontSize: 11, // 移动端减小标题字体
+                                  }
+                                : {
+                                      fontSize: 11,
+                                      fontWeight: 'bold',
+                                      align: 'center',
+                                  },
+                            nameGap: Math.max(
+                                15,
+                                (leftYaxisGap + defaultAxisLabelGap) * 0.6,
+                            ),
+                            axisLabel: baseConfig.axisLabel
+                                ? {
+                                      ...baseConfig.axisLabel,
+                                      fontSize: 10, // 移动端减小标签字体
+                                  }
+                                : {
+                                      fontSize: 10,
+                                  },
+                        };
+                    }
+
+                    return baseConfig;
+                })(),
                 // Override formatter for 100% stacking without flipped axes
                 ...(shouldStack100 &&
                     !validCartesianConfig.layout.flipAxes &&
@@ -1771,6 +1818,7 @@ const useEchartsCartesianConfig = (
     } = useVisualizationContext();
 
     const theme = useMantineTheme();
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const validCartesianConfig = useMemo(() => {
         if (!isCartesianVisualizationConfig(visualizationConfig)) return;
@@ -1875,6 +1923,7 @@ const useEchartsCartesianConfig = (
             validCartesianConfig,
             resultsData,
             minsAndMaxes: resultsAndMinsAndMaxes.minsAndMaxes,
+            isMobile,
         });
     }, [
         itemsMap,
@@ -1884,15 +1933,62 @@ const useEchartsCartesianConfig = (
         resultsAndMinsAndMaxes.minsAndMaxes,
     ]);
 
+    // 计算数据点数量，用于调整柱状图宽度
+    const dataPointCount = useMemo(() => {
+        return rows.length;
+    }, [rows]);
+
+    // 计算柱状图宽度配置
+    const barWidthConfig = useMemo(() => {
+        const hasBarSeries = series.some(
+            (s) => s.type === CartesianSeriesType.BAR,
+        );
+        if (!hasBarSeries) return null;
+
+        // 当数据点少且是移动端时，减小柱状图宽度，增加类别间距
+        const shouldAdjustForMobile =
+            isMobile && dataPointCount > 0 && dataPointCount <= 5;
+
+        if (shouldAdjustForMobile) {
+            // 移动端且数据点少时，使用较小的柱状图宽度和较大的间距
+            // barWidth: 柱状图宽度，可以是像素值或百分比字符串
+            // barCategoryGap: 同一类目内不同系列的间距，百分比字符串
+            // barGap: 不同类目之间的间距，百分比字符串
+            // 根据数据点数量动态调整宽度：数据点越少，柱状图越窄
+            const calculatedWidth = Math.max(
+                15,
+                Math.min(35, (100 / dataPointCount) * 0.3),
+            );
+            return {
+                barWidth: `${calculatedWidth}%`, // 使用百分比，更灵活
+                barCategoryGap: '30%', // 增加类别内间距
+                barGap: '20%', // 增加类别间间距
+            };
+        }
+
+        // 默认情况下，ECharts 会自动计算，返回 null 表示不设置
+        return null;
+    }, [isMobile, dataPointCount, series]);
+
     const stackedSeriesWithColorAssignments = useMemo(() => {
         if (!itemsMap) return;
 
         const seriesWithValidStack = series.map<EChartSeries>((serie) => {
-            return {
+            const baseConfig = {
                 ...serie,
                 color: getSeriesColor(serie),
                 stack: getValidStack(serie),
             };
+
+            // 如果是柱状图，添加宽度配置
+            if (serie.type === CartesianSeriesType.BAR && barWidthConfig) {
+                return {
+                    ...baseConfig,
+                    ...barWidthConfig,
+                };
+            }
+
+            return baseConfig;
         });
         return [
             ...seriesWithValidStack,
@@ -1911,6 +2007,7 @@ const useEchartsCartesianConfig = (
         validCartesianConfig?.layout.flipAxes,
         validCartesianConfigLegend,
         getSeriesColor,
+        barWidthConfig,
     ]);
     const sortedResults = useMemo(() => {
         const results =
@@ -2318,14 +2415,22 @@ const useEchartsCartesianConfig = (
         const gridLeft = grid.left;
         const gridRight = grid.right;
 
+        // 移动端优化：减小左侧边距，为图表留出更多空间
+        const axisLabelGap = isMobile
+            ? Math.max(10, defaultAxisLabelGap * 0.6) // 移动端减少 40% 的间距
+            : defaultAxisLabelGap;
+
+        // 移动端优化：减小默认左侧边距
+        const baseLeftPadding = isMobile
+            ? 15
+            : parseInt(gridLeft.replace('px', '')) || 25;
+
         // Adds extra gap to grid to make room for axis labels -> there is an open ticket in echarts to fix this: https://github.com/apache/echarts/issues/9265
         // Only works for px values, percentage values are not supported because it cannot use calc()
         return {
             ...grid,
             left: gridLeft.includes('px')
-                ? `${
-                      parseInt(gridLeft.replace('px', '')) + defaultAxisLabelGap
-                  }px`
+                ? `${baseLeftPadding + axisLabelGap}px`
                 : grid.left,
             right: gridRight.includes('px')
                 ? `${
@@ -2334,7 +2439,7 @@ const useEchartsCartesianConfig = (
                   }px`
                 : grid.right,
         };
-    }, [validCartesianConfig?.eChartsConfig.grid]);
+    }, [validCartesianConfig?.eChartsConfig.grid, isMobile]);
 
     const { tooltip: legendDoubleClickTooltip } = useLegendDoubleClickTooltip();
 

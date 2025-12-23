@@ -104,4 +104,8 @@ export const ChartContainer = styled.div`
     flex: 1;
     overflow: hidden;
     display: flex;
+    /* 移动端饼图外侧标签：允许标签超出容器显示 */
+    @media (max-width: 768px) {
+        overflow: visible;
+    }
 `;
