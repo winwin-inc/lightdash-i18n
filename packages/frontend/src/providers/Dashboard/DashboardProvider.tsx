@@ -211,7 +211,6 @@ const DashboardProvider: React.FC<
         setOriginalDashboardFilters,
         dashboardTemporaryFilters,
         setDashboardTemporaryFilters,
-        resetDashboardFilters,
         addDimensionDashboardFilter,
         updateDimensionDashboardFilter: originalUpdateDimensionDashboardFilter,
         addMetricDashboardFilter,
@@ -262,12 +261,16 @@ const DashboardProvider: React.FC<
         [isCustomerUse, userCategories],
     );
 
-    // Wrap resetDashboardFilters to apply category filter initialization (only in customer use mode)
+    // Reset dashboard filters with category filter initialization (only in customer use mode)
+    // This implements the reset logic directly (instead of using resetDashboardFilters from useDashboardFilters)
+    // to ensure category filter initialization is applied before setting the filters.
     const wrappedResetDashboardFilters = useCallback(() => {
-        // Get the filters that will be set by resetDashboardFilters
+        // Get the base filters from dashboard
         const currentDashboard = dashboard || embedDashboard;
         const filters =
-            currentDashboard?.filters ?? embedDashboard?.filters ?? emptyFilters;
+            currentDashboard?.filters ??
+            embedDashboard?.filters ??
+            emptyFilters;
         const filteredFilters = embedDashboard
             ? applyInteractivityFiltering(filters)
             : filters;
@@ -279,7 +282,6 @@ const DashboardProvider: React.FC<
                 : filteredFilters;
 
         // Reset filters with category filter initialization applied
-        // This replicates the logic from resetDashboardFilters but with category filter initialization
         setDashboardFilters(finalFilters);
         setDashboardTemporaryFilters(emptyFilters);
         resetSavedFilterOverrides();
@@ -810,10 +812,9 @@ const DashboardProvider: React.FC<
             // Step 4: Initialize category filters based on user permissions (only in customer use mode)
             // Apply category filter initialization if userCategories is already loaded
             if (isCustomerUse && userCategories && !isEditMode) {
-                updatedDashboardFilters =
-                    initializeCategoryFiltersSequentially(
-                        updatedDashboardFilters,
-                    );
+                updatedDashboardFilters = initializeCategoryFiltersSequentially(
+                    updatedDashboardFilters,
+                );
             }
             setDashboardFilters(updatedDashboardFilters);
 
@@ -843,11 +844,15 @@ const DashboardProvider: React.FC<
         dashboardFilters,
         overridesForSavedDashboardFilters,
         tabFilters,
+        isCustomerUse,
+        isEditMode,
+        userCategories,
         setHaveFiltersChanged,
         setDashboardFilters,
         setOriginalDashboardFilters,
         setTabFilters,
         applyInteractivityFiltering,
+        initializeCategoryFiltersSequentially,
     ]);
 
     // Apply category filters when userCategories loads (only in customer use mode)
@@ -1003,7 +1008,9 @@ const DashboardProvider: React.FC<
                 };
                 // Apply category filter initialization if in customer use mode
                 if (isCustomerUse && userCategories && !isEditMode) {
-                    return initializeCategoryFiltersSequentially(updatedFilters);
+                    return initializeCategoryFiltersSequentially(
+                        updatedFilters,
+                    );
                 }
                 return updatedFilters;
             });

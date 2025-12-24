@@ -61,7 +61,6 @@ export const useDashboardFilters = ({
         overridesForSavedDashboardFilters,
         addSavedFilterOverride,
         removeSavedFilterOverride,
-        resetSavedFilterOverrides,
     } = useSavedDashboardFiltersOverrides();
 
     /**
@@ -103,35 +102,6 @@ export const useDashboardFilters = ({
         },
         [embedDashboard],
     );
-
-    // Resets all dashboard filters. There's a bit of a race condition
-    // here because we store filters in memory in two places:
-    //  1. dashboardFilters: in memory
-    //  2. overridesForSavedDashboardFilters: in url
-    // This resets all of them.
-    // TODO: fix up the data flow for filters so that they get set
-    // and read more centrally.
-    const resetDashboardFilters = useCallback(() => {
-        // reset in memory filters
-        const filters =
-            dashboard?.filters ?? embedDashboard?.filters ?? emptyFilters;
-        // Apply interactivity filtering for embedded dashboards
-        const filteredFilters = embedDashboard
-            ? applyInteractivityFiltering(filters)
-            : filters;
-        setDashboardFilters(filteredFilters);
-        // reset temporary filters
-        setDashboardTemporaryFilters(emptyFilters);
-        // reset saved filter overrides which are stored in url
-        resetSavedFilterOverrides();
-    }, [
-        setDashboardFilters,
-        setDashboardTemporaryFilters,
-        dashboard?.filters,
-        embedDashboard,
-        resetSavedFilterOverrides,
-        applyInteractivityFiltering,
-    ]);
 
     const addDimensionDashboardFilter = useCallback(
         (filter: DashboardFilterRule, isTemporary: boolean) => {
@@ -263,7 +233,6 @@ export const useDashboardFilters = ({
         setOriginalDashboardFilters,
         setDashboardTemporaryFilters,
         setDashboardFilters,
-        resetDashboardFilters,
         addDimensionDashboardFilter,
         updateDimensionDashboardFilter,
         addMetricDashboardFilter,
