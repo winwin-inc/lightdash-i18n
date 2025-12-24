@@ -1,5 +1,20 @@
 # 更新日志
 
+v0.2091.46, 2025-12-24
+
+Bug 修复
+● 修复字段名正则转义中可能为 null 的值，防止运行时错误
+
+调优
+● 增强 DashboardProvider 类目过滤初始化逻辑，支持客户使用模式并保留过滤配置
+● 从 useDashboardFilters 中移除 resetDashboardFilters，简化代码逻辑
+● 更新 ForbiddenPanel 和 Mobile 组件，优化组件结构
+
+v0.2091.45, 2025-12-24
+
+调优
+● 增强正则处理逻辑，优化移动端 UI 组件，提升用户体验
+
 v0.2091.44, 2025-12-23
 
 调优

@@ -45,6 +45,18 @@ export const createRenameFactory = ({
     fromFieldName,
     toFieldName,
 }: NameChanges & { isPrefix: boolean }) => {
+    // Escape special regex characters for safe use in regex patterns
+    const escapeRegex = (str: string): string => {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    };
+
+    const escapedFrom = escapeRegex(from);
+    const escapedTo = escapeRegex(to);
+    const escapedFromReference = escapeRegex(fromReference);
+    const escapedToReference = escapeRegex(toReference);
+    const escapedFromFieldName = escapeRegex(fromFieldName ?? '');
+    const escapedToFieldName = escapeRegex(toFieldName ?? '');
+
     let replaceId: (str: string) => string;
     let replaceReference: (str: string) => string;
     let replaceString: (str: string) => string;
@@ -53,39 +65,39 @@ export const createRenameFactory = ({
     let replaceDotFieldId: (str: string) => string;
     if (isPrefix) {
         replaceId = (str: string) =>
-            str.replace(new RegExp(`^${from}_`, 'g'), `${to}_`); // table prefix (eg: payment_)
+            str.replace(new RegExp(`^${escapedFrom}_`, 'g'), `${to}_`); // table prefix (eg: payment_)
         replaceReference = (str: string) =>
             str.replace(
-                new RegExp(`\\$\\{${fromReference}\\.`, 'g'),
+                new RegExp(`\\$\\{${escapedFromReference}\\.`, 'g'),
                 `\${${toReference}.`,
             ); // SQL normally uses "." on references
         replaceString = (str: string) =>
-            str.replace(new RegExp(`${from}_`, 'g'), `${to}_`);
+            str.replace(new RegExp(`${escapedFrom}_`, 'g'), `${to}_`);
         replaceDotFieldId = (str: string) =>
-            str.replace(new RegExp(`^${from}\\.`, 'g'), `${to}.`);
+            str.replace(new RegExp(`^${escapedFrom}\\.`, 'g'), `${to}.`);
         replaceFieldReference = (str: string) => str; // table prefix (eg: payment_)
 
         replaceFieldName = (str: string) => str; // no changes
     } else {
         replaceFieldName = (str: string) =>
             str.replace(
-                new RegExp(`^${fromFieldName}$`, 'g'),
+                new RegExp(`^${escapedFromFieldName}$`, 'g'),
                 `${toFieldName}`,
             ); // field name (eg: customer_id)
         replaceId = (str: string) =>
-            str.replace(new RegExp(`^${from}$`, 'g'), `${to}`); // entire id (eg: payment_customer_id)
+            str.replace(new RegExp(`^${escapedFrom}$`, 'g'), `${to}`); // entire id (eg: payment_customer_id)
         replaceReference = (str: string) =>
             str.replace(
-                new RegExp(`\\$\\{${fromReference}\\}`, 'g'),
+                new RegExp(`\\$\\{${escapedFromReference}\\}`, 'g'),
                 `\${${toReference}}`,
             ); // Full reference
         replaceDotFieldId = (str: string) =>
             str.replace(
-                new RegExp(`^${fromReference}$`, 'g'),
+                new RegExp(`^${escapedFromReference}$`, 'g'),
                 `${toReference}`,
             ); // used in custom metric filters (eg: orders.status)
         replaceString = (str: string) =>
-            str.replace(new RegExp(`${from}`, 'g'), `${to}`);
+            str.replace(new RegExp(`${escapedFrom}`, 'g'), `${to}`);
         replaceFieldReference = (str: string) => {
             // These are for ${TABLE}.field references like in additionalMetrics
             // We only update here if the str is the same as the expected fromReference

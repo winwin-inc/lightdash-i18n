@@ -26,10 +26,29 @@ const parseTableReferencesFromSQL = (
 
     const tableReferences: Array<ParsedTableReference> = [];
 
+    // Escape quoteChar for use in regex character class
+    // Special handling for characters that have meaning in character classes
+    const escapeForCharacterClass = (char: string): string => {
+        // Escape special regex characters
+        if (char === ']' || char === '[' || char === '-' || char === '\\' || char === '^') {
+            return `\\${char}`;
+        }
+        return char;
+    };
+
+    // Escape quoteChar for use in regex pattern (outside character class)
+    const escapeForRegex = (char: string): string => {
+        // Escape special regex characters
+        return char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    };
+
+    const escapedQuoteCharInClass = escapeForCharacterClass(quoteChar);
+    const escapedQuoteChar = escapeForRegex(quoteChar);
+
     // Regex to match quoted identifiers in SQL
     // This matches patterns like: "database"."schema"."table" or schema.table or just table
     const quotedIdentifierRegex = new RegExp(
-        `\\${quoteChar}([^${quoteChar}]+)\\${quoteChar}(?:\\.\\${quoteChar}([^${quoteChar}]+)\\${quoteChar})?(?:\\.\\${quoteChar}([^${quoteChar}]+)\\${quoteChar})?`,
+        `${escapedQuoteChar}([^${escapedQuoteCharInClass}]+)${escapedQuoteChar}(?:\\.${escapedQuoteChar}([^${escapedQuoteCharInClass}]+)${escapedQuoteChar})?(?:\\.${escapedQuoteChar}([^${escapedQuoteCharInClass}]+)${escapedQuoteChar})?`,
         'gi',
     );
 

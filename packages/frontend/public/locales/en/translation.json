@@ -5123,7 +5123,7 @@
     },
     "components_forbidden_panel": {
         "title": "You do not have dashboard access permission",
-        "description": "Please contact the administrator to request access permission"
+        "description": "Please contact customer service to enable dashboard access permission"
     },
     "components_json_viewer_modal": {
         "copied": "Copied",
@@ -7416,8 +7416,8 @@
     },
     "components_mobile": {
         "content": {
-            "part_1": "This page is not available to view on mobile yet.",
-            "part_2": "Sign in on a laptop or desktop to access this page!"
+            "part_1": "This page is not available to view on mobile yet",
+            "part_2": "Please sign in on a laptop or desktop to access this page"
         },
         "back_to_home_page": "Back to home page"
     },
@@ -8670,12 +8670,12 @@
     "pages_no_dashboard_permission": {
         "title": "You do not have dashboard access permission",
         "description": "Please contact customer service to enable dashboard access permission",
-        "scan_pc": "Scan code to add customer service\"大圣来也\"(17612234299)",
-        "scan_mobile": "Scan code to add customer service\"大圣来也\"",
+        "scan_pc": "Scan code to add customer service",
+        "mobile": "Phone number: 17612234299",
+        "scan_mobile": "Long press scan to add customer service",
         "copied": "Copied",
         "lins": {
-            "mobile": "Contact by phone",
-            "copy": "Copy WeChat ID"
+            "mobile": "Contact by phone"
         }
     }
 }

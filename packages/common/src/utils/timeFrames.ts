@@ -679,7 +679,11 @@ export const getDateDimension = (dimensionId: string) => {
     );
 
     if (isDate) {
-        const regex = new RegExp(`_(${timeFrames.join('|')})$`);
+        // Escape special regex characters in timeFrames for safe use in regex pattern
+        const escapedTimeFrames = timeFrames.map((tf) =>
+            tf.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+        );
+        const regex = new RegExp(`_(${escapedTimeFrames.join('|')})$`);
 
         const baseDimensionId = dimensionId.replace(regex, '');
 

@@ -46,9 +46,7 @@ export const startWithHTTPSProtocol: FieldValidator<string> =
             : `${fieldName} should start with a "https://"`;
 
 // Supports values: "1" "1,2,3" "1-3" "*/5" "*"
-const cronValueRegex = new RegExp(
-    /^(\*\/\d)|((\d+,)+\d+|(\d+(\/|-)\d+)|\d+|\*)$/,
-);
+const cronValueRegex = /^(\*\/\d)|((\d+,)+\d+|(\d+(\/|-)\d+)|\d+|\*)$/;
 export const isInvalidCronExpression: FieldValidator<string> =
     (fieldName) => (value) => {
         if (value) {

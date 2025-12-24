@@ -57,7 +57,10 @@ import {
     useDashboardTabFilters,
 } from '../../hooks/dashboard/useDashboardTabFilters';
 import { useProject } from '../../hooks/useProject';
-import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOverrides';
+import {
+    hasSavedFiltersOverrides,
+    useSavedDashboardFiltersOverrides,
+} from '../../hooks/useSavedDashboardFiltersOverrides';
 import { useUserCategories } from '../../hooks/useUserCategories';
 import {
     initializeCategoryFilterValuesByPermission,
@@ -193,6 +196,9 @@ const DashboardProvider: React.FC<
         },
     });
 
+    // Get resetSavedFilterOverrides for wrappedResetDashboardFilters
+    const { resetSavedFilterOverrides } = useSavedDashboardFiltersOverrides();
+
     // dashboard filters
     const {
         embedDashboard,
@@ -205,7 +211,6 @@ const DashboardProvider: React.FC<
         setOriginalDashboardFilters,
         dashboardTemporaryFilters,
         setDashboardTemporaryFilters,
-        resetDashboardFilters,
         addDimensionDashboardFilter,
         updateDimensionDashboardFilter: originalUpdateDimensionDashboardFilter,
         addMetricDashboardFilter,
@@ -255,6 +260,43 @@ const DashboardProvider: React.FC<
         },
         [isCustomerUse, userCategories],
     );
+
+    // Reset dashboard filters with category filter initialization (only in customer use mode)
+    // This implements the reset logic directly (instead of using resetDashboardFilters from useDashboardFilters)
+    // to ensure category filter initialization is applied before setting the filters.
+    const wrappedResetDashboardFilters = useCallback(() => {
+        // Get the base filters from dashboard
+        const currentDashboard = dashboard || embedDashboard;
+        const filters =
+            currentDashboard?.filters ??
+            embedDashboard?.filters ??
+            emptyFilters;
+        const filteredFilters = embedDashboard
+            ? applyInteractivityFiltering(filters)
+            : filters;
+
+        // Apply category filter initialization if in customer use mode
+        const finalFilters =
+            isCustomerUse && userCategories && !isEditMode
+                ? initializeCategoryFiltersSequentially(filteredFilters)
+                : filteredFilters;
+
+        // Reset filters with category filter initialization applied
+        setDashboardFilters(finalFilters);
+        setDashboardTemporaryFilters(emptyFilters);
+        resetSavedFilterOverrides();
+    }, [
+        dashboard,
+        embedDashboard,
+        isCustomerUse,
+        userCategories,
+        isEditMode,
+        setDashboardFilters,
+        setDashboardTemporaryFilters,
+        resetSavedFilterOverrides,
+        initializeCategoryFiltersSequentially,
+        applyInteractivityFiltering,
+    ]);
 
     // Wrap updateDimensionDashboardFilter to handle category filter cascade
     const updateDimensionDashboardFilter = useCallback(
@@ -768,7 +810,12 @@ const DashboardProvider: React.FC<
             );
 
             // Step 4: Initialize category filters based on user permissions (only in customer use mode)
-            // Note: This will be applied when userCategories loads (see useEffect below)
+            // Apply category filter initialization if userCategories is already loaded
+            if (isCustomerUse && userCategories && !isEditMode) {
+                updatedDashboardFilters = initializeCategoryFiltersSequentially(
+                    updatedDashboardFilters,
+                );
+            }
             setDashboardFilters(updatedDashboardFilters);
 
             // tab filters
@@ -797,11 +844,15 @@ const DashboardProvider: React.FC<
         dashboardFilters,
         overridesForSavedDashboardFilters,
         tabFilters,
+        isCustomerUse,
+        isEditMode,
+        userCategories,
         setHaveFiltersChanged,
         setDashboardFilters,
         setOriginalDashboardFilters,
         setTabFilters,
         applyInteractivityFiltering,
+        initializeCategoryFiltersSequentially,
     ]);
 
     // Apply category filters when userCategories loads (only in customer use mode)
@@ -947,18 +998,31 @@ const DashboardProvider: React.FC<
             dashboard?.filters &&
             hasSavedFiltersOverrides(overridesForSavedDashboardFilters)
         ) {
-            setDashboardFilters((prevFilters) => ({
-                ...prevFilters,
-                dimensions: applyDimensionOverrides(
-                    prevFilters,
-                    overridesForSavedDashboardFilters,
-                ),
-            }));
+            setDashboardFilters((prevFilters) => {
+                const updatedFilters = {
+                    ...prevFilters,
+                    dimensions: applyDimensionOverrides(
+                        prevFilters,
+                        overridesForSavedDashboardFilters,
+                    ),
+                };
+                // Apply category filter initialization if in customer use mode
+                if (isCustomerUse && userCategories && !isEditMode) {
+                    return initializeCategoryFiltersSequentially(
+                        updatedFilters,
+                    );
+                }
+                return updatedFilters;
+            });
         }
     }, [
         dashboard?.filters,
         overridesForSavedDashboardFilters,
         setDashboardFilters,
+        isCustomerUse,
+        userCategories,
+        isEditMode,
+        initializeCategoryFiltersSequentially,
     ]);
 
     // Gets filters and dateZoom from URL and storage after redirect
@@ -989,7 +1053,17 @@ const DashboardProvider: React.FC<
             // TODO: this should probably merge with the filters
             // from the database. This will break if they diverge,
             // meaning there is a subtle race condition here
-            setDashboardFilters(unsavedDashboardFilters);
+            // Apply category filter initialization if in customer use mode
+            // Note: If userCategories is not loaded yet, it will be applied in the useEffect below
+            if (isCustomerUse && userCategories && !isEditMode) {
+                setDashboardFilters(
+                    initializeCategoryFiltersSequentially(
+                        unsavedDashboardFilters,
+                    ),
+                );
+            } else {
+                setDashboardFilters(unsavedDashboardFilters);
+            }
         }
         if (tempFilterSearchParam) {
             setDashboardTemporaryFilters(
@@ -1251,7 +1325,7 @@ const DashboardProvider: React.FC<
         updateDimensionDashboardFilter,
         removeDimensionDashboardFilter,
         addMetricDashboardFilter,
-        resetDashboardFilters,
+        resetDashboardFilters: wrappedResetDashboardFilters,
         setDashboardFilters,
         haveFiltersChanged,
         setHaveFiltersChanged,

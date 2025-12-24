@@ -250,7 +250,9 @@ const convertDbtMetricToLightdashMetric = (
         sql = metric.expression;
 
         referencedMetrics.forEach((ref) => {
-            const re = new RegExp(`\\b${ref}\\b`, 'g');
+            // Escape special regex characters in ref for safe use in regex pattern
+            const escapedRef = ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const re = new RegExp(`\\b${escapedRef}\\b`, 'g');
             // eslint-disable-next-line no-useless-escape
             sql = sql.replace(re, `\$\{${ref}\}`);
         });

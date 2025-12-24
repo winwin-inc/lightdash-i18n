@@ -110,8 +110,18 @@ export interface TagInputProps
 function splitTags(splitChars: string[] | undefined, value: string) {
     if (!splitChars) return [value];
 
+    // Escape special regex characters for use in character class
+    const escapeForCharacterClass = (char: string): string => {
+        // Escape special regex characters that have meaning in character classes
+        if (char === ']' || char === '[' || char === '-' || char === '\\' || char === '^') {
+            return `\\${char}`;
+        }
+        return char;
+    };
+
+    const escapedChars = splitChars.map(escapeForCharacterClass).join('');
     return value
-        .split(new RegExp(`[${splitChars.join('')}]`))
+        .split(new RegExp(`[${escapedChars}]`))
         .map((tag) => tag.trim())
         .filter((tag) => tag !== '');
 }
