@@ -14,7 +14,7 @@ const MobileView = () => {
     const isMobile = useMediaQuery('(max-width: 768px)');
 
     const handleBackToHome = () => {
-        navigate('/');
+        void navigate('/');
     };
 
     return (
