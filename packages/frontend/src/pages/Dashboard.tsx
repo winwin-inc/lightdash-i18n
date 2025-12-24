@@ -71,6 +71,7 @@ const Dashboard: FC = () => {
             void navigate('/no-dashboard-access', { replace: true });
         }
     }, [dashboardError, navigate]);
+
     const requiredDashboardFilters = useDashboardContext(
         (c) => c.requiredDashboardFilters,
     );

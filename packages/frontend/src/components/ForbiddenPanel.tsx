@@ -32,14 +32,14 @@ const ForbiddenPanel: FC<{ subject?: string }> = () => {
             <Stack
                 spacing="xs"
                 align="center"
-                style={{ marginTop: isMobile ? -30 : 0 }}
+                style={{ marginTop: isMobile ? -30 : -20 }}
             >
                 <Title
                     ta="center"
                     fw={600}
                     style={{
                         color: '#1F1F1F',
-                        fontSize: isMobile ? '18px' : '22px',
+                        fontSize: isMobile ? '16px' : '18px',
                     }}
                 >
                     {t('components_forbidden_panel.title')}
@@ -48,7 +48,7 @@ const ForbiddenPanel: FC<{ subject?: string }> = () => {
                     ta="center"
                     style={{
                         color: '#9A9A9A',
-                        fontSize: isMobile ? '14px' : '14px',
+                        fontSize: isMobile ? '14px' : '16px',
                     }}
                     maw={isMobile ? '100%' : '400px'}
                 >

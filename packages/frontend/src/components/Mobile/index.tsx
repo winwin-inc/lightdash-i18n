@@ -54,7 +54,7 @@ const MobileView = () => {
                     fw={600}
                     style={{
                         color: '#1F1F1F',
-                        fontSize: isMobile ? '18px' : '22px',
+                        fontSize: isMobile ? '16px' : '18px',
                     }}
                 >
                     {t('components_mobile.content.part_1')}
@@ -63,7 +63,7 @@ const MobileView = () => {
                     ta="center"
                     style={{
                         color: '#9A9A9A',
-                        fontSize: isMobile ? '14px' : '14px',
+                        fontSize: isMobile ? '14px' : '16px',
                     }}
                     maw={isMobile ? '100%' : '400px'}
                 >
@@ -84,8 +84,9 @@ const MobileView = () => {
                         onClick={handleBackToHome}
                         fullWidth
                         style={{
-                            height: 40,
-                            borderRadius: 55,
+                            width: '60%',
+                            height: '40px',
+                            borderRadius: '55px',
                             backgroundColor: '#5490FF',
                         }}
                     >
