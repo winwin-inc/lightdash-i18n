@@ -368,6 +368,10 @@ export const applyDimensionOverrides = (
                 return {
                     ...override,
                     tileTargets: dimension.tileTargets,
+                    // Preserve category filter configuration (categoryLevel and parentFieldId)
+                    // These should be retained from the original dimension, not from override
+                    categoryLevel: dimension.categoryLevel,
+                    parentFieldId: dimension.parentFieldId,
                 };
             }
             return dimension;

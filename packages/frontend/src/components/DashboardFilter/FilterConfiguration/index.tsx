@@ -346,6 +346,8 @@ const FilterConfiguration: FC<Props> = ({
     );
 
     const parentFilterOptions = useMemo(() => {
+        // Only show parent filter options in customer use mode
+        // Configuration (parentFieldId) is preserved in non-customer-use mode but UI is hidden
         if (!isCustomerUse || !draftFilterRule?.target) return [];
 
         const globalFilters =
