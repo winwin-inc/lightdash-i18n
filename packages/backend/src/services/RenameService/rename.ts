@@ -54,8 +54,8 @@ export const createRenameFactory = ({
     const escapedTo = escapeRegex(to);
     const escapedFromReference = escapeRegex(fromReference);
     const escapedToReference = escapeRegex(toReference);
-    const escapedFromFieldName = escapeRegex(fromFieldName);
-    const escapedToFieldName = escapeRegex(toFieldName);
+    const escapedFromFieldName = escapeRegex(fromFieldName ?? '');
+    const escapedToFieldName = escapeRegex(toFieldName ?? '');
 
     let replaceId: (str: string) => string;
     let replaceReference: (str: string) => string;
