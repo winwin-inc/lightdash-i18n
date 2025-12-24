@@ -25,7 +25,7 @@ const NoDashboardPermission = () => {
             align="center"
             w="100vw"
             mih="90vh"
-            pt={isMobile ? '8vh' : '12vh'}
+            pt={isMobile ? '6vh' : '12vh'}
             pb={isMobile ? '15vh' : '15vh'}
             style={{
                 display: 'flex',
@@ -47,14 +47,14 @@ const NoDashboardPermission = () => {
             <Stack
                 spacing="xs"
                 align="center"
-                style={{ marginTop: isMobile ? -30 : 0 }}
+                style={{ marginTop: isMobile ? -30 : -20 }}
             >
                 <Title
                     ta="center"
                     fw={600}
                     style={{
                         color: '#1F1F1F',
-                        fontSize: isMobile ? '16px' : '20px',
+                        fontSize: isMobile ? '16px' : '18px',
                     }}
                 >
                     {t('pages_no_dashboard_permission.title')}
@@ -103,8 +103,8 @@ const NoDashboardPermission = () => {
                     <Image
                         src={CUSTOMER_SERVICE.qrCodeUrl}
                         alt="Customer Service QR Code"
-                        width={isMobile ? 200 : 240}
-                        height={isMobile ? 200 : 240}
+                        width={isMobile ? 180 : 240}
+                        height={isMobile ? 180 : 240}
                         onError={(e) => {
                             // 如果图片加载失败，显示占位符
                             const target = e.target as HTMLImageElement;
@@ -137,7 +137,7 @@ const NoDashboardPermission = () => {
                             variant="filled"
                             onClick={handlePhoneCall}
                             style={{
-                                width: '75%',
+                                width: '70%',
                                 height: '40px',
                                 borderRadius: '55px',
                                 backgroundColor: '#5490FF',
