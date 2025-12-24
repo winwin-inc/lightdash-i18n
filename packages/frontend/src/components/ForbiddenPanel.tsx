@@ -22,6 +22,7 @@ const ForbiddenPanel: FC<{ subject?: string }> = () => {
                 style={{
                     width: isMobile ? 228 : 318,
                     height: isMobile ? 154 : 213,
+                    scale: isMobile ? 1 : 0.8,
                 }}
                 src={FORBIDDEN_IMAGE_URL}
                 alt="Forbidden"

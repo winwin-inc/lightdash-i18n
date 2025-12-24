@@ -41,6 +41,7 @@ export enum PageName {
     ACCESS_TOKENS = 'access_tokens',
     NO_ACCESS = 'no_access',
     NO_PROJECT_ACCESS = 'no_project_access',
+    NO_DASHBOARD_ACCESS = 'no_dashboard_access',
     SPACE = 'space',
     SPACES = 'spaces',
     SHARE = 'share',

@@ -316,8 +316,10 @@ export const registerCustomCompletionProvider = (
                 let insertText = insertParts.join('.');
                 if (isLastPartQuoted) {
                     // Remove the opening quote from the first part to insert
+                    // Escape quoteChar for use in regex pattern
+                    const escapedQuoteChar = quoteChar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     insertText = insertText.replace(
-                        new RegExp(`^${quoteChar}`),
+                        new RegExp(`^${escapedQuoteChar}`),
                         '',
                     );
                 }

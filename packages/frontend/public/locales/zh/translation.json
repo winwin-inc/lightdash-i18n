@@ -5106,7 +5106,7 @@
     },
     "components_forbidden_panel": {
         "title": "您没有看板访问权限",
-        "description": "请联系管理员请求访问权限"
+        "description": "请您联系客服开通看板访问权限"
     },
     "components_json_viewer_modal": {
         "copied": "已复制",
@@ -7409,8 +7409,8 @@
     },
     "components_mobile": {
         "content": {
-            "part_1": "此页面目前尚不支持手机查看。",
-            "part_2": "请在笔记本电脑或桌面电脑上登录以访问此页面!"
+            "part_1": "此页面目前尚不支持手机查看",
+            "part_2": "请您在笔记本电脑或桌面电脑上登录以访问此页面"
         },
         "back_to_home_page": "返回主页"
     },
@@ -8653,12 +8653,12 @@
     "pages_no_dashboard_permission": {
         "title": "您没有看板访问权限",
         "description": "请您联系客服开通看板访问权限",
-        "scan_pc": "扫码添加客服\"大圣来也\"(17612234299)",
-        "scan_mobile": "扫码添加客服\"大圣来也\"",
+        "scan_pc": "扫码添加客服",
+        "scan_mobile": "长按扫码添加客服",
+        "mobile": "手机号:17612234299",
         "copied": "已复制",
         "lins": {
-            "mobile": "电话联系",
-            "copy": "复制微信号"
+            "mobile": "电话联系"
         }
     }
 }

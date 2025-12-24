@@ -96,9 +96,9 @@ const RedirectToResource: FC = () => {
             />
         );
     }
-    // hack: 暂时屏蔽移动端无权限页面，直接跳转到无权限页面
-    // return <Navigate to="/no-mobile-page" />;
-    return <Navigate to="/no-dashboard-access" />;
+
+    // Fallback: redirect to mobile unsupported page
+    return <Navigate to="/no-mobile-page" />;
 };
 
 export const MobileNavBar: FC = () => {
@@ -253,23 +253,13 @@ const PUBLIC_ROUTES: RouteObject[] = [
         element: <MobileView />,
     },
     {
-        path: '/no-dashboard-access',
-        element: (
-            <PrivateRoute>
-                <NoDashboardPermission />
-            </PrivateRoute>
-        ),
-    },
-    {
         // Autoclose popup after github installation
         path: '/generalSettings/integrations',
         element: <SuccessAuthPopupResult />,
     },
     ...routesNotSupportedInMobile.map((route) => ({
         path: route,
-        // hack: 暂时屏蔽移动端无权限页面，直接跳转到无权限页面
-        // element: <Navigate to="/no-mobile-page" />,
-        element: <Navigate to="/no-dashboard-access" />,
+        element: <Navigate to="/no-mobile-page" />,
     })),
 ];
 
@@ -422,6 +412,14 @@ const PRIVATE_ROUTES: RouteObject[] = [
                 element: (
                     <TrackPage name={PageName.NO_PROJECT_ACCESS}>
                         <ForbiddenPanel subject="project" />
+                    </TrackPage>
+                ),
+            },
+            {
+                path: '/no-dashboard-access',
+                element: (
+                    <TrackPage name={PageName.NO_DASHBOARD_ACCESS}>
+                        <NoDashboardPermission />
                     </TrackPage>
                 ),
             },

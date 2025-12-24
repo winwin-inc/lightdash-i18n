@@ -540,7 +540,14 @@ const PRIVATE_ROUTES: RouteObject[] = [
             },
             {
                 path: '/no-dashboard-access',
-                element: <NoDashboardPermission />,
+                element: (
+                    <>
+                        <NavBar />
+                        <TrackPage name={PageName.NO_DASHBOARD_ACCESS}>
+                            <NoDashboardPermission />
+                        </TrackPage>
+                    </>
+                ),
             },
             {
                 path: '/share/:shareNanoid',

@@ -1,9 +1,7 @@
-import { Button, Card, Group, Image, Stack, Text, Title } from '@mantine/core';
+import { Button, Card, Image, Stack, Text, Title } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import useToaster from '../hooks/toaster/useToaster';
 
 // 客服信息 - 可以从配置中获取
 const CUSTOMER_SERVICE = {
@@ -16,23 +14,7 @@ const CUSTOMER_SERVICE = {
 const NoDashboardPermission = () => {
     const { t } = useTranslation();
 
-    const [isCopied, setIsCopied] = useState(false);
-
     const isMobile = useMediaQuery('(max-width: 768px)');
-    const { showToastSuccess } = useToaster();
-
-    const handleCopyWeChatId = useCallback(async () => {
-        try {
-            await navigator.clipboard.writeText(CUSTOMER_SERVICE.wechatId);
-            setIsCopied(true);
-            showToastSuccess({
-                title: t('pages_no_dashboard_permission.copied'),
-            });
-            setTimeout(() => setIsCopied(false), 2000);
-        } catch (error) {
-            console.error('Failed to copy WeChat ID:', error);
-        }
-    }, [t, showToastSuccess]);
 
     const handlePhoneCall = useCallback(() => {
         window.location.href = `tel:${CUSTOMER_SERVICE.phone}`;
@@ -42,15 +24,12 @@ const NoDashboardPermission = () => {
         <Stack
             align="center"
             w="100vw"
-            mih="100vh"
+            mih="90vh"
             pt={isMobile ? '8vh' : '12vh'}
-            pb={isMobile ? '10vh' : '15vh'}
+            pb={isMobile ? '15vh' : '15vh'}
             style={{
                 display: 'flex',
-                justifyContent: 'center',
                 backgroundColor: '#fff',
-                overflowY: 'auto',
-                overflowX: 'hidden',
             }}
         >
             {/* 锁图标 */}
@@ -75,7 +54,7 @@ const NoDashboardPermission = () => {
                     fw={600}
                     style={{
                         color: '#1F1F1F',
-                        fontSize: isMobile ? '18px' : '22px',
+                        fontSize: isMobile ? '16px' : '20px',
                     }}
                 >
                     {t('pages_no_dashboard_permission.title')}
@@ -84,7 +63,7 @@ const NoDashboardPermission = () => {
                     ta="center"
                     style={{
                         color: '#9A9A9A',
-                        fontSize: isMobile ? '14px' : '14px',
+                        fontSize: isMobile ? '14px' : '16px',
                     }}
                     maw={isMobile ? '100%' : '400px'}
                 >
@@ -96,7 +75,7 @@ const NoDashboardPermission = () => {
             <Card
                 radius="md"
                 w="100%"
-                maw={isMobile ? '90%' : '420px'}
+                maw={isMobile ? '85%' : '380px'}
                 mt={isMobile ? '20px' : '40px'}
                 withBorder
                 style={{
@@ -108,10 +87,11 @@ const NoDashboardPermission = () => {
                     {/* 扫码提示文字 */}
                     <Text
                         ta="center"
-                        fw={500}
+                        fw={600}
                         style={{
                             color: '#1F1F1F',
-                            fontSize: isMobile ? '16px' : '18px',
+                            fontSize: isMobile ? '20px' : '24px',
+                            letterSpacing: '2px',
                         }}
                     >
                         {isMobile
@@ -123,8 +103,8 @@ const NoDashboardPermission = () => {
                     <Image
                         src={CUSTOMER_SERVICE.qrCodeUrl}
                         alt="Customer Service QR Code"
-                        width={isMobile ? 180 : 240}
-                        height={isMobile ? 180 : 240}
+                        width={isMobile ? 200 : 240}
+                        height={isMobile ? 200 : 240}
                         onError={(e) => {
                             // 如果图片加载失败，显示占位符
                             const target = e.target as HTMLImageElement;
@@ -147,58 +127,24 @@ const NoDashboardPermission = () => {
                         }}
                     />
 
+                    <Text ta="center" fw={500} c="#4E4E4E" fz="14px">
+                        {t('pages_no_dashboard_permission.mobile')}
+                    </Text>
+
                     {/* 按钮组 */}
                     {isMobile ? (
-                        <Group
-                            mt="xs"
-                            w="100%"
-                            spacing={0}
+                        <Button
+                            variant="filled"
+                            onClick={handlePhoneCall}
                             style={{
-                                display: 'flex',
-                                justifyContent: 'center',
-                                alignItems: 'center',
+                                width: '75%',
+                                height: '40px',
+                                borderRadius: '55px',
+                                backgroundColor: '#5490FF',
                             }}
                         >
-                            <Button
-                                variant="outline"
-                                onClick={handlePhoneCall}
-                                style={{
-                                    width: 129,
-                                    height: 40,
-                                    borderRadius: 55,
-                                    color: '#5490FF',
-                                    borderColor: '#5490FF',
-                                    transition: 'none',
-                                }}
-                                sx={{
-                                    '&:active': {
-                                        transform: 'none',
-                                        backgroundColor: 'transparent',
-                                    },
-                                    '&:focus': { outline: 'none' },
-                                    '&:focus-visible': { outline: 'none' },
-                                }}
-                            >
-                                {t('pages_no_dashboard_permission.lins.mobile')}
-                            </Button>
-                            <Button
-                                variant="filled"
-                                onClick={handleCopyWeChatId}
-                                style={{
-                                    width: 129,
-                                    height: 40,
-                                    borderRadius: 55,
-                                    backgroundColor: '#5490FF',
-                                    marginLeft: isMobile ? 24 : 32,
-                                }}
-                            >
-                                {isCopied
-                                    ? t('pages_no_dashboard_permission.copied')
-                                    : t(
-                                          'pages_no_dashboard_permission.lins.copy',
-                                      )}
-                            </Button>
-                        </Group>
+                            {t('pages_no_dashboard_permission.lins.mobile')}
+                        </Button>
                     ) : null}
                 </Stack>
             </Card>
