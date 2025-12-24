@@ -1990,11 +1990,85 @@ const useEchartsCartesianConfig = (
 
             return baseConfig;
         });
+
+        // Check if value sorting is enabled for stacked bar charts
+        const sortDirection = (() => {
+            const seriesConfig = validCartesianConfig?.eChartsConfig.series;
+            if (!seriesConfig) return undefined;
+            for (const s of seriesConfig) {
+                const sortValue = s.tooltipSortByValue as
+                    | 'asc'
+                    | 'desc'
+                    | undefined;
+                if (sortValue === 'asc' || sortValue === 'desc') {
+                    return sortValue;
+                }
+            }
+            return undefined;
+        })();
+
+        // If value sorting is enabled and we have stacked bar charts, sort series by total value
+        let sortedSeries = seriesWithValidStack;
+        if (sortDirection && rows.length > 0) {
+            // Group series by stack to only sort within the same stack
+            const seriesByStack = new Map<string, EChartSeries[]>();
+            const seriesWithoutStack: EChartSeries[] = [];
+
+            seriesWithValidStack.forEach((serie) => {
+                if (serie.stack && serie.type === CartesianSeriesType.BAR) {
+                    if (!seriesByStack.has(serie.stack)) {
+                        seriesByStack.set(serie.stack, []);
+                    }
+                    seriesByStack.get(serie.stack)!.push(serie);
+                } else {
+                    seriesWithoutStack.push(serie);
+                }
+            });
+
+            // Sort series within each stack by total value
+            const sortedStacks: EChartSeries[] = [];
+            seriesByStack.forEach((stackSeries, stackName) => {
+                // Calculate total value for each series in this stack
+                const seriesWithTotals = stackSeries.map((serie) => {
+                    let total = 0;
+                    const yFieldHash = validCartesianConfig?.layout.flipAxes
+                        ? serie.encode?.x
+                        : serie.encode?.y;
+
+                    if (yFieldHash) {
+                        rows.forEach((row) => {
+                            const value = row[yFieldHash]?.value?.raw;
+                            const numValue = toNumber(value);
+                            if (!isNaN(numValue)) {
+                                total += numValue;
+                            }
+                        });
+                    }
+
+                    return { serie, total };
+                });
+
+                // Sort by total value
+                seriesWithTotals.sort((a, b) => {
+                    return sortDirection === 'desc'
+                        ? b.total - a.total
+                        : a.total - b.total;
+                });
+
+                sortedStacks.push(
+                    ...seriesWithTotals.map((item) => item.serie),
+                );
+            });
+
+            // Combine sorted stacks with non-stacked series
+            sortedSeries = [...sortedStacks, ...seriesWithoutStack];
+        }
+
         return [
-            ...seriesWithValidStack,
+            ...sortedSeries,
             ...getStackTotalSeries(
                 rows,
-                seriesWithValidStack,
+                sortedSeries,
                 itemsMap,
                 validCartesianConfig?.layout.flipAxes,
                 validCartesianConfigLegend,
@@ -2005,6 +2079,7 @@ const useEchartsCartesianConfig = (
         rows,
         itemsMap,
         validCartesianConfig?.layout.flipAxes,
+        validCartesianConfig?.eChartsConfig.series,
         validCartesianConfigLegend,
         getSeriesColor,
         barWidthConfig,
