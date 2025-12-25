@@ -1198,9 +1198,7 @@ const getEchartAxes = ({
         referenceLineMinRightY,
         referenceLineMaxRightY,
         dataMinLeftY,
-        dataMaxLeftY,
         dataMinRightY,
-        dataMaxRightY,
     } = getMinAndMaxReferenceLines(
         leftAxisYFieldIds,
         rightAxisYFieldIds,
@@ -1931,6 +1929,7 @@ const useEchartsCartesianConfig = (
         series,
         resultsData,
         resultsAndMinsAndMaxes.minsAndMaxes,
+        isMobile,
     ]);
 
     // 计算数据点数量，用于调整柱状图宽度
@@ -2027,7 +2026,7 @@ const useEchartsCartesianConfig = (
 
             // Sort series within each stack by total value
             const sortedStacks: EChartSeries[] = [];
-            seriesByStack.forEach((stackSeries, stackName) => {
+            seriesByStack.forEach((stackSeries) => {
                 // Calculate total value for each series in this stack
                 const seriesWithTotals = stackSeries.map((serie) => {
                     let total = 0;
@@ -2353,9 +2352,10 @@ const useEchartsCartesianConfig = (
 
                 // Check if any series has tooltipSortByValue enabled and get the sort direction
                 const sortDirection = (() => {
-                    const series = validCartesianConfig?.eChartsConfig.series;
-                    if (!series) return undefined;
-                    for (const s of series) {
+                    const sortSeries =
+                        validCartesianConfig?.eChartsConfig.series;
+                    if (!sortSeries) return undefined;
+                    for (const s of sortSeries) {
                         const sortValue = s.tooltipSortByValue as
                             | 'asc'
                             | 'desc'

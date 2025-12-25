@@ -106,9 +106,6 @@ const SimplePieChart: FC<SimplePieChartProps> = memo((props) => {
         close();
     }, [close]);
 
-    if (isLoading) return <LoadingChart />;
-    if (!pieChartOptions) return <EmptyChart />;
-
     // 移动端优化：检测是否有外侧标签，如果有则允许标签超出容器显示
     const hasOutsideLabels = useMemo(() => {
         if (!pieChartOptions?.pieSeriesOption?.data) return false;
@@ -128,6 +125,9 @@ const SimplePieChart: FC<SimplePieChartProps> = memo((props) => {
 
     const isMobile = useMediaQuery('(max-width: 768px)');
     const shouldAllowOverflow = isMobile && hasOutsideLabels;
+
+    if (isLoading) return <LoadingChart />;
+    if (!pieChartOptions) return <EmptyChart />;
 
     return (
         <>
