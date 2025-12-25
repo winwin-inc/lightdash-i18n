@@ -57,6 +57,7 @@ export type BigNumber = {
     comparisonFormat?: ComparisonFormatTypes;
     flipColors?: boolean;
     comparisonLabel?: string;
+    layoutDirection?: 'column' | 'column-reverse';
 };
 
 export const PieChartValueLabels = {
@@ -248,6 +249,7 @@ export type Series = {
     smooth?: boolean;
     markLine?: MarkLine;
     isFilteredOut?: boolean;
+    tooltipSortByValue?: 'asc' | 'desc';
 };
 
 export type EchartsLegend = {

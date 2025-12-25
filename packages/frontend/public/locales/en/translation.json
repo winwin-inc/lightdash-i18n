@@ -4775,6 +4775,17 @@
         "invalid_hex": "Invalid {{color}} color"
     },
     "components_visualization_configs_big_number": {
+        "layout": {
+            "field": "Field",
+            "select_field": "Select field",
+            "label": "Label",
+            "format": "Format",
+            "direction": "Layout direction",
+            "direction_options": {
+                "column": "Normal",
+                "column_reverse": "Reverse"
+            }
+        },
         "comparison": {
             "value": "Value",
             "compare_to_previous_row": "Compare to previous row",
@@ -4787,12 +4798,6 @@
         "tabs": {
             "layout": "Layout",
             "comparison": "Comparison"
-        },
-        "layout": {
-            "field": "Field",
-            "select_field": "Select field",
-            "label": "Label",
-            "format": "Format"
         },
         "configure": "Configure"
     },
@@ -4887,6 +4892,12 @@
             "total": "Total",
             "show_symbol": "Show symbol",
             "smooth": "Smooth",
+            "tooltip_sort_by_value": "Sort by value",
+            "tooltip_sort_direction": "Sort direction",
+            "tooltip_sort_by_value_options": {
+                "desc": "Descending",
+                "asc": "Ascending"
+            },
             "tried": "Tried to reference field with unknown id:"
         }
     },

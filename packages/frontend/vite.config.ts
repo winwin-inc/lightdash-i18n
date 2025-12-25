@@ -152,10 +152,32 @@ export default defineConfig({
             '.lightdash.dev', // for cloudflared tunnels
         ],
         watch: {
-            ignored: ['!**/node_modules/@lightdash/common/**'],
+            ignored: [
+                // 忽略所有 node_modules，但保留 @lightdash/common 的监听
+                '**/node_modules/**',
+                '!**/node_modules/@lightdash/common/**',
+                // 忽略构建输出目录
+                '**/build/**',
+                '**/sdk/dist/**',
+                // 忽略 TypeScript 构建信息文件
+                '**/*.tsbuildinfo',
+                // 忽略测试文件（开发时不需要监听）
+                '**/*.test.ts',
+                '**/*.test.tsx',
+                '**/*.spec.ts',
+                '**/*.spec.tsx',
+                // 忽略 Mock 文件
+                '**/__mocks__/**',
+                // 忽略 Storybook stories（根据 package.json 配置）
+                '**/src/stories/**',
+                // 忽略测试覆盖率报告
+                '**/coverage/**',
+                // 忽略 Storybook 构建输出
+                '**/.storybook-static/**',
+            ],
             // windows 下使用 polling 解决 HMR 热更新失败问题
             usePolling: true, // fix HMR hot update failure
-            interval: 1000, // polling interval
+            interval: 1000, // polling interval (优化为 1s，平衡性能和响应速度)
         },
         proxy: {
             '/api': {

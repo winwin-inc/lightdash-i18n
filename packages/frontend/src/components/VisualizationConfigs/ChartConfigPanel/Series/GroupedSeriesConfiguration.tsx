@@ -159,6 +159,25 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
     const isChartTypeTheSameForAllSeries: boolean =
         !isSeriesWithMixedChartTypes(seriesGroup);
 
+    const isTooltipSortByValueTheSameForAllSeries: boolean =
+        new Set(seriesGroup.map(({ tooltipSortByValue }) => tooltipSortByValue))
+            .size === 1;
+
+    const TOOLTIP_SORT_DIRECTION_OPTIONS = [
+        {
+            value: 'desc',
+            label: t(
+                'components_visualization_configs_chart.series.tooltip_sort_by_value_options.desc',
+            ),
+        },
+        {
+            value: 'asc',
+            label: t(
+                'components_visualization_configs_chart.series.tooltip_sort_by_value_options.asc',
+            ),
+        },
+    ];
+
     const chartType =
         seriesGroup[0].type === CartesianSeriesType.LINE &&
         !!seriesGroup[0].areaStyle
@@ -347,6 +366,53 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                                 }}
                             />
                         </Group>
+                    )}
+                    {seriesGroup.length > 1 && (
+                        <Stack spacing="xs" mt="xs">
+                            <Group spacing="xs">
+                                <Checkbox
+                                    checked={
+                                        isTooltipSortByValueTheSameForAllSeries
+                                            ? Boolean(
+                                                  seriesGroup[0].tooltipSortByValue,
+                                              )
+                                            : false
+                                    }
+                                    indeterminate={
+                                        !isTooltipSortByValueTheSameForAllSeries
+                                    }
+                                    label={t(
+                                        'components_visualization_configs_chart.series.tooltip_sort_by_value',
+                                    )}
+                                    onChange={() => {
+                                        const currentValue =
+                                            seriesGroup[0].tooltipSortByValue;
+                                        updateAllGroupedSeries(fieldKey, {
+                                            tooltipSortByValue: currentValue
+                                                ? undefined
+                                                : 'desc', // 默认降序
+                                        });
+                                    }}
+                                />
+                            </Group>
+                            {isTooltipSortByValueTheSameForAllSeries &&
+                                seriesGroup[0].tooltipSortByValue && (
+                                    <Select
+                                        label={t(
+                                            'components_visualization_configs_chart.series.tooltip_sort_direction',
+                                        )}
+                                        value={seriesGroup[0].tooltipSortByValue}
+                                        data={TOOLTIP_SORT_DIRECTION_OPTIONS}
+                                        onChange={(value) => {
+                                            updateAllGroupedSeries(fieldKey, {
+                                                tooltipSortByValue: value as
+                                                    | 'asc'
+                                                    | 'desc',
+                                            });
+                                        }}
+                                    />
+                                )}
+                        </Stack>
                     )}
                 </Stack>
                 <Box

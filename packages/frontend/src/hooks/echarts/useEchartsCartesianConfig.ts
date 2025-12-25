@@ -44,6 +44,7 @@ import {
     type TooltipParam,
 } from '@lightdash/common';
 import { useMantineTheme } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import dayjs from 'dayjs';
 import DOMPurify from 'dompurify';
 import {
@@ -332,6 +333,10 @@ export type EChartSeries = {
     data?: unknown[];
     showSymbol?: boolean;
     symbolSize?: number;
+    // 柱状图宽度配置
+    barWidth?: number | string;
+    barGap?: string;
+    barCategoryGap?: string;
 };
 
 const convertPivotValuesColumnsIntoMap = (
@@ -626,6 +631,12 @@ const getMinAndMaxReferenceLines = (
             maxReferenceLineRightY > maxValueRightY
                 ? maxReferenceLineRightY
                 : undefined,
+
+        // 返回实际数据范围，用于零轴对齐
+        dataMinLeftY: minValueLeftY,
+        dataMaxLeftY: maxValueLeftY,
+        dataMinRightY: minValueRightY,
+        dataMaxRightY: maxValueRightY,
     };
 };
 type GetPivotSeriesArg = {
@@ -1040,12 +1051,14 @@ const getEchartAxes = ({
     series,
     resultsData,
     minsAndMaxes,
+    isMobile = false,
 }: {
     validCartesianConfig: CartesianChart;
     itemsMap: ItemsMap;
     series: EChartSeries[];
     resultsData: InfiniteQueryResults | undefined;
     minsAndMaxes: ReturnType<typeof getResultValueArray>['minsAndMaxes'];
+    isMobile?: boolean;
 }) => {
     const xAxisItemId = validCartesianConfig.layout.flipAxes
         ? validCartesianConfig.layout?.yField?.[0]
@@ -1184,6 +1197,8 @@ const getEchartAxes = ({
         referenceLineMaxLeftY,
         referenceLineMinRightY,
         referenceLineMaxRightY,
+        dataMinLeftY,
+        dataMinRightY,
     } = getMinAndMaxReferenceLines(
         leftAxisYFieldIds,
         rightAxisYFieldIds,
@@ -1328,6 +1343,78 @@ const getEchartAxes = ({
                 : bottomAxisBounds.max
             : undefined;
 
+    // 零轴对齐：如果双轴图表中一个轴有负数，另一个没有，需要对齐零轴
+    // 检查所有使用左轴和右轴的系列，获取它们的最小值
+    const getAxisDataMin = (
+        axisFieldIds: string[] | undefined,
+        fallbackValue: string | number | undefined,
+    ): number | undefined => {
+        if (!axisFieldIds || axisFieldIds.length === 0) return undefined;
+
+        // 优先使用 minsAndMaxes 获取更准确的数据范围
+        // 检查所有使用该轴的字段，取最小值
+        let minValue: number | undefined = undefined;
+        for (const fieldId of axisFieldIds) {
+            if (minsAndMaxes?.[fieldId]) {
+                const fieldMin = minsAndMaxes[fieldId].min;
+                if (minValue === undefined || fieldMin < minValue) {
+                    minValue = fieldMin;
+                }
+            }
+        }
+
+        // 如果没有从 minsAndMaxes 获取到值，使用 fallback 值
+        if (minValue === undefined && fallbackValue !== undefined) {
+            const numericValue =
+                typeof fallbackValue === 'number'
+                    ? fallbackValue
+                    : parseFloat(String(fallbackValue));
+            if (!isNaN(numericValue)) {
+                minValue = numericValue;
+            }
+        }
+
+        return minValue;
+    };
+
+    const leftAxisDataMin = getAxisDataMin(leftAxisYFieldIds, dataMinLeftY);
+    const rightAxisDataMin = getAxisDataMin(rightAxisYFieldIds, dataMinRightY);
+
+    const shouldAlignZeroAxis =
+        leftAxisType === 'value' &&
+        rightAxisType === 'value' &&
+        rightAxisYFieldIds &&
+        rightAxisYFieldIds.length > 0 &&
+        leftAxisDataMin !== undefined &&
+        rightAxisDataMin !== undefined;
+
+    // 检测左轴和右轴是否有负数（只要任一轴存在负数，就需要考虑对齐）
+    const leftAxisHasNegative = shouldAlignZeroAxis && leftAxisDataMin < 0;
+    const rightAxisHasNegative = shouldAlignZeroAxis && rightAxisDataMin < 0;
+
+    const hasAnyNegative =
+        shouldAlignZeroAxis && (leftAxisHasNegative || rightAxisHasNegative);
+
+    // 零轴对齐：只要一个轴存在负数，另外一个轴也按统一的最小值作为起点
+    // 对齐方式：取两个轴的最小值中更小的那个，作为两个轴共同的 min 值
+    // 但只有在用户没有手动设置各自的 min 值时才自动调整
+    const alignedMinValue =
+        hasAnyNegative &&
+        leftAxisDataMin !== undefined &&
+        rightAxisDataMin !== undefined
+            ? Math.min(leftAxisDataMin, rightAxisDataMin)
+            : undefined;
+
+    const shouldUseAlignedMinForLeftAxis =
+        hasAnyNegative &&
+        alignedMinValue !== undefined &&
+        yAxisConfiguration?.[0]?.min === undefined;
+
+    const shouldUseAlignedMinForRightAxis =
+        hasAnyNegative &&
+        alignedMinValue !== undefined &&
+        yAxisConfiguration?.[1]?.min === undefined;
+
     const maxYAxisValue =
         leftAxisType === 'value'
             ? shouldStack100 && !validCartesianConfig.layout.flipAxes
@@ -1339,9 +1426,11 @@ const getEchartAxes = ({
 
     const minYAxisValue =
         leftAxisType === 'value'
-            ? yAxisConfiguration?.[0]?.min ||
-              referenceLineMinLeftY ||
-              maybeGetAxisDefaultMinValue(allowFirstAxisDefaultRange)
+            ? shouldUseAlignedMinForLeftAxis
+                ? String(alignedMinValue) // 使用对齐后的 min 值，以对齐零轴
+                : yAxisConfiguration?.[0]?.min ||
+                  referenceLineMinLeftY ||
+                  maybeGetAxisDefaultMinValue(allowFirstAxisDefaultRange)
             : undefined;
 
     return {
@@ -1477,11 +1566,49 @@ const getEchartAxes = ({
                     : {}),
                 min: minYAxisValue,
                 max: maxYAxisValue,
-                ...getAxisFormatterConfig({
-                    axisItem: leftAxisYField,
-                    defaultNameGap: leftYaxisGap + defaultAxisLabelGap,
-                    show: showYAxis,
-                }),
+                ...(() => {
+                    const baseConfig = getAxisFormatterConfig({
+                        axisItem: leftAxisYField,
+                        defaultNameGap: isMobile
+                            ? Math.max(
+                                  20,
+                                  (leftYaxisGap + defaultAxisLabelGap) * 0.7,
+                              ) // 移动端减少 30% 的 nameGap
+                            : leftYaxisGap + defaultAxisLabelGap,
+                        show: showYAxis,
+                    });
+
+                    // 移动端优化：减小 Y 轴标题和标签字体大小
+                    if (isMobile && showYAxis) {
+                        return {
+                            ...baseConfig,
+                            nameTextStyle: baseConfig.nameTextStyle
+                                ? {
+                                      ...baseConfig.nameTextStyle,
+                                      fontSize: 11, // 移动端减小标题字体
+                                  }
+                                : {
+                                      fontSize: 11,
+                                      fontWeight: 'bold',
+                                      align: 'center',
+                                  },
+                            nameGap: Math.max(
+                                15,
+                                (leftYaxisGap + defaultAxisLabelGap) * 0.6,
+                            ),
+                            axisLabel: baseConfig.axisLabel
+                                ? {
+                                      ...baseConfig.axisLabel,
+                                      fontSize: 10, // 移动端减小标签字体
+                                  }
+                                : {
+                                      fontSize: 10,
+                                  },
+                        };
+                    }
+
+                    return baseConfig;
+                })(),
                 // Override formatter for 100% stacking without flipped axes
                 ...(shouldStack100 &&
                     !validCartesianConfig.layout.flipAxes &&
@@ -1524,11 +1651,13 @@ const getEchartAxes = ({
                     : {}),
                 min:
                     rightAxisType === 'value'
-                        ? yAxisConfiguration?.[1]?.min ||
-                          referenceLineMinRightY ||
-                          maybeGetAxisDefaultMinValue(
-                              allowSecondAxisDefaultRange,
-                          )
+                        ? shouldUseAlignedMinForRightAxis
+                            ? String(alignedMinValue) // 使用对齐后的 min 值，以对齐零轴
+                            : yAxisConfiguration?.[1]?.min ||
+                              referenceLineMinRightY ||
+                              maybeGetAxisDefaultMinValue(
+                                  allowSecondAxisDefaultRange,
+                              )
                         : undefined,
                 max:
                     rightAxisType === 'value'
@@ -1687,6 +1816,7 @@ const useEchartsCartesianConfig = (
     } = useVisualizationContext();
 
     const theme = useMantineTheme();
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const validCartesianConfig = useMemo(() => {
         if (!isCartesianVisualizationConfig(visualizationConfig)) return;
@@ -1791,6 +1921,7 @@ const useEchartsCartesianConfig = (
             validCartesianConfig,
             resultsData,
             minsAndMaxes: resultsAndMinsAndMaxes.minsAndMaxes,
+            isMobile,
         });
     }, [
         itemsMap,
@@ -1798,23 +1929,145 @@ const useEchartsCartesianConfig = (
         series,
         resultsData,
         resultsAndMinsAndMaxes.minsAndMaxes,
+        isMobile,
     ]);
+
+    // 计算数据点数量，用于调整柱状图宽度
+    const dataPointCount = useMemo(() => {
+        return rows.length;
+    }, [rows]);
+
+    // 计算柱状图宽度配置
+    const barWidthConfig = useMemo(() => {
+        const hasBarSeries = series.some(
+            (s) => s.type === CartesianSeriesType.BAR,
+        );
+        if (!hasBarSeries) return null;
+
+        // 当数据点少且是移动端时，减小柱状图宽度，增加类别间距
+        const shouldAdjustForMobile =
+            isMobile && dataPointCount > 0 && dataPointCount <= 5;
+
+        if (shouldAdjustForMobile) {
+            // 移动端且数据点少时，使用适中的柱状图宽度和较大的间距
+            // barWidth: 柱状图宽度，可以是像素值或百分比字符串
+            // barCategoryGap: 同一类目内不同系列的间距，百分比字符串
+            // barGap: 不同类目之间的间距，百分比字符串
+            // 根据数据点数量动态调整宽度：数据点越少，柱状图越宽（但不超过合理范围）
+            const calculatedWidth = Math.max(
+                25, // 最小宽度从 15% 增加到 25%
+                Math.min(50, (100 / dataPointCount) * 0.5), // 最大宽度从 35% 增加到 50%，系数从 0.3 增加到 0.5
+            );
+            return {
+                barWidth: `${calculatedWidth}%`, // 使用百分比，更灵活
+                barCategoryGap: '20%', // 类别内间距从 30% 减少到 20%
+                barGap: '15%', // 类别间间距从 20% 减少到 15%
+            };
+        }
+
+        // 默认情况下，ECharts 会自动计算，返回 null 表示不设置
+        return null;
+    }, [isMobile, dataPointCount, series]);
 
     const stackedSeriesWithColorAssignments = useMemo(() => {
         if (!itemsMap) return;
 
         const seriesWithValidStack = series.map<EChartSeries>((serie) => {
-            return {
+            const baseConfig = {
                 ...serie,
                 color: getSeriesColor(serie),
                 stack: getValidStack(serie),
             };
+
+            // 如果是柱状图，添加宽度配置
+            if (serie.type === CartesianSeriesType.BAR && barWidthConfig) {
+                return {
+                    ...baseConfig,
+                    ...barWidthConfig,
+                };
+            }
+
+            return baseConfig;
         });
+
+        // Check if value sorting is enabled for stacked bar charts
+        const sortDirection = (() => {
+            const seriesConfig = validCartesianConfig?.eChartsConfig.series;
+            if (!seriesConfig) return undefined;
+            for (const s of seriesConfig) {
+                const sortValue = s.tooltipSortByValue as
+                    | 'asc'
+                    | 'desc'
+                    | undefined;
+                if (sortValue === 'asc' || sortValue === 'desc') {
+                    return sortValue;
+                }
+            }
+            return undefined;
+        })();
+
+        // If value sorting is enabled and we have stacked bar charts, sort series by total value
+        let sortedSeries = seriesWithValidStack;
+        if (sortDirection && rows.length > 0) {
+            // Group series by stack to only sort within the same stack
+            const seriesByStack = new Map<string, EChartSeries[]>();
+            const seriesWithoutStack: EChartSeries[] = [];
+
+            seriesWithValidStack.forEach((serie) => {
+                if (serie.stack && serie.type === CartesianSeriesType.BAR) {
+                    if (!seriesByStack.has(serie.stack)) {
+                        seriesByStack.set(serie.stack, []);
+                    }
+                    seriesByStack.get(serie.stack)!.push(serie);
+                } else {
+                    seriesWithoutStack.push(serie);
+                }
+            });
+
+            // Sort series within each stack by total value
+            const sortedStacks: EChartSeries[] = [];
+            seriesByStack.forEach((stackSeries) => {
+                // Calculate total value for each series in this stack
+                const seriesWithTotals = stackSeries.map((serie) => {
+                    let total = 0;
+                    const yFieldHash = validCartesianConfig?.layout.flipAxes
+                        ? serie.encode?.x
+                        : serie.encode?.y;
+
+                    if (yFieldHash) {
+                        rows.forEach((row) => {
+                            const value = row[yFieldHash]?.value?.raw;
+                            const numValue = toNumber(value);
+                            if (!isNaN(numValue)) {
+                                total += numValue;
+                            }
+                        });
+                    }
+
+                    return { serie, total };
+                });
+
+                // Sort by total value
+                seriesWithTotals.sort((a, b) => {
+                    return sortDirection === 'desc'
+                        ? b.total - a.total
+                        : a.total - b.total;
+                });
+
+                sortedStacks.push(
+                    ...seriesWithTotals.map((item) => item.serie),
+                );
+            });
+
+            // Combine sorted stacks with non-stacked series
+            sortedSeries = [...sortedStacks, ...seriesWithoutStack];
+        }
+
         return [
-            ...seriesWithValidStack,
+            ...sortedSeries,
             ...getStackTotalSeries(
                 rows,
-                seriesWithValidStack,
+                sortedSeries,
                 itemsMap,
                 validCartesianConfig?.layout.flipAxes,
                 validCartesianConfigLegend,
@@ -1825,8 +2078,10 @@ const useEchartsCartesianConfig = (
         rows,
         itemsMap,
         validCartesianConfig?.layout.flipAxes,
+        validCartesianConfig?.eChartsConfig.series,
         validCartesianConfigLegend,
         getSeriesColor,
+        barWidthConfig,
     ]);
     const sortedResults = useMemo(() => {
         const results =
@@ -2094,15 +2349,113 @@ const useEchartsCartesianConfig = (
                 }
 
                 const flipAxes = validCartesianConfig?.layout.flipAxes;
-                const getTooltipHeader = () => {
-                    if (flipAxes && !('axisDim' in params[0])) {
-                        // When flipping axes, the axisValueLabel is the value, not the serie name
-                        return params[0].seriesName;
+
+                // Check if any series has tooltipSortByValue enabled and get the sort direction
+                const sortDirection = (() => {
+                    const sortSeries =
+                        validCartesianConfig?.eChartsConfig.series;
+                    if (!sortSeries) return undefined;
+                    for (const s of sortSeries) {
+                        const sortValue = s.tooltipSortByValue as
+                            | 'asc'
+                            | 'desc'
+                            | undefined;
+                        if (sortValue === 'asc' || sortValue === 'desc') {
+                            return sortValue;
+                        }
                     }
-                    return params[0].axisValueLabel;
+                    return undefined;
+                })();
+
+                // Sort params by value if tooltipSortByValue is enabled
+                let sortedParams = params;
+                if (sortDirection && Array.isArray(params)) {
+                    sortedParams = [...params].sort((a, b) => {
+                        const {
+                            dimensionNames: dimensionNamesA,
+                            encode: encodeA,
+                            value: valueA,
+                        } = a;
+                        const {
+                            dimensionNames: dimensionNamesB,
+                            encode: encodeB,
+                            value: valueB,
+                        } = b;
+
+                        if (
+                            !dimensionNamesA ||
+                            !dimensionNamesB ||
+                            !encodeA ||
+                            !encodeB
+                        ) {
+                            return 0;
+                        }
+
+                        // Get the dimension name (field hash) for y value
+                        let dimA = '';
+                        let dimB = '';
+                        if (flipAxes) {
+                            dimA = dimensionNamesA[1] || '';
+                            dimB = dimensionNamesB[1] || '';
+                        } else {
+                            const yIndexA = Array.isArray(encodeA.y)
+                                ? encodeA.y[0]
+                                : encodeA.y;
+                            const yIndexB = Array.isArray(encodeB.y)
+                                ? encodeB.y[0]
+                                : encodeB.y;
+                            dimA =
+                                typeof yIndexA === 'number'
+                                    ? dimensionNamesA[yIndexA] || ''
+                                    : '';
+                            dimB =
+                                typeof yIndexB === 'number'
+                                    ? dimensionNamesB[yIndexB] || ''
+                                    : '';
+                        }
+
+                        // Get the actual values
+                        const valA =
+                            valueA &&
+                            typeof valueA === 'object' &&
+                            !Array.isArray(valueA) &&
+                            dimA in valueA
+                                ? (valueA as Record<string, unknown>)[dimA]
+                                : null;
+                        const valB =
+                            valueB &&
+                            typeof valueB === 'object' &&
+                            !Array.isArray(valueB) &&
+                            dimB in valueB
+                                ? (valueB as Record<string, unknown>)[dimB]
+                                : null;
+
+                        // Convert to numbers for comparison
+                        const numA =
+                            valA !== null && valA !== undefined
+                                ? toNumber(valA)
+                                : -Infinity;
+                        const numB =
+                            valB !== null && valB !== undefined
+                                ? toNumber(valB)
+                                : -Infinity;
+
+                        // Sort based on direction: 'desc' (largest first) or 'asc' (smallest first)
+                        return sortDirection === 'desc'
+                            ? numB - numA
+                            : numA - numB;
+                    });
+                }
+
+                const getTooltipHeader = () => {
+                    if (flipAxes && !('axisDim' in sortedParams[0])) {
+                        // When flipping axes, the axisValueLabel is the value, not the serie name
+                        return sortedParams[0].seriesName;
+                    }
+                    return sortedParams[0].axisValueLabel;
                 };
                 // When flipping axes, we get all series in the chart
-                const tooltipRows = params
+                const tooltipRows = sortedParams
                     .map((param) => {
                         const {
                             marker,
@@ -2157,7 +2510,7 @@ const useEchartsCartesianConfig = (
                 if (tooltipHtml) {
                     // Sanitize HTML code to avoid XSS
                     tooltipHtml = DOMPurify.sanitize(tooltipHtml);
-                    const firstValue = params[0].value as Record<
+                    const firstValue = sortedParams[0].value as Record<
                         string,
                         unknown
                     >;
@@ -2183,7 +2536,7 @@ const useEchartsCartesianConfig = (
                     });
                 }
 
-                const dimensionId = params[0].dimensionNames?.[0];
+                const dimensionId = sortedParams[0].dimensionNames?.[0];
                 if (dimensionId !== undefined) {
                     const field = itemsMap[dimensionId];
                     if (isTableCalculation(field)) {
@@ -2219,6 +2572,7 @@ const useEchartsCartesianConfig = (
             validCartesianConfig?.layout.flipAxes,
             validCartesianConfig?.layout?.stack,
             validCartesianConfig?.layout?.xField,
+            validCartesianConfig?.eChartsConfig.series,
             tooltipConfig,
             pivotValuesColumnsMap,
             originalValues,
@@ -2234,14 +2588,22 @@ const useEchartsCartesianConfig = (
         const gridLeft = grid.left;
         const gridRight = grid.right;
 
+        // 移动端优化：减小左侧边距，为图表留出更多空间
+        const axisLabelGap = isMobile
+            ? Math.max(10, defaultAxisLabelGap * 0.6) // 移动端减少 40% 的间距
+            : defaultAxisLabelGap;
+
+        // 移动端优化：减小默认左侧边距
+        const baseLeftPadding = isMobile
+            ? 15
+            : parseInt(gridLeft.replace('px', '')) || 25;
+
         // Adds extra gap to grid to make room for axis labels -> there is an open ticket in echarts to fix this: https://github.com/apache/echarts/issues/9265
         // Only works for px values, percentage values are not supported because it cannot use calc()
         return {
             ...grid,
             left: gridLeft.includes('px')
-                ? `${
-                      parseInt(gridLeft.replace('px', '')) + defaultAxisLabelGap
-                  }px`
+                ? `${baseLeftPadding + axisLabelGap}px`
                 : grid.left,
             right: gridRight.includes('px')
                 ? `${
@@ -2250,7 +2612,7 @@ const useEchartsCartesianConfig = (
                   }px`
                 : grid.right,
         };
-    }, [validCartesianConfig?.eChartsConfig.grid]);
+    }, [validCartesianConfig?.eChartsConfig.grid, isMobile]);
 
     const { tooltip: legendDoubleClickTooltip } = useLegendDoubleClickTooltip();
 

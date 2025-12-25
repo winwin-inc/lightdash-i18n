@@ -8,6 +8,7 @@ import {
     type ResultValue,
 } from '@lightdash/common';
 import { useMantineTheme } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { type EChartsOption, type PieSeriesOption } from 'echarts';
 import { useMemo } from 'react';
 import { isPieVisualizationConfig } from '../../components/LightdashVisualization/types';
@@ -36,6 +37,7 @@ const useEchartsPieConfig = (
         useVisualizationContext();
 
     const theme = useMantineTheme();
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const chartConfig = useMemo(() => {
         if (!isPieVisualizationConfig(visualizationConfig)) return;
@@ -101,6 +103,9 @@ const useEchartsPieConfig = (
                     groupColorOverrides?.[name] ??
                     getGroupColor(groupPrefix, name);
 
+                const isOutsideLabel = valueLabel === 'outside';
+                const isMobileOutsideLabel = isMobile && isOutsideLabel;
+
                 const config: PieSeriesDataPoint = {
                     id: name,
                     groupId: name,
@@ -111,8 +116,15 @@ const useEchartsPieConfig = (
                     },
                     label: {
                         show: valueLabel !== 'hidden',
-                        position:
-                            valueLabel === 'outside' ? 'outside' : 'inside',
+                        position: isOutsideLabel ? 'outside' : 'inside',
+                        // 移动端外侧标签优化：设置宽度和字体大小，防止文本截断
+                        ...(isMobileOutsideLabel
+                            ? {
+                                  width: 120, // 设置标签宽度为 120px，为文本留出更多空间
+                                  fontSize: 11, // 移动端使用稍小的字体
+                                  lineHeight: 14, // 设置行高，支持多行显示
+                              }
+                            : {}),
                         formatter: (params) => {
                             // In ECharts pie chart formatter:
                             // params.value is the raw numeric value we passed in
@@ -162,21 +174,102 @@ const useEchartsPieConfig = (
 
                                 formattedLabel = formattedLabel.trim();
 
+                                // 移动端外侧标签：如果自定义模板文本较长，在合适位置插入换行符
+                                if (
+                                    isMobileOutsideLabel &&
+                                    formattedLabel.length > 15
+                                ) {
+                                    // 如果包含 " - "，在 " - " 处换行
+                                    if (formattedLabel.includes(' - ')) {
+                                        formattedLabel = formattedLabel.replace(
+                                            ' - ',
+                                            '\n- ',
+                                        );
+                                    }
+                                    // 如果文本仍然很长，在中间位置换行
+                                    else if (formattedLabel.length > 20) {
+                                        const midPoint = Math.floor(
+                                            formattedLabel.length / 2,
+                                        );
+                                        // 尝试在空格处换行，如果没有空格则在中间换行
+                                        const spaceIndex =
+                                            formattedLabel.lastIndexOf(
+                                                ' ',
+                                                midPoint,
+                                            );
+                                        if (spaceIndex > 0) {
+                                            formattedLabel =
+                                                formattedLabel.slice(
+                                                    0,
+                                                    spaceIndex,
+                                                ) +
+                                                '\n' +
+                                                formattedLabel.slice(
+                                                    spaceIndex + 1,
+                                                );
+                                        } else {
+                                            formattedLabel =
+                                                formattedLabel.slice(
+                                                    0,
+                                                    midPoint,
+                                                ) +
+                                                '\n' +
+                                                formattedLabel.slice(midPoint);
+                                        }
+                                    }
+                                }
+
                                 if (formattedLabel.length > 0) {
                                     return formattedLabel;
                                 }
                             }
 
                             // Default behavior for non-custom modes
-                            return valueLabel !== 'hidden' &&
+                            let labelText =
+                                valueLabel !== 'hidden' &&
                                 showValue &&
                                 showPercentage
-                                ? `${percentValue}% - ${meta.value.formatted}`
-                                : showValue
-                                ? `${meta.value.formatted}`
-                                : showPercentage
-                                ? `${percentValue}%`
-                                : `${params.name}`;
+                                    ? `${percentValue}% - ${meta.value.formatted}`
+                                    : showValue
+                                    ? `${meta.value.formatted}`
+                                    : showPercentage
+                                    ? `${percentValue}%`
+                                    : `${params.name}`;
+
+                            // 移动端外侧标签：如果文本较长，在合适位置插入换行符
+                            if (isMobileOutsideLabel && labelText.length > 15) {
+                                // 如果包含 " - "，在 " - " 处换行
+                                if (labelText.includes(' - ')) {
+                                    labelText = labelText.replace(
+                                        ' - ',
+                                        '\n- ',
+                                    );
+                                }
+                                // 如果文本仍然很长，在中间位置换行
+                                else if (labelText.length > 20) {
+                                    const midPoint = Math.floor(
+                                        labelText.length / 2,
+                                    );
+                                    // 尝试在空格处换行，如果没有空格则在中间换行
+                                    const spaceIndex = labelText.lastIndexOf(
+                                        ' ',
+                                        midPoint,
+                                    );
+                                    if (spaceIndex > 0) {
+                                        labelText =
+                                            labelText.slice(0, spaceIndex) +
+                                            '\n' +
+                                            labelText.slice(spaceIndex + 1);
+                                    } else {
+                                        labelText =
+                                            labelText.slice(0, midPoint) +
+                                            '\n' +
+                                            labelText.slice(midPoint);
+                                    }
+                                }
+                            }
+
+                            return labelText;
                         },
                     },
                     meta,
@@ -184,7 +277,7 @@ const useEchartsPieConfig = (
 
                 return config;
             });
-    }, [chartConfig, getGroupColor]);
+    }, [chartConfig, getGroupColor, isMobile]);
 
     const pieSeriesOption: PieSeriesOption | undefined = useMemo(() => {
         if (!chartConfig) return;
@@ -201,20 +294,53 @@ const useEchartsPieConfig = (
             selectedMetric,
         } = chartConfig;
 
+        // 检测是否有外侧标签
+        const hasOutsideLabels = seriesData?.some(
+            (item) =>
+                typeof item === 'object' &&
+                item !== null &&
+                'label' in item &&
+                typeof item.label === 'object' &&
+                item.label !== null &&
+                'position' in item.label &&
+                item.label.position === 'outside',
+        );
+
+        // 移动端优化：如果有外侧标签，减小半径并调整中心位置
+        const isMobileWithOutsideLabels = isMobile && hasOutsideLabels;
+
+        // 移动端外侧标签时，减小半径以留出标签空间
+        const radius = isMobileWithOutsideLabels
+            ? isDonut
+                ? ['20%', '50%']
+                : '50%'
+            : isDonut
+            ? ['30%', '70%']
+            : '70%';
+
+        // 移动端外侧标签时，调整中心位置以留出标签空间
+        let center: [string, string];
+        if (isMobileWithOutsideLabels) {
+            // 移动端外侧标签：居中但稍微上移，为下方标签留出空间
+            center = ['50%', '45%'];
+        } else if (legendPosition === 'horizontal') {
+            center =
+                showLegend &&
+                valueLabelDefault === 'outside' &&
+                (showValueDefault || showPercentageDefault)
+                    ? ['50%', '55%']
+                    : showLegend
+                    ? ['50%', '52%']
+                    : ['50%', '50%'];
+        } else {
+            center = ['50%', '50%'];
+        }
+
         return {
             type: 'pie',
             data: seriesData,
-            radius: isDonut ? ['30%', '70%'] : '70%',
-            center:
-                legendPosition === 'horizontal'
-                    ? showLegend &&
-                      valueLabelDefault === 'outside' &&
-                      (showValueDefault || showPercentageDefault)
-                        ? ['50%', '55%']
-                        : showLegend
-                        ? ['50%', '52%']
-                        : ['50%', '50%']
-                    : ['50%', '50%'],
+            radius,
+            center,
             tooltip: {
                 trigger: 'item',
                 formatter: ({ marker, name, value, percent }) => {
@@ -235,7 +361,7 @@ const useEchartsPieConfig = (
                 },
             },
         };
-    }, [chartConfig, seriesData]);
+    }, [chartConfig, seriesData, isMobile]);
 
     const { tooltip: legendDoubleClickTooltip } = useLegendDoubleClickTooltip();
 

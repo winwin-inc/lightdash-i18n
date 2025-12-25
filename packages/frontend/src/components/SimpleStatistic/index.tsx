@@ -179,6 +179,7 @@ const SimpleStatistic: FC<SimpleStatisticsProps> = ({
         comparisonLabel,
         comparisonValue,
         comparisonDiff,
+        layoutDirection,
     } = visualizationConfig.chartConfig;
 
     const validData = bigNumber && resultsData?.rows.length;
@@ -188,6 +189,8 @@ const SimpleStatistic: FC<SimpleStatisticsProps> = ({
     const shouldHideContextMenu =
         (minimal && !embedToken) ||
         (embedToken && ability.cannot('view', 'UnderlyingData'));
+
+    const isReverse = layoutDirection === 'column-reverse';
 
     return validData ? (
         <Center
@@ -201,6 +204,14 @@ const SimpleStatistic: FC<SimpleStatisticsProps> = ({
             }}
             {...wrapperProps}
         >
+            {isReverse && showBigNumberLabel ? (
+                <Flex style={{ flexShrink: 1 }}>
+                    <BigNumberText fz={labelFontSize}>
+                        {bigNumberLabel || defaultLabel}
+                    </BigNumberText>
+                </Flex>
+            ) : null}
+
             <Flex style={{ flexShrink: 1 }}>
                 {shouldHideContextMenu ? (
                     <BigNumberText fz={valueFontSize}>
@@ -218,7 +229,7 @@ const SimpleStatistic: FC<SimpleStatisticsProps> = ({
                 )}
             </Flex>
 
-            {showBigNumberLabel ? (
+            {!isReverse && showBigNumberLabel ? (
                 <Flex style={{ flexShrink: 1 }}>
                     <BigNumberText fz={labelFontSize}>
                         {bigNumberLabel || defaultLabel}

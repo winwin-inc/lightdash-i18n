@@ -1,9 +1,9 @@
-import { useDisclosure } from '@mantine/hooks';
+import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { IconChartPieOff } from '@tabler/icons-react';
 import { type ECElementEvent } from 'echarts';
 import EChartsReact from 'echarts-for-react';
 import { type EChartsReactProps, type Opts } from 'echarts-for-react/lib/types';
-import { memo, useCallback, useEffect, useState, type FC } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import useEchartsPieConfig, {
@@ -106,6 +106,26 @@ const SimplePieChart: FC<SimplePieChartProps> = memo((props) => {
         close();
     }, [close]);
 
+    // 移动端优化：检测是否有外侧标签，如果有则允许标签超出容器显示
+    const hasOutsideLabels = useMemo(() => {
+        if (!pieChartOptions?.pieSeriesOption?.data) return false;
+        // 检查饼图数据项中是否有外侧标签
+        const seriesData = pieChartOptions.pieSeriesOption.data;
+        return seriesData.some(
+            (item) =>
+                typeof item === 'object' &&
+                item !== null &&
+                'label' in item &&
+                typeof item.label === 'object' &&
+                item.label !== null &&
+                'position' in item.label &&
+                item.label.position === 'outside',
+        );
+    }, [pieChartOptions]);
+
+    const isMobile = useMediaQuery('(max-width: 768px)');
+    const shouldAllowOverflow = isMobile && hasOutsideLabels;
+
     if (isLoading) return <LoadingChart />;
     if (!pieChartOptions) return <EmptyChart />;
 
@@ -115,8 +135,8 @@ const SimplePieChart: FC<SimplePieChartProps> = memo((props) => {
                 ref={chartRef}
                 data-testid={props['data-testid']}
                 className={props.className}
-                style={
-                    props.$shouldExpand
+                style={{
+                    ...(props.$shouldExpand
                         ? {
                               minHeight: 'inherit',
                               height: '100%',
@@ -126,8 +146,15 @@ const SimplePieChart: FC<SimplePieChartProps> = memo((props) => {
                               minHeight: 'inherit',
                               // height defaults to 300px
                               width: '100%',
+                          }),
+                    // 移动端外侧标签：允许标签超出容器显示
+                    ...(shouldAllowOverflow
+                        ? {
+                              overflow: 'visible',
+                              position: 'relative',
                           }
-                }
+                        : {}),
+                }}
                 opts={EchartOptions}
                 option={pieChartOptions.eChartsOption}
                 notMerge

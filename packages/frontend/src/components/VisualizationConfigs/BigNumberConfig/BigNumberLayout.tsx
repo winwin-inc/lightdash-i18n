@@ -30,6 +30,8 @@ export const Layout: FC = () => {
         getField,
         showBigNumberLabel,
         setShowBigNumberLabel,
+        layoutDirection,
+        setLayoutDirection,
     } = visualizationConfig.chartConfig;
 
     const selectedField = getField(selectedFieldId);
@@ -117,6 +119,34 @@ export const Layout: FC = () => {
                         )}
                     </Grid.Col>
                 </Grid>
+
+                <Select
+                    label={t(
+                        'components_visualization_configs_big_number.layout.direction',
+                    )}
+                    value={layoutDirection ?? 'column'}
+                    data={[
+                        {
+                            value: 'column',
+                            label: t(
+                                'components_visualization_configs_big_number.layout.direction_options.column',
+                            ),
+                        },
+                        {
+                            value: 'column-reverse',
+                            label: t(
+                                'components_visualization_configs_big_number.layout.direction_options.column_reverse',
+                            ),
+                        },
+                    ]}
+                    onChange={(value) => {
+                        if (value) {
+                            setLayoutDirection(
+                                value as 'column' | 'column-reverse',
+                            );
+                        }
+                    }}
+                />
             </Config.Section>
         </Config>
     );
