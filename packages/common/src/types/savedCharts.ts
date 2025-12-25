@@ -57,6 +57,7 @@ export type BigNumber = {
     comparisonFormat?: ComparisonFormatTypes;
     flipColors?: boolean;
     comparisonLabel?: string;
+    layoutDirection?: 'column' | 'column-reverse';
 };
 
 export const PieChartValueLabels = {

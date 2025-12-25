@@ -25,7 +25,7 @@ const VisualizationBigNumberConfig: FC<VisualizationBigNumberConfigProps> = ({
             type: ChartType.BIG_NUMBER,
             config: bigNumberConfig.validConfig,
         });
-    }, [bigNumberConfig, onChartConfigChange]);
+    }, [bigNumberConfig.validConfig, onChartConfigChange]);
 
     return children({
         visualizationConfig: {

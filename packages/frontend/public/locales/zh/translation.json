@@ -4758,6 +4758,17 @@
         "invalid_hex": "无效的 {{color}} 颜色"
     },
     "components_visualization_configs_big_number": {
+        "layout": {
+            "field": "字段",
+            "select_field": "选择字段",
+            "label": "标签",
+            "format": "格式",
+            "direction": "布局方向",
+            "direction_options": {
+                "column": "正向",
+                "column_reverse": "反向"
+            }
+        },
         "comparison": {
             "value": "value",
             "compare_to_previous_row": "与上一行比较",
@@ -4770,12 +4781,6 @@
         "tabs": {
             "layout": "布局",
             "comparison": "比较"
-        },
-        "layout": {
-            "field": "字段",
-            "select_field": "选择字段",
-            "label": "标签",
-            "format": "格式"
         },
         "configure": "配置"
     },

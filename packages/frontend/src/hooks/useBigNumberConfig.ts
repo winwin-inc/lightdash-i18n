@@ -217,6 +217,9 @@ const useBigNumberConfig = (
     const [comparisonLabel, setComparisonLabel] = useState<
         BigNumber['comparisonLabel']
     >(bigNumberConfigData?.comparisonLabel);
+    const [layoutDirection, setLayoutDirection] = useState<
+        BigNumber['layoutDirection']
+    >(bigNumberConfigData?.layoutDirection ?? 'column');
 
     useEffect(() => {
         if (bigNumberConfigData?.selectedField !== undefined)
@@ -234,6 +237,9 @@ const useBigNumberConfig = (
         );
         setFlipColors(bigNumberConfigData?.flipColors ?? false);
         setComparisonLabel(bigNumberConfigData?.comparisonLabel);
+        setLayoutDirection(
+            bigNumberConfigData?.layoutDirection ?? 'column',
+        );
     }, [bigNumberConfigData]);
 
     // big number value (first row)
@@ -377,6 +383,7 @@ const useBigNumberConfig = (
             comparisonFormat,
             flipColors,
             comparisonLabel,
+            layoutDirection,
         };
     }, [
         bigNumberLabel,
@@ -387,6 +394,7 @@ const useBigNumberConfig = (
         comparisonFormat,
         flipColors,
         comparisonLabel,
+        layoutDirection,
     ]);
 
     return {
@@ -416,6 +424,8 @@ const useBigNumberConfig = (
         comparisonTooltip,
         comparisonLabel,
         setComparisonLabel,
+        layoutDirection,
+        setLayoutDirection,
     };
 };
 
