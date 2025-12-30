@@ -41,7 +41,10 @@ import { useAiAgentButtonVisibility } from './ee/features/aiCopilot/hooks/useAiA
 import { useActiveProjectUuid } from './hooks/useActiveProject';
 import { useProject } from './hooks/useProject';
 import useLogoutMutation from './hooks/user/useUserLogoutMutation';
-import { useWeChatMiniProgram } from './hooks/useWeChatMiniProgram';
+import {
+    useWeChatMiniProgram,
+    useWeChatMiniProgramBackHandler,
+} from './hooks/useWeChatMiniProgram';
 import AuthPopupResult, {
     SuccessAuthPopupResult,
 } from './pages/AuthPopupResult';
@@ -104,6 +107,9 @@ const RedirectToResource: FC = () => {
 export const MobileNavBar: FC = () => {
     const { t } = useTranslation();
     const { isMiniProgram, isReady } = useWeChatMiniProgram();
+
+    // 处理微信小程序回退（在所有移动端页面生效）
+    useWeChatMiniProgramBackHandler();
 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const toggleMenu = useCallback(
