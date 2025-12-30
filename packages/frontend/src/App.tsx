@@ -3,6 +3,7 @@ import { wrapCreateBrowserRouterV7 } from '@sentry/react';
 import { useTranslation } from 'react-i18next';
 import { createBrowserRouter, Outlet, RouterProvider } from 'react-router';
 
+import MobileLayout from './components/MobileLayout';
 import VersionAutoUpdater from './components/VersionAutoUpdater/VersionAutoUpdater';
 import {
     CommercialMobileRoutes,
@@ -27,12 +28,11 @@ import './plugins/i18n';
 // Mantine v8 styles
 import '@mantine-8/core/styles.css';
 
-// const isMobile =
-//     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-//         navigator.userAgent,
-//     ) || window.innerWidth < 768;
-
-const isMobile = window.innerWidth < 768;
+const isMobile =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent,
+    ) || window.innerWidth < 768;
+// const isMobile = window.innerWidth < 768;
 
 // Sentry wrapper for createBrowserRouter
 const sentryCreateBrowserRouter =
@@ -54,7 +54,13 @@ const router = sentryCreateBrowserRouter([
                                 <AbilityProvider>
                                     <ActiveJobProvider>
                                         <ChartColorMappingContextProvider>
-                                            <Outlet />
+                                            {isMobile ? (
+                                                <MobileLayout>
+                                                    <Outlet />
+                                                </MobileLayout>
+                                            ) : (
+                                                <Outlet />
+                                            )}
                                         </ChartColorMappingContextProvider>
                                     </ActiveJobProvider>
                                 </AbilityProvider>

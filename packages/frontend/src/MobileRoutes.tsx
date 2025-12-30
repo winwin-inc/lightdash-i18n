@@ -108,9 +108,6 @@ export const MobileNavBar: FC = () => {
     const { t } = useTranslation();
     const { isMiniProgram, isReady } = useWeChatMiniProgram();
 
-    // 处理微信小程序回退（在所有移动端页面生效）
-    useWeChatMiniProgramBackHandler();
-
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const toggleMenu = useCallback(
         () => setIsMenuOpen((prevValue) => !prevValue),
