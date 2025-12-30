@@ -413,7 +413,7 @@ const PRIVATE_ROUTES: RouteObject[] = [
                 path: '/no-project-access',
                 element: (
                     <TrackPage name={PageName.NO_PROJECT_ACCESS}>
-                        <ForbiddenPanel subject="project" />
+                        <ForbiddenPanel />
                     </TrackPage>
                 ),
             },
