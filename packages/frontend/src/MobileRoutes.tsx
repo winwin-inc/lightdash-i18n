@@ -43,7 +43,6 @@ import { useProject } from './hooks/useProject';
 import useLogoutMutation from './hooks/user/useUserLogoutMutation';
 import {
     useWeChatMiniProgram,
-    useWeChatMiniProgramBackHandler,
 } from './hooks/useWeChatMiniProgram';
 import AuthPopupResult, {
     SuccessAuthPopupResult,
