@@ -8,6 +8,7 @@ import {
     S3ServiceException,
     type S3ClientConfig,
 } from '@aws-sdk/client-s3';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 import {
     getErrorMessage,
     MissingConfigError,
@@ -37,11 +38,24 @@ export class S3CacheClient {
         const { endpoint, region, accessKey, secretKey, forcePathStyle } =
             this.configuration;
 
+        // 增加请求超时时间，避免大文件下载超时
+        // 默认 30 分钟（1800000 毫秒），可通过环境变量配置
+        const requestTimeout =
+            parseInt(
+                process.env.S3_REQUEST_TIMEOUT ||
+                    process.env.RESULTS_S3_REQUEST_TIMEOUT ||
+                    '1800000',
+                10,
+            ) || 1800000; // 30 分钟
+
         const s3Config: S3ClientConfig = {
             endpoint,
             region,
             apiVersion: '2006-03-01',
             forcePathStyle,
+            requestHandler: new NodeHttpHandler({
+                requestTimeout,
+            }),
         };
 
         if (accessKey && secretKey) {

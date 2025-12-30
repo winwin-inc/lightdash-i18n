@@ -13,6 +13,7 @@ import {
     S3Error,
 } from '@lightdash/common';
 import * as Sentry from '@sentry/node';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { ReadStream } from 'fs';
 import { PassThrough, Readable } from 'stream';
 import { LightdashConfig } from '../../config/parseConfig';
@@ -32,11 +33,20 @@ export class S3Client {
         this.lightdashConfig = lightdashConfig;
 
         if (lightdashConfig.s3?.endpoint && lightdashConfig.s3.region) {
+            // 增加请求超时时间，避免大文件下载超时
+            // 默认 30 分钟（1800000 毫秒），可通过环境变量配置
+            const requestTimeout =
+                parseInt(process.env.S3_REQUEST_TIMEOUT || '1800000', 10) ||
+                1800000; // 30 分钟
+
             const s3Config: S3ClientConfig = {
                 region: lightdashConfig.s3.region,
                 apiVersion: '2006-03-01',
                 endpoint: lightdashConfig.s3.endpoint,
                 forcePathStyle: lightdashConfig.s3.forcePathStyle,
+                requestHandler: new NodeHttpHandler({
+                    requestTimeout,
+                }),
             };
 
             if (lightdashConfig.s3?.accessKey && lightdashConfig.s3.secretKey) {
