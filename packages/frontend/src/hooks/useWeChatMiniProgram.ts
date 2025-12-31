@@ -145,21 +145,15 @@ export const useWeChatMiniProgramBackHandler = () => {
         }
 
         let isNavigatingBack = false;
-        let isPageUnloading = false;
 
         /**
          * 安全地调用回退操作
          * 参考实现：先关闭 webview，然后返回小程序
          */
         const safeNavigateBack = () => {
-            // 如果已经在导航中，或者页面正在卸载，不执行
+            // 防止重复调用
             if (isNavigatingBack) {
                 log.info('Already navigating back, skipping');
-                return;
-            }
-
-            if (isPageUnloading) {
-                log.info('Page is unloading, skipping navigateBack');
                 return;
             }
 
@@ -191,25 +185,13 @@ export const useWeChatMiniProgramBackHandler = () => {
             }
         };
 
-        // 监听页面卸载事件，防止在卸载时调用 navigateBack
-        const handleBeforeUnload = () => {
-            log.info('Page beforeunload event triggered');
-            isPageUnloading = true;
-        };
-
         // 监听 popstate 事件（标准方式）
         // 参考实现：popstate 事件触发时，直接关闭 webview 并返回小程序
         // 不需要再次 pushState，因为初始化时已经 pushState 了
         const handlePopState = (event: PopStateEvent) => {
             log.info('popstate event triggered', {
                 state: event.state,
-                isPageUnloading,
             });
-
-            if (isPageUnloading) {
-                log.info('Page is unloading, ignoring popstate');
-                return;
-            }
 
             // 直接调用回退操作（关闭 webview 并返回小程序）
             safeNavigateBack();
@@ -219,20 +201,29 @@ export const useWeChatMiniProgramBackHandler = () => {
          * 初始化：使用 pushState 添加一个历史记录
          * 参考实现：pushState 必须和 popstate 配合使用
          * 这样当用户点击回退时，会先触发 popstate，而不是直接卸载页面
+         *
+         * 注意：使用 window.location.href 而不是 '#'，避免影响 URL 参数和重定向逻辑
          */
         const pushHistory = () => {
             try {
+                // 保存当前完整的 URL，包括路径、查询参数和 hash
+                // 这样不会影响其他逻辑（如重定向、URL 参数读取等）
+                const currentUrl =
+                    window.location.pathname +
+                    window.location.search +
+                    window.location.hash;
                 const state = {
-                    title: 'title',
-                    url: '#',
+                    title: document.title || 'title',
+                    url: currentUrl,
                     _wechat_intercept: true,
                 };
                 log.info('Pushing initial state for back interception', {
                     state,
+                    currentUrl,
                 });
                 // pushState：向 history 中塞入一条历史记录
-                // 执行完成后，地址栏会变成塞入的 url 但页面不会改变
-                window.history.pushState(state, state.title, state.url);
+                // 使用当前 URL，这样不会改变地址栏，也不会影响其他逻辑
+                window.history.pushState(state, state.title, currentUrl);
             } catch (error) {
                 log.warn('Failed to push initial state:', error);
             }
@@ -244,13 +235,10 @@ export const useWeChatMiniProgramBackHandler = () => {
         // 注册事件监听器
         log.info('Registering event listeners');
         window.addEventListener('popstate', handlePopState);
-        window.addEventListener('beforeunload', handleBeforeUnload);
 
         return () => {
             log.info('Cleaning up back handler');
             window.removeEventListener('popstate', handlePopState);
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-            isPageUnloading = true; // 标记页面正在卸载
         };
     }, [isMiniProgram, isReady, navigateBack]);
 };
