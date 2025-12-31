@@ -31,7 +31,6 @@ import MinimalDashboardTabs from '../components/MinimalDashboardTabs';
 import { useScheduler } from '../features/scheduler/hooks/useScheduler';
 import { useDateZoomGranularitySearch } from '../hooks/useExplorerRoute';
 import useSearchParams from '../hooks/useSearchParams';
-import { useWeChatMiniProgramBackHandler } from '../hooks/useWeChatMiniProgram';
 import DashboardProvider from '../providers/Dashboard/DashboardProvider';
 import useDashboardContext from '../providers/Dashboard/useDashboardContext';
 import '../styles/react-grid.css';
@@ -192,10 +191,16 @@ const MinimalDashboard: FC = () => {
     if (dashboardError || schedulerError) {
         if (dashboardError) {
             if (dashboardError.error.name === 'NetworkError') return null;
+            if (dashboardError.error.message?.includes('belongs to')) {
+                return t('pages_minimal_dashboard.loading');
+            }
             return <>{dashboardError.error.message}</>;
         }
         if (schedulerError) {
             if (schedulerError.error.name === 'NetworkError') return null;
+            if (schedulerError.error.message?.includes('belongs to')) {
+                return t('pages_minimal_dashboard.loading');
+            }
             return <>{schedulerError.error.message}</>;
         }
     }
@@ -347,9 +352,6 @@ const MinimalDashboardPage: FC = () => {
     }>();
 
     const schedulerUuid = useSearchParams('schedulerUuid');
-
-    // 处理微信小程序回退
-    useWeChatMiniProgramBackHandler();
 
     const [sendNowSchedulerFilters] = useSessionStorage<
         DashboardFilterRule[] | undefined

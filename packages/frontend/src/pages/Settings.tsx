@@ -90,7 +90,10 @@ const Settings: FC = () => {
         CommercialFeatureFlags.Scim,
     );
 
-    const aiOrganizationSettingsQuery = useAiOrganizationSettings();
+    // 禁用 AI Organization Settings 请求（非 EE 模块不需要）
+    const aiOrganizationSettingsQuery = useAiOrganizationSettings({
+        enabled: false,
+    });
     const isAiCopilotEnabledOrTrial =
         (aiOrganizationSettingsQuery.isSuccess &&
             aiOrganizationSettingsQuery.data?.isCopilotEnabled) ||
