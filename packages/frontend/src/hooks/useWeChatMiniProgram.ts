@@ -17,12 +17,9 @@ const getWeixinJSBridge = () => (window as any).WeixinJSBridge;
 // 调试日志前缀
 const LOG_PREFIX = '[WeChatMiniProgram]';
 
-// 调试日志函数
 const log = {
     info: (...args: unknown[]) => {
-        if (process.env.NODE_ENV === 'development') {
-            console.log(LOG_PREFIX, ...args);
-        }
+        console.log(LOG_PREFIX, ...args);
     },
     warn: (...args: unknown[]) => {
         console.warn(LOG_PREFIX, ...args);
