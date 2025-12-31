@@ -191,11 +191,11 @@ const MinimalDashboard: FC = () => {
     if (dashboardError || schedulerError) {
         if (dashboardError) {
             if (dashboardError.error.name === 'NetworkError') return null;
-            return  t('pages_minimal_dashboard.loading')
+            return t('pages_minimal_dashboard.loading');
         }
         if (schedulerError) {
             if (schedulerError.error.name === 'NetworkError') return null;
-            return  t('pages_minimal_dashboard.loading')
+            return t('pages_minimal_dashboard.loading');
         }
     }
 
@@ -208,7 +208,7 @@ const MinimalDashboard: FC = () => {
     }
 
     if (dashboard.tiles.length === 0) {
-        return <>{t('pages_minimal_dashboard.no_tiles')}</>;
+        return <>{t('pages_minimal_dashboard.loading')}</>;
     }
 
     return (

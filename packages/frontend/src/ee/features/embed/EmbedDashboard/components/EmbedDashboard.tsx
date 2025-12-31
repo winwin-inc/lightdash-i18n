@@ -149,6 +149,16 @@ const EmbedDashboard: FC<{
     const { data: dashboard, error: dashboardError } =
         useEmbedDashboard(projectUuid);
 
+    // Handle 403 Forbidden error - redirect to no permission page
+    useEffect(() => {
+        if (
+            dashboardError?.error?.statusCode === 403 &&
+            dashboardError.error.message?.includes('dashboard')
+        ) {
+            void navigate('/no-dashboard-access', { replace: true });
+        }
+    }, [dashboardError, navigate]);
+
     useEffect(() => {
         if (dashboard) {
             setDashboardTiles(dashboard.tiles);
@@ -262,7 +272,8 @@ const EmbedDashboard: FC<{
         return (
             <div style={{ marginTop: '20px' }}>
                 <SuboptimalState
-                    title={t('ai_embed_dashboard.missing_project_uuid')}
+                    title={t('ai_embed_dashboard.loading')}
+                    loading
                 />
             </div>
         );
@@ -271,13 +282,8 @@ const EmbedDashboard: FC<{
         return (
             <div style={{ marginTop: '20px' }}>
                 <SuboptimalState
-                    title={t('ai_embed_dashboard.error_loading_dashboard')}
-                    icon={IconUnlink}
-                    description={
-                        dashboardError.error.message.includes('jwt expired')
-                            ? t('ai_embed_dashboard.jwt_expired')
-                            : dashboardError.error.message
-                    }
+                    title={t('ai_embed_dashboard.loading')}
+                    loading
                 />
             </div>
         );
@@ -298,10 +304,8 @@ const EmbedDashboard: FC<{
         return (
             <div style={{ marginTop: '20px' }}>
                 <SuboptimalState
-                    title={t('ai_embed_dashboard.empty_dashboard')}
-                    description={t(
-                        'ai_embed_dashboard.empty_dashboard_description',
-                    )}
+                    title={t('ai_embed_dashboard.loading')}
+                    loading
                 />
             </div>
         );
