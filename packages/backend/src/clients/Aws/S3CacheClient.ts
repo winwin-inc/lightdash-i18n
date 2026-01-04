@@ -8,13 +8,13 @@ import {
     S3ServiceException,
     type S3ClientConfig,
 } from '@aws-sdk/client-s3';
-import { NodeHttpHandler } from '@smithy/node-http-handler';
 import {
     getErrorMessage,
     MissingConfigError,
     S3Error,
 } from '@lightdash/common';
 import * as Sentry from '@sentry/node';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { LightdashConfig } from '../../config/parseConfig';
 import Logger from '../../logging/logger';
 import { wrapSentryTransaction } from '../../utils';
@@ -47,6 +47,18 @@ export class S3CacheClient {
                     '1800000',
                 10,
             ) || 1800000; // 30 分钟
+
+        const timeoutSource = process.env.S3_REQUEST_TIMEOUT
+            ? 'S3_REQUEST_TIMEOUT'
+            : process.env.RESULTS_S3_REQUEST_TIMEOUT
+            ? 'RESULTS_S3_REQUEST_TIMEOUT'
+            : 'default';
+
+        Logger.info(
+            `Results S3 request timeout configured: ${requestTimeout}ms (${
+                requestTimeout / 1000 / 60
+            } minutes) (from ${timeoutSource})`,
+        );
 
         const s3Config: S3ClientConfig = {
             endpoint,

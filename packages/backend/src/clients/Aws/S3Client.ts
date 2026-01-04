@@ -39,6 +39,14 @@ export class S3Client {
                 parseInt(process.env.S3_REQUEST_TIMEOUT || '1800000', 10) ||
                 1800000; // 30 分钟
 
+            Logger.info(
+                `S3 request timeout configured: ${requestTimeout}ms (${requestTimeout / 1000 / 60} minutes)${
+                    process.env.S3_REQUEST_TIMEOUT
+                        ? ` (from S3_REQUEST_TIMEOUT env)`
+                        : ' (default)'
+                }`,
+            );
+
             const s3Config: S3ClientConfig = {
                 region: lightdashConfig.s3.region,
                 apiVersion: '2006-03-01',

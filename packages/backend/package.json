@@ -71,6 +71,7 @@
         "@slack/bolt": "^3.22.0",
         "@slack/oauth": "^3.0.4",
         "@slack/web-api": "^6.13.0",
+        "@smithy/node-http-handler": "^4.4.7",
         "@tsoa/runtime": "^6.6.0",
         "@types/async": "^3.2.16",
         "@types/sshpk": "^1.17.1",
