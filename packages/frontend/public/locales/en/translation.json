@@ -3029,11 +3029,20 @@
     },
 
     "components_project_access": {
+        "system_role": "System role",
+        "custom_role": "Custom role",
         "loading_user_access": "Loading user access",
         "search_users": "Search users by name, email, or role",
         "table": {
             "name": "Name",
             "role": "Role"
+        },
+        "roles": {
+            "viewer": "Viewer",
+            "interactive_viewer": "Interactive Viewer",
+            "editor": "Editor",
+            "developer": "Developer",
+            "admin": "Admin"
         }
     },
     "components_project_access_row": {
