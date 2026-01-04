@@ -533,7 +533,7 @@ const PRIVATE_ROUTES: RouteObject[] = [
                     <>
                         <NavBar />
                         <TrackPage name={PageName.NO_PROJECT_ACCESS}>
-                            <ForbiddenPanel subject="project" />
+                            <ForbiddenPanel />
                         </TrackPage>
                     </>
                 ),

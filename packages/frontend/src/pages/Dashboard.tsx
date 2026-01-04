@@ -672,7 +672,7 @@ const Dashboard: FC = () => {
     );
 
     if (dashboardError) {
-        return <ErrorState error={dashboardError.error} />;
+        return t('pages_dashboard.loading');
     }
     if (dashboard === undefined) {
         return (

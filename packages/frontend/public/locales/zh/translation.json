@@ -3014,11 +3014,20 @@
     },
 
     "components_project_access": {
+        "system_role": "系统角色",
+        "custom_role": "自定义角色",
         "loading_user_access": "正在加载用户访问权限",
         "search_users": "通过姓名、电子邮件或角色搜索用户",
         "table": {
             "name": "名称",
             "role": "角色"
+        },
+        "roles": {
+            "viewer": "查看者",
+            "interactive_viewer": "交互式查看者",
+            "editor": "编辑者",
+            "developer": "开发者",
+            "admin": "管理员"
         }
     },
     "components_project_access_row": {

@@ -41,7 +41,9 @@ import { useAiAgentButtonVisibility } from './ee/features/aiCopilot/hooks/useAiA
 import { useActiveProjectUuid } from './hooks/useActiveProject';
 import { useProject } from './hooks/useProject';
 import useLogoutMutation from './hooks/user/useUserLogoutMutation';
-import { useWeChatMiniProgram } from './hooks/useWeChatMiniProgram';
+import {
+    useWeChatMiniProgram,
+} from './hooks/useWeChatMiniProgram';
 import AuthPopupResult, {
     SuccessAuthPopupResult,
 } from './pages/AuthPopupResult';
@@ -411,7 +413,7 @@ const PRIVATE_ROUTES: RouteObject[] = [
                 path: '/no-project-access',
                 element: (
                     <TrackPage name={PageName.NO_PROJECT_ACCESS}>
-                        <ForbiddenPanel subject="project" />
+                        <ForbiddenPanel />
                     </TrackPage>
                 ),
             },

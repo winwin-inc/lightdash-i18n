@@ -65,16 +65,36 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
         includeMembers: 2000,
     });
 
+    console.log('organizationRoles', organizationRoles);
+
+    const roleAliases = useMemo(
+        () => ({
+            viewer: t('components_project_access.roles.viewer'),
+            interactive_viewer: t(
+                'components_project_access.roles.interactive_viewer',
+            ),
+            editor: t('components_project_access.roles.editor'),
+            developer: t('components_project_access.roles.developer'),
+            admin: t('components_project_access.roles.admin'),
+        }),
+        [t],
+    );
+
     const rolesData = useMemo(() => {
         return organizationRoles?.map(
             (role: Pick<Role, 'roleUuid' | 'name' | 'ownerType'>) => ({
                 value: role.roleUuid,
-                label: role.name,
+                label:
+                    roleAliases[role.name as keyof typeof roleAliases] ||
+                    role.name,
                 group:
-                    role.ownerType === 'system' ? 'System role' : 'Custom role',
+                    role.ownerType === 'system'
+                        ? t('components_project_access.system_role')
+                        : t('components_project_access.custom_role'),
             }),
         );
-    }, [organizationRoles]);
+    }, [organizationRoles, t]);
+
     const canManageProjectAccess = ability.can(
         'manage',
         subject('Project', {
