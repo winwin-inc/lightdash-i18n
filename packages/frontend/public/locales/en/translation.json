@@ -2378,7 +2378,8 @@
                 "level4": "Level 4 Category",
                 "parent_filter_label": "Parent filter",
                 "parent_filter_placeholder": "No parent filter"
-            }
+            },
+            "filter_read_only": "Filter read-only"
         },
         "tabs": {
             "tooltip_filter": {

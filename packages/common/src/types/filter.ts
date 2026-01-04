@@ -149,6 +149,7 @@ export type DashboardFilterRule<
     singleValue?: boolean;
     categoryLevel?: 1 | 2 | 3 | 4;
     parentFieldId?: string;
+    readOnly?: boolean;
 };
 
 export type FilterDashboardToRule = DashboardFilterRule & {

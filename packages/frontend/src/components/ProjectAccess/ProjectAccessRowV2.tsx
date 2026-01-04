@@ -35,7 +35,12 @@ type Props = {
     projectUuid: string;
     canManageProjectAccess: boolean;
     user: ProjectUserWithRoleV2;
-    organizationRoles: { value: string; label: string; group: string }[];
+    organizationRoles: {
+        value: string;
+        label: string;
+        name: string;
+        group: string;
+    }[];
     organizationRoleAssignments: RoleAssignment[];
     organizationGroups: (LightdashGroup | GroupWithMembers)[];
     groupRoles: RoleAssignment[];
@@ -127,13 +132,14 @@ const ProjectAccessRowV2: FC<Props> = ({
     const currentRoleUuid = useMemo(() => {
         if (hasProjectRole) {
             // Find the project role UUID from organization roles
+            // Use name field to match original role name, not translated label
             const projectRoleData = organizationRoles.find(
-                (role) => role.label === user.projectRole,
+                (role) => role.name === user.projectRole,
             );
             return projectRoleData?.value;
         }
         return undefined;
-    }, [hasProjectRole, user, organizationRoles]);
+    }, [hasProjectRole, user.projectRole, organizationRoles]);
 
     const isLoading = upsertMutation.isLoading || deleteMutation.isLoading;
     const isMember = user.role === OrganizationMemberRole.MEMBER;
@@ -265,7 +271,9 @@ const ProjectAccessRowV2: FC<Props> = ({
                                                   label: t(
                                                       'components_project_access_row_v2.member',
                                                   ),
-                                                  group: 'Organization role',
+                                                  group: t(
+                                                      'components_project_access.system_role',
+                                                  ),
                                               },
                                               ...organizationRoles,
                                           ]

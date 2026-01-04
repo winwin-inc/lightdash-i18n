@@ -194,6 +194,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                         />
                                     </Tooltip>
                                 }
+                                disabled={isFilterReadOnly && !isEditMode}
                                 onClick={() => {
                                     onChangeFilterRule({
                                         ...filterRule,
@@ -424,6 +425,26 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                             parentFieldId?: string;
                                         })
                                     }
+                                />
+                                
+                                {/* 筛选器只读配置 */}
+                                <Switch
+                                    mt="xs"
+                                    label={
+                                        <Text size="xs" mt="two" fw={500}>
+                                            {t(
+                                                'components_dashboard_filter.configuration.filter_read_only',
+                                            )}
+                                        </Text>
+                                    }
+                                    labelPosition="right"
+                                    checked={!!filterRule.readOnly}
+                                    onChange={(e) => {
+                                        onChangeFilterRule({
+                                            ...filterRule,
+                                            readOnly: e.currentTarget.checked || undefined,
+                                        });
+                                    }}
                                 />
                             </Box>
                         )}

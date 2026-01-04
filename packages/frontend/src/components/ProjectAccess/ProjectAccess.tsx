@@ -87,13 +87,14 @@ const ProjectAccess: FC<ProjectAccessProps> = ({
                 label:
                     roleAliases[role.name as keyof typeof roleAliases] ||
                     role.name,
+                name: role.name, // 保存原始角色名称用于匹配逻辑
                 group:
                     role.ownerType === 'system'
                         ? t('components_project_access.system_role')
                         : t('components_project_access.custom_role'),
             }),
         );
-    }, [organizationRoles, t]);
+    }, [organizationRoles, roleAliases, t]);
 
     const canManageProjectAccess = ability.can(
         'manage',

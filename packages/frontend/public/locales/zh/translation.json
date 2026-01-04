@@ -2363,7 +2363,8 @@
                 "level4": "四级类目",
                 "parent_filter_label": "父级筛选器",
                 "parent_filter_placeholder": "不设置父级筛选器"
-            }
+            },
+            "filter_read_only": "筛选器只读"
         },
         "tabs": {
             "tooltip_filter": {

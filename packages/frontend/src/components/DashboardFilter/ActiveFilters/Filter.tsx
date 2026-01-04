@@ -96,6 +96,9 @@ const Filter: FC<Props> = ({
         // Wait for fields to be loaded unless is SQL column
         return !allFilterableFields && !filterRule.target.isSqlColumn;
     }, [allFilterableFields, filterRule]);
+
+    const isFilterReadOnly = filterRule.readOnly ?? false;
+
     const filterableFieldsByTileUuid = useDashboardContext(
         (c) => c.filterableFieldsByTileUuid,
     );
@@ -248,7 +251,7 @@ const Filter: FC<Props> = ({
                 closeOnEscape={!isSubPopoverOpen}
                 closeOnClickOutside={!isSubPopoverOpen}
                 onClose={handleClose}
-                disabled={disabled}
+                disabled={disabled || (isFilterReadOnly && !isEditMode)}
                 transitionProps={{ transition: 'pop-top-left' }}
                 withArrow
                 shadow="md"

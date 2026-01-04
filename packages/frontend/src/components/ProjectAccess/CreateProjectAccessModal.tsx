@@ -23,7 +23,7 @@ import MantineIcon from '../common/MantineIcon';
 
 interface Props {
     projectUuid: string;
-    roles: { value: string; label: string; group: string }[];
+    roles: { value: string; label: string; name: string; group: string }[];
     onClose: () => void;
 }
 

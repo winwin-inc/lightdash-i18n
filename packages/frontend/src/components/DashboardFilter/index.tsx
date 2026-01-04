@@ -66,7 +66,6 @@ const DashboardFilter: FC<Props> = ({
     const setShowTabAddFilterButton = useDashboardContext(
         (c) => c.setShowTabAddFilterButton,
     );
-
     // use the appropriate filter enabled state based on filterScope
     const isFilterEnabled =
         filterScope === 'global'

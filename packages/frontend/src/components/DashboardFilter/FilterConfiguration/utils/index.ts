@@ -73,6 +73,9 @@ export const getFilterRuleRevertableObject = (
         operator: filterRule.operator,
         settings: filterRule.settings,
         label: filterRule.label,
+        categoryLevel: filterRule.categoryLevel,
+        parentFieldId: filterRule.parentFieldId,
+        readOnly: filterRule.readOnly,
     };
 };
 
