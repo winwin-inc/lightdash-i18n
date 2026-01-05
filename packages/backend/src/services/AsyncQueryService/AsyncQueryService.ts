@@ -300,15 +300,52 @@ export class AsyncQueryService extends ProjectService {
         const endLine = startLine + pageSize;
         let nonEmptyLineCount = 0;
 
-        for await (const line of rl) {
-            if (line.trim()) {
-                if (
-                    nonEmptyLineCount >= startLine &&
-                    nonEmptyLineCount < endLine
-                ) {
-                    rows.push(formatter(JSON.parse(line)));
+        // Handle stream errors to prevent unhandled promise rejections
+        const streamErrorHandler = (error: Error) => {
+            this.logger.error(
+                `Stream error while reading results from S3 for query ${queryUuid}: ${getErrorMessage(
+                    error,
+                )}`,
+            );
+        };
+
+        cacheStream.on('error', streamErrorHandler);
+
+        try {
+            for await (const line of rl) {
+                if (line.trim()) {
+                    // If we've already read past the target range, stop reading immediately
+                    // This avoids downloading and parsing the entire file when we only need one page
+                    if (nonEmptyLineCount >= endLine) {
+                        break;
+                    }
+
+                    if (
+                        nonEmptyLineCount >= startLine &&
+                        nonEmptyLineCount < endLine
+                    ) {
+                        rows.push(formatter(JSON.parse(line)));
+                    }
+                    nonEmptyLineCount += 1;
                 }
-                nonEmptyLineCount += 1;
+            }
+        } catch (error) {
+            this.logger.error(
+                `Error reading results page from S3 for query ${queryUuid}: ${getErrorMessage(
+                    error,
+                )}`,
+            );
+            throw error;
+        } finally {
+            // Remove error handler to prevent memory leaks
+            cacheStream.removeListener('error', streamErrorHandler);
+
+            // Ensure resources are properly cleaned up
+            // Close the readline interface
+            rl.close();
+            // Destroy the stream to stop downloading from OSS
+            if (!cacheStream.destroyed) {
+                cacheStream.destroy();
             }
         }
 
