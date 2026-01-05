@@ -48,11 +48,14 @@ export class S3CacheClient {
                 10,
             ) || 1800000; // 30 分钟
 
-        const timeoutSource = process.env.S3_REQUEST_TIMEOUT
-            ? 'S3_REQUEST_TIMEOUT'
-            : process.env.RESULTS_S3_REQUEST_TIMEOUT
-            ? 'RESULTS_S3_REQUEST_TIMEOUT'
-            : 'default';
+        let timeoutSource: string;
+        if (process.env.S3_REQUEST_TIMEOUT) {
+            timeoutSource = 'S3_REQUEST_TIMEOUT';
+        } else if (process.env.RESULTS_S3_REQUEST_TIMEOUT) {
+            timeoutSource = 'RESULTS_S3_REQUEST_TIMEOUT';
+        } else {
+            timeoutSource = 'default';
+        }
 
         Logger.info(
             `Results S3 request timeout configured: ${requestTimeout}ms (${

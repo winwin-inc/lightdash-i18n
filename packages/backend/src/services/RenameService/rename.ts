@@ -46,9 +46,7 @@ export const createRenameFactory = ({
     toFieldName,
 }: NameChanges & { isPrefix: boolean }) => {
     // Escape special regex characters for safe use in regex patterns
-    const escapeRegex = (str: string): string => {
-        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    };
+    const escapeRegex = (str: string): string => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
     const escapedFrom = escapeRegex(from);
     const escapedTo = escapeRegex(to);
