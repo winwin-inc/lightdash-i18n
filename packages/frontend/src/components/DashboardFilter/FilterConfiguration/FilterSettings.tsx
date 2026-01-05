@@ -87,6 +87,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     };
 
     const isFilterDisabled = !!filterRule.disabled;
+    const isFilterReadOnly = filterRule.readOnly ?? false;
 
     const showValueInput = useMemo(() => {
         // Always show the input in view mode
@@ -426,7 +427,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                         })
                                     }
                                 />
-                                
+
                                 {/* 筛选器只读配置 */}
                                 <Switch
                                     mt="xs"
@@ -442,7 +443,9 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                     onChange={(e) => {
                                         onChangeFilterRule({
                                             ...filterRule,
-                                            readOnly: e.currentTarget.checked || undefined,
+                                            readOnly:
+                                                e.currentTarget.checked ||
+                                                undefined,
                                         });
                                     }}
                                 />
