@@ -20,6 +20,7 @@ export function mockUserResponse(
         isSetupComplete: true,
         role: OrganizationMemberRole.ADMIN,
         isActive: true,
+        isTrialAccount: false,
         abilityRules: [
             {
                 action: 'view',
@@ -229,5 +230,7 @@ export function mockUserResponse(
         updatedAt: new Date('2024-01-11T03:46:50.732Z'),
         createdAt: new Date('2024-01-11T03:46:50.732Z'),
         ...overrides,
+        // Ensure isTrialAccount is always a boolean, not undefined
+        isTrialAccount: overrides.isTrialAccount ?? false,
     };
 }
