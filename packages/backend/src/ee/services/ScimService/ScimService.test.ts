@@ -36,6 +36,7 @@ describe('ScimService', () => {
                 isTrackingAnonymized: false,
                 isMarketingOptedIn: false,
                 isSetupComplete: false,
+                isTrialAccount: false,
             };
 
             // Convert the user to a SCIM user
@@ -94,6 +95,7 @@ describe('ScimService', () => {
                 isTrackingAnonymized: false,
                 isMarketingOptedIn: false,
                 isSetupComplete: false,
+                isTrialAccount: false,
             };
 
             // Convert the user to a SCIM user

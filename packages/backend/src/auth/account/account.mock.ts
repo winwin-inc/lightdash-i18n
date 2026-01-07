@@ -31,6 +31,7 @@ export const defaultSessionUser: SessionUser = {
     isTrackingAnonymized: false,
     isMarketingOptedIn: false,
     isSetupComplete: true,
+    isTrialAccount: false,
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-01'),
     ability: new Ability<PossibleAbilities>([

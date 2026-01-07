@@ -152,6 +152,7 @@ export const authenticateServiceAccount: RequestHandler = async (
             role: getRoleForScopes(serviceAccount.scopes),
             ability: builder.build(),
             isActive: true,
+            isTrialAccount: false,
             abilityRules: builder.rules,
             createdAt: serviceAccount.createdAt,
             updatedAt: serviceAccount.createdAt,

@@ -46,6 +46,7 @@ export const user: SessionUser = {
         },
     ]),
     isActive: true,
+    isTrialAccount: false,
     abilityRules: [],
     createdAt: new Date(),
     updatedAt: new Date(),

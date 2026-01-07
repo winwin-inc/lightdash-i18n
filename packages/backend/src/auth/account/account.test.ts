@@ -179,6 +179,7 @@ describe('account', () => {
             isTrackingAnonymized: false,
             isMarketingOptedIn: false,
             isSetupComplete: true,
+            isTrialAccount: false,
             createdAt: new Date('2024-01-01'),
             updatedAt: new Date('2024-01-01'),
             ability: {
@@ -232,6 +233,7 @@ describe('account', () => {
                 isTrackingAnonymized: false,
                 isMarketingOptedIn: false,
                 isSetupComplete: true,
+                isTrialAccount: false,
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 ability: {} as MemberAbility,
