@@ -79,14 +79,13 @@ apiV1Router.get('/login/trial', async (req, res, next) => {
             if (err) {
                 return next(err);
             }
-
             req.session.save((saveErr) => {
                 if (saveErr) {
                     return next(saveErr);
                 }
-
-                res.redirect(cleanRedirectUrl);
+                return res.redirect(cleanRedirectUrl);
             });
+            return undefined;
         });
     } catch (e) {
         next(e);

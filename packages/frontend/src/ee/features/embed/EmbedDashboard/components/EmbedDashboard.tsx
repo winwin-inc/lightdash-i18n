@@ -3,7 +3,6 @@ import {
     DashboardTileTypes,
     type DashboardTile,
 } from '@lightdash/common';
-import { IconUnlink } from '@tabler/icons-react';
 import { useEffect, useMemo, type FC } from 'react';
 import { Responsive, WidthProvider, type Layout } from 'react-grid-layout';
 import { useTranslation } from 'react-i18next';
