@@ -59,6 +59,7 @@ export const user: SessionUser = {
         { subject: 'Explore', action: ['manage'] },
     ]),
     isActive: true,
+    isTrialAccount: false,
     abilityRules: [],
     createdAt: new Date(),
     updatedAt: new Date(),

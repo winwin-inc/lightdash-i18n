@@ -359,6 +359,7 @@ export const user: SessionUser = {
         { subject: 'Dashboard', action: ['update', 'delete', 'create'] },
     ]),
     isActive: true,
+    isTrialAccount: false,
     abilityRules: [],
     createdAt: new Date(),
     updatedAt: new Date(),

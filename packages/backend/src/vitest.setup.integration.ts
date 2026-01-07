@@ -147,6 +147,7 @@ export const setupIntegrationTest =
             userId: 1,
             role: OrganizationMemberRole.ADMIN,
             isActive: SEED_ORG_1_ADMIN.is_active,
+            isTrialAccount: false,
             createdAt: new Date(),
             updatedAt: new Date(),
         };
