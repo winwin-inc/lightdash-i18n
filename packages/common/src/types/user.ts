@@ -31,6 +31,8 @@ export interface LightdashUser {
     email: string | undefined;
     /* Whether the user can login */
     isActive: boolean;
+    /* Whether the user is a trial account */
+    isTrialAccount: boolean;
     createdAt: Date;
     updatedAt: Date;
     /* Whether the user doesn't have an authentication method (password or openId) */

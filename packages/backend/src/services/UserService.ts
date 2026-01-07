@@ -306,6 +306,11 @@ export class UserService extends BaseService {
         const userToDelete = await this.userModel.getUserDetailsByUuid(
             userUuidToDelete,
         );
+
+        // 检查是否是体验账户（通过数据库字段）
+        if (userToDelete.isTrialAccount) {
+            throw new ForbiddenError('Trial account cannot be deleted');
+        }
         // The user might not have an org yet
         // This is expected on the "Cancel registration" flow on single org instances.
         if (userToDelete?.organizationUuid) {
@@ -1370,6 +1375,47 @@ export class UserService extends BaseService {
 
     async getSessionByUserUuid(userUuid: string): Promise<SessionUser> {
         return this.userModel.findSessionUserByUUID(userUuid);
+    }
+
+    async loginWithTrialAccount(
+        redirectUrl?: string,
+    ): Promise<{
+        sessionUser: SessionUser;
+        redirectUrl: string;
+    }> {
+        // 查找体验账户
+        const trialUser = await this.userModel.findTrialAccount();
+
+        if (!trialUser) {
+            throw new ForbiddenError('Trial account not configured');
+        }
+
+        const sessionUser = await this.getSessionByUserUuid(trialUser.userUuid);
+
+        // 处理重定向 URL，去掉 trial 参数
+        let cleanRedirectUrl = redirectUrl || '/';
+        if (cleanRedirectUrl.includes('trial=true')) {
+            try {
+                const url = new URL(
+                    cleanRedirectUrl,
+                    this.lightdashConfig.siteUrl,
+                );
+                url.searchParams.delete('trial');
+                cleanRedirectUrl =
+                    url.pathname + (url.search ? url.search : '');
+            } catch (e) {
+                // 如果 URL 解析失败，使用简单字符串替换
+                cleanRedirectUrl = cleanRedirectUrl
+                    .replace(/[?&]trial=true/, '')
+                    .replace(/[?&]trial=true&/, '&')
+                    .replace(/&trial=true/, '');
+            }
+        }
+
+        return {
+            sessionUser,
+            redirectUrl: cleanRedirectUrl,
+        };
     }
 
     private otpExpirationDate(createdAt: Date) {

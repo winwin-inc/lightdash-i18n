@@ -1,3 +1,4 @@
+import { ForbiddenError } from '@lightdash/common';
 import express from 'express';
 import passport from 'passport';
 import { lightdashConfig } from '../config/lightdashConfig';
@@ -60,6 +61,36 @@ apiV1Router.post('/login', passport.authenticate('local'), (req, res, next) => {
             });
         }
     });
+});
+
+// 体验账户快速登录端点
+apiV1Router.get('/login/trial', async (req, res, next) => {
+    try {
+        const { redirect } = req.query;
+        const redirectUrl = typeof redirect === 'string' ? redirect : undefined;
+
+        const { sessionUser, redirectUrl: cleanRedirectUrl } =
+            await req.services
+                .getUserService()
+                .loginWithTrialAccount(redirectUrl);
+
+        // 登录用户
+        req.login(sessionUser, (err) => {
+            if (err) {
+                return next(err);
+            }
+
+            req.session.save((saveErr) => {
+                if (saveErr) {
+                    return next(saveErr);
+                }
+
+                res.redirect(cleanRedirectUrl);
+            });
+        });
+    } catch (e) {
+        next(e);
+    }
 });
 
 apiV1Router.get(

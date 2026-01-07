@@ -787,6 +787,7 @@ export type UpdateUserArgs = {
     isTrackingAnonymized: boolean;
     isSetupComplete: boolean;
     isActive: boolean;
+    isTrialAccount?: boolean;
 };
 
 export type PasswordResetLink = {

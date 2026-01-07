@@ -33,6 +33,7 @@ type DbOrganizationMemberProfile = {
     first_name: string;
     last_name: string;
     is_active: boolean;
+    is_trial_account: boolean;
     email: string;
     organization_uuid: string;
     role: OrganizationMemberRole;
@@ -46,6 +47,7 @@ const SelectColumns = [
     `${UserTableName}.first_name`,
     `${UserTableName}.last_name`,
     `${UserTableName}.is_active`,
+    `${UserTableName}.is_trial_account`,
     `${EmailTableName}.email`,
     `${OrganizationTableName}.organization_uuid`,
     `${OrganizationMembershipsTableName}.role`,
@@ -102,6 +104,7 @@ export class OrganizationMemberProfileModel {
             role: member.role,
             roleUuid: member.role_uuid || undefined,
             isActive: member.is_active,
+            isTrialAccount: member.is_trial_account,
             isInviteExpired,
             isPending,
             userCreatedAt: member.user_created_at,
@@ -226,6 +229,7 @@ export class OrganizationMemberProfileModel {
                 `${UserTableName}.first_name`,
                 `${UserTableName}.last_name`,
                 `${UserTableName}.is_active`,
+                `${UserTableName}.is_trial_account`,
                 `${EmailTableName}.email`,
                 `${OrganizationTableName}.organization_uuid`,
                 `${OrganizationMembershipsTableName}.role`,
@@ -238,6 +242,7 @@ export class OrganizationMemberProfileModel {
                 `${UserTableName}.first_name`,
                 `${UserTableName}.last_name`,
                 `${UserTableName}.is_active`,
+                `${UserTableName}.is_trial_account`,
                 `${EmailTableName}.email`,
                 `${OrganizationTableName}.organization_uuid`,
                 `${OrganizationMembershipsTableName}.role`,

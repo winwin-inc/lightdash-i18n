@@ -1,5 +1,12 @@
 # 更新日志
 
+## v0.2091.54 (2025-12-31)
+
+### 调优
+
+-   改进 EmbedDashboard、Dashboard 和 MinimalDashboard 组件的加载状态处理
+-   简化 MinimalDashboard 的错误处理，移除冗余检查并返回一致的加载消息
+
 ## v0.2091.49 (2025-12-31)
 
 ### 新功能

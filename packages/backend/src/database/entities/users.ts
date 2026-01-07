@@ -10,6 +10,7 @@ export type DbUser = {
     is_tracking_anonymized: boolean;
     is_setup_complete: boolean;
     is_active: boolean;
+    is_trial_account: boolean;
     updated_at: Date;
 };
 
@@ -32,6 +33,7 @@ export type DbUserUpdate = Partial<
         | 'is_tracking_anonymized'
         | 'is_setup_complete'
         | 'is_active'
+        | 'is_trial_account'
         | 'updated_at'
     >
 >;
