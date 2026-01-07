@@ -4325,6 +4325,7 @@
         "inactive": "Inactive",
         "pending": "Pending",
         "link_expired": "Link expired",
+        "trial_account": "Trial Account",
         "groups": {
             "part_1": "{{ length }} groups",
             "part_2": "{{ length }} group"

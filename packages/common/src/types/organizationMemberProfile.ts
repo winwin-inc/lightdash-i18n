@@ -43,6 +43,10 @@ export type OrganizationMemberProfile = {
      */
     isActive: boolean;
     /**
+     * Whether the user is a trial account
+     */
+    isTrialAccount?: boolean;
+    /**
      * Whether the user's invite to the organization has expired
      */
     isInviteExpired?: boolean;

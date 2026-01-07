@@ -129,9 +129,25 @@ const UserNameDisplay: FC<{
                 </Stack>
             ) : (
                 <Stack spacing="xxs" align="flex-start">
-                    <Title order={6}>
-                        {user.firstName} {user.lastName}
-                    </Title>
+                    <Group spacing="xs" align="center">
+                        <Title order={6}>
+                            {user.firstName} {user.lastName}
+                        </Title>
+                        {user.isTrialAccount && (
+                            <Badge
+                                variant="filled"
+                                radius="xs"
+                                sx={{ textTransform: 'none' }}
+                                px="xxs"
+                            >
+                                <Text fz="xs" fw={400}>
+                                    {t(
+                                        'components_user_settings_groups_panel_users_view.trial_account',
+                                    )}
+                                </Text>
+                            </Badge>
+                        )}
+                    </Group>
 
                     {user.email && (
                         <Badge

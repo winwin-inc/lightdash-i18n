@@ -75,6 +75,7 @@ export type DbUserDetails = {
     role?: OrganizationMemberRole;
     role_uuid?: string;
     is_active: boolean;
+    is_trial_account: boolean;
     updated_at: Date;
 };
 
@@ -95,6 +96,7 @@ export const mapDbUserDetailsToLightdashUser = (
     isSetupComplete: user.is_setup_complete,
     role: user.role,
     isActive: user.is_active,
+    isTrialAccount: user.is_trial_account,
     isPending: !hasAuthentication,
     createdAt: user.created_at,
     updatedAt: user.updated_at,
@@ -337,6 +339,22 @@ export class UserModel {
         );
     }
 
+    async findTrialAccount(): Promise<LightdashUser | undefined> {
+        const [user] = await userDetailsQueryBuilder(this.database)
+            .where('is_trial_account', true)
+            .where('is_active', true)
+            .select('*', 'organizations.created_at as organization_created_at');
+
+        if (!user) {
+            return undefined;
+        }
+
+        return mapDbUserDetailsToLightdashUser(
+            user,
+            await this.hasAuthentication(user.user_uuid),
+        );
+    }
+
     async getUserDetailsById(userId: number): Promise<LightdashUser> {
         const [user] = await userDetailsQueryBuilder(this.database)
             .where('user_id', userId)
@@ -437,6 +455,7 @@ export class UserModel {
             isTrackingAnonymized,
             isSetupComplete,
             isActive,
+            isTrialAccount,
         }: Partial<UpdateUserArgs>,
     ): Promise<LightdashUser> {
         await this.database.transaction(async (trx) => {
@@ -448,6 +467,7 @@ export class UserModel {
                     is_setup_complete: isSetupComplete,
                     is_marketing_opted_in: isMarketingOptedIn,
                     is_active: isActive,
+                    is_trial_account: isTrialAccount,
                     is_tracking_anonymized: this.canTrackingBeAnonymized()
                         ? isTrackingAnonymized
                         : false,
