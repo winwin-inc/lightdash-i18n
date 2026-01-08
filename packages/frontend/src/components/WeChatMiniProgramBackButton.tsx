@@ -1,0 +1,77 @@
+import { ActionIcon, Box } from '@mantine/core';
+import { IconArrowLeft, IconLoader2 } from '@tabler/icons-react';
+import { type FC } from 'react';
+import useToaster from '../hooks/toaster/useToaster';
+import { useWeChatMiniProgram } from '../hooks/useWeChatMiniProgram';
+import MantineIcon from './common/MantineIcon';
+
+/**
+ * 微信小程序悬浮返回按钮
+ * 在微信小程序嵌套场景下，显示在右下角的固定按钮，点击可快速返回小程序
+ */
+const WeChatMiniProgramBackButton: FC = () => {
+    const { isMiniProgram, isReady, navigateBack } = useWeChatMiniProgram();
+    const { showToastInfo } = useToaster();
+
+    // 只在微信小程序环境下显示
+    if (!isMiniProgram || !isReady) {
+        return null;
+    }
+
+    const handleClick = () => {
+        // 显示 toast 提示
+        showToastInfo({
+            icon: (
+                <MantineIcon
+                    icon={IconLoader2}
+                    size="lg"
+                    style={{
+                        animation: 'spin 1s linear infinite',
+                    }}
+                />
+            ),
+            title: '返回中...',
+            autoClose: 2000,
+        });
+        // 执行回退操作
+        navigateBack(1);
+    };
+
+    return (
+        <>
+            <style>
+                {`
+                    @keyframes spin {
+                        from {
+                            transform: rotate(0deg);
+                        }
+                        to {
+                            transform: rotate(360deg);
+                        }
+                    }
+                `}
+            </style>
+            <Box
+                style={{
+                    position: 'fixed',
+                    bottom: '20px',
+                    right: '20px',
+                    zIndex: 1000,
+                }}
+            >
+                <ActionIcon
+                    size="xl"
+                    radius="xl"
+                    variant="filled"
+                    color="blue"
+                    onClick={handleClick}
+                    aria-label="返回小程序"
+                >
+                    <MantineIcon icon={IconArrowLeft} size="lg" />
+                </ActionIcon>
+            </Box>
+        </>
+    );
+};
+
+export default WeChatMiniProgramBackButton;
