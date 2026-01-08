@@ -2,7 +2,7 @@ import { ActionIcon, Box } from '@mantine/core';
 import { IconArrowLeft, IconLoader2 } from '@tabler/icons-react';
 import { type FC } from 'react';
 import useToaster from '../hooks/toaster/useToaster';
-import { useWeChatMiniProgram } from '../hooks/useWeChatMiniProgram';
+import { log, useWeChatMiniProgram } from '../hooks/useWeChatMiniProgram';
 import MantineIcon from './common/MantineIcon';
 
 /**
@@ -15,10 +15,16 @@ const WeChatMiniProgramBackButton: FC = () => {
 
     // 只在微信小程序环境下显示
     if (!isMiniProgram || !isReady) {
+        log.info('isMiniProgram or isReady is false', {
+            isMiniProgram,
+            isReady,
+        });
         return null;
     }
 
     const handleClick = () => {
+        log.info('handleClick', { isMiniProgram, isReady });
+
         // 显示 toast 提示
         showToastInfo({
             icon: (
@@ -57,7 +63,7 @@ const WeChatMiniProgramBackButton: FC = () => {
             <Box
                 style={{
                     position: 'fixed',
-                    bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
+                    bottom: 'calc(220px + env(safe-area-inset-bottom, 0px))',
                     right: 'calc(20px + env(safe-area-inset-right, 0px))',
                     zIndex: 1000,
                 }}

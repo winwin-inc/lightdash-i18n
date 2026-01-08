@@ -33,7 +33,7 @@ const formatLogMessage = (...args: unknown[]): string => {
         .join(' ');
 };
 
-const log = {
+export const log = {
     info: (...args: unknown[]) => {
         const message = formatLogMessage(...args);
         console.log(LOG_PREFIX, ...args);
@@ -76,10 +76,13 @@ export const useWeChatMiniProgram = (): {
 
         if (miniProgram) {
             log.info('wx.miniProgram found, checking environment');
+
             miniProgram.getEnv((res: { miniprogram: boolean }) => {
                 log.info('Environment check result:', res);
+
                 setIsMiniProgram(res.miniprogram);
                 setIsReady(true);
+
                 if (res.miniprogram) {
                     log.info('Running in WeChat Mini Program');
                 } else {
@@ -186,6 +189,12 @@ export const useWeChatMiniProgramBackHandler = (
                 return;
             }
 
+            log.info('safeNavigateBack 1', {
+                isNavigatingBack,
+                isMiniProgram,
+                isReady,
+            });
+
             isNavigatingBack = true;
 
             // 调用回调函数（用于显示 toast 提示等）
@@ -196,6 +205,12 @@ export const useWeChatMiniProgramBackHandler = (
                     log.warn('Error in onNavigateBack callback:', error);
                 }
             }
+
+            log.info('safeNavigateBack 2', {
+                isNavigatingBack,
+                isMiniProgram,
+                isReady,
+            });
 
             // 1. 尝试关闭 webview（如果 WeixinJSBridge 可用）
             const weixinJSBridge = getWeixinJSBridge();
@@ -210,6 +225,12 @@ export const useWeChatMiniProgramBackHandler = (
                     );
                 }
             }
+
+            log.info('safeNavigateBack 3', {
+                isNavigatingBack,
+                isMiniProgram,
+                isReady,
+            });
 
             // 2. 调用小程序回退
             try {
