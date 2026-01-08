@@ -216,6 +216,14 @@ export class OrganizationModel {
         return orgs.map((org) => org.organization_uuid);
     }
 
+    async getFirstOrganizationUuid(): Promise<string | undefined> {
+        const org = await this.database(OrganizationTableName)
+            .select('organization_uuid')
+            .orderBy('created_at', 'asc')
+            .first();
+        return org?.organization_uuid;
+    }
+
     async get(organizationUuid: string): Promise<Organization> {
         const [org] = await this.database(OrganizationTableName)
             .where('organization_uuid', organizationUuid)
