@@ -22,6 +22,7 @@ export type DbUserIn = Pick<
     | 'is_tracking_anonymized'
     | 'is_setup_complete'
     | 'is_active'
+    | 'is_trial_account'
 > &
     Partial<Pick<DbUser, 'user_uuid'>>;
 export type DbUserUpdate = Partial<

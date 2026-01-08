@@ -1377,9 +1377,7 @@ export class UserService extends BaseService {
         return this.userModel.findSessionUserByUUID(userUuid);
     }
 
-    async loginWithTrialAccount(
-        redirectUrl?: string,
-    ): Promise<{
+    async loginWithTrialAccount(redirectUrl?: string): Promise<{
         sessionUser: SessionUser;
         redirectUrl: string;
     }> {
@@ -1388,6 +1386,42 @@ export class UserService extends BaseService {
 
         if (!trialUser) {
             throw new ForbiddenError('Trial account not configured');
+        }
+
+        // 检查体验账号是否在组织中
+        const organizations = await this.userModel.getOrganizationsForUser(
+            trialUser.userUuid,
+        );
+
+        // 如果不在任何组织中，且存在组织，自动添加到第一个组织
+        if (organizations.length === 0) {
+            // 获取第一个组织（按创建时间排序）
+            const firstOrgUuid =
+                await this.organizationModel.getFirstOrganizationUuid();
+
+            if (firstOrgUuid) {
+                const firstOrg = await this.organizationModel.get(firstOrgUuid);
+                // 直接添加，不检查邮箱域名（体验账号特殊处理）
+                try {
+                    await this.organizationMemberProfileModel.createOrganizationMembershipByUuid(
+                        {
+                            organizationUuid: firstOrg.organizationUuid,
+                            userUuid: trialUser.userUuid,
+                            role: OrganizationMemberRole.MEMBER,
+                        },
+                    );
+                    this.logger.info(
+                        `体验账号已自动添加到组织: ${firstOrg.organizationUuid}`,
+                    );
+                } catch (e) {
+                    // 如果添加失败（例如已存在），记录日志但不抛出错误
+                    this.logger.warn(
+                        `体验账号添加到组织失败: ${
+                            e instanceof Error ? e.message : String(e)
+                        }`,
+                    );
+                }
+            }
         }
 
         const sessionUser = await this.getSessionByUserUuid(trialUser.userUuid);
