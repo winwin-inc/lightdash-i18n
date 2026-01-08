@@ -442,6 +442,7 @@ export const SEED_ORG_1_ADMIN = {
     is_tracking_anonymized: false,
     is_setup_complete: true,
     is_active: true,
+    is_trial_account: false,
 };
 export const SEED_ORG_1_ADMIN_EMAIL = {
     email: 'demo@lightdash.com',
@@ -460,6 +461,7 @@ export const SEED_ORG_1_EDITOR = {
     is_tracking_anonymized: false,
     is_setup_complete: true,
     is_active: true,
+    is_trial_account: false,
 };
 export const SEED_ORG_1_EDITOR_EMAIL = {
     email: 'demo2@lightdash.com',
@@ -478,6 +480,7 @@ export const SEED_ORG_1_VIEWER = {
     is_tracking_anonymized: false,
     is_setup_complete: true,
     is_active: true,
+    is_trial_account: false,
 };
 export const SEED_ORG_1_VIEWER_EMAIL = {
     email: 'demo3@lightdash.com',
@@ -501,6 +504,7 @@ export const SEED_ORG_2_ADMIN = {
     is_tracking_anonymized: false,
     is_setup_complete: true,
     is_active: true,
+    is_trial_account: false,
 };
 export const SEED_ORG_2_ADMIN_EMAIL = {
     email: 'another@lightdash.com',

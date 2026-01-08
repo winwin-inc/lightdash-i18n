@@ -236,6 +236,7 @@ export class UserModel {
                   is_tracking_anonymized: this.canTrackingBeAnonymized(),
                   is_setup_complete: canSkipSetupForAnalytics,
                   is_active: createUser.isActive,
+                  is_trial_account: false,
               }
             : {
                   first_name: createUser.firstName.trim(),
@@ -244,6 +245,7 @@ export class UserModel {
                   is_tracking_anonymized: this.canTrackingBeAnonymized(),
                   is_setup_complete: canSkipSetupForAnalytics,
                   is_active: createUser.isActive,
+                  is_trial_account: false,
               };
         const [newUser] = await trx<DbUser>('users')
             .insert<DbUserIn>(userIn)
