@@ -1,6 +1,7 @@
 import { OrganizationMemberRole } from '@lightdash/common';
 import bcrypt from 'bcrypt';
 import { Knex } from 'knex';
+import { DbUserIn, UserTableName } from '../entities/users';
 
 const TRIAL_ACCOUNT_EMAIL = 'dev-trial@brandct.cn';
 const TRIAL_ACCOUNT_FIRST_NAME = '体验';
@@ -26,10 +27,9 @@ export async function up(knex: Knex): Promise<void> {
         if (existingUser) {
             console.log('体验账号已存在，跳过创建');
             return;
-        } else {
-            console.log('邮箱已存在但不是体验账号，跳过创建');
-            return;
         }
+        console.log('邮箱已存在但不是体验账号，跳过创建');
+        return;
     }
 
     // 2. 获取第一个组织（按创建时间排序）
@@ -38,29 +38,17 @@ export async function up(knex: Knex): Promise<void> {
         .first();
 
     // 3. 创建用户记录
-    const [user] = await knex<{
-        user_id: number;
-        user_uuid: string;
-        first_name: string;
-        last_name: string;
-        is_active: boolean;
-        is_setup_complete: boolean;
-        is_trial_account: boolean;
-        is_marketing_opted_in: boolean;
-        is_tracking_anonymized: boolean;
-        created_at: Date;
-        updated_at: Date;
-    }>('users')
-        .insert({
-            first_name: TRIAL_ACCOUNT_FIRST_NAME,
-            last_name: TRIAL_ACCOUNT_LAST_NAME,
-            is_active: true,
-            is_setup_complete: true,
-            is_trial_account: true,
-            is_marketing_opted_in: false,
-            is_tracking_anonymized: false,
-        } as any)
-        .returning('*');
+    const userData: DbUserIn = {
+        first_name: TRIAL_ACCOUNT_FIRST_NAME,
+        last_name: TRIAL_ACCOUNT_LAST_NAME,
+        is_active: true,
+        is_setup_complete: true,
+        is_trial_account: true,
+        is_marketing_opted_in: false,
+        is_tracking_anonymized: false,
+    };
+
+    const [user] = await knex(UserTableName).insert(userData).returning('*');
 
     if (!user || !user.user_id) {
         throw new Error('创建体验账号失败：用户记录未创建');
