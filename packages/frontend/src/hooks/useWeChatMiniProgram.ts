@@ -124,8 +124,12 @@ export const useWeChatMiniProgram = (): {
  *
  * 注意：在 webview 多次重定向的场景下，navigateBack 应该使用 delta: 1
  * 直接返回小程序，而不是在 webview 内部回退。
+ *
+ * @param onNavigateBack - 可选的回调函数，在回退操作开始时调用（用于显示 toast 提示等）
  */
-export const useWeChatMiniProgramBackHandler = () => {
+export const useWeChatMiniProgramBackHandler = (
+    onNavigateBack?: () => void,
+) => {
     const { isMiniProgram, isReady, navigateBack } = useWeChatMiniProgram();
 
     useEffect(() => {
@@ -158,6 +162,15 @@ export const useWeChatMiniProgramBackHandler = () => {
             }
 
             isNavigatingBack = true;
+
+            // 调用回调函数（用于显示 toast 提示等）
+            if (onNavigateBack) {
+                try {
+                    onNavigateBack();
+                } catch (error) {
+                    log.warn('Error in onNavigateBack callback:', error);
+                }
+            }
 
             // 1. 尝试关闭 webview（如果 WeixinJSBridge 可用）
             const weixinJSBridge = getWeixinJSBridge();
@@ -240,5 +253,5 @@ export const useWeChatMiniProgramBackHandler = () => {
             log.info('Cleaning up back handler');
             window.removeEventListener('popstate', handlePopState);
         };
-    }, [isMiniProgram, isReady, navigateBack]);
+    }, [isMiniProgram, isReady, navigateBack, onNavigateBack]);
 };
