@@ -51,6 +51,7 @@ import { UnfurlService } from './UnfurlService/UnfurlService';
 import { UserAttributesService } from './UserAttributesService/UserAttributesService';
 import { UserService } from './UserService';
 import { ValidationService } from './ValidationService/ValidationService';
+import { LogService } from './LogService/LogService';
 /**
  * Interface outlining all services available under the `ServiceRepository`. Add new services to
  * this list (in alphabetical order, please!) to have typescript help ensure you've updated the
@@ -100,6 +101,7 @@ interface ServiceManifest {
     renameService: RenameService;
     projectParametersService: ProjectParametersService;
     permissionsService: PermissionsService;
+    logService: LogService;
     /** An implementation signature for these services are not available at this stage */
     embedService: unknown;
     aiService: unknown;
@@ -987,6 +989,13 @@ export class ServiceRepository
                         this.models.getSpotlightTableConfigModel(),
                     projectModel: this.models.getProjectModel(),
                 }),
+        );
+    }
+
+    public getLogService(): LogService {
+        return this.getService(
+            'logService',
+            () => new LogService(),
         );
     }
 

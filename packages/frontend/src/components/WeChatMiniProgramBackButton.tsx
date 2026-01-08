@@ -33,8 +33,11 @@ const WeChatMiniProgramBackButton: FC = () => {
             title: '返回中...',
             autoClose: 2000,
         });
-        // 执行回退操作
-        navigateBack(1);
+
+        // 延迟执行回退操作，确保 toast 有时间渲染（200ms）
+        setTimeout(() => {
+            navigateBack(1);
+        }, 200);
     };
 
     return (
@@ -54,8 +57,8 @@ const WeChatMiniProgramBackButton: FC = () => {
             <Box
                 style={{
                     position: 'fixed',
-                    bottom: '20px',
-                    right: '20px',
+                    bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
+                    right: 'calc(20px + env(safe-area-inset-right, 0px))',
                     zIndex: 1000,
                 }}
             >
