@@ -55,7 +55,7 @@ export class LogController extends BaseController {
      * to specify an interface type.
      */
     protected getLogService() {
-        return this.services.getLogService<LogService>();
+        return this.services.getLogService();
     }
 }
 
