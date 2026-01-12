@@ -1,7 +1,15 @@
 import { Group, MultiSelect, Text, type MultiSelectProps } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
+import debounce from 'lodash/debounce';
 import uniq from 'lodash/uniq';
-import { useCallback, useMemo, useState, type FC } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type FC,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../MantineIcon';
@@ -22,6 +30,7 @@ const FilterMultiStringInput: FC<Props> = ({
 }) => {
     const { t } = useTranslation();
 
+    const multiSelectRef = useRef<HTMLInputElement>(null);
     const [search, setSearch] = useState('');
     const [pastePopUpOpened, setPastePopUpOpened] = useState(false);
     const [tempPasteValues, setTempPasteValues] = useState<
@@ -36,9 +45,25 @@ const FilterMultiStringInput: FC<Props> = ({
         setTimeout(() => setSearch(() => ''), 0);
     }, [setSearch]);
 
+    // 防抖关闭函数：多选模式下延迟关闭，允许用户连续选择
+    const debouncedCloseRef = useRef(
+        debounce(() => {
+            multiSelectRef.current?.blur();
+        }, 800), // 800ms 延迟，用户停止选择 800ms 后关闭
+    );
+
+    // 组件卸载时清理防抖函数
+    useEffect(() => {
+        return () => {
+            debouncedCloseRef.current.cancel();
+        };
+    }, []);
+
     const handleChange = useCallback(
         (updatedValues: string[]) => {
             onChange(uniq(updatedValues));
+            // 使用防抖延迟关闭，允许用户连续选择多个选项
+            debouncedCloseRef.current();
         },
         [onChange],
     );
@@ -108,6 +133,7 @@ const FilterMultiStringInput: FC<Props> = ({
             }}
         >
             <MultiSelect
+                ref={multiSelectRef}
                 size="xs"
                 w="100%"
                 placeholder={

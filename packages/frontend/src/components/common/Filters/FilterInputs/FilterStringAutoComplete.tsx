@@ -12,6 +12,7 @@ import {
     type MultiSelectValueProps,
 } from '@mantine/core';
 import { IconAlertCircle, IconPlus } from '@tabler/icons-react';
+import debounce from 'lodash/debounce';
 import uniq from 'lodash/uniq';
 import {
     useCallback,
@@ -138,6 +139,20 @@ const FilterStringAutoComplete: FC<Props> = ({
         setTimeout(() => setSearch(() => ''), 0);
     }, [setSearch]);
 
+    // 防抖关闭函数：多选模式下延迟关闭，允许用户连续选择
+    const debouncedCloseRef = useRef(
+        debounce(() => {
+            multiSelectRef.current?.blur();
+        }, 800), // 800ms 延迟，用户停止选择 800ms 后关闭
+    );
+
+    // 组件卸载时清理防抖函数
+    useEffect(() => {
+        return () => {
+            debouncedCloseRef.current.cancel();
+        };
+    }, []);
+
     const handleChange = useCallback(
         (updatedValues: string[]) => {
             if (singleValue && updatedValues.length > 1) {
@@ -145,8 +160,14 @@ const FilterStringAutoComplete: FC<Props> = ({
             } else {
                 onChange(uniq(updatedValues));
             }
+
+            // 单选模式：立即关闭下拉框
             if (singleValue) {
+                debouncedCloseRef.current.cancel(); // 取消可能存在的防抖
                 multiSelectRef.current?.blur();
+            } else {
+                // 多选模式：使用防抖延迟关闭，允许用户连续选择多个选项
+                debouncedCloseRef.current();
             }
         },
         [onChange, singleValue],
