@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useIsMobileDevice } from '../../../../hooks/useIsMobileDevice';
 import MantineIcon from '../../MantineIcon';
 import MultiValuePastePopover from './MultiValuePastePopover';
 import { formatDisplayValue } from './utils';
@@ -194,9 +195,14 @@ const FilterMultiStringInput: FC<Props> = ({
         [findDropdownElement],
     );
 
-    // 监听鼠标移动，只在鼠标离开下拉框范围时关闭
+    // 检测是否为移动设备
+    const isMobileDevice = useIsMobileDevice();
+
+    // 监听鼠标移动，只在鼠标离开下拉框范围时关闭（仅PC端）
     useEffect(() => {
         if (!isDropdownOpen) return;
+        // 移动端选择后自动关闭，不需要监听触摸事件
+        if (isMobileDevice) return;
 
         // 下拉框打开时，延迟查找下拉框元素（等待渲染）
         const timeoutId = setTimeout(() => {
@@ -217,6 +223,7 @@ const FilterMultiStringInput: FC<Props> = ({
             }
         };
 
+        // 监听鼠标移动（仅PC端）
         document.addEventListener('mousemove', handleMouseMove);
 
         return () => {
@@ -231,6 +238,7 @@ const FilterMultiStringInput: FC<Props> = ({
         findDropdownElement,
         cancelDebouncedClose,
         startDebouncedClose,
+        isMobileDevice,
     ]);
 
     // 组件卸载时清理定时器
@@ -243,10 +251,15 @@ const FilterMultiStringInput: FC<Props> = ({
     const handleChange = useCallback(
         (updatedValues: string[]) => {
             onChange(uniq(updatedValues));
-            // 不在这里处理关闭，由鼠标移动事件处理
-            // 如果鼠标在下拉框内，会取消防抖；如果离开，会触发防抖关闭
+            // 移动端多选模式：选择后延迟关闭，提升移动端体验
+            if (isMobileDevice) {
+                cancelDebouncedClose();
+                setTimeout(() => {
+                    multiSelectRef.current?.blur();
+                }, 300);
+            }
         },
-        [onChange],
+        [onChange, isMobileDevice, cancelDebouncedClose],
     );
 
     const handleAdd = useCallback(
@@ -357,9 +370,24 @@ const FilterMultiStringInput: FC<Props> = ({
                         maxWidth: '100%',
                         flex: '1 1 auto',
                         minWidth: 0,
+                        // 移动端：更严格限制输入框宽度，避免超出屏幕
+                        ...(isMobileDevice && {
+                            maxWidth: '80vw',
+                        }),
                     },
                     wrapper: {
                         maxWidth: '100%',
+                        // 移动端：限制包装器宽度
+                        ...(isMobileDevice && {
+                            maxWidth: '80vw',
+                        }),
+                    },
+                    dropdown: {
+                        // 移动端：使用更严格的宽度限制，确保不会超出屏幕右边界
+                        ...(isMobileDevice && {
+                            maxWidth: '80vw',
+                            width: '80vw',
+                        }),
                     },
                 }}
                 disableSelectedItemFiltering={false}

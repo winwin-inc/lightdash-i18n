@@ -7,6 +7,7 @@ import { Select } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 
 import { type FilterInputsProps } from '.';
+import { useIsMobileDevice } from '../../../../hooks/useIsMobileDevice';
 import { usePlaceholderByFilterTypeAndOperator } from '../utils/getPlaceholderByFilterTypeAndOperator';
 import DefaultFilterInputs from './DefaultFilterInputs';
 
@@ -26,6 +27,9 @@ const BooleanFilterInputs = <T extends BaseFilterRule>(
         disabled: isFilterRuleDisabled,
     });
 
+    // 检测是否为移动设备
+    const isMobileDevice = useIsMobileDevice();
+
     switch (rule.operator) {
         case FilterOperator.EQUALS:
         case FilterOperator.NOT_EQUALS:
@@ -33,7 +37,7 @@ const BooleanFilterInputs = <T extends BaseFilterRule>(
 
             return (
                 <Select
-                    w="100%"
+                    w={isMobileDevice ? '80vw' : '100%'}
                     size="xs"
                     withinPortal={popoverProps?.withinPortal}
                     onDropdownOpen={popoverProps?.onOpen}
@@ -57,6 +61,34 @@ const BooleanFilterInputs = <T extends BaseFilterRule>(
                         },
                     ]}
                     value={currentValue}
+                    styles={{
+                        root: {
+                            // 移动端：限制根元素宽度
+                            ...(isMobileDevice && {
+                                maxWidth: '80vw',
+                                width: '80vw',
+                            }),
+                        },
+                        input: {
+                            // 移动端：更严格限制输入框宽度，避免超出屏幕
+                            ...(isMobileDevice && {
+                                maxWidth: '80vw',
+                            }),
+                        },
+                        wrapper: {
+                            // 移动端：限制包装器宽度
+                            ...(isMobileDevice && {
+                                maxWidth: '80vw',
+                            }),
+                        },
+                        dropdown: {
+                            // 移动端：使用更严格的宽度限制，确保不会超出屏幕右边界
+                            ...(isMobileDevice && {
+                                maxWidth: '80vw',
+                                width: '80vw',
+                            }),
+                        },
+                    }}
                     onChange={(value) =>
                         onChange({
                             ...rule,

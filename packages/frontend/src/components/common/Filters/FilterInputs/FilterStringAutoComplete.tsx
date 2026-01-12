@@ -29,6 +29,7 @@ import {
     MAX_AUTOCOMPLETE_RESULTS,
     useFieldValues,
 } from '../../../../hooks/useFieldValues';
+import { useIsMobileDevice } from '../../../../hooks/useIsMobileDevice';
 import MantineIcon from '../../MantineIcon';
 import useFiltersContext from '../useFiltersContext';
 import MultiValuePastePopover from './MultiValuePastePopover';
@@ -288,6 +289,9 @@ const FilterStringAutoComplete: FC<Props> = ({
         [findDropdownElement],
     );
 
+    // 检测是否为移动设备
+    const isMobileDevice = useIsMobileDevice();
+
     // 数据加载完成后，重新查找下拉框（因为下拉框高度会变化）
     useEffect(() => {
         if (!isDropdownOpen || singleValue || isInitialLoading) return;
@@ -302,9 +306,11 @@ const FilterStringAutoComplete: FC<Props> = ({
         };
     }, [isInitialLoading, isDropdownOpen, singleValue, findDropdownElement]);
 
-    // 监听鼠标移动，只在鼠标离开下拉框范围时关闭
+    // 监听鼠标移动，只在鼠标离开下拉框范围时关闭（仅PC端）
     useEffect(() => {
         if (!isDropdownOpen || singleValue) return;
+        // 移动端选择后自动关闭，不需要监听触摸事件
+        if (isMobileDevice) return;
 
         // 下拉框打开时，延迟查找下拉框元素（等待渲染）
         const timeoutId = setTimeout(() => {
@@ -325,6 +331,7 @@ const FilterStringAutoComplete: FC<Props> = ({
             }
         };
 
+        // 监听鼠标移动（仅PC端）
         document.addEventListener('mousemove', handleMouseMove);
 
         return () => {
@@ -340,6 +347,7 @@ const FilterStringAutoComplete: FC<Props> = ({
         findDropdownElement,
         cancelDebouncedClose,
         startDebouncedClose,
+        isMobileDevice,
     ]);
 
     // 组件卸载时清理定时器
@@ -359,13 +367,17 @@ const FilterStringAutoComplete: FC<Props> = ({
 
             // 单选模式：立即关闭下拉框
             if (singleValue) {
-                cancelDebouncedClose(); // 取消可能存在的防抖
+                cancelDebouncedClose();
                 multiSelectRef.current?.blur();
+            } else if (isMobileDevice) {
+                // 移动端多选模式：选择后延迟关闭，提升移动端体验
+                cancelDebouncedClose();
+                setTimeout(() => {
+                    multiSelectRef.current?.blur();
+                }, 300);
             }
-            // 多选模式：不在这里处理关闭，由鼠标移动事件处理
-            // 如果鼠标在下拉框内，会取消防抖；如果离开，会触发防抖关闭
         },
-        [onChange, singleValue],
+        [onChange, singleValue, isMobileDevice, cancelDebouncedClose],
     );
 
     const handleAdd = useCallback(
@@ -587,9 +599,24 @@ const FilterStringAutoComplete: FC<Props> = ({
                         maxWidth: '100%',
                         flex: '1 1 auto',
                         minWidth: 0,
+                        // 移动端：更严格限制输入框宽度，避免超出屏幕
+                        ...(isMobileDevice && {
+                            maxWidth: '80vw',
+                        }),
                     },
                     wrapper: {
                         maxWidth: '100%',
+                        // 移动端：限制包装器宽度
+                        ...(isMobileDevice && {
+                            maxWidth: '80vw',
+                        }),
+                    },
+                    dropdown: {
+                        // 移动端：使用更严格的宽度限制，确保不会超出屏幕右边界
+                        ...(isMobileDevice && {
+                            maxWidth: '80vw',
+                            width: '80vw',
+                        }),
                     },
                 }}
                 disableSelectedItemFiltering
