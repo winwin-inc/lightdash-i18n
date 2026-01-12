@@ -12,7 +12,6 @@ import {
     type MultiSelectValueProps,
 } from '@mantine/core';
 import { IconAlertCircle, IconPlus } from '@tabler/icons-react';
-import debounce from 'lodash/debounce';
 import uniq from 'lodash/uniq';
 import {
     useCallback,
@@ -139,19 +138,216 @@ const FilterStringAutoComplete: FC<Props> = ({
         setTimeout(() => setSearch(() => ''), 0);
     }, [setSearch]);
 
-    // 防抖关闭函数：多选模式下延迟关闭，允许用户连续选择
-    const debouncedCloseRef = useRef(
-        debounce(() => {
+    // 跟踪下拉框是否打开
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    // 保存下拉框元素的引用
+    const dropdownElementRef = useRef<HTMLElement | null>(null);
+
+    // 防抖关闭定时器引用
+    const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    // 关闭下拉框的函数
+    const closeDropdown = useCallback(() => {
+        if (isDropdownOpen) {
             multiSelectRef.current?.blur();
-        }, 800), // 800ms 延迟，用户停止选择 800ms 后关闭
+        }
+    }, [isDropdownOpen]);
+
+    // 启动防抖关闭
+    const startDebouncedClose = useCallback(() => {
+        // 清除之前的定时器
+        if (closeTimeoutRef.current) {
+            clearTimeout(closeTimeoutRef.current);
+        }
+        // 设置新的定时器
+        closeTimeoutRef.current = setTimeout(() => {
+            closeTimeoutRef.current = null;
+            closeDropdown();
+        }, 500);
+    }, [closeDropdown]);
+
+    // 取消防抖关闭
+    const cancelDebouncedClose = useCallback(() => {
+        if (closeTimeoutRef.current) {
+            clearTimeout(closeTimeoutRef.current);
+            closeTimeoutRef.current = null;
+        }
+    }, []);
+
+    // 查找并保存下拉框元素引用
+    const findDropdownElement = useCallback(() => {
+        if (!multiSelectRef.current) {
+            return null;
+        }
+
+        // 方法1: 优先查找所有可见的 role="listbox" 元素（这是实际的下拉列表）
+        const allListboxes = document.querySelectorAll('[role="listbox"]');
+        const inputRect = multiSelectRef.current.getBoundingClientRect();
+
+        // 优先通过位置匹配找到正确的 listbox
+        for (const listbox of allListboxes) {
+            const rect = listbox.getBoundingClientRect();
+            // 检查是否可见且与输入框位置相关
+            if (
+                rect.width > 0 &&
+                rect.height > 0 &&
+                rect.top > 0 // 确保下拉框在视口中
+            ) {
+                const horizontalDiff = Math.abs(rect.left - inputRect.left);
+                const verticalDiff = rect.top - inputRect.bottom;
+
+                // 放宽匹配条件：水平位置相近，下拉框在输入框下方或稍微重叠
+                if (
+                    horizontalDiff < 100 && // 水平位置相近（放宽到100px）
+                    verticalDiff >= -20 // 下拉框在输入框下方或稍微重叠（放宽到20px）
+                ) {
+                    return listbox as HTMLElement;
+                }
+            }
+        }
+
+        // 方法2: 通过 aria-owns 查找实际的 listbox（备用方法）
+        const inputId = multiSelectRef.current.id;
+        if (inputId) {
+            // 先找到 combobox 包装器
+            const combobox = document.querySelector(
+                `[aria-controls="${inputId}"], [aria-labelledby="${inputId}"]`,
+            ) as HTMLElement | null;
+
+            if (combobox) {
+                // 从 combobox 的 aria-owns 获取 listbox 的 ID
+                const listboxId = combobox.getAttribute('aria-owns');
+                if (listboxId) {
+                    // 查找实际的 listbox 元素
+                    const listbox = document.querySelector(
+                        `#${listboxId}, [id="${listboxId}"]`,
+                    ) as HTMLElement | null;
+                    if (listbox) {
+                        const rect = listbox.getBoundingClientRect();
+                        if (rect.width > 0 && rect.height > 0) {
+                            return listbox;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 方法3: 查找 data-combobox-dropdown 或包含选项的容器
+        const comboboxDropdown = document.querySelector(
+            '[data-combobox-dropdown], [data-mantine-dropdown]',
+        ) as HTMLElement | null;
+        if (comboboxDropdown) {
+            const rect = comboboxDropdown.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+                return comboboxDropdown;
+            }
+        }
+
+        return null;
+    }, []);
+
+    // 检查鼠标是否在下拉框或输入框范围内
+    const isMouseInSelectArea = useCallback(
+        (x: number, y: number): boolean => {
+            // 检查输入框
+            if (multiSelectRef.current) {
+                const inputRect =
+                    multiSelectRef.current.getBoundingClientRect();
+                const inInput =
+                    x >= inputRect.left &&
+                    x <= inputRect.right &&
+                    y >= inputRect.top &&
+                    y <= inputRect.bottom;
+
+                if (inInput) {
+                    return true;
+                }
+            }
+
+            // 检查下拉框（每次都重新查找，确保获取最新的位置和大小）
+            const dropdown = findDropdownElement();
+            if (dropdown) {
+                // 更新引用
+                if (dropdownElementRef.current !== dropdown) {
+                    dropdownElementRef.current = dropdown;
+                }
+                const rect = dropdown.getBoundingClientRect();
+                const inDropdown =
+                    x >= rect.left &&
+                    x <= rect.right &&
+                    y >= rect.top &&
+                    y <= rect.bottom;
+
+                if (inDropdown) {
+                    return true;
+                }
+            }
+
+            return false;
+        },
+        [findDropdownElement],
     );
 
-    // 组件卸载时清理防抖函数
+    // 数据加载完成后，重新查找下拉框（因为下拉框高度会变化）
+    useEffect(() => {
+        if (!isDropdownOpen || singleValue || isInitialLoading) return;
+
+        // 数据加载完成后，延迟重新查找下拉框（等待 DOM 更新）
+        const timeoutId = setTimeout(() => {
+            dropdownElementRef.current = findDropdownElement();
+        }, 100);
+
+        return () => {
+            clearTimeout(timeoutId);
+        };
+    }, [isInitialLoading, isDropdownOpen, singleValue, findDropdownElement]);
+
+    // 监听鼠标移动，只在鼠标离开下拉框范围时关闭
+    useEffect(() => {
+        if (!isDropdownOpen || singleValue) return;
+
+        // 下拉框打开时，延迟查找下拉框元素（等待渲染）
+        const timeoutId = setTimeout(() => {
+            dropdownElementRef.current = findDropdownElement();
+        }, 100);
+
+        const handleMouseMove = (event: MouseEvent) => {
+            const isInside = isMouseInSelectArea(event.clientX, event.clientY);
+
+            if (isInside) {
+                // 鼠标在下拉框内，取消防抖（保持打开）
+                cancelDebouncedClose();
+            } else {
+                // 鼠标离开下拉框，启动防抖关闭（只在第一次离开时启动，不会因为移动而重置）
+                if (!closeTimeoutRef.current) {
+                    startDebouncedClose();
+                }
+            }
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+
+        return () => {
+            clearTimeout(timeoutId);
+            document.removeEventListener('mousemove', handleMouseMove);
+            cancelDebouncedClose(); // 清理时取消防抖
+            dropdownElementRef.current = null; // 清理引用
+        };
+    }, [
+        isDropdownOpen,
+        singleValue,
+        isMouseInSelectArea,
+        findDropdownElement,
+        cancelDebouncedClose,
+        startDebouncedClose,
+    ]);
+
+    // 组件卸载时清理定时器
     useEffect(() => {
         return () => {
-            debouncedCloseRef.current.cancel();
+            cancelDebouncedClose();
         };
-    }, []);
+    }, [cancelDebouncedClose]);
 
     const handleChange = useCallback(
         (updatedValues: string[]) => {
@@ -163,12 +359,11 @@ const FilterStringAutoComplete: FC<Props> = ({
 
             // 单选模式：立即关闭下拉框
             if (singleValue) {
-                debouncedCloseRef.current.cancel(); // 取消可能存在的防抖
+                cancelDebouncedClose(); // 取消可能存在的防抖
                 multiSelectRef.current?.blur();
-            } else {
-                // 多选模式：使用防抖延迟关闭，允许用户连续选择多个选项
-                debouncedCloseRef.current();
             }
+            // 多选模式：不在这里处理关闭，由鼠标移动事件处理
+            // 如果鼠标在下拉框内，会取消防抖；如果离开，会触发防抖关闭
         },
         [onChange, singleValue],
     );
@@ -444,8 +639,14 @@ const FilterStringAutoComplete: FC<Props> = ({
                 }
                 data={data}
                 value={values}
-                onDropdownOpen={onDropdownOpen}
+                onDropdownOpen={() => {
+                    setIsDropdownOpen(true);
+                    onDropdownOpen?.();
+                }}
                 onDropdownClose={() => {
+                    setIsDropdownOpen(false);
+                    cancelDebouncedClose(); // 取消防抖，因为下拉框已经关闭
+                    dropdownElementRef.current = null; // 清理下拉框引用
                     handleResetSearch();
                     onDropdownClose?.();
                 }}
