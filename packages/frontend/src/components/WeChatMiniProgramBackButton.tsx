@@ -63,7 +63,7 @@ const WeChatMiniProgramBackButton: FC = () => {
             <Box
                 style={{
                     position: 'fixed',
-                    bottom: 'calc(220px + env(safe-area-inset-bottom, 0px))',
+                    bottom: 'calc(25vh + env(safe-area-inset-bottom, 0px))',
                     right: 'calc(20px + env(safe-area-inset-right, 0px))',
                     zIndex: 1000,
                 }}
