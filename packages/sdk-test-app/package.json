@@ -1,7 +1,7 @@
 {
     "name": "@lightdash/sdk-test-app",
     "private": true,
-    "version": "0.2091.62",
+    "version": "0.2091.63",
     "type": "module",
     "scripts": {
         "start": "vite serve",
