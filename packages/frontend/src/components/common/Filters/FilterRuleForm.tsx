@@ -13,6 +13,7 @@ import { IconDots, IconX } from '@tabler/icons-react';
 import { useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
 import FieldSelect from '../FieldSelect';
 import MantineIcon from '../MantineIcon';
 import { FILTER_SELECT_LIMIT } from './constants';
@@ -39,6 +40,7 @@ const FilterRuleForm: FC<Props> = ({
 }) => {
     const { t } = useTranslation();
     const getFilterOperatorOptions = useFilterOperatorOptions();
+    const isMobileDevice = useIsMobileDevice();
 
     const { popoverProps, baseTable } = useFiltersContext();
     const activeField = useMemo(() => {
@@ -122,7 +124,7 @@ const FilterRuleForm: FC<Props> = ({
             <Select
                 limit={FILTER_SELECT_LIMIT}
                 size="xs"
-                w="175px"
+                w={isMobileDevice ? '80vw' : '175px'}
                 sx={{ flexShrink: 0 }}
                 withinPortal={popoverProps?.withinPortal}
                 onDropdownOpen={popoverProps?.onOpen}
@@ -130,6 +132,22 @@ const FilterRuleForm: FC<Props> = ({
                 disabled={!isEditMode}
                 value={filterRule.operator}
                 data={filterOperatorOptions}
+                styles={{
+                    root: {
+                        // 移动端：限制根元素宽度
+                        ...(isMobileDevice && {
+                            maxWidth: '80vw',
+                            width: '80vw',
+                        }),
+                    },
+                    dropdown: {
+                        // 移动端：使用更严格的宽度限制，确保不会超出屏幕右边界
+                        ...(isMobileDevice && {
+                            maxWidth: '80vw',
+                            width: '80vw',
+                        }),
+                    },
+                }}
                 onChange={(value) => {
                     if (!value) return;
                     onChange(

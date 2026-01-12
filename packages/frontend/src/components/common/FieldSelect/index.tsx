@@ -20,6 +20,8 @@ import {
 } from '@mantine/core';
 import { forwardRef, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+
+import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
 import FieldIcon from '../Filters/FieldIcon';
 import { FILTER_SELECT_LIMIT } from '../Filters/constants';
 
@@ -100,6 +102,7 @@ const FieldSelect = <T extends Item = Item>({
     ...rest
 }: FieldSelectProps<T>) => {
     const { t } = useTranslation();
+    const isMobileDevice = useIsMobileDevice();
 
     const inputRef = useRef<HTMLInputElement | null>(null); // Input ref for focus handling
     useEffect(() => {
@@ -223,9 +226,28 @@ const FieldSelect = <T extends Item = Item>({
         <Select
             limit={FILTER_SELECT_LIMIT}
             ref={inputRef}
-            w="100%"
+            w={isMobileDevice ? '80vw' : '100%'}
             searchable
             styles={{
+                root: {
+                    // 移动端：限制根元素宽度
+                    ...(isMobileDevice && {
+                        maxWidth: '80vw',
+                        width: '80vw',
+                    }),
+                },
+                input: {
+                    // 移动端：更严格限制输入框宽度，避免超出屏幕
+                    ...(isMobileDevice && {
+                        maxWidth: '80vw',
+                    }),
+                },
+                wrapper: {
+                    // 移动端：限制包装器宽度
+                    ...(isMobileDevice && {
+                        maxWidth: '80vw',
+                    }),
+                },
                 separator: {
                     position: 'sticky',
                     top: 0,
@@ -234,6 +256,13 @@ const FieldSelect = <T extends Item = Item>({
                 },
                 separatorLabel: {
                     fontWeight: 600,
+                },
+                dropdown: {
+                    // 移动端：使用更严格的宽度限制，确保不会超出屏幕右边界
+                    ...(isMobileDevice && {
+                        maxWidth: '80vw',
+                        width: '80vw',
+                    }),
                 },
             }}
             dropdownComponent="div"

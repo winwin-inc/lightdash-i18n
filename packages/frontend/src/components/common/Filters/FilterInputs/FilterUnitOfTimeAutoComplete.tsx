@@ -3,6 +3,8 @@ import { Select, type SelectProps } from '@mantine/core';
 import { useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useIsMobileDevice } from '../../../../hooks/useIsMobileDevice';
+
 const getUnitOfTimeLabel = (
     unitOfTime: UnitOfTime,
     isPlural: boolean,
@@ -135,6 +137,9 @@ const FilterUnitOfTimeAutoComplete: FC<Props> = ({
         completed,
     ]);
 
+    // 检测是否为移动设备
+    const isMobileDevice = useIsMobileDevice();
+
     return (
         <Select
             searchable
@@ -143,6 +148,27 @@ const FilterUnitOfTimeAutoComplete: FC<Props> = ({
             {...rest}
             value={selectValue}
             data={options}
+            styles={{
+                input: {
+                    // 移动端：更严格限制输入框宽度，避免超出屏幕
+                    ...(isMobileDevice && {
+                        maxWidth: '80vw',
+                    }),
+                },
+                wrapper: {
+                    // 移动端：限制包装器宽度
+                    ...(isMobileDevice && {
+                        maxWidth: '80vw',
+                    }),
+                },
+                dropdown: {
+                    // 移动端：使用更严格的宽度限制，确保不会超出屏幕右边界
+                    ...(isMobileDevice && {
+                        maxWidth: '80vw',
+                        width: '80vw',
+                    }),
+                },
+            }}
             onChange={(value) => {
                 if (value === null) return;
 
