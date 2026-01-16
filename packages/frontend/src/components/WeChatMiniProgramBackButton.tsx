@@ -1,8 +1,6 @@
 import { ActionIcon, Box } from '@mantine/core';
-// import { IconArrowLeft, IconLoader2 } from '@tabler/icons-react';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { type FC } from 'react';
-// import useToaster from '../hooks/toaster/useToaster';
 import { useWeChatMiniProgram } from '../hooks/useWeChatMiniProgram';
 import MantineIcon from './common/MantineIcon';
 
@@ -12,7 +10,6 @@ import MantineIcon from './common/MantineIcon';
  */
 const WeChatMiniProgramBackButton: FC = () => {
     const { isMiniProgram, isReady, navigateBack } = useWeChatMiniProgram();
-    // const { showToastInfo } = useToaster();
 
     // 只在微信小程序环境下显示
     if (!isMiniProgram || !isReady) {
@@ -20,25 +17,6 @@ const WeChatMiniProgramBackButton: FC = () => {
     }
 
     const handleClick = () => {
-        // // 显示 toast 提示
-        // showToastInfo({
-        //     icon: (
-        //         <MantineIcon
-        //             icon={IconLoader2}
-        //             size="lg"
-        //             style={{
-        //                 animation: 'spin 1s linear infinite',
-        //             }}
-        //         />
-        //     ),
-        //     title: '返回中...',
-        //     autoClose: 2000,
-        // });
-
-        // // 延迟执行回退操作，确保 toast 有时间渲染（200ms）
-        // setTimeout(() => {
-        //     navigateBack(1);
-        // }, 200);
         navigateBack(1);
     };
 
