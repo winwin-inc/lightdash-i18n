@@ -1,5 +1,6 @@
 import { ActionIcon, Box } from '@mantine/core';
-import { IconArrowLeft, IconLoader2 } from '@tabler/icons-react';
+// import { IconArrowLeft, IconLoader2 } from '@tabler/icons-react';
+import { IconArrowLeft } from '@tabler/icons-react';
 import { type FC } from 'react';
 // import useToaster from '../hooks/toaster/useToaster';
 import { useWeChatMiniProgram } from '../hooks/useWeChatMiniProgram';

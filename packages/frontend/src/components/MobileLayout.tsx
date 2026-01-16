@@ -1,9 +1,9 @@
-import { IconLoader2 } from '@tabler/icons-react';
+// import { IconLoader2 } from '@tabler/icons-react';
 import { useCallback, type FC, type PropsWithChildren } from 'react';
 // import useToaster from '../hooks/toaster/useToaster';
 import { useWeChatMiniProgramBackHandler } from '../hooks/useWeChatMiniProgram';
 import WeChatMiniProgramBackButton from './WeChatMiniProgramBackButton';
-import MantineIcon from './common/MantineIcon';
+// import MantineIcon from './common/MantineIcon';
 
 /**
  * 移动端布局组件
