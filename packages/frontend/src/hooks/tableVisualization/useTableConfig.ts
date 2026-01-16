@@ -515,13 +515,19 @@ const useTableConfig = (
                             value !== '',
                     )
                     .map((value) => Number(value))
-                    .map((value) => convertFormattedValue(value, field));
+                    .filter((value) => !Number.isNaN(value))
+                    .map((value) => convertFormattedValue(value, field))
+                    .filter((value) => typeof value === 'number');
+
+                if (columnValues.length === 0) {
+                    return acc;
+                }
 
                 return {
                     ...acc,
                     [fieldId]: {
-                        min: Math.min(...columnValues),
-                        max: Math.max(...columnValues),
+                        min: Math.min(...(columnValues as number[])),
+                        max: Math.max(...(columnValues as number[])),
                     },
                 };
             }, {});
