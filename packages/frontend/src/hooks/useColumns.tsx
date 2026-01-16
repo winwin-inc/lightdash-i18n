@@ -1,4 +1,5 @@
 import {
+    convertFormattedValue,
     DimensionType,
     formatItemValue,
     getItemId,
@@ -117,6 +118,11 @@ const formatBarDisplayCell = (
         formatted = formatRowValueFromWarehouse(cellValue);
     }
 
+    // Convert value for percentage fields to match minMaxMap calculation
+    // minMaxMap uses convertFormattedValue which converts percentage values (0.05 -> 5)
+    // so we need to do the same conversion here for consistent bar chart display
+    const convertedValue = convertFormattedValue(value, item);
+
     // Get min/max from minMaxMap (same as conditional formatting)
     // For pivot tables, try baseFieldId first so all pivoted versions share the same scale
     // Fall back to columnId for individual column scales
@@ -125,7 +131,7 @@ const formatBarDisplayCell = (
     const max = minMax?.max ?? 100;
 
     return renderBarChartDisplay({
-        value,
+        value: typeof convertedValue === 'number' ? convertedValue : value,
         formatted,
         min,
         max,

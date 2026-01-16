@@ -1,4 +1,11 @@
-import { type ResultRow, type ResultValue } from '@lightdash/common';
+import {
+    DimensionType,
+    FieldType,
+    Format,
+    type Field,
+    type ResultRow,
+    type ResultValue,
+} from '@lightdash/common';
 import { type CellContext } from '@tanstack/react-table';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
@@ -295,5 +302,98 @@ describe('getFormattedValueCell - Bar Chart Display', () => {
         );
         // Should have minimum width of 2px for visibility
         expect(barElement?.getAttribute('style')).toContain('min-width: 2px');
+    });
+
+    test('should correctly render bar chart for percentage format values', () => {
+        // Create a mock field with percentage format
+        const percentageField: Field = {
+            name: 'conversion_rate',
+            table: 'orders',
+            fieldType: FieldType.METRIC,
+            type: DimensionType.NUMBER,
+            sql: '${TABLE}.conversion_rate',
+            tableLabel: 'Orders',
+            label: 'Conversion Rate',
+            hidden: false,
+            format: Format.PERCENT, // Percentage format
+        };
+
+        // Percentage values are stored as decimals (0.05 = 5%)
+        // minMaxMap converts them to 0-100 range (5 = 5%)
+        const context = createMockCellContext({
+            columnId: 'conversion_rate',
+            value: {
+                raw: 0.05, // 5% as decimal
+                formatted: '5%',
+            },
+            minMaxMap: {
+                conversion_rate: { min: 0, max: 100 }, // Converted to 0-100 range
+            },
+            columnProperties: {
+                conversion_rate: { displayStyle: 'bar' },
+            },
+            item: percentageField,
+        });
+
+        const result = getFormattedValueCell(context);
+        const { container } = render(result as React.ReactElement);
+
+        // Should have a bar element
+        const barElement = container.querySelector(
+            'div[style*="background-color"]',
+        );
+        expect(barElement).toBeTruthy();
+
+        // Should display the formatted percentage value
+        expect(screen.getByText('5%')).toBeInTheDocument();
+
+        // Bar width should be 5% (5 out of 100)
+        // The value 0.05 is converted to 5 by convertFormattedValue
+        expect(barElement?.getAttribute('style')).toContain('width: 5%');
+    });
+
+    test('should correctly render bar chart for percentage format with different ranges', () => {
+        const percentageField: Field = {
+            name: 'completion_rate',
+            table: 'tasks',
+            fieldType: FieldType.METRIC,
+            type: DimensionType.NUMBER,
+            sql: '${TABLE}.completion_rate',
+            tableLabel: 'Tasks',
+            label: 'Completion Rate',
+            hidden: false,
+            format: Format.PERCENT,
+        };
+
+        // Test with a value of 0.75 (75%) in a range of 0-1 (converted to 0-100)
+        const context = createMockCellContext({
+            columnId: 'completion_rate',
+            value: {
+                raw: 0.75, // 75% as decimal
+                formatted: '75%',
+            },
+            minMaxMap: {
+                completion_rate: { min: 0, max: 100 }, // Converted to 0-100 range
+            },
+            columnProperties: {
+                completion_rate: { displayStyle: 'bar' },
+            },
+            item: percentageField,
+        });
+
+        const result = getFormattedValueCell(context);
+        const { container } = render(result as React.ReactElement);
+
+        const barElement = container.querySelector(
+            'div[style*="background-color"]',
+        );
+        expect(barElement).toBeTruthy();
+
+        // Should display the formatted percentage value
+        expect(screen.getByText('75%')).toBeInTheDocument();
+
+        // Bar width should be 75% (75 out of 100)
+        // The value 0.75 is converted to 75 by convertFormattedValue
+        expect(barElement?.getAttribute('style')).toContain('width: 75%');
     });
 });
