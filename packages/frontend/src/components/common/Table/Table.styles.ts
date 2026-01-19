@@ -299,7 +299,11 @@ export const FooterCell = styled.th<{ $isNaN: boolean }>`
     background-color: white;
 `;
 
-export const Th = styled.th``;
+export const Th = styled.th<{
+    $maxWidth?: string;
+}>`
+    max-width: ${({ $maxWidth }) => $maxWidth || '300px'};
+`;
 
 export const ThContainer = styled.div`
     display: flex;

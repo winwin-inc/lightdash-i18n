@@ -396,14 +396,6 @@ export const useColumns = (): TableColumn[] => {
                                   isNumeric: isNumericItem(item),
                               }
                             : undefined,
-                        // Set wider max-width for columns with bar chart display
-                        // This ensures bar charts and text have enough space without forcing fixed width
-                        // Default max-width: 300px, bar columns: 380px
-                        // Increased to ensure longer percentage values like "65.55%" can display fully
-                        style:
-                            columnProperties?.[fieldId]?.displayStyle === 'bar'
-                                ? { maxWidth: '380px' }
-                                : undefined,
                     },
                 },
             );
