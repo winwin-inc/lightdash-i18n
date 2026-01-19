@@ -26,7 +26,6 @@ import { type CellContext } from '@tanstack/react-table';
 import omit from 'lodash/omit';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import useExplorerContext from '../providers/Explorer/useExplorerContext';
 
 import { formatRowValueFromWarehouse } from '../components/DataViz/formatters/formatRowValueFromWarehouse';
 import MantineIcon from '../components/common/MantineIcon';
