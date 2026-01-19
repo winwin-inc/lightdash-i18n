@@ -105,6 +105,11 @@ const formatBarDisplayCell = (
     let formatted, value: number;
 
     if (isResultValue(cellValue)) {
+        // Check if cellValue.value exists to avoid undefined errors
+        if (!cellValue?.value) {
+            return formatCellContent(cellValue);
+        }
+        
         // Parse value - numeric metrics may return strings from the database (e.g., "1" for count_distinct)
         const rawValue = cellValue.value.raw;
         value = typeof rawValue === 'number' ? rawValue : Number(rawValue);
@@ -119,7 +124,7 @@ const formatBarDisplayCell = (
         // The converted value is only used for calculating bar width, not for display
         formatted = item
             ? formatItemValue(item, rawValue)
-            : cellValue.value.formatted;
+            : cellValue.value.formatted ?? String(rawValue ?? '');
     } else {
         value = Number(cellValue);
         formatted = formatRowValueFromWarehouse(cellValue);
