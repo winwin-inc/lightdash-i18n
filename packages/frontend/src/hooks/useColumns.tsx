@@ -26,6 +26,7 @@ import { type CellContext } from '@tanstack/react-table';
 import omit from 'lodash/omit';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import useExplorerContext from '../providers/Explorer/useExplorerContext';
 
 import { formatRowValueFromWarehouse } from '../components/DataViz/formatters/formatRowValueFromWarehouse';
 import MantineIcon from '../components/common/MantineIcon';
@@ -194,6 +195,15 @@ export const getValueCell = (info: CellContext<RawResultRow, string>) => {
 
 export const useColumns = (): TableColumn[] => {
     const { t } = useTranslation();
+
+    // Get chart config for column properties to check displayStyle
+    const chartConfig = useExplorerContext(
+        (context) => context.state.unsavedChartVersion.chartConfig,
+    );
+    const columnProperties =
+        chartConfig.type === 'table' && chartConfig.config?.columns
+            ? chartConfig.config.columns
+            : undefined;
 
     // Use Redux for state that's available
     const tableName = useExplorerSelector(selectTableName);
@@ -384,6 +394,14 @@ export const useColumns = (): TableColumn[] => {
                                   isNumeric: isNumericItem(item),
                               }
                             : undefined,
+                        // Set wider max-width for columns with bar chart display
+                        // This ensures bar charts and text have enough space without forcing fixed width
+                        // Default max-width: 300px, bar columns: 380px
+                        // Increased to ensure longer percentage values like "65.55%" can display fully
+                        style:
+                            columnProperties?.[fieldId]?.displayStyle === 'bar'
+                                ? { maxWidth: '380px' }
+                                : undefined,
                     },
                 },
             );

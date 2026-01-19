@@ -85,6 +85,7 @@ const TableHeader: FC<TableHeaderProps> = ({
                                     style={{
                                         ...meta?.style,
                                         width: meta?.width,
+                                        maxWidth: meta?.style?.maxWidth,
                                         backgroundColor:
                                             meta?.bgColor ?? TABLE_HEADER_BG,
                                     }}

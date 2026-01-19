@@ -210,8 +210,9 @@ export const Td = styled.td<{
     $isMinimal: boolean;
     $hasNewlines: boolean;
     $hasUrls: boolean;
+    $maxWidth?: string;
 }>`
-    max-width: 300px;
+    max-width: ${({ $maxWidth }) => $maxWidth || '300px'};
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
