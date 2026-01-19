@@ -257,7 +257,7 @@ const PivotTable: FC<PivotTableProps> = ({
         if (!hideRowNumbers) newColumns = [rowColumn, ...newColumns];
 
         return { columns: newColumns, columnOrder: newColumnOrder };
-    }, [data, hideRowNumbers, getField, columnProperties]);
+    }, [data, hideRowNumbers, getField]);
 
     const table = useReactTable({
         data: data.retrofitData.allCombinedData,

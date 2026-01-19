@@ -198,10 +198,6 @@ export const getValueCell = (info: CellContext<RawResultRow, string>) => {
 export const useColumns = (): TableColumn[] => {
     const { t } = useTranslation();
 
-    // Get chart config for column properties to check displayStyle
-    const chartConfig = useExplorerContext(
-        (context) => context.state.unsavedChartVersion.chartConfig,
-    );
 
     // Use Redux for state that's available
     const tableName = useExplorerSelector(selectTableName);
