@@ -84,7 +84,6 @@ const getDataAndColumns = ({
     columnOrder,
     totals,
     groupedSubtotals,
-    columnProperties,
 }: Args): Array<TableHeader | TableColumn> => {
     return selectedItemIds.reduce<Array<TableHeader | TableColumn>>(
         (acc, itemId) => {

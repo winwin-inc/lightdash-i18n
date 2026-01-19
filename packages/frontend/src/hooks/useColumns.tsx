@@ -202,10 +202,6 @@ export const useColumns = (): TableColumn[] => {
     const chartConfig = useExplorerContext(
         (context) => context.state.unsavedChartVersion.chartConfig,
     );
-    const columnProperties =
-        chartConfig.type === 'table' && chartConfig.config?.columns
-            ? chartConfig.config.columns
-            : undefined;
 
     // Use Redux for state that's available
     const tableName = useExplorerSelector(selectTableName);
@@ -442,5 +438,5 @@ export const useColumns = (): TableColumn[] => {
             [],
         );
         return [...validColumns, ...invalidColumns];
-    }, [activeItemsMap, invalidActiveItems, sorts, totals, exploreData, t, columnProperties]);
+    }, [activeItemsMap, invalidActiveItems, sorts, totals, exploreData, t]);
 };
