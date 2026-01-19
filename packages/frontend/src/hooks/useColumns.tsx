@@ -4,6 +4,7 @@ import {
     formatItemValue,
     getItemId,
     getItemMap,
+    hasPercentageFormat,
     isAdditionalMetric,
     isCustomDimension,
     isDimension,
@@ -118,31 +119,23 @@ const formatBarDisplayCell = (
         formatted = formatRowValueFromWarehouse(cellValue);
     }
 
-    // Get min/max from minMaxMap (same as conditional formatting)
-    // For pivot tables, try baseFieldId first so all pivoted versions share the same scale
-    // Fall back to columnId for individual column scales
     const minMax = minMaxMap[baseFieldId] ?? minMaxMap[columnId];
-    const min = minMax?.min ?? 0;
-    const max = minMax?.max ?? 100;
-
-    // Convert value for percentage fields to match minMaxMap calculation
-    // minMaxMap uses convertFormattedValue which converts percentage values (0.05 -> 5)
-    // so we need to do the same conversion here for consistent bar chart display
     let convertedValue = convertFormattedValue(value, item);
 
-    // If item is undefined but minMax values suggest percentage format (values in 0-100 range
-    // while raw value is in 0-1 range), try to infer and convert
     if (
         !item &&
         minMax &&
-        max > 1 &&
+        minMax.max > 1 &&
         value > 0 &&
         value < 1 &&
-        value * 100 <= max
+        value * 100 <= minMax.max
     ) {
-        // Likely a percentage field where item is missing, convert the value
         convertedValue = value * 100;
     }
+
+    const isPercentageField = hasPercentageFormat(item);
+    const min = isPercentageField ? 0 : minMax?.min ?? 0;
+    const max = isPercentageField ? 100 : minMax?.max ?? 100;
 
     return (
         <BarChartDisplay

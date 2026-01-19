@@ -165,6 +165,10 @@ const PivotTable: FC<PivotTableProps> = ({
                 const itemId = col.underlyingId || col.baseId || col.fieldId;
                 const item = itemId ? getField(itemId) : undefined;
                 
+                // Check if this column should have bar chart display
+                const hasBarDisplay =
+                    itemId && columnProperties?.[itemId]?.displayStyle === 'bar';
+                
                 const column: TableColumn = columnHelper.accessor(
                     (row: ResultRow) => {
                         return row[col.fieldId];
@@ -179,8 +183,16 @@ const PivotTable: FC<PivotTableProps> = ({
                                 colIndex < finalHeaderInfoForColumns.length
                                     ? finalHeaderInfoForColumns[colIndex]
                                     : undefined,
-                            // No need to set custom width for bar chart columns anymore
-                            // Text is now overlaid on the bar, so default column width is sufficient
+                            // Set fixed width for bar chart columns to ensure consistent bar widths
+                            // Same percentage values will display the same bar width across all cells
+                            // Text is overlaid on the bar, so fixed width ensures visual consistency
+                            ...(hasBarDisplay && {
+                                style: {
+                                    width: '160px',
+                                    minWidth: '160px',
+                                    maxWidth: '160px',
+                                },
+                            }),
                         },
                         aggregatedCell: (info) => {
                             if (info.row.getIsGrouped()) {

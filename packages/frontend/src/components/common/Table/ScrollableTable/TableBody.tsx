@@ -140,8 +140,9 @@ const TableRow: FC<TableRowProps> = ({
                 const suppressContextMenu =
                     cell.getIsPlaceholder() || cell.getIsAggregated();
 
-                // Debug: Log meta style for bar chart columns
+                const width = meta?.style?.width as string | undefined;
                 const maxWidth = meta?.style?.maxWidth as string | undefined;
+                const minWidth = meta?.style?.minWidth as string | undefined;
      
                 return (
                     <BodyCell
@@ -155,7 +156,9 @@ const TableRow: FC<TableRowProps> = ({
                         cell={cell}
                         isNumericItem={isNumericItem(meta?.item)}
                         hasData={!!meta?.item}
+                        width={width}
                         maxWidth={maxWidth}
+                        minWidth={minWidth}
                         cellContextMenu={
                             suppressContextMenu ? undefined : cellContextMenu
                         }

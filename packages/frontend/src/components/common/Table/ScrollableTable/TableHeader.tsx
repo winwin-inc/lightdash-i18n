@@ -82,9 +82,9 @@ const TableHeader: FC<TableHeaderProps> = ({
                                     ? meta.item.description
                                     : undefined;
 
-                            // Only apply maxWidth to actual column headers (last header group or colSpan === 1)
-                            // Grouped headers (colSpan > 1) should not have maxWidth as they span multiple columns
-                            const shouldApplyMaxWidth =
+                            // Only apply maxWidth/minWidth to actual column headers (last header group or colSpan === 1)
+                            // Grouped headers (colSpan > 1) should not have width constraints as they span multiple columns
+                            const shouldApplyWidth =
                                 isLastHeaderGroup(headerGroupIndex) ||
                                 header.colSpan === 1;
 
@@ -98,9 +98,23 @@ const TableHeader: FC<TableHeaderProps> = ({
                                         backgroundColor:
                                             meta?.bgColor ?? TABLE_HEADER_BG,
                                     }}
+                                    $width={
+                                        shouldApplyWidth
+                                            ? (meta?.style?.width as
+                                                  | string
+                                                  | undefined)
+                                            : undefined
+                                    }
                                     $maxWidth={
-                                        shouldApplyMaxWidth
+                                        shouldApplyWidth
                                             ? (meta?.style?.maxWidth as
+                                                  | string
+                                                  | undefined)
+                                            : undefined
+                                    }
+                                    $minWidth={
+                                        shouldApplyWidth
+                                            ? (meta?.style?.minWidth as
                                                   | string
                                                   | undefined)
                                             : undefined
