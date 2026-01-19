@@ -107,8 +107,3 @@ export const BarChartDisplay: FC<BarChartDisplayProps> = ({
         </div>
     );
 };
-
-// Keep the old function for backward compatibility, but it now returns a component
-export const renderBarChartDisplay = (props: BarChartDisplayProps) => {
-    return <BarChartDisplay {...props} />;
-};

@@ -50,7 +50,7 @@ import {
     selectTableName,
     useExplorerSelector,
 } from '../features/explorer/store';
-import { renderBarChartDisplay } from './barChartDisplay';
+import { BarChartDisplay } from './barChartDisplay';
 import { useCalculateTotal } from './useCalculateTotal';
 import { useExplore } from './useExplore';
 import { useExplorerQuery } from './useExplorerQuery';
@@ -145,12 +145,14 @@ const formatBarDisplayCell = (
         convertedValue = value * 100;
     }
 
-    return renderBarChartDisplay({
-        value: typeof convertedValue === 'number' ? convertedValue : value,
-        formatted,
-        min,
-        max,
-    });
+    return (
+        <BarChartDisplay
+            value={typeof convertedValue === 'number' ? convertedValue : value}
+            formatted={formatted}
+            min={min}
+            max={max}
+        />
+    );
 };
 
 export const getFormattedValueCell = (
@@ -448,5 +450,5 @@ export const useColumns = (): TableColumn[] => {
             [],
         );
         return [...validColumns, ...invalidColumns];
-    }, [activeItemsMap, invalidActiveItems, sorts, totals, exploreData, t]);
+    }, [activeItemsMap, invalidActiveItems, sorts, totals, exploreData, t, columnProperties]);
 };
