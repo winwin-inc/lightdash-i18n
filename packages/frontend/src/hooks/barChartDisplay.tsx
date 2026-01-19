@@ -1,5 +1,6 @@
 /**
  * Renders a bar chart display for positive numeric values in table cells.
+ * Text is overlaid on the bar to save space and ensure consistent bar widths.
  */
 import { Tooltip } from '@mantine/core';
 import { type FC } from 'react';
@@ -19,7 +20,8 @@ export const BarChartDisplay: FC<BarChartDisplayProps> = ({
     max,
     color = '#5470c6',
 }) => {
-    // Calculate bar width percentage
+    // Calculate bar width percentage based on value range
+    // Use fixed max width to ensure consistent bar widths for same percentages
     const range = max - min;
     let percentage: number;
 
@@ -32,73 +34,83 @@ export const BarChartDisplay: FC<BarChartDisplayProps> = ({
         percentage = 0;
     }
 
-    // Calculate maximum bar width based on text length
-    // This ensures longer formatted values (e.g., "$1,234,567.89") have more space
-    // while shorter values (e.g., "5%") allow the bar to be more prominent
-    //
-    // Strategy:
-    // - Estimate text width: ~7-8px per character (approximate for typical number fonts)
-    // - Reserve minimum 50px for text (for short values like "5%")
-    // - Reserve maximum 100px for text (for long values like "$1,234,567.89")
-    // - Use a sliding scale: shorter text = more bar space, longer text = less bar space
-    // - Ensure bar is always at least 50% visible for visual comparison
-    const estimatedTextWidth = Math.min(
-        Math.max(formatted.length * 7, 50), // Min 50px, scale with text length (~7px per char)
-        100, // Max 100px to prevent bar from being too narrow
-    );
-
-    // Calculate max bar width as percentage
-    // Assuming typical cell width range: 150-380px (average ~280px for bar columns)
-    // Reserve space for text + gap, then calculate remaining percentage
-    // Increased typical cell width for bar columns to ensure longer values like "65.55%" can display
-    const typicalCellWidth = 280;
-    const reservedSpace = estimatedTextWidth + 8; // text + gap
-    const maxBarWidthPercent = Math.max(
-        50, // Minimum 50% to ensure bar visibility for comparison
-        Math.min(
-            60, // Maximum 60% to ensure text visibility (reduced to give more space for longer text like "65.55%")
-            ((typicalCellWidth - reservedSpace) / typicalCellWidth) * 100,
-        ),
-    );
-
+    // Use fixed max bar width (90%) to ensure consistency across all cells
+    // Same percentage values will have the same bar width regardless of text length
+    const maxBarWidthPercent = 90;
     const barWidth = Math.min(percentage, maxBarWidthPercent);
 
     // Only show bar for positive numbers
     const showBar = value > 0;
 
+    // Estimate text width: approximately 7-8px per character for 12px font
+    // Add padding (8px left + 8px right = 16px total) for text inside bar
+    const estimatedTextWidthPx = formatted.length * 7 + 16;
+    
+    // Estimate minimum bar width needed to contain text
+    // Assuming typical cell width ~200-300px, calculate minimum percentage needed
+    // Use a conservative estimate: if bar width < 30% or text is too long, show text outside
+    const minBarWidthForText = Math.max(30, (estimatedTextWidthPx / 250) * 100);
+    
+    // Determine text position and color based on bar width and text length
+    // Show text inside bar only if bar is wide enough to contain the text comfortably
+    const showTextOnBar = showBar && barWidth >= minBarWidthForText;
+    const textColor = showTextOnBar ? '#ffffff' : 'inherit';
+
     return (
         <div
             style={{
+                position: 'relative',
+                width: '100%',
+                maxWidth: '100%',
+                minWidth: 0,
+                boxSizing: 'border-box',
+                height: '20px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                width: '100%',
-                maxWidth: '100%', // 确保容器不超出单元格宽度
-                minWidth: 0, // 确保内容可以收缩
-                boxSizing: 'border-box',
             }}
         >
             {showBar && (
                 <div
                     style={{
                         width: `${barWidth}%`,
-                        minWidth: '2px', // Always enforce minimum width for visibility
-                        maxWidth: `${maxBarWidthPercent}%`,
+                        minWidth: '2px',
                         height: '20px',
                         backgroundColor: color,
                         borderRadius: '2px',
-                        flexShrink: 0,
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
                     }}
                 />
             )}
             <Tooltip label={formatted} withinPortal position="top">
                 <span
                     style={{
+                        position: 'absolute',
+                        left: showTextOnBar
+                            ? '8px'
+                            : showBar
+                              ? `calc(${Math.max(barWidth, 2)}% + 8px)`
+                              : '0',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        minWidth: 0, // Allow text to shrink when space is limited
-                        cursor: 'help', // Show help cursor to indicate tooltip is available
+                        color: textColor,
+                        fontSize: '12px',
+                        fontWeight: showTextOnBar ? 500 : 400,
+                        textShadow: showTextOnBar ? '0 1px 2px rgba(0, 0, 0, 0.3)' : 'none',
+                        cursor: 'help',
+                        // Use calc() for more accurate width calculation in absolute positioning
+                        // When text is on bar, limit width to bar width minus padding (left 8px + right 8px)
+                        // When text is after bar, use remaining space (100% - bar width - left margin 8px)
+                        maxWidth: showTextOnBar
+                            ? `calc(${barWidth}% - 16px)`
+                            : showBar
+                              ? `calc((100% - ${Math.max(barWidth, 2)}%) - 8px)`
+                              : '100%',
+                        zIndex: 1,
                     }}
                 >
                     {formatted}

@@ -165,11 +165,6 @@ const PivotTable: FC<PivotTableProps> = ({
                 const itemId = col.underlyingId || col.baseId || col.fieldId;
                 const item = itemId ? getField(itemId) : undefined;
                 
-                // Check if this column should have bar chart display
-                const hasBarDisplay =
-                    itemId &&
-                    columnProperties?.[itemId]?.displayStyle === 'bar';
-                
                 const column: TableColumn = columnHelper.accessor(
                     (row: ResultRow) => {
                         return row[col.fieldId];
@@ -184,15 +179,8 @@ const PivotTable: FC<PivotTableProps> = ({
                                 colIndex < finalHeaderInfoForColumns.length
                                     ? finalHeaderInfoForColumns[colIndex]
                                     : undefined,
-                            // Set wider max-width for columns with bar chart display
-                            // This ensures bar charts and text have enough space
-                            // Default max-width: 300px, bar columns: 380px
-                            style: hasBarDisplay
-                                ? {
-                                      maxWidth: '380px',
-                                      minWidth: '180px',
-                                  }
-                                : undefined,
+                            // No need to set custom width for bar chart columns anymore
+                            // Text is now overlaid on the bar, so default column width is sufficient
                         },
                         aggregatedCell: (info) => {
                             if (info.row.getIsGrouped()) {
@@ -668,11 +656,6 @@ const PivotTable: FC<PivotTableProps> = ({
                                     ? Table.CellHead
                                     : Table.Cell;
                                 
-                                // Extract maxWidth from meta.style for bar chart columns
-                                const maxWidth = meta?.style?.maxWidth as
-                                    | string
-                                    | undefined;
-                                
                                 return (
                                     <TableCellComponent
                                         key={`value-${rowIndex}-${colIndex}`}
@@ -687,18 +670,6 @@ const PivotTable: FC<PivotTableProps> = ({
                                         }
                                         withInteractions={allowInteractions}
                                         withValue={value?.formatted}
-                                        style={
-                                            maxWidth
-                                                ? {
-                                                      maxWidth,
-                                                      minWidth:
-                                                          meta?.style
-                                                              ?.minWidth as
-                                                          | string
-                                                          | undefined,
-                                                  }
-                                                : undefined
-                                        }
                                         withMenu={(
                                             {
                                                 isOpen,

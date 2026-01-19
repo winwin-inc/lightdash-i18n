@@ -142,19 +142,8 @@ const getDataAndColumns = ({
                         item,
                         isVisible: isColumnVisible(itemId),
                         frozen: isColumnFrozen(itemId),
-                        // Set wider max-width for columns with bar chart display
-                        // This ensures bar charts and text have enough space
-                        // Default max-width: 300px, bar columns: 380px
-                        // Increased to ensure longer percentage values like "65.55%" can display fully
-                        style:
-                            columnProperties?.[itemId]?.displayStyle === 'bar'
-                                ? (() => {
-                                      return {
-                                          maxWidth: '380px',
-                                          minWidth: '180px',
-                                      };
-                                  })()
-                                : undefined,
+                        // No need to set custom width for bar chart columns anymore
+                        // Text is now overlaid on the bar, so default column width is sufficient
                     },
                     // Some features work in the TanStack Table demos but not here, for unknown reasons.
                     // For example, setting grouping value here does not work. The workaround is to use
