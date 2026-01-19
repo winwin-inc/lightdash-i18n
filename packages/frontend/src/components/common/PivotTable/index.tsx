@@ -497,6 +497,17 @@ const PivotTable: FC<PivotTableProps> = ({
                                     ? field.description
                                     : undefined;
 
+                            // Get column width from table column meta if this is the last header row
+                            const isLastHeaderRow =
+                                headerRowIndex === data.headerValues.length - 1;
+                            let columnStyle: React.CSSProperties | undefined;
+                            if (isLastHeaderRow && !isLabel) {
+                                const tableColumn = table
+                                    .getAllColumns()
+                                    .find((col) => col.id === headerValue.fieldId);
+                                columnStyle = tableColumn?.columnDef.meta?.style;
+                            }
+
                             return isLabel || headerValue.colSpan > 0 ? (
                                 <Table.CellHead
                                     key={`header-${headerRowIndex}-${headerColIndex}`}
@@ -507,6 +518,7 @@ const PivotTable: FC<PivotTableProps> = ({
                                             ? undefined
                                             : headerValue.colSpan
                                     }
+                                    style={columnStyle}
                                 >
                                     {isLabel
                                         ? getFieldLabel(headerValue.fieldId)
@@ -668,6 +680,9 @@ const PivotTable: FC<PivotTableProps> = ({
                                     ? Table.CellHead
                                     : Table.Cell;
                                 
+                                // Apply width style from column meta for bar chart columns
+                                const cellStyle = meta?.style;
+                                
                                 return (
                                     <TableCellComponent
                                         key={`value-${rowIndex}-${colIndex}`}
@@ -682,6 +697,7 @@ const PivotTable: FC<PivotTableProps> = ({
                                         }
                                         withInteractions={allowInteractions}
                                         withValue={value?.formatted}
+                                        style={cellStyle}
                                         withMenu={(
                                             {
                                                 isOpen,

@@ -108,18 +108,26 @@ const formatBarDisplayCell = (
         // Parse value - numeric metrics may return strings from the database (e.g., "1" for count_distinct)
         const rawValue = cellValue.value.raw;
         value = typeof rawValue === 'number' ? rawValue : Number(rawValue);
-        formatted = cellValue.value.formatted;
 
         // Only render bar if value is a valid number
         if (Number.isNaN(value)) {
             return formatCellContent(cellValue);
         }
+        
+        // Format the display value using formatItemValue to ensure correct formatting (e.g., "5%" for percentage fields)
+        // This ensures the display shows the original formatted value, not the converted value used for calculation
+        // The converted value is only used for calculating bar width, not for display
+        formatted = item
+            ? formatItemValue(item, rawValue)
+            : cellValue.value.formatted;
     } else {
         value = Number(cellValue);
         formatted = formatRowValueFromWarehouse(cellValue);
     }
 
     const minMax = minMaxMap[baseFieldId] ?? minMaxMap[columnId];
+    // Convert value for calculation (e.g., 0.05 -> 5 for percentage fields)
+    // This converted value is used only for calculating bar width, not for display
     let convertedValue = convertFormattedValue(value, item);
 
     if (
