@@ -79,8 +79,6 @@ export const BarChartDisplay: FC<BarChartDisplayProps> = ({
                         top: '50%',
                         transform: 'translateY(-50%)',
                         whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
                         color: textColor,
                         fontSize: '12px',
                         fontWeight: showTextOnBar ? 500 : 400,
