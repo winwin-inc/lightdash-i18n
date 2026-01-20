@@ -1445,6 +1445,12 @@ const getEchartAxes = ({
             leftCrossesZero || rightCrossesZero || leftAxisDataMin < 0 || rightAxisDataMin < 0;
 
         if (needsZeroAlignment) {
+            // 检查是否有负数
+            const leftHasNegative = leftAxisDataMin < 0;
+            const rightHasNegative = rightAxisDataMin < 0;
+            const leftAllPositive = leftAxisDataMin >= 0;
+            const rightAllPositive = rightAxisDataMin >= 0;
+
             // 计算0值在每个轴上的相对位置
             const leftZeroPosition =
                 leftAxisDataMax !== leftAxisDataMin
@@ -1457,120 +1463,149 @@ const getEchartAxes = ({
 
             // 如果两个轴的0值位置不同，需要调整其中一个轴
             if (Math.abs(leftZeroPosition - rightZeroPosition) > 0.001) {
-                // 选择调整哪个轴：优先调整没有手动设置min/max的轴
                 const leftHasManualMin = yAxisConfiguration?.[0]?.min !== undefined;
                 const leftHasManualMax = yAxisConfiguration?.[0]?.max !== undefined;
                 const rightHasManualMin = yAxisConfiguration?.[1]?.min !== undefined;
                 const rightHasManualMax = yAxisConfiguration?.[1]?.max !== undefined;
 
-                // 使用左侧轴的0值位置作为目标位置（因为左侧轴通常是主轴）
-                const targetZeroPosition = leftZeroPosition;
-
-                // 如果右侧轴没有手动设置，调整右侧轴以匹配目标0值位置
-                if (!rightHasManualMin && !rightHasManualMax) {
-                    // 计算右侧轴的新min和max，使得0值的相对位置与目标位置相同
-                    // 公式：如果目标0值位置是 p，原始数据范围是 range = max - min
-                    // 为了保持数据的可见性，我们需要确保原始数据仍在新的范围内
-                    // 新的范围需要满足：newMin <= min 且 newMax >= max
-                    // 同时满足：(0 - newMin) / (newMax - newMin) = p
-                    // 解方程：newMin = 0 - p * newRange, newMax = newMin + newRange
-                    // 为了包含原始数据：newMin <= min, newMax >= max
-                    // 即：0 - p * newRange <= min, 0 + (1-p) * newRange >= max
-                    // 所以：newRange >= max / (1-p) 且 newRange >= -min / p (当p > 0时)
-                    const rightRange = rightAxisDataMax - rightAxisDataMin;
-                    let newRightRange: number;
-                    if (targetZeroPosition <= 0.001) {
-                        // 如果目标位置是0（底部），直接将min设为0或更小的值
-                        alignedRightMin = Math.min(0, rightAxisDataMin);
-                        alignedRightMax = Math.max(rightAxisDataMax, -alignedRightMin * 0.1); // 确保有足够的范围
-                    } else if (targetZeroPosition >= 0.999) {
-                        // 如果目标位置是1（顶部），直接将max设为0或更大的值
-                        alignedRightMax = Math.max(0, rightAxisDataMax);
-                        alignedRightMin = Math.min(rightAxisDataMin, -alignedRightMax * 0.1); // 确保有足够的范围
-                    } else {
-                        const minRangeForMax = rightAxisDataMax / (1 - targetZeroPosition);
-                        const minRangeForMin = rightAxisDataMin < 0 
-                            ? -rightAxisDataMin / targetZeroPosition 
-                            : 0;
-                        newRightRange = Math.max(
-                            rightRange,
-                            minRangeForMax,
-                            minRangeForMin
-                        );
-                        alignedRightMin = 0 - targetZeroPosition * newRightRange;
-                        alignedRightMax = alignedRightMin + newRightRange;
-                    }
+                // 如果右侧有负数，确保右侧向下扩展以包含0值
+                if (rightHasNegative && !rightHasManualMin && !rightHasManualMax) {
+                    alignedRightMin = Math.min(0, rightAxisDataMin);
+                    alignedRightMax = rightAxisDataMax;
                 }
-                // 如果左侧轴没有手动设置，调整左侧轴以匹配右侧轴的0值位置
-                else if (!leftHasManualMin && !leftHasManualMax) {
-                    // 计算左侧轴的新min和max，使得0值的相对位置与右侧轴相同
-                    const leftRange = leftAxisDataMax - leftAxisDataMin;
-                    let newLeftRange: number;
-                    if (rightZeroPosition <= 0.001) {
-                        // 如果目标位置是0（底部），直接将min设为0或更小的值
-                        alignedLeftMin = Math.min(0, leftAxisDataMin);
-                        alignedLeftMax = Math.max(leftAxisDataMax, -alignedLeftMin * 0.1); // 确保有足够的范围
-                    } else if (rightZeroPosition >= 0.999) {
-                        // 如果目标位置是1（顶部），直接将max设为0或更大的值
-                        alignedLeftMax = Math.max(0, leftAxisDataMax);
-                        alignedLeftMin = Math.min(leftAxisDataMin, -alignedLeftMax * 0.1); // 确保有足够的范围
-                    } else {
-                        const minRangeForMax = leftAxisDataMax / (1 - rightZeroPosition);
-                        const minRangeForMin = leftAxisDataMin < 0 
-                            ? -leftAxisDataMin / rightZeroPosition 
+
+                // 如果左侧有负数，确保左侧向下扩展以包含0值
+                if (leftHasNegative && !leftHasManualMin && !leftHasManualMax) {
+                    alignedLeftMin = Math.min(0, leftAxisDataMin);
+                    alignedLeftMax = leftAxisDataMax;
+                }
+
+                // 如果右侧有负数但左侧没有，左侧应该向下扩展以包含0值
+                if (rightHasNegative && leftAllPositive && !leftHasManualMin && !leftHasManualMax) {
+                    alignedLeftMin = 0;
+                    alignedLeftMax = leftAxisDataMax;
+                }
+
+                // 如果左侧有负数但右侧没有，右侧应该向下扩展以包含0值
+                if (leftHasNegative && rightAllPositive && !rightHasManualMin && !rightHasManualMax) {
+                    alignedRightMin = 0;
+                    alignedRightMax = rightAxisDataMax;
+                }
+
+                // 重新计算0值位置（基于调整后的范围）
+                const finalLeftMin = alignedLeftMin !== undefined ? alignedLeftMin : leftAxisDataMin;
+                const finalLeftMax = alignedLeftMax !== undefined ? alignedLeftMax : leftAxisDataMax;
+                const finalRightMin = alignedRightMin !== undefined ? alignedRightMin : rightAxisDataMin;
+                const finalRightMax = alignedRightMax !== undefined ? alignedRightMax : rightAxisDataMax;
+
+                const finalLeftZeroPosition =
+                    finalLeftMax !== finalLeftMin
+                        ? (0 - finalLeftMin) / (finalLeftMax - finalLeftMin)
+                        : 0.5;
+                const finalRightZeroPosition =
+                    finalRightMax !== finalRightMin
+                        ? (0 - finalRightMin) / (finalRightMax - finalRightMin)
+                        : 0.5;
+
+                // 如果0值位置仍然不同，调整其中一个轴以对齐
+                if (Math.abs(finalLeftZeroPosition - finalRightZeroPosition) > 0.001) {
+                    // 统一的负数处理逻辑：
+                    // 如果一侧有负数且0值不在底部，另一侧应该向下扩展以匹配0值位置
+                    // 优先调整没有手动设置的轴
+
+                    const shouldAdjustLeftForRightZero = 
+                        rightHasNegative && 
+                        finalRightZeroPosition > 0.001 && 
+                        finalRightZeroPosition < 0.999 && 
+                        !leftHasManualMin && 
+                        !leftHasManualMax;
+
+                    const shouldAdjustRightForLeftZero = 
+                        leftHasNegative && 
+                        finalLeftZeroPosition > 0.001 && 
+                        finalLeftZeroPosition < 0.999 && 
+                        !rightHasManualMin && 
+                        !rightHasManualMax;
+
+                    if (shouldAdjustLeftForRightZero) {
+                        // 右侧有负数且0值在中间位置，调整左侧向下扩展以匹配右侧0值位置
+                        const leftRange = finalLeftMax - finalLeftMin;
+                        const minRangeForMax = finalLeftMax / (1 - finalRightZeroPosition);
+                        const minRangeForMin = finalLeftMin < 0 
+                            ? -finalLeftMin / finalRightZeroPosition 
                             : 0;
-                        newLeftRange = Math.max(
+                        const newLeftRange = Math.max(
                             leftRange,
                             minRangeForMax,
                             minRangeForMin
                         );
-                        alignedLeftMin = 0 - rightZeroPosition * newLeftRange;
+                        alignedLeftMin = 0 - finalRightZeroPosition * newLeftRange;
                         alignedLeftMax = alignedLeftMin + newLeftRange;
-                    }
-                }
-                // 如果两个轴都有手动设置，或者都没有手动设置，调整范围较小的轴
-                else {
-                    const leftRange = leftAxisDataMax - leftAxisDataMin;
-                    const rightRange = rightAxisDataMax - rightAxisDataMin;
-                    if (rightRange <= leftRange && !rightHasManualMin && !rightHasManualMax) {
-                        if (targetZeroPosition <= 0.001) {
-                            alignedRightMin = Math.min(0, rightAxisDataMin);
-                            alignedRightMax = Math.max(rightAxisDataMax, -alignedRightMin * 0.1);
-                        } else if (targetZeroPosition >= 0.999) {
-                            alignedRightMax = Math.max(0, rightAxisDataMax);
-                            alignedRightMin = Math.min(rightAxisDataMin, -alignedRightMax * 0.1);
-                        } else {
-                            const minRangeForMax = rightAxisDataMax / (1 - targetZeroPosition);
-                            const minRangeForMin = rightAxisDataMin < 0 
-                                ? -rightAxisDataMin / targetZeroPosition 
-                                : 0;
-                            const newRightRange = Math.max(
-                                rightRange,
-                                minRangeForMax,
-                                minRangeForMin
-                            );
-                            alignedRightMin = 0 - targetZeroPosition * newRightRange;
-                            alignedRightMax = alignedRightMin + newRightRange;
+                    } else if (shouldAdjustRightForLeftZero) {
+                        // 左侧有负数且0值在中间位置，调整右侧向下扩展以匹配左侧0值位置
+                        const rightRange = finalRightMax - finalRightMin;
+                        const minRangeForMax = finalRightMax / (1 - finalLeftZeroPosition);
+                        const minRangeForMin = finalRightMin < 0 
+                            ? -finalRightMin / finalLeftZeroPosition 
+                            : 0;
+                        const newRightRange = Math.max(
+                            rightRange,
+                            minRangeForMax,
+                            minRangeForMin
+                        );
+                        alignedRightMin = 0 - finalLeftZeroPosition * newRightRange;
+                        alignedRightMax = alignedRightMin + newRightRange;
+                    } else {
+                        // 其他情况：如果一侧有负数但0值在底部/顶部，或都没有负数，按原逻辑处理
+                        // 优先调整右侧轴以匹配左侧轴的0值位置
+                        const targetZeroPosition = finalLeftZeroPosition;
+                        if (!rightHasManualMin && !rightHasManualMax) {
+                            const rightRange = finalRightMax - finalRightMin;
+                            if (targetZeroPosition <= 0.001) {
+                                // 目标位置在底部
+                                alignedRightMin = Math.min(0, finalRightMin);
+                                alignedRightMax = finalRightMax;
+                            } else if (targetZeroPosition >= 0.999) {
+                                // 目标位置在顶部
+                                alignedRightMin = finalRightMin;
+                                alignedRightMax = Math.max(0, finalRightMax);
+                            } else {
+                                // 计算新的范围，使得0值位置匹配
+                                const minRangeForMax = finalRightMax / (1 - targetZeroPosition);
+                                const minRangeForMin = finalRightMin < 0 
+                                    ? -finalRightMin / targetZeroPosition 
+                                    : 0;
+                                const newRightRange = Math.max(
+                                    rightRange,
+                                    minRangeForMax,
+                                    minRangeForMin
+                                );
+                                alignedRightMin = 0 - targetZeroPosition * newRightRange;
+                                alignedRightMax = alignedRightMin + newRightRange;
+                            }
                         }
-                    } else if (!leftHasManualMin && !leftHasManualMax) {
-                        if (rightZeroPosition <= 0.001) {
-                            alignedLeftMin = Math.min(0, leftAxisDataMin);
-                            alignedLeftMax = Math.max(leftAxisDataMax, -alignedLeftMin * 0.1);
-                        } else if (rightZeroPosition >= 0.999) {
-                            alignedLeftMax = Math.max(0, leftAxisDataMax);
-                            alignedLeftMin = Math.min(leftAxisDataMin, -alignedLeftMax * 0.1);
-                        } else {
-                            const minRangeForMax = leftAxisDataMax / (1 - rightZeroPosition);
-                            const minRangeForMin = leftAxisDataMin < 0 
-                                ? -leftAxisDataMin / rightZeroPosition 
-                                : 0;
-                            const newLeftRange = Math.max(
-                                leftRange,
-                                minRangeForMax,
-                                minRangeForMin
-                            );
-                            alignedLeftMin = 0 - rightZeroPosition * newLeftRange;
-                            alignedLeftMax = alignedLeftMin + newLeftRange;
+                        // 如果右侧轴有手动设置，调整左侧轴
+                        else if (!leftHasManualMin && !leftHasManualMax) {
+                            const leftRange = finalLeftMax - finalLeftMin;
+                            if (finalRightZeroPosition <= 0.001) {
+                                alignedLeftMin = Math.min(0, finalLeftMin);
+                                alignedLeftMax = finalLeftMax;
+                            } else if (finalRightZeroPosition >= 0.999) {
+                                alignedLeftMin = finalLeftMin;
+                                alignedLeftMax = Math.max(0, finalLeftMax);
+                            } else {
+                                const minRangeForMax = finalLeftMax / (1 - finalRightZeroPosition);
+                                const minRangeForMin = finalLeftMin < 0 
+                                    ? -finalLeftMin / finalRightZeroPosition 
+                                    : 0;
+                                const newLeftRange = Math.max(
+                                    leftRange,
+                                    minRangeForMax,
+                                    minRangeForMin
+                                );
+                                alignedLeftMin = 0 - finalRightZeroPosition * newLeftRange;
+                                alignedLeftMax = alignedLeftMin + newLeftRange;
+                            }
                         }
                     }
                 }
@@ -2281,6 +2316,7 @@ const useEchartsCartesianConfig = (
                 : validCartesianConfig?.layout?.xField;
 
             if (xFieldId === undefined) return results;
+            if (!axes?.xAxis?.[0]) return results;
             const { min, max } = axes.xAxis[0];
 
             const hasCustomRange =
@@ -2364,7 +2400,7 @@ const useEchartsCartesianConfig = (
         validCartesianConfig?.eChartsConfig?.series,
         resultsAndMinsAndMaxes.results,
         itemsMap,
-        axes.xAxis,
+        axes?.xAxis,
         resultsData?.metricQuery?.sorts,
     ]);
 
@@ -2372,8 +2408,8 @@ const useEchartsCartesianConfig = (
         if (!stackedSeriesWithColorAssignments?.length) return sortedResults;
 
         const axis = validCartesianConfig?.layout.flipAxes
-            ? axes.yAxis[0]
-            : axes.xAxis[0];
+            ? axes?.yAxis?.[0]
+            : axes?.xAxis?.[0];
 
         const xFieldId = validCartesianConfig?.layout?.xField;
         const xAxisConfig = validCartesianConfig?.eChartsConfig.xAxis?.[0];
@@ -2429,8 +2465,8 @@ const useEchartsCartesianConfig = (
         validCartesianConfig?.layout.flipAxes,
         validCartesianConfig?.layout?.xField,
         validCartesianConfig?.eChartsConfig.xAxis,
-        axes.yAxis,
-        axes.xAxis,
+        axes?.yAxis,
+        axes?.xAxis,
         rows,
         validCartesianConfigLegend,
     ]);
@@ -2815,8 +2851,8 @@ const useEchartsCartesianConfig = (
 
     const eChartsOptions = useMemo(
         () => ({
-            xAxis: axes.xAxis,
-            yAxis: axes.yAxis,
+            xAxis: axes?.xAxis || [],
+            yAxis: axes?.yAxis || [],
             useUTC: true,
             series: stackedSeriesWithColorAssignments,
             animation: !(isInDashboard || minimal),
@@ -2834,8 +2870,8 @@ const useEchartsCartesianConfig = (
             color: [],
         }),
         [
-            axes.xAxis,
-            axes.yAxis,
+            axes?.xAxis,
+            axes?.yAxis,
             stackedSeriesWithColorAssignments,
             isInDashboard,
             minimal,
