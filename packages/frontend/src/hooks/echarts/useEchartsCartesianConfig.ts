@@ -1198,7 +1198,9 @@ const getEchartAxes = ({
         referenceLineMinRightY,
         referenceLineMaxRightY,
         dataMinLeftY,
+        dataMaxLeftY,
         dataMinRightY,
+        dataMaxRightY,
     } = getMinAndMaxReferenceLines(
         leftAxisYFieldIds,
         rightAxisYFieldIds,
@@ -1344,7 +1346,7 @@ const getEchartAxes = ({
             : undefined;
 
     // 零轴对齐：如果双轴图表中一个轴有负数，另一个没有，需要对齐零轴
-    // 检查所有使用左轴和右轴的系列，获取它们的最小值
+    // 检查所有使用左轴和右轴的系列，获取它们的最小值和最大值
     const getAxisDataMin = (
         axisFieldIds: string[] | undefined,
         fallbackValue: string | number | undefined,
@@ -1377,8 +1379,42 @@ const getEchartAxes = ({
         return minValue;
     };
 
+    const getAxisDataMax = (
+        axisFieldIds: string[] | undefined,
+        fallbackValue: string | number | undefined,
+    ): number | undefined => {
+        if (!axisFieldIds || axisFieldIds.length === 0) return undefined;
+
+        // 优先使用 minsAndMaxes 获取更准确的数据范围
+        // 检查所有使用该轴的字段，取最大值
+        let maxValue: number | undefined = undefined;
+        for (const fieldId of axisFieldIds) {
+            if (minsAndMaxes?.[fieldId]) {
+                const fieldMax = minsAndMaxes[fieldId].max;
+                if (maxValue === undefined || fieldMax > maxValue) {
+                    maxValue = fieldMax;
+                }
+            }
+        }
+
+        // 如果没有从 minsAndMaxes 获取到值，使用 fallback 值
+        if (maxValue === undefined && fallbackValue !== undefined) {
+            const numericValue =
+                typeof fallbackValue === 'number'
+                    ? fallbackValue
+                    : parseFloat(String(fallbackValue));
+            if (!isNaN(numericValue)) {
+                maxValue = numericValue;
+            }
+        }
+
+        return maxValue;
+    };
+
     const leftAxisDataMin = getAxisDataMin(leftAxisYFieldIds, dataMinLeftY);
     const rightAxisDataMin = getAxisDataMin(rightAxisYFieldIds, dataMinRightY);
+    const leftAxisDataMax = getAxisDataMax(leftAxisYFieldIds, dataMaxLeftY);
+    const rightAxisDataMax = getAxisDataMax(rightAxisYFieldIds, dataMaxRightY);
 
     const shouldAlignZeroAxis =
         leftAxisType === 'value' &&
@@ -1386,48 +1422,193 @@ const getEchartAxes = ({
         rightAxisYFieldIds &&
         rightAxisYFieldIds.length > 0 &&
         leftAxisDataMin !== undefined &&
-        rightAxisDataMin !== undefined;
+        rightAxisDataMin !== undefined &&
+        leftAxisDataMax !== undefined &&
+        rightAxisDataMax !== undefined;
 
-    // 检测左轴和右轴是否有负数（只要任一轴存在负数，就需要考虑对齐）
-    const leftAxisHasNegative = shouldAlignZeroAxis && leftAxisDataMin < 0;
-    const rightAxisHasNegative = shouldAlignZeroAxis && rightAxisDataMin < 0;
+    // 零轴对齐：确保两个Y轴的0刻度在同一水平线上
+    // 计算0值在每个轴上的相对位置，然后调整min/max使得0值对齐
+    let alignedLeftMin: number | undefined = undefined;
+    let alignedLeftMax: number | undefined = undefined;
+    let alignedRightMin: number | undefined = undefined;
+    let alignedRightMax: number | undefined = undefined;
 
-    const hasAnyNegative =
-        shouldAlignZeroAxis && (leftAxisHasNegative || rightAxisHasNegative);
+    if (shouldAlignZeroAxis) {
+        // 检查是否需要对齐0轴（至少一个轴包含0值，或者一个轴有负数另一个轴没有）
+        // 注意：此逻辑适用于任何数值类型的字段，包括百分比字段和普通数值字段
+        // 因为对齐是基于数值0的位置计算的，不依赖于字段的单位或格式化方式
+        const leftCrossesZero =
+            leftAxisDataMin <= 0 && leftAxisDataMax >= 0;
+        const rightCrossesZero =
+            rightAxisDataMin <= 0 && rightAxisDataMax >= 0;
+        const needsZeroAlignment =
+            leftCrossesZero || rightCrossesZero || leftAxisDataMin < 0 || rightAxisDataMin < 0;
 
-    // 零轴对齐：只要一个轴存在负数，另外一个轴也按统一的最小值作为起点
-    // 对齐方式：取两个轴的最小值中更小的那个，作为两个轴共同的 min 值
-    // 但只有在用户没有手动设置各自的 min 值时才自动调整
-    const alignedMinValue =
-        hasAnyNegative &&
-        leftAxisDataMin !== undefined &&
-        rightAxisDataMin !== undefined
-            ? Math.min(leftAxisDataMin, rightAxisDataMin)
-            : undefined;
+        if (needsZeroAlignment) {
+            // 计算0值在每个轴上的相对位置
+            const leftZeroPosition =
+                leftAxisDataMax !== leftAxisDataMin
+                    ? (0 - leftAxisDataMin) / (leftAxisDataMax - leftAxisDataMin)
+                    : 0.5;
+            const rightZeroPosition =
+                rightAxisDataMax !== rightAxisDataMin
+                    ? (0 - rightAxisDataMin) / (rightAxisDataMax - rightAxisDataMin)
+                    : 0.5;
+
+            // 如果两个轴的0值位置不同，需要调整其中一个轴
+            if (Math.abs(leftZeroPosition - rightZeroPosition) > 0.001) {
+                // 选择调整哪个轴：优先调整没有手动设置min/max的轴
+                const leftHasManualMin = yAxisConfiguration?.[0]?.min !== undefined;
+                const leftHasManualMax = yAxisConfiguration?.[0]?.max !== undefined;
+                const rightHasManualMin = yAxisConfiguration?.[1]?.min !== undefined;
+                const rightHasManualMax = yAxisConfiguration?.[1]?.max !== undefined;
+
+                // 使用左侧轴的0值位置作为目标位置（因为左侧轴通常是主轴）
+                const targetZeroPosition = leftZeroPosition;
+
+                // 如果右侧轴没有手动设置，调整右侧轴以匹配目标0值位置
+                if (!rightHasManualMin && !rightHasManualMax) {
+                    // 计算右侧轴的新min和max，使得0值的相对位置与目标位置相同
+                    // 公式：如果目标0值位置是 p，原始数据范围是 range = max - min
+                    // 为了保持数据的可见性，我们需要确保原始数据仍在新的范围内
+                    // 新的范围需要满足：newMin <= min 且 newMax >= max
+                    // 同时满足：(0 - newMin) / (newMax - newMin) = p
+                    // 解方程：newMin = 0 - p * newRange, newMax = newMin + newRange
+                    // 为了包含原始数据：newMin <= min, newMax >= max
+                    // 即：0 - p * newRange <= min, 0 + (1-p) * newRange >= max
+                    // 所以：newRange >= max / (1-p) 且 newRange >= -min / p (当p > 0时)
+                    const rightRange = rightAxisDataMax - rightAxisDataMin;
+                    let newRightRange: number;
+                    if (targetZeroPosition <= 0.001) {
+                        // 如果目标位置是0（底部），直接将min设为0或更小的值
+                        alignedRightMin = Math.min(0, rightAxisDataMin);
+                        alignedRightMax = Math.max(rightAxisDataMax, -alignedRightMin * 0.1); // 确保有足够的范围
+                    } else if (targetZeroPosition >= 0.999) {
+                        // 如果目标位置是1（顶部），直接将max设为0或更大的值
+                        alignedRightMax = Math.max(0, rightAxisDataMax);
+                        alignedRightMin = Math.min(rightAxisDataMin, -alignedRightMax * 0.1); // 确保有足够的范围
+                    } else {
+                        const minRangeForMax = rightAxisDataMax / (1 - targetZeroPosition);
+                        const minRangeForMin = rightAxisDataMin < 0 
+                            ? -rightAxisDataMin / targetZeroPosition 
+                            : 0;
+                        newRightRange = Math.max(
+                            rightRange,
+                            minRangeForMax,
+                            minRangeForMin
+                        );
+                        alignedRightMin = 0 - targetZeroPosition * newRightRange;
+                        alignedRightMax = alignedRightMin + newRightRange;
+                    }
+                }
+                // 如果左侧轴没有手动设置，调整左侧轴以匹配右侧轴的0值位置
+                else if (!leftHasManualMin && !leftHasManualMax) {
+                    // 计算左侧轴的新min和max，使得0值的相对位置与右侧轴相同
+                    const leftRange = leftAxisDataMax - leftAxisDataMin;
+                    let newLeftRange: number;
+                    if (rightZeroPosition <= 0.001) {
+                        // 如果目标位置是0（底部），直接将min设为0或更小的值
+                        alignedLeftMin = Math.min(0, leftAxisDataMin);
+                        alignedLeftMax = Math.max(leftAxisDataMax, -alignedLeftMin * 0.1); // 确保有足够的范围
+                    } else if (rightZeroPosition >= 0.999) {
+                        // 如果目标位置是1（顶部），直接将max设为0或更大的值
+                        alignedLeftMax = Math.max(0, leftAxisDataMax);
+                        alignedLeftMin = Math.min(leftAxisDataMin, -alignedLeftMax * 0.1); // 确保有足够的范围
+                    } else {
+                        const minRangeForMax = leftAxisDataMax / (1 - rightZeroPosition);
+                        const minRangeForMin = leftAxisDataMin < 0 
+                            ? -leftAxisDataMin / rightZeroPosition 
+                            : 0;
+                        newLeftRange = Math.max(
+                            leftRange,
+                            minRangeForMax,
+                            minRangeForMin
+                        );
+                        alignedLeftMin = 0 - rightZeroPosition * newLeftRange;
+                        alignedLeftMax = alignedLeftMin + newLeftRange;
+                    }
+                }
+                // 如果两个轴都有手动设置，或者都没有手动设置，调整范围较小的轴
+                else {
+                    const leftRange = leftAxisDataMax - leftAxisDataMin;
+                    const rightRange = rightAxisDataMax - rightAxisDataMin;
+                    if (rightRange <= leftRange && !rightHasManualMin && !rightHasManualMax) {
+                        if (targetZeroPosition <= 0.001) {
+                            alignedRightMin = Math.min(0, rightAxisDataMin);
+                            alignedRightMax = Math.max(rightAxisDataMax, -alignedRightMin * 0.1);
+                        } else if (targetZeroPosition >= 0.999) {
+                            alignedRightMax = Math.max(0, rightAxisDataMax);
+                            alignedRightMin = Math.min(rightAxisDataMin, -alignedRightMax * 0.1);
+                        } else {
+                            const minRangeForMax = rightAxisDataMax / (1 - targetZeroPosition);
+                            const minRangeForMin = rightAxisDataMin < 0 
+                                ? -rightAxisDataMin / targetZeroPosition 
+                                : 0;
+                            const newRightRange = Math.max(
+                                rightRange,
+                                minRangeForMax,
+                                minRangeForMin
+                            );
+                            alignedRightMin = 0 - targetZeroPosition * newRightRange;
+                            alignedRightMax = alignedRightMin + newRightRange;
+                        }
+                    } else if (!leftHasManualMin && !leftHasManualMax) {
+                        if (rightZeroPosition <= 0.001) {
+                            alignedLeftMin = Math.min(0, leftAxisDataMin);
+                            alignedLeftMax = Math.max(leftAxisDataMax, -alignedLeftMin * 0.1);
+                        } else if (rightZeroPosition >= 0.999) {
+                            alignedLeftMax = Math.max(0, leftAxisDataMax);
+                            alignedLeftMin = Math.min(leftAxisDataMin, -alignedLeftMax * 0.1);
+                        } else {
+                            const minRangeForMax = leftAxisDataMax / (1 - rightZeroPosition);
+                            const minRangeForMin = leftAxisDataMin < 0 
+                                ? -leftAxisDataMin / rightZeroPosition 
+                                : 0;
+                            const newLeftRange = Math.max(
+                                leftRange,
+                                minRangeForMax,
+                                minRangeForMin
+                            );
+                            alignedLeftMin = 0 - rightZeroPosition * newLeftRange;
+                            alignedLeftMax = alignedLeftMin + newLeftRange;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     const shouldUseAlignedMinForLeftAxis =
-        hasAnyNegative &&
-        alignedMinValue !== undefined &&
+        alignedLeftMin !== undefined &&
         yAxisConfiguration?.[0]?.min === undefined;
 
+    const shouldUseAlignedMaxForLeftAxis =
+        alignedLeftMax !== undefined &&
+        yAxisConfiguration?.[0]?.max === undefined;
+
     const shouldUseAlignedMinForRightAxis =
-        hasAnyNegative &&
-        alignedMinValue !== undefined &&
+        alignedRightMin !== undefined &&
         yAxisConfiguration?.[1]?.min === undefined;
+
+    const shouldUseAlignedMaxForRightAxis =
+        alignedRightMax !== undefined &&
+        yAxisConfiguration?.[1]?.max === undefined;
 
     const maxYAxisValue =
         leftAxisType === 'value'
             ? shouldStack100 && !validCartesianConfig.layout.flipAxes
                 ? 100 // For 100% stacking without flipped axes, max is always 100
-                : yAxisConfiguration?.[0]?.max ||
-                  referenceLineMaxLeftY ||
-                  maybeGetAxisDefaultMaxValue(allowFirstAxisDefaultRange)
+                : shouldUseAlignedMaxForLeftAxis
+                    ? String(alignedLeftMax) // 使用对齐后的 max 值，以对齐零轴
+                    : yAxisConfiguration?.[0]?.max ||
+                      referenceLineMaxLeftY ||
+                      maybeGetAxisDefaultMaxValue(allowFirstAxisDefaultRange)
             : undefined;
 
     const minYAxisValue =
         leftAxisType === 'value'
             ? shouldUseAlignedMinForLeftAxis
-                ? String(alignedMinValue) // 使用对齐后的 min 值，以对齐零轴
+                ? String(alignedLeftMin) // 使用对齐后的 min 值，以对齐零轴
                 : yAxisConfiguration?.[0]?.min ||
                   referenceLineMinLeftY ||
                   maybeGetAxisDefaultMinValue(allowFirstAxisDefaultRange)
@@ -1652,7 +1833,7 @@ const getEchartAxes = ({
                 min:
                     rightAxisType === 'value'
                         ? shouldUseAlignedMinForRightAxis
-                            ? String(alignedMinValue) // 使用对齐后的 min 值，以对齐零轴
+                            ? String(alignedRightMin) // 使用对齐后的 min 值，以对齐零轴
                             : yAxisConfiguration?.[1]?.min ||
                               referenceLineMinRightY ||
                               maybeGetAxisDefaultMinValue(
@@ -1661,11 +1842,13 @@ const getEchartAxes = ({
                         : undefined,
                 max:
                     rightAxisType === 'value'
-                        ? yAxisConfiguration?.[1]?.max ||
-                          referenceLineMaxRightY ||
-                          maybeGetAxisDefaultMaxValue(
-                              allowSecondAxisDefaultRange,
-                          )
+                        ? shouldUseAlignedMaxForRightAxis
+                            ? String(alignedRightMax) // 使用对齐后的 max 值，以对齐零轴
+                            : yAxisConfiguration?.[1]?.max ||
+                              referenceLineMaxRightY ||
+                              maybeGetAxisDefaultMaxValue(
+                                  allowSecondAxisDefaultRange,
+                              )
                         : undefined,
                 ...getAxisFormatterConfig({
                     axisItem: rightAxisYField,
@@ -1995,10 +2178,10 @@ const useEchartsCartesianConfig = (
             const seriesConfig = validCartesianConfig?.eChartsConfig.series;
             if (!seriesConfig) return undefined;
             for (const s of seriesConfig) {
-                const sortValue = s.tooltipSortByValue as
-                    | 'asc'
-                    | 'desc'
-                    | undefined;
+                // Access tooltipSortByValue using index access since EChartsConfig.series is Partial<Series[]>
+                const sortValue = (s as Record<string, unknown>)[
+                    'tooltipSortByValue'
+                ] as 'asc' | 'desc' | undefined;
                 if (sortValue === 'asc' || sortValue === 'desc') {
                     return sortValue;
                 }
@@ -2356,10 +2539,10 @@ const useEchartsCartesianConfig = (
                         validCartesianConfig?.eChartsConfig.series;
                     if (!sortSeries) return undefined;
                     for (const s of sortSeries) {
-                        const sortValue = s.tooltipSortByValue as
-                            | 'asc'
-                            | 'desc'
-                            | undefined;
+                        // Access tooltipSortByValue using index access since EChartsConfig.series is Partial<Series[]>
+                        const sortValue = (s as Record<string, unknown>)[
+                            'tooltipSortByValue'
+                        ] as 'asc' | 'desc' | undefined;
                         if (sortValue === 'asc' || sortValue === 'desc') {
                             return sortValue;
                         }

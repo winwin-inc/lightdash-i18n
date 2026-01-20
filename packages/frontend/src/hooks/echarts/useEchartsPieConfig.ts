@@ -120,9 +120,12 @@ const useEchartsPieConfig = (
                         // 移动端外侧标签优化：设置宽度和字体大小，防止文本截断
                         ...(isMobileOutsideLabel
                             ? {
-                                  width: 120, // 设置标签宽度为 120px，为文本留出更多空间
-                                  fontSize: 11, // 移动端使用稍小的字体
-                                  lineHeight: 14, // 设置行高，支持多行显示
+                                  width: 80, // 设置标签宽度为 80px，防止超出屏幕
+                                  fontSize: 10, // 移动端使用更小的字体
+                                  lineHeight: 12, // 设置行高，支持多行显示
+                                  distanceToLabelLine: 3, // 标签到引导线的距离，缩短距离
+                                  alignTo: 'labelLine', // 对齐到引导线，避免标签重叠
+                                  bleedMargin: 3, // 标签边距，防止超出容器
                               }
                             : {}),
                         formatter: (params) => {
@@ -312,8 +315,8 @@ const useEchartsPieConfig = (
         // 移动端外侧标签时，减小半径以留出标签空间
         const radius = isMobileWithOutsideLabels
             ? isDonut
-                ? ['20%', '50%']
-                : '50%'
+                ? ['15%', '40%'] // 进一步减小半径，为标签留出更多空间
+                : '40%' // 移动端外侧标签使用更小的半径
             : isDonut
             ? ['30%', '70%']
             : '70%';
@@ -322,7 +325,7 @@ const useEchartsPieConfig = (
         let center: [string, string];
         if (isMobileWithOutsideLabels) {
             // 移动端外侧标签：居中但稍微上移，为下方标签留出空间
-            center = ['50%', '45%'];
+            center = ['50%', '50%']; // 保持居中，通过减小半径来留出空间
         } else if (legendPosition === 'horizontal') {
             center =
                 showLegend &&
@@ -341,6 +344,29 @@ const useEchartsPieConfig = (
             data: seriesData,
             radius,
             center,
+            // 移动端外侧标签：配置引导线，防止超出屏幕
+            ...(isMobileWithOutsideLabels
+                ? {
+                      labelLine: {
+                          show: true,
+                          length: 10, // 缩短引导线长度，移动端使用更短的引导线
+                          length2: 5, // 第二段引导线长度，进一步缩短
+                          smooth: 0.1, // 使用轻微平滑曲线
+                          lineStyle: {
+                              width: 1,
+                              type: 'solid',
+                          },
+                          // 限制引导线在容器内
+                          minTurnAngle: 15, // 最小转角，避免引导线过于弯曲
+                      },
+                  }
+                : hasOutsideLabels
+                ? {
+                      labelLine: {
+                          show: true,
+                      },
+                  }
+                : {}),
             tooltip: {
                 trigger: 'item',
                 formatter: ({ marker, name, value, percent }) => {
@@ -372,10 +398,37 @@ const useEchartsPieConfig = (
             validConfig: { showLegend, legendPosition, legendMaxItemLength },
         } = chartConfig;
 
+        // 检测是否有外侧标签
+        const hasOutsideLabels = seriesData?.some(
+            (item) =>
+                typeof item === 'object' &&
+                item !== null &&
+                'label' in item &&
+                typeof item.label === 'object' &&
+                item.label !== null &&
+                'position' in item.label &&
+                item.label.position === 'outside',
+        );
+
+        // 移动端外侧标签时，添加 grid 配置为标签留出空间
+        const isMobileWithOutsideLabels = isMobile && hasOutsideLabels;
+
         return {
             textStyle: {
                 fontFamily: theme?.other?.chartFont as string | undefined,
             },
+            // 移动端外侧标签：添加 grid 配置，为标签和引导线留出足够空间
+            ...(isMobileWithOutsideLabels
+                ? {
+                      grid: {
+                          left: '10%', // 左侧留出 10% 空间给标签
+                          right: '10%', // 右侧留出 10% 空间给标签
+                          top: '10%', // 顶部留出 10% 空间给标签
+                          bottom: '10%', // 底部留出 10% 空间给标签
+                          containLabel: false, // 不包含标签，让标签可以超出 grid
+                      },
+                  }
+                : {}),
             legend: {
                 show: showLegend,
                 orient: legendPosition,
@@ -419,6 +472,8 @@ const useEchartsPieConfig = (
         minimal,
         pieSeriesOption,
         theme,
+        isMobile,
+        seriesData,
     ]);
 
     if (!itemsMap) return;

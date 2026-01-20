@@ -103,14 +103,14 @@ export const useTableSectionStyles = createStyles<
                 return {
                     top: 0,
                     position: 'sticky',
-                    zIndex: 1,
+                    zIndex: 10,
                 } as const;
 
             case SectionType.Footer:
                 return {
                     bottom: 0,
                     position: 'sticky',
-                    zIndex: 1,
+                    zIndex: 10,
                 } as const;
 
             case SectionType.Body:
@@ -177,7 +177,7 @@ export const useTableRowStyles = createStyles<
 
         withSticky: {
             position: 'sticky',
-            zIndex: 1,
+            zIndex: sectionType === SectionType.Head ? 10 : 1,
             ...getStickySectionStyles(),
         },
     };
@@ -323,7 +323,7 @@ export const useTableCellStyles = createStyles<
 
             withSticky: {
                 position: 'sticky',
-                zIndex: 1,
+                zIndex: sectionType === SectionType.Head ? 10 : 1,
                 ...getStickySectionCellStyles(),
             },
         };
