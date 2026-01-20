@@ -63,9 +63,13 @@ const TableHeader: FC<TableHeaderProps> = ({
         return null;
     }
 
+    const headerGroups = table.getHeaderGroups();
+    const isLastHeaderGroup = (index: number) =>
+        index === headerGroups.length - 1;
+
     return (
         <thead data-testid="table-header">
-            {table.getHeaderGroups().map((headerGroup) => (
+            {headerGroups.map((headerGroup, headerGroupIndex) => (
                 <HeaderDndContext
                     key={headerGroup.id}
                     colOrderRef={currentColOrder}
@@ -78,6 +82,12 @@ const TableHeader: FC<TableHeaderProps> = ({
                                     ? meta.item.description
                                     : undefined;
 
+                            // Only apply maxWidth/minWidth to actual column headers (last header group or colSpan === 1)
+                            // Grouped headers (colSpan > 1) should not have width constraints as they span multiple columns
+                            const shouldApplyWidth =
+                                isLastHeaderGroup(headerGroupIndex) ||
+                                header.colSpan === 1;
+
                             return (
                                 <Th
                                     key={header.id}
@@ -88,6 +98,27 @@ const TableHeader: FC<TableHeaderProps> = ({
                                         backgroundColor:
                                             meta?.bgColor ?? TABLE_HEADER_BG,
                                     }}
+                                    $width={
+                                        shouldApplyWidth
+                                            ? (meta?.style?.width as
+                                                  | string
+                                                  | undefined)
+                                            : undefined
+                                    }
+                                    $maxWidth={
+                                        shouldApplyWidth
+                                            ? (meta?.style?.maxWidth as
+                                                  | string
+                                                  | undefined)
+                                            : undefined
+                                    }
+                                    $minWidth={
+                                        shouldApplyWidth
+                                            ? (meta?.style?.minWidth as
+                                                  | string
+                                                  | undefined)
+                                            : undefined
+                                    }
                                     className={meta?.className}
                                 >
                                     <Draggable

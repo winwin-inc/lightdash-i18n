@@ -37,6 +37,9 @@ interface CommonBodyCellProps {
     isLargeText?: boolean;
     tooltipContent?: string;
     minimal?: boolean;
+    maxWidth?: string;
+    minWidth?: string;
+    width?: string;
 }
 
 const BodyCell: FC<React.PropsWithChildren<CommonBodyCellProps>> = ({
@@ -53,6 +56,9 @@ const BodyCell: FC<React.PropsWithChildren<CommonBodyCellProps>> = ({
     style,
     tooltipContent,
     minimal = false,
+    maxWidth,
+    minWidth,
+    width,
 }) => {
     const { t } = useTranslation();
 
@@ -151,6 +157,9 @@ const BodyCell: FC<React.PropsWithChildren<CommonBodyCellProps>> = ({
                     typeof displayValue === 'string' &&
                     displayValue.includes('\n')
                 }
+                $width={width}
+                $maxWidth={maxWidth}
+                $minWidth={minWidth}
                 onClick={canHaveMenu ? toggleMenu : undefined}
                 onMouseEnter={canHaveTooltip ? openTooltip : undefined}
                 onMouseLeave={canHaveTooltip ? closeTooltip : undefined}

@@ -96,7 +96,7 @@ type PivotTableProps = BoxProps & // TODO: remove this
         getFieldLabel: (fieldId: string) => string | undefined;
         getField: (fieldId: string) => ItemsMap[string] | undefined;
         showSubtotals?: boolean;
-        columnProperties?: ColumnProperties;
+        columnProperties?: Record<string, ColumnProperties>;
     };
 
 const PivotTable: FC<PivotTableProps> = ({
@@ -164,6 +164,12 @@ const PivotTable: FC<PivotTableProps> = ({
 
                 const itemId = col.underlyingId || col.baseId || col.fieldId;
                 const item = itemId ? getField(itemId) : undefined;
+
+                // Check if this column should have bar chart display
+                const hasBarDisplay =
+                    itemId &&
+                    columnProperties?.[itemId]?.displayStyle === 'bar';
+
                 const column: TableColumn = columnHelper.accessor(
                     (row: ResultRow) => {
                         return row[col.fieldId];
@@ -178,6 +184,16 @@ const PivotTable: FC<PivotTableProps> = ({
                                 colIndex < finalHeaderInfoForColumns.length
                                     ? finalHeaderInfoForColumns[colIndex]
                                     : undefined,
+                            // Set fixed width for bar chart columns to ensure consistent bar widths
+                            // Same percentage values will display the same bar width across all cells
+                            // Text is overlaid on the bar, so fixed width ensures visual consistency
+                            ...(hasBarDisplay && {
+                                style: {
+                                    width: '160px',
+                                    minWidth: '160px',
+                                    maxWidth: '160px',
+                                },
+                            }),
                         },
                         aggregatedCell: (info) => {
                             if (info.row.getIsGrouped()) {
@@ -254,7 +270,7 @@ const PivotTable: FC<PivotTableProps> = ({
         if (!hideRowNumbers) newColumns = [rowColumn, ...newColumns];
 
         return { columns: newColumns, columnOrder: newColumnOrder };
-    }, [data, hideRowNumbers, getField]);
+    }, [data, hideRowNumbers, getField, columnProperties]);
 
     const table = useReactTable({
         data: data.retrofitData.allCombinedData,
@@ -482,6 +498,20 @@ const PivotTable: FC<PivotTableProps> = ({
                                     ? field.description
                                     : undefined;
 
+                            // Get column width from table column meta if this is the last header row
+                            const isLastHeaderRow =
+                                headerRowIndex === data.headerValues.length - 1;
+                            let columnStyle: React.CSSProperties | undefined;
+                            if (isLastHeaderRow && !isLabel) {
+                                const tableColumn = table
+                                    .getAllColumns()
+                                    .find(
+                                        (col) => col.id === headerValue.fieldId,
+                                    );
+                                columnStyle =
+                                    tableColumn?.columnDef.meta?.style;
+                            }
+
                             return isLabel || headerValue.colSpan > 0 ? (
                                 <Table.CellHead
                                     key={`header-${headerRowIndex}-${headerColIndex}`}
@@ -492,6 +522,7 @@ const PivotTable: FC<PivotTableProps> = ({
                                             ? undefined
                                             : headerValue.colSpan
                                     }
+                                    style={columnStyle}
                                 >
                                     {isLabel
                                         ? getFieldLabel(headerValue.fieldId)
@@ -652,6 +683,10 @@ const PivotTable: FC<PivotTableProps> = ({
                                 const TableCellComponent = isRowTotal
                                     ? Table.CellHead
                                     : Table.Cell;
+
+                                // Apply width style from column meta for bar chart columns
+                                const cellStyle = meta?.style;
+
                                 return (
                                     <TableCellComponent
                                         key={`value-${rowIndex}-${colIndex}`}
@@ -666,6 +701,7 @@ const PivotTable: FC<PivotTableProps> = ({
                                         }
                                         withInteractions={allowInteractions}
                                         withValue={value?.formatted}
+                                        style={cellStyle}
                                         withMenu={(
                                             {
                                                 isOpen,

@@ -140,6 +140,10 @@ const TableRow: FC<TableRowProps> = ({
                 const suppressContextMenu =
                     cell.getIsPlaceholder() || cell.getIsAggregated();
 
+                const width = meta?.style?.width as string | undefined;
+                const maxWidth = meta?.style?.maxWidth as string | undefined;
+                const minWidth = meta?.style?.minWidth as string | undefined;
+
                 return (
                     <BodyCell
                         minimal={minimal}
@@ -152,6 +156,9 @@ const TableRow: FC<TableRowProps> = ({
                         cell={cell}
                         isNumericItem={isNumericItem(meta?.item)}
                         hasData={!!meta?.item}
+                        width={width}
+                        maxWidth={maxWidth}
+                        minWidth={minWidth}
                         cellContextMenu={
                             suppressContextMenu ? undefined : cellContextMenu
                         }

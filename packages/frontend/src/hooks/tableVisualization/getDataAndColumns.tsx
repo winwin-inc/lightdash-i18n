@@ -30,6 +30,7 @@ type Args = {
     columnOrder: string[];
     totals?: Record<string, number>;
     groupedSubtotals?: Record<string, Record<string, number>[]>;
+    columnProperties?: Record<string, { displayStyle?: 'text' | 'bar' }>;
 };
 
 export function getGroupingValuesAndSubtotalKey(
@@ -83,6 +84,7 @@ const getDataAndColumns = ({
     columnOrder,
     totals,
     groupedSubtotals,
+    columnProperties,
 }: Args): Array<TableHeader | TableColumn> => {
     return selectedItemIds.reduce<Array<TableHeader | TableColumn>>(
         (acc, itemId) => {
@@ -94,6 +96,10 @@ const getDataAndColumns = ({
                 return acc;
             }
             const headerOverride = getFieldLabelOverride(itemId);
+
+            // Check if this column should have bar chart display
+            const hasBarDisplay =
+                columnProperties?.[itemId]?.displayStyle === 'bar';
 
             const column: TableHeader | TableColumn = columnHelper.accessor(
                 (row) => row[itemId],
@@ -140,6 +146,16 @@ const getDataAndColumns = ({
                         item,
                         isVisible: isColumnVisible(itemId),
                         frozen: isColumnFrozen(itemId),
+                        // Set fixed width for bar chart columns to ensure consistent bar widths
+                        // Same percentage values will display the same bar width across all cells
+                        // Text is overlaid on the bar, so fixed width ensures visual consistency
+                        ...(hasBarDisplay && {
+                            style: {
+                                width: '160px',
+                                minWidth: '160px',
+                                maxWidth: '160px',
+                            },
+                        }),
                     },
                     // Some features work in the TanStack Table demos but not here, for unknown reasons.
                     // For example, setting grouping value here does not work. The workaround is to use

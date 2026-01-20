@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import wx from 'weixin-js-sdk';
 
-import { sendLogToBackend } from '../utils/remoteLogger';
-
 // 确保 wx 挂载到全局（某些构建环境可能不会自动挂载）
 if (typeof window !== 'undefined' && !(window as any).wx) {
     (window as any).wx = wx;
@@ -18,7 +16,7 @@ const getWeixinJSBridge = () => (window as any).WeixinJSBridge;
 const LOG_PREFIX = '[WeChatMiniProgram]';
 
 // 格式化日志消息
-const formatLogMessage = (...args: unknown[]): string => {
+export const formatLogMessage = (...args: unknown[]): string => {
     return args
         .map((arg) => {
             if (typeof arg === 'object') {
@@ -35,22 +33,13 @@ const formatLogMessage = (...args: unknown[]): string => {
 
 export const log = {
     info: (...args: unknown[]) => {
-        const message = formatLogMessage(...args);
         console.log(LOG_PREFIX, ...args);
-        // 立即发送到后端，确保执行顺序清晰
-        sendLogToBackend('info', `${LOG_PREFIX} ${message}`, args);
     },
     warn: (...args: unknown[]) => {
-        const message = formatLogMessage(...args);
         console.warn(LOG_PREFIX, ...args);
-        // 立即发送到后端，确保执行顺序清晰
-        sendLogToBackend('warn', `${LOG_PREFIX} ${message}`, args);
     },
     error: (...args: unknown[]) => {
-        const message = formatLogMessage(...args);
         console.error(LOG_PREFIX, ...args);
-        // 立即发送到后端，确保执行顺序清晰
-        sendLogToBackend('error', `${LOG_PREFIX} ${message}`, args);
     },
 };
 

@@ -210,8 +210,13 @@ export const Td = styled.td<{
     $isMinimal: boolean;
     $hasNewlines: boolean;
     $hasUrls: boolean;
+    $maxWidth?: string;
+    $minWidth?: string;
+    $width?: string;
 }>`
-    max-width: 300px;
+    ${({ $width }) => ($width ? `width: ${$width};` : '')}
+    max-width: ${({ $maxWidth }) => $maxWidth || '300px'};
+    ${({ $minWidth }) => ($minWidth ? `min-width: ${$minWidth};` : '')}
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -298,7 +303,15 @@ export const FooterCell = styled.th<{ $isNaN: boolean }>`
     background-color: white;
 `;
 
-export const Th = styled.th``;
+export const Th = styled.th<{
+    $maxWidth?: string;
+    $minWidth?: string;
+    $width?: string;
+}>`
+    ${({ $width }) => ($width ? `width: ${$width};` : '')}
+    max-width: ${({ $maxWidth }) => $maxWidth || '300px'};
+    ${({ $minWidth }) => ($minWidth ? `min-width: ${$minWidth};` : '')}
+`;
 
 export const ThContainer = styled.div`
     display: flex;

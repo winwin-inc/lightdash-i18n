@@ -1,8 +1,10 @@
 import {
+    convertFormattedValue,
     DimensionType,
     formatItemValue,
     getItemId,
     getItemMap,
+    hasPercentageFormat,
     isAdditionalMetric,
     isCustomDimension,
     isDimension,
@@ -48,7 +50,7 @@ import {
     selectTableName,
     useExplorerSelector,
 } from '../features/explorer/store';
-import { renderBarChartDisplay } from './barChartDisplay';
+import { BarChartDisplay } from './barChartDisplay';
 import { useCalculateTotal } from './useCalculateTotal';
 import { useExplore } from './useExplore';
 import { useExplorerQuery } from './useExplorerQuery';
@@ -103,33 +105,59 @@ const formatBarDisplayCell = (
     let formatted, value: number;
 
     if (isResultValue(cellValue)) {
+        // Check if cellValue.value exists to avoid undefined errors
+        if (!cellValue?.value) {
+            return formatCellContent(cellValue);
+        }
+
         // Parse value - numeric metrics may return strings from the database (e.g., "1" for count_distinct)
         const rawValue = cellValue.value.raw;
         value = typeof rawValue === 'number' ? rawValue : Number(rawValue);
-        formatted = cellValue.value.formatted;
 
         // Only render bar if value is a valid number
         if (Number.isNaN(value)) {
             return formatCellContent(cellValue);
         }
+
+        // Format the display value using formatItemValue to ensure correct formatting (e.g., "5%" for percentage fields)
+        // This ensures the display shows the original formatted value, not the converted value used for calculation
+        // The converted value is only used for calculating bar width, not for display
+        formatted = item
+            ? formatItemValue(item, rawValue)
+            : cellValue.value.formatted ?? String(rawValue ?? '');
     } else {
         value = Number(cellValue);
         formatted = formatRowValueFromWarehouse(cellValue);
     }
 
-    // Get min/max from minMaxMap (same as conditional formatting)
-    // For pivot tables, try baseFieldId first so all pivoted versions share the same scale
-    // Fall back to columnId for individual column scales
     const minMax = minMaxMap[baseFieldId] ?? minMaxMap[columnId];
-    const min = minMax?.min ?? 0;
-    const max = minMax?.max ?? 100;
+    // Convert value for calculation (e.g., 0.05 -> 5 for percentage fields)
+    // This converted value is used only for calculating bar width, not for display
+    let convertedValue = convertFormattedValue(value, item);
 
-    return renderBarChartDisplay({
-        value,
-        formatted,
-        min,
-        max,
-    });
+    if (
+        !item &&
+        minMax &&
+        minMax.max > 1 &&
+        value > 0 &&
+        value < 1 &&
+        value * 100 <= minMax.max
+    ) {
+        convertedValue = value * 100;
+    }
+
+    const isPercentageField = hasPercentageFormat(item);
+    const min = isPercentageField ? 0 : minMax?.min ?? 0;
+    const max = isPercentageField ? 100 : minMax?.max ?? 100;
+
+    return (
+        <BarChartDisplay
+            value={typeof convertedValue === 'number' ? convertedValue : value}
+            formatted={formatted}
+            min={min}
+            max={max}
+        />
+    );
 };
 
 export const getFormattedValueCell = (
