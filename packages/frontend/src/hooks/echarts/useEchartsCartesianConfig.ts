@@ -2179,9 +2179,7 @@ const useEchartsCartesianConfig = (
             if (!seriesConfig) return undefined;
             for (const s of seriesConfig) {
                 // Access tooltipSortByValue using index access since EChartsConfig.series is Partial<Series[]>
-                const sortValue = (s as Record<string, unknown>)[
-                    'tooltipSortByValue'
-                ] as 'asc' | 'desc' | undefined;
+                const sortValue = (s as Record<string, unknown>).tooltipSortByValue as 'asc' | 'desc' | undefined;
                 if (sortValue === 'asc' || sortValue === 'desc') {
                     return sortValue;
                 }
@@ -2540,9 +2538,7 @@ const useEchartsCartesianConfig = (
                     if (!sortSeries) return undefined;
                     for (const s of sortSeries) {
                         // Access tooltipSortByValue using index access since EChartsConfig.series is Partial<Series[]>
-                        const sortValue = (s as Record<string, unknown>)[
-                            'tooltipSortByValue'
-                        ] as 'asc' | 'desc' | undefined;
+                        const sortValue = (s as Record<string, unknown>).tooltipSortByValue as 'asc' | 'desc' | undefined;
                         if (sortValue === 'asc' || sortValue === 'desc') {
                             return sortValue;
                         }
