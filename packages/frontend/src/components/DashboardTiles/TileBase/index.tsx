@@ -16,7 +16,7 @@ import {
     Tooltip,
     getDefaultZIndex,
 } from '@mantine/core';
-import { useHover, useToggle } from '@mantine/hooks';
+import { useToggle } from '@mantine/hooks';
 import {
     IconArrowAutofitContent,
     IconDots,
@@ -25,8 +25,6 @@ import {
 } from '@tabler/icons-react';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { useDelayedHover } from '../../../hooks/useDelayedHover';
 import MantineIcon from '../../common/MantineIcon';
 import DeleteChartTileThatBelongsToDashboardModal from '../../common/modal/DeleteChartTileThatBelongsToDashboardModal';
 import ChartUpdateModal from '../TileForms/ChartUpdateModal';
@@ -89,10 +87,6 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
         isDeletingChartThatBelongsToDashboard,
         setIsDeletingChartThatBelongsToDashboard,
     ] = useState(false);
-    const { hovered: containerHovered, ref: containerRef } = useHover();
-    const { isHovered: chartHovered, ...chartHoveredProps } = useDelayedHover({
-        delay: 500,
-    });
     const [titleHovered, setTitleHovered] = useState(false);
     const [isMenuOpen, toggleMenu] = useToggle([false, true]);
 
@@ -110,7 +104,6 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
         <Card
             component={Flex}
             className="tile-base"
-            ref={containerRef}
             h="100%"
             direction="column"
             p="md"
@@ -215,134 +208,122 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
                             {visibleHeaderElement}
                         </Group>
                     )}
-                    {(containerHovered && !titleHovered && !chartHovered) ||
-                    isMenuOpen ||
-                    lockHeaderVisibility ? (
-                        <>
-                            {extraHeaderElement}
+                    <>
+                        {extraHeaderElement}
 
-                            {(isEditMode ||
-                                (!isEditMode && extraMenuItems)) && (
-                                <Menu
-                                    withArrow
-                                    withinPortal
-                                    shadow="md"
-                                    position="bottom-end"
-                                    offset={4}
-                                    arrowOffset={10}
-                                    opened={isMenuOpen}
-                                    onOpen={() => toggleMenu(true)}
-                                    onClose={() => toggleMenu(false)}
-                                >
-                                    <Menu.Dropdown>
-                                        {extraMenuItems}
-                                        {isEditMode && extraMenuItems && (
+                        {(isEditMode ||
+                            (!isEditMode && extraMenuItems)) && (
+                            <Menu
+                                withArrow
+                                withinPortal
+                                shadow="md"
+                                position="bottom-end"
+                                offset={4}
+                                arrowOffset={10}
+                                opened={isMenuOpen}
+                                onOpen={() => toggleMenu(true)}
+                                onClose={() => toggleMenu(false)}
+                            >
+                                <Menu.Dropdown>
+                                    {extraMenuItems}
+                                    {isEditMode && extraMenuItems && (
+                                        <Menu.Divider />
+                                    )}
+                                    {isEditMode && (
+                                        <>
+                                            <Box>
+                                                <Menu.Item
+                                                    icon={
+                                                        <MantineIcon
+                                                            icon={IconEdit}
+                                                        />
+                                                    }
+                                                    onClick={() =>
+                                                        setIsEditingTileContent(
+                                                            true,
+                                                        )
+                                                    }
+                                                >
+                                                    {t(
+                                                        'components_dashboard_tiles_base.edit_tile_content',
+                                                    )}
+                                                </Menu.Item>
+                                            </Box>
+                                            {tabs && tabs.length > 1 && (
+                                                <Menu.Item
+                                                    icon={
+                                                        <MantineIcon
+                                                            icon={
+                                                                IconArrowAutofitContent
+                                                            }
+                                                        />
+                                                    }
+                                                    onClick={() =>
+                                                        setIsMovingTabs(
+                                                            true,
+                                                        )
+                                                    }
+                                                >
+                                                    {t(
+                                                        'components_dashboard_tiles_base.move_to_another_tab',
+                                                    )}
+                                                </Menu.Item>
+                                            )}
                                             <Menu.Divider />
-                                        )}
-                                        {isEditMode && (
-                                            <>
-                                                <Box>
-                                                    <Menu.Item
-                                                        icon={
-                                                            <MantineIcon
-                                                                icon={IconEdit}
-                                                            />
-                                                        }
-                                                        onClick={() =>
-                                                            setIsEditingTileContent(
-                                                                true,
-                                                            )
-                                                        }
-                                                    >
-                                                        {t(
-                                                            'components_dashboard_tiles_base.edit_tile_content',
-                                                        )}
-                                                    </Menu.Item>
-                                                </Box>
-                                                {tabs && tabs.length > 1 && (
-                                                    <Menu.Item
-                                                        icon={
-                                                            <MantineIcon
-                                                                icon={
-                                                                    IconArrowAutofitContent
-                                                                }
-                                                            />
-                                                        }
-                                                        onClick={() =>
-                                                            setIsMovingTabs(
-                                                                true,
-                                                            )
-                                                        }
-                                                    >
-                                                        {t(
-                                                            'components_dashboard_tiles_base.move_to_another_tab',
-                                                        )}
-                                                    </Menu.Item>
-                                                )}
-                                                <Menu.Divider />
-                                                {belongsToDashboard ? (
-                                                    <Menu.Item
-                                                        color="red"
-                                                        onClick={() =>
-                                                            setIsDeletingChartThatBelongsToDashboard(
-                                                                true,
-                                                            )
-                                                        }
-                                                    >
-                                                        {t(
-                                                            'components_dashboard_tiles_base.delete_chart',
-                                                        )}
-                                                    </Menu.Item>
-                                                ) : (
-                                                    <Menu.Item
-                                                        color="red"
-                                                        icon={
-                                                            <MantineIcon
-                                                                icon={IconTrash}
-                                                            />
-                                                        }
-                                                        onClick={() =>
-                                                            onDelete(tile)
-                                                        }
-                                                    >
-                                                        {t(
-                                                            'components_dashboard_tiles_base.remove_tile',
-                                                        )}
-                                                    </Menu.Item>
-                                                )}
-                                            </>
-                                        )}
-                                    </Menu.Dropdown>
+                                            {belongsToDashboard ? (
+                                                <Menu.Item
+                                                    color="red"
+                                                    onClick={() =>
+                                                        setIsDeletingChartThatBelongsToDashboard(
+                                                            true,
+                                                        )
+                                                    }
+                                                >
+                                                    {t(
+                                                        'components_dashboard_tiles_base.delete_chart',
+                                                    )}
+                                                </Menu.Item>
+                                            ) : (
+                                                <Menu.Item
+                                                    color="red"
+                                                    icon={
+                                                        <MantineIcon
+                                                            icon={IconTrash}
+                                                        />
+                                                    }
+                                                    onClick={() =>
+                                                        onDelete(tile)
+                                                    }
+                                                >
+                                                    {t(
+                                                        'components_dashboard_tiles_base.remove_tile',
+                                                    )}
+                                                </Menu.Item>
+                                            )}
+                                        </>
+                                    )}
+                                </Menu.Dropdown>
 
-                                    <Menu.Target>
-                                        <ActionIcon
-                                            size="sm"
-                                            style={{
-                                                position: 'relative',
-                                                zIndex: 1,
-                                            }}
-                                        >
-                                            <MantineIcon
-                                                data-testid="tile-icon-more"
-                                                icon={IconDots}
-                                            />
-                                        </ActionIcon>
-                                    </Menu.Target>
-                                </Menu>
-                            )}
-                        </>
-                    ) : null}
+                                <Menu.Target>
+                                    <ActionIcon
+                                        size="sm"
+                                        style={{
+                                            position: 'relative',
+                                            zIndex: 1,
+                                        }}
+                                    >
+                                        <MantineIcon
+                                            data-testid="tile-icon-more"
+                                            icon={IconDots}
+                                        />
+                                    </ActionIcon>
+                                </Menu.Target>
+                            </Menu>
+                        )}
+                    </>
                 </Group>
             </HeaderContainer>
-            <ChartContainer
-                className="non-draggable sentry-block ph-no-capture"
-                onMouseEnter={
-                    hideTitle ? chartHoveredProps.handleMouseEnter : undefined
-                }
-                onMouseLeave={
-                    hideTitle ? chartHoveredProps.handleMouseLeave : undefined
-                }
-            >
+            <ChartContainer className="non-draggable sentry-block ph-no-capture">
                 {children}
             </ChartContainer>
             {isEditingTileContent &&
