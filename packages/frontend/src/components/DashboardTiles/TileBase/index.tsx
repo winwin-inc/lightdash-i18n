@@ -118,10 +118,7 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
                 return {
                     overflow: 'unset',
                     border: border,
-                    // 移动端饼图外侧标签：允许标签超出容器显示
-                    '@media (max-width: 768px)': {
-                        overflow: 'visible',
-                    },
+                    // 饼图外侧标签已在 SimplePieChart 组件内部处理 overflow: visible，不需要全局设置
                 };
             }}
         >
