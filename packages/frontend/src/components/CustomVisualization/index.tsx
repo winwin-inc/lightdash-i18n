@@ -1,5 +1,5 @@
-import { Anchor, Text } from '@mantine/core';
-import { useResizeObserver } from '@mantine/hooks';
+import { Anchor, Text, useMantineTheme } from '@mantine/core';
+import { useMediaQuery, useResizeObserver } from '@mantine/hooks';
 import { IconChartBarOff } from '@tabler/icons-react';
 import { Suspense, lazy, useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +28,8 @@ const CustomVisualization: FC<Props> = (props) => {
         isDashboard,
     } = useVisualizationContext();
     const { t } = useTranslation();
+    const theme = useMantineTheme();
+    const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
 
     const [ref, rect] = useResizeObserver();
 
@@ -94,6 +96,11 @@ const CustomVisualization: FC<Props> = (props) => {
                 height: '100%',
                 width: '100%',
                 overflow: 'hidden',
+                // 移动端固定高度，避免滚动时被拉长
+                ...(isMobile && {
+                    maxHeight: '100%',
+                    position: 'relative',
+                }),
             }}
             ref={ref}
         >
@@ -103,11 +110,16 @@ const CustomVisualization: FC<Props> = (props) => {
                     style={{
                         width: rect.width,
                         height: rect.height,
+                        // 移动端固定高度，避免跟随容器变化
+                        ...(isMobile && {
+                            maxHeight: rect.height,
+                        }),
                     }}
                     config={{
                         autosize: {
                             type: 'fit',
-                            ...(isDashboard && { resize: true }),
+                            // 移动端禁用 resize，避免在滚动时图表被拉长
+                            ...(isDashboard && !isMobile && { resize: true }),
                         },
                     }}
                     // TODO: We are ignoring some typescript errors here because the type
