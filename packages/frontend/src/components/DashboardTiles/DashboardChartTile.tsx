@@ -910,7 +910,8 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                     <>
                         {/* Dashboard comments button only appears on hover if there are no comments yet */}
                         {tileHasComments ? undefined : dashboardComments}
-                        {appliedFilterRules.length > 0 && (
+                        {/* Hidden: Dashboard filter hover button - 已应用看板过滤器 */}
+                        {/* {appliedFilterRules.length > 0 && (
                             <HoverCard
                                 withArrow
                                 withinPortal
@@ -1023,7 +1024,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                     </ActionIcon>
                                 </HoverCard.Target>
                             </HoverCard>
-                        )}
+                        )} */}
                         {usedParametersValues &&
                             Object.keys(usedParametersValues).length > 0 && (
                                 <HoverCard
