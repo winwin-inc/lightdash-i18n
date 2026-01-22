@@ -798,12 +798,6 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
         },
         [explore, chart],
     );
-    const appliedFilterRules = appliedDashboardFilters
-        ? [
-              ...appliedDashboardFilters.dimensions,
-              ...appliedDashboardFilters.metrics,
-          ]
-        : [];
 
     const chartWithDashboardFilters = useMemo(
         () => ({
