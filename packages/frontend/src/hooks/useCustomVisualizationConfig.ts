@@ -66,23 +66,29 @@ const useCustomVisualizationConfig = (
         }
     }, [visSpec]);
 
-    const rows = useMemo(() => resultsData?.rows, [resultsData]);
-
+    // 修复：直接依赖 resultsData?.rows，确保数据更新时能触发重新计算
     const convertedRows = useMemo(() => {
-        return rows ? convertRowsToSeries(rows) : [];
-    }, [rows]);
+        return resultsData?.rows ? convertRowsToSeries(resultsData.rows) : [];
+    }, [resultsData?.rows]);
 
     const fields = useMemo(() => {
-        return rows && rows.length > 0 ? Object.keys(rows[0]) : [];
-    }, [rows]);
+        return resultsData?.rows && resultsData.rows.length > 0
+            ? Object.keys(resultsData.rows[0])
+            : [];
+    }, [resultsData?.rows]);
 
-    return {
-        validConfig: { spec: visSpecObject },
-        visSpec: visSpec,
-        setVisSpec,
-        series: convertedRows,
-        fields,
-    };
+    // 修复：使用 useMemo 缓存返回对象，确保只有依赖变化时才返回新对象
+    // 这样可以避免每次渲染都创建新对象，导致 CustomVisualization 不必要的重新渲染
+    return useMemo(
+        () => ({
+            validConfig: { spec: visSpecObject },
+            visSpec: visSpec,
+            setVisSpec,
+            series: convertedRows,
+            fields,
+        }),
+        [visSpecObject, visSpec, setVisSpec, convertedRows, fields],
+    );
 };
 
 export default useCustomVisualizationConfig;

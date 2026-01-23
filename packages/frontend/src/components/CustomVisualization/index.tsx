@@ -76,10 +76,11 @@ const CustomVisualization: FC<Props> = (props) => {
         visualizationConfig.chartConfig as CustomVisualizationConfigAndData;
 
     // 优化：使用 useMemo 缓存 data 对象，避免每次渲染都创建新对象
-    // 注意：依赖 visProps.series 而不是 visProps，确保数据变化时能更新
+    // 修复：直接依赖 resultsData?.rows，确保多页数据加载完成后能正确更新
+    // 使用 resultsData?.rows 的引用作为依赖，当数据更新时（包括多页加载），会触发重新计算
     const data = useMemo(
         () => ({ values: visProps.series }),
-        [visProps.series],
+        [resultsData?.rows, visProps.series],
     );
 
     // 优化：使用 useMemo 缓存 spec 对象，只有当 baseSpec 变化时才重新创建
