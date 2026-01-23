@@ -1,7 +1,7 @@
 import { Anchor, Text } from '@mantine/core';
 import { useResizeObserver } from '@mantine/hooks';
 import { IconChartBarOff } from '@tabler/icons-react';
-import { Suspense, lazy, useEffect, type FC } from 'react';
+import { Suspense, lazy, useEffect, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { type CustomVisualizationConfigAndData } from '../../hooks/useCustomVisualizationConfig';
@@ -37,16 +37,27 @@ const CustomVisualization: FC<Props> = (props) => {
     }, [resultsData]);
 
     if (!isCustomVisualizationConfig(visualizationConfig)) return null;
-    const spec = visualizationConfig.chartConfig.validConfig.spec;
+    const baseSpec = visualizationConfig.chartConfig.validConfig.spec;
 
-    if (isLoading) {
+    // 优化：只在首次加载时显示 Loading，有数据后立即渲染
+    // 这样即使数据还在分页加载，也能先渲染已有数据，避免白屏
+    const isInitialLoading = useMemo(() => {
+        // 如果没有数据且正在加载，显示 Loading
+        if (!resultsData?.rows || resultsData.rows.length === 0) {
+            return isLoading;
+        }
+        // 如果有数据了，即使还在加载更多数据，也先渲染已有数据
+        return false;
+    }, [isLoading, resultsData?.rows]);
+
+    if (isInitialLoading) {
         return <LoadingChart />;
     }
 
     if (
         !visualizationConfig ||
         !isCustomVisualizationConfig(visualizationConfig) ||
-        !spec
+        !baseSpec
     ) {
         return (
             <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
@@ -83,7 +94,44 @@ const CustomVisualization: FC<Props> = (props) => {
     const visProps =
         visualizationConfig.chartConfig as CustomVisualizationConfigAndData;
 
-    const data = { values: visProps.series };
+    // 优化：使用 useMemo 缓存 data 对象，避免每次渲染都创建新对象
+    const data = useMemo(
+        () => ({ values: visProps.series }),
+        [visProps.series],
+    );
+
+    // 优化：使用 useMemo 缓存 config 对象，避免频繁重新创建
+    const config = useMemo(
+        () => ({
+            autosize: {
+                type: 'fit' as const,
+                ...(isDashboard && { resize: true }),
+            },
+        }),
+        [isDashboard],
+    );
+
+    // 优化：使用 useMemo 缓存 spec 对象，只有当 baseSpec 变化时才重新创建
+    const spec = useMemo(
+        () => ({
+            ...baseSpec,
+            // @ts-ignore, see comment below
+            width: 'container',
+            // @ts-ignore, see comment below
+            height: 'container',
+            data: { name: 'values' },
+        }),
+        [baseSpec],
+    );
+
+    // 优化：使用 useMemo 缓存 style 对象，只有当尺寸变化时才重新创建
+    const chartStyle = useMemo(
+        () => ({
+            width: rect.width,
+            height: rect.height,
+        }),
+        [rect.width, rect.height],
+    );
 
     return (
         <div
@@ -100,30 +148,15 @@ const CustomVisualization: FC<Props> = (props) => {
             <Suspense fallback={<LoadingChart />}>
                 <VegaLite
                     ref={chartRef}
-                    style={{
-                        width: rect.width,
-                        height: rect.height,
-                    }}
-                    config={{
-                        autosize: {
-                            type: 'fit',
-                            ...(isDashboard && { resize: true }),
-                        },
-                    }}
+                    style={chartStyle}
+                    config={config}
                     // TODO: We are ignoring some typescript errors here because the type
                     // that vegalite expects doesn't include a few of the properties
                     // that are required to make data and layout properties work. This
                     // might be a mismatch in which of the vega spec union types gets
                     // picked, or a bug in the vegalite typescript definitions.
                     // @ts-ignore
-                    spec={{
-                        ...spec,
-                        // @ts-ignore, see above
-                        width: 'container',
-                        // @ts-ignore, see above
-                        height: 'container',
-                        data: { name: 'values' },
-                    }}
+                    spec={spec}
                     data={data}
                     actions={false}
                 />
