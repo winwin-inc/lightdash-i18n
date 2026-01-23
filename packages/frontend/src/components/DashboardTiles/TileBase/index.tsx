@@ -76,7 +76,6 @@ const TileBase = <T extends Dashboard['tiles'][number]>({
     titleHref,
     minimal = false,
     tabs,
-    lockHeaderVisibility = false,
 }: Props<T>) => {
     const { t } = useTranslation();
 

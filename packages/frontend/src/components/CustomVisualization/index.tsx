@@ -36,9 +36,6 @@ const CustomVisualization: FC<Props> = (props) => {
         resultsData?.setFetchAll(true);
     }, [resultsData]);
 
-    if (!isCustomVisualizationConfig(visualizationConfig)) return null;
-    const baseSpec = visualizationConfig.chartConfig.validConfig.spec;
-
     // 优化：只在首次加载时显示 Loading，有数据后立即渲染
     // 这样即使数据还在分页加载，也能先渲染已有数据，避免白屏
     const isInitialLoading = useMemo(() => {
@@ -50,6 +47,73 @@ const CustomVisualization: FC<Props> = (props) => {
         return false;
     }, [isLoading, resultsData?.rows]);
 
+    // 优化：使用 useMemo 缓存 config 对象，避免频繁重新创建
+    const config = useMemo(
+        () => ({
+            autosize: {
+                type: 'fit' as const,
+                ...(isDashboard && { resize: true }),
+            },
+        }),
+        [isDashboard],
+    );
+
+    // 优化：使用 useMemo 缓存 style 对象，只有当尺寸变化时才重新创建
+    const chartStyle = useMemo(
+        () => ({
+            width: rect.width,
+            height: rect.height,
+        }),
+        [rect.width, rect.height],
+    );
+
+    // 获取 baseSpec，如果不存在则返回 null
+    const baseSpec = useMemo(() => {
+        if (
+            !visualizationConfig ||
+            !isCustomVisualizationConfig(visualizationConfig)
+        ) {
+            return null;
+        }
+        return visualizationConfig.chartConfig.validConfig.spec;
+    }, [visualizationConfig]);
+
+    // TODO: 'chartConfig' is more props than config. It has data and
+    // configuration for the chart. We should consider renaming it generally.
+    const visProps = useMemo(() => {
+        if (
+            !visualizationConfig ||
+            !isCustomVisualizationConfig(visualizationConfig)
+        ) {
+            return null;
+        }
+        return visualizationConfig.chartConfig as CustomVisualizationConfigAndData;
+    }, [visualizationConfig]);
+
+    // 优化：使用 useMemo 缓存 data 对象，避免每次渲染都创建新对象
+    const data = useMemo(
+        () => (visProps ? { values: visProps.series } : { values: [] }),
+        [visProps],
+    );
+
+    // 优化：使用 useMemo 缓存 spec 对象，只有当 baseSpec 变化时才重新创建
+    const spec = useMemo(
+        () => {
+            if (!baseSpec) return null;
+            return {
+                ...baseSpec,
+                // @ts-ignore, see comment below
+                width: 'container',
+                // @ts-ignore, see comment below
+                height: 'container',
+                data: { name: 'values' },
+            };
+        },
+        [baseSpec],
+    );
+
+    if (!isCustomVisualizationConfig(visualizationConfig)) return null;
+
     if (isInitialLoading) {
         return <LoadingChart />;
     }
@@ -57,7 +121,8 @@ const CustomVisualization: FC<Props> = (props) => {
     if (
         !visualizationConfig ||
         !isCustomVisualizationConfig(visualizationConfig) ||
-        !baseSpec
+        !baseSpec ||
+        !spec
     ) {
         return (
             <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
@@ -88,50 +153,6 @@ const CustomVisualization: FC<Props> = (props) => {
             </div>
         );
     }
-
-    // TODO: 'chartConfig' is more props than config. It has data and
-    // configuration for the chart. We should consider renaming it generally.
-    const visProps =
-        visualizationConfig.chartConfig as CustomVisualizationConfigAndData;
-
-    // 优化：使用 useMemo 缓存 data 对象，避免每次渲染都创建新对象
-    const data = useMemo(
-        () => ({ values: visProps.series }),
-        [visProps.series],
-    );
-
-    // 优化：使用 useMemo 缓存 config 对象，避免频繁重新创建
-    const config = useMemo(
-        () => ({
-            autosize: {
-                type: 'fit' as const,
-                ...(isDashboard && { resize: true }),
-            },
-        }),
-        [isDashboard],
-    );
-
-    // 优化：使用 useMemo 缓存 spec 对象，只有当 baseSpec 变化时才重新创建
-    const spec = useMemo(
-        () => ({
-            ...baseSpec,
-            // @ts-ignore, see comment below
-            width: 'container',
-            // @ts-ignore, see comment below
-            height: 'container',
-            data: { name: 'values' },
-        }),
-        [baseSpec],
-    );
-
-    // 优化：使用 useMemo 缓存 style 对象，只有当尺寸变化时才重新创建
-    const chartStyle = useMemo(
-        () => ({
-            width: rect.width,
-            height: rect.height,
-        }),
-        [rect.width, rect.height],
-    );
 
     return (
         <div

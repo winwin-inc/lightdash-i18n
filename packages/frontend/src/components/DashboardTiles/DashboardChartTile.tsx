@@ -12,18 +12,15 @@ import {
     getItemId,
     getItemMap,
     getPivotConfig,
-    getVisibleFields,
     hasCustomBinDimension,
     isCartesianChartConfig,
     isCompleteLayout,
     isDashboardChartTileType,
-    isFilterableField,
     isTableChartConfig,
     type ApiChartAndResults,
     type ApiError,
     type Dashboard,
     type DashboardFilterRule,
-    type Field,
     type FilterDashboardToRule,
     type DashboardChartTile as IDashboardChartTile,
     type ItemsMap,
@@ -34,7 +31,6 @@ import {
 } from '@lightdash/common';
 import {
     ActionIcon,
-    Badge,
     Box,
     Group,
     HoverCard,
@@ -50,7 +46,6 @@ import {
     IconAlertTriangle,
     IconClock,
     IconCopy,
-    IconFilter,
     IconFolders,
     IconStack,
     IconTableExport,
@@ -116,7 +111,6 @@ import UnderlyingDataModal from '../MetricQueryData/UnderlyingDataModal';
 import { useMetricQueryDataContext } from '../MetricQueryData/useMetricQueryDataContext';
 import { getDataFromChartClick } from '../MetricQueryData/utils';
 import { type EchartSeriesClickEvent } from '../SimpleChart';
-import { useConditionalRuleLabelFromItem } from '../common/Filters/FilterInputs/utils';
 import MantineIcon from '../common/MantineIcon';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
 import MoveChartThatBelongsToDashboardModal from '../common/modal/MoveChartThatBelongsToDashboardModal';
@@ -436,8 +430,6 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
 
     const { t } = useTranslation();
 
-    const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
-
     const showExecutionTime = useFeatureFlagEnabled(
         FeatureFlags.ShowExecutionTime,
     );
@@ -460,7 +452,6 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
 
     const {
         executeQueryResponse: {
-            appliedDashboardFilters,
             metricQuery,
             usedParametersValues,
         },
