@@ -58,15 +58,6 @@ const CustomVisualization: FC<Props> = (props) => {
         [isDashboard],
     );
 
-    // 优化：使用 useMemo 缓存 style 对象，只有当尺寸变化时才重新创建
-    const chartStyle = useMemo(
-        () => ({
-            width: rect.width,
-            height: rect.height,
-        }),
-        [rect.width, rect.height],
-    );
-
     if (!isCustomVisualizationConfig(visualizationConfig)) return null;
     const baseSpec = visualizationConfig.chartConfig.validConfig.spec;
 
@@ -76,11 +67,15 @@ const CustomVisualization: FC<Props> = (props) => {
         visualizationConfig.chartConfig as CustomVisualizationConfigAndData;
 
     // 优化：使用 useMemo 缓存 data 对象，避免每次渲染都创建新对象
-    // 修复：直接依赖 resultsData?.rows，确保多页数据加载完成后能正确更新
-    // 使用 resultsData?.rows 的引用作为依赖，当数据更新时（包括多页加载），会触发重新计算
+    // 修复：直接依赖 resultsData?.rows 的长度和引用，确保多页数据加载完成后能正确更新
+    // 使用长度和引用双重依赖，确保数据更新时能触发
     const data = useMemo(
         () => ({ values: visProps.series }),
-        [resultsData?.rows, visProps.series],
+        [
+            resultsData?.rows?.length,
+            resultsData?.rows,
+            visProps.series,
+        ],
     );
 
     // 优化：使用 useMemo 缓存 spec 对象，只有当 baseSpec 变化时才重新创建
@@ -96,14 +91,25 @@ const CustomVisualization: FC<Props> = (props) => {
         [baseSpec],
     );
 
-    if (isInitialLoading) {
+    // 如果数据还在转换中（有 rows 但 series 为空），继续显示 Loading
+    const isDataConverting = useMemo(() => {
+        return (
+            resultsData?.rows &&
+            resultsData.rows.length > 0 &&
+            (!visProps.series || visProps.series.length === 0)
+        );
+    }, [resultsData?.rows, visProps.series]);
+
+    if (isInitialLoading || isDataConverting) {
         return <LoadingChart />;
     }
 
     if (
         !visualizationConfig ||
         !isCustomVisualizationConfig(visualizationConfig) ||
-        !baseSpec
+        !baseSpec ||
+        !visProps.series ||
+        visProps.series.length === 0
     ) {
         return (
             <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
@@ -134,6 +140,21 @@ const CustomVisualization: FC<Props> = (props) => {
             </div>
         );
     }
+
+    // 修复：只在 rect 有有效尺寸时才使用，否则让 Vega-Lite 自动计算
+    // 这样可以避免 rect.width/height 为 0 时导致图表无法渲染的问题
+    const chartStyle = useMemo(() => {
+        // 如果 rect 有有效尺寸，使用 rect 的尺寸
+        // 否则不传 style，让 Vega-Lite 使用 container 自动计算
+        if (rect.width > 0 && rect.height > 0) {
+            return {
+                width: rect.width,
+                height: rect.height,
+            };
+        }
+        // 返回 undefined，让 Vega-Lite 自动计算尺寸
+        return undefined;
+    }, [rect.width, rect.height]);
 
     return (
         <div
