@@ -72,13 +72,12 @@ const CustomVisualization: FC<Props> = (props) => {
         : null;
 
     // 优化：使用 useMemo 缓存 data 对象，避免每次渲染都创建新对象
-    // 修复：使用稳定的依赖值，确保多页数据加载完成后能正确更新
-    const seriesData = visProps?.series ?? [];
+    // 修复：直接在 useMemo 内部使用 visProps?.series，避免闭包问题
+    // 使用数据长度和引用作为依赖，确保数据更新时能触发重新渲染
     const rowsLength = resultsData?.rows?.length ?? 0;
-    // 使用稳定的引用，避免 undefined 导致的依赖数组不一致
     const seriesRef = visProps?.series || null;
     const data = useMemo(
-        () => ({ values: seriesData }),
+        () => ({ values: visProps?.series ?? [] }),
         // 使用稳定的引用和长度作为依赖，确保数据更新时能触发
         [seriesRef, rowsLength],
     );
@@ -178,6 +177,7 @@ const CustomVisualization: FC<Props> = (props) => {
         >
             <Suspense fallback={<LoadingChart />}>
                 <VegaLite
+                    key={`vega-${rowsLength}-${seriesLength}`}
                     ref={chartRef}
                     style={chartStyle}
                     config={config}
