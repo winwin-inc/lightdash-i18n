@@ -46,10 +46,11 @@ const CustomVisualization: FC<Props> = (props) => {
 
     // 修复：使用 useMemo 确保 data 对象引用稳定，同时确保数据更新时能触发重新渲染
     // 生产环境中数据会分页加载（rows 逐步增加），需要确保每次 series 更新时都能触发 Vega-Lite 重新渲染
+    // 使用 series 的长度和引用作为依赖，确保数据更新时能检测到变化
     const data = useMemo(() => {
         if (!visProps?.series) return { values: [] };
         return { values: visProps.series };
-    }, [visProps?.series]);
+    }, [visProps?.series, visProps?.series?.length]);
     
     // 修复：使用数据长度和 rows 的引用作为 key，确保分页加载时数据更新能强制重新渲染
     // 生产环境关键差异：数据分页加载时，resultsData.rows 会逐步增加（如 100 -> 200 -> 600）
@@ -77,10 +78,13 @@ const CustomVisualization: FC<Props> = (props) => {
     // 现在可以安全地进行条件返回
     if (!isValidCustomVis) return null;
 
-    // 修复：当 isLoading 为 true，或者数据未准备好时（spec/visProps 为空，或 series 为空且 resultsData 存在），显示加载状态
+    // 修复：当 isLoading 为 true，或者数据未准备好时（spec/visProps 为空，或 series 为空且 resultsData 存在且正在加载），显示加载状态
     // 这样可以避免在数据分页加载过程中，isLoading 为 false 但数据还未准备好时显示错误状态
     const hasData = visProps?.series && visProps.series.length > 0;
-    const shouldShowLoading = isLoading || (!spec || !visProps || (!hasData && resultsData));
+    // 如果数据为空，但 resultsData 存在且正在加载（isFetchingRows 或 isInitialLoading），则显示加载状态
+    // 如果数据为空且加载已完成，则显示错误状态（由后面的检查处理）
+    const isStillLoading = resultsData?.isFetchingRows || resultsData?.isInitialLoading;
+    const shouldShowLoading = isLoading || (!spec || !visProps || (!hasData && resultsData && isStillLoading));
 
     if (shouldShowLoading) {
         return <LoadingChart />;
