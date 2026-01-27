@@ -281,7 +281,7 @@ const ValidDashboardChartTile: FC<{
             chartConfig={chart.chartConfig}
             initialPivotDimensions={chart.pivotConfig?.columns}
             resultsData={resultsDataWithQueryData}
-            isLoading={resultsData.isFetchingRows}
+            isLoading={resultsData.isFetchingRows || resultsData.isInitialLoading}
             onSeriesContextMenu={onSeriesContextMenu}
             columnOrder={chart.tableConfig.columnOrder}
             pivotTableMaxColumnLimit={health.data.pivotTable.maxColumnLimit}
@@ -379,7 +379,7 @@ const ValidDashboardChartTileMinimal: FC<{
             chartConfig={chart.chartConfig}
             initialPivotDimensions={chart.pivotConfig?.columns}
             resultsData={resultsDataWithQueryData}
-            isLoading={resultsData.isFetchingRows}
+            isLoading={resultsData.isFetchingRows || resultsData.isInitialLoading}
             onSeriesContextMenu={onSeriesContextMenu}
             columnOrder={chart.tableConfig.columnOrder}
             pivotTableMaxColumnLimit={health.data.pivotTable.maxColumnLimit}
