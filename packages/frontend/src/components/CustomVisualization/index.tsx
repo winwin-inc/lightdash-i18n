@@ -1,7 +1,7 @@
 import { Anchor, Text } from '@mantine/core';
 import { useResizeObserver } from '@mantine/hooks';
 import { IconChartBarOff } from '@tabler/icons-react';
-import { Suspense, lazy, useEffect, useMemo, type FC } from 'react';
+import { Suspense, lazy, useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { type CustomVisualizationConfigAndData } from '../../hooks/useCustomVisualizationConfig';
@@ -36,44 +36,10 @@ const CustomVisualization: FC<Props> = (props) => {
         resultsData?.setFetchAll(true);
     }, [resultsData]);
 
-    // All hooks must be called before any early returns
-    // Get spec and visProps early, but handle them conditionally
-    const spec = isCustomVisualizationConfig(visualizationConfig)
-        ? visualizationConfig.chartConfig.validConfig.spec
-        : undefined;
-    const visProps = isCustomVisualizationConfig(visualizationConfig)
-        ? (visualizationConfig.chartConfig as CustomVisualizationConfigAndData)
-        : undefined;
-
-    // Memoize data object to prevent unnecessary VegaLite re-renders
-    // Only recreate when series data actually changes
-    const data = useMemo(
-        () => ({ values: visProps?.series || [] }),
-        [visProps?.series],
-    );
-
-    // Memoize spec object to prevent unnecessary VegaLite re-renders
-    const vegaliteSpec = useMemo(
-        () => {
-            if (!spec) return undefined;
-            return {
-                ...spec,
-                // @ts-ignore, see comment below
-                width: 'container',
-                // @ts-ignore, see comment below
-                height: 'container',
-                data: { name: 'values' },
-            };
-        },
-        [spec],
-    );
-
-    // Now we can do early returns after all hooks are called
     if (!isCustomVisualizationConfig(visualizationConfig)) return null;
+    const spec = visualizationConfig.chartConfig.validConfig.spec;
 
-    // Show loading state only when actually loading and no data available yet
-    // This allows rendering as soon as first page of data is loaded
-    if (isLoading && (!resultsData || resultsData.rows.length === 0)) {
+    if (isLoading) {
         return <LoadingChart />;
     }
 
@@ -112,23 +78,12 @@ const CustomVisualization: FC<Props> = (props) => {
         );
     }
 
-    // Show empty state if there's no data
-    if (!visProps?.series || visProps.series.length === 0) {
-        return (
-            <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
-                <SuboptimalState
-                    title={t('components_dashboard_tiles_sql_chart.no_data_available')}
-                    description={t('components_dashboard_tiles_sql_chart.no_data')}
-                    icon={IconChartBarOff}
-                />
-            </div>
-        );
-    }
+    // TODO: 'chartConfig' is more props than config. It has data and
+    // configuration for the chart. We should consider renaming it generally.
+    const visProps =
+        visualizationConfig.chartConfig as CustomVisualizationConfigAndData;
 
-    // At this point, we know spec exists (checked above), so vegaliteSpec should exist
-    if (!vegaliteSpec) {
-        return <LoadingChart />;
-    }
+    const data = { values: visProps.series };
 
     return (
         <div
@@ -161,7 +116,14 @@ const CustomVisualization: FC<Props> = (props) => {
                     // might be a mismatch in which of the vega spec union types gets
                     // picked, or a bug in the vegalite typescript definitions.
                     // @ts-ignore
-                    spec={vegaliteSpec}
+                    spec={{
+                        ...spec,
+                        // @ts-ignore, see above
+                        width: 'container',
+                        // @ts-ignore, see above
+                        height: 'container',
+                        data: { name: 'values' },
+                    }}
                     data={data}
                     actions={false}
                 />
