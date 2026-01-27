@@ -32,66 +32,28 @@ const CustomVisualization: FC<Props> = (props) => {
     const [ref, rect] = useResizeObserver();
 
     useEffect(() => {
-        // Load all the rows
-        resultsData?.setFetchAll(true);
-    }, [resultsData]);
-
-    // 修复：所有 hooks 必须在条件返回之前调用，确保 hooks 调用顺序一致
-    const isValidCustomVis = isCustomVisualizationConfig(visualizationConfig);
-    const spec = isValidCustomVis ? visualizationConfig.chartConfig.validConfig.spec : null;
-    const visProps = isValidCustomVis
-        ? (visualizationConfig.chartConfig as CustomVisualizationConfigAndData)
-        : null;
-
-    // 性能优化：使用 useMemo 缓存 data 对象，避免每次渲染都创建新对象
-    // 线上版本问题：const data = { values: visProps.series }; 每次渲染都创建新对象
-    // 导致 VegaLite 认为 props 变化了，从而频繁重新渲染
-    const data = useMemo(() => {
-        if (!visProps?.series) return { values: [] };
-        return { values: visProps.series };
-    }, [visProps?.series]);
-
-    // 性能优化：使用 useMemo 缓存 spec 对象，避免每次渲染都重新创建
-    // 线上版本问题：spec={{ ...spec, ... }} 每次渲染都创建新对象
-    const optimizedSpec = useMemo(() => {
-        if (!spec) return null;
-        return {
-            ...spec,
-            width: 'container',
-            height: 'container',
-            data: { name: 'values' },
-        };
-    }, [spec]);
-
-    // 性能优化：使用 useMemo 缓存 style 对象，避免每次渲染都重新创建
-    // 线上版本问题：style={{ width: rect.width, height: rect.height }} 每次渲染都创建新对象
-    // 修复：只在 rect 有有效尺寸时才传递 style，避免 rect.width/height 为 0 时导致图表无法渲染
-    const chartStyle = useMemo(() => {
-        if (rect.width > 0 && rect.height > 0) {
-            return {
-                width: rect.width,
-                height: rect.height,
-            };
+        // Load all the rows - only set once when resultsData is available
+        if (resultsData && !resultsData.fetchAll) {
+            resultsData.setFetchAll(true);
         }
-        return undefined;
-    }, [rect.width, rect.height]);
+    }, [resultsData?.queryUuid]); // Only trigger when query changes, not on every data update
 
-    // 修复：当 isLoading 为 true，或者数据未准备好时，显示加载状态
-    const hasData = visProps?.series && visProps.series.length > 0;
-    const isStillLoading = resultsData?.isFetchingRows || resultsData?.isInitialLoading;
-    const shouldShowLoading = isLoading || (!spec || !visProps || (!hasData && resultsData && isStillLoading));
+    if (!isCustomVisualizationConfig(visualizationConfig)) return null;
+    const spec = visualizationConfig.chartConfig.validConfig.spec;
 
-    if (!isValidCustomVis) return null;
+    // Allow rendering when we have data, even if still fetching more pages
+    // This prevents white screen when using pagination
+    // Only show loading state if we're in initial load (no data yet)
+    const isInitialLoad = !resultsData || resultsData.rows.length === 0;
 
-    if (shouldShowLoading) {
+    if (isLoading && isInitialLoad) {
         return <LoadingChart />;
     }
 
     if (
         !visualizationConfig ||
         !isCustomVisualizationConfig(visualizationConfig) ||
-        !spec ||
-        !visProps
+        !spec
     ) {
         return (
             <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
@@ -123,6 +85,31 @@ const CustomVisualization: FC<Props> = (props) => {
         );
     }
 
+    // TODO: 'chartConfig' is more props than config. It has data and
+    // configuration for the chart. We should consider renaming it generally.
+    const visProps =
+        visualizationConfig.chartConfig as CustomVisualizationConfigAndData;
+
+    // Memoize data object to prevent unnecessary VegaLite re-renders
+    // Only recreate when series data actually changes
+    const data = useMemo(
+        () => ({ values: visProps.series }),
+        [visProps.series],
+    );
+
+    // Memoize spec object to prevent unnecessary VegaLite re-renders
+    const vegaliteSpec = useMemo(
+        () => ({
+            ...spec,
+            // @ts-ignore, see comment below
+            width: 'container',
+            // @ts-ignore, see comment below
+            height: 'container',
+            data: { name: 'values' },
+        }),
+        [spec],
+    );
+
     return (
         <div
             data-testid={props['data-testid']}
@@ -138,7 +125,10 @@ const CustomVisualization: FC<Props> = (props) => {
             <Suspense fallback={<LoadingChart />}>
                 <VegaLite
                     ref={chartRef}
-                    {...(chartStyle && { style: chartStyle })}
+                    style={{
+                        width: rect.width,
+                        height: rect.height,
+                    }}
                     config={{
                         autosize: {
                             type: 'fit',
@@ -151,7 +141,7 @@ const CustomVisualization: FC<Props> = (props) => {
                     // might be a mismatch in which of the vega spec union types gets
                     // picked, or a bug in the vegalite typescript definitions.
                     // @ts-ignore
-                    spec={optimizedSpec}
+                    spec={vegaliteSpec}
                     data={data}
                     actions={false}
                 />
