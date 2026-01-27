@@ -32,21 +32,16 @@ const CustomVisualization: FC<Props> = (props) => {
     const [ref, rect] = useResizeObserver();
 
     useEffect(() => {
-        // Load all the rows - only set once when resultsData is available
-        if (resultsData && !resultsData.fetchAll) {
-            resultsData.setFetchAll(true);
-        }
-    }, [resultsData?.queryUuid]); // Only trigger when query changes, not on every data update
+        // Load all the rows
+        resultsData?.setFetchAll(true);
+    }, [resultsData]);
 
     if (!isCustomVisualizationConfig(visualizationConfig)) return null;
     const spec = visualizationConfig.chartConfig.validConfig.spec;
 
-    // Allow rendering when we have data, even if still fetching more pages
-    // This prevents white screen when using pagination
-    // Only show loading state if we're in initial load (no data yet)
-    const isInitialLoad = !resultsData || resultsData.rows.length === 0;
-
-    if (isLoading && isInitialLoad) {
+    // Show loading state only when actually loading and no data available yet
+    // This allows rendering as soon as first page of data is loaded
+    if (isLoading && (!resultsData || resultsData.rows.length === 0)) {
         return <LoadingChart />;
     }
 
@@ -89,6 +84,19 @@ const CustomVisualization: FC<Props> = (props) => {
     // configuration for the chart. We should consider renaming it generally.
     const visProps =
         visualizationConfig.chartConfig as CustomVisualizationConfigAndData;
+
+    // Show empty state if there's no data
+    if (!visProps.series || visProps.series.length === 0) {
+        return (
+            <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
+                <SuboptimalState
+                    title={t('components_dashboard_tiles_sql_chart.no_data_available')}
+                    description={t('components_dashboard_tiles_sql_chart.no_data')}
+                    icon={IconChartBarOff}
+                />
+            </div>
+        );
+    }
 
     // Memoize data object to prevent unnecessary VegaLite re-renders
     // Only recreate when series data actually changes
