@@ -37,34 +37,35 @@ const CustomVisualization: FC<Props> = (props) => {
     }, [resultsData]);
 
     // 修复：所有 hooks 必须在条件返回之前调用，确保 hooks 调用顺序一致
-    // 先计算这些值，但不在条件返回之前使用它们
     const isValidCustomVis = isCustomVisualizationConfig(visualizationConfig);
     const spec = isValidCustomVis ? visualizationConfig.chartConfig.validConfig.spec : null;
     const visProps = isValidCustomVis
         ? (visualizationConfig.chartConfig as CustomVisualizationConfigAndData)
         : null;
 
-    // 修复：使用 useMemo 确保 data 对象引用稳定，同时确保数据更新时能触发重新渲染
-    // 生产环境中数据会分页加载（rows 逐步增加），需要确保每次 series 更新时都能触发 Vega-Lite 重新渲染
-    // 使用 series 的长度和引用作为依赖，确保数据更新时能检测到变化
+    // 性能优化：使用 useMemo 缓存 data 对象，避免每次渲染都创建新对象
+    // 线上版本问题：const data = { values: visProps.series }; 每次渲染都创建新对象
+    // 导致 VegaLite 认为 props 变化了，从而频繁重新渲染
     const data = useMemo(() => {
         if (!visProps?.series) return { values: [] };
         return { values: visProps.series };
-    }, [visProps?.series, visProps?.series?.length]);
-    
-    // 修复：使用数据长度和 rows 的引用作为 key，确保分页加载时数据更新能强制重新渲染
-    // 生产环境关键差异：数据分页加载时，resultsData.rows 会逐步增加（如 100 -> 200 -> 600）
-    // 需要确保每次 rows 更新导致 series 变化时，key 也会变化，从而触发 Vega-Lite 重新渲染
-    const dataKey = useMemo(() => {
-        const length = visProps?.series?.length ?? 0;
-        // 使用 resultsData.rows 的引用和长度来生成 key，确保分页加载时能检测到变化
-        const rowsLength = resultsData?.rows?.length ?? 0;
-        // 组合 series 长度和 rows 长度，确保分页加载时 key 会变化
-        return `vega-${length}-${rowsLength}`;
-    }, [visProps?.series?.length, resultsData?.rows?.length]);
+    }, [visProps?.series]);
 
+    // 性能优化：使用 useMemo 缓存 spec 对象，避免每次渲染都重新创建
+    // 线上版本问题：spec={{ ...spec, ... }} 每次渲染都创建新对象
+    const optimizedSpec = useMemo(() => {
+        if (!spec) return null;
+        return {
+            ...spec,
+            width: 'container',
+            height: 'container',
+            data: { name: 'values' },
+        };
+    }, [spec]);
+
+    // 性能优化：使用 useMemo 缓存 style 对象，避免每次渲染都重新创建
+    // 线上版本问题：style={{ width: rect.width, height: rect.height }} 每次渲染都创建新对象
     // 修复：只在 rect 有有效尺寸时才传递 style，避免 rect.width/height 为 0 时导致图表无法渲染
-    // 当 rect 尺寸为 0 时，不传 style，让 Vega-Lite 使用 container 自动计算
     const chartStyle = useMemo(() => {
         if (rect.width > 0 && rect.height > 0) {
             return {
@@ -75,22 +76,23 @@ const CustomVisualization: FC<Props> = (props) => {
         return undefined;
     }, [rect.width, rect.height]);
 
-    // 现在可以安全地进行条件返回
-    if (!isValidCustomVis) return null;
-
-    // 修复：当 isLoading 为 true，或者数据未准备好时（spec/visProps 为空，或 series 为空且 resultsData 存在且正在加载），显示加载状态
-    // 这样可以避免在数据分页加载过程中，isLoading 为 false 但数据还未准备好时显示错误状态
+    // 修复：当 isLoading 为 true，或者数据未准备好时，显示加载状态
     const hasData = visProps?.series && visProps.series.length > 0;
-    // 如果数据为空，但 resultsData 存在且正在加载（isFetchingRows 或 isInitialLoading），则显示加载状态
-    // 如果数据为空且加载已完成，则显示错误状态（由后面的检查处理）
     const isStillLoading = resultsData?.isFetchingRows || resultsData?.isInitialLoading;
     const shouldShowLoading = isLoading || (!spec || !visProps || (!hasData && resultsData && isStillLoading));
+
+    if (!isValidCustomVis) return null;
 
     if (shouldShowLoading) {
         return <LoadingChart />;
     }
 
-    if (!spec || !visProps) {
+    if (
+        !visualizationConfig ||
+        !isCustomVisualizationConfig(visualizationConfig) ||
+        !spec ||
+        !visProps
+    ) {
         return (
             <div style={{ height: '100%', width: '100%', padding: '50px 0' }}>
                 <SuboptimalState
@@ -121,7 +123,6 @@ const CustomVisualization: FC<Props> = (props) => {
         );
     }
 
-
     return (
         <div
             data-testid={props['data-testid']}
@@ -136,7 +137,6 @@ const CustomVisualization: FC<Props> = (props) => {
         >
             <Suspense fallback={<LoadingChart />}>
                 <VegaLite
-                    key={`vega-${dataKey}`}
                     ref={chartRef}
                     {...(chartStyle && { style: chartStyle })}
                     config={{
@@ -151,14 +151,7 @@ const CustomVisualization: FC<Props> = (props) => {
                     // might be a mismatch in which of the vega spec union types gets
                     // picked, or a bug in the vegalite typescript definitions.
                     // @ts-ignore
-                    spec={{
-                        ...spec,
-                        // @ts-ignore, see above
-                        width: 'container',
-                        // @ts-ignore, see above
-                        height: 'container',
-                        data: { name: 'values' },
-                    }}
+                    spec={optimizedSpec}
                     data={data}
                     actions={false}
                 />
