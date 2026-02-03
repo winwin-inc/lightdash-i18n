@@ -53,7 +53,6 @@ jobs:
                   pnpm -F frontend build
 
             - name: Upload static assets to OSS
-              if: ${{ secrets.S3_BUCKET != '' }}
               env:
                 CDN_PROVIDER: ${{ secrets.CDN_PROVIDER || 'aliyun' }}
                 VERSION: ${{ steps.version.outputs.version }}
@@ -63,7 +62,12 @@ jobs:
                 S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
                 CDN_PATH_PREFIX: ${{ secrets.CDN_PATH_PREFIX || 'lightdash' }}
                 S3_REGION: ${{ secrets.S3_REGION }}
-              run: bash scripts/upload-static-to-cdn.sh
+              run: |
+                if [ -n "$S3_BUCKET" ]; then
+                  bash scripts/upload-static-to-cdn.sh
+                else
+                  echo "S3_BUCKET not set, skipping OSS upload"
+                fi
 
     # This job builds Docker images for various architectures in parallel
     # See https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
