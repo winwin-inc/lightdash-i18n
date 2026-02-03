@@ -78,9 +78,15 @@ if [ "$CDN_PROVIDER" = "aliyun" ]; then
     
     OSSUTIL_CMD=$(command -v ossutil64 || command -v ossutil || echo "/tmp/ossutil")
     
+    # Use S3_ENDPOINT as-is (user should configure it correctly)
+    OSS_ENDPOINT="${S3_ENDPOINT:-oss-cn-hangzhou.aliyuncs.com}"
+    
+    echo "Using OSS endpoint: $OSS_ENDPOINT"
+    echo "Using OSS bucket: $S3_BUCKET"
+    
     # Configure ossutil
     $OSSUTIL_CMD config \
-        --endpoint="${S3_ENDPOINT:-oss-cn-hangzhou.aliyuncs.com}" \
+        --endpoint="$OSS_ENDPOINT" \
         --access-key-id="$S3_ACCESS_KEY" \
         --access-key-secret="$S3_SECRET_KEY"
     

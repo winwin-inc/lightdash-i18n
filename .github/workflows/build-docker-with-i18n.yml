@@ -89,16 +89,28 @@ jobs:
                 [ -z "$S3_ENDPOINT" ] && missing_configs+=("S3_ENDPOINT")
                 [ -z "$S3_ACCESS_KEY" ] && missing_configs+=("S3_ACCESS_KEY")
                 [ -z "$S3_SECRET_KEY" ] && missing_configs+=("S3_SECRET_KEY")
-                [ -z "$S3_REGION" ] && missing_configs+=("S3_REGION")
+                
+                # S3_REGION is optional for Aliyun OSS (region is in endpoint), but required for AWS S3
+                if [ "$CDN_PROVIDER" = "aws" ] && [ -z "$S3_REGION" ]; then
+                  missing_configs+=("S3_REGION")
+                fi
                 
                 if [ ${#missing_configs[@]} -gt 0 ]; then
                   echo "⚠️  Missing required OSS configuration in GitHub Variables/Secrets:"
                   for config in "${missing_configs[@]}"; do
                     echo "   - $config"
                   done
-                  echo "Skipping OSS upload. Please configure the missing variables/secrets in:"
-                  echo "   GitHub → Settings → Secrets and variables → Actions"
-                  echo "   Note: Use 'Variables' tab for non-sensitive config, 'Secrets' tab for sensitive data"
+                  echo ""
+                  echo "Configuration guide:"
+                  echo "   - S3_BUCKET: Your OSS bucket name (e.g., 'qmgy-image')"
+                  echo "   - S3_ENDPOINT: OSS endpoint WITHOUT bucket name (e.g., 'oss-cn-hangzhou.aliyuncs.com')"
+                  echo "     ⚠️  Do NOT include bucket name in endpoint!"
+                  echo "     ⚠️  Use 'aliyuncs.com' (not 'aliyun.com')"
+                  echo "   - S3_ACCESS_KEY: Your OSS AccessKey ID"
+                  echo "   - S3_SECRET_KEY: Your OSS AccessKey Secret"
+                  echo ""
+                  echo "Configure these in: GitHub → Settings → Secrets and variables → Actions"
+                  echo "   Use 'Variables' tab for non-sensitive config, 'Secrets' tab for sensitive data"
                   exit 0
                 fi
                 
