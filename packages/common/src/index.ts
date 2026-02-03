@@ -153,6 +153,7 @@ import {
     type ApiGetProjectParametersListResults,
     type ApiGetProjectParametersResults,
 } from './types/api/parameters';
+import { type ApiOssUploadUrlResponse } from './types/api/oss';
 import { type ApiGetSpotlightTableConfig } from './types/api/spotlight';
 import { type Account } from './types/auth';
 import {
@@ -991,6 +992,7 @@ type ApiResults =
     | ApiGetChangeResponse['results']
     | ApiAiOrganizationSettingsResponse['results']
     | ApiUpdateAiOrganizationSettingsResponse['results']
+    | ApiOssUploadUrlResponse['results']
     | UserCategoryList;
 
 export type ApiResponse<T extends ApiResults = ApiResults> = {
