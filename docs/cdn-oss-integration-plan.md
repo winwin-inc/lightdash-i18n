@@ -614,43 +614,54 @@ STATIC_FILES_VERSION=v1.2.3  # 可选
 
 ## 环境变量配置清单
 
-### GitHub Actions Secrets 配置
+### GitHub Actions 配置（Variables 和 Secrets）
 
 **配置位置**：GitHub 仓库 → Settings → Secrets and variables → Actions
 
-**重要说明**：GitHub Actions Secrets 和运行时环境变量是不同的配置位置，需要分别配置。
+**重要说明**：
+- **Repository Variables**（Variables 标签页）：用于非敏感配置，如 `S3_BUCKET`、`S3_ENDPOINT`、`S3_REGION`、`CDN_PATH_PREFIX`
+- **Repository Secrets**（Secrets 标签页）：用于敏感信息，如 `S3_ACCESS_KEY`、`S3_SECRET_KEY`
+- Workflow 会优先从 Variables 读取非敏感配置，从 Secrets 读取敏感配置（都有 fallback 机制）
+- GitHub Actions 配置和运行时环境变量是不同的配置位置，需要分别配置
 
 **不需要配置 `CDN_BASE_URL`**：CDN 地址在运行时通过后端 API 获取，不在构建时写入。
 
-**需要配置的 Secrets**（用于上传静态资源到 OSS）：
+**需要配置的内容**（用于上传静态资源到 OSS）：
 
-如果之前没有在 GitHub Actions 中使用 OSS，需要添加以下 secrets：
+如果之前没有在 GitHub Actions 中使用 OSS，需要添加以下配置：
 
-| Secret 名称 | 说明 | 与运行时环境变量同名 |
-|------------|------|-------------------|
-| `S3_BUCKET` | OSS Bucket 名称 | ✅ `S3_BUCKET` |
-| `S3_ACCESS_KEY` | OSS AccessKey ID | ✅ `S3_ACCESS_KEY` |
-| `S3_SECRET_KEY` | OSS AccessKey Secret | ✅ `S3_SECRET_KEY` |
-| `S3_ENDPOINT` | OSS 端点地址 | ✅ `S3_ENDPOINT` |
-| `CDN_PATH_PREFIX` | CDN 路径前缀（默认 `lightdash`） | ✅ `CDN_PATH_PREFIX` |
-| `S3_PATH_PREFIX` | 项目标识前缀（用于上传文件，可选） | ✅ `S3_PATH_PREFIX` |
-| `S3_REGION` | OSS 区域（AWS S3 需要） | ✅ `S3_REGION` |
+**推荐配置方式**（非敏感信息使用 Variables，敏感信息使用 Secrets）：
 
-**可选 Secret**：
+| 配置项 | 配置位置 | 说明 | 与运行时环境变量同名 |
+|--------|---------|------|-------------------|
+| `S3_BUCKET` | **Variables** | OSS Bucket 名称 | ✅ `S3_BUCKET` |
+| `S3_ENDPOINT` | **Variables** | OSS 端点地址 | ✅ `S3_ENDPOINT` |
+| `S3_REGION` | **Variables** | OSS 区域 | ✅ `S3_REGION` |
+| `CDN_PATH_PREFIX` | **Variables** | CDN 路径前缀（默认 `lightdash`） | ✅ `CDN_PATH_PREFIX` |
+| `S3_PATH_PREFIX` | **Variables** | 项目标识前缀（用于上传文件，可选） | ✅ `S3_PATH_PREFIX` |
+| `S3_ACCESS_KEY` | **Secrets** | OSS AccessKey ID（敏感） | ✅ `S3_ACCESS_KEY` |
+| `S3_SECRET_KEY` | **Secrets** | OSS AccessKey Secret（敏感） | ✅ `S3_SECRET_KEY` |
 
-| Secret 名称 | 说明 | 默认值 |
-|------------|------|--------|
-| `CDN_PROVIDER` | CDN 提供商 | `aliyun`（可选值：`aliyun`、`aws`） |
+**可选配置**：
+
+| 配置项 | 配置位置 | 说明 | 默认值 |
+|--------|---------|------|--------|
+| `CDN_PROVIDER` | Variables 或 Secrets | CDN 提供商 | `aliyun`（可选值：`aliyun`、`aws`） |
+
+**注意**：Workflow 支持从 Variables 和 Secrets 读取，优先级：
+- 非敏感配置：优先从 Variables 读取，如果没有则从 Secrets 读取
+- 敏感配置：优先从 Secrets 读取，如果没有则从 Variables 读取（不推荐）
 
 **重要说明**：
 
 - **上传时不需要加速域名**：GitHub Actions 上传是直接到 OSS 的（使用 `S3_ENDPOINT`），不经过 CDN
 - **`CDN_BASE_URL` 不在 GitHub Actions 中配置**：在运行时通过后端 API 获取，后端在提供 HTML 时动态注入
 - **独立路径前缀**：静态资源使用 `CDN_PATH_PREFIX`（默认 `lightdash`），上传文件使用 `S3_PATH_PREFIX`（可选）
-- **GitHub Actions Secrets 和运行时环境变量使用相同的变量名**（如 `S3_BUCKET`、`S3_ACCESS_KEY` 等）
+- **GitHub Actions Variables/Secrets 和运行时环境变量使用相同的变量名**（如 `S3_BUCKET`、`S3_ACCESS_KEY` 等）
 - 两者的值应该保持一致
 - 但它们是不同的配置位置，需要分别配置
-- 如果运行时已有 OSS 配置，GitHub Secrets 中也需要配置相同的值（用于 CI/CD 上传静态资源）
+- 如果运行时已有 OSS 配置，GitHub Variables/Secrets 中也需要配置相同的值（用于 CI/CD 上传静态资源）
+- **Workflow 支持从 Variables 和 Secrets 读取**：非敏感配置优先从 Variables 读取，敏感配置优先从 Secrets 读取
 
 ### 项目运行时环境变量配置
 
@@ -695,24 +706,29 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 
 ### 配置对应关系
 
-**GitHub Actions Secrets → 项目运行时环境变量**：
+**GitHub Actions Variables/Secrets → 项目运行时环境变量**：
 
-| GitHub Secret | 运行时环境变量 | 说明 |
-|-------------|--------------|------|
-| **不需要** | `CDN_BASE_URL` | CDN 加速域名（运行时通过后端 API 获取） |
-| `S3_BUCKET` | `S3_BUCKET` | OSS Bucket 名称 |
-| `S3_ACCESS_KEY` | `S3_ACCESS_KEY` | OSS 访问密钥 |
-| `S3_SECRET_KEY` | `S3_SECRET_KEY` | OSS 访问密钥 |
-| `S3_ENDPOINT` | `S3_ENDPOINT` | OSS 端点地址 |
-| `CDN_PATH_PREFIX` | `CDN_PATH_PREFIX` | CDN 路径前缀（默认 lightdash） |
-| `S3_PATH_PREFIX` | `S3_PATH_PREFIX` | 项目标识前缀（用于上传文件，可选） |
+| GitHub 配置 | 配置位置 | 运行时环境变量 | 说明 |
+|------------|---------|--------------|------|
+| **不需要** | - | `CDN_BASE_URL` | CDN 加速域名（运行时通过后端 API 获取） |
+| `S3_BUCKET` | Variables | `S3_BUCKET` | OSS Bucket 名称 |
+| `S3_ENDPOINT` | Variables | `S3_ENDPOINT` | OSS 端点地址 |
+| `S3_REGION` | Variables | `S3_REGION` | OSS 区域 |
+| `CDN_PATH_PREFIX` | Variables | `CDN_PATH_PREFIX` | CDN 路径前缀（默认 lightdash） |
+| `S3_PATH_PREFIX` | Variables | `S3_PATH_PREFIX` | 项目标识前缀（用于上传文件，可选） |
+| `S3_ACCESS_KEY` | Secrets | `S3_ACCESS_KEY` | OSS 访问密钥（敏感） |
+| `S3_SECRET_KEY` | Secrets | `S3_SECRET_KEY` | OSS 访问密钥（敏感） |
 
 **重要说明**：
+- **配置位置**：GitHub → Settings → Secrets and variables → Actions
+  - **Variables 标签页**：用于非敏感配置（推荐用于 `S3_BUCKET`、`S3_ENDPOINT`、`S3_REGION` 等）
+  - **Secrets 标签页**：用于敏感信息（推荐用于 `S3_ACCESS_KEY`、`S3_SECRET_KEY`）
 - **`CDN_BASE_URL` 不在 GitHub Actions 中配置**：在运行时通过后端 API 获取，后端在提供 HTML 时动态注入
 - **独立路径前缀**：静态资源使用 `CDN_PATH_PREFIX`（默认 `lightdash`），上传文件使用 `S3_PATH_PREFIX`（可选）
-- **GitHub Actions Secrets**：存储在 GitHub 仓库的 Secrets 中，用于 CI/CD 流程（构建前端和上传静态资源到 OSS）
+- **GitHub Actions Variables/Secrets**：存储在 GitHub 仓库中，用于 CI/CD 流程（构建前端和上传静态资源到 OSS）
 - **运行时环境变量**：存储在部署环境（服务器、Kubernetes、Docker 等）中，用于应用运行
 - **两者使用相同的变量名**（如 `S3_BUCKET`、`S3_ACCESS_KEY` 等），值应该保持一致
+- **Workflow 支持从 Variables 和 Secrets 读取**：非敏感配置优先从 Variables 读取，敏感配置优先从 Secrets 读取（都有 fallback）
 - **两者是不同的配置位置**，需要分别配置
 
 **如果运行时已有 OSS 配置**：

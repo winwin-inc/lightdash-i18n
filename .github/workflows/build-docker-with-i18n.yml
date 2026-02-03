@@ -66,14 +66,17 @@ jobs:
 
             - name: Upload static assets to OSS
               env:
-                CDN_PROVIDER: ${{ secrets.CDN_PROVIDER || 'aliyun' }}
+                # Support both repository variables (vars) and secrets
+                # Priority: vars for non-sensitive, secrets for sensitive (with fallback)
+                CDN_PROVIDER: ${{ vars.CDN_PROVIDER || secrets.CDN_PROVIDER || 'aliyun' }}
                 VERSION: ${{ steps.version.outputs.version }}
-                S3_BUCKET: ${{ secrets.S3_BUCKET }}
-                S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
-                S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
-                S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
-                CDN_PATH_PREFIX: ${{ secrets.CDN_PATH_PREFIX || 'lightdash' }}
-                S3_REGION: ${{ secrets.S3_REGION }}
+                S3_BUCKET: ${{ vars.S3_BUCKET || secrets.S3_BUCKET }}
+                S3_ENDPOINT: ${{ vars.S3_ENDPOINT || secrets.S3_ENDPOINT }}
+                CDN_PATH_PREFIX: ${{ vars.CDN_PATH_PREFIX || secrets.CDN_PATH_PREFIX || 'lightdash' }}
+                S3_REGION: ${{ vars.S3_REGION || secrets.S3_REGION }}
+                # Sensitive credentials: prefer secrets, fallback to vars
+                S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY || vars.S3_ACCESS_KEY }}
+                S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY || vars.S3_SECRET_KEY }}
               run: |
                 # Check required OSS configuration
                 missing_configs=()
@@ -84,12 +87,13 @@ jobs:
                 [ -z "$S3_REGION" ] && missing_configs+=("S3_REGION")
                 
                 if [ ${#missing_configs[@]} -gt 0 ]; then
-                  echo "⚠️  Missing required OSS configuration in GitHub Secrets:"
+                  echo "⚠️  Missing required OSS configuration in GitHub Variables/Secrets:"
                   for config in "${missing_configs[@]}"; do
                     echo "   - $config"
                   done
-                  echo "Skipping OSS upload. Please configure the missing secrets in:"
+                  echo "Skipping OSS upload. Please configure the missing variables/secrets in:"
                   echo "   GitHub → Settings → Secrets and variables → Actions"
+                  echo "   Note: Use 'Variables' tab for non-sensitive config, 'Secrets' tab for sensitive data"
                   exit 0
                 fi
                 
