@@ -19,7 +19,7 @@ const VisualizationCustomConfig: FC<VisualizationCustomConfigProps> = ({
     const prevSpecRef = useRef(customVisConfig?.validConfig.spec);
     useEffect(() => {
         if (!onChartConfigChange || !customVisConfig) return;
-        
+
         const currentSpec = customVisConfig.validConfig.spec;
         // Only call onChartConfigChange if spec actually changed
         // Series data updates should not trigger chartConfig updates
@@ -32,7 +32,11 @@ const VisualizationCustomConfig: FC<VisualizationCustomConfigProps> = ({
                 },
             });
         }
-    }, [customVisConfig?.validConfig.spec, onChartConfigChange]);
+    }, [
+        customVisConfig,
+        customVisConfig?.validConfig.spec,
+        onChartConfigChange,
+    ]);
 
     return children({
         visualizationConfig: {

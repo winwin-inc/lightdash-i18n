@@ -40,7 +40,7 @@ export class OssController extends BaseController {
         @Body() body: ApiOssUploadUrlRequest,
     ): Promise<ApiOssUploadUrlResponse> {
         const { fileName, contentType, fileSize } = body;
-        const userUuid = req.user!.userUuid;
+        const { userUuid } = req.user!;
 
         const { uploadUrl, fileId } = await this.services
             .getOssService()

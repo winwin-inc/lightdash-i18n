@@ -1,4 +1,4 @@
-import {
+import type {
     ApiOssUploadUrlRequest,
     ApiOssUploadUrlResponse,
 } from '@lightdash/common';

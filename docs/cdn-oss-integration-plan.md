@@ -89,8 +89,10 @@ OSS Bucket: lightdash-prod
   - 如果 `S3_PATH_PREFIX=lightdash`：`lightdash/uploads/{userUuid}/{fileId}/`
   - 如果没有设置：`uploads/{userUuid}/{fileId}/`
 - **`CDN_BASE_URL` 配置**：
-  - 如果 `CDN_PATH_PREFIX=lightdash`（默认），则 `CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static`
-  - 如果没有设置（使用默认），则 `CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static`
+  - `CDN_BASE_URL` 应该只包含 CDN 域名，不包含路径前缀
+  - 示例：`CDN_BASE_URL=https://cdn.lightdash.com`
+  - 后端会自动拼接：`{CDN_BASE_URL}/{CDN_PATH_PREFIX}/static/{STATIC_FILES_VERSION}/`
+  - 如果 `CDN_PATH_PREFIX=lightdash`（默认），`STATIC_FILES_VERSION=v1.2.3`，则最终 URL 为：`https://cdn.lightdash.com/lightdash/static/v1.2.3/`
 
 ### 访问流程
 
@@ -229,9 +231,10 @@ S3_REQUEST_TIMEOUT=1800000                        # 请求超时时间（毫秒�
 
 ```bash
 # CDN 配置 - 运行时使用
-CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static     # CDN 加速域名
+CDN_BASE_URL=https://cdn.lightdash.com                       # CDN 加速域名（不包含路径前缀）
 CDN_PATH_PREFIX=lightdash                                    # CDN 路径前缀（可选，默认 lightdash）
 STATIC_FILES_VERSION=v1.2.3                                  # 当前静态资源版本（可选，可用 git tag 自动获取）
+# 后端会自动拼接为：https://cdn.lightdash.com/lightdash/static/v1.2.3/
 
 # 后端回退机制配置（可选）
 STATIC_FILES_ENABLED=true                                    # 是否启用后端静态文件服务（回退机制，默认 true）
@@ -286,9 +289,10 @@ STATIC_FILES_ENABLED=true
    - 静态资源使用 `CDN_PATH_PREFIX`（默认 `lightdash`），路径为 `{CDN_PATH_PREFIX}/static/{version}/`
    - 上传文件使用 `S3_PATH_PREFIX`（可选），路径为 `{S3_PATH_PREFIX}/uploads/{userUuid}/{fileId}/`
 3. CDN 地址配置：
-   - `CDN_BASE_URL` 需要与 `CDN_PATH_PREFIX` 保持一致
-   - 如果 `CDN_PATH_PREFIX=lightdash`（默认），则 `CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static`
-4. CDN 地址格式：不包含版本号，版本号在运行时动态添加
+   - `CDN_BASE_URL` 应该只包含 CDN 域名，不包含路径前缀（例如：`https://cdn.lightdash.com`）
+   - 后端会自动拼接：`{CDN_BASE_URL}/{CDN_PATH_PREFIX}/static/{STATIC_FILES_VERSION}/`
+   - 如果 `CDN_PATH_PREFIX=lightdash`（默认），`STATIC_FILES_VERSION=v1.2.3`，则最终 URL 为：`https://cdn.lightdash.com/lightdash/static/v1.2.3/`
+4. CDN 地址格式：`CDN_BASE_URL` 不包含路径前缀和版本号，路径和版本号在运行时动态拼接
 5. **运行时配置**：`CDN_BASE_URL` 在运行时通过后端 API 获取，后端在提供 HTML 时动态注入 `<base>` 标签
 6. 开发环境：可以不设置 `CDN_BASE_URL`，使用相对路径 `/`
 
@@ -376,11 +380,12 @@ docker push lightdash:v1.2.3
 在运行环境中设置：
 
 ```bash
-CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static
-CDN_PATH_PREFIX=lightdash  # CDN 路径前缀（可选，默认 lightdash）
-S3_PATH_PREFIX=lightdash   # 上传文件路径前缀（可选）
-STATIC_FILES_VERSION=v1.2.3
-STATIC_FILES_ENABLED=true  # 保留回退机制
+CDN_BASE_URL=https://cdn.lightdash.com  # CDN 域名（不包含路径前缀）
+CDN_PATH_PREFIX=lightdash                # CDN 路径前缀（可选，默认 lightdash）
+S3_PATH_PREFIX=lightdash                 # 上传文件路径前缀（可选）
+STATIC_FILES_VERSION=v1.2.3              # 静态资源版本（可选）
+STATIC_FILES_ENABLED=true                # 保留回退机制
+# 后端会自动拼接为：https://cdn.lightdash.com/lightdash/static/v1.2.3/
 ```
 
 ### 回滚流程
@@ -560,9 +565,11 @@ STATIC_FILES_ENABLED=true  # 保留回退机制
 **生产环境配置**：
 
 ```bash
-CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static
-CDN_PATH_PREFIX=lightdash  # 可选，默认 lightdash
-S3_PATH_PREFIX=lightdash   # 可选，用于上传文件路径
+CDN_BASE_URL=https://cdn.lightdash.com  # CDN 域名（不包含路径前缀）
+CDN_PATH_PREFIX=lightdash                # 可选，默认 lightdash
+S3_PATH_PREFIX=lightdash                 # 可选，用于上传文件路径
+STATIC_FILES_VERSION=v1.2.3              # 可选，版本号
+# 后端会自动拼接为：https://cdn.lightdash.com/lightdash/static/v1.2.3/
 ```
 
 ### Q5: 后端需要配置 CDN 地址吗？
@@ -599,8 +606,9 @@ STATIC_FILES_VERSION=v1.2.3  # 可选
 1. 检查现有 OSS 配置是否可用（`S3_ENDPOINT`、`S3_BUCKET` 等）
 2. 在 OSS 控制台绑定 CDN 加速域名
 3. 新增环境变量 `CDN_BASE_URL`：
-   - 如果 `CDN_PATH_PREFIX=lightdash`（默认），则 `CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static`
-   - 如果设置了其他 `CDN_PATH_PREFIX`，则 `CDN_BASE_URL` 需要包含对应的前缀
+   - `CDN_BASE_URL` 应该只包含 CDN 域名，不包含路径前缀
+   - 示例：`CDN_BASE_URL=https://cdn.lightdash.com`
+   - 后端会自动拼接：`{CDN_BASE_URL}/{CDN_PATH_PREFIX}/static/{STATIC_FILES_VERSION}/`
 4. （可选）配置 `CDN_PATH_PREFIX`（默认 `lightdash`）和 `S3_PATH_PREFIX`（用于上传文件）
 5. （可选）配置 `STATIC_FILES_VERSION` 和 `STATIC_FILES_ENABLED`
 

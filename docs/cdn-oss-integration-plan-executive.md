@@ -128,9 +128,10 @@ GitHub Actions 自动触发
 
 ```bash
 # CDN 配置（新增，必需）
-CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static
-CDN_PATH_PREFIX=lightdash  # CDN 路径前缀（可选，默认 lightdash）
-STATIC_FILES_VERSION=v1.2.3  # 静态资源版本（可选，可用 git tag 自动获取）
+CDN_BASE_URL=https://cdn.lightdash.com  # CDN 域名（不包含路径前缀）
+CDN_PATH_PREFIX=lightdash                # CDN 路径前缀（可选，默认 lightdash）
+STATIC_FILES_VERSION=v1.2.3              # 静态资源版本（可选，可用 git tag 自动获取）
+# 后端会自动拼接为：https://cdn.lightdash.com/lightdash/static/v1.2.3/
 ```
 
 **完整配置**（如果未配置 OSS）：
@@ -145,9 +146,10 @@ S3_SECRET_KEY=your-access-key-secret
 S3_PATH_PREFIX=lightdash  # 项目标识前缀（用于上传文件，可选）
 
 # CDN 配置（新增，必需）
-CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static
-CDN_PATH_PREFIX=lightdash  # CDN 路径前缀（用于静态资源，可选，默认 lightdash）
-STATIC_FILES_VERSION=v1.2.3  # 静态资源版本（可选）
+CDN_BASE_URL=https://cdn.lightdash.com  # CDN 域名（不包含路径前缀）
+CDN_PATH_PREFIX=lightdash                # CDN 路径前缀（用于静态资源，可选，默认 lightdash）
+STATIC_FILES_VERSION=v1.2.3              # 静态资源版本（可选）
+# 后端会自动拼接为：https://cdn.lightdash.com/lightdash/static/v1.2.3/
 
 # 可选：后端回退机制配置
 STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
@@ -155,16 +157,16 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 
 #### 配置对应关系
 
-| GitHub Actions Secret | 运行时环境变量    | 用途                                         |
-| --------------------- | ----------------- | -------------------------------------------- |
-| **不需要**            | `CDN_BASE_URL`    | CDN 加速域名（运行时通过后端 API 获取）      |
-| `S3_BUCKET`           | `S3_BUCKET`       | OSS Bucket 名称（上传时使用）                |
-| `S3_ACCESS_KEY`       | `S3_ACCESS_KEY`   | OSS 访问密钥（上传时使用）                   |
-| `S3_SECRET_KEY`       | `S3_SECRET_KEY`   | OSS 访问密钥（上传时使用）                   |
-| `S3_ENDPOINT`         | `S3_ENDPOINT`     | OSS 端点地址（上传时使用）                   |
-| `CDN_PATH_PREFIX`     | `CDN_PATH_PREFIX` | CDN 路径前缀（静态资源路径，默认 lightdash） |
-| `S3_PATH_PREFIX`      | `S3_PATH_PREFIX`  | 项目标识前缀（上传文件路径，可选）           |
-| `S3_REGION`           | `S3_REGION`       | OSS 区域（AWS S3 需要，上传时使用）          |
+| GitHub Actions Secret | 运行时环境变量    | 用途                                           |
+| --------------------- | ----------------- | ---------------------------------------------- |
+| **不需要**            | `CDN_BASE_URL`    | CDN 域名（不包含路径前缀，运行时后端自动拼接） |
+| `S3_BUCKET`           | `S3_BUCKET`       | OSS Bucket 名称（上传时使用）                  |
+| `S3_ACCESS_KEY`       | `S3_ACCESS_KEY`   | OSS 访问密钥（上传时使用）                     |
+| `S3_SECRET_KEY`       | `S3_SECRET_KEY`   | OSS 访问密钥（上传时使用）                     |
+| `S3_ENDPOINT`         | `S3_ENDPOINT`     | OSS 端点地址（上传时使用）                     |
+| `CDN_PATH_PREFIX`     | `CDN_PATH_PREFIX` | CDN 路径前缀（静态资源路径，默认 lightdash）   |
+| `S3_PATH_PREFIX`      | `S3_PATH_PREFIX`  | 项目标识前缀（上传文件路径，可选）             |
+| `S3_REGION`           | `S3_REGION`       | OSS 区域（AWS S3 需要，上传时使用）            |
 
 **配置要点**：
 

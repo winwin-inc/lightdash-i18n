@@ -292,6 +292,45 @@ export default class App {
         }
     }
 
+    /**
+     * Inject CDN base tag into HTML content
+     * Builds the full CDN URL from CDN_BASE_URL, CDN_PATH_PREFIX, and STATIC_FILES_VERSION
+     * @param html - Original HTML content
+     * @returns HTML content with CDN base tag injected
+     */
+    private injectCdnBaseTag(html: string): string {
+        const cdnConfig = this.lightdashConfig.cdn;
+        if (!cdnConfig?.baseUrl) {
+            return html;
+        }
+
+        // CDN_BASE_URL should be the CDN domain without path prefix
+        // e.g., https://cdn.lightdash.com
+        const cdnDomain = cdnConfig.baseUrl.endsWith('/')
+            ? cdnConfig.baseUrl.slice(0, -1)
+            : cdnConfig.baseUrl;
+        // Build full path: {CDN_PATH_PREFIX}/static/{version}/
+        const pathPrefix = cdnConfig.pathPrefix || 'lightdash';
+        const staticPath = 'static';
+        const version = cdnConfig.staticFilesVersion
+            ? `${cdnConfig.staticFilesVersion}/`
+            : '';
+        const fullBaseUrl = `${cdnDomain}/${pathPrefix}/${staticPath}/${version}`;
+
+        // Inject base tag before closing </head>
+        const cdnScript = `
+        <base href="${fullBaseUrl.replace(/"/g, '&quot;')}">`;
+
+        // Only replace if </head> exists in HTML
+        if (html.includes('</head>')) {
+            return html.replace('</head>', `${cdnScript}\n    </head>`);
+        }
+        Logger.warn(
+            `HTML file does not contain </head> tag, skipping CDN base tag injection`,
+        );
+        return html;
+    }
+
     private async initExpress(expressApp: Express) {
         // Cross-Origin Resource Sharing policy (CORS)
         // WARNING: this middleware should be mounted before the helmet middleware
@@ -539,27 +578,7 @@ export default class App {
                 }
                 // Inject CDN config into HTML before sending
                 let html = fs.readFileSync(htmlPath, 'utf8');
-                const cdnConfig = this.lightdashConfig.cdn;
-                if (cdnConfig?.baseUrl) {
-                    const baseUrl = cdnConfig.baseUrl.endsWith('/')
-                        ? cdnConfig.baseUrl
-                        : `${cdnConfig.baseUrl}/`;
-                    const version = cdnConfig.staticFilesVersion
-                        ? `${cdnConfig.staticFilesVersion}/`
-                        : '';
-                    const fullBaseUrl = `${baseUrl}${version}`;
-                    // Inject base tag before closing </head>
-                    const cdnScript = `
-        <base href="${fullBaseUrl.replace(/"/g, '&quot;')}">`;
-                    // Only replace if </head> exists in HTML
-                    if (html.includes('</head>')) {
-                        html = html.replace('</head>', `${cdnScript}\n    </head>`);
-                    } else {
-                        Logger.warn(
-                            `HTML file does not contain </head> tag, skipping CDN base tag injection`,
-                        );
-                    }
-                }
+                html = this.injectCdnBaseTag(html);
                 res.setHeader('Cache-Control', 'no-cache, private');
                 res.send(html);
             } catch (error) {
@@ -718,27 +737,7 @@ export default class App {
                     }
                     // Inject CDN config into HTML before sending
                     let html = fs.readFileSync(htmlPath, 'utf8');
-                    const cdnConfig = this.lightdashConfig.cdn;
-                    if (cdnConfig?.baseUrl) {
-                        const baseUrl = cdnConfig.baseUrl.endsWith('/')
-                            ? cdnConfig.baseUrl
-                            : `${cdnConfig.baseUrl}/`;
-                        const version = cdnConfig.staticFilesVersion
-                            ? `${cdnConfig.staticFilesVersion}/`
-                            : '';
-                        const fullBaseUrl = `${baseUrl}${version}`;
-                        // Inject base tag before closing </head>
-                        const cdnScript = `
-        <base href="${fullBaseUrl.replace(/"/g, '&quot;')}">`;
-                        // Only replace if </head> exists in HTML
-                        if (html.includes('</head>')) {
-                            html = html.replace('</head>', `${cdnScript}\n    </head>`);
-                        } else {
-                            Logger.warn(
-                                `HTML file does not contain </head> tag, skipping CDN base tag injection`,
-                            );
-                        }
-                    }
+                    html = this.injectCdnBaseTag(html);
                     res.setHeader('Cache-Control', 'no-cache, private');
                     res.send(html);
                 } catch (error) {

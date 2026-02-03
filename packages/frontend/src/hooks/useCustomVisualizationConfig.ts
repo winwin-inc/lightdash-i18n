@@ -67,17 +67,17 @@ const useCustomVisualizationConfig = (
     }, [visSpec]);
 
     // 修复：使用更稳定的依赖，确保数据更新时能触发重新计算
-    // 使用 rows 的长度和引用，确保多页数据加载时能正确更新
+    // 使用 rows 的引用，确保多页数据加载时能正确更新
     const convertedRows = useMemo(() => {
         if (!resultsData?.rows) return [];
         return convertRowsToSeries(resultsData.rows);
-    }, [resultsData?.rows?.length, resultsData?.rows]);
+    }, [resultsData?.rows]);
 
     const fields = useMemo(() => {
         return resultsData?.rows && resultsData.rows.length > 0
             ? Object.keys(resultsData.rows[0])
             : [];
-    }, [resultsData?.rows?.length, resultsData?.rows]);
+    }, [resultsData?.rows]);
 
     // 修复：使用 useMemo 缓存返回对象，确保只有依赖变化时才返回新对象
     // 这样可以避免每次渲染都创建新对象，导致 CustomVisualization 不必要的重新渲染
