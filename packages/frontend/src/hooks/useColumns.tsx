@@ -175,6 +175,11 @@ export const getFormattedValueCell = (
 
     if (!currentItem) return formatCellContent(cellValue);
 
+    // Check if cellValue.value exists to avoid undefined errors
+    if (!cellValue?.value) {
+        return formatCellContent(cellValue);
+    }
+
     if (
         isField(currentItem) &&
         (currentItem.type === DimensionType.DATE ||
@@ -355,6 +360,8 @@ export const useColumns = (): TableColumn[] => {
                     ) => {
                         const cellValue = info.getValue();
                         if (!cellValue) return '-';
+                        // Check if cellValue.value exists to avoid undefined errors
+                        if (!cellValue.value) return '-';
                         // Use item from meta to ensure we get the latest version with overrides
                         const currentItem = info.column.columnDef.meta?.item;
 
