@@ -1,6 +1,6 @@
 {
     "name": "@lightdash/cli",
-    "version": "0.2092.31",
+    "version": "0.2092.32",
     "license": "MIT",
     "bin": {
         "lightdash": "dist/index.js"
