@@ -1646,7 +1646,9 @@ export const parseConfig = (): LightdashConfig => {
         cdn: {
             baseUrl: process.env.CDN_BASE_URL,
             pathPrefix: process.env.CDN_PATH_PREFIX || 'lightdash',
-            staticFilesVersion: process.env.STATIC_FILES_VERSION,
+            // Use STATIC_FILES_VERSION if set, otherwise fallback to package.json version
+            // Note: package.json version may differ from git tag, prefer explicit STATIC_FILES_VERSION
+            staticFilesVersion: process.env.STATIC_FILES_VERSION || VERSION,
         },
     };
 };

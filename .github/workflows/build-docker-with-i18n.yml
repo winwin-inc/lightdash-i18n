@@ -33,15 +33,26 @@ jobs:
               id: version
               run: |
                   if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-                      VERSION="${{ github.ref_name }}"
+                      VERSION_WITH_V="${{ github.ref_name }}"
+                      # Remove 'v' prefix if present (e.g., v0.2092.31 -> 0.2092.31)
+                      VERSION="${VERSION_WITH_V#v}"
                   else
                       VERSION="dev-$(date +%Y%m%d-%H%M%S)"
                   fi
                   echo "version=$VERSION" >> $GITHUB_OUTPUT
-                  echo "Version: $VERSION"
+                  echo "Version: $VERSION (from tag: ${{ github.ref_name }})"
 
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
+
+            - name: Update package.json version
+              if: ${{ github.ref_type == 'tag' }}
+              run: |
+                  VERSION="${{ steps.version.outputs.version }}"
+                  echo "Updating package.json version to $VERSION"
+                  # Use pnpm to update version (more reliable than npm)
+                  pnpm version $VERSION --no-git-tag-version --no-commit-hooks
+                  echo "Updated package.json version"
 
             - name: Build common package
               run: pnpm common-build
