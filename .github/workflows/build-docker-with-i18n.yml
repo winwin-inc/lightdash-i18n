@@ -43,6 +43,9 @@ jobs:
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
 
+            - name: Build common package
+              run: pnpm common-build
+
             - name: Build frontend
               env:
                   STATIC_FILES_VERSION: ${{ steps.version.outputs.version }}
@@ -69,7 +72,7 @@ jobs:
 
     # This job builds Docker images for various architectures in parallel
     # See https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
-    docker-build:
+    build-docker-image:
         runs-on: ubuntu-latest
         if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
         strategy:
@@ -139,12 +142,12 @@ jobs:
                   retention-days: 1
 
     # This step "merges" multiple images for various architectures into a single image
-    docker-merge:
+    create-image-manifest:
         runs-on: ubuntu-latest
-        # Should be kept in sync with the jobs.docker-build.steps.build.with.push condition
+        # Should be kept in sync with the jobs.build-docker-image.steps.build.with.push condition
         if: ${{ github.event_name != 'pull_request' }}
         needs:
-            - docker-build
+            - build-docker-image
         steps:
             - name: Download digests
               uses: actions/download-artifact@v4
