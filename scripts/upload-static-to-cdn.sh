@@ -78,8 +78,15 @@ if [ "$CDN_PROVIDER" = "aliyun" ]; then
     
     OSSUTIL_CMD=$(command -v ossutil64 || command -v ossutil || echo "/tmp/ossutil")
     
-    # Use S3_ENDPOINT as-is (user should configure it correctly)
+    # Use S3_ENDPOINT with compatibility fix for domain name
     OSS_ENDPOINT="${S3_ENDPOINT:-oss-cn-hangzhou.aliyuncs.com}"
+    
+    # Compatibility: Replace aliyun.com with aliyuncs.com (for compatibility with some configurations)
+    # Official endpoint uses aliyuncs.com, but some configurations may use aliyun.com
+    if [[ "$OSS_ENDPOINT" == *"aliyun.com"* ]] && [[ "$OSS_ENDPOINT" != *"aliyuncs.com"* ]]; then
+        OSS_ENDPOINT="${OSS_ENDPOINT//aliyun.com/aliyuncs.com}"
+        echo "⚠️  Compatibility: Replaced aliyun.com with aliyuncs.com in endpoint"
+    fi
     
     echo "Using OSS endpoint: $OSS_ENDPOINT"
     echo "Using OSS bucket: $S3_BUCKET"
