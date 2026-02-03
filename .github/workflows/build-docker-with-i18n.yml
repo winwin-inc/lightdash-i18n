@@ -64,11 +64,26 @@ jobs:
                 CDN_PATH_PREFIX: ${{ secrets.CDN_PATH_PREFIX || 'lightdash' }}
                 S3_REGION: ${{ secrets.S3_REGION }}
               run: |
-                if [ -n "$S3_BUCKET" ]; then
-                  bash scripts/upload-static-to-cdn.sh
-                else
-                  echo "S3_BUCKET not set, skipping OSS upload"
+                # Check required OSS configuration
+                missing_configs=()
+                [ -z "$S3_BUCKET" ] && missing_configs+=("S3_BUCKET")
+                [ -z "$S3_ENDPOINT" ] && missing_configs+=("S3_ENDPOINT")
+                [ -z "$S3_ACCESS_KEY" ] && missing_configs+=("S3_ACCESS_KEY")
+                [ -z "$S3_SECRET_KEY" ] && missing_configs+=("S3_SECRET_KEY")
+                [ -z "$S3_REGION" ] && missing_configs+=("S3_REGION")
+                
+                if [ ${#missing_configs[@]} -gt 0 ]; then
+                  echo "⚠️  Missing required OSS configuration in GitHub Secrets:"
+                  for config in "${missing_configs[@]}"; do
+                    echo "   - $config"
+                  done
+                  echo "Skipping OSS upload. Please configure the missing secrets in:"
+                  echo "   GitHub → Settings → Secrets and variables → Actions"
+                  exit 0
                 fi
+                
+                echo "✅ All OSS configuration found, uploading static assets to OSS..."
+                bash scripts/upload-static-to-cdn.sh
 
     # This job builds Docker images for various architectures in parallel
     # See https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
