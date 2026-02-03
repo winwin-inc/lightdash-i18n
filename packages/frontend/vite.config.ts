@@ -12,6 +12,7 @@ const FE_PORT = process.env.FE_PORT ? parseInt(process.env.FE_PORT) : 3000;
 const BE_PORT = process.env.PORT ? parseInt(process.env.PORT) : 8080;
 
 export default defineConfig({
+    base: '/', // CDN base URL is set at runtime via API, not at build time
     publicDir: 'public',
     define: {
         __APP_VERSION__: JSON.stringify(process.env.npm_package_version),

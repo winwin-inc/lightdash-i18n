@@ -62,6 +62,8 @@ import { ProjectController } from './../controllers/projectController';
 // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 import { PinningController } from './../controllers/pinningController';
 // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+import { OssController } from './../controllers/ossController';
+// WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 import { OrganizationController } from './../controllers/organizationController';
 // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 import { NotificationsController } from './../controllers/notificationsController';
@@ -1592,6 +1594,7 @@ const models: TsoaRoute.Models = {
                 {
                     dataType: 'nestedObjectLiteral',
                     nestedProperties: {
+                        readOnly: { dataType: 'boolean' },
                         parentFieldId: { dataType: 'string' },
                         categoryLevel: {
                             dataType: 'union',
@@ -3032,6 +3035,13 @@ const models: TsoaRoute.Models = {
         type: {
             dataType: 'nestedObjectLiteral',
             nestedProperties: {
+                layoutDirection: {
+                    dataType: 'union',
+                    subSchemas: [
+                        { dataType: 'enum', enums: ['column'] },
+                        { dataType: 'enum', enums: ['column-reverse'] },
+                    ],
+                },
                 comparisonLabel: { dataType: 'string' },
                 flipColors: { dataType: 'boolean' },
                 comparisonFormat: { ref: 'ComparisonFormatTypes' },
@@ -3315,6 +3325,13 @@ const models: TsoaRoute.Models = {
         type: {
             dataType: 'nestedObjectLiteral',
             nestedProperties: {
+                tooltipSortByValue: {
+                    dataType: 'union',
+                    subSchemas: [
+                        { dataType: 'enum', enums: ['asc'] },
+                        { dataType: 'enum', enums: ['desc'] },
+                    ],
+                },
                 isFilteredOut: { dataType: 'boolean' },
                 markLine: { ref: 'MarkLine' },
                 smooth: { dataType: 'boolean' },
@@ -15162,6 +15179,7 @@ const models: TsoaRoute.Models = {
                 {
                     dataType: 'nestedObjectLiteral',
                     nestedProperties: {
+                        readOnly: { dataType: 'boolean' },
                         parentFieldId: { dataType: 'string' },
                         categoryLevel: {
                             dataType: 'union',
@@ -15290,6 +15308,13 @@ const models: TsoaRoute.Models = {
                     dataType: 'union',
                     subSchemas: [
                         { dataType: 'string' },
+                        { dataType: 'undefined' },
+                    ],
+                },
+                readOnly: {
+                    dataType: 'union',
+                    subSchemas: [
+                        { dataType: 'boolean' },
                         { dataType: 'undefined' },
                     ],
                 },
@@ -15961,6 +15986,38 @@ const models: TsoaRoute.Models = {
                     required: true,
                 },
                 type: { ref: 'ResourceViewItemType', required: true },
+            },
+            validators: {},
+        },
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    ApiOssUploadUrlResponse: {
+        dataType: 'refAlias',
+        type: {
+            dataType: 'nestedObjectLiteral',
+            nestedProperties: {
+                results: {
+                    dataType: 'nestedObjectLiteral',
+                    nestedProperties: {
+                        fileId: { dataType: 'string', required: true },
+                        uploadUrl: { dataType: 'string', required: true },
+                    },
+                    required: true,
+                },
+                status: { dataType: 'enum', enums: ['ok'], required: true },
+            },
+            validators: {},
+        },
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    ApiOssUploadUrlRequest: {
+        dataType: 'refAlias',
+        type: {
+            dataType: 'nestedObjectLiteral',
+            nestedProperties: {
+                fileSize: { dataType: 'double' },
+                contentType: { dataType: 'string', required: true },
+                fileName: { dataType: 'string', required: true },
             },
             validators: {},
         },
@@ -34930,6 +34987,66 @@ export function RegisterRoutes(app: Router) {
 
                 await templateService.apiHandler({
                     methodName: 'post',
+                    controller,
+                    response,
+                    next,
+                    validatedArgs,
+                    successStatus: 200,
+                });
+            } catch (err) {
+                return next(err);
+            }
+        },
+    );
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    const argsOssController_getUploadUrl: Record<
+        string,
+        TsoaRoute.ParameterSchema
+    > = {
+        req: { in: 'request', name: 'req', required: true, dataType: 'object' },
+        body: {
+            in: 'body',
+            name: 'body',
+            required: true,
+            ref: 'ApiOssUploadUrlRequest',
+        },
+    };
+    app.post(
+        '/api/v1/oss/upload-url',
+        ...fetchMiddlewares<RequestHandler>(OssController),
+        ...fetchMiddlewares<RequestHandler>(
+            OssController.prototype.getUploadUrl,
+        ),
+
+        async function OssController_getUploadUrl(
+            request: ExRequest,
+            response: ExResponse,
+            next: any,
+        ) {
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({
+                    args: argsOssController_getUploadUrl,
+                    request,
+                    response,
+                });
+
+                const container: IocContainer =
+                    typeof iocContainer === 'function'
+                        ? (iocContainer as IocContainerFactory)(request)
+                        : iocContainer;
+
+                const controller: any = await container.get<OssController>(
+                    OssController,
+                );
+                if (typeof controller['setStatus'] === 'function') {
+                    controller.setStatus(undefined);
+                }
+
+                await templateService.apiHandler({
+                    methodName: 'getUploadUrl',
                     controller,
                     response,
                     next,

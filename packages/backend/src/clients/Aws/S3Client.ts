@@ -1,5 +1,6 @@
 import {
     GetObjectCommand,
+    PutObjectCommand,
     PutObjectCommandInput,
     S3,
     S3ServiceException,
@@ -281,6 +282,59 @@ export class S3Client {
             Sentry.captureException(
                 new S3Error(
                     `Failed to fetch file from S3: ${getErrorMessage(error)}`,
+                    {
+                        fileId,
+                    },
+                ),
+            );
+
+            throw error;
+        }
+    }
+
+    async getUploadPresignedUrl(
+        fileId: string,
+        contentType: string,
+        expiresIn?: number,
+    ): Promise<string> {
+        if (!this.lightdashConfig.s3?.bucket || this.s3 === undefined) {
+            throw new MissingConfigError(
+                "Missing S3 bucket configuration, can't generate upload URL",
+            );
+        }
+
+        const prefixedKey = this.getPrefixedFileId(`uploads/${fileId}`);
+        const command = new PutObjectCommand({
+            Bucket: this.lightdashConfig.s3.bucket,
+            Key: prefixedKey,
+            ContentType: contentType,
+        });
+
+        try {
+            const expirationTime =
+                expiresIn ||
+                parseInt(process.env.S3_EXPIRATION_TIME || '3600', 10) ||
+                3600; // 默认 1 小时用于上传
+
+            const uploadUrl = await getSignedUrl(this.s3, command, {
+                expiresIn: expirationTime,
+            });
+
+            return uploadUrl;
+        } catch (error) {
+            if (error instanceof S3ServiceException) {
+                Logger.error(
+                    `Failed to generate upload presigned URL: ${error.name} - ${error.message}`,
+                );
+            } else {
+                Logger.error(
+                    `Failed to generate upload presigned URL: ${getErrorMessage(error)}`,
+                );
+            }
+
+            Sentry.captureException(
+                new S3Error(
+                    `Failed to generate upload presigned URL: ${getErrorMessage(error)}`,
                     {
                         fileId,
                     },

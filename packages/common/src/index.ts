@@ -70,6 +70,10 @@ import {
     type ApiGetComments,
 } from './types/api/comments';
 import { type Email } from './types/api/email';
+import {
+    type ApiOssUploadUrlRequest,
+    type ApiOssUploadUrlResponse,
+} from './types/api/oss';
 import { type ApiSuccessEmpty } from './types/api/success';
 import { type ApiGetChangeResponse } from './types/changeset';
 import { type DbtExposure } from './types/dbt';
@@ -228,6 +232,7 @@ export * from './types/api';
 export * from './types/api/comments';
 export * from './types/api/errors';
 export * from './types/api/notifications';
+export * from './types/api/oss';
 export * from './types/api/paginatedQuery';
 export * from './types/api/parameters';
 export * from './types/api/share';

@@ -19,7 +19,8 @@ import { useColumns } from '../../hooks/useColumns';
 import MantineIcon from '../common/MantineIcon';
 import SortItem from './SortItem';
 
-const Sorting = forwardRef<HTMLDivElement, Props>(({ sorts, isEditMode }) => {
+const Sorting = forwardRef<HTMLDivElement, Props>(
+    ({ sorts, isEditMode }, ref) => {
     const columns = useColumns();
     const [isAddingSort, setIsAddingSort] = useState(false);
     const dispatch = useExplorerDispatch();
@@ -101,7 +102,7 @@ const Sorting = forwardRef<HTMLDivElement, Props>(({ sorts, isEditMode }) => {
         .filter((c) => c.value !== '');
 
     return (
-        <>
+        <div ref={ref}>
             <DragDropContext onDragEnd={onDragEnd}>
                 <Droppable droppableId="results-table-sort-fields">
                     {(provided) => (
@@ -224,8 +225,9 @@ const Sorting = forwardRef<HTMLDivElement, Props>(({ sorts, isEditMode }) => {
                     )}
                 </>
             )}
-        </>
+        </div>
     );
-});
+    },
+);
 
 export default Sorting;

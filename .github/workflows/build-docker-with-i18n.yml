@@ -13,6 +13,58 @@ env:
     REGISTRY_IMAGE: registry.cn-hangzhou.aliyuncs.com/winwin/lightdash
 
 jobs:
+    # Build frontend and upload to CDN before Docker build
+    frontend-build-and-upload:
+        runs-on: ubuntu-latest
+        if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+
+            - name: Set up pnpm
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 9.15.5
+
+            - name: Extract version from tag
+              id: version
+              run: |
+                  if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+                      VERSION="${{ github.ref_name }}"
+                  else
+                      VERSION="dev-$(date +%Y%m%d-%H%M%S)"
+                  fi
+                  echo "version=$VERSION" >> $GITHUB_OUTPUT
+                  echo "Version: $VERSION"
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Build frontend
+              env:
+                  STATIC_FILES_VERSION: ${{ steps.version.outputs.version }}
+              run: |
+                  echo "Building frontend (CDN config will be loaded at runtime)"
+                  pnpm -F frontend build
+
+            - name: Upload static assets to OSS
+              if: ${{ secrets.S3_BUCKET != '' }}
+              env:
+                CDN_PROVIDER: ${{ secrets.CDN_PROVIDER || 'aliyun' }}
+                VERSION: ${{ steps.version.outputs.version }}
+                S3_BUCKET: ${{ secrets.S3_BUCKET }}
+                S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+                S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+                S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+                CDN_PATH_PREFIX: ${{ secrets.CDN_PATH_PREFIX || 'lightdash' }}
+                S3_REGION: ${{ secrets.S3_REGION }}
+              run: bash scripts/upload-static-to-cdn.sh
+
     # This job builds Docker images for various architectures in parallel
     # See https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
     docker-build:

@@ -5,6 +5,9 @@ import AppProviderContext from './context';
 
 const AppProvider: FC<React.PropsWithChildren<{}>> = ({ children }) => {
     const health = useHealth();
+    // Note: CDN base URL is already set in HTML by backend via <base> tag injection
+    // No need to fetch CDN config via API - the base tag handles resource loading
+
     const user = useUser(!!health?.data?.isAuthenticated);
 
     const value = {

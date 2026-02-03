@@ -27,6 +27,7 @@ import { LightdashAnalyticsService } from './LightdashAnalyticsService/Lightdash
 import { MetricsExplorerService } from './MetricsExplorerService/MetricsExplorerService';
 import { NotificationsService } from './NotificationsService/NotificationsService';
 import { OAuthService } from './OAuthService/OAuthService';
+import { OssService } from './OssService';
 import { OrganizationService } from './OrganizationService/OrganizationService';
 import { PermissionsService } from './PermissionsService/PermissionsService';
 import { PersonalAccessTokenService } from './PersonalAccessTokenService';
@@ -71,7 +72,7 @@ interface ServiceManifest {
     healthService: HealthService;
     notificationService: NotificationsService;
     oauthService: OAuthService;
-
+    ossService: OssService;
     organizationService: OrganizationService;
     personalAccessTokenService: PersonalAccessTokenService;
     pinningService: PinningService;
@@ -446,6 +447,16 @@ export class ServiceRepository
                     userModel: this.models.getUserModel(),
                     oauthModel: this.models.getOauthModel(),
                     lightdashConfig: this.context.lightdashConfig,
+                }),
+        );
+    }
+
+    public getOssService(): OssService {
+        return this.getService(
+            'ossService',
+            () =>
+                new OssService({
+                    s3Client: this.clients.getS3Client(),
                 }),
         );
     }

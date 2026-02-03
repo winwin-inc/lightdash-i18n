@@ -31,6 +31,7 @@ import reDoc from 'redoc-express';
 import { URL } from 'url';
 import cors from 'cors';
 import { produce } from 'immer';
+import * as fs from 'fs';
 import { LightdashAnalytics } from './analytics/LightdashAnalytics';
 import {
     ClientProviderMap,
@@ -514,12 +515,68 @@ export default class App {
         expressApp.use(expressWinstonMiddleware); // log request + response
 
         expressApp.get('/', (req, res) => {
-            res.sendFile(
-                path.join(__dirname, '../../frontend/build', 'index.html'),
-                {
-                    headers: { 'Cache-Control': 'no-cache, private' },
-                },
+            const htmlPath = path.join(
+                __dirname,
+                '../../frontend/build',
+                'index.html',
             );
+            try {
+                // Check if HTML file exists (for development mode)
+                if (!fs.existsSync(htmlPath)) {
+                    // In development, frontend is served by Vite dev server
+                    // Redirect to frontend dev server or return a helpful message
+                    res.status(503).send(`
+                        <html>
+                            <head><title>Frontend not built</title></head>
+                            <body>
+                                <h1>Frontend not available</h1>
+                                <p>In development mode, please use the Vite dev server at <a href="http://localhost:3000">http://localhost:3000</a></p>
+                                <p>Or build the frontend first: <code>pnpm -F frontend build</code></p>
+                            </body>
+                        </html>
+                    `);
+                    return;
+                }
+                // Inject CDN config into HTML before sending
+                let html = fs.readFileSync(htmlPath, 'utf8');
+                const cdnConfig = this.lightdashConfig.cdn;
+                if (cdnConfig?.baseUrl) {
+                    const baseUrl = cdnConfig.baseUrl.endsWith('/')
+                        ? cdnConfig.baseUrl
+                        : `${cdnConfig.baseUrl}/`;
+                    const version = cdnConfig.staticFilesVersion
+                        ? `${cdnConfig.staticFilesVersion}/`
+                        : '';
+                    const fullBaseUrl = `${baseUrl}${version}`;
+                    // Inject base tag before closing </head>
+                    const cdnScript = `
+        <base href="${fullBaseUrl.replace(/"/g, '&quot;')}">`;
+                    // Only replace if </head> exists in HTML
+                    if (html.includes('</head>')) {
+                        html = html.replace('</head>', `${cdnScript}\n    </head>`);
+                    } else {
+                        Logger.warn(
+                            `HTML file does not contain </head> tag, skipping CDN base tag injection`,
+                        );
+                    }
+                }
+                res.setHeader('Cache-Control', 'no-cache, private');
+                res.send(html);
+            } catch (error) {
+                Logger.error(
+                    `Error reading or processing HTML file: ${getErrorMessage(error)}`,
+                );
+                Sentry.captureException(error);
+                res.status(500).send(`
+                    <html>
+                        <head><title>Error</title></head>
+                        <body>
+                            <h1>Error loading frontend</h1>
+                            <p>An error occurred while loading the frontend. Please try again later.</p>
+                        </body>
+                    </html>
+                `);
+            }
         });
 
         /**
@@ -607,17 +664,6 @@ export default class App {
             oauthProtectedResourceHandler,
         );
 
-        // frontend static files - no cache
-        expressApp.use(
-            express.static(path.join(__dirname, '../../frontend/build'), {
-                setHeaders: () => ({
-                    // private - browsers can cache but not CDNs
-                    // no-cache - caches must revalidate with the origin server before using a cached copy
-                    'Cache-Control': 'no-cache, private',
-                }),
-            }),
-        );
-
         // handling api 404s before frontend catch all
         expressApp.use('/api/*', (req, res) => {
             const apiErrorResponse = {
@@ -632,14 +678,86 @@ export default class App {
             res.status(404).json(apiErrorResponse);
         });
 
-        expressApp.get('*', (req, res) => {
-            res.sendFile(
-                path.join(__dirname, '../../frontend/build', 'index.html'),
-                {
-                    headers: { 'Cache-Control': 'no-cache, private' },
-                },
+        // frontend static files - conditional based on STATIC_FILES_ENABLED
+        // Default to true for backward compatibility (fallback mechanism)
+        const staticFilesEnabled =
+            process.env.STATIC_FILES_ENABLED !== 'false';
+        if (staticFilesEnabled) {
+            expressApp.use(
+                express.static(path.join(__dirname, '../../frontend/build'), {
+                    setHeaders: () => ({
+                        // private - browsers can cache but not CDNs
+                        // no-cache - caches must revalidate with the origin server before using a cached copy
+                        'Cache-Control': 'no-cache, private',
+                    }),
+                }),
             );
-        });
+
+            expressApp.get('*', (req, res) => {
+                const htmlPath = path.join(
+                    __dirname,
+                    '../../frontend/build',
+                    'index.html',
+                );
+                try {
+                    // Check if HTML file exists (for development mode)
+                    if (!fs.existsSync(htmlPath)) {
+                        // In development, frontend is served by Vite dev server
+                        // Redirect to frontend dev server or return a helpful message
+                        res.status(503).send(`
+                            <html>
+                                <head><title>Frontend not built</title></head>
+                                <body>
+                                    <h1>Frontend not available</h1>
+                                    <p>In development mode, please use the Vite dev server at <a href="http://localhost:3000">http://localhost:3000</a></p>
+                                    <p>Or build the frontend first: <code>pnpm -F frontend build</code></p>
+                                </body>
+                            </html>
+                        `);
+                        return;
+                    }
+                    // Inject CDN config into HTML before sending
+                    let html = fs.readFileSync(htmlPath, 'utf8');
+                    const cdnConfig = this.lightdashConfig.cdn;
+                    if (cdnConfig?.baseUrl) {
+                        const baseUrl = cdnConfig.baseUrl.endsWith('/')
+                            ? cdnConfig.baseUrl
+                            : `${cdnConfig.baseUrl}/`;
+                        const version = cdnConfig.staticFilesVersion
+                            ? `${cdnConfig.staticFilesVersion}/`
+                            : '';
+                        const fullBaseUrl = `${baseUrl}${version}`;
+                        // Inject base tag before closing </head>
+                        const cdnScript = `
+        <base href="${fullBaseUrl.replace(/"/g, '&quot;')}">`;
+                        // Only replace if </head> exists in HTML
+                        if (html.includes('</head>')) {
+                            html = html.replace('</head>', `${cdnScript}\n    </head>`);
+                        } else {
+                            Logger.warn(
+                                `HTML file does not contain </head> tag, skipping CDN base tag injection`,
+                            );
+                        }
+                    }
+                    res.setHeader('Cache-Control', 'no-cache, private');
+                    res.send(html);
+                } catch (error) {
+                    Logger.error(
+                        `Error reading or processing HTML file: ${getErrorMessage(error)}`,
+                    );
+                    Sentry.captureException(error);
+                    res.status(500).send(`
+                        <html>
+                            <head><title>Error</title></head>
+                            <body>
+                                <h1>Error loading frontend</h1>
+                                <p>An error occurred while loading the frontend. Please try again later.</p>
+                            </body>
+                        </html>
+                    `);
+                }
+            });
+        }
 
         // Start the server
         expressApp.listen(this.port, () => {

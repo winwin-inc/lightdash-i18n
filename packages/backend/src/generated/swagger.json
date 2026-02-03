@@ -1696,6 +1696,9 @@
                     },
                     {
                         "properties": {
+                            "readOnly": {
+                                "type": "boolean"
+                            },
                             "parentFieldId": {
                                 "type": "string"
                             },
@@ -3350,6 +3353,10 @@
             },
             "BigNumber": {
                 "properties": {
+                    "layoutDirection": {
+                        "type": "string",
+                        "enum": ["column", "column-reverse"]
+                    },
                     "comparisonLabel": {
                         "type": "string"
                     },
@@ -3639,6 +3646,10 @@
             },
             "Series": {
                 "properties": {
+                    "tooltipSortByValue": {
+                        "type": "string",
+                        "enum": ["asc", "desc"]
+                    },
                     "isFilteredOut": {
                         "type": "boolean"
                     },
@@ -15964,6 +15975,9 @@
                     },
                     {
                         "properties": {
+                            "readOnly": {
+                                "type": "boolean"
+                            },
                             "parentFieldId": {
                                 "type": "string"
                             },
@@ -16042,6 +16056,9 @@
                     },
                     "parentFieldId": {
                         "type": "string"
+                    },
+                    "readOnly": {
+                        "type": "boolean"
                     }
                 },
                 "required": ["target", "operator"],
@@ -16696,6 +16713,45 @@
                     }
                 },
                 "required": ["data", "type"],
+                "type": "object"
+            },
+            "ApiOssUploadUrlResponse": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "fileId": {
+                                "type": "string"
+                            },
+                            "uploadUrl": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["fileId", "uploadUrl"],
+                        "type": "object"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiOssUploadUrlRequest": {
+                "properties": {
+                    "fileSize": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "contentType": {
+                        "type": "string"
+                    },
+                    "fileName": {
+                        "type": "string"
+                    }
+                },
+                "required": ["contentType", "fileName"],
                 "type": "object"
             },
             "Organization": {
@@ -21145,7 +21201,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "0.2091.59",
+        "version": "0.2092.27",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"
@@ -28158,6 +28214,50 @@
                                 },
                                 "type": "array",
                                 "description": "the new order of the pinned items"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/oss/upload-url": {
+            "post": {
+                "operationId": "GetOssUploadUrl",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiOssUploadUrlResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Get presigned URL for file upload",
+                "summary": "Get upload URL",
+                "tags": ["OSS"],
+                "security": [],
+                "parameters": [],
+                "requestBody": {
+                    "description": "file upload request",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ApiOssUploadUrlRequest",
+                                "description": "file upload request"
                             }
                         }
                     }

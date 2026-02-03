@@ -715,6 +715,11 @@ export type LightdashConfig = {
         overrideColorPaletteName?: string;
     };
     s3?: S3Config;
+    cdn?: {
+        baseUrl?: string;
+        pathPrefix: string;
+        staticFilesVersion?: string;
+    };
     headlessBrowser: HeadlessBrowserConfig;
     results: {
         cacheEnabled: boolean;
@@ -1637,6 +1642,11 @@ export const parseConfig = (): LightdashConfig => {
         adminApi: {
             host: process.env.ADMIN_API_HOST,
             apiKey: process.env.ADMIN_API_KEY,
+        },
+        cdn: {
+            baseUrl: process.env.CDN_BASE_URL,
+            pathPrefix: process.env.CDN_PATH_PREFIX || 'lightdash',
+            staticFilesVersion: process.env.STATIC_FILES_VERSION,
         },
     };
 };
