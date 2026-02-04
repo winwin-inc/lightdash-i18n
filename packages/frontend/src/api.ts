@@ -130,7 +130,8 @@ export const lightdashApi = async <T extends ApiResponse['results']>({
     const baseUrl = sessionStorage.getItem(
         LIGHTDASH_SDK_INSTANCE_URL_LOCAL_STORAGE_KEY,
     );
-    const apiPrefix = `${baseUrl ?? BASE_API_URL}api/${version}`;
+    const base = (baseUrl ?? BASE_API_URL).replace(/\/?$/, '/');
+    const apiPrefix = `${base}api/${version}`;
 
     let sentryTrace: string | undefined;
     // Manually create a span for the fetch request to be able to trace it in Sentry. This also enables Distributed Tracing.
@@ -216,7 +217,8 @@ export const lightdashApiStream = ({
     const baseUrl = sessionStorage.getItem(
         LIGHTDASH_SDK_INSTANCE_URL_LOCAL_STORAGE_KEY,
     );
-    const apiPrefix = `${baseUrl ?? BASE_API_URL}api/${version}`;
+    const base = (baseUrl ?? BASE_API_URL).replace(/\/?$/, '/');
+    const apiPrefix = `${base}api/${version}`;
 
     let sentryTrace: string | undefined;
     // Manually create a span for the fetch request to be able to trace it in Sentry. This also enables Distributed Tracing.

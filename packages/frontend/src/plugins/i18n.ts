@@ -16,8 +16,9 @@ i18n
     .init({
         backend: {
             // 使用相对路径，以便在存在 <base href="CDN"> 时从 CDN 加载翻译文件；
-            // 绝对路径 /locales/... 会解析到当前 origin，不会走 CDN
-            loadPath: 'locales/{{lng}}/{{ns}}.json',
+            // 将 zh-CN、zh-Hans 等映射到目录 zh（与 public/locales 一致）
+            loadPath: (lng: string, ns: string) =>
+                `locales/${lng?.startsWith('zh') ? 'zh' : (lng || 'en')}/${ns}.json`,
         },
         fallbackLng: 'en',
         debug: true,
