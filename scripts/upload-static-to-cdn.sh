@@ -93,44 +93,40 @@ if [ "$CDN_PROVIDER" = "aliyun" ]; then
     fi
     
     # Upload assets with long-term cache and correct Content-Type
-    # Use find with -exec sh -c to properly extract filename and upload to correct path
-    # Export variables to make them available in sh -c
-    export OSSUTIL_CMD S3_BUCKET UPLOAD_PATH
-    # Remove trailing slash from UPLOAD_PATH if present, then add /assets/
+    # Loop per file so we can fail fast and verify each upload
+    UPLOAD_PATH_NO_SLASH="${UPLOAD_PATH%/}"
+    EXPECTED_ASSET_COUNT=0
     echo "Uploading assets files..."
-    find "$FRONTEND_BUILD_DIR/assets" -type f -exec sh -c "
-        UPLOAD_PATH_NO_SLASH=\${UPLOAD_PATH%/}
-        FILE_PATH=\"\$1\"
-        FILENAME=\$(basename \"\$FILE_PATH\")
-        EXTENSION=\"\${FILENAME##*.}\"
-        
-        # Set Content-Type based on file extension
-        case \"\$EXTENSION\" in
-            js|mjs)
-                CONTENT_TYPE=\"application/javascript\"
-                ;;
-            css)
-                CONTENT_TYPE=\"text/css\"
-                ;;
-            json)
-                CONTENT_TYPE=\"application/json\"
-                ;;
-            woff2)
-                CONTENT_TYPE=\"font/woff2\"
-                ;;
-            *)
-                CONTENT_TYPE=\"application/octet-stream\"
-                ;;
+    while IFS= read -r -d '' FILE_PATH; do
+        FILENAME=$(basename "$FILE_PATH")
+        EXTENSION="${FILENAME##*.}"
+        case "$EXTENSION" in
+            js|mjs) CONTENT_TYPE="application/javascript" ;;
+            css)    CONTENT_TYPE="text/css" ;;
+            json)   CONTENT_TYPE="application/json" ;;
+            woff2)  CONTENT_TYPE="font/woff2" ;;
+            *)      CONTENT_TYPE="application/octet-stream" ;;
         esac
-        
-        $OSSUTIL_CMD cp \"\$FILE_PATH\" \"oss://\$S3_BUCKET/\${UPLOAD_PATH_NO_SLASH}/assets/\$FILENAME\" \
-            --meta \"Cache-Control:public, max-age=31536000, immutable\" \
-            --meta \"Content-Type:\$CONTENT_TYPE\"
-    " _ {} \; || {
-        echo "Error uploading assets files"
-        exit 1
-    }
-    
+        if ! $OSSUTIL_CMD cp "$FILE_PATH" "oss://$S3_BUCKET/${UPLOAD_PATH_NO_SLASH}/assets/$FILENAME" \
+            --meta "Cache-Control:public, max-age=31536000, immutable" \
+            --meta "Content-Type:$CONTENT_TYPE"; then
+            echo "Error: Failed to upload $FILENAME"
+            exit 1
+        fi
+        EXPECTED_ASSET_COUNT=$((EXPECTED_ASSET_COUNT + 1))
+    done < <(find "$FRONTEND_BUILD_DIR/assets" -type f -print0)
+
+    echo "Uploaded $EXPECTED_ASSET_COUNT asset files, verifying on OSS..."
+    while IFS= read -r -d '' FILE_PATH; do
+        FILENAME=$(basename "$FILE_PATH")
+        OSS_OBJECT="oss://$S3_BUCKET/${UPLOAD_PATH_NO_SLASH}/assets/$FILENAME"
+        if ! $OSSUTIL_CMD stat "$OSS_OBJECT" &>/dev/null; then
+            echo "Error: File missing on OSS after upload: $FILENAME"
+            exit 1
+        fi
+    done < <(find "$FRONTEND_BUILD_DIR/assets" -type f -print0)
+    echo "Verified: all $EXPECTED_ASSET_COUNT asset files present on OSS"
+
     # 注意：不将 index.html 上传到 CDN。页面 HTML 必须由后端提供，以便注入 <base> 等 CDN 配置；
     # 若 CDN 提供 index.html，用户会拿到未注入的版本，导致静态资源路径错误。
     
