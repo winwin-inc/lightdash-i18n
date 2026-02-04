@@ -1,7 +1,7 @@
 {
     "name": "iframe-test-app",
     "private": true,
-    "version": "0.2092.36",
+    "version": "0.2092.37",
     "type": "module",
     "scripts": {
         "dev": "vite",
