@@ -16,10 +16,10 @@ import { getFromInMemoryStorage } from './utils/inMemoryStorage';
 const LIGHTDASH_SDK_INSTANCE_URL_LOCAL_STORAGE_KEY =
     '__lightdash_sdk_instance_url';
 
+// API base URL should always be '/' (root) regardless of Vite base path
+// This ensures API requests go to the backend server, not CDN
 export const BASE_API_URL =
-    import.meta.env.VITEST === 'true'
-        ? `http://test.lightdash/`
-        : import.meta.env.BASE_URL;
+    import.meta.env.VITEST === 'true' ? `http://test.lightdash/` : '/';
 
 const defaultHeaders = {
     'Content-Type': 'application/json',

@@ -125,10 +125,22 @@ if [ "$CDN_PROVIDER" = "aliyun" ]; then
             --meta "Cache-Control:no-cache, must-revalidate"
     fi
     
-    # Upload other files with short-term cache (excluding assets and index.html)
+    # Upload locales directory (translation files)
+    if [ -d "$FRONTEND_BUILD_DIR/locales" ]; then
+        echo "Uploading locales files..."
+        find "$FRONTEND_BUILD_DIR/locales" -type f -exec sh -c "UPLOAD_PATH_NO_SLASH=\${UPLOAD_PATH%/}; RELATIVE_PATH=\${1#$FRONTEND_BUILD_DIR/}; $OSSUTIL_CMD cp \"\$1\" \"oss://\$S3_BUCKET/\${UPLOAD_PATH_NO_SLASH}/\${RELATIVE_PATH}\" --meta \"Cache-Control:public, max-age=86400\"" _ {} \; || {
+            echo "Error uploading locales files"
+            exit 1
+        }
+    else
+        echo "Warning: Locales directory not found: $FRONTEND_BUILD_DIR/locales"
+    fi
+    
+    # Upload other files with short-term cache (excluding assets, index.html, and locales)
     # Use find with -exec sh -c to properly handle basename
     find "$FRONTEND_BUILD_DIR" -type f \
         ! -path "*/assets/*" \
+        ! -path "*/locales/*" \
         ! -name "index.html" \
         -exec sh -c "$OSSUTIL_CMD cp \"\$1\" \"oss://\$S3_BUCKET/\$UPLOAD_PATH\$(basename \"\$1\")\" --meta \"Cache-Control:public, max-age=86400\"" _ {} \; 2>/dev/null || true
     
@@ -166,10 +178,20 @@ elif [ "$CDN_PROVIDER" = "aws" ]; then
             --cache-control "no-cache, must-revalidate"
     fi
     
+    # Upload locales directory (translation files)
+    if [ -d "$FRONTEND_BUILD_DIR/locales" ]; then
+        echo "Uploading locales files..."
+        aws s3 sync "$FRONTEND_BUILD_DIR/locales" "s3://${S3_BUCKET}/${UPLOAD_PATH}locales/" \
+            --cache-control "public, max-age=86400"
+    else
+        echo "Warning: Locales directory not found: $FRONTEND_BUILD_DIR/locales"
+    fi
+    
     # Upload other files with short-term cache
     aws s3 sync "$FRONTEND_BUILD_DIR" "s3://${S3_BUCKET}/${UPLOAD_PATH}" \
         --cache-control "public, max-age=86400" \
         --exclude "assets/*" \
+        --exclude "locales/*" \
         --exclude "index.html"
     
     echo "Upload completed to AWS S3"
