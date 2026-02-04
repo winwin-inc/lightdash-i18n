@@ -16,9 +16,11 @@ if [ -z "$CDN_PROVIDER" ]; then
     exit 1
 fi
 
-# Build upload path using CDN_PATH_PREFIX (default: msy-x)
+# Build upload path using CDN_PATH_PREFIX (default: msy-x), strip leading slash for OSS
 CDN_PREFIX="${CDN_PATH_PREFIX:-msy-x}"
+CDN_PREFIX="${CDN_PREFIX#/}"
 UPLOAD_PATH="${CDN_PREFIX}/static/${VERSION}/"
+UPLOAD_PATH="${UPLOAD_PATH#/}"
 
 echo "Uploading static files to CDN..."
 echo "Provider: $CDN_PROVIDER"
@@ -130,36 +132,47 @@ if [ "$CDN_PROVIDER" = "aliyun" ]; then
     # 注意：不将 index.html 上传到 CDN。页面 HTML 必须由后端提供，以便注入 <base> 等 CDN 配置；
     # 若 CDN 提供 index.html，用户会拿到未注入的版本，导致静态资源路径错误。
     
-    # Upload locales directory (translation files)
+    # Upload locales directory (translation files) - same path pattern as assets, no leading slash
     if [ -d "$FRONTEND_BUILD_DIR/locales" ]; then
         echo "Uploading locales files..."
-        find "$FRONTEND_BUILD_DIR/locales" -type f -exec sh -c "UPLOAD_PATH_NO_SLASH=\${UPLOAD_PATH%/}; RELATIVE_PATH=\${1#$FRONTEND_BUILD_DIR/}; $OSSUTIL_CMD cp \"\$1\" \"oss://\$S3_BUCKET/\${UPLOAD_PATH_NO_SLASH}/\${RELATIVE_PATH}\" --meta \"Cache-Control:public, max-age=86400\"" _ {} \; || {
-            echo "Error uploading locales files"
-            exit 1
-        }
+        while IFS= read -r -d '' FILE_PATH; do
+            RELATIVE_PATH="${FILE_PATH#$FRONTEND_BUILD_DIR/}"
+            if ! $OSSUTIL_CMD cp "$FILE_PATH" "oss://$S3_BUCKET/${UPLOAD_PATH_NO_SLASH}/${RELATIVE_PATH}" --meta "Cache-Control:public, max-age=86400"; then
+                echo "Error: Failed to upload $RELATIVE_PATH"
+                exit 1
+            fi
+        done < <(find "$FRONTEND_BUILD_DIR/locales" -type f -print0)
     else
         echo "Warning: Locales directory not found: $FRONTEND_BUILD_DIR/locales"
     fi
-    
+
     # Upload fonts directory with long-term cache (font files are immutable)
     if [ -d "$FRONTEND_BUILD_DIR/fonts" ]; then
         echo "Uploading fonts files..."
-        find "$FRONTEND_BUILD_DIR/fonts" -type f -exec sh -c "UPLOAD_PATH_NO_SLASH=\${UPLOAD_PATH%/}; RELATIVE_PATH=\${1#$FRONTEND_BUILD_DIR/}; $OSSUTIL_CMD cp \"\$1\" \"oss://\$S3_BUCKET/\${UPLOAD_PATH_NO_SLASH}/\${RELATIVE_PATH}\" --meta \"Cache-Control:public, max-age=31536000, immutable\"" _ {} \; || {
-            echo "Error uploading fonts files"
-            exit 1
-        }
+        while IFS= read -r -d '' FILE_PATH; do
+            RELATIVE_PATH="${FILE_PATH#$FRONTEND_BUILD_DIR/}"
+            if ! $OSSUTIL_CMD cp "$FILE_PATH" "oss://$S3_BUCKET/${UPLOAD_PATH_NO_SLASH}/${RELATIVE_PATH}" --meta "Cache-Control:public, max-age=31536000, immutable"; then
+                echo "Error: Failed to upload $RELATIVE_PATH"
+                exit 1
+            fi
+        done < <(find "$FRONTEND_BUILD_DIR/fonts" -type f -print0)
     else
         echo "Warning: Fonts directory not found: $FRONTEND_BUILD_DIR/fonts"
     fi
-    
+
     # Upload other files with short-term cache (excluding assets, locales, fonts, and index.html)
-    # Use find with -exec sh -c to properly handle basename
-    find "$FRONTEND_BUILD_DIR" -type f \
+    while IFS= read -r -d '' FILE_PATH; do
+        RELATIVE_PATH="${FILE_PATH#$FRONTEND_BUILD_DIR/}"
+        if ! $OSSUTIL_CMD cp "$FILE_PATH" "oss://$S3_BUCKET/${UPLOAD_PATH_NO_SLASH}/${RELATIVE_PATH}" --meta "Cache-Control:public, max-age=86400"; then
+            echo "Error: Failed to upload $RELATIVE_PATH"
+            exit 1
+        fi
+    done < <(find "$FRONTEND_BUILD_DIR" -type f \
         ! -path "*/assets/*" \
         ! -path "*/locales/*" \
         ! -path "*/fonts/*" \
         ! -name "index.html" \
-        -exec sh -c "$OSSUTIL_CMD cp \"\$1\" \"oss://\$S3_BUCKET/\$UPLOAD_PATH\$(basename \"\$1\")\" --meta \"Cache-Control:public, max-age=86400\"" _ {} \; 2>/dev/null || true
+        -print0)
     
     echo "Upload completed to Aliyun OSS"
     

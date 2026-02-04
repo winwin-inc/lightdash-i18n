@@ -13,10 +13,15 @@ env:
     REGISTRY_IMAGE: registry.cn-hangzhou.aliyuncs.com/winwin/lightdash
 
 jobs:
-    # Build frontend and upload to CDN before Docker build
-    frontend-build-and-upload:
+    # 单 job：构建前端 → 上传 OSS → 构建 Docker，无 artifact 上传/下载，避免 context 遗漏 build 导致镜像内重复构建
+    build-and-push:
         runs-on: ubuntu-latest
         if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
+        strategy:
+            fail-fast: false
+            matrix:
+                platform:
+                    - linux/amd64
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
@@ -34,7 +39,6 @@ jobs:
               run: |
                   if [[ "${{ github.ref }}" == refs/tags/* ]]; then
                       VERSION_WITH_V="${{ github.ref_name }}"
-                      # Remove 'v' prefix if present (e.g., v0.2092.31 -> 0.2092.31)
                       VERSION="${VERSION_WITH_V#v}"
                   else
                       VERSION="dev-$(date +%Y%m%d-%H%M%S)"
@@ -50,13 +54,8 @@ jobs:
               run: |
                   VERSION="${{ steps.version.outputs.version }}"
                   CURRENT_VERSION=$(node -p "require('./package.json').version")
-
                   if [ "$CURRENT_VERSION" != "$VERSION" ]; then
-                      echo "Updating package.json version from $CURRENT_VERSION to $VERSION"
                       pnpm version $VERSION --no-git-tag-version --no-commit-hooks
-                      echo "Updated package.json version"
-                  else
-                      echo "package.json version is already $VERSION, skipping update"
                   fi
 
             - name: Build common package
@@ -72,110 +71,31 @@ jobs:
 
             - name: Upload static assets to OSS
               env:
-                  # Support both repository variables (vars) and secrets
-                  # Priority: vars for non-sensitive, secrets for sensitive (with fallback)
                   CDN_PROVIDER: ${{ vars.CDN_PROVIDER || secrets.CDN_PROVIDER || 'aliyun' }}
                   VERSION: ${{ steps.version.outputs.version }}
                   S3_BUCKET: ${{ vars.S3_BUCKET || secrets.S3_BUCKET }}
                   S3_ENDPOINT: ${{ vars.S3_ENDPOINT || secrets.S3_ENDPOINT }}
                   CDN_PATH_PREFIX: ${{ vars.CDN_PATH_PREFIX || secrets.CDN_PATH_PREFIX || 'msy-x' }}
                   S3_REGION: ${{ vars.S3_REGION || secrets.S3_REGION }}
-                  # Sensitive credentials: prefer secrets, fallback to vars
                   S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY || vars.S3_ACCESS_KEY }}
                   S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY || vars.S3_SECRET_KEY }}
               run: |
-                  # Check required OSS configuration
                   missing_configs=()
                   [ -z "$S3_BUCKET" ] && missing_configs+=("S3_BUCKET")
                   [ -z "$S3_ENDPOINT" ] && missing_configs+=("S3_ENDPOINT")
                   [ -z "$S3_ACCESS_KEY" ] && missing_configs+=("S3_ACCESS_KEY")
                   [ -z "$S3_SECRET_KEY" ] && missing_configs+=("S3_SECRET_KEY")
-
-                  # S3_REGION is optional for Aliyun OSS (region is in endpoint), but required for AWS S3
-                  if [ "$CDN_PROVIDER" = "aws" ] && [ -z "$S3_REGION" ]; then
-                    missing_configs+=("S3_REGION")
-                  fi
-
+                  [ "$CDN_PROVIDER" = "aws" ] && [ -z "$S3_REGION" ] && missing_configs+=("S3_REGION")
                   if [ ${#missing_configs[@]} -gt 0 ]; then
-                    echo "⚠️  Missing required OSS configuration in GitHub Variables/Secrets:"
-                    for config in "${missing_configs[@]}"; do
-                      echo "   - $config"
-                    done
-                    echo ""
-                    echo "Configuration guide:"
-                    echo "   - S3_BUCKET: Your OSS bucket name (e.g., 'qmgy-image')"
-                    echo "   - S3_ENDPOINT: OSS endpoint WITHOUT bucket name (e.g., 'oss-cn-hangzhou.aliyuncs.com')"
-                    echo "     ⚠️  Do NOT include bucket name in endpoint!"
-                    echo "     ⚠️  Use 'aliyuncs.com' (not 'aliyun.com')"
-                    echo "   - S3_ACCESS_KEY: Your OSS AccessKey ID"
-                    echo "   - S3_SECRET_KEY: Your OSS AccessKey Secret"
-                    echo ""
-                    echo "Configure these in: GitHub → Settings → Secrets and variables → Actions"
-                    echo "   Use 'Variables' tab for non-sensitive config, 'Secrets' tab for sensitive data"
+                    echo "⚠️  Missing OSS config, skipping upload: ${missing_configs[*]}"
                     exit 0
                   fi
-
-                  echo "✅ All OSS configuration found, uploading static assets to OSS..."
                   bash scripts/upload-static-to-cdn.sh
 
-            - name: Upload frontend build artifact
-              uses: actions/upload-artifact@v4
-              with:
-                  name: frontend-build
-                  path: packages/frontend/build
-                  retention-days: 1
-
-    # This job builds Docker images for various architectures in parallel
-    # See https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
-    build-docker-image:
-        runs-on: ubuntu-latest
-        needs: frontend-build-and-upload
-        if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
-        strategy:
-            fail-fast: false
-            matrix:
-                platform:
-                    - linux/amd64
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
-
-            - name: Download frontend build artifact
-              id: download-frontend
-              uses: actions/download-artifact@v4
-              with:
-                  name: frontend-build
-                  path: ./downloaded-frontend
-
-            - name: Place frontend build into repo
-              run: |
-                  SRC="./downloaded-frontend"
-                  if [ ! -d "$SRC" ] || [ -z "$(ls -A "$SRC" 2>/dev/null)" ]; then
-                    echo "Artifact not found or empty at $SRC:"
-                    ls -la "$SRC" 2>/dev/null || true
-                    exit 1
-                  fi
-                  mkdir -p packages/frontend/build
-                  cp -r "$SRC"/. packages/frontend/build/
-
-            # Write the PLATFORM_PAIR varible to env and replace `/` with `-`
             - name: Prepare
               run: |
                   platform=${{ matrix.platform }}
                   echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
-
-            - name: Extract version from tag
-              id: version
-              run: |
-                  if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-                      VERSION_WITH_V="${{ github.ref_name }}"
-                      # Remove 'v' prefix if present (e.g., v0.2092.31 -> 0.2092.31)
-                      VERSION="${VERSION_WITH_V#v}"
-                  else
-                      VERSION="dev-$(date +%Y%m%d-%H%M%S)"
-                  fi
-                  echo "version=$VERSION" >> $GITHUB_OUTPUT
-                  echo "Version: $VERSION (from tag: ${{ github.ref_name }})"
 
             - name: Set up Docker tags
               id: meta
@@ -186,15 +106,12 @@ jobs:
                       type=semver,pattern={{version}}
                       type=semver,pattern={{major}}.{{minor}}
 
-            # We need this to perform cross-platform Docker builds
             - name: Set up QEMU
               uses: docker/setup-qemu-action@v3
 
-            # Improved Docker builds
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v3
 
-            # Credentials for pushing final image to Docker Hub
             - name: Login to Aliyun Container Registry
               uses: docker/login-action@v3
               with:
@@ -202,7 +119,7 @@ jobs:
                   username: ${{ secrets.ALIYUN_REGISTRY_USER }}
                   password: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
 
-            - name: Build and push by digest
+            - name: Build and push
               id: build
               uses: docker/build-push-action@v5
               with:
@@ -217,9 +134,6 @@ jobs:
                       STATIC_FILES_VERSION=${{ steps.version.outputs.version }}
                       CDN_PATH_PREFIX=${{ vars.CDN_PATH_PREFIX || secrets.CDN_PATH_PREFIX || 'msy-x' }}
                       USE_PREBUILT_FRONTEND=1
-                  # 暂时移除缓存配置
-                  # cache-from: type=registry,ref=${{ env.REGISTRY_IMAGE }}
-                  # cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,mode=min,ref={0}:buildcache', env.REGISTRY_IMAGE) || '' }}
 
             - name: Export digest
               run: |
@@ -235,13 +149,11 @@ jobs:
                   if-no-files-found: error
                   retention-days: 1
 
-    # This step "merges" multiple images for various architectures into a single image
     create-image-manifest:
         runs-on: ubuntu-latest
-        # Should be kept in sync with the jobs.build-docker-image.steps.build.with.push condition
         if: ${{ github.event_name != 'pull_request' }}
         needs:
-            - build-docker-image
+            - build-and-push
         steps:
             - name: Download digests
               uses: actions/download-artifact@v4
