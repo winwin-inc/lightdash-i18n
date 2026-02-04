@@ -27,6 +27,41 @@ export const BASE_API_URL =
         ? window.location.origin
         : '/';
 
+/**
+ * 当前页 origin 下的 API 根路径（含 /api/v1），用于跳转、<a href> 等，避免 <base href="CDN"> 导致解析到 CDN 域名。
+ * 与 BASE_API_URL 一致，但保证末尾无多余斜杠并拼接 api/v1。
+ */
+export function getApiBaseUrl(): string {
+    const base =
+        import.meta.env.VITEST === 'true'
+            ? 'http://test.lightdash/'
+            : typeof window !== 'undefined'
+              ? window.location.origin
+              : '/';
+    return `${base.replace(/\/?$/, '/')}api/v1`;
+}
+
+/** 拼接完整 API URL（v1），用于导航/链接，不受 base 标签影响。path 需以 / 开头，如 '/slack/install/' */
+export function getApiUrl(path: string): string {
+    return getApiBaseUrl() + path;
+}
+
+/** 当前页 origin 下的 API v2 根路径，用于 fetch/流式请求等。 */
+export function getApiBaseUrlV2(): string {
+    const base =
+        import.meta.env.VITEST === 'true'
+            ? 'http://test.lightdash/'
+            : typeof window !== 'undefined'
+              ? window.location.origin
+              : '/';
+    return `${base.replace(/\/?$/, '/')}api/v2`;
+}
+
+/** 拼接完整 API v2 URL，用于请求等，不受 base 标签影响。path 需以 / 开头。 */
+export function getApiUrlV2(path: string): string {
+    return getApiBaseUrlV2() + path;
+}
+
 const defaultHeaders = {
     'Content-Type': 'application/json',
     [LightdashRequestMethodHeader]: RequestMethod.WEB_APP,

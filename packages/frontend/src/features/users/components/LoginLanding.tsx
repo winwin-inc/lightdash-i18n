@@ -30,6 +30,7 @@ import { useTranslation } from 'react-i18next';
 import { Navigate, useLocation } from 'react-router';
 import { z } from 'zod';
 
+import { getApiBaseUrl } from '../../../api';
 import MantineIcon from '../../../components/common/MantineIcon';
 import { ThirdPartySignInButton } from '../../../components/common/ThirdPartySignInButton';
 import PageSpinner from '../../../components/PageSpinner';
@@ -98,9 +99,7 @@ const Login: FC<{}> = () => {
             localStorage.setItem(LOCAL_STORAGE_KEY, validRedirectUrl);
         }
 
-        window.location.href = `/api/v1${
-            oidcOptions.loginPath
-        }?redirect=${encodeURIComponent(forceRedirectUrl)}`;
+        window.location.href = `${getApiBaseUrl()}${oidcOptions.loginPath}?redirect=${encodeURIComponent(forceRedirectUrl)}`;
     }
 
     const form = useForm<LoginParams>({

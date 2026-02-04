@@ -25,12 +25,11 @@ import {
     useGitHubRepositories,
 } from '../../common/GithubIntegration/hooks/useGithubIntegration';
 import MantineIcon from '../../common/MantineIcon';
+import { getApiUrl } from '../../../api';
 import { useFormContext } from '../formContext';
 import DbtVersionSelect from '../Inputs/DbtVersion';
 import { useProjectFormContext } from '../useProjectFormContext';
 import { githubDefaultValues } from './defaultValues';
-
-const GITHUB_INSTALL_URL = `/api/v1/github/install`;
 
 const DropdownComponentOverride = ({
     children,
@@ -204,7 +203,7 @@ const GithubLoginForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                 })}
                 onClick={() => {
                     window.open(
-                        GITHUB_INSTALL_URL,
+                        getApiUrl('/github/install'),
                         '_blank',
                         'popup=true,width=600,height=700',
                     );

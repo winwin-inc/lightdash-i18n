@@ -11,6 +11,7 @@ import { IconInfoCircle } from '@tabler/icons-react';
 import React, { useCallback, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { getApiUrl } from '../../../api';
 import useApp from '../../../providers/App/useApp';
 import MantineIcon from '../../common/MantineIcon';
 import DocumentationHelpButton from '../../DocumentationHelpButton';
@@ -104,7 +105,14 @@ const DbtCloudForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     label={t(
                         'components_project_connection_dbt_form.dbt_cloud.webhook.label',
                     )}
-                    value={`${health?.data?.siteUrl}/api/v1/projects/${savedProject?.projectUuid}/dbt-cloud/webhook`}
+                    value={
+                        // 供 dbt Cloud 调用的 webhook 必须用后端配置的公网 siteUrl
+                        health?.data?.siteUrl != null
+                            ? `${health.data.siteUrl.replace(/\/?$/, '/')}api/v1/projects/${savedProject.projectUuid}/dbt-cloud/webhook`
+                            : getApiUrl(
+                                  `/projects/${savedProject.projectUuid}/dbt-cloud/webhook`,
+                              )
+                    }
                     readOnly
                 />
             )}

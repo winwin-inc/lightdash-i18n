@@ -1,5 +1,6 @@
 import React, { useEffect, type FC } from 'react';
 import { Navigate, useLocation } from 'react-router';
+import { getApiBaseUrl } from '../api';
 import { useEmailStatus } from '../hooks/useEmailVerification';
 import { useAbilityContext } from '../providers/Ability/useAbilityContext';
 import useApp from '../providers/App/useApp';
@@ -32,9 +33,8 @@ const PrivateRoute: FC<React.PropsWithChildren> = ({ children }) => {
         
         if (isTrialAccess) {
             // 体验账户访问：直接跳转到后端体验账户登录端点
-            // 保留完整的路径和查询参数（包括 trial=true）
             const currentUrl = `${location.pathname}${location.search}`;
-            const loginUrl = `/api/v1/login/trial?redirect=${encodeURIComponent(currentUrl)}`;
+            const loginUrl = `${getApiBaseUrl()}/login/trial?redirect=${encodeURIComponent(currentUrl)}`;
             window.location.href = loginUrl;
             return <PageSpinner />; // 跳转中显示加载
         }

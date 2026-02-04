@@ -19,10 +19,9 @@ import {
     useDeleteGitlabInstallationMutation,
     useGitlabRepositories,
 } from '../../common/GitlabIntegration/hooks/useGitlabIntegration';
+import { getApiUrl } from '../../../api';
 import MantineIcon from '../../common/MantineIcon';
 import { SettingsGridCard } from '../../common/Settings/SettingsCard';
-
-const GITLAB_INSTALL_URL = `/api/v1/gitlab/install`;
 
 const GitlabSettingsPanel: FC = () => {
     const { t } = useTranslation();
@@ -88,7 +87,7 @@ const GitlabSettingsPanel: FC = () => {
                                 component="a"
                                 target="_blank"
                                 variant="default"
-                                href={GITLAB_INSTALL_URL}
+                                href={getApiUrl('/gitlab/install')}
                                 leftIcon={<MantineIcon icon={IconRefresh} />}
                                 onClick={() => {
                                     deleteGitlabInstallationMutation.mutate(
@@ -96,7 +95,7 @@ const GitlabSettingsPanel: FC = () => {
                                         {
                                             onSuccess: () => {
                                                 window.open(
-                                                    GITLAB_INSTALL_URL,
+                                                    getApiUrl('/gitlab/install'),
                                                     '_blank',
                                                 );
                                             },
@@ -130,7 +129,7 @@ const GitlabSettingsPanel: FC = () => {
                             size="xs"
                             component="a"
                             target="_blank"
-                            href={GITLAB_INSTALL_URL}
+                            href={getApiUrl('/gitlab/install')}
                         >
                             {t(
                                 'components_user_settings_gitlab_settings_panel.install',

@@ -6,7 +6,7 @@ import {
 } from '@lightdash/common';
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
-import { lightdashApi } from '../../api';
+import { getApiUrl, lightdashApi } from '../../api';
 import { convertDateFilters } from '../../utils/dateFilter';
 import useHealth from '../health/useHealth';
 import useToaster from '../toaster/useToaster';
@@ -20,11 +20,12 @@ const getGdriveAccessToken = async () =>
 
 const triggerGdriveLogin = async (
     loginPath: 'gdrive' | 'bigquery',
-    siteUrl: string,
+    _siteUrl: string,
 ) => {
     return new Promise<void>((resolve, reject) => {
         const channel = new BroadcastChannel('lightdash-oauth-popup');
-        const loginUrl = `${siteUrl}/api/v1/login/${loginPath}?isPopup=true`;
+        const loginUrl = getApiUrl(`/login/${loginPath}?isPopup=true`);
+        const appOrigin = window.location.origin;
         console.info(`Opening popup with url: ${loginUrl}`);
 
         const popupWindow = window.open(
@@ -39,7 +40,7 @@ const triggerGdriveLogin = async (
         }
 
         const handleMessage = (event: MessageEvent) => {
-            if (event.origin !== siteUrl) return;
+            if (event.origin !== appOrigin) return;
 
             if (event.data === 'success') {
                 resolve();

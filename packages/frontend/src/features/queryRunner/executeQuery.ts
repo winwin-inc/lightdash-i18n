@@ -8,7 +8,7 @@ import {
     QueryHistoryStatus,
     type RawResultRow,
 } from '@lightdash/common';
-import { lightdashApi } from '../../api';
+import { getApiUrlV2, lightdashApi } from '../../api';
 import { getResultsFromStream } from '../../utils/request';
 import type { ResultsAndColumns } from '../sqlRunner/hooks/useSqlQueryRun';
 
@@ -57,7 +57,9 @@ export const executeSqlQuery = async (
         throw new Error('Unexpected query status');
     }
 
-    const fileUrl = `/api/v2/projects/${projectUuid}/query/${response.queryUuid}/results`;
+    const fileUrl = getApiUrlV2(
+        `/projects/${projectUuid}/query/${response.queryUuid}/results`,
+    );
 
     const results = await getResultsFromStream<RawResultRow>(fileUrl);
 
@@ -80,7 +82,9 @@ const getPivotQueryResults = async (projectUuid: string, queryUuid: string) => {
         throw new Error('Unexpected query status');
     }
 
-    const fileUrl = `/api/v2/projects/${projectUuid}/query/${queryUuid}/results`;
+    const fileUrl = getApiUrlV2(
+        `/projects/${projectUuid}/query/${queryUuid}/results`,
+    );
 
     const results = await getResultsFromStream<RawResultRow>(fileUrl);
 
