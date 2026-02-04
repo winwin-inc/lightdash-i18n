@@ -149,10 +149,10 @@ jobs:
 
             - name: Place frontend build into repo
               run: |
-                  SRC="./downloaded-frontend/frontend-build"
-                  if [ ! -d "$SRC" ]; then
-                    echo "Artifact not found at $SRC, listing downloaded path:"
-                    ls -la ./downloaded-frontend 2>/dev/null || true
+                  SRC="./downloaded-frontend"
+                  if [ ! -d "$SRC" ] || [ -z "$(ls -A "$SRC" 2>/dev/null)" ]; then
+                    echo "Artifact not found or empty at $SRC:"
+                    ls -la "$SRC" 2>/dev/null || true
                     exit 1
                   fi
                   mkdir -p packages/frontend/build
