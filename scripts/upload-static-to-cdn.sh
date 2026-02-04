@@ -136,11 +136,23 @@ if [ "$CDN_PROVIDER" = "aliyun" ]; then
         echo "Warning: Locales directory not found: $FRONTEND_BUILD_DIR/locales"
     fi
     
-    # Upload other files with short-term cache (excluding assets, index.html, and locales)
+    # Upload fonts directory with long-term cache (font files are immutable)
+    if [ -d "$FRONTEND_BUILD_DIR/fonts" ]; then
+        echo "Uploading fonts files..."
+        find "$FRONTEND_BUILD_DIR/fonts" -type f -exec sh -c "UPLOAD_PATH_NO_SLASH=\${UPLOAD_PATH%/}; RELATIVE_PATH=\${1#$FRONTEND_BUILD_DIR/}; $OSSUTIL_CMD cp \"\$1\" \"oss://\$S3_BUCKET/\${UPLOAD_PATH_NO_SLASH}/\${RELATIVE_PATH}\" --meta \"Cache-Control:public, max-age=31536000, immutable\"" _ {} \; || {
+            echo "Error uploading fonts files"
+            exit 1
+        }
+    else
+        echo "Warning: Fonts directory not found: $FRONTEND_BUILD_DIR/fonts"
+    fi
+    
+    # Upload other files with short-term cache (excluding assets, locales, fonts, and index.html)
     # Use find with -exec sh -c to properly handle basename
     find "$FRONTEND_BUILD_DIR" -type f \
         ! -path "*/assets/*" \
         ! -path "*/locales/*" \
+        ! -path "*/fonts/*" \
         ! -name "index.html" \
         -exec sh -c "$OSSUTIL_CMD cp \"\$1\" \"oss://\$S3_BUCKET/\$UPLOAD_PATH\$(basename \"\$1\")\" --meta \"Cache-Control:public, max-age=86400\"" _ {} \; 2>/dev/null || true
     
@@ -183,11 +195,21 @@ elif [ "$CDN_PROVIDER" = "aws" ]; then
         echo "Warning: Locales directory not found: $FRONTEND_BUILD_DIR/locales"
     fi
     
+    # Upload fonts directory with long-term cache
+    if [ -d "$FRONTEND_BUILD_DIR/fonts" ]; then
+        echo "Uploading fonts files..."
+        aws s3 sync "$FRONTEND_BUILD_DIR/fonts" "s3://${S3_BUCKET}/${UPLOAD_PATH}fonts/" \
+            --cache-control "public, max-age=31536000, immutable"
+    else
+        echo "Warning: Fonts directory not found: $FRONTEND_BUILD_DIR/fonts"
+    fi
+    
     # Upload other files with short-term cache
     aws s3 sync "$FRONTEND_BUILD_DIR" "s3://${S3_BUCKET}/${UPLOAD_PATH}" \
         --cache-control "public, max-age=86400" \
         --exclude "assets/*" \
         --exclude "locales/*" \
+        --exclude "fonts/*" \
         --exclude "index.html"
     
     echo "Upload completed to AWS S3"

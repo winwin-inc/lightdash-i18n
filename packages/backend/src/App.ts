@@ -383,10 +383,10 @@ export default class App {
                 },
             );
 
-            // Convert other prefixed public assets (favicon, manifest, etc.)
+            // Convert other prefixed public assets (favicon, manifest, fonts, etc.)
             processedHtml = processedHtml.replace(
                 new RegExp(
-                    `([a-z]+)=["']${prefixPattern}((?:favicon|manifest|apple-touch-icon|monacoeditorwork)[^"']*)["']`,
+                    `([a-z]+)=["']${prefixPattern}((?:favicon|manifest|apple-touch-icon|monacoeditorwork|fonts)[^"']*)["']`,
                     'gi',
                 ),
                 (match, attr, path) => {
@@ -448,10 +448,10 @@ export default class App {
             },
         );
 
-        // Convert other public assets (favicon, manifest, etc.) to relative paths
+        // Convert other public assets (favicon, manifest, fonts, etc.) to relative paths
         // But exclude API paths, external URLs, and data URLs
         processedHtml = processedHtml.replace(
-            /([a-z]+)=["']\/((?:favicon|manifest|apple-touch-icon|monacoeditorwork)[^"']*)["']/gi,
+            /([a-z]+)=["']\/((?:favicon|manifest|apple-touch-icon|monacoeditorwork|fonts)[^"']*)["']/gi,
             (match, attr, path) => {
                 // Skip if already converted (contains base path prefix)
                 if (match.includes(basePathPrefix)) {
