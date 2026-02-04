@@ -1,4 +1,7 @@
 #!/bin/bash
+# 将前端静态资源（assets、locales 等）上传到 CDN/OSS。
+# 注意：index.html 不上传，必须由后端动态返回（注入 <base> 等），否则页面会拿到未注入的 HTML，资源路径错误。
+# 若域名解析到 CDN，需在 CDN 配置中将页面请求（/ 及 SPA 路径）回源到后端，仅静态路径（如 /msy-x/static/*）从 OSS 取。
 
 set -e
 
@@ -119,11 +122,8 @@ if [ "$CDN_PROVIDER" = "aliyun" ]; then
         exit 1
     }
     
-    # Upload index.html with no-cache
-    if [ -f "$FRONTEND_BUILD_DIR/index.html" ]; then
-        $OSSUTIL_CMD cp "$FRONTEND_BUILD_DIR/index.html" "oss://${S3_BUCKET}/${UPLOAD_PATH}index.html" \
-            --meta "Cache-Control:no-cache, must-revalidate"
-    fi
+    # 注意：不将 index.html 上传到 CDN。页面 HTML 必须由后端提供，以便注入 <base> 等 CDN 配置；
+    # 若 CDN 提供 index.html，用户会拿到未注入的版本，导致静态资源路径错误。
     
     # Upload locales directory (translation files)
     if [ -d "$FRONTEND_BUILD_DIR/locales" ]; then
@@ -172,11 +172,7 @@ elif [ "$CDN_PROVIDER" = "aws" ]; then
         --cache-control "public, max-age=31536000, immutable" \
         --exclude "*" --include "*.js" --include "*.css" --include "*.map"
     
-    # Upload index.html with no-cache
-    if [ -f "$FRONTEND_BUILD_DIR/index.html" ]; then
-        aws s3 cp "$FRONTEND_BUILD_DIR/index.html" "s3://${S3_BUCKET}/${UPLOAD_PATH}index.html" \
-            --cache-control "no-cache, must-revalidate"
-    fi
+    # 注意：不将 index.html 上传到 CDN。页面 HTML 必须由后端提供，以便注入 <base> 等 CDN 配置。
     
     # Upload locales directory (translation files)
     if [ -d "$FRONTEND_BUILD_DIR/locales" ]; then

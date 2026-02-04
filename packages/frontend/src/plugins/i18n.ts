@@ -15,7 +15,9 @@ i18n
     // for all options read: https://www.i18next.com/overview/configuration-options
     .init({
         backend: {
-            loadPath: '/locales/{{lng}}/{{ns}}.json',
+            // 使用相对路径，以便在存在 <base href="CDN"> 时从 CDN 加载翻译文件；
+            // 绝对路径 /locales/... 会解析到当前 origin，不会走 CDN
+            loadPath: 'locales/{{lng}}/{{ns}}.json',
         },
         fallbackLng: 'en',
         debug: true,

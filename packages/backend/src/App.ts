@@ -330,19 +330,159 @@ export default class App {
             }, VERSION from package.json: ${VERSION || 'not available'})`,
         );
 
+        // Convert absolute paths to relative paths so base tag works correctly
+        // HTML may contain absolute paths like /assets/... or /msy-x/static/0.2092.42/assets/...
+        // Convert them to relative paths like assets/... so base tag can resolve them
+        // Only convert paths that look like static assets (assets/, locales/, etc.)
+        // Don't convert API paths (/api/...), external URLs (http://, https://), or data URLs
+        let processedHtml = html;
+        let conversionCount = 0;
+
+        // Build the expected base path prefix to strip from absolute paths
+        // e.g., /msy-x/static/0.2092.42/ -> we want to extract assets/... from /msy-x/static/0.2092.42/assets/...
+        const basePathPrefix = `/${pathPrefix}/${staticPath}/${version}`;
+
+        // Convert paths that already include the base path prefix
+        // Match: /msy-x/static/0.2092.42/assets/... -> assets/...
+        if (version) {
+            const prefixPattern = basePathPrefix.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                '\\$&',
+            );
+            processedHtml = processedHtml.replace(
+                new RegExp(
+                    `([a-z]+)=["']${prefixPattern}(assets/[^"']+)["']`,
+                    'gi',
+                ),
+                (match, attr, path) => {
+                    conversionCount++;
+                    Logger.debug(
+                        `[CDN] Converting prefixed absolute path to relative: ${basePathPrefix}${path} -> ${path} (attribute: ${attr})`,
+                    );
+                    return `${attr}="${path}"`;
+                },
+            );
+
+            // Convert /msy-x/static/0.2092.42/locales/... -> locales/...
+            processedHtml = processedHtml.replace(
+                new RegExp(
+                    `([a-z]+)=["']${prefixPattern}(locales/[^"']+)["']`,
+                    'gi',
+                ),
+                (match, attr, path) => {
+                    conversionCount++;
+                    Logger.debug(
+                        `[CDN] Converting prefixed absolute path to relative: ${basePathPrefix}${path} -> ${path} (attribute: ${attr})`,
+                    );
+                    return `${attr}="${path}"`;
+                },
+            );
+
+            // Convert other prefixed public assets (favicon, manifest, etc.)
+            processedHtml = processedHtml.replace(
+                new RegExp(
+                    `([a-z]+)=["']${prefixPattern}((?:favicon|manifest|apple-touch-icon|monacoeditorwork)[^"']*)["']`,
+                    'gi',
+                ),
+                (match, attr, path) => {
+                    conversionCount++;
+                    Logger.debug(
+                        `[CDN] Converting prefixed absolute path to relative: ${basePathPrefix}${path} -> ${path} (attribute: ${attr})`,
+                    );
+                    return `${attr}="${path}"`;
+                },
+            );
+
+            // Convert Monaco Editor paths in inline scripts
+            // Match: "json": "/msy-x/static/0.2092.42/monacoeditorwork/..." -> "json": "monacoeditorwork/..."
+            processedHtml = processedHtml.replace(
+                new RegExp(
+                    `(["']json["']\\s*:\\s*["'])${prefixPattern}(monacoeditorwork/[^"']+)["']`,
+                    'gi',
+                ),
+                (match, prefix, path) => {
+                    conversionCount++;
+                    Logger.debug(
+                        `[CDN] Converting Monaco Editor path in script: ${basePathPrefix}${path} -> ${path}`,
+                    );
+                    return `${prefix}${path}"`;
+                },
+            );
+        }
+
+        // Convert simple absolute paths (without prefix) to relative paths
+        // Match: /assets/... -> assets/... (for backward compatibility)
+        processedHtml = processedHtml.replace(
+            /([a-z]+)=["']\/(assets\/[^"']+)["']/gi,
+            (match, attr, path) => {
+                // Skip if already converted (contains base path prefix)
+                if (match.includes(basePathPrefix)) {
+                    return match;
+                }
+                conversionCount++;
+                Logger.debug(
+                    `[CDN] Converting absolute path to relative: /${path} -> ${path} (attribute: ${attr})`,
+                );
+                return `${attr}="${path}"`;
+            },
+        );
+
+        // Convert /locales/... to locales/... (relative path)
+        processedHtml = processedHtml.replace(
+            /([a-z]+)=["']\/(locales\/[^"']+)["']/gi,
+            (match, attr, path) => {
+                // Skip if already converted (contains base path prefix)
+                if (match.includes(basePathPrefix)) {
+                    return match;
+                }
+                conversionCount++;
+                Logger.debug(
+                    `[CDN] Converting absolute path to relative: /${path} -> ${path} (attribute: ${attr})`,
+                );
+                return `${attr}="${path}"`;
+            },
+        );
+
+        // Convert other public assets (favicon, manifest, etc.) to relative paths
+        // But exclude API paths, external URLs, and data URLs
+        processedHtml = processedHtml.replace(
+            /([a-z]+)=["']\/((?:favicon|manifest|apple-touch-icon|monacoeditorwork)[^"']*)["']/gi,
+            (match, attr, path) => {
+                // Skip if already converted (contains base path prefix)
+                if (match.includes(basePathPrefix)) {
+                    return match;
+                }
+                conversionCount++;
+                Logger.debug(
+                    `[CDN] Converting absolute path to relative: /${path} -> ${path} (attribute: ${attr})`,
+                );
+                return `${attr}="${path}"`;
+            },
+        );
+
+        // Log summary of conversions
+        if (conversionCount > 0) {
+            Logger.info(
+                `[CDN] Converted ${conversionCount} absolute paths to relative paths for base tag compatibility`,
+            );
+        }
+
         // Inject base tag before closing </head>
         // Use data-base attribute to prevent base tag from affecting API requests
         const cdnScript = `
         <base href="${fullBaseUrl.replace(/"/g, '&quot;')}" data-cdn="true">`;
 
         // Only replace if </head> exists in HTML
-        if (html.includes('</head>')) {
-            return html.replace('</head>', `${cdnScript}\n    </head>`);
+        if (processedHtml.includes('</head>')) {
+            return processedHtml.replace(
+                '</head>',
+                `${cdnScript}\n    </head>`,
+            );
         }
         Logger.warn(
             `HTML file does not contain </head> tag, skipping CDN base tag injection`,
         );
-        return html;
+        return processedHtml;
     }
 
     private async initExpress(expressApp: Express) {
