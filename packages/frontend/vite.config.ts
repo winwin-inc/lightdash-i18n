@@ -11,6 +11,27 @@ import { defineConfig } from 'vitest/config';
 const FE_PORT = process.env.FE_PORT ? parseInt(process.env.FE_PORT) : 3000;
 const BE_PORT = process.env.PORT ? parseInt(process.env.PORT) : 8080;
 
+// Proxy target for API requests
+// If VITE_PROXY_TARGET is set, proxy API requests to that target
+// Otherwise, use local backend (default behavior)
+const PROXY_TARGET =
+    process.env.VITE_PROXY_TARGET || `http://localhost:${BE_PORT}`;
+
+// Log proxy configuration in development
+if (process.env.NODE_ENV === 'development') {
+    console.log(
+        `[Vite Proxy] API requests will be proxied to: ${PROXY_TARGET}`,
+    );
+    if (process.env.VITE_PROXY_TARGET) {
+        console.log(`[Vite Proxy] Using remote backend: ${PROXY_TARGET}`);
+        console.log(
+            `[Vite Proxy] Make sure you have logged in to ${PROXY_TARGET} in your browser`,
+        );
+    } else {
+        console.log(`[Vite Proxy] Using local backend: ${PROXY_TARGET}`);
+    }
+}
+
 // Calculate base path for CDN builds
 // STATIC_FILES_VERSION is set in GitHub Actions during CDN deployment builds
 // When set, build HTML with CDN path prefix so direct OSS access works correctly
@@ -199,17 +220,31 @@ export default defineConfig({
         },
         proxy: {
             '/api': {
-                target: `http://localhost:${BE_PORT}`,
+                target: PROXY_TARGET,
                 changeOrigin: true,
+                // Rewrite cookie domain to localhost so cookies work correctly when proxying to remote server
+                cookieDomainRewrite: PROXY_TARGET.includes('localhost')
+                    ? undefined
+                    : 'localhost',
+                // Allow insecure certificates when proxying to HTTPS in development
+                secure: process.env.NODE_ENV === 'production',
             },
             '/.well-known': {
                 // MCP inspector requires .well-known to be on the root, but according to RFC 9728 (OAuth 2.0 Protected Resource Metadata) the .well-known endpoint is not required to be at the root level.
-                target: `http://localhost:${BE_PORT}/api/v1/oauth`,
+                target: `${PROXY_TARGET}/api/v1/oauth`,
                 changeOrigin: true,
+                cookieDomainRewrite: PROXY_TARGET.includes('localhost')
+                    ? undefined
+                    : 'localhost',
+                secure: process.env.NODE_ENV === 'production',
             },
             '/slack/events': {
-                target: `http://localhost:${BE_PORT}`,
+                target: PROXY_TARGET,
                 changeOrigin: true,
+                cookieDomainRewrite: PROXY_TARGET.includes('localhost')
+                    ? undefined
+                    : 'localhost',
+                secure: process.env.NODE_ENV === 'production',
             },
         },
     },
