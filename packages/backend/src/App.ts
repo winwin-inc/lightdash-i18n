@@ -292,17 +292,10 @@ export default class App {
         }
     }
 
-    /**
-     * Rewrite static asset URLs in HTML to full CDN URLs (no <base> tag).
-     * Only script/link/img src and href that point to assets, locales, favicon, etc.
-     * are rewritten; document base stays as the page URL so links/API/history work normally.
-     */
-    private injectCdnAssetUrls(html: string): string {
+    /** 返回 CDN 根 URL（末尾带 /），未配置则返回 null。 */
+    private getFullCdnUrl(): string | null {
         const cdnConfig = this.lightdashConfig.cdn;
-        if (!cdnConfig?.baseUrl) {
-            return html;
-        }
-
+        if (!cdnConfig?.baseUrl) return null;
         const cdnDomain = cdnConfig.baseUrl.endsWith('/')
             ? cdnConfig.baseUrl.slice(0, -1)
             : cdnConfig.baseUrl;
@@ -313,11 +306,31 @@ export default class App {
             staticFilesVersion && staticFilesVersion.length > 0
                 ? `${staticFilesVersion}/`
                 : '';
-        const fullCdnUrl =
-            `${cdnDomain}/${pathPrefix}/${staticPath}/${version}`.replace(
-                /\/+$/,
-                '/',
-            );
+        return `${cdnDomain}/${pathPrefix}/${staticPath}/${version}`.replace(
+            /\/+$/,
+            '/',
+        );
+    }
+
+    /**
+     * Rewrite static asset URLs in HTML to full CDN URLs (no <base> tag).
+     * Only script/link/img src and href that point to assets, locales, favicon, etc.
+     * are rewritten; document base stays as the page URL so links/API/history work normally.
+     */
+    private injectCdnAssetUrls(html: string): string {
+        const fullCdnUrl = this.getFullCdnUrl();
+        if (!fullCdnUrl) {
+            return html;
+        }
+
+        const cdnConfig = this.lightdashConfig.cdn!;
+        const pathPrefix = cdnConfig.pathPrefix || 'msy-x';
+        const staticPath = 'static';
+        const staticFilesVersion = cdnConfig.staticFilesVersion?.trim();
+        const version =
+            staticFilesVersion && staticFilesVersion.length > 0
+                ? `${staticFilesVersion}/`
+                : '';
 
         Logger.info(
             `[CDN] Rewriting static asset URLs to ${fullCdnUrl} (no base tag)`,
@@ -413,6 +426,16 @@ export default class App {
                 `[CDN] Rewrote ${conversionCount} static asset URLs to CDN`,
             );
         }
+
+        // 注入 CDN base URL，供前端运行时加载 locales 等（i18n loadPath 从 CDN 拉翻译文件）
+        const cdnScript = `    <script>window.__CDN_BASE_URL__=${JSON.stringify(fullCdnUrl)};</script>`;
+        if (processedHtml.includes('<head>')) {
+            processedHtml = processedHtml.replace(
+                /(<head[^>]*>)/i,
+                `$1\n${cdnScript}`,
+            );
+        }
+
         return processedHtml;
     }
 
@@ -734,6 +757,27 @@ export default class App {
                     specUrl: '/api/docs/openapi.json',
                 }),
             );
+        }
+
+        // 配置了 CDN 时，将带 base 的静态请求重定向到 CDN，避免 404
+        const fullCdnUrl = this.getFullCdnUrl();
+        const cdnBaseUrl = this.lightdashConfig.cdn?.baseUrl
+            ? this.lightdashConfig.cdn.baseUrl.replace(/\/+$/, '')
+            : '';
+        if (fullCdnUrl && cdnBaseUrl) {
+            expressApp.use((req, res, next) => {
+                if (req.method !== 'GET') return next();
+                const p = req.path;
+                if (p.startsWith('/msy-x/static/')) {
+                    res.redirect(302, cdnBaseUrl + p);
+                    return;
+                }
+                if (p.startsWith('/assets/')) {
+                    res.redirect(302, fullCdnUrl + p.slice(1));
+                    return;
+                }
+                next();
+            });
         }
 
         // frontend assets - immutable because vite appends hash to filenames
