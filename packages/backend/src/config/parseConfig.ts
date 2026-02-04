@@ -1644,8 +1644,9 @@ export const parseConfig = (): LightdashConfig => {
             apiKey: process.env.ADMIN_API_KEY,
         },
         cdn: {
-            baseUrl: process.env.CDN_BASE_URL,
-            pathPrefix: process.env.CDN_PATH_PREFIX || 'lightdash',
+            // Default CDN base URL, can be overridden by CDN_BASE_URL env var
+            baseUrl: process.env.CDN_BASE_URL || 'https://img0.banmahui.cn',
+            pathPrefix: process.env.CDN_PATH_PREFIX || 'msy-x',
             // Use STATIC_FILES_VERSION if set, otherwise fallback to package.json version
             // Note: package.json version may differ from git tag, prefer explicit STATIC_FILES_VERSION
             staticFilesVersion: process.env.STATIC_FILES_VERSION || VERSION,

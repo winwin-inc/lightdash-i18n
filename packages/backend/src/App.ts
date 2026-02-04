@@ -310,7 +310,7 @@ export default class App {
             ? cdnConfig.baseUrl.slice(0, -1)
             : cdnConfig.baseUrl;
         // Build full path: {CDN_PATH_PREFIX}/static/{version}/
-        const pathPrefix = cdnConfig.pathPrefix || 'lightdash';
+        const pathPrefix = cdnConfig.pathPrefix || 'msy-x';
         const staticPath = 'static';
         const version = cdnConfig.staticFilesVersion
             ? `${cdnConfig.staticFilesVersion}/`
@@ -583,7 +583,9 @@ export default class App {
                 res.send(html);
             } catch (error) {
                 Logger.error(
-                    `Error reading or processing HTML file: ${getErrorMessage(error)}`,
+                    `Error reading or processing HTML file: ${getErrorMessage(
+                        error,
+                    )}`,
                 );
                 Sentry.captureException(error);
                 res.status(500).send(`
@@ -699,8 +701,7 @@ export default class App {
 
         // frontend static files - conditional based on STATIC_FILES_ENABLED
         // Default to true for backward compatibility (fallback mechanism)
-        const staticFilesEnabled =
-            process.env.STATIC_FILES_ENABLED !== 'false';
+        const staticFilesEnabled = process.env.STATIC_FILES_ENABLED !== 'false';
         if (staticFilesEnabled) {
             expressApp.use(
                 express.static(path.join(__dirname, '../../frontend/build'), {
@@ -742,7 +743,9 @@ export default class App {
                     res.send(html);
                 } catch (error) {
                     Logger.error(
-                        `Error reading or processing HTML file: ${getErrorMessage(error)}`,
+                        `Error reading or processing HTML file: ${getErrorMessage(
+                            error,
+                        )}`,
                     );
                     Sentry.captureException(error);
                     res.status(500).send(`

@@ -43,11 +43,11 @@
 
 **重要**：静态资源和上传文件使用独立的路径前缀配置。
 
-**场景 1：设置了 `CDN_PATH_PREFIX=lightdash`**（推荐用于通用 Bucket）
+**场景 1：设置了 `CDN_PATH_PREFIX=msy-x`**（推荐用于通用 Bucket）
 
 ```
-OSS Bucket: lightdash-prod (或通用 bucket)
-├── lightdash/                 # CDN 路径前缀（CDN_PATH_PREFIX，默认 lightdash）
+OSS Bucket: msy-x-prod (或通用 bucket)
+├── msy-x/                     # CDN 路径前缀（CDN_PATH_PREFIX，默认 msy-x）
 │   └── static/                # 静态资源（前端构建产物）
 │       ├── v1.2.3/           # 版本化部署
 │       │   ├── index.html
@@ -66,11 +66,11 @@ OSS Bucket: lightdash-prod (或通用 bucket)
     └── ...
 ```
 
-**场景 2：未设置 `CDN_PATH_PREFIX`**（使用默认值 `lightdash`）
+**场景 2：未设置 `CDN_PATH_PREFIX`**（使用默认值 `msy-x`）
 
 ```
-OSS Bucket: lightdash-prod
-├── lightdash/                 # 默认前缀
+OSS Bucket: msy-x-prod
+├── msy-x/                     # 默认前缀
 │   └── static/
 │       └── v1.2.3/
 │           └── ...
@@ -81,18 +81,18 @@ OSS Bucket: lightdash-prod
 
 **路径规则说明**：
 
-- **独立配置**：静态资源使用 `CDN_PATH_PREFIX`（默认 `lightdash`），上传文件使用 `S3_PATH_PREFIX`
+- **独立配置**：静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），上传文件使用 `S3_PATH_PREFIX`
 - **静态资源路径**：
-  - 如果 `CDN_PATH_PREFIX=lightdash`：`lightdash/static/{version}/`
-  - 如果没有设置（使用默认）：`lightdash/static/{version}/`
+  - 如果 `CDN_PATH_PREFIX=msy-x`：`msy-x/static/{version}/`
+  - 如果没有设置（使用默认）：`msy-x/static/{version}/`
 - **上传文件路径**：
-  - 如果 `S3_PATH_PREFIX=lightdash`：`lightdash/uploads/{userUuid}/{fileId}/`
+  - 如果 `S3_PATH_PREFIX=msy-x`：`msy-x/uploads/{userUuid}/{fileId}/`
   - 如果没有设置：`uploads/{userUuid}/{fileId}/`
 - **`CDN_BASE_URL` 配置**：
   - `CDN_BASE_URL` 应该只包含 CDN 域名，不包含路径前缀
-  - 示例：`CDN_BASE_URL=https://cdn.lightdash.com`
+  - 示例：`CDN_BASE_URL=https://cdn.example.com`
   - 后端会自动拼接：`{CDN_BASE_URL}/{CDN_PATH_PREFIX}/static/{STATIC_FILES_VERSION}/`
-  - 如果 `CDN_PATH_PREFIX=lightdash`（默认），`STATIC_FILES_VERSION=v1.2.3`，则最终 URL 为：`https://cdn.lightdash.com/lightdash/static/v1.2.3/`
+  - 如果 `CDN_PATH_PREFIX=msy-x`（默认），`STATIC_FILES_VERSION=v1.2.3`，则最终 URL 为：`https://cdn.example.com/msy-x/static/v1.2.3/`
 
 ### 访问流程
 
@@ -232,7 +232,7 @@ S3_REQUEST_TIMEOUT=1800000                        # 请求超时时间（毫秒�
 ```bash
 # CDN 配置 - 运行时使用
 CDN_BASE_URL=https://cdn.lightdash.com                       # CDN 加速域名（不包含路径前缀）
-CDN_PATH_PREFIX=lightdash                                    # CDN 路径前缀（可选，默认 lightdash）
+CDN_PATH_PREFIX=msy-x                                       # CDN 路径前缀（可选，默认 msy-x）
 STATIC_FILES_VERSION=v1.2.3                                  # 当前静态资源版本（可选，可用 git tag 自动获取）
 # 后端会自动拼接为：https://cdn.lightdash.com/lightdash/static/v1.2.3/
 
@@ -242,16 +242,16 @@ STATIC_FILES_ENABLED=true                                    # 是否启用后�
 
 ### 配置说明表
 
-| 环境变量               | 用途            | 必需    | 说明                                  |
-| ---------------------- | --------------- | ------- | ------------------------------------- |
-| `S3_ENDPOINT`          | 后端访问 OSS    | ✅      | 如果已配置，无需修改                  |
-| `S3_BUCKET`            | OSS Bucket 名称 | ✅      | 如果已配置，无需修改                  |
-| `S3_REGION`            | OSS 区域        | ✅      | 如果已配置，无需修改                  |
-| `S3_ACCESS_KEY`        | OSS 访问密钥    | ✅      | 如果已配置，无需修改                  |
-| `S3_SECRET_KEY`        | OSS 访问密钥    | ✅      | 如果已配置，无需修改                  |
+| 环境变量               | 用途                     | 必需    | 说明                                  |
+| ---------------------- | ------------------------ | ------- | ------------------------------------- |
+| `S3_ENDPOINT`          | 后端访问 OSS             | ✅      | 如果已配置，无需修改                  |
+| `S3_BUCKET`            | OSS Bucket 名称          | ✅      | 如果已配置，无需修改                  |
+| `S3_REGION`            | OSS 区域                 | ✅      | 如果已配置，无需修改                  |
+| `S3_ACCESS_KEY`        | OSS 访问密钥             | ✅      | 如果已配置，无需修改                  |
+| `S3_SECRET_KEY`        | OSS 访问密钥             | ✅      | 如果已配置，无需修改                  |
 | `S3_PATH_PREFIX`       | 项目标识前缀（上传文件） | 可选    | 现有配置项，用于上传文件路径          |
-| `CDN_BASE_URL`         | 前端 CDN 地址           | ✅ 新增 | CDN 加速域名，运行时通过后端 API 获取 |
-| `CDN_PATH_PREFIX`      | CDN 路径前缀（静态资源） | 可选    | 默认 `lightdash`，用于静态资源路径    |
+| `CDN_BASE_URL`         | 前端 CDN 地址            | ✅ 新增 | CDN 加速域名，运行时通过后端 API 获取 |
+| `CDN_PATH_PREFIX`      | CDN 路径前缀（静态资源） | 可选    | 默认 `msy-x`，用于静态资源路径        |
 | `STATIC_FILES_VERSION` | 静态资源版本             | 可选    | 用于版本化部署，可用 git tag 自动获取 |
 | `STATIC_FILES_ENABLED` | 后端回退机制             | 可选    | 默认 `true`，CDN 不可用时使用后端服务 |
 
@@ -286,12 +286,12 @@ STATIC_FILES_ENABLED=true
 
 1. OSS 配置可以复用：如果已经配置了 `S3_ENDPOINT`、`S3_BUCKET` 等，无需修改
 2. **独立路径前缀**：
-   - 静态资源使用 `CDN_PATH_PREFIX`（默认 `lightdash`），路径为 `{CDN_PATH_PREFIX}/static/{version}/`
+   - 静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），路径为 `{CDN_PATH_PREFIX}/static/{version}/`
    - 上传文件使用 `S3_PATH_PREFIX`（可选），路径为 `{S3_PATH_PREFIX}/uploads/{userUuid}/{fileId}/`
 3. CDN 地址配置：
    - `CDN_BASE_URL` 应该只包含 CDN 域名，不包含路径前缀（例如：`https://cdn.lightdash.com`）
    - 后端会自动拼接：`{CDN_BASE_URL}/{CDN_PATH_PREFIX}/static/{STATIC_FILES_VERSION}/`
-   - 如果 `CDN_PATH_PREFIX=lightdash`（默认），`STATIC_FILES_VERSION=v1.2.3`，则最终 URL 为：`https://cdn.lightdash.com/lightdash/static/v1.2.3/`
+   - 如果 `CDN_PATH_PREFIX=msy-x`（默认），`STATIC_FILES_VERSION=v1.2.3`，则最终 URL 为：`https://cdn.example.com/msy-x/static/v1.2.3/`
 4. CDN 地址格式：`CDN_BASE_URL` 不包含路径前缀和版本号，路径和版本号在运行时动态拼接
 5. **运行时配置**：`CDN_BASE_URL` 在运行时通过后端 API 获取，后端在提供 HTML 时动态注入 `<base>` 标签
 6. 开发环境：可以不设置 `CDN_BASE_URL`，使用相对路径 `/`
@@ -350,7 +350,7 @@ STATIC_FILES_ENABLED=true
     CDN_PROVIDER: aliyun
     S3_BUCKET: ${{ secrets.S3_BUCKET }}
     VERSION: ${{ steps.meta.outputs.version }}
-    CDN_PATH_PREFIX: ${{ secrets.CDN_PATH_PREFIX || 'lightdash' }}
+    CDN_PATH_PREFIX: ${{ secrets.CDN_PATH_PREFIX || 'msy-x' }}
     S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
     S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
     S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
@@ -363,7 +363,7 @@ STATIC_FILES_ENABLED=true
 
 1. 构建前端（不设置 CDN_BASE_URL，使用相对路径）
 2. 构建完成后，上传静态资源到 OSS（使用 S3_ENDPOINT，不经过 CDN）
-3. 上传路径：`{CDN_PATH_PREFIX}/static/{version}/`（默认 `lightdash/static/{version}/`）
+3. 上传路径：`{CDN_PATH_PREFIX}/static/{version}/`（默认 `msy-x/static/{version}/`）
 4. 设置缓存策略（assets/ 长期缓存，index.html 不缓存）
 5. 运行时，后端在提供 HTML 时动态注入 CDN base URL
 
@@ -381,7 +381,7 @@ docker push lightdash:v1.2.3
 
 ```bash
 CDN_BASE_URL=https://cdn.lightdash.com  # CDN 域名（不包含路径前缀）
-CDN_PATH_PREFIX=lightdash                # CDN 路径前缀（可选，默认 lightdash）
+CDN_PATH_PREFIX=msy-x                    # CDN 路径前缀（可选，默认 msy-x）
 S3_PATH_PREFIX=lightdash                 # 上传文件路径前缀（可选）
 STATIC_FILES_VERSION=v1.2.3              # 静态资源版本（可选）
 STATIC_FILES_ENABLED=true                # 保留回退机制
@@ -442,28 +442,30 @@ STATIC_FILES_ENABLED=true                # 保留回退机制
    - **改造 HTML 服务逻辑**（`App.ts` 第 517-549 行 和 666-698 行）：
      - **原有实现**：使用 `res.sendFile()` 直接发送 HTML 文件
      - **改造后**：
+
        ```typescript
        // 1. 读取构建好的 HTML 文件
        let html = fs.readFileSync(htmlPath, 'utf8');
-       
+
        // 2. 获取 CDN 配置（从 lightdashConfig）
        const cdnConfig = this.lightdashConfig.cdn;
-       
+
        // 3. 如果配置了 CDN_BASE_URL，则注入
        if (cdnConfig?.baseUrl) {
            // 构建完整的 base URL（包含版本号）
            const fullBaseUrl = `${baseUrl}${version}`;
-           
+
            // 安全地序列化配置（防止 XSS）
            const cdnConfigJson = JSON.stringify({...});
-           
+
            // 注入到 HTML 的 </head> 之前
            html = html.replace('</head>', `${cdnScript}\n    </head>`);
        }
-       
+
        // 4. 返回修改后的 HTML
        res.send(html);
        ```
+
      - **优势**：支持运行时动态切换 CDN，无需重新构建前端
 
 ### 前端实现
@@ -486,7 +488,7 @@ STATIC_FILES_ENABLED=true                # 保留回退机制
    - 文件：`scripts/upload-static-to-cdn.sh`
    - 支持阿里云 OSS 和 AWS S3
    - 使用 `S3_ENDPOINT` 直接上传到 OSS（不经过 CDN）
-   - 根据 `CDN_PATH_PREFIX`（默认 `lightdash`）动态构建路径
+   - 根据 `CDN_PATH_PREFIX`（默认 `msy-x`）动态构建路径
    - 设置正确的缓存策略
 
 2. **更新 GitHub Actions 工作流**：
@@ -506,10 +508,10 @@ STATIC_FILES_ENABLED=true                # 保留回退机制
 
 **可选配置**：
 
-- `CDN_PATH_PREFIX` - CDN 路径前缀（默认 `lightdash`），用于静态资源路径
-  - 如果设置了 `CDN_PATH_PREFIX=lightdash`，则 `CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static`
+- `CDN_PATH_PREFIX` - CDN 路径前缀（默认 `msy-x`），用于静态资源路径
+  - 如果设置了 `CDN_PATH_PREFIX=msy-x`，则 `CDN_BASE_URL=https://cdn.example.com`（后端会自动拼接路径）
   - 如果没有设置（使用默认），则 `CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static`
-- `S3_PATH_PREFIX` - **现有配置项**，项目标识前缀（如 `lightdash`），用于上传文件路径（与 `CDN_PATH_PREFIX` 独立）
+- `S3_PATH_PREFIX` - **现有配置项**，项目标识前缀（如 `msy-x`），用于上传文件路径（与 `CDN_PATH_PREFIX` 独立）
 
 **可选新增**：
 
@@ -547,7 +549,7 @@ STATIC_FILES_ENABLED=true                # 保留回退机制
 **答案**：**在 GitHub Actions 部署过程中自动上传**，不在本地开发时上传。
 
 - **生产环境**：推送 git tag 时，GitHub Actions 自动构建前端并上传到 OSS（使用 `S3_ENDPOINT`，不经过 CDN）
-  - 上传路径：`{CDN_PATH_PREFIX}/static/{version}/`（默认 `lightdash/static/{version}/`）
+  - 上传路径：`{CDN_PATH_PREFIX}/static/{version}/`（默认 `msy-x/static/{version}/`）
 - **本地开发**：不上传，使用本地开发服务器
 - **手动上传**：可选，运行 `scripts/upload-static-to-cdn.sh` 脚本
 
@@ -566,7 +568,7 @@ STATIC_FILES_ENABLED=true                # 保留回退机制
 
 ```bash
 CDN_BASE_URL=https://cdn.lightdash.com  # CDN 域名（不包含路径前缀）
-CDN_PATH_PREFIX=lightdash                # 可选，默认 lightdash
+CDN_PATH_PREFIX=msy-x                    # 可选，默认 msy-x
 S3_PATH_PREFIX=lightdash                 # 可选，用于上传文件路径
 STATIC_FILES_VERSION=v1.2.3              # 可选，版本号
 # 后端会自动拼接为：https://cdn.lightdash.com/lightdash/static/v1.2.3/
@@ -609,7 +611,7 @@ STATIC_FILES_VERSION=v1.2.3  # 可选
    - `CDN_BASE_URL` 应该只包含 CDN 域名，不包含路径前缀
    - 示例：`CDN_BASE_URL=https://cdn.lightdash.com`
    - 后端会自动拼接：`{CDN_BASE_URL}/{CDN_PATH_PREFIX}/static/{STATIC_FILES_VERSION}/`
-4. （可选）配置 `CDN_PATH_PREFIX`（默认 `lightdash`）和 `S3_PATH_PREFIX`（用于上传文件）
+4. （可选）配置 `CDN_PATH_PREFIX`（默认 `msy-x`）和 `S3_PATH_PREFIX`（用于上传文件）
 5. （可选）配置 `STATIC_FILES_VERSION` 和 `STATIC_FILES_ENABLED`
 
 ## 环境变量配置清单
@@ -619,7 +621,8 @@ STATIC_FILES_VERSION=v1.2.3  # 可选
 **配置位置**：GitHub 仓库 → Settings → Secrets and variables → Actions
 
 **重要说明**：
-- **Repository Variables**（Variables 标签页）：用于非敏感配置，如 `S3_BUCKET`、`S3_ENDPOINT`、`S3_REGION`、`CDN_PATH_PREFIX`
+
+- **Repository Variables**（Variables 标签页）：用于非敏感配置，如 `S3_BUCKET`、`S3_ENDPOINT`、`S3_REGION`、`CDN_PATH_PREFIX`（默认 `msy-x`）
 - **Repository Secrets**（Secrets 标签页）：用于敏感信息，如 `S3_ACCESS_KEY`、`S3_SECRET_KEY`
 - Workflow 会优先从 Variables 读取非敏感配置，从 Secrets 读取敏感配置（都有 fallback 机制）
 - GitHub Actions 配置和运行时环境变量是不同的配置位置，需要分别配置
@@ -632,23 +635,24 @@ STATIC_FILES_VERSION=v1.2.3  # 可选
 
 **推荐配置方式**（非敏感信息使用 Variables，敏感信息使用 Secrets）：
 
-| 配置项 | 配置位置 | 说明 | 与运行时环境变量同名 |
-|--------|---------|------|-------------------|
-| `S3_BUCKET` | **Variables** | OSS Bucket 名称 | ✅ `S3_BUCKET` |
-| `S3_ENDPOINT` | **Variables** | OSS 端点地址 | ✅ `S3_ENDPOINT` |
-| `S3_REGION` | **Variables** | OSS 区域 | ✅ `S3_REGION` |
-| `CDN_PATH_PREFIX` | **Variables** | CDN 路径前缀（默认 `lightdash`） | ✅ `CDN_PATH_PREFIX` |
-| `S3_PATH_PREFIX` | **Variables** | 项目标识前缀（用于上传文件，可选） | ✅ `S3_PATH_PREFIX` |
-| `S3_ACCESS_KEY` | **Secrets** | OSS AccessKey ID（敏感） | ✅ `S3_ACCESS_KEY` |
-| `S3_SECRET_KEY` | **Secrets** | OSS AccessKey Secret（敏感） | ✅ `S3_SECRET_KEY` |
+| 配置项            | 配置位置      | 说明                               | 与运行时环境变量同名 |
+| ----------------- | ------------- | ---------------------------------- | -------------------- |
+| `S3_BUCKET`       | **Variables** | OSS Bucket 名称                    | ✅ `S3_BUCKET`       |
+| `S3_ENDPOINT`     | **Variables** | OSS 端点地址                       | ✅ `S3_ENDPOINT`     |
+| `S3_REGION`       | **Variables** | OSS 区域                           | ✅ `S3_REGION`       |
+| `CDN_PATH_PREFIX` | **Variables** | CDN 路径前缀（默认 `msy-x`）       | ✅ `CDN_PATH_PREFIX` |
+| `S3_PATH_PREFIX`  | **Variables** | 项目标识前缀（用于上传文件，可选） | ✅ `S3_PATH_PREFIX`  |
+| `S3_ACCESS_KEY`   | **Secrets**   | OSS AccessKey ID（敏感）           | ✅ `S3_ACCESS_KEY`   |
+| `S3_SECRET_KEY`   | **Secrets**   | OSS AccessKey Secret（敏感）       | ✅ `S3_SECRET_KEY`   |
 
 **可选配置**：
 
-| 配置项 | 配置位置 | 说明 | 默认值 |
-|--------|---------|------|--------|
+| 配置项         | 配置位置             | 说明       | 默认值                              |
+| -------------- | -------------------- | ---------- | ----------------------------------- |
 | `CDN_PROVIDER` | Variables 或 Secrets | CDN 提供商 | `aliyun`（可选值：`aliyun`、`aws`） |
 
 **注意**：Workflow 支持从 Variables 和 Secrets 读取，优先级：
+
 - 非敏感配置：优先从 Variables 读取，如果没有则从 Secrets 读取
 - 敏感配置：优先从 Secrets 读取，如果没有则从 Variables 读取（不推荐）
 
@@ -656,7 +660,7 @@ STATIC_FILES_VERSION=v1.2.3  # 可选
 
 - **上传时不需要加速域名**：GitHub Actions 上传是直接到 OSS 的（使用 `S3_ENDPOINT`），不经过 CDN
 - **`CDN_BASE_URL` 不在 GitHub Actions 中配置**：在运行时通过后端 API 获取，后端在提供 HTML 时动态注入
-- **独立路径前缀**：静态资源使用 `CDN_PATH_PREFIX`（默认 `lightdash`），上传文件使用 `S3_PATH_PREFIX`（可选）
+- **独立路径前缀**：静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），上传文件使用 `S3_PATH_PREFIX`（可选）
 - **GitHub Actions Variables/Secrets 和运行时环境变量使用相同的变量名**（如 `S3_BUCKET`、`S3_ACCESS_KEY` 等）
 - 两者的值应该保持一致
 - 但它们是不同的配置位置，需要分别配置
@@ -699,6 +703,7 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 ```
 
 **重要说明**：
+
 - **`CDN_BASE_URL` 需要在容器中配置**：后端在提供 HTML 时动态注入，支持运行时切换 CDN
 - **容器中需要配置 CDN 相关变量**：`CDN_BASE_URL`、`CDN_PATH_PREFIX`（可选）、`STATIC_FILES_VERSION`（可选）
 - **容器中还需要配置 OSS 相关变量**：`S3_ENDPOINT`、`S3_BUCKET` 等（如果还未配置）
@@ -708,23 +713,24 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 
 **GitHub Actions Variables/Secrets → 项目运行时环境变量**：
 
-| GitHub 配置 | 配置位置 | 运行时环境变量 | 说明 |
-|------------|---------|--------------|------|
-| **不需要** | - | `CDN_BASE_URL` | CDN 加速域名（运行时通过后端 API 获取） |
-| `S3_BUCKET` | Variables | `S3_BUCKET` | OSS Bucket 名称 |
-| `S3_ENDPOINT` | Variables | `S3_ENDPOINT` | OSS 端点地址 |
-| `S3_REGION` | Variables | `S3_REGION` | OSS 区域 |
-| `CDN_PATH_PREFIX` | Variables | `CDN_PATH_PREFIX` | CDN 路径前缀（默认 lightdash） |
-| `S3_PATH_PREFIX` | Variables | `S3_PATH_PREFIX` | 项目标识前缀（用于上传文件，可选） |
-| `S3_ACCESS_KEY` | Secrets | `S3_ACCESS_KEY` | OSS 访问密钥（敏感） |
-| `S3_SECRET_KEY` | Secrets | `S3_SECRET_KEY` | OSS 访问密钥（敏感） |
+| GitHub 配置       | 配置位置  | 运行时环境变量    | 说明                                    |
+| ----------------- | --------- | ----------------- | --------------------------------------- |
+| **不需要**        | -         | `CDN_BASE_URL`    | CDN 加速域名（运行时通过后端 API 获取） |
+| `S3_BUCKET`       | Variables | `S3_BUCKET`       | OSS Bucket 名称                         |
+| `S3_ENDPOINT`     | Variables | `S3_ENDPOINT`     | OSS 端点地址                            |
+| `S3_REGION`       | Variables | `S3_REGION`       | OSS 区域                                |
+| `CDN_PATH_PREFIX` | Variables | `CDN_PATH_PREFIX` | CDN 路径前缀（默认 msy-x）              |
+| `S3_PATH_PREFIX`  | Variables | `S3_PATH_PREFIX`  | 项目标识前缀（用于上传文件，可选）      |
+| `S3_ACCESS_KEY`   | Secrets   | `S3_ACCESS_KEY`   | OSS 访问密钥（敏感）                    |
+| `S3_SECRET_KEY`   | Secrets   | `S3_SECRET_KEY`   | OSS 访问密钥（敏感）                    |
 
 **重要说明**：
+
 - **配置位置**：GitHub → Settings → Secrets and variables → Actions
   - **Variables 标签页**：用于非敏感配置（推荐用于 `S3_BUCKET`、`S3_ENDPOINT`、`S3_REGION` 等）
   - **Secrets 标签页**：用于敏感信息（推荐用于 `S3_ACCESS_KEY`、`S3_SECRET_KEY`）
 - **`CDN_BASE_URL` 不在 GitHub Actions 中配置**：在运行时通过后端 API 获取，后端在提供 HTML 时动态注入
-- **独立路径前缀**：静态资源使用 `CDN_PATH_PREFIX`（默认 `lightdash`），上传文件使用 `S3_PATH_PREFIX`（可选）
+- **独立路径前缀**：静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），上传文件使用 `S3_PATH_PREFIX`（可选）
 - **GitHub Actions Variables/Secrets**：存储在 GitHub 仓库中，用于 CI/CD 流程（构建前端和上传静态资源到 OSS）
 - **运行时环境变量**：存储在部署环境（服务器、Kubernetes、Docker 等）中，用于应用运行
 - **两者使用相同的变量名**（如 `S3_BUCKET`、`S3_ACCESS_KEY` 等），值应该保持一致
@@ -732,6 +738,7 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 - **两者是不同的配置位置**，需要分别配置
 
 **如果运行时已有 OSS 配置**：
+
 - GitHub Secrets 中也需要配置相同的 OSS 相关 secrets（使用相同的变量名，如 `S3_BUCKET`、`S3_ACCESS_KEY` 等）
 - 即使运行时已有 OSS 配置，GitHub Secrets 中也需要单独配置，因为它们是不同的配置位置
 
@@ -779,7 +786,7 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 本方案统一规划了 Lightdash 的 CDN 和 OSS 改造：
 
 1. 统一存储：使用同一个 OSS Bucket，通过路径前缀区分静态资源和上传文件
-2. 独立配置：静态资源使用 `CDN_PATH_PREFIX`（默认 `lightdash`），上传文件使用 `S3_PATH_PREFIX`（可选）
+2. 独立配置：静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），上传文件使用 `S3_PATH_PREFIX`（可选）
 3. 运行时配置：`CDN_BASE_URL` 在运行时通过后端 API 获取，后端在提供 HTML 时动态注入，支持动态切换 CDN
 4. 向后兼容：保留后端静态文件服务作为回退机制
 5. 版本化管理：支持版本化部署，便于回滚

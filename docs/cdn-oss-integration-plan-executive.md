@@ -28,7 +28,7 @@ OSS Bucket
 
 **关键设计决策**：
 
-- **独立配置**：静态资源使用 `CDN_PATH_PREFIX`（默认 `lightdash`），上传文件使用 `S3_PATH_PREFIX`
+- **独立配置**：静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），上传文件使用 `S3_PATH_PREFIX`
 - **运行时配置**：`CDN_BASE_URL` 在运行时通过后端 API 获取，不在构建时写入
 - 版本化部署：`static/v1.2.3/`，支持多版本共存和快速回滚
 - 保留后端静态文件服务作为回退机制
@@ -110,7 +110,7 @@ GitHub Actions 自动触发
 - `S3_ACCESS_KEY`：OSS AccessKey ID
 - `S3_SECRET_KEY`：OSS AccessKey Secret
 - `S3_ENDPOINT`：OSS 端点地址
-- `CDN_PATH_PREFIX`：CDN 路径前缀（默认 `lightdash`，用于静态资源路径）
+- `CDN_PATH_PREFIX`：CDN 路径前缀（默认 `msy-x`，用于静态资源路径）
 - `S3_REGION`：OSS 区域（AWS S3 需要）
 
 **重要说明**：
@@ -128,10 +128,10 @@ GitHub Actions 自动触发
 
 ```bash
 # CDN 配置（新增，必需）
-CDN_BASE_URL=https://cdn.lightdash.com  # CDN 域名（不包含路径前缀）
-CDN_PATH_PREFIX=lightdash                # CDN 路径前缀（可选，默认 lightdash）
+CDN_BASE_URL=https://cdn.example.com    # CDN 域名（不包含路径前缀）
+CDN_PATH_PREFIX=msy-x                    # CDN 路径前缀（可选，默认 msy-x）
 STATIC_FILES_VERSION=v1.2.3              # 静态资源版本（可选，可用 git tag 自动获取）
-# 后端会自动拼接为：https://cdn.lightdash.com/lightdash/static/v1.2.3/
+# 后端会自动拼接为：https://cdn.example.com/msy-x/static/v1.2.3/
 ```
 
 **完整配置**（如果未配置 OSS）：
@@ -143,13 +143,13 @@ S3_BUCKET=lightdash-prod
 S3_REGION=cn-hangzhou
 S3_ACCESS_KEY=your-access-key-id
 S3_SECRET_KEY=your-access-key-secret
-S3_PATH_PREFIX=lightdash  # 项目标识前缀（用于上传文件，可选）
+S3_PATH_PREFIX=msy-x  # 项目标识前缀（用于上传文件，可选）
 
 # CDN 配置（新增，必需）
-CDN_BASE_URL=https://cdn.lightdash.com  # CDN 域名（不包含路径前缀）
-CDN_PATH_PREFIX=lightdash                # CDN 路径前缀（用于静态资源，可选，默认 lightdash）
+CDN_BASE_URL=https://cdn.example.com    # CDN 域名（不包含路径前缀）
+CDN_PATH_PREFIX=msy-x                    # CDN 路径前缀（用于静态资源，可选，默认 msy-x）
 STATIC_FILES_VERSION=v1.2.3              # 静态资源版本（可选）
-# 后端会自动拼接为：https://cdn.lightdash.com/lightdash/static/v1.2.3/
+# 后端会自动拼接为：https://cdn.example.com/msy-x/static/v1.2.3/
 
 # 可选：后端回退机制配置
 STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
@@ -164,7 +164,7 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 | `S3_ACCESS_KEY`       | `S3_ACCESS_KEY`   | OSS 访问密钥（上传时使用）                     |
 | `S3_SECRET_KEY`       | `S3_SECRET_KEY`   | OSS 访问密钥（上传时使用）                     |
 | `S3_ENDPOINT`         | `S3_ENDPOINT`     | OSS 端点地址（上传时使用）                     |
-| `CDN_PATH_PREFIX`     | `CDN_PATH_PREFIX` | CDN 路径前缀（静态资源路径，默认 lightdash）   |
+| `CDN_PATH_PREFIX`     | `CDN_PATH_PREFIX` | CDN 路径前缀（静态资源路径，默认 msy-x）       |
 | `S3_PATH_PREFIX`      | `S3_PATH_PREFIX`  | 项目标识前缀（上传文件路径，可选）             |
 | `S3_REGION`           | `S3_REGION`       | OSS 区域（AWS S3 需要，上传时使用）            |
 
@@ -202,7 +202,7 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 
 ## 关键决策点
 
-1. **独立路径前缀**：静态资源使用 `CDN_PATH_PREFIX`（默认 `lightdash`），上传文件使用 `S3_PATH_PREFIX`，两者独立配置
+1. **独立路径前缀**：静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），上传文件使用 `S3_PATH_PREFIX`，两者独立配置
 2. **运行时配置**：`CDN_BASE_URL` 在运行时通过后端 API 获取，不在构建时写入，支持动态切换 CDN
 3. **后端回退机制**：必须保留，确保 CDN 不可用时自动回退
 4. **版本管理**：使用 git tag 作为版本号，与 Docker 镜像版本一致，支持多版本共存和快速回滚

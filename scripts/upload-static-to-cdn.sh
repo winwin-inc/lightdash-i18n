@@ -13,8 +13,8 @@ if [ -z "$CDN_PROVIDER" ]; then
     exit 1
 fi
 
-# Build upload path using CDN_PATH_PREFIX (default: lightdash)
-CDN_PREFIX="${CDN_PATH_PREFIX:-lightdash}"
+# Build upload path using CDN_PATH_PREFIX (default: msy-x)
+CDN_PREFIX="${CDN_PATH_PREFIX:-msy-x}"
 UPLOAD_PATH="${CDN_PREFIX}/static/${VERSION}/"
 
 echo "Uploading static files to CDN..."
@@ -101,8 +101,9 @@ if [ "$CDN_PROVIDER" = "aliyun" ]; then
     echo "Uploading files to Aliyun OSS..."
     
     # Upload assets with long-term cache
-    find "$FRONTEND_BUILD_DIR/assets" -type f -exec $OSSUTIL_CMD cp {} "oss://${S3_BUCKET}/${UPLOAD_PATH}assets/$(basename {})" \
-        --meta "Cache-Control:public, max-age=31536000, immutable" \; 2>/dev/null || true
+    # Use find with -exec sh -c to properly extract filename and upload to correct path
+    # This ensures files are uploaded to ${UPLOAD_PATH}assets/filename, not preserving full source path
+    find "$FRONTEND_BUILD_DIR/assets" -type f -exec sh -c '$OSSUTIL_CMD cp "$1" "oss://${S3_BUCKET}/${UPLOAD_PATH}assets/$(basename "$1")" --meta "Cache-Control:public, max-age=31536000, immutable"' _ {} \; 2>/dev/null || true
     
     # Upload index.html with no-cache
     if [ -f "$FRONTEND_BUILD_DIR/index.html" ]; then
@@ -110,12 +111,12 @@ if [ "$CDN_PROVIDER" = "aliyun" ]; then
             --meta "Cache-Control:no-cache, must-revalidate"
     fi
     
-    # Upload other files with short-term cache
+    # Upload other files with short-term cache (excluding assets and index.html)
+    # Use find with -exec sh -c to properly handle basename
     find "$FRONTEND_BUILD_DIR" -type f \
         ! -path "*/assets/*" \
         ! -name "index.html" \
-        -exec $OSSUTIL_CMD cp {} "oss://${S3_BUCKET}/${UPLOAD_PATH}$(basename {})" \
-        --meta "Cache-Control:public, max-age=86400" \; 2>/dev/null || true
+        -exec sh -c '$OSSUTIL_CMD cp "$1" "oss://${S3_BUCKET}/${UPLOAD_PATH}$(basename "$1")" --meta "Cache-Control:public, max-age=86400"' _ {} \; 2>/dev/null || true
     
     echo "Upload completed to Aliyun OSS"
     
