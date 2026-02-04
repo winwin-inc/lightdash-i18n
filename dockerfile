@@ -114,7 +114,10 @@
   ARG CDN_PATH_PREFIX="msy-x"
   # Build frontend with sourcemaps (Vite generates them by default)
   # Pass STATIC_FILES_VERSION and CDN_PATH_PREFIX to ensure HTML references match OSS uploads
-  RUN if [ -n "${SENTRY_AUTH_TOKEN}" ] && [ -n "${SENTRY_ORG}" ] && [ -n "${SENTRY_RELEASE_VERSION}" ]; then \
+  # IMPORTANT: Clean build directory to ensure consistent hash generation
+  # This ensures Docker build generates the same file names as GitHub Actions build
+  RUN rm -rf packages/frontend/build && \
+      if [ -n "${SENTRY_AUTH_TOKEN}" ] && [ -n "${SENTRY_ORG}" ] && [ -n "${SENTRY_RELEASE_VERSION}" ]; then \
       echo "Building frontend with Sentry integration (STATIC_FILES_VERSION=${STATIC_FILES_VERSION}, CDN_PATH_PREFIX=${CDN_PATH_PREFIX})"; \
       STATIC_FILES_VERSION="${STATIC_FILES_VERSION}" CDN_PATH_PREFIX="${CDN_PATH_PREFIX}" SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN} SENTRY_RELEASE_VERSION=${SENTRY_RELEASE_VERSION} pnpm -F frontend build; \
       else \

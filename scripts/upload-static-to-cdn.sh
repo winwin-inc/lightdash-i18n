@@ -33,25 +33,6 @@ if [ ! -d "$FRONTEND_BUILD_DIR" ]; then
     exit 1
 fi
 
-# Function to set cache headers based on file path
-set_cache_headers() {
-    local file_path=$1
-    local cache_control=""
-    
-    if [[ "$file_path" == *"/assets/"* ]]; then
-        # Long-term cache for JS/CSS assets
-        cache_control="public, max-age=31536000, immutable"
-    elif [[ "$file_path" == *"/index.html" ]]; then
-        # No cache for HTML
-        cache_control="no-cache, must-revalidate"
-    else
-        # Short-term cache for other files
-        cache_control="public, max-age=86400"
-    fi
-    
-    echo "$cache_control"
-}
-
 if [ "$CDN_PROVIDER" = "aliyun" ]; then
     # Aliyun OSS upload using ossutil
     if [ -z "$S3_ACCESS_KEY" ] || [ -z "$S3_SECRET_KEY" ]; then
@@ -111,13 +92,41 @@ if [ "$CDN_PROVIDER" = "aliyun" ]; then
         echo "Found $ASSET_COUNT files in assets directory"
     fi
     
-    # Upload assets with long-term cache
+    # Upload assets with long-term cache and correct Content-Type
     # Use find with -exec sh -c to properly extract filename and upload to correct path
     # Export variables to make them available in sh -c
     export OSSUTIL_CMD S3_BUCKET UPLOAD_PATH
     # Remove trailing slash from UPLOAD_PATH if present, then add /assets/
     echo "Uploading assets files..."
-    find "$FRONTEND_BUILD_DIR/assets" -type f -exec sh -c "UPLOAD_PATH_NO_SLASH=\${UPLOAD_PATH%/}; $OSSUTIL_CMD cp \"\$1\" \"oss://\$S3_BUCKET/\${UPLOAD_PATH_NO_SLASH}/assets/\$(basename \"\$1\")\" --meta \"Cache-Control:public, max-age=31536000, immutable\"" _ {} \; || {
+    find "$FRONTEND_BUILD_DIR/assets" -type f -exec sh -c "
+        UPLOAD_PATH_NO_SLASH=\${UPLOAD_PATH%/}
+        FILE_PATH=\"\$1\"
+        FILENAME=\$(basename \"\$FILE_PATH\")
+        EXTENSION=\"\${FILENAME##*.}\"
+        
+        # Set Content-Type based on file extension
+        case \"\$EXTENSION\" in
+            js|mjs)
+                CONTENT_TYPE=\"application/javascript\"
+                ;;
+            css)
+                CONTENT_TYPE=\"text/css\"
+                ;;
+            json)
+                CONTENT_TYPE=\"application/json\"
+                ;;
+            woff2)
+                CONTENT_TYPE=\"font/woff2\"
+                ;;
+            *)
+                CONTENT_TYPE=\"application/octet-stream\"
+                ;;
+        esac
+        
+        $OSSUTIL_CMD cp \"\$FILE_PATH\" \"oss://\$S3_BUCKET/\${UPLOAD_PATH_NO_SLASH}/assets/\$FILENAME\" \
+            --meta \"Cache-Control:public, max-age=31536000, immutable\" \
+            --meta \"Content-Type:\$CONTENT_TYPE\"
+    " _ {} \; || {
         echo "Error uploading assets files"
         exit 1
     }
@@ -179,10 +188,24 @@ elif [ "$CDN_PROVIDER" = "aws" ]; then
     
     echo "Uploading files to AWS S3..."
     
-    # Upload assets with long-term cache
+    # Upload assets with long-term cache and correct Content-Type
+    # Upload JS files with application/javascript Content-Type
     aws s3 sync "$FRONTEND_BUILD_DIR/assets" "s3://${S3_BUCKET}/${UPLOAD_PATH}assets/" \
         --cache-control "public, max-age=31536000, immutable" \
-        --exclude "*" --include "*.js" --include "*.css" --include "*.map"
+        --content-type "application/javascript" \
+        --exclude "*" --include "*.js" --include "*.mjs"
+    
+    # Upload CSS files with text/css Content-Type
+    aws s3 sync "$FRONTEND_BUILD_DIR/assets" "s3://${S3_BUCKET}/${UPLOAD_PATH}assets/" \
+        --cache-control "public, max-age=31536000, immutable" \
+        --content-type "text/css" \
+        --exclude "*" --include "*.css"
+    
+    # Upload source map files
+    aws s3 sync "$FRONTEND_BUILD_DIR/assets" "s3://${S3_BUCKET}/${UPLOAD_PATH}assets/" \
+        --cache-control "public, max-age=31536000, immutable" \
+        --content-type "application/json" \
+        --exclude "*" --include "*.map"
     
     # 注意：不将 index.html 上传到 CDN。页面 HTML 必须由后端提供，以便注入 <base> 等 CDN 配置。
     

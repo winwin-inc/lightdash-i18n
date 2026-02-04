@@ -97,7 +97,7 @@ export default defineConfig({
     },
     build: {
         outDir: 'build',
-        emptyOutDir: false,
+        emptyOutDir: true,
         // 降低到 ES2017 以避免正则表达式命名捕获组等 ES2018 特性在旧浏览器中报错
         // legacy 插件继续为更老的环境注入 polyfill
         target: 'es2017',
