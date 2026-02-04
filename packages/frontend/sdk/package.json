@@ -1,6 +1,6 @@
 {
     "name": "@lightdash/sdk",
-    "version": "0.2092.50",
+    "version": "0.2092.51",
     "private": false,
     "files": [
         "dist"
