@@ -27,7 +27,6 @@ import {
     useDeleteGithubInstallationMutation,
     useGitHubRepositories,
 } from '../../common/GithubIntegration/hooks/useGithubIntegration';
-import { getApiUrl } from '../../../api';
 import MantineIcon from '../../common/MantineIcon';
 import { SettingsGridCard } from '../../common/Settings/SettingsCard';
 
@@ -123,7 +122,7 @@ const GithubSettingsPanel: FC = () => {
                                 component="a"
                                 target="_blank"
                                 variant="default"
-                                href={getApiUrl('/github/install')}
+                                href="/api/v1/github/install"
                                 leftIcon={<MantineIcon icon={IconRefresh} />}
                                 onClick={() => {
                                     deleteGithubInstallationMutation.mutate(
@@ -131,7 +130,7 @@ const GithubSettingsPanel: FC = () => {
                                         {
                                             onSuccess: () => {
                                                 window.open(
-                                                    getApiUrl('/github/install'),
+                                                    '/api/v1/github/install',
                                                     '_blank',
                                                 );
                                             },
@@ -175,7 +174,7 @@ const GithubSettingsPanel: FC = () => {
                                     target="_blank"
                                     color="yellow"
                                     variant="outline"
-                                    href={getApiUrl('/github/install')}
+                                    href="/api/v1/github/install"
                                     leftIcon={<MantineIcon icon={IconClock} />}
                                 >
                                     {t(
@@ -189,7 +188,7 @@ const GithubSettingsPanel: FC = () => {
                                 component="a"
                                 target="_blank"
                                 color="blue"
-                                href={getApiUrl('/github/install')}
+                                href="/api/v1/github/install"
                             >
                                 {t(
                                     'components_user_settings_github_settings_panel.waiting_for.install',

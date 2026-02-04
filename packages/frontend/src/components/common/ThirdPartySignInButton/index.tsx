@@ -7,7 +7,6 @@ import { IconLock } from '@tabler/icons-react';
 import { type FC, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { getApiBaseUrl } from '../../../api';
 import useApp from '../../../providers/App/useApp';
 import MantineIcon from '../MantineIcon';
 
@@ -43,7 +42,7 @@ const ThirdPartySignInButtonBase: FC<
             variant="default"
             color="gray"
             component="a"
-            href={`${getApiBaseUrl()}${loginPath}?redirect=${encodeURIComponent(
+            href={`/api/v1${loginPath.startsWith('/') ? '' : '/'}${loginPath}?redirect=${encodeURIComponent(
                 redirect || (typeof window !== 'undefined' ? window.location.href : ''),
             )}${
                 inviteCode

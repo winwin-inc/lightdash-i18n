@@ -16,51 +16,12 @@ import { getFromInMemoryStorage } from './utils/inMemoryStorage';
 const LIGHTDASH_SDK_INSTANCE_URL_LOCAL_STORAGE_KEY =
     '__lightdash_sdk_instance_url';
 
-// API base URL should always use current page origin to avoid base tag interference
-// This ensures API requests go to the backend server, not CDN
-// When base tag points to CDN domain, absolute paths like /api/... will resolve to base domain
-// So we need to use window.location.origin to ensure API requests go to the correct domain
 export const BASE_API_URL =
     import.meta.env.VITEST === 'true'
         ? `http://test.lightdash/`
         : typeof window !== 'undefined'
         ? window.location.origin
         : '/';
-
-/**
- * 当前页 origin 下的 API 根路径（含 /api/v1），用于跳转、<a href> 等，避免 <base href="CDN"> 导致解析到 CDN 域名。
- * 与 BASE_API_URL 一致，但保证末尾无多余斜杠并拼接 api/v1。
- */
-export function getApiBaseUrl(): string {
-    const base =
-        import.meta.env.VITEST === 'true'
-            ? 'http://test.lightdash/'
-            : typeof window !== 'undefined'
-              ? window.location.origin
-              : '/';
-    return `${base.replace(/\/?$/, '/')}api/v1`;
-}
-
-/** 拼接完整 API URL（v1），用于导航/链接，不受 base 标签影响。path 需以 / 开头，如 '/slack/install/' */
-export function getApiUrl(path: string): string {
-    return getApiBaseUrl() + path;
-}
-
-/** 当前页 origin 下的 API v2 根路径，用于 fetch/流式请求等。 */
-export function getApiBaseUrlV2(): string {
-    const base =
-        import.meta.env.VITEST === 'true'
-            ? 'http://test.lightdash/'
-            : typeof window !== 'undefined'
-              ? window.location.origin
-              : '/';
-    return `${base.replace(/\/?$/, '/')}api/v2`;
-}
-
-/** 拼接完整 API v2 URL，用于请求等，不受 base 标签影响。path 需以 / 开头。 */
-export function getApiUrlV2(path: string): string {
-    return getApiBaseUrlV2() + path;
-}
 
 const defaultHeaders = {
     'Content-Type': 'application/json',

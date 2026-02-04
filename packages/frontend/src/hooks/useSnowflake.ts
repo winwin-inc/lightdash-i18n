@@ -1,17 +1,16 @@
 import { type ApiError, type ApiSuccessEmpty } from '@lightdash/common';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { getApiUrl, lightdashApi } from '../api';
+import { lightdashApi } from '../api';
 import useHealth from './health/useHealth';
 import useToaster from './toaster/useToaster';
 
 // TODO: This is a stub for the actual implementation
 //       It could maybe be abstracted into a generic oauth login hook
-const triggerSnowflakeLogin = async (_siteUrl: string) => {
+const triggerSnowflakeLogin = async (siteUrl: string) => {
     return new Promise<void>((resolve, reject) => {
         const channel = new BroadcastChannel('lightdash-oauth-popup');
-        const loginUrl = getApiUrl('/login/snowflake?isPopup=true');
-        const appOrigin = window.location.origin;
+        const loginUrl = `${siteUrl}/api/v1/login/snowflake?isPopup=true`;
         console.info(`Opening popup with url: ${loginUrl}`);
 
         const popupWindow = window.open(
@@ -26,7 +25,7 @@ const triggerSnowflakeLogin = async (_siteUrl: string) => {
         }
 
         const handleMessage = (event: MessageEvent) => {
-            if (event.origin !== appOrigin) return;
+            if (event.origin !== siteUrl) return;
 
             if (event.data === 'success') {
                 resolve();

@@ -43,7 +43,6 @@ import {
 } from '../../../hooks/slack/useSlack';
 import { useActiveProjectUuid } from '../../../hooks/useActiveProject';
 import { useFeatureFlag } from '../../../hooks/useFeatureFlagEnabled';
-import { getApiUrl } from '../../../api';
 import slackSvg from '../../../svgs/slack.svg';
 import MantineIcon from '../../common/MantineIcon';
 import { SettingsGridCard } from '../../common/Settings/SettingsCard';
@@ -415,7 +414,7 @@ const SlackSettingsPanel: FC = () => {
                                         component="a"
                                         target="_blank"
                                         variant="default"
-                                        href={getApiUrl('/slack/install/')}
+                                        href={'/api/v1/slack/install/'}
                                         leftIcon={
                                             <MantineIcon icon={IconRefresh} />
                                         }
@@ -462,7 +461,7 @@ const SlackSettingsPanel: FC = () => {
                             component="a"
                             target="_blank"
                             color="blue"
-                            href={getApiUrl('/slack/install/')}
+                            href={'/api/v1/slack/install/'}
                         >
                             {t(
                                 'components_user_settings_slack_settings_panel.add_to_slack',

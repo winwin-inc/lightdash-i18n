@@ -16,7 +16,6 @@ import {
     SettingsCard,
     SettingsGridCard,
 } from '../../../../../components/common/Settings/SettingsCard';
-import { getApiUrl } from '../../../../../api';
 import useToaster from '../../../../../hooks/toaster/useToaster';
 import useApp from '../../../../../providers/App/useApp';
 import { useScimTokenList } from '../../hooks/useScimAccessToken';
@@ -33,11 +32,11 @@ const ScimAccessTokensPanel: FC = () => {
     const { showToastSuccess } = useToaster();
     const clipboard = useClipboard({ timeout: 200 });
 
-    // 供外部 IdP 调用的 SCIM URL 必须用后端配置的公网 siteUrl，不能用当前页 origin
+    // 供外部 IdP 调用的 SCIM URL 必须用后端配置的公网 siteUrl
     const scimURL =
         health?.data?.siteUrl != null
             ? `${health.data.siteUrl.replace(/\/?$/, '/')}api/v1/scim/v2`
-            : getApiUrl('/scim/v2');
+            : `${typeof window !== 'undefined' ? window.location.origin : ''}/api/v1/scim/v2`;
 
     const handleCopyToClipboard = useCallback(() => {
         clipboard.copy(scimURL);
