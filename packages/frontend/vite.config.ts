@@ -11,8 +11,25 @@ import { defineConfig } from 'vitest/config';
 const FE_PORT = process.env.FE_PORT ? parseInt(process.env.FE_PORT) : 3000;
 const BE_PORT = process.env.PORT ? parseInt(process.env.PORT) : 8080;
 
+// Calculate base path for CDN builds
+// STATIC_FILES_VERSION is set in GitHub Actions during CDN deployment builds
+// When set, build HTML with CDN path prefix so direct OSS access works correctly
+// When not set, use relative path '/' and rely on backend runtime <base> tag injection
+const getBasePath = (): string => {
+    const staticFilesVersion = process.env.STATIC_FILES_VERSION;
+    if (!staticFilesVersion) {
+        return '/'; // Relative path for runtime CDN injection by backend
+    }
+
+    // Build path: /{CDN_PATH_PREFIX}/static/{VERSION}/
+    // This ensures HTML files uploaded to OSS can correctly reference assets
+    const cdnPathPrefix = process.env.CDN_PATH_PREFIX || 'msy-x';
+    const basePath = `/${cdnPathPrefix}/static/${staticFilesVersion}/`;
+    return basePath;
+};
+
 export default defineConfig({
-    base: '/', // CDN base URL is set at runtime via API, not at build time
+    base: getBasePath(), // CDN base URL: set at build time if STATIC_FILES_VERSION is provided, otherwise runtime injection
     publicDir: 'public',
     define: {
         __APP_VERSION__: JSON.stringify(process.env.npm_package_version),

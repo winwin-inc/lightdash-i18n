@@ -65,8 +65,9 @@ jobs:
             - name: Build frontend
               env:
                   STATIC_FILES_VERSION: ${{ steps.version.outputs.version }}
+                  CDN_PATH_PREFIX: ${{ vars.CDN_PATH_PREFIX || secrets.CDN_PATH_PREFIX || 'msy-x' }}
               run: |
-                  echo "Building frontend (CDN config will be loaded at runtime)"
+                  echo "Building frontend with CDN base path: /${CDN_PATH_PREFIX}/static/${STATIC_FILES_VERSION}/"
                   pnpm -F frontend build
 
             - name: Upload static assets to OSS
