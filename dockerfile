@@ -109,13 +109,17 @@
   
   # Build frontend
   COPY packages/frontend ./packages/frontend
+  # Accept build args for CDN configuration
+  ARG STATIC_FILES_VERSION=""
+  ARG CDN_PATH_PREFIX="msy-x"
   # Build frontend with sourcemaps (Vite generates them by default)
+  # Pass STATIC_FILES_VERSION and CDN_PATH_PREFIX to ensure HTML references match OSS uploads
   RUN if [ -n "${SENTRY_AUTH_TOKEN}" ] && [ -n "${SENTRY_ORG}" ] && [ -n "${SENTRY_RELEASE_VERSION}" ]; then \
-      echo "Building frontend with Sentry integration"; \
-      SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN} SENTRY_RELEASE_VERSION=${SENTRY_RELEASE_VERSION} pnpm -F frontend build; \
+      echo "Building frontend with Sentry integration (STATIC_FILES_VERSION=${STATIC_FILES_VERSION}, CDN_PATH_PREFIX=${CDN_PATH_PREFIX})"; \
+      STATIC_FILES_VERSION="${STATIC_FILES_VERSION}" CDN_PATH_PREFIX="${CDN_PATH_PREFIX}" SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN} SENTRY_RELEASE_VERSION=${SENTRY_RELEASE_VERSION} pnpm -F frontend build; \
       else \
-      echo "Building frontend without Sentry integration"; \
-      pnpm -F frontend build; \
+      echo "Building frontend without Sentry integration (STATIC_FILES_VERSION=${STATIC_FILES_VERSION}, CDN_PATH_PREFIX=${CDN_PATH_PREFIX})"; \
+      STATIC_FILES_VERSION="${STATIC_FILES_VERSION}" CDN_PATH_PREFIX="${CDN_PATH_PREFIX}" pnpm -F frontend build; \
       fi
   
   # Process and upload sourcemaps to Sentry if environment variables are set

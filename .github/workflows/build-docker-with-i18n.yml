@@ -129,11 +129,27 @@ jobs:
                 platform:
                     - linux/amd64
         steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
             # Write the PLATFORM_PAIR varible to env and replace `/` with `-`
             - name: Prepare
               run: |
                   platform=${{ matrix.platform }}
                   echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
+            - name: Extract version from tag
+              id: version
+              run: |
+                  if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+                      VERSION_WITH_V="${{ github.ref_name }}"
+                      # Remove 'v' prefix if present (e.g., v0.2092.31 -> 0.2092.31)
+                      VERSION="${VERSION_WITH_V#v}"
+                  else
+                      VERSION="dev-$(date +%Y%m%d-%H%M%S)"
+                  fi
+                  echo "version=$VERSION" >> $GITHUB_OUTPUT
+                  echo "Version: $VERSION (from tag: ${{ github.ref_name }})"
 
             - name: Set up Docker tags
               id: meta
@@ -171,6 +187,9 @@ jobs:
                   tags: ${{ steps.meta.outputs.tags }}
                   outputs: type=image,name=${{ env.REGISTRY_IMAGE }}
                   provenance: false
+                  build-args: |
+                      STATIC_FILES_VERSION=${{ steps.version.outputs.version }}
+                      CDN_PATH_PREFIX=${{ vars.CDN_PATH_PREFIX || secrets.CDN_PATH_PREFIX || 'msy-x' }}
                   # 暂时移除缓存配置
                   # cache-from: type=registry,ref=${{ env.REGISTRY_IMAGE }}
                   # cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,mode=min,ref={0}:buildcache', env.REGISTRY_IMAGE) || '' }}
