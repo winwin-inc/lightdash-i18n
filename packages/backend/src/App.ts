@@ -319,7 +319,12 @@ export default class App {
             staticFilesVersion && staticFilesVersion.length > 0
                 ? `${staticFilesVersion}/`
                 : '';
-        const fullBaseUrl = `${cdnDomain}/${pathPrefix}/${staticPath}/${version}`;
+        // Ensure base URL always ends with a slash for proper relative path resolution
+        const fullBaseUrl =
+            `${cdnDomain}/${pathPrefix}/${staticPath}/${version}`.replace(
+                /\/+$/,
+                '/',
+            );
 
         // Log CDN configuration for debugging
         Logger.info(
@@ -467,20 +472,33 @@ export default class App {
             );
         }
 
-        // Inject base tag before closing </head>
-        // Use data-base attribute to prevent base tag from affecting API requests
-        const cdnScript = `
-        <base href="${fullBaseUrl.replace(/"/g, '&quot;')}" data-cdn="true">`;
+        // Inject base tag immediately after <head> tag
+        // Base tag MUST be the first element in <head> for it to affect all resource references
+        // Use data-cdn attribute to mark it as CDN base tag
+        const baseTag = `    <base href="${fullBaseUrl.replace(
+            /"/g,
+            '&quot;',
+        )}" data-cdn="true">`;
 
-        // Only replace if </head> exists in HTML
-        if (processedHtml.includes('</head>')) {
-            return processedHtml.replace(
-                '</head>',
-                `${cdnScript}\n    </head>`,
-            );
+        // Try to insert after <head> tag (most common case)
+        if (processedHtml.includes('<head>')) {
+            // Match <head> with optional attributes and whitespace
+            const headPattern = /(<head[^>]*>)/i;
+            if (headPattern.test(processedHtml)) {
+                return processedHtml.replace(headPattern, `$1\n${baseTag}`);
+            }
         }
+
+        // Fallback: if no <head> tag found, try to insert before </head>
+        if (processedHtml.includes('</head>')) {
+            Logger.warn(
+                `[CDN] No <head> tag found, inserting base tag before </head> (may not work correctly)`,
+            );
+            return processedHtml.replace('</head>', `${baseTag}\n    </head>`);
+        }
+
         Logger.warn(
-            `HTML file does not contain </head> tag, skipping CDN base tag injection`,
+            `HTML file does not contain <head> or </head> tag, skipping CDN base tag injection`,
         );
         return processedHtml;
     }
