@@ -141,14 +141,22 @@ jobs:
               uses: actions/checkout@v4
 
             - name: Download frontend build artifact
+              id: download-frontend
               uses: actions/download-artifact@v4
               with:
                   name: frontend-build
+                  path: ./downloaded-frontend
 
             - name: Place frontend build into repo
               run: |
+                  SRC="./downloaded-frontend/frontend-build"
+                  if [ ! -d "$SRC" ]; then
+                    echo "Artifact not found at $SRC, listing downloaded path:"
+                    ls -la ./downloaded-frontend 2>/dev/null || true
+                    exit 1
+                  fi
                   mkdir -p packages/frontend/build
-                  cp -r frontend-build/. packages/frontend/build/
+                  cp -r "$SRC"/. packages/frontend/build/
 
             # Write the PLATFORM_PAIR varible to env and replace `/` with `-`
             - name: Prepare
