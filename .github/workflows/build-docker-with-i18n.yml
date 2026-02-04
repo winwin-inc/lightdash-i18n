@@ -13,7 +13,7 @@ env:
     REGISTRY_IMAGE: registry.cn-hangzhou.aliyuncs.com/winwin/lightdash
 
 jobs:
-    # 单 job：构建前端 → 上传 OSS → 构建 Docker，无 artifact 上传/下载，避免 context 遗漏 build 导致镜像内重复构建
+    # 单 job：只构建 Docker（前端在镜像内构建），构建完成后从镜像提取 frontend/build 再上传 OSS，单一构建来源无 context/缓存问题
     build-and-push:
         runs-on: ubuntu-latest
         if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
@@ -46,9 +46,6 @@ jobs:
                   echo "version=$VERSION" >> $GITHUB_OUTPUT
                   echo "Version: $VERSION (from tag: ${{ github.ref_name }})"
 
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile
-
             - name: Update package.json version
               if: ${{ github.ref_type == 'tag' }}
               run: |
@@ -57,40 +54,6 @@ jobs:
                   if [ "$CURRENT_VERSION" != "$VERSION" ]; then
                       pnpm version $VERSION --no-git-tag-version --no-commit-hooks
                   fi
-
-            - name: Build common package
-              run: pnpm common-build
-
-            - name: Build frontend
-              env:
-                  STATIC_FILES_VERSION: ${{ steps.version.outputs.version }}
-                  CDN_PATH_PREFIX: ${{ vars.CDN_PATH_PREFIX || secrets.CDN_PATH_PREFIX || 'msy-x' }}
-              run: |
-                  echo "Building frontend with CDN base path: /${CDN_PATH_PREFIX}/static/${STATIC_FILES_VERSION}/"
-                  pnpm -F frontend build
-
-            - name: Upload static assets to OSS
-              env:
-                  CDN_PROVIDER: ${{ vars.CDN_PROVIDER || secrets.CDN_PROVIDER || 'aliyun' }}
-                  VERSION: ${{ steps.version.outputs.version }}
-                  S3_BUCKET: ${{ vars.S3_BUCKET || secrets.S3_BUCKET }}
-                  S3_ENDPOINT: ${{ vars.S3_ENDPOINT || secrets.S3_ENDPOINT }}
-                  CDN_PATH_PREFIX: ${{ vars.CDN_PATH_PREFIX || secrets.CDN_PATH_PREFIX || 'msy-x' }}
-                  S3_REGION: ${{ vars.S3_REGION || secrets.S3_REGION }}
-                  S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY || vars.S3_ACCESS_KEY }}
-                  S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY || vars.S3_SECRET_KEY }}
-              run: |
-                  missing_configs=()
-                  [ -z "$S3_BUCKET" ] && missing_configs+=("S3_BUCKET")
-                  [ -z "$S3_ENDPOINT" ] && missing_configs+=("S3_ENDPOINT")
-                  [ -z "$S3_ACCESS_KEY" ] && missing_configs+=("S3_ACCESS_KEY")
-                  [ -z "$S3_SECRET_KEY" ] && missing_configs+=("S3_SECRET_KEY")
-                  [ "$CDN_PROVIDER" = "aws" ] && [ -z "$S3_REGION" ] && missing_configs+=("S3_REGION")
-                  if [ ${#missing_configs[@]} -gt 0 ]; then
-                    echo "⚠️  Missing OSS config, skipping upload: ${missing_configs[*]}"
-                    exit 0
-                  fi
-                  bash scripts/upload-static-to-cdn.sh
 
             - name: Prepare
               run: |
@@ -133,7 +96,7 @@ jobs:
                   build-args: |
                       STATIC_FILES_VERSION=${{ steps.version.outputs.version }}
                       CDN_PATH_PREFIX=${{ vars.CDN_PATH_PREFIX || secrets.CDN_PATH_PREFIX || 'msy-x' }}
-                      USE_PREBUILT_FRONTEND=1
+                      USE_PREBUILT_FRONTEND=0
 
             - name: Export digest
               run: |
@@ -148,6 +111,38 @@ jobs:
                   path: /tmp/digests/*
                   if-no-files-found: error
                   retention-days: 1
+
+            - name: Extract frontend build from image and upload to OSS
+              if: ${{ github.event_name != 'pull_request' }}
+              env:
+                  VERSION: ${{ steps.version.outputs.version }}
+                  CDN_PROVIDER: ${{ vars.CDN_PROVIDER || secrets.CDN_PROVIDER || 'aliyun' }}
+                  S3_BUCKET: ${{ vars.S3_BUCKET || secrets.S3_BUCKET }}
+                  S3_ENDPOINT: ${{ vars.S3_ENDPOINT || secrets.S3_ENDPOINT }}
+                  CDN_PATH_PREFIX: ${{ vars.CDN_PATH_PREFIX || secrets.CDN_PATH_PREFIX || 'msy-x' }}
+                  S3_REGION: ${{ vars.S3_REGION || secrets.S3_REGION }}
+                  S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY || vars.S3_ACCESS_KEY }}
+                  S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY || vars.S3_SECRET_KEY }}
+              run: |
+                  missing_configs=()
+                  [ -z "$S3_BUCKET" ] && missing_configs+=("S3_BUCKET")
+                  [ -z "$S3_ENDPOINT" ] && missing_configs+=("S3_ENDPOINT")
+                  [ -z "$S3_ACCESS_KEY" ] && missing_configs+=("S3_ACCESS_KEY")
+                  [ -z "$S3_SECRET_KEY" ] && missing_configs+=("S3_SECRET_KEY")
+                  [ "$CDN_PROVIDER" = "aws" ] && [ -z "$S3_REGION" ] && missing_configs+=("S3_REGION")
+                  if [ ${#missing_configs[@]} -gt 0 ]; then
+                    echo "⚠️  Missing OSS config, skipping upload: ${missing_configs[*]}"
+                    exit 0
+                  fi
+                  IMAGE_REF="${{ env.REGISTRY_IMAGE }}@${{ steps.build.outputs.digest }}"
+                  echo "Pulling image by digest to extract frontend build..."
+                  docker pull "$IMAGE_REF"
+                  docker create --name oss-upload "$IMAGE_REF"
+                  mkdir -p frontend-build-from-image
+                  docker cp oss-upload:/usr/app/packages/frontend/build/. frontend-build-from-image/
+                  docker rm oss-upload
+                  echo "Extracted $(find frontend-build-from-image -type f | wc -l) files"
+                  FRONTEND_BUILD_DIR="$PWD/frontend-build-from-image" bash scripts/upload-static-to-cdn.sh
 
     create-image-manifest:
         runs-on: ubuntu-latest
@@ -186,5 +181,6 @@ jobs:
                   done
 
             - name: Inspect image
+              if: ${{ steps.meta.outputs.version != '' }}
               run: |
                   docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}

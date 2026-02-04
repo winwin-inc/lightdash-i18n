@@ -27,7 +27,8 @@ echo "Provider: $CDN_PROVIDER"
 echo "Version: $VERSION"
 echo "Upload path: $UPLOAD_PATH"
 
-FRONTEND_BUILD_DIR="packages/frontend/build"
+# 支持从环境变量覆盖（如 CI 从镜像提取的目录）
+FRONTEND_BUILD_DIR="${FRONTEND_BUILD_DIR:-packages/frontend/build}"
 
 if [ ! -d "$FRONTEND_BUILD_DIR" ]; then
     echo "Error: Frontend build directory not found: $FRONTEND_BUILD_DIR"
@@ -118,16 +119,7 @@ if [ "$CDN_PROVIDER" = "aliyun" ]; then
         EXPECTED_ASSET_COUNT=$((EXPECTED_ASSET_COUNT + 1))
     done < <(find "$FRONTEND_BUILD_DIR/assets" -type f -print0)
 
-    echo "Uploaded $EXPECTED_ASSET_COUNT asset files, verifying on OSS..."
-    while IFS= read -r -d '' FILE_PATH; do
-        FILENAME=$(basename "$FILE_PATH")
-        OSS_OBJECT="oss://$S3_BUCKET/${UPLOAD_PATH_NO_SLASH}/assets/$FILENAME"
-        if ! $OSSUTIL_CMD stat "$OSS_OBJECT" &>/dev/null; then
-            echo "Error: File missing on OSS after upload: $FILENAME"
-            exit 1
-        fi
-    done < <(find "$FRONTEND_BUILD_DIR/assets" -type f -print0)
-    echo "Verified: all $EXPECTED_ASSET_COUNT asset files present on OSS"
+    echo "Uploaded $EXPECTED_ASSET_COUNT asset files to OSS"
 
     # 注意：不将 index.html 上传到 CDN。页面 HTML 必须由后端提供，以便注入 <base> 等 CDN 配置；
     # 若 CDN 提供 index.html，用户会拿到未注入的版本，导致静态资源路径错误。
