@@ -603,6 +603,9 @@ export default class App {
             'https://vega.github.io',
             'https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/',
             'https://*.lightdash.cloud',
+            // 静态资源 CDN（与 index.html <base> 一致，用于 script-src-elem 等）
+            'https://*.banmahui.cn',
+            'https://*.brandct.cn',
             ...this.lightdashConfig.security.contentSecurityPolicy
                 .allowedDomains,
         ];

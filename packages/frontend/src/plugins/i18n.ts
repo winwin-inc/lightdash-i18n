@@ -17,8 +17,12 @@ i18n
         backend: {
             // 使用相对路径，以便在存在 <base href="CDN"> 时从 CDN 加载翻译文件；
             // 将 zh-CN、zh-Hans 等映射到目录 zh（与 public/locales 一致）
-            loadPath: (lng: string, ns: string) =>
-                `locales/${lng?.startsWith('zh') ? 'zh' : (lng || 'en')}/${ns}.json`,
+            // lng 可能是 string 或 array（fallback 链），需先取字符串
+            loadPath: (lng: string | string[], ns: string) => {
+                const code = typeof lng === 'string' ? lng : Array.isArray(lng) ? lng[0] : 'en';
+                const dir = typeof code === 'string' && code.startsWith('zh') ? 'zh' : (code || 'en');
+                return `locales/${dir}/${ns}.json`;
+            },
         },
         fallbackLng: 'en',
         debug: true,
