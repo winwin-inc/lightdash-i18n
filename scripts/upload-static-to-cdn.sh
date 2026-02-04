@@ -100,10 +100,24 @@ if [ "$CDN_PROVIDER" = "aliyun" ]; then
     # Upload files with appropriate cache headers
     echo "Uploading files to Aliyun OSS..."
     
+    # Check if assets directory exists
+    if [ ! -d "$FRONTEND_BUILD_DIR/assets" ]; then
+        echo "Warning: Assets directory not found: $FRONTEND_BUILD_DIR/assets"
+    else
+        ASSET_COUNT=$(find "$FRONTEND_BUILD_DIR/assets" -type f | wc -l)
+        echo "Found $ASSET_COUNT files in assets directory"
+    fi
+    
     # Upload assets with long-term cache
     # Use find with -exec sh -c to properly extract filename and upload to correct path
-    # This ensures files are uploaded to ${UPLOAD_PATH}assets/filename, not preserving full source path
-    find "$FRONTEND_BUILD_DIR/assets" -type f -exec sh -c '$OSSUTIL_CMD cp "$1" "oss://${S3_BUCKET}/${UPLOAD_PATH}assets/$(basename "$1")" --meta "Cache-Control:public, max-age=31536000, immutable"' _ {} \; 2>/dev/null || true
+    # Export variables to make them available in sh -c
+    export OSSUTIL_CMD S3_BUCKET UPLOAD_PATH
+    # Remove trailing slash from UPLOAD_PATH if present, then add /assets/
+    echo "Uploading assets files..."
+    find "$FRONTEND_BUILD_DIR/assets" -type f -exec sh -c "UPLOAD_PATH_NO_SLASH=\${UPLOAD_PATH%/}; $OSSUTIL_CMD cp \"\$1\" \"oss://\$S3_BUCKET/\${UPLOAD_PATH_NO_SLASH}/assets/\$(basename \"\$1\")\" --meta \"Cache-Control:public, max-age=31536000, immutable\"" _ {} \; || {
+        echo "Error uploading assets files"
+        exit 1
+    }
     
     # Upload index.html with no-cache
     if [ -f "$FRONTEND_BUILD_DIR/index.html" ]; then
@@ -116,7 +130,7 @@ if [ "$CDN_PROVIDER" = "aliyun" ]; then
     find "$FRONTEND_BUILD_DIR" -type f \
         ! -path "*/assets/*" \
         ! -name "index.html" \
-        -exec sh -c '$OSSUTIL_CMD cp "$1" "oss://${S3_BUCKET}/${UPLOAD_PATH}$(basename "$1")" --meta "Cache-Control:public, max-age=86400"' _ {} \; 2>/dev/null || true
+        -exec sh -c "$OSSUTIL_CMD cp \"\$1\" \"oss://\$S3_BUCKET/\$UPLOAD_PATH\$(basename \"\$1\")\" --meta \"Cache-Control:public, max-age=86400\"" _ {} \; 2>/dev/null || true
     
     echo "Upload completed to Aliyun OSS"
     
