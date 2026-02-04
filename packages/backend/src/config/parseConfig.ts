@@ -296,6 +296,62 @@ export const parseOrganizationMemberRoleArray = (
         return role;
     });
 };
+/**
+ * Parse CDN base URL from environment variable or use default for production
+ * @returns CDN base URL string if configured, undefined otherwise
+ */
+const parseCdnBaseUrl = (): string | undefined => {
+    const envBaseUrl = process.env.CDN_BASE_URL?.trim();
+    if (envBaseUrl) {
+        return envBaseUrl;
+    }
+    // Default to img0.banmahui.cn in production environment
+    if (process.env.NODE_ENV === 'production') {
+        return 'https://img0.banmahui.cn';
+    }
+    // In development, return undefined to use local static file serving
+    return undefined;
+};
+
+/**
+ * Parse static files version from environment variable or fallback to package.json version
+ * Priority: STATIC_FILES_VERSION env var > package.json VERSION > undefined
+ * @returns Version string if available, undefined otherwise
+ */
+const parseStaticFilesVersion = (): string | undefined => {
+    const envVersion = process.env.STATIC_FILES_VERSION?.trim();
+    if (envVersion) {
+        return envVersion;
+    }
+    // Fallback to package.json version, ensure it's a valid string
+    if (VERSION && typeof VERSION === 'string' && VERSION.trim()) {
+        return VERSION.trim();
+    }
+    // If VERSION is invalid, log warning but still return undefined
+    // This allows the system to work without version (for backward compatibility)
+    console.warn(
+        `STATIC_FILES_VERSION not set and package.json version is invalid: ${VERSION}`,
+    );
+    return undefined;
+};
+
+/**
+ * Parse CDN configuration from environment variables
+ * @returns CDN configuration object
+ */
+const parseCdnConfig = (): LightdashConfig['cdn'] => {
+    return {
+        // CDN_BASE_URL: use environment variable or default to img0.banmahui.cn in production
+        // If not set, backend will serve static files locally (development mode)
+        baseUrl: parseCdnBaseUrl(),
+        pathPrefix: process.env.CDN_PATH_PREFIX || 'msy-x',
+        // Use STATIC_FILES_VERSION if set, otherwise fallback to package.json version
+        // Note: package.json version may differ from git tag, prefer explicit STATIC_FILES_VERSION
+        // Always use package.json version as default to ensure CDN paths include version
+        staticFilesVersion: parseStaticFilesVersion(),
+    };
+};
+
 const parseApiExpiration = (envVariable: string): Date | null => {
     const apiExpiration = process.env[envVariable];
     const apiExpirationDays = apiExpiration ? parseInt(apiExpiration, 10) : 30; // Convert to number, this might throw an error
@@ -1643,14 +1699,6 @@ export const parseConfig = (): LightdashConfig => {
             host: process.env.ADMIN_API_HOST,
             apiKey: process.env.ADMIN_API_KEY,
         },
-        cdn: {
-            // CDN_BASE_URL should be configured in production environment
-            // If not set, backend will serve static files locally (development mode)
-            baseUrl: process.env.CDN_BASE_URL,
-            pathPrefix: process.env.CDN_PATH_PREFIX || 'msy-x',
-            // Use STATIC_FILES_VERSION if set, otherwise fallback to package.json version
-            // Note: package.json version may differ from git tag, prefer explicit STATIC_FILES_VERSION
-            staticFilesVersion: process.env.STATIC_FILES_VERSION || VERSION,
-        },
+        cdn: parseCdnConfig(),
     };
 };

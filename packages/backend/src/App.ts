@@ -312,14 +312,28 @@ export default class App {
         // Build full path: {CDN_PATH_PREFIX}/static/{version}/
         const pathPrefix = cdnConfig.pathPrefix || 'msy-x';
         const staticPath = 'static';
-        const version = cdnConfig.staticFilesVersion
-            ? `${cdnConfig.staticFilesVersion}/`
-            : '';
+        // Ensure version is included in base URL if available
+        // Validate that staticFilesVersion is a non-empty string before using it
+        const staticFilesVersion = cdnConfig.staticFilesVersion?.trim();
+        const version =
+            staticFilesVersion && staticFilesVersion.length > 0
+                ? `${staticFilesVersion}/`
+                : '';
         const fullBaseUrl = `${cdnDomain}/${pathPrefix}/${staticPath}/${version}`;
 
+        // Log CDN configuration for debugging
+        Logger.info(
+            `Injecting CDN base tag: ${fullBaseUrl} (CDN_BASE_URL: ${
+                cdnConfig.baseUrl
+            }, CDN_PATH_PREFIX: ${pathPrefix}, STATIC_FILES_VERSION: ${
+                staticFilesVersion || 'not set'
+            }, VERSION from package.json: ${VERSION || 'not available'})`,
+        );
+
         // Inject base tag before closing </head>
+        // Use data-base attribute to prevent base tag from affecting API requests
         const cdnScript = `
-        <base href="${fullBaseUrl.replace(/"/g, '&quot;')}">`;
+        <base href="${fullBaseUrl.replace(/"/g, '&quot;')}" data-cdn="true">`;
 
         // Only replace if </head> exists in HTML
         if (html.includes('</head>')) {
