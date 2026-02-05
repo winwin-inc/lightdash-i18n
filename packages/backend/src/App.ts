@@ -542,6 +542,7 @@ export default class App {
             // 静态资源 CDN（与 index.html <base> 一致，用于 script-src-elem 等）
             'https://*.banmahui.cn',
             'https://*.brandct.cn',
+            'https://*.brandct.com',
             ...this.lightdashConfig.security.contentSecurityPolicy
                 .allowedDomains,
         ];
