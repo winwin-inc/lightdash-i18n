@@ -2,15 +2,81 @@
 
 ## 概述
 
-本指南说明如何使用本地前端代码连接线上后端环境，方便调试线上数据问题。
+本指南说明如何使用本地前端代码连接线上后端环境，方便调试线上数据问题；并说明**开发代理与打包、CDN 的关系**。
+
+---
+
+## 准确答复：代理与打包、CDN 的关系
+
+**代理不会影响打包后的 CDN 上传逻辑。**
+
+- **代理**（`vite.config.ts` 中的 `server.proxy`）仅在**开发环境**生效：只有执行 `pnpm -F frontend dev` 启动 Vite 开发服务器时才会用到。执行 `vite build` 时不会使用代理，构建产物与代理配置无关。
+- **打包**：构建输出由 `vite.config.ts` 的 `base`、`build` 等决定，与 `server.proxy` 无关。
+- **CDN 上传**：CI/本地上传静态资源（如 `scripts/upload-static-to-cdn.sh`）使用的是构建产物和 OSS 配置（如 `CDN_PATH_PREFIX`、`S3_*`），与是否配置或修改 `VITE_PROXY_TARGET` 无关。
+
+因此：**无论是否设置代理、代理指向哪里，都不会影响打包结果，也不会影响 CDN 上传逻辑。**
+
+---
+
+## 代理与 CDN 对比（开发 vs 生产）
+
+| 维度     | 开发代理 (Vite proxy)                    | CDN 静态资源 / 上传逻辑                    |
+|----------|------------------------------------------|---------------------------------------------|
+| 作用环境 | 仅开发环境（`pnpm -F frontend dev`）     | 生产/预发：后端返回 HTML 时处理；上传在 CI/脚本 |
+| 作用对象 | 将 `/api` 等请求转发到 `VITE_PROXY_TARGET` | 静态资源 URL 重写、上传到 OSS 的路径与版本   |
+| 配置位置 | `vite.config.ts`、`.env.development.local` | 后端 `CDN_BASE_URL`、`CDN_PATH_PREFIX`；上传脚本环境变量 |
+| 影响范围 | 本地开发时的 API 请求目标                | 构建产物、CDN 访问与上传，**与代理无关**    |
+
+CDN 与上传方案详见 [cdn-oss-integration-plan.md](./cdn-oss-integration-plan.md)。
+
+---
+
+## 当前代理配置（vite.config.ts）
+
+仅在 `NODE_ENV === 'development'` 且启动 dev server 时生效，**不参与 build，也不参与 CDN 上传**。
+
+### 环境变量
+
+- **`VITE_PROXY_TARGET`**（可选）
+  - 代理目标地址。
+  - 未设置时默认：`http://localhost:${BE_PORT}`（`BE_PORT` 来自 `PORT` 或 `.env`，默认 8080）。
+  - 示例：`VITE_PROXY_TARGET=https://x.pre.banmahui.cn`。
+
+### 代理规则
+
+| 路径            | 转发目标                    | 说明 |
+|-----------------|-----------------------------|------|
+| `/api`          | `PROXY_TARGET`              | 所有 API 请求 |
+| `/.well-known`  | `PROXY_TARGET/api/v1/oauth` | OAuth 2.0 元数据（如 MCP inspector） |
+| `/slack/events` | `PROXY_TARGET`              | Slack 事件回调 |
+
+### Cookie 重写（仅当目标非 localhost 时）
+
+当 `VITE_PROXY_TARGET` 指向远程 HTTPS 时，代理会重写响应头中的 `Set-Cookie`，使 Cookie 在本地 `localhost` 下可用：
+
+- 去掉 `HttpOnly`、`Secure`
+- 将 `Domain` 设为 `localhost`
+- 统一 `Path=/`、`SameSite=Lax`
+
+实现见 vite.config.ts 中的 `rewriteSetCookieForLocalhost`，**仅用于代理到远程后端，不影响生产/CDN**。
+
+### 其他选项
+
+- `changeOrigin: true`
+- `secure: false`（允许代理到 HTTPS 时使用自签名证书）
+- 开发启动时控制台会打印：`[Vite Proxy] API requests will be proxied to: <PROXY_TARGET>`
+
+---
 
 ## 工作原理
 
-使用 Vite 的 proxy 功能，将本地前端的 API 请求代理到线上后端：
+使用 Vite 的 proxy 功能，将本地前端的 API 请求代理到指定后端：
 
 - 本地前端运行在 `http://localhost:3000`
-- API 请求（`/api/*`）通过 proxy 转发到线上后端
+- API 请求（`/api/*`）通过 proxy 转发到 `VITE_PROXY_TARGET`
 - Cookie 会自动转发，保持登录状态
+
+---
 
 ## 配置步骤
 
@@ -80,11 +146,13 @@ pnpm dev
 
 所有 API 请求会自动代理到线上后端，Cookie 会自动转发。
 
+---
+
 ## 环境变量说明
 
 ### VITE_PROXY_TARGET
 
-**说明**：指定后端 API 的代理目标地址
+**说明**：指定后端 API 的代理目标地址（仅开发 dev server 使用，不影响打包与 CDN 上传）
 
 **示例**：
 
@@ -100,6 +168,8 @@ VITE_PROXY_TARGET=https://x.pre.banmahui.cn
 ```
 
 **默认值**：如果不设置，会使用 `http://localhost:${BE_PORT}`（通常是 8080）
+
+---
 
 ## 切换环境
 
@@ -124,6 +194,8 @@ VITE_PROXY_TARGET=https://x.prod.banmahui.cn
 ```
 
 修改后需要重启 Vite dev server。
+
+---
 
 ## 常见问题
 
@@ -210,12 +282,16 @@ VITE_PROXY_TARGET=https://x.prod.banmahui.cn
 3. 重新启动：`pnpm -F frontend dev`
 4. 检查控制台输出，确认 proxy target 正确
 
+---
+
 ## 安全注意事项
 
 1. **不要提交 Cookie 到代码库**：`.env.development.local` 文件已在 `.gitignore` 中
 2. **不要分享生产环境 Cookie**：生产环境的 Cookie 包含敏感信息
 3. **仅在开发环境使用**：此配置仅用于本地开发调试
 4. **及时清理 Cookie**：调试完成后，建议清理本地 Cookie
+
+---
 
 ## 调试技巧
 
@@ -233,6 +309,8 @@ VITE_PROXY_TARGET=https://x.prod.banmahui.cn
 1. 页面是否正常加载
 2. 用户信息是否正确（来自线上环境）
 3. 数据是否正确（来自线上数据库）
+
+---
 
 ## 示例配置
 
@@ -261,8 +339,16 @@ VITE_PROXY_TARGET=https://x.prod.banmahui.cn
 # VITE_PROXY_TARGET=http://localhost:8080
 ```
 
-## 相关文件
+---
 
-- `packages/frontend/vite.config.ts` - Vite 配置，包含 proxy 设置
+## 相关文件与文档
+
+**相关文件**：
+
+- `packages/frontend/vite.config.ts` - Vite 配置，包含 proxy 设置（仅 dev 生效）
 - `packages/frontend/.env.development.local` - 本地环境变量（不提交到 git）
 - `packages/frontend/.env.development.local.example` - 示例配置文件
+
+**相关文档**：
+
+- [cdn-oss-integration-plan.md](./cdn-oss-integration-plan.md) — CDN + OSS 方案（与代理无关，仅生产静态资源与上传）

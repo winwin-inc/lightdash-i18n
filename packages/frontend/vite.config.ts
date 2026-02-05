@@ -6,23 +6,35 @@ import { compression } from 'vite-plugin-compression2';
 import legacy from '@vitejs/plugin-legacy';
 import monacoEditorPlugin from 'vite-plugin-monaco-editor';
 import svgrPlugin from 'vite-plugin-svgr';
+import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
 
-const FE_PORT = process.env.FE_PORT ? parseInt(process.env.FE_PORT) : 3000;
-const BE_PORT = process.env.PORT ? parseInt(process.env.PORT) : 8080;
+// Load environment variables from .env files
+// Use __dirname to ensure we load from packages/frontend directory
+// Empty prefix '' loads all variables including VITE_ prefixed ones
+const env = loadEnv(
+    process.env.NODE_ENV || 'development',
+    __dirname,
+    '',
+);
+// Merge with process.env for non-VITE_ prefixed vars (like FE_PORT, PORT)
+const mergedEnv = { ...process.env, ...env };
+
+const FE_PORT = mergedEnv.FE_PORT ? parseInt(mergedEnv.FE_PORT) : 3000;
+const BE_PORT = mergedEnv.PORT ? parseInt(mergedEnv.PORT) : 8080;
 
 // Proxy target for API requests
 // If VITE_PROXY_TARGET is set, proxy API requests to that target
 // Otherwise, use local backend (default behavior)
 const PROXY_TARGET =
-    process.env.VITE_PROXY_TARGET || `http://localhost:${BE_PORT}`;
+    env.VITE_PROXY_TARGET || `http://localhost:${BE_PORT}`;
 
 // Log proxy configuration in development
 if (process.env.NODE_ENV === 'development') {
     console.log(
         `[Vite Proxy] API requests will be proxied to: ${PROXY_TARGET}`,
     );
-    if (process.env.VITE_PROXY_TARGET) {
+    if (env.VITE_PROXY_TARGET) {
         console.log(`[Vite Proxy] Using remote backend: ${PROXY_TARGET}`);
         console.log(
             `[Vite Proxy] Make sure you have logged in to ${PROXY_TARGET} in your browser`,
@@ -30,6 +42,40 @@ if (process.env.NODE_ENV === 'development') {
     } else {
         console.log(`[Vite Proxy] Using local backend: ${PROXY_TARGET}`);
     }
+}
+
+/**
+ * Rewrite Set-Cookie headers for dev proxy: remove HttpOnly/Secure, set Domain=localhost.
+ * Only used when proxying to a remote backend (not localhost). Does not affect production/CDN.
+ */
+function rewriteSetCookieForLocalhost(
+    setCookieHeaders: string[] | undefined,
+    proxyTarget: string,
+): string[] | undefined {
+    if (!setCookieHeaders || proxyTarget.includes('localhost')) {
+        return undefined;
+    }
+    return setCookieHeaders.map((cookie: string) => {
+        let modified = cookie.replace(/;\s*HttpOnly/gi, '');
+        modified = modified.replace(/;\s*Secure/gi, '');
+        if (!modified.includes('Domain=')) {
+            modified += '; Domain=localhost';
+        } else {
+            modified = modified.replace(
+                /Domain=[^;]+/gi,
+                'Domain=localhost',
+            );
+        }
+        if (!modified.includes('Path=')) {
+            modified += '; Path=/';
+        } else {
+            modified = modified.replace(/Path=[^;]+/gi, 'Path=/');
+        }
+        if (!modified.includes('SameSite=')) {
+            modified += '; SameSite=Lax';
+        }
+        return modified;
+    });
 }
 
 // 始终使用 base: '/'，避免把 CDN 前缀打进 JS bundle。
@@ -212,8 +258,24 @@ export default defineConfig({
                 cookieDomainRewrite: PROXY_TARGET.includes('localhost')
                     ? undefined
                     : 'localhost',
+                // Preserve cookie path when proxying
+                cookiePathRewrite: PROXY_TARGET.includes('localhost')
+                    ? undefined
+                    : '/',
                 // Allow insecure certificates when proxying to HTTPS in development
-                secure: process.env.NODE_ENV === 'production',
+                secure: false,
+                // Preserve headers including cookies
+                configure: (proxy, _options) => {
+                    proxy.on('proxyRes', (proxyRes, req, res) => {
+                        const modified = rewriteSetCookieForLocalhost(
+                            proxyRes.headers['set-cookie'],
+                            PROXY_TARGET,
+                        );
+                        if (modified) {
+                            proxyRes.headers['set-cookie'] = modified;
+                        }
+                    });
+                },
             },
             '/.well-known': {
                 // MCP inspector requires .well-known to be on the root, but according to RFC 9728 (OAuth 2.0 Protected Resource Metadata) the .well-known endpoint is not required to be at the root level.
@@ -222,7 +284,21 @@ export default defineConfig({
                 cookieDomainRewrite: PROXY_TARGET.includes('localhost')
                     ? undefined
                     : 'localhost',
-                secure: process.env.NODE_ENV === 'production',
+                cookiePathRewrite: PROXY_TARGET.includes('localhost')
+                    ? undefined
+                    : '/',
+                secure: false,
+                configure: (proxy, _options) => {
+                    proxy.on('proxyRes', (proxyRes, req, res) => {
+                        const modified = rewriteSetCookieForLocalhost(
+                            proxyRes.headers['set-cookie'],
+                            PROXY_TARGET,
+                        );
+                        if (modified) {
+                            proxyRes.headers['set-cookie'] = modified;
+                        }
+                    });
+                },
             },
             '/slack/events': {
                 target: PROXY_TARGET,
@@ -230,7 +306,21 @@ export default defineConfig({
                 cookieDomainRewrite: PROXY_TARGET.includes('localhost')
                     ? undefined
                     : 'localhost',
-                secure: process.env.NODE_ENV === 'production',
+                cookiePathRewrite: PROXY_TARGET.includes('localhost')
+                    ? undefined
+                    : '/',
+                secure: false,
+                configure: (proxy, _options) => {
+                    proxy.on('proxyRes', (proxyRes, req, res) => {
+                        const modified = rewriteSetCookieForLocalhost(
+                            proxyRes.headers['set-cookie'],
+                            PROXY_TARGET,
+                        );
+                        if (modified) {
+                            proxyRes.headers['set-cookie'] = modified;
+                        }
+                    });
+                },
             },
         },
     },

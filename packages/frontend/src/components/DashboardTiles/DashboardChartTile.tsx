@@ -1863,16 +1863,12 @@ const DashboardChartTile: FC<DashboardChartTileProps> = (props) => {
     const isLoading = useMemo(() => {
         const isCreatingQuery = readyQuery.isFetching;
         const isFetchingFirstPage = resultsData.isFetchingFirstPage;
-        const isFetchingAllRows =
-            resultsData.fetchAll && !resultsData.hasFetchedAllRows;
+        // 仅等首页返回即算加载完成；Vega 全量到达时由 CustomVisualization 的 key 重挂载修正 scale
         return (
-            (isCreatingQuery || isFetchingFirstPage || isFetchingAllRows) &&
-            !resultsData.error
+            (isCreatingQuery || isFetchingFirstPage) && !resultsData.error
         );
     }, [
         readyQuery.isFetching,
-        resultsData.fetchAll,
-        resultsData.hasFetchedAllRows,
         resultsData.isFetchingFirstPage,
         resultsData.error,
     ]);

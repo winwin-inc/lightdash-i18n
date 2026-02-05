@@ -85,6 +85,11 @@ const CustomVisualization: FC<Props> = (props) => {
 
     const data = { values: visProps.series };
 
+    // 全量数据到达时用新 key 强制重挂载，让 Vega 基于完整数据重算 scale（颜色、轴、条数分布），与一次性加载一致
+    const rowCount = resultsData?.rows?.length ?? 0;
+    const hasFullData = resultsData?.hasFetchedAllRows ?? false;
+    const vegaKey = hasFullData ? `vega-full-${rowCount}` : `vega-partial-${rowCount}`;
+
     return (
         <div
             data-testid={props['data-testid']}
@@ -99,6 +104,7 @@ const CustomVisualization: FC<Props> = (props) => {
         >
             <Suspense fallback={<LoadingChart />}>
                 <VegaLite
+                    key={vegaKey}
                     ref={chartRef}
                     style={{
                         width: rect.width,
