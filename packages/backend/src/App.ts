@@ -292,63 +292,87 @@ export default class App {
         }
     }
 
-    /**
-     * Inject CDN base tag into HTML content
-     * Builds the full CDN URL from CDN_BASE_URL, CDN_PATH_PREFIX, and STATIC_FILES_VERSION
-     * @param html - Original HTML content
-     * @returns HTML content with CDN base tag injected
-     */
-    private injectCdnBaseTag(html: string): string {
+    /** 返回 CDN 根 URL（末尾带 /），未配置则返回 null。 */
+    private getFullCdnUrl(): string | null {
         const cdnConfig = this.lightdashConfig.cdn;
-        if (!cdnConfig?.baseUrl) {
-            return html;
-        }
-
-        // CDN_BASE_URL should be the CDN domain without path prefix
-        // e.g., https://cdn.lightdash.com
+        if (!cdnConfig?.baseUrl) return null;
         const cdnDomain = cdnConfig.baseUrl.endsWith('/')
             ? cdnConfig.baseUrl.slice(0, -1)
             : cdnConfig.baseUrl;
-        // Build full path: {CDN_PATH_PREFIX}/static/{version}/
         const pathPrefix = cdnConfig.pathPrefix || 'msy-x';
         const staticPath = 'static';
-        // Ensure version is included in base URL if available
-        // Validate that staticFilesVersion is a non-empty string before using it
         const staticFilesVersion = cdnConfig.staticFilesVersion?.trim();
         const version =
             staticFilesVersion && staticFilesVersion.length > 0
                 ? `${staticFilesVersion}/`
                 : '';
-        // Ensure base URL always ends with a slash for proper relative path resolution
-        const fullBaseUrl =
-            `${cdnDomain}/${pathPrefix}/${staticPath}/${version}`.replace(
-                /\/+$/,
-                '/',
-            );
+        return `${cdnDomain}/${pathPrefix}/${staticPath}/${version}`.replace(
+            /\/+$/,
+            '/',
+        );
+    }
 
-        // Log CDN configuration for debugging
+    /**
+     * Rewrite static asset URLs in HTML to full CDN URLs (no <base> tag).
+     * Only script/link/img src and href that point to assets, locales, favicon, etc.
+     * are rewritten; document base stays as the page URL so links/API/history work normally.
+     */
+    private injectCdnAssetUrls(html: string): string {
+        const fullCdnUrl = this.getFullCdnUrl();
+        if (!fullCdnUrl) {
+            return html;
+        }
+
+        const cdnConfig = this.lightdashConfig.cdn!;
+        const pathPrefix = cdnConfig.pathPrefix || 'msy-x';
+        const staticPath = 'static';
+        const staticFilesVersion = cdnConfig.staticFilesVersion?.trim();
+        const version =
+            staticFilesVersion && staticFilesVersion.length > 0
+                ? `${staticFilesVersion}/`
+                : '';
+
         Logger.info(
-            `Injecting CDN base tag: ${fullBaseUrl} (CDN_BASE_URL: ${
-                cdnConfig.baseUrl
-            }, CDN_PATH_PREFIX: ${pathPrefix}, STATIC_FILES_VERSION: ${
-                staticFilesVersion || 'not set'
-            }, VERSION from package.json: ${VERSION || 'not available'})`,
+            `[CDN] Rewriting static asset URLs to ${fullCdnUrl} (no base tag)`,
         );
 
-        // Convert absolute paths to relative paths so base tag works correctly
-        // HTML may contain absolute paths like /assets/... or /msy-x/static/0.2092.42/assets/...
-        // Convert them to relative paths like assets/... so base tag can resolve them
-        // Only convert paths that look like static assets (assets/, locales/, etc.)
-        // Don't convert API paths (/api/...), external URLs (http://, https://), or data URLs
         let processedHtml = html;
         let conversionCount = 0;
 
-        // Build the expected base path prefix to strip from absolute paths
-        // e.g., /msy-x/static/0.2092.42/ -> we want to extract assets/... from /msy-x/static/0.2092.42/assets/...
-        const basePathPrefix = `/${pathPrefix}/${staticPath}/${version}`;
+        const toCdn = (path: string) => {
+            conversionCount++;
+            return fullCdnUrl + path.replace(/^\//, '');
+        };
 
-        // Convert paths that already include the base path prefix
-        // Match: /msy-x/static/0.2092.42/assets/... -> assets/...
+        // /assets/... -> full CDN URL
+        processedHtml = processedHtml.replace(
+            /([a-z]+)=["']\/(assets\/[^"']+)["']/gi,
+            (match, attr, path) => {
+                if (path.startsWith(fullCdnUrl)) return match;
+                return `${attr}="${toCdn(path)}"`;
+            },
+        );
+
+        // /locales/... -> full CDN URL
+        processedHtml = processedHtml.replace(
+            /([a-z]+)=["']\/(locales\/[^"']+)["']/gi,
+            (match, attr, path) => {
+                if (path.startsWith(fullCdnUrl)) return match;
+                return `${attr}="${toCdn(path)}"`;
+            },
+        );
+
+        // favicon, manifest, fonts, monacoeditorwork
+        processedHtml = processedHtml.replace(
+            /([a-z]+)=["']\/((?:favicon|manifest|apple-touch-icon|monacoeditorwork|fonts)[^"']*)["']/gi,
+            (match, attr, path) => {
+                if (path.startsWith(fullCdnUrl)) return match;
+                return `${attr}="${toCdn(path)}"`;
+            },
+        );
+
+        // Already prefixed paths: /msy-x/static/version/assets/... -> full CDN URL (idempotent)
+        const basePathPrefix = `/${pathPrefix}/${staticPath}/${version}`;
         if (version) {
             const prefixPattern = basePathPrefix.replace(
                 /[.*+?^${}()|[\]\\]/g,
@@ -361,14 +385,9 @@ export default class App {
                 ),
                 (match, attr, path) => {
                     conversionCount++;
-                    Logger.debug(
-                        `[CDN] Converting prefixed absolute path to relative: ${basePathPrefix}${path} -> ${path} (attribute: ${attr})`,
-                    );
-                    return `${attr}="${path}"`;
+                    return `${attr}="${fullCdnUrl}${path}"`;
                 },
             );
-
-            // Convert /msy-x/static/0.2092.42/locales/... -> locales/...
             processedHtml = processedHtml.replace(
                 new RegExp(
                     `([a-z]+)=["']${prefixPattern}(locales/[^"']+)["']`,
@@ -376,14 +395,9 @@ export default class App {
                 ),
                 (match, attr, path) => {
                     conversionCount++;
-                    Logger.debug(
-                        `[CDN] Converting prefixed absolute path to relative: ${basePathPrefix}${path} -> ${path} (attribute: ${attr})`,
-                    );
-                    return `${attr}="${path}"`;
+                    return `${attr}="${fullCdnUrl}${path}"`;
                 },
             );
-
-            // Convert other prefixed public assets (favicon, manifest, fonts, etc.)
             processedHtml = processedHtml.replace(
                 new RegExp(
                     `([a-z]+)=["']${prefixPattern}((?:favicon|manifest|apple-touch-icon|monacoeditorwork|fonts)[^"']*)["']`,
@@ -391,115 +405,37 @@ export default class App {
                 ),
                 (match, attr, path) => {
                     conversionCount++;
-                    Logger.debug(
-                        `[CDN] Converting prefixed absolute path to relative: ${basePathPrefix}${path} -> ${path} (attribute: ${attr})`,
-                    );
-                    return `${attr}="${path}"`;
+                    return `${attr}="${fullCdnUrl}${path}"`;
                 },
             );
-
-            // Convert Monaco Editor paths in inline scripts
-            // Match: "json": "/msy-x/static/0.2092.42/monacoeditorwork/..." -> "json": "monacoeditorwork/..."
+            // Monaco inline script
             processedHtml = processedHtml.replace(
                 new RegExp(
                     `(["']json["']\\s*:\\s*["'])${prefixPattern}(monacoeditorwork/[^"']+)["']`,
                     'gi',
                 ),
-                (match, prefix, path) => {
+                (_, prefix, path) => {
                     conversionCount++;
-                    Logger.debug(
-                        `[CDN] Converting Monaco Editor path in script: ${basePathPrefix}${path} -> ${path}`,
-                    );
-                    return `${prefix}${path}"`;
+                    return `${prefix}${fullCdnUrl}${path}"`;
                 },
             );
         }
 
-        // Convert simple absolute paths (without prefix) to relative paths
-        // Match: /assets/... -> assets/... (for backward compatibility)
-        processedHtml = processedHtml.replace(
-            /([a-z]+)=["']\/(assets\/[^"']+)["']/gi,
-            (match, attr, path) => {
-                // Skip if already converted (contains base path prefix)
-                if (match.includes(basePathPrefix)) {
-                    return match;
-                }
-                conversionCount++;
-                Logger.debug(
-                    `[CDN] Converting absolute path to relative: /${path} -> ${path} (attribute: ${attr})`,
-                );
-                return `${attr}="${path}"`;
-            },
-        );
-
-        // Convert /locales/... to locales/... (relative path)
-        processedHtml = processedHtml.replace(
-            /([a-z]+)=["']\/(locales\/[^"']+)["']/gi,
-            (match, attr, path) => {
-                // Skip if already converted (contains base path prefix)
-                if (match.includes(basePathPrefix)) {
-                    return match;
-                }
-                conversionCount++;
-                Logger.debug(
-                    `[CDN] Converting absolute path to relative: /${path} -> ${path} (attribute: ${attr})`,
-                );
-                return `${attr}="${path}"`;
-            },
-        );
-
-        // Convert other public assets (favicon, manifest, fonts, etc.) to relative paths
-        // But exclude API paths, external URLs, and data URLs
-        processedHtml = processedHtml.replace(
-            /([a-z]+)=["']\/((?:favicon|manifest|apple-touch-icon|monacoeditorwork|fonts)[^"']*)["']/gi,
-            (match, attr, path) => {
-                // Skip if already converted (contains base path prefix)
-                if (match.includes(basePathPrefix)) {
-                    return match;
-                }
-                conversionCount++;
-                Logger.debug(
-                    `[CDN] Converting absolute path to relative: /${path} -> ${path} (attribute: ${attr})`,
-                );
-                return `${attr}="${path}"`;
-            },
-        );
-
-        // Log summary of conversions
         if (conversionCount > 0) {
             Logger.info(
-                `[CDN] Converted ${conversionCount} absolute paths to relative paths for base tag compatibility`,
+                `[CDN] Rewrote ${conversionCount} static asset URLs to CDN`,
             );
         }
 
-        // Inject base tag immediately after <head> tag
-        // Base tag MUST be the first element in <head> for it to affect all resource references
-        // Use data-cdn attribute to mark it as CDN base tag
-        const baseTag = `    <base href="${fullBaseUrl.replace(
-            /"/g,
-            '&quot;',
-        )}" data-cdn="true">`;
-
-        // Try to insert after <head> tag (most common case)
+        // 注入 CDN base URL，供前端运行时加载 locales 等（i18n loadPath 从 CDN 拉翻译文件）
+        const cdnScript = `    <script>window.__CDN_BASE_URL__=${JSON.stringify(fullCdnUrl)};</script>`;
         if (processedHtml.includes('<head>')) {
-            // Match <head> with optional attributes and whitespace
-            const headPattern = /(<head[^>]*>)/i;
-            if (headPattern.test(processedHtml)) {
-                return processedHtml.replace(headPattern, `$1\n${baseTag}`);
-            }
-        }
-
-        // Fallback: if no <head> tag found, try to insert before </head>
-        if (processedHtml.includes('</head>')) {
-            Logger.warn(
-                `[CDN] No <head> tag found, inserting base tag before </head> (may not work correctly)`,
+            processedHtml = processedHtml.replace(
+                /(<head[^>]*>)/i,
+                `$1\n${cdnScript}`,
             );
-            return processedHtml.replace('</head>', `${baseTag}\n    </head>`);
         }
 
-        Logger.warn(
-            `HTML file does not contain <head> or </head> tag, skipping CDN base tag injection`,
-        );
         return processedHtml;
     }
 
@@ -603,6 +539,10 @@ export default class App {
             'https://vega.github.io',
             'https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/',
             'https://*.lightdash.cloud',
+            // 静态资源 CDN（与 index.html <base> 一致，用于 script-src-elem 等）
+            'https://*.banmahui.cn',
+            'https://*.brandct.cn',
+            'https://*.brandct.com',
             ...this.lightdashConfig.security.contentSecurityPolicy
                 .allowedDomains,
         ];
@@ -750,7 +690,7 @@ export default class App {
                 }
                 // Inject CDN config into HTML before sending
                 let html = fs.readFileSync(htmlPath, 'utf8');
-                html = this.injectCdnBaseTag(html);
+                html = this.injectCdnAssetUrls(html);
                 res.setHeader('Cache-Control', 'no-cache, private');
                 res.send(html);
             } catch (error) {
@@ -818,6 +758,31 @@ export default class App {
                     specUrl: '/api/docs/openapi.json',
                 }),
             );
+        }
+
+        // 配置了 CDN 时，将静态请求重定向到 CDN（旧缓存/旧链接可能仍请求后端 /assets/ 或 /{prefix}/static/）
+        const fullCdnUrl = this.getFullCdnUrl();
+        const cdnBaseUrl = this.lightdashConfig.cdn?.baseUrl
+            ? this.lightdashConfig.cdn.baseUrl.replace(/\/+$/, '')
+            : '';
+        const cdnPathPrefix =
+            this.lightdashConfig.cdn?.pathPrefix || 'msy-x';
+        const prefixPath = `/${cdnPathPrefix}/static/`;
+
+        if (fullCdnUrl && cdnBaseUrl) {
+            expressApp.use((req, res, next) => {
+                if (req.method !== 'GET') return next();
+                const p = req.path;
+                if (p.startsWith(prefixPath)) {
+                    res.redirect(302, cdnBaseUrl + p);
+                    return;
+                }
+                if (p.startsWith('/assets/')) {
+                    res.redirect(302, fullCdnUrl + p.slice(1));
+                    return;
+                }
+                next();
+            });
         }
 
         // frontend assets - immutable because vite appends hash to filenames
@@ -910,7 +875,7 @@ export default class App {
                     }
                     // Inject CDN config into HTML before sending
                     let html = fs.readFileSync(htmlPath, 'utf8');
-                    html = this.injectCdnBaseTag(html);
+                    html = this.injectCdnAssetUrls(html);
                     res.setHeader('Cache-Control', 'no-cache, private');
                     res.send(html);
                 } catch (error) {

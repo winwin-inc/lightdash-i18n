@@ -42,8 +42,8 @@ const ThirdPartySignInButtonBase: FC<
             variant="default"
             color="gray"
             component="a"
-            href={`/api/v1${loginPath}?redirect=${encodeURIComponent(
-                redirect || window.location.href,
+            href={`/api/v1${loginPath.startsWith('/') ? '' : '/'}${loginPath}?redirect=${encodeURIComponent(
+                redirect || (typeof window !== 'undefined' ? window.location.href : ''),
             )}${
                 inviteCode
                     ? `&inviteCode=${encodeURIComponent(inviteCode)}`

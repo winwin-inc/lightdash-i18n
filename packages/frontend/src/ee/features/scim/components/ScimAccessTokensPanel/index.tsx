@@ -24,15 +24,19 @@ import { TokensTable } from './TokensTable';
 
 const ScimAccessTokensPanel: FC = () => {
     const { t } = useTranslation();
+    const { health } = useApp();
 
     const { data } = useScimTokenList();
     const [isCreatingToken, setIsCreatingToken] = useState(false);
     const hasAvailableTokens = data && data.length > 0;
-    const { health } = useApp();
     const { showToastSuccess } = useToaster();
     const clipboard = useClipboard({ timeout: 200 });
 
-    const scimURL = `${health?.data?.siteUrl}/api/v1/scim/v2`;
+    // 供外部 IdP 调用的 SCIM URL 必须用后端配置的公网 siteUrl
+    const scimURL =
+        health?.data?.siteUrl != null
+            ? `${health.data.siteUrl.replace(/\/?$/, '/')}api/v1/scim/v2`
+            : `${typeof window !== 'undefined' ? window.location.origin : ''}/api/v1/scim/v2`;
 
     const handleCopyToClipboard = useCallback(() => {
         clipboard.copy(scimURL);

@@ -47,7 +47,6 @@ import slackSvg from '../../../svgs/slack.svg';
 import MantineIcon from '../../common/MantineIcon';
 import { SettingsGridCard } from '../../common/Settings/SettingsCard';
 
-const SLACK_INSTALL_URL = `/api/v1/slack/install/`;
 const MAX_SLACK_CHANNELS = 100000;
 
 const SlackSettingsPanel: FC = () => {
@@ -415,7 +414,7 @@ const SlackSettingsPanel: FC = () => {
                                         component="a"
                                         target="_blank"
                                         variant="default"
-                                        href={SLACK_INSTALL_URL}
+                                        href={'/api/v1/slack/install/'}
                                         leftIcon={
                                             <MantineIcon icon={IconRefresh} />
                                         }
@@ -462,7 +461,7 @@ const SlackSettingsPanel: FC = () => {
                             component="a"
                             target="_blank"
                             color="blue"
-                            href={SLACK_INSTALL_URL}
+                            href={'/api/v1/slack/install/'}
                         >
                             {t(
                                 'components_user_settings_slack_settings_panel.add_to_slack',

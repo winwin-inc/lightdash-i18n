@@ -30,8 +30,6 @@ import DbtVersionSelect from '../Inputs/DbtVersion';
 import { useProjectFormContext } from '../useProjectFormContext';
 import { githubDefaultValues } from './defaultValues';
 
-const GITHUB_INSTALL_URL = `/api/v1/github/install`;
-
 const DropdownComponentOverride = ({
     children,
     installationId,
@@ -204,7 +202,7 @@ const GithubLoginForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                 })}
                 onClick={() => {
                     window.open(
-                        GITHUB_INSTALL_URL,
+                        '/api/v1/github/install',
                         '_blank',
                         'popup=true,width=600,height=700',
                     );

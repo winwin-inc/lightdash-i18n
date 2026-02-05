@@ -32,7 +32,6 @@ const PrivateRoute: FC<React.PropsWithChildren> = ({ children }) => {
         
         if (isTrialAccess) {
             // 体验账户访问：直接跳转到后端体验账户登录端点
-            // 保留完整的路径和查询参数（包括 trial=true）
             const currentUrl = `${location.pathname}${location.search}`;
             const loginUrl = `/api/v1/login/trial?redirect=${encodeURIComponent(currentUrl)}`;
             window.location.href = loginUrl;

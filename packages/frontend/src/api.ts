@@ -16,10 +16,6 @@ import { getFromInMemoryStorage } from './utils/inMemoryStorage';
 const LIGHTDASH_SDK_INSTANCE_URL_LOCAL_STORAGE_KEY =
     '__lightdash_sdk_instance_url';
 
-// API base URL should always use current page origin to avoid base tag interference
-// This ensures API requests go to the backend server, not CDN
-// When base tag points to CDN domain, absolute paths like /api/... will resolve to base domain
-// So we need to use window.location.origin to ensure API requests go to the correct domain
 export const BASE_API_URL =
     import.meta.env.VITEST === 'true'
         ? `http://test.lightdash/`
@@ -130,7 +126,8 @@ export const lightdashApi = async <T extends ApiResponse['results']>({
     const baseUrl = sessionStorage.getItem(
         LIGHTDASH_SDK_INSTANCE_URL_LOCAL_STORAGE_KEY,
     );
-    const apiPrefix = `${baseUrl ?? BASE_API_URL}api/${version}`;
+    const base = (baseUrl ?? BASE_API_URL).replace(/\/?$/, '/');
+    const apiPrefix = `${base}api/${version}`;
 
     let sentryTrace: string | undefined;
     // Manually create a span for the fetch request to be able to trace it in Sentry. This also enables Distributed Tracing.
@@ -216,7 +213,8 @@ export const lightdashApiStream = ({
     const baseUrl = sessionStorage.getItem(
         LIGHTDASH_SDK_INSTANCE_URL_LOCAL_STORAGE_KEY,
     );
-    const apiPrefix = `${baseUrl ?? BASE_API_URL}api/${version}`;
+    const base = (baseUrl ?? BASE_API_URL).replace(/\/?$/, '/');
+    const apiPrefix = `${base}api/${version}`;
 
     let sentryTrace: string | undefined;
     // Manually create a span for the fetch request to be able to trace it in Sentry. This also enables Distributed Tracing.

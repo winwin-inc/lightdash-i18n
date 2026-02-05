@@ -104,7 +104,12 @@ const DbtCloudForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                     label={t(
                         'components_project_connection_dbt_form.dbt_cloud.webhook.label',
                     )}
-                    value={`${health?.data?.siteUrl}/api/v1/projects/${savedProject?.projectUuid}/dbt-cloud/webhook`}
+                    value={
+                        // 供 dbt Cloud 调用的 webhook 必须用后端配置的公网 siteUrl
+                        health?.data?.siteUrl != null
+                            ? `${health.data.siteUrl.replace(/\/?$/, '/')}api/v1/projects/${savedProject.projectUuid}/dbt-cloud/webhook`
+                            : `${typeof window !== 'undefined' ? window.location.origin : ''}/api/v1/projects/${savedProject.projectUuid}/dbt-cloud/webhook`
+                    }
                     readOnly
                 />
             )}

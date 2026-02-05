@@ -98,9 +98,7 @@ const Login: FC<{}> = () => {
             localStorage.setItem(LOCAL_STORAGE_KEY, validRedirectUrl);
         }
 
-        window.location.href = `/api/v1${
-            oidcOptions.loginPath
-        }?redirect=${encodeURIComponent(forceRedirectUrl)}`;
+        window.location.href = `/api/v1${oidcOptions.loginPath.startsWith('/') ? '' : '/'}${oidcOptions.loginPath}?redirect=${encodeURIComponent(forceRedirectUrl)}`;
     }
 
     const form = useForm<LoginParams>({

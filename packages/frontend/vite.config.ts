@@ -32,25 +32,11 @@ if (process.env.NODE_ENV === 'development') {
     }
 }
 
-// Calculate base path for CDN builds
-// STATIC_FILES_VERSION is set in GitHub Actions during CDN deployment builds
-// When set, build HTML with CDN path prefix so direct OSS access works correctly
-// When not set, use relative path '/' and rely on backend runtime <base> tag injection
-const getBasePath = (): string => {
-    const staticFilesVersion = process.env.STATIC_FILES_VERSION;
-    if (!staticFilesVersion) {
-        return '/'; // Relative path for runtime CDN injection by backend
-    }
-
-    // Build path: /{CDN_PATH_PREFIX}/static/{VERSION}/
-    // This ensures HTML files uploaded to OSS can correctly reference assets
-    const cdnPathPrefix = process.env.CDN_PATH_PREFIX || 'msy-x';
-    const basePath = `/${cdnPathPrefix}/static/${staticFilesVersion}/`;
-    return basePath;
-};
-
+// 始终使用 base: '/'，避免把 CDN 前缀打进 JS bundle。
+// 否则 dashboards/embed 等运行时用 import.meta.env.BASE_URL 请求资源时会带上 /msy-x/static/version/，
+// 对当前 origin 发请求，出现「有问题的前缀」。CDN 路径由后端在返回 HTML 时重写 + 上传脚本在 OSS 上的目录保证即可。
 export default defineConfig({
-    base: getBasePath(), // CDN base URL: set at build time if STATIC_FILES_VERSION is provided, otherwise runtime injection
+    base: '/',
     publicDir: 'public',
     define: {
         __APP_VERSION__: JSON.stringify(process.env.npm_package_version),

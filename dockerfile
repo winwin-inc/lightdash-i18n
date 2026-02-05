@@ -107,23 +107,22 @@
       pnpm -F backend build; \
       fi
   
-  # Build frontend
+  # Build frontend (or use prebuilt from CI: same build is uploaded to OSS, so HTML and CDN assets match)
   COPY packages/frontend ./packages/frontend
-  # Accept build args for CDN configuration
+  ARG USE_PREBUILT_FRONTEND=0
   ARG STATIC_FILES_VERSION=""
   ARG CDN_PATH_PREFIX="msy-x"
-  # Build frontend with sourcemaps (Vite generates them by default)
-  # Pass STATIC_FILES_VERSION and CDN_PATH_PREFIX to ensure HTML references match OSS uploads
-  # IMPORTANT: Clean build directory to ensure consistent hash generation
-  # This ensures Docker build generates the same file names as GitHub Actions build
-  RUN rm -rf packages/frontend/build && \
+  RUN if [ "${USE_PREBUILT_FRONTEND}" = "1" ] && [ -d "packages/frontend/build" ] && [ -n "$(ls -A packages/frontend/build 2>/dev/null)" ]; then \
+      echo "Using prebuilt frontend from artifact (HTML and OSS assets will match)"; \
+  else \
+      echo "Building frontend in Docker (STATIC_FILES_VERSION=${STATIC_FILES_VERSION}, CDN_PATH_PREFIX=${CDN_PATH_PREFIX})"; \
+      rm -rf packages/frontend/build && \
       if [ -n "${SENTRY_AUTH_TOKEN}" ] && [ -n "${SENTRY_ORG}" ] && [ -n "${SENTRY_RELEASE_VERSION}" ]; then \
-      echo "Building frontend with Sentry integration (STATIC_FILES_VERSION=${STATIC_FILES_VERSION}, CDN_PATH_PREFIX=${CDN_PATH_PREFIX})"; \
-      STATIC_FILES_VERSION="${STATIC_FILES_VERSION}" CDN_PATH_PREFIX="${CDN_PATH_PREFIX}" SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN} SENTRY_RELEASE_VERSION=${SENTRY_RELEASE_VERSION} pnpm -F frontend build; \
+        STATIC_FILES_VERSION="${STATIC_FILES_VERSION}" CDN_PATH_PREFIX="${CDN_PATH_PREFIX}" SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN} SENTRY_RELEASE_VERSION=${SENTRY_RELEASE_VERSION} pnpm -F frontend build; \
       else \
-      echo "Building frontend without Sentry integration (STATIC_FILES_VERSION=${STATIC_FILES_VERSION}, CDN_PATH_PREFIX=${CDN_PATH_PREFIX})"; \
-      STATIC_FILES_VERSION="${STATIC_FILES_VERSION}" CDN_PATH_PREFIX="${CDN_PATH_PREFIX}" pnpm -F frontend build; \
-      fi
+        STATIC_FILES_VERSION="${STATIC_FILES_VERSION}" CDN_PATH_PREFIX="${CDN_PATH_PREFIX}" pnpm -F frontend build; \
+      fi; \
+  fi
   
   # Process and upload sourcemaps to Sentry if environment variables are set
   RUN if [ -n "${SENTRY_AUTH_TOKEN}" ] && [ -n "${SENTRY_ORG}" ] && [ -n "${SENTRY_RELEASE_VERSION}" ] && [ -n "${SENTRY_FRONTEND_PROJECT}" ] && [ -n "${SENTRY_BACKEND_PROJECT}" ] && [ -n "${SENTRY_ENVIRONMENT}" ]; then \

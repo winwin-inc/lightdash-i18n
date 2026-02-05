@@ -15,9 +15,23 @@ i18n
     // for all options read: https://www.i18next.com/overview/configuration-options
     .init({
         backend: {
-            // 使用相对路径，以便在存在 <base href="CDN"> 时从 CDN 加载翻译文件；
-            // 绝对路径 /locales/... 会解析到当前 origin，不会走 CDN
-            loadPath: 'locales/{{lng}}/{{ns}}.json',
+            // 有 CDN 时从 CDN 加载（后端在 HTML <head> 注入 window.__CDN_BASE_URL__）；否则用相对路径从当前页 origin 加载（由后端 express.static 提供）。
+            // 语言码：zh-CN、zh-Hans 等统一映射到目录 zh（与 public/locales 结构一致）；lng 可能为数组时取第一项。
+            loadPath: (lng: string | string[], ns: string) => {
+                const code = typeof lng === 'string' ? lng : Array.isArray(lng) ? lng[0] : 'en';
+                const dir = typeof code === 'string' && code.startsWith('zh') ? 'zh' : (code || 'en');
+                const path = `locales/${dir}/${ns}.json`;
+                if (typeof window !== 'undefined') {
+                    const base = (window as Window & { __CDN_BASE_URL__?: string }).__CDN_BASE_URL__;
+                    if (base) {
+                        const baseNorm = base.endsWith('/') ? base : `${base}/`;
+                        return baseNorm + path;
+                    }
+                    // 无 CDN 时必须用根路径，否则会相对当前页路径解析（如 .../view/tabs/locales/zh/...）
+                    return `/${path}`;
+                }
+                return `/${path}`;
+            },
         },
         fallbackLng: 'en',
         debug: true,

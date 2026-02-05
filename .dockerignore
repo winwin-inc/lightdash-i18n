@@ -1,1 +1,6 @@
+# 与 .gitignore 一致，减少 context 体积
 .gitignore
+
+# CI 单 job 中前端构建产物必须进入 context，供 USE_PREBUILT_FRONTEND=1 使用（禁止排除）
+!packages/frontend/build
+!packages/frontend/build/**
