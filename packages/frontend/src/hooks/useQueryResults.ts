@@ -335,14 +335,6 @@ export const useInfiniteQueryResults = (
         projectUuid !== prevProjectUuidRef.current ||
         queryUuid !== prevQueryUuidRef.current;
 
-    const fetchMoreRows = useCallback(() => {
-        const lastPage = fetchedPages[fetchedPages.length - 1];
-        const nextPageToFetch = lastPage?.nextPage;
-        if (nextPageToFetch && queryUuid === lastPage.queryUuid) {
-            setFetchArgs((prev) => ({ ...prev, page: nextPageToFetch }));
-        }
-    }, [fetchedPages, queryUuid]);
-
     // Aggregate rows from all fetched pages
     const fetchedRows = useMemo(() => {
         const rows: ResultRow[] = [];
@@ -359,6 +351,15 @@ export const useInfiniteQueryResults = (
 
         return fetchedRows.length >= fetchedPages[0].totalResults;
     }, [fetchedRows, fetchedPages]);
+
+    const fetchMoreRows = useCallback(() => {
+        if (hasFetchedAllRows) return;
+        const lastPage = fetchedPages[fetchedPages.length - 1];
+        const nextPageToFetch = lastPage?.nextPage;
+        if (nextPageToFetch && queryUuid === lastPage.queryUuid) {
+            setFetchArgs((prev) => ({ ...prev, page: nextPageToFetch }));
+        }
+    }, [fetchedPages, queryUuid, hasFetchedAllRows]);
 
     const isFetchingRows = useMemo(() => {
         const isFetchingPage = fetchArgs.page > fetchedPages.length;
@@ -547,10 +548,7 @@ export const useInfiniteQueryResults = (
             isInitialLoading: isInitialLoading || dependenciesChanged,
             isFetchingFirstPage:
                 !!queryUuid &&
-                (dependenciesChanged ||
-                    fetchedPages[0]?.totalResults === undefined ||
-                    (fetchedPages[0]?.totalResults > 0 &&
-                        fetchedRows.length === 0)),
+                (dependenciesChanged || fetchedRows.length === 0),
             isFetchingAllPages: !!queryUuid && fetchAll && !hasFetchedAllRows,
             fetchAll,
             error: nextPage.error,
