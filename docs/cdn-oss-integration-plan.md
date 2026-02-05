@@ -139,7 +139,7 @@ OSS Bucket: msy-x-prod
        ↓
    安装依赖 (pnpm install)
        ↓
-   构建前端 (使用相对路径，CDN 配置在运行时注入)
+   构建前端 (可选带 CDN_PATH_PREFIX/STATIC_FILES_VERSION，CDN 最终 URL 在运行时由后端注入)
        ↓
    上传静态资源到 OSS (调用 upload-static-to-cdn.sh，使用 S3_ENDPOINT，不经过 CDN)
        ↓
@@ -150,7 +150,7 @@ OSS Bucket: msy-x-prod
 
 3. **版本管理**：
    - 使用 git tag 作为版本号（如 `v1.2.3`）
-   - 上传到 `{S3_PATH_PREFIX}/static/{version}/` 路径
+   - 上传到 `{CDN_PATH_PREFIX}/static/{version}/` 路径（使用 `CDN_PATH_PREFIX`，非 `S3_PATH_PREFIX`）
    - 支持多版本共存，便于回滚
 
 #### 本地开发：不上传
@@ -198,13 +198,13 @@ VERSION=v1.2.3 bash scripts/upload-static-to-cdn.sh
   - 用途：后端生成预签名 URL、上传文件到 OSS、**GitHub Actions 上传静态资源到 OSS**
   - **注意**：GitHub Actions 上传时使用 OSS 地址，**不需要 CDN 加速域名**
 - **CDN 地址**（`CDN_BASE_URL`）：用于前端访问静态资源，通过 CDN 加速
-  - 示例：`https://cdn.lightdash.com/lightdash/static`
-  - 用途：**运行时使用**，后端在提供 HTML 时动态注入 `<base>` 标签
+  - 示例：`https://cdn.lightdash.com`（仅域名，不包含路径前缀和版本）
+  - 用途：**运行时使用**，后端在返回 HTML 时根据该配置重写静态资源 URL 并注入 `window.__CDN_BASE_URL__`
   - **注意**：
     - CDN 地址通常是 OSS Bucket 绑定的加速域名，与 OSS 地址不同
-    - **运行时注入**：后端在提供 HTML 时动态注入 base 标签，支持动态切换 CDN
+    - **运行时注入**：后端在 HTML 内重写 assets/locales 等 URL 为完整 CDN 地址，并注入 `window.__CDN_BASE_URL__`（无 `<base>` 标签），支持动态切换 CDN
     - `CDN_BASE_URL` **不用于上传**，上传时只需要 OSS 配置（`S3_ENDPOINT`、`S3_BUCKET` 等）
-    - **独立配置**：静态资源使用 `CDN_PATH_PREFIX`（默认 `lightdash`），上传文件使用 `S3_PATH_PREFIX`
+    - **独立配置**：静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），上传文件使用 `S3_PATH_PREFIX`
 
 ### 配置清单
 
@@ -234,7 +234,7 @@ S3_REQUEST_TIMEOUT=1800000                        # 请求超时时间（毫秒�
 CDN_BASE_URL=https://cdn.lightdash.com                       # CDN 加速域名（不包含路径前缀）
 CDN_PATH_PREFIX=msy-x                                       # CDN 路径前缀（可选，默认 msy-x）
 STATIC_FILES_VERSION=v1.2.3                                  # 当前静态资源版本（可选，可用 git tag 自动获取）
-# 后端会自动拼接为：https://cdn.lightdash.com/lightdash/static/v1.2.3/
+# 后端会拼接为：https://cdn.lightdash.com/msy-x/static/v1.2.3/
 
 # 后端回退机制配置（可选）
 STATIC_FILES_ENABLED=true                                    # 是否启用后端静态文件服务（回退机制，默认 true）
@@ -250,7 +250,7 @@ STATIC_FILES_ENABLED=true                                    # 是否启用后�
 | `S3_ACCESS_KEY`        | OSS 访问密钥             | ✅      | 如果已配置，无需修改                  |
 | `S3_SECRET_KEY`        | OSS 访问密钥             | ✅      | 如果已配置，无需修改                  |
 | `S3_PATH_PREFIX`       | 项目标识前缀（上传文件） | 可选    | 现有配置项，用于上传文件路径          |
-| `CDN_BASE_URL`         | 前端 CDN 地址            | ✅ 新增 | CDN 加速域名，运行时通过后端 API 获取 |
+| `CDN_BASE_URL`         | 前端 CDN 地址            | ✅ 新增 | CDN 域名（仅运行时配置，后端返回 HTML 时注入） |
 | `CDN_PATH_PREFIX`      | CDN 路径前缀（静态资源） | 可选    | 默认 `msy-x`，用于静态资源路径        |
 | `STATIC_FILES_VERSION` | 静态资源版本             | 可选    | 用于版本化部署，可用 git tag 自动获取 |
 | `STATIC_FILES_ENABLED` | 后端回退机制             | 可选    | 默认 `true`，CDN 不可用时使用后端服务 |
@@ -258,26 +258,20 @@ STATIC_FILES_ENABLED=true                                    # 是否启用后�
 ### 配置示例
 
 ```bash
-# 场景 1：完全使用 CDN（推荐生产环境，使用项目前缀）
-S3_PATH_PREFIX=lightdash  # 项目标识前缀
-CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static  # 包含项目前缀
+# 场景 1：完全使用 CDN（推荐生产环境）
+CDN_BASE_URL=https://cdn.lightdash.com   # 仅域名
+CDN_PATH_PREFIX=msy-x                    # 可选，默认 msy-x
+S3_PATH_PREFIX=msy-x                     # 上传文件路径前缀（可选）
 STATIC_FILES_VERSION=v1.2.3
-STATIC_FILES_ENABLED=false  # 禁用后端静态文件服务
+STATIC_FILES_ENABLED=false               # 禁用后端静态文件服务
 
-# 场景 2：CDN + 后端回退（推荐过渡期，使用项目前缀）
-S3_PATH_PREFIX=lightdash
-CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static
+# 场景 2：CDN + 后端回退（推荐过渡期）
+CDN_BASE_URL=https://cdn.lightdash.com
+CDN_PATH_PREFIX=msy-x
 STATIC_FILES_VERSION=v1.2.3
-STATIC_FILES_ENABLED=true   # 启用后端回退机制
+STATIC_FILES_ENABLED=true                # 启用后端回退机制
 
-# 场景 3：不使用项目前缀（专用 Bucket）
-# 不设置 S3_PATH_PREFIX，或设置为空
-CDN_BASE_URL=https://cdn.lightdash.com/static  # 不包含项目前缀
-STATIC_FILES_VERSION=v1.2.3
-STATIC_FILES_ENABLED=true
-
-# 场景 4：仅使用后端（开发环境或 CDN 未配置）
-S3_PATH_PREFIX=lightdash  # 可选，根据实际情况设置
+# 场景 3：仅使用后端（开发环境或 CDN 未配置）
 # 不设置 CDN_BASE_URL，或设置为空
 STATIC_FILES_ENABLED=true
 ```
@@ -292,9 +286,9 @@ STATIC_FILES_ENABLED=true
    - `CDN_BASE_URL` 应该只包含 CDN 域名，不包含路径前缀（例如：`https://cdn.lightdash.com`）
    - 后端会自动拼接：`{CDN_BASE_URL}/{CDN_PATH_PREFIX}/static/{STATIC_FILES_VERSION}/`
    - 如果 `CDN_PATH_PREFIX=msy-x`（默认），`STATIC_FILES_VERSION=v1.2.3`，则最终 URL 为：`https://cdn.example.com/msy-x/static/v1.2.3/`
-4. CDN 地址格式：`CDN_BASE_URL` 不包含路径前缀和版本号，路径和版本号在运行时动态拼接
-5. **运行时配置**：`CDN_BASE_URL` 在运行时通过后端 API 获取，后端在提供 HTML 时动态注入 `<base>` 标签
-6. 开发环境：可以不设置 `CDN_BASE_URL`，使用相对路径 `/`
+4. CDN 地址格式：`CDN_BASE_URL` 不包含路径前缀和版本号，路径和版本号在运行时由后端拼接
+5. **运行时注入**：`CDN_BASE_URL` 仅在运行时由后端使用；后端在返回 HTML 时重写静态资源 URL 并注入 `window.__CDN_BASE_URL__`（无 `<base>` 标签）
+6. 开发环境：可不设置 `CDN_BASE_URL`，使用相对路径 `/`；生产未设置时部分环境有默认值（如 `https://img0.banmahui.cn`）
 
 ## OSS Bucket 和 CDN 配置
 
@@ -315,16 +309,16 @@ STATIC_FILES_ENABLED=true
 **缓存策略配置**：
 
 ```yaml
-# CDN 缓存规则（注意：路径包含项目前缀 lightdash/）
-规则 1: /lightdash/static/*/assets/*
+# CDN 缓存规则（路径前缀默认 msy-x，即 CDN_PATH_PREFIX）
+规则 1: /msy-x/static/*/assets/*
   Cache-Control: public, max-age=31536000, immutable
   说明: 静态资源（JS/CSS）长期缓存
 
-规则 2: /lightdash/static/*/index.html
+规则 2: /msy-x/static/*/index.html
   Cache-Control: no-cache, must-revalidate
-  说明: HTML 文件不缓存，确保及时更新
+  说明: HTML 文件不缓存（实际由后端提供并注入 CDN URL，此处仅作 CDN 规则参考）
 
-规则 3: /lightdash/static/*/*
+规则 3: /msy-x/static/*/*
   Cache-Control: public, max-age=86400
   说明: 其他静态文件（图片、字体等）短期缓存
 ```
@@ -365,7 +359,7 @@ STATIC_FILES_ENABLED=true
 2. 构建完成后，上传静态资源到 OSS（使用 S3_ENDPOINT，不经过 CDN）
 3. 上传路径：`{CDN_PATH_PREFIX}/static/{version}/`（默认 `msy-x/static/{version}/`）
 4. 设置缓存策略（assets/ 长期缓存，index.html 不缓存）
-5. 运行时，后端在提供 HTML 时动态注入 CDN base URL
+5. 运行时，后端在返回 HTML 时重写静态资源 URL 并注入 `window.__CDN_BASE_URL__`
 
 #### 2. 部署阶段
 
@@ -385,7 +379,7 @@ CDN_PATH_PREFIX=msy-x                    # CDN 路径前缀（可选，默认 ms
 S3_PATH_PREFIX=lightdash                 # 上传文件路径前缀（可选）
 STATIC_FILES_VERSION=v1.2.3              # 静态资源版本（可选）
 STATIC_FILES_ENABLED=true                # 保留回退机制
-# 后端会自动拼接为：https://cdn.lightdash.com/lightdash/static/v1.2.3/
+# 后端会拼接为：https://cdn.lightdash.com/msy-x/static/v1.2.3/
 ```
 
 ### 回滚流程
@@ -430,51 +424,26 @@ STATIC_FILES_ENABLED=true                # 保留回退机制
    - 实现 `POST /api/v1/oss/upload-url` 端点
    - 使用 `allowApiKeyAuthentication` 和 `isAuthenticated` 中间件
 
-4. **创建 CdnController**：
-
-   - 实现 `GET /api/v1/cdn/config` 端点
-   - 返回 CDN 配置（`baseUrl`、`pathPrefix`、`staticFilesVersion`）
-   - 供前端通过 API 获取配置（虽然 HTML 中已注入）
+4. **CDN 配置**：当前通过 HTML 注入 `window.__CDN_BASE_URL__` 提供，无需单独的 CdnController 或 `/api/v1/cdn/config`。
 
 5. **修改静态资源服务**：
    - 添加 `STATIC_FILES_ENABLED` 环境变量检查
-   - 条件性启用 `express.static` 中间件
-   - **改造 HTML 服务逻辑**（`App.ts` 第 517-549 行 和 666-698 行）：
-     - **原有实现**：使用 `res.sendFile()` 直接发送 HTML 文件
-     - **改造后**：
-
-       ```typescript
-       // 1. 读取构建好的 HTML 文件
-       let html = fs.readFileSync(htmlPath, 'utf8');
-
-       // 2. 获取 CDN 配置（从 lightdashConfig）
-       const cdnConfig = this.lightdashConfig.cdn;
-
-       // 3. 如果配置了 CDN_BASE_URL，则注入
-       if (cdnConfig?.baseUrl) {
-           // 构建完整的 base URL（包含版本号）
-           const fullBaseUrl = `${baseUrl}${version}`;
-
-           // 安全地序列化配置（防止 XSS）
-           const cdnConfigJson = JSON.stringify({...});
-
-           // 注入到 HTML 的 </head> 之前
-           html = html.replace('</head>', `${cdnScript}\n    </head>`);
-       }
-
-       // 4. 返回修改后的 HTML
-       res.send(html);
-       ```
-
+   - 条件性启用 `express.static` 中间件（回退）
+   - **重定向**（`App.ts`）：配置了 CDN 时，对 `/{CDN_PATH_PREFIX}/static/` 和 `/assets/` 的 GET 请求返回 302 重定向到 CDN（使用配置的 `pathPrefix`）。
+   - **改造 HTML 服务逻辑**（`App.ts`）：
+     - **实现方式**：读取构建好的 HTML 后，若配置了 `CDN_BASE_URL`，则调用 `injectCdnAssetUrls()`：
+       - 将 HTML 内 `/assets/`、`/locales/`、favicon、fonts、monacoeditorwork 等 URL 重写为完整 CDN 地址
+       - 在 `<head>` 后注入 `<script>window.__CDN_BASE_URL__=...;</script>`，供前端运行时使用（如 i18n loadPath）
+     - **不使用 `<base>` 标签**：文档 base 保持为页面 URL，仅静态资源 URL 被重写
      - **优势**：支持运行时动态切换 CDN，无需重新构建前端
 
 ### 前端实现
 
 1. **修改前端**：
 
-   - Vite 配置：`base` 设置为 `/`（相对路径），不再在构建时设置 CDN base URL
-   - 后端在提供 HTML 时动态注入 `<base>` 标签和 `window.__CDN_CONFIG__` 配置
-   - 前端通过 hook 获取 CDN 配置（用于其他用途，虽然 base 标签已在 HTML 中设置）
+   - Vite 配置：未设置 `STATIC_FILES_VERSION` 时 `base` 为 `/`；CI 构建时可设置 `STATIC_FILES_VERSION` 与 `CDN_PATH_PREFIX` 得到带前缀的 base
+   - 后端在返回 HTML 时重写静态资源 URL 并注入 `window.__CDN_BASE_URL__`（无 `<base>` 标签）
+   - 前端通过 `window.__CDN_BASE_URL__` 加载 locales 等资源（如 i18n loadPath）
 
 2. **创建 OSS 上传工具**：
    - 调用后端 API 获取预签名 URL
@@ -493,7 +462,7 @@ STATIC_FILES_ENABLED=true                # 保留回退机制
 
 2. **更新 GitHub Actions 工作流**：
    - 在 Docker 构建之前添加前端构建和 OSS 上传步骤
-   - 构建时不设置 `CDN_BASE_URL`（运行时通过后端 API 获取）
+   - 构建时不设置 `CDN_BASE_URL`（运行时由后端在返回 HTML 时注入）
    - 上传时使用 OSS 配置（`S3_BUCKET`、`S3_ENDPOINT` 等）和 `CDN_PATH_PREFIX`
 
 ## 常见问题（FAQ）
@@ -504,14 +473,13 @@ STATIC_FILES_ENABLED=true                # 保留回退机制
 
 **必需新增**：
 
-- `CDN_BASE_URL` - CDN 加速域名（运行时通过后端 API 获取）
+- `CDN_BASE_URL` - CDN 域名（仅运行时配置，后端返回 HTML 时重写 URL 并注入）
 
 **可选配置**：
 
-- `CDN_PATH_PREFIX` - CDN 路径前缀（默认 `msy-x`），用于静态资源路径
-  - 如果设置了 `CDN_PATH_PREFIX=msy-x`，则 `CDN_BASE_URL=https://cdn.example.com`（后端会自动拼接路径）
-  - 如果没有设置（使用默认），则 `CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static`
+- `CDN_PATH_PREFIX` - CDN 路径前缀（默认 `msy-x`），用于静态资源路径；CI 上传静态资源到 OSS 时也使用该前缀
 - `S3_PATH_PREFIX` - **现有配置项**，项目标识前缀（如 `msy-x`），用于上传文件路径（与 `CDN_PATH_PREFIX` 独立）
+- `CDN_BASE_URL` 应仅包含 CDN 域名（如 `https://cdn.example.com`），后端会自动拼接 `/{CDN_PATH_PREFIX}/static/{STATIC_FILES_VERSION}/`
 
 **可选新增**：
 
@@ -533,10 +501,10 @@ STATIC_FILES_ENABLED=true                # 保留回退机制
   - 特点：直接访问 OSS，无 CDN 加速
 
 - **CDN 地址**（`CDN_BASE_URL`）：
-  - 格式：`https://cdn.lightdash.com/lightdash/static`（包含路径前缀）
+  - 格式：`https://cdn.lightdash.com`（仅域名，不包含路径前缀和版本）
   - 用途：前端访问静态资源，通过 CDN 加速
   - 特点：CDN 边缘节点分发，速度快，有缓存
-  - **运行时配置**：后端在提供 HTML 时动态注入，支持动态切换
+  - **运行时注入**：后端在返回 HTML 时重写静态资源 URL 并注入 `window.__CDN_BASE_URL__`，支持动态切换
 
 **关系**：
 
@@ -571,14 +539,14 @@ CDN_BASE_URL=https://cdn.lightdash.com  # CDN 域名（不包含路径前缀）
 CDN_PATH_PREFIX=msy-x                    # 可选，默认 msy-x
 S3_PATH_PREFIX=lightdash                 # 可选，用于上传文件路径
 STATIC_FILES_VERSION=v1.2.3              # 可选，版本号
-# 后端会自动拼接为：https://cdn.lightdash.com/lightdash/static/v1.2.3/
+# 后端会拼接为：https://cdn.lightdash.com/msy-x/static/v1.2.3/
 ```
 
 ### Q5: 后端需要配置 CDN 地址吗？
 
-**答案**：**不需要**。后端只需要 OSS 配置（`S3_ENDPOINT` 等），不需要知道 CDN 地址。
+**答案**：**需要**。后端在返回 HTML 时要根据 `CDN_BASE_URL` 重写静态资源 URL 并注入 `window.__CDN_BASE_URL__`，因此容器运行时必须配置 `CDN_BASE_URL`（仅域名，不包含路径）。OSS 相关配置（`S3_ENDPOINT` 等）仍为后端访问 OSS 所必需。
 
-**后端配置**（仅 OSS，包含项目前缀）：
+**后端配置**（OSS + 可选项目前缀）：
 
 ```bash
 S3_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com
@@ -586,18 +554,18 @@ S3_BUCKET=lightdash-prod
 S3_REGION=cn-hangzhou
 S3_ACCESS_KEY=your-access-key-id
 S3_SECRET_KEY=your-access-key-secret
-S3_PATH_PREFIX=lightdash  # 项目标识前缀（可选）
+S3_PATH_PREFIX=msy-x  # 项目标识前缀（可选，用于上传文件路径）
 ```
 
-**运行时配置**（容器中，需要 CDN）：
+**运行时配置**（容器中，启用 CDN 时必需）：
 
 ```bash
-CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static
-CDN_PATH_PREFIX=lightdash  # 可选，默认 lightdash
-STATIC_FILES_VERSION=v1.2.3  # 可选
+CDN_BASE_URL=https://cdn.lightdash.com   # 仅 CDN 域名，不包含路径
+CDN_PATH_PREFIX=msy-x                    # 可选，默认 msy-x
+STATIC_FILES_VERSION=v1.2.3              # 可选
 ```
 
-**注意**：`CDN_BASE_URL` 在运行时通过后端 API 获取，后端在提供 HTML 时动态注入 `<base>` 标签，支持动态切换 CDN。
+**注意**：后端在返回 HTML 时根据 `CDN_BASE_URL` 等拼接完整 CDN 根 URL 并注入，支持动态切换 CDN。
 
 ### Q6: 如果我已经有 OSS 配置，还需要做什么？
 
@@ -627,7 +595,7 @@ STATIC_FILES_VERSION=v1.2.3  # 可选
 - Workflow 会优先从 Variables 读取非敏感配置，从 Secrets 读取敏感配置（都有 fallback 机制）
 - GitHub Actions 配置和运行时环境变量是不同的配置位置，需要分别配置
 
-**不需要配置 `CDN_BASE_URL`**：CDN 地址在运行时通过后端 API 获取，不在构建时写入。
+**不需要配置 `CDN_BASE_URL`**：CDN 地址仅在运行时由后端使用（返回 HTML 时注入），不在构建时写入。
 
 **需要配置的内容**（用于上传静态资源到 OSS）：
 
@@ -659,7 +627,7 @@ STATIC_FILES_VERSION=v1.2.3  # 可选
 **重要说明**：
 
 - **上传时不需要加速域名**：GitHub Actions 上传是直接到 OSS 的（使用 `S3_ENDPOINT`），不经过 CDN
-- **`CDN_BASE_URL` 不在 GitHub Actions 中配置**：在运行时通过后端 API 获取，后端在提供 HTML 时动态注入
+- **`CDN_BASE_URL` 不在 GitHub Actions 中配置**：仅在运行时由后端使用（返回 HTML 时重写 URL 并注入）
 - **独立路径前缀**：静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），上传文件使用 `S3_PATH_PREFIX`（可选）
 - **GitHub Actions Variables/Secrets 和运行时环境变量使用相同的变量名**（如 `S3_BUCKET`、`S3_ACCESS_KEY` 等）
 - 两者的值应该保持一致
@@ -690,9 +658,9 @@ S3_REQUEST_TIMEOUT=1800000
 
 ```bash
 # CDN 配置（运行时使用）
-CDN_BASE_URL=https://cdn.lightdash.com/lightdash/static
-CDN_PATH_PREFIX=lightdash  # 可选，默认 lightdash
-STATIC_FILES_VERSION=v1.2.3  # 可选，可用 git tag 自动获取
+CDN_BASE_URL=https://cdn.lightdash.com   # 仅 CDN 域名，不包含路径
+CDN_PATH_PREFIX=msy-x                    # 可选，默认 msy-x
+STATIC_FILES_VERSION=v1.2.3              # 可选，可用 git tag 自动获取
 ```
 
 **后端运行时环境变量**（容器中，新增，可选）：
@@ -704,7 +672,7 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 
 **重要说明**：
 
-- **`CDN_BASE_URL` 需要在容器中配置**：后端在提供 HTML 时动态注入，支持运行时切换 CDN
+- **`CDN_BASE_URL` 需要在容器中配置**：后端在返回 HTML 时根据该配置重写静态资源 URL 并注入 `window.__CDN_BASE_URL__`，支持运行时切换 CDN
 - **容器中需要配置 CDN 相关变量**：`CDN_BASE_URL`、`CDN_PATH_PREFIX`（可选）、`STATIC_FILES_VERSION`（可选）
 - **容器中还需要配置 OSS 相关变量**：`S3_ENDPOINT`、`S3_BUCKET` 等（如果还未配置）
 - **可选配置 `STATIC_FILES_ENABLED`**：用于控制后端静态文件服务的回退机制
@@ -715,7 +683,7 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 
 | GitHub 配置       | 配置位置  | 运行时环境变量    | 说明                                    |
 | ----------------- | --------- | ----------------- | --------------------------------------- |
-| **不需要**        | -         | `CDN_BASE_URL`    | CDN 加速域名（运行时通过后端 API 获取） |
+| **不需要**        | -         | `CDN_BASE_URL`    | CDN 域名（仅运行时在容器中配置，后端返回 HTML 时注入） |
 | `S3_BUCKET`       | Variables | `S3_BUCKET`       | OSS Bucket 名称                         |
 | `S3_ENDPOINT`     | Variables | `S3_ENDPOINT`     | OSS 端点地址                            |
 | `S3_REGION`       | Variables | `S3_REGION`       | OSS 区域                                |
@@ -729,8 +697,8 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 - **配置位置**：GitHub → Settings → Secrets and variables → Actions
   - **Variables 标签页**：用于非敏感配置（推荐用于 `S3_BUCKET`、`S3_ENDPOINT`、`S3_REGION` 等）
   - **Secrets 标签页**：用于敏感信息（推荐用于 `S3_ACCESS_KEY`、`S3_SECRET_KEY`）
-- **`CDN_BASE_URL` 不在 GitHub Actions 中配置**：在运行时通过后端 API 获取，后端在提供 HTML 时动态注入
-- **独立路径前缀**：静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），上传文件使用 `S3_PATH_PREFIX`（可选）
+- **`CDN_BASE_URL` 不在 GitHub Actions 中配置**：仅在运行时由后端使用（返回 HTML 时重写 URL 并注入）
+- **独立路径前缀**：静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），上传文件使用 `S3_PATH_PREFIX`（可选）；CI 上传静态资源路径为 `{CDN_PATH_PREFIX}/static/{version}/`
 - **GitHub Actions Variables/Secrets**：存储在 GitHub 仓库中，用于 CI/CD 流程（构建前端和上传静态资源到 OSS）
 - **运行时环境变量**：存储在部署环境（服务器、Kubernetes、Docker 等）中，用于应用运行
 - **两者使用相同的变量名**（如 `S3_BUCKET`、`S3_ACCESS_KEY` 等），值应该保持一致
@@ -787,7 +755,7 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 
 1. 统一存储：使用同一个 OSS Bucket，通过路径前缀区分静态资源和上传文件
 2. 独立配置：静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），上传文件使用 `S3_PATH_PREFIX`（可选）
-3. 运行时配置：`CDN_BASE_URL` 在运行时通过后端 API 获取，后端在提供 HTML 时动态注入，支持动态切换 CDN
+3. 运行时注入：`CDN_BASE_URL` 仅在运行时由后端使用；后端在返回 HTML 时重写静态资源 URL 并注入 `window.__CDN_BASE_URL__`，支持动态切换 CDN
 4. 向后兼容：保留后端静态文件服务作为回退机制
 5. 版本化管理：支持版本化部署，便于回滚
 6. 自动化部署：GitHub Actions 自动构建和上传到 OSS，无需手动操作

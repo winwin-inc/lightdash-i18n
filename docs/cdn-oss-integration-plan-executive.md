@@ -29,7 +29,7 @@ OSS Bucket
 **关键设计决策**：
 
 - **独立配置**：静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），上传文件使用 `S3_PATH_PREFIX`
-- **运行时配置**：`CDN_BASE_URL` 在运行时通过后端 API 获取，不在构建时写入
+- **运行时注入**：`CDN_BASE_URL` 仅在运行时使用；后端返回 HTML 时重写静态资源 URL 并注入 `window.__CDN_BASE_URL__`，不在构建时写入
 - 版本化部署：`static/v1.2.3/`，支持多版本共存和快速回滚
 - 保留后端静态文件服务作为回退机制
 
@@ -102,7 +102,7 @@ GitHub Actions 自动触发
 
 **配置位置**：GitHub 仓库 → Settings → Secrets and variables → Actions
 
-**不需要配置 `CDN_BASE_URL`**：CDN 地址在运行时通过后端 API 获取，不在构建时写入。
+**不需要配置 `CDN_BASE_URL`**：CDN 地址仅在运行时由后端使用（返回 HTML 时注入），不在构建时写入。
 
 **需要配置**（用于上传静态资源到 OSS）：
 
@@ -116,7 +116,7 @@ GitHub Actions 自动触发
 **重要说明**：
 
 - **上传时不需要加速域名**：上传是直接到 OSS 的（使用 `S3_ENDPOINT`），不经过 CDN
-- **`CDN_BASE_URL` 不在 GitHub Actions 中配置**：在运行时通过后端 API 获取
+- **`CDN_BASE_URL` 不在 GitHub Actions 中配置**：仅在运行时由后端使用（返回 HTML 时重写 URL 并注入）
 
 **可选**：
 
@@ -128,10 +128,10 @@ GitHub Actions 自动触发
 
 ```bash
 # CDN 配置（新增，必需）
-CDN_BASE_URL=https://cdn.example.com    # CDN 域名（不包含路径前缀）
+CDN_BASE_URL=https://cdn.example.com    # CDN 域名（不包含路径前缀；生产未设置时部分环境有默认值）
 CDN_PATH_PREFIX=msy-x                    # CDN 路径前缀（可选，默认 msy-x）
 STATIC_FILES_VERSION=v1.2.3              # 静态资源版本（可选，可用 git tag 自动获取）
-# 后端会自动拼接为：https://cdn.example.com/msy-x/static/v1.2.3/
+# 后端会拼接为：https://cdn.example.com/msy-x/static/v1.2.3/
 ```
 
 **完整配置**（如果未配置 OSS）：
@@ -170,12 +170,11 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 
 **配置要点**：
 
-- **`CDN_BASE_URL` 只在运行时配置**：通过后端 API 返回给前端，不在构建时写入
-- **独立配置**：`CDN_PATH_PREFIX` 用于静态资源路径，`S3_PATH_PREFIX` 用于上传文件路径
-- GitHub Actions Secrets 和运行时环境变量使用**相同的变量名**（除了 `CDN_BASE_URL`）
-- 两者的值应该保持一致
-- 需要在两个不同的位置分别配置
-- 如果运行时已有 OSS 配置，GitHub Secrets 中也需要配置相同的值（用于 CI/CD 上传静态资源）
+- **`CDN_BASE_URL` 只在运行时配置**：后端在返回 HTML 时根据该配置重写静态资源 URL 并注入 `window.__CDN_BASE_URL__`，不在构建时写入
+- **独立配置**：`CDN_PATH_PREFIX` 用于静态资源路径（含 CI 上传路径），`S3_PATH_PREFIX` 用于上传文件路径
+- GitHub Actions Secrets 和运行时环境变量使用**相同的变量名**（除 `CDN_BASE_URL` 仅运行时配置）
+- 两者的值应保持一致；需在 GitHub 与部署环境两处分别配置
+- 若运行时已有 OSS 配置，GitHub 中也需配置相同值（供 CI/CD 上传静态资源）
 
 ### 实施要点
 
@@ -183,26 +182,27 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 
    - 扩展 S3Client：添加预签名上传 URL 生成功能
    - 创建 OSS Service 和 Controller：提供文件上传 API
-   - 修改静态资源服务：支持条件性启用（回退机制）
+   - 修改静态资源服务：支持条件性启用（回退机制）；**重定向**：配置 CDN 时对 `/{CDN_PATH_PREFIX}/static/` 与 `/assets/` 做 302 到 CDN
 
 2. **前端改造**：
 
-   - 修改前端：运行时通过后端 API 获取 CDN base URL，动态设置资源路径
+   - 修改前端：后端在 HTML 中注入 `window.__CDN_BASE_URL__`，前端据此加载 locales 等资源（不依赖 `<base>` 标签）；HTML 内静态资源 URL 由后端重写为完整 CDN 地址
    - 创建 OSS 上传工具：实现前端直传功能
 
 3. **构建和部署**：
    - 创建 CDN 上传脚本：支持阿里云 OSS 和 AWS S3
    - 更新 GitHub Actions：在 Docker 构建前自动上传静态资源
 
-### 兼容性保证
+### 兼容性保证与重定向
 
-- 保留后端静态文件服务，CDN 不可用时自动回退
-- 可以通过环境变量控制是否启用 CDN
-- 开发环境不受影响，继续使用本地开发服务器
+- **配置了 CDN 时**：后端对 `/{CDN_PATH_PREFIX}/static/` 和 `/assets/` 的 GET 请求返回 302 重定向到 CDN，由 CDN 提供静态资源（兼容旧缓存/旧链接仍请求后端的情况）。
+- 前端构建**始终使用 base: '/'**，不把 CDN 前缀打进 JS bundle，避免 dashboards/embed 等运行时请求带错误前缀。
+- 保留后端静态文件服务（`STATIC_FILES_ENABLED` 默认 true），CDN 不可用时由后端提供 `/assets` 等资源。
+- 开发环境不受影响，继续使用本地开发服务器。
 
 ## 关键决策点
 
-1. **独立路径前缀**：静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），上传文件使用 `S3_PATH_PREFIX`，两者独立配置
-2. **运行时配置**：`CDN_BASE_URL` 在运行时通过后端 API 获取，不在构建时写入，支持动态切换 CDN
-3. **后端回退机制**：必须保留，确保 CDN 不可用时自动回退
-4. **版本管理**：使用 git tag 作为版本号，与 Docker 镜像版本一致，支持多版本共存和快速回滚
+1. **独立路径前缀**：静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），上传文件使用 `S3_PATH_PREFIX`，两者独立配置；CI 上传静态资源到 OSS 时使用 `CDN_PATH_PREFIX`。
+2. **运行时注入**：`CDN_BASE_URL` 仅在运行时由后端使用；后端在返回 HTML 时重写静态资源 URL 并注入 `window.__CDN_BASE_URL__`（无 `<base>` 标签），不在构建时写入，支持动态切换 CDN。
+3. **后端回退机制**：必须保留（`STATIC_FILES_ENABLED` 默认 true），确保 CDN 不可用时由后端提供 `/assets` 等静态资源。
+4. **版本管理**：使用 git tag 作为版本号，与 Docker 镜像版本一致，支持多版本共存和快速回滚。

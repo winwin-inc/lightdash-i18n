@@ -759,16 +759,20 @@ export default class App {
             );
         }
 
-        // 配置了 CDN 时，将带 base 的静态请求重定向到 CDN，避免 404
+        // 配置了 CDN 时，将静态请求重定向到 CDN（旧缓存/旧链接可能仍请求后端 /assets/ 或 /{prefix}/static/）
         const fullCdnUrl = this.getFullCdnUrl();
         const cdnBaseUrl = this.lightdashConfig.cdn?.baseUrl
             ? this.lightdashConfig.cdn.baseUrl.replace(/\/+$/, '')
             : '';
+        const cdnPathPrefix =
+            this.lightdashConfig.cdn?.pathPrefix || 'msy-x';
+        const prefixPath = `/${cdnPathPrefix}/static/`;
+
         if (fullCdnUrl && cdnBaseUrl) {
             expressApp.use((req, res, next) => {
                 if (req.method !== 'GET') return next();
                 const p = req.path;
-                if (p.startsWith('/msy-x/static/')) {
+                if (p.startsWith(prefixPath)) {
                     res.redirect(302, cdnBaseUrl + p);
                     return;
                 }
