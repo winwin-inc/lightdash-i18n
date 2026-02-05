@@ -195,7 +195,7 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 
 ### 兼容性保证与重定向
 
-- **配置了 CDN 时**：后端对 `/{CDN_PATH_PREFIX}/static/` 和 `/assets/` 的 GET 请求返回 302 重定向到 CDN，由 CDN 提供静态资源（兼容旧缓存/旧链接仍请求后端的情况）。
+- **配置了 CDN 时**：后端对 `/{CDN_PATH_PREFIX}/static/` 和 `/assets/` 的 GET 请求返回 302 重定向到 CDN。首屏 HTML 中的资源已重写为完整 CDN 地址，但**运行时**通过绝对路径加载的资源（如 pivot worker、动态 import 的 chunk、懒加载的 CSS 等）会按文档 origin 解析，请求仍会打到后端 `/assets/`，因此 302 逻辑必须保留。
 - 前端构建**始终使用 base: '/'**，不把 CDN 前缀打进 JS bundle，避免 dashboards/embed 等运行时请求带错误前缀。
 - 保留后端静态文件服务（`STATIC_FILES_ENABLED` 默认 true），CDN 不可用时由后端提供 `/assets` 等资源。
 - 开发环境不受影响，继续使用本地开发服务器。
