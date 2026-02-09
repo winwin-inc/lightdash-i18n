@@ -1,8 +1,8 @@
-# Lightdash CDN + OSS 统一改造方案
+# CDN + OSS 统一改造方案
 
 ## 概述
 
-本文档描述了 Lightdash 的 CDN + OSS 统一改造方案：
+本文档描述本项目的 CDN + OSS 统一改造方案：
 
 1. 将静态资源（JS/CSS/图片等）部署到 CDN
 2. 使用 OSS 预签名 URL 实现前端直传
@@ -751,7 +751,7 @@ STATIC_FILES_ENABLED=true  # 默认 true，CDN 不可用时使用后端服务
 
 ## 总结
 
-本方案统一规划了 Lightdash 的 CDN 和 OSS 改造：
+本方案统一规划了项目的 CDN 和 OSS 改造：
 
 1. 统一存储：使用同一个 OSS Bucket，通过路径前缀区分静态资源和上传文件
 2. 独立配置：静态资源使用 `CDN_PATH_PREFIX`（默认 `msy-x`），上传文件使用 `S3_PATH_PREFIX`（可选）

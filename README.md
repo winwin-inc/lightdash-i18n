@@ -1,28 +1,30 @@
-# 马上赢 X
+# 自助分析平台
 
-项目使用 [i18next](https://www.i18next.com/) 进行国际化，翻译文件位于"locales"目录中。
+面向业务的自助分析平台，支持连接数据仓库与 dbt 项目，进行探索分析、看板与报表制作、定时推送等。
 
-目前支持的语言：
+## 主要功能
 
--   English (en)
--   Chinese (zh-CN)
+-   **自助分析**：基于语义层（dbt）的探索、维度和指标配置
+-   **看板与报表**：拖拽式看板、多种图表类型、筛选与联动
+-   **定时与推送**：看板/图表定时跑数、结果推送（邮件等）
+-   **权限与协作**：项目/空间权限、分享、评论
+-   **多语言**：内置中英文等，支持通过 locales 扩展
 
-## 如何贡献翻译？
+## 国际化
 
-欢迎参与翻译，请 fork 项目，在"locales"目录下创建对应的语言目录，并在该目录下创建对应的翻译文件。
+项目使用 [i18next](https://www.i18next.com/) 做国际化，翻译文件在 `locales` 目录。
+
+当前支持：**English (en)**、**中文 (zh-CN)**。  
+贡献翻译：fork 后在 `locales` 下新增语言目录及对应翻译文件即可。
 
 ## 分支管理
 
--   main：最新稳定版本
--   dev：开发分支，用于开发新功能
--   feat/xxx：新功能分支，用于开发新功能
+-   **main**：最新稳定版本
+-   **dev**：开发主分支
+-   **feat/xxx**：功能分支
 
-具体操作步骤参考 [分支管理](/docs/branch-manage.md)
+详见 [分支管理](docs/branch-manage.md)。
 
 ## Docker 镜像
 
-使用 Git Actions 自动构建 Docker 镜像，并推送到阿里 Docker 镜像仓库。
-
-## 如何使用 Docker 镜像？
-
-Docker 镜像使用方式参考 [Lightdash 官方文档](https://docs.lightdash.com)
+由 GitHub Actions 自动构建并推送至阿里云镜像仓库。使用方式见项目部署文档。
