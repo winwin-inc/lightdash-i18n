@@ -31,6 +31,8 @@ type Props = {
     promotionChanges: PromotionChanges | undefined;
     onConfirm: () => void;
     onClose: () => void;
+    /** 为 true 时表示正在执行 promote，确认按钮禁用并显示 loading，由父组件在 mutation 成功后再关闭弹窗 */
+    isPromoting?: boolean;
 };
 
 type PromotionChange = {
@@ -121,6 +123,7 @@ export const PromotionConfirmDialog: FC<Props> = ({
     promotionChanges,
     onConfirm,
     onClose,
+    isPromoting = false,
 }) => {
     const { t } = useTranslation();
 
@@ -297,17 +300,20 @@ export const PromotionConfirmDialog: FC<Props> = ({
                     </Stack>
                 )}
                 <Group position="right" mt="sm">
-                    <Button color="dark" variant="outline" onClick={onClose}>
+                    <Button
+                        color="dark"
+                        variant="outline"
+                        onClick={onClose}
+                        disabled={isPromoting}
+                    >
                         {t('feature_promotion.modal.cancel')}
                     </Button>
 
                     <Button
                         color="green"
-                        disabled={totalChanges === 0}
-                        onClick={() => {
-                            onConfirm();
-                            onClose();
-                        }}
+                        disabled={totalChanges === 0 || isPromoting}
+                        loading={isPromoting}
+                        onClick={() => onConfirm()}
                     >
                         {t('feature_promotion.modal.promote')}
                     </Button>

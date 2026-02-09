@@ -142,7 +142,8 @@ const DashboardHeader = ({
         setIsUpdating(true);
         track({ name: EventName.UPDATE_DASHBOARD_NAME_CLICKED });
     };
-    const { mutate: promoteDashboard } = usePromoteDashboardMutation();
+    const { mutate: promoteDashboard, isPending: isPromoteDashboardPending } =
+        usePromoteDashboardMutation();
     const {
         mutate: getPromoteDashboardDiff,
         data: promoteDashboardDiff,
@@ -362,7 +363,9 @@ const DashboardHeader = ({
                 >
                     {t('components_common_dashboard_header.oldest_cache_time')}
                     <Text fw={700}>
-                        {dayjs(oldestCacheTime).format('MMM D, YYYY h:mm A')}{' '}
+                        {dayjs(oldestCacheTime).format(
+                            'MMM D, YYYY h:mm A',
+                        )}{' '}
                     </Text>
                 </Text>
             )}
@@ -679,9 +682,14 @@ const DashboardHeader = ({
                                     resetPromoteDashboardDiff();
                                 }}
                                 onConfirm={() => {
-                                    promoteDashboard(dashboardUuid);
+                                    promoteDashboard(dashboardUuid, {
+                                        onSuccess: () => {
+                                            resetPromoteDashboardDiff();
+                                        },
+                                    });
                                 }}
-                            ></PromotionConfirmDialog>
+                                isPromoting={isPromoteDashboardPending}
+                            />
                         )}
                 </Group>
             )}

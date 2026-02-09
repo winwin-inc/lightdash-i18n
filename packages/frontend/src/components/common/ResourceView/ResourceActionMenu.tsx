@@ -85,8 +85,10 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
     const isPinned = !!item.data.pinnedListUuid;
     const isDashboardPage = location.pathname.includes('/dashboards');
 
-    const { mutate: promoteChart } = usePromoteMutation();
-    const { mutate: promoteDashboard } = usePromoteDashboardMutation();
+    const { mutate: promoteChart, isPending: isPromoteChartPending } =
+        usePromoteMutation();
+    const { mutate: promoteDashboard, isPending: isPromoteDashboardPending } =
+        usePromoteDashboardMutation();
     const {
         mutate: getPromoteDashboardDiff,
         data: promoteDashboardDiff,
@@ -413,9 +415,12 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                         resetPromoteChartDiff();
                     }}
                     onConfirm={() => {
-                        promoteChart(item.data.uuid);
+                        promoteChart(item.data.uuid, {
+                            onSuccess: () => resetPromoteChartDiff(),
+                        });
                     }}
-                ></PromotionConfirmDialog>
+                    isPromoting={isPromoteChartPending}
+                />
             )}
             {(promoteDashboardDiff || promoteDashboardDiffLoading) && (
                 <PromotionConfirmDialog
@@ -426,9 +431,12 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                         resetPromoteDashboardDiff();
                     }}
                     onConfirm={() => {
-                        promoteDashboard(item.data.uuid);
+                        promoteDashboard(item.data.uuid, {
+                            onSuccess: () => resetPromoteDashboardDiff(),
+                        });
                     }}
-                ></PromotionConfirmDialog>
+                    isPromoting={isPromoteDashboardPending}
+                />
             )}
         </>
     );

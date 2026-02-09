@@ -749,7 +749,7 @@ export class DashboardService
                                     slug: generateSlug(
                                         `${
                                             chartInDashboard.name
-                                        } ${Date.now()}`,
+                                        } ${Date.now()}-${tile.uuid}`,
                                     ),
                                 },
                             );

@@ -105,7 +105,8 @@ const SavedChartsHeader: FC = () => {
 
     const { data: project } = useProject(projectUuid);
 
-    const { mutate: promoteChart } = usePromoteMutation();
+    const { mutate: promoteChart, isPending: isPromoteChartPending } =
+        usePromoteMutation();
     const {
         mutate: getPromoteChartDiff,
         data: promoteChartDiff,
@@ -854,15 +855,20 @@ const SavedChartsHeader: FC = () => {
 
             {(promoteChartDiff || promoteChartDiffLoading) && (
                 <PromotionConfirmDialog
-                    type={'chart'}
+                    type="chart"
                     resourceName={savedChart?.name ?? ''}
                     promotionChanges={promoteChartDiff}
                     onClose={() => {
                         resetPromoteChartDiff();
                     }}
                     onConfirm={() => {
-                        if (savedChart?.uuid) promoteChart(savedChart.uuid);
+                        if (savedChart?.uuid) {
+                            promoteChart(savedChart.uuid, {
+                                onSuccess: () => resetPromoteChartDiff(),
+                            });
+                        }
                     }}
+                    isPromoting={isPromoteChartPending}
                 />
             )}
 
