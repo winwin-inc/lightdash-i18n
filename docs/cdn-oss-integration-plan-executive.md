@@ -1,8 +1,8 @@
-# Lightdash CDN + OSS 改造技术方案
+# CDN + OSS 改造技术方案
 
 ## 目标
 
-将 Lightdash 前端静态资源迁移到 CDN，优化文件上传流程。
+将前端静态资源迁移到 CDN，优化文件上传流程。
 
 ## 当前问题
 

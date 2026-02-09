@@ -1,15 +1,15 @@
-# Security Policy
+# 安全策略
 
-## Supported Versions
+## 支持版本
 
-The following versions are currently receiving security updates
+以下版本目前会收到安全更新：
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.4.x   | :white_check_mark: |
+| 版本   | 支持情况     |
+| ------ | ------------ |
+| 0.4.x  | :white_check_mark: |
 
-## Reporting a Vulnerability
+## 报告安全问题
 
-Please report any vulnerabilities to security@lightdash.com
+请通过本仓库的 **Security** 标签页或 **Issue** 报告安全问题。
 
-Vulnerabilities classified as high (CVE) or above will be remedied within 7 days.
+被认定为高危（CVE 等）及以上的漏洞将在 7 天内处理。
