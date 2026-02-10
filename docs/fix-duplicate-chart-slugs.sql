@@ -5,9 +5,14 @@
 --   "There are multiple charts with the same identifier <slug>"
 -- 说明：上游项目里存在多条 saved_queries 使用同一 slug，需将重复项改为唯一 slug。
 --
+-- 若你没有表的修改权限，建议：
+--   1) 用迁移执行（应用 DB 账号通常有写权限）：pnpm -F backend migrate
+--      会执行 packages/backend/src/database/migrations/20260206100000_fix_duplicate_chart_slugs.ts
+--   2) 若迁移账号也无写权限：将本文件中「步骤 1」结果给 DBA，由 DBA 执行「步骤 2」或本 SQL
+--
 -- 使用前请：
 --   1. 先执行「步骤 1」查看当前重复项（示例已限定项目 3667f682-4080-44a4-8365-49f405936e09）
---   2. 备份或确认环境后再执行「步骤 2」进行更新
+--   2. 备份或确认环境后再执行「步骤 2」进行更新（或通过迁移执行）
 --
 -- 注意：过滤时填的是 project_uuid（项目 UUID），不是 dashboard_uuid（看板 UUID）。
 -- =============================================================================
