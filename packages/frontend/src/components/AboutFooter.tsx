@@ -1,28 +1,11 @@
 import { LightdashMode } from '@lightdash/common';
-import {
-    Alert,
-    Anchor,
-    Badge,
-    Box,
-    Button,
-    Divider,
-    Group,
-    Modal,
-    Stack,
-    Text,
-    Title,
-} from '@mantine-8/core';
-import { IconInfoCircle } from '@tabler/icons-react';
-import { useState, type FC } from 'react';
+import { Badge, Box, Divider, Group } from '@mantine-8/core';
+import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import useApp from '../providers/App/useApp';
-import {
-    TrackPage,
-    TrackSection,
-} from '../providers/Tracking/TrackingProvider';
-import { PageName, PageType, SectionName } from '../types/Events';
-import MantineLinkButton from './common/MantineLinkButton';
+import { TrackSection } from '../providers/Tracking/TrackingProvider';
+import { SectionName } from '../types/Events';
 import {
     FOOTER_HEIGHT,
     FOOTER_MARGIN,
@@ -33,7 +16,6 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
     minimal,
     maxWidth = PAGE_CONTENT_WIDTH,
 }) => {
-    const [isOpen, setIsOpen] = useState(false);
     const { health: healthState } = useApp();
     const { t } = useTranslation();
 
@@ -53,139 +35,24 @@ const AboutFooter: FC<{ minimal?: boolean; maxWidth?: number }> = ({
                     maw={maxWidth}
                     justify="space-between"
                     mx="auto"
+                    c="gray.7"
+                    fw="500"
+                    p="xs"
                 >
-                    <Button
-                        variant={minimal ? 'transparent' : 'subtle'}
-                        color="gray.7"
-                        p="xs"
-                        fw="500"
-                        loading={healthState.isInitialLoading}
-                        onClick={() => setIsOpen(true)}
-                    >
+                    <Group gap="xs">
                         {!minimal && `${t('app.title')} - `}
-                        {healthState.data && `v${healthState.data.version}`}
+                        {healthState.isInitialLoading
+                            ? null
+                            : healthState.data &&
+                              `v${healthState.data.version}`}
                         {showUpdateBadge && (
-                            <Badge
-                                variant="light"
-                                ml="xs"
-                                radius="xs"
-                                size="xs"
-                            >
+                            <Badge variant="light" radius="xs" size="xs">
                                 {t('components_about_footer.new_version')}
                             </Badge>
                         )}
-                    </Button>
-
-                    {/* {minimal ? (
-                        <Anchor
-                            href="https://docs.lightdash.com/"
-                            target="_blank"
-                        >
-                            <ActionIcon
-                                color="gray.7"
-                                p="xs"
-                                size="lg"
-                                variant="subtle"
-                            >
-                                <MantineIcon
-                                    icon={IconBook}
-                                    size="lg"
-                                    color="gray.7"
-                                />
-                            </ActionIcon>
-                        </Anchor>
-                    ) : (
-                        <MantineLinkButton
-                            href="https://docs.lightdash.com/"
-                            target="_blank"
-                            leftIcon={
-                                <MantineIcon
-                                    icon={IconBook}
-                                    size="lg"
-                                    color="gray.7"
-                                />
-                            }
-                            variant="light"
-                            color="gray.7"
-                            fw="500"
-                            p="xs"
-                        >
-                            {t('components_about_footer.documentation')}
-                        </MantineLinkButton>
-                    )} */}
+                    </Group>
                 </Group>
             </Box>
-
-            <Modal
-                opened={isOpen}
-                onClose={() => setIsOpen(false)}
-                title={
-                    <Group align="center" justify="flex-start" gap="xs">
-                        <IconInfoCircle size={17} color="gray" />{' '}
-                        {t('about_footer.about_msy_x')}
-                    </Group>
-                }
-            >
-                <TrackPage
-                    name={PageName.ABOUT_LIGHTDASH}
-                    type={PageType.MODAL}
-                >
-                    <Stack mx="xs">
-                        <Title order={5} fw={500}>
-                            <b>{t('components_about_footer.modal.version')}</b>{' '}
-                            {healthState.data
-                                ? `v${healthState.data.version}`
-                                : 'n/a'}
-                        </Title>
-                        {showUpdateBadge && (
-                            <Alert
-                                title="New version available!"
-                                color="blue"
-                                icon={<IconInfoCircle size={17} />}
-                            >
-                                <Text color="blue">
-                                    {t(
-                                        'components_about_footer.modal.description',
-                                        {
-                                            version:
-                                                healthState.data?.latest
-                                                    .version,
-                                        },
-                                    )}
-                                    <Anchor
-                                        href="https://docs.lightdash.com/self-host/update-lightdash"
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        underline="always" // Required: link isn't differentiated from blue text without underline
-                                    >
-                                        {t('components_about_footer.modal.why')}
-                                    </Anchor>{' '}
-                                    {t(
-                                        'components_about_footer.modal.documentation',
-                                    )}
-                                </Text>
-                            </Alert>
-                        )}
-
-                        <Group justify="flex-end">
-                            <MantineLinkButton
-                                href="https://docs.lightdash.com/"
-                                target="_blank"
-                                variant="default"
-                            >
-                                {t('components_about_footer.group.docs')}
-                            </MantineLinkButton>
-                            <MantineLinkButton
-                                href="https://github.com/lightdash/lightdash"
-                                target="_blank"
-                                variant="default"
-                            >
-                                {t('components_about_footer.group.github')}
-                            </MantineLinkButton>
-                        </Group>
-                    </Stack>
-                </TrackPage>
-            </Modal>
         </TrackSection>
     );
 };
