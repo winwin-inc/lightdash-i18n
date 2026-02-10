@@ -5,6 +5,33 @@
 > -   开发环境更新小版本号（如 v0.2092.1, v0.2092.2）
 > -   生产环境上线更新次要版本号（如 v0.2092, v0.2093）
 
+## v0.2094.1 (2026-02-10)
+
+-   **新功能**
+    -   CSP 支持额外 CDN 域名
+    -   数据库迁移与 SQL 修复重复图表 slug
+    -   DashboardService slug 生成与 promote 加载状态优化
+-   **调优**
+    -   前端代理与分页、可视化组件数据处理
+    -   useInfiniteQueryResults 的 fetchMoreRows 逻辑优化
+    -   图表与自定义可视化数据加载与尺寸计算
+    -   移除 react-scan 等无用依赖
+
+## v0.2093.1 (2026-01-20)
+
+-   **新功能**
+    -   CDN/OSS 集成：静态资源、文件上传、Dockerfile 与 CI
+    -   API URL 封装与 base/history 修补
+    -   自托管 Inter 字体与本地联调指南
+-   **Bug 修复**
+    -   自定义可视化数据与渲染、useColumns 判空
+    -   OSS 兼容与 API/i18n 路径
+    -   默认分页改为 1000
+-   **调优**
+    -   CustomVisualization memo 与性能
+    -   HTML 静态资源 CDN 重写，CDN_PATH_PREFIX 改为 msy-x
+    -   移除废弃工作流并收敛 Docker/CDN 配置
+
 ## v0.2092.16 (2026-01-20)
 
 ### 调优
