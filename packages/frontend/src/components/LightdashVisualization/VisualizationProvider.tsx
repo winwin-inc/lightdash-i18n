@@ -234,9 +234,6 @@ const VisualizationProvider: FC<
         setLastValidResultsData(resultsData);
     }, [resultsData]);
 
-    // 分页数据返回后立即用最新 resultsData 更新图表，不依赖 lastValidResultsData 的下一帧
-    const effectiveResultsData = resultsData ?? lastValidResultsData;
-
     useEffect(() => {
         onPivotDimensionsChange?.(validPivotDimensions);
     }, [validPivotDimensions, onPivotDimensionsChange]);
@@ -335,7 +332,7 @@ const VisualizationProvider: FC<
         isDashboard,
         pivotDimensions: validPivotDimensions,
         chartRef,
-        resultsData: effectiveResultsData,
+        resultsData: lastValidResultsData,
         isLoading,
         apiErrorDetail,
         columnOrder,
@@ -356,7 +353,7 @@ const VisualizationProvider: FC<
             return (
                 <VisualizationCartesianConfig
                     itemsMap={itemsMap}
-                    resultsData={effectiveResultsData}
+                    resultsData={lastValidResultsData}
                     validPivotDimensions={validPivotDimensions}
                     columnOrder={defaultColumnOrder}
                     initialChartConfig={chartConfig.config}
@@ -380,7 +377,7 @@ const VisualizationProvider: FC<
             return (
                 <VisualizationPieConfig
                     itemsMap={itemsMap}
-                    resultsData={effectiveResultsData}
+                    resultsData={lastValidResultsData}
                     initialChartConfig={chartConfig.config}
                     onChartConfigChange={handleChartConfigChange}
                     colorPalette={colorPalette}
@@ -399,7 +396,7 @@ const VisualizationProvider: FC<
             return (
                 <VisualizationConfigFunnel
                     itemsMap={itemsMap}
-                    resultsData={effectiveResultsData}
+                    resultsData={lastValidResultsData}
                     initialChartConfig={chartConfig.config}
                     onChartConfigChange={handleChartConfigChange}
                     colorPalette={colorPalette}
@@ -418,7 +415,7 @@ const VisualizationProvider: FC<
             return (
                 <VisualizationBigNumberConfig
                     itemsMap={itemsMap}
-                    resultsData={effectiveResultsData}
+                    resultsData={lastValidResultsData}
                     initialChartConfig={chartConfig.config}
                     onChartConfigChange={handleChartConfigChange}
                     tableCalculationsMetadata={tableCalculationsMetadata}
@@ -436,7 +433,7 @@ const VisualizationProvider: FC<
             return (
                 <VisualizationTreemapConfig
                     itemsMap={itemsMap}
-                    resultsData={effectiveResultsData}
+                    resultsData={lastValidResultsData}
                     initialChartConfig={chartConfig.config}
                     onChartConfigChange={handleChartConfigChange}
                     parameters={parameters}
@@ -454,7 +451,7 @@ const VisualizationProvider: FC<
             return (
                 <VisualizationTableConfig
                     itemsMap={itemsMap}
-                    resultsData={effectiveResultsData}
+                    resultsData={lastValidResultsData}
                     columnOrder={defaultColumnOrder}
                     validPivotDimensions={validPivotDimensions}
                     pivotTableMaxColumnLimit={pivotTableMaxColumnLimit}
@@ -479,7 +476,7 @@ const VisualizationProvider: FC<
         case ChartType.CUSTOM:
             return (
                 <VisualizationCustomConfig
-                    resultsData={effectiveResultsData}
+                    resultsData={lastValidResultsData}
                     itemsMap={itemsMap}
                     initialChartConfig={chartConfig.config}
                     onChartConfigChange={handleChartConfigChange}

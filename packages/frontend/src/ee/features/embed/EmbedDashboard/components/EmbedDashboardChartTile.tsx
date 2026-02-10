@@ -50,14 +50,16 @@ const EmbedDashboardChartTile: FC<Props> = ({
         const isFetchingAllRows =
             resultsData.fetchAll && !resultsData.hasFetchedAllRows;
         return (
-            (isCreatingQuery || isFetchingFirstPage || isFetchingAllRows) &&
+            (isCreatingQuery ||
+                isFetchingFirstPage ||
+                isFetchingAllRows) &&
             !resultsData.error
         );
     }, [
         readyQuery.isFetching,
+        resultsData.isFetchingFirstPage,
         resultsData.fetchAll,
         resultsData.hasFetchedAllRows,
-        resultsData.isFetchingFirstPage,
         resultsData.error,
     ]);
 
