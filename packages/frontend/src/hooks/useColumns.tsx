@@ -124,7 +124,7 @@ const formatBarDisplayCell = (
         // The converted value is only used for calculating bar width, not for display
         formatted = item
             ? formatItemValue(item, rawValue)
-            : cellValue.value.formatted ?? String(rawValue ?? '');
+            : (cellValue.value.formatted ?? String(rawValue ?? ''));
     } else {
         value = Number(cellValue);
         formatted = formatRowValueFromWarehouse(cellValue);
@@ -147,8 +147,8 @@ const formatBarDisplayCell = (
     }
 
     const isPercentageField = hasPercentageFormat(item);
-    const min = isPercentageField ? 0 : minMax?.min ?? 0;
-    const max = isPercentageField ? 100 : minMax?.max ?? 100;
+    const min = isPercentageField ? 0 : (minMax?.min ?? 0);
+    const max = isPercentageField ? 100 : (minMax?.max ?? 100);
 
     return (
         <BarChartDisplay
@@ -172,6 +172,47 @@ export const getFormattedValueCell = (
     }
 
     const currentItem = info.column.columnDef.meta?.item;
+    const columnType = info.column.columnDef.meta?.type as
+        | 'label'
+        | 'rowTotal'
+        | undefined;
+    const tableMeta = info.table.options.meta as
+        | {
+              getField?: (fieldId: string) => ItemsMap[string] | undefined;
+              pivotConfig?: { metricsAsRows?: boolean };
+              getMetricIdByLabel?: (label: string) => string | undefined;
+          }
+        | undefined;
+
+    // 仅格式化：指标为行时用该行指标对应的 formatOptions 显示数据格（通过 label 列显示名反查 metric id）
+    if (
+        tableMeta?.pivotConfig?.metricsAsRows &&
+        tableMeta?.getField &&
+        tableMeta?.getMetricIdByLabel &&
+        columnType !== 'label' &&
+        columnType !== 'rowTotal' &&
+        cellValue?.value
+    ) {
+        const labelColumn = info.table
+            .getAllColumns()
+            .find((c) => c.columnDef.meta?.type === 'label');
+        const labelRaw =
+            labelColumn &&
+            (
+                info.row.original[labelColumn.id] as
+                    | { value?: { raw?: string } }
+                    | undefined
+            )?.value?.raw;
+        if (typeof labelRaw === 'string') {
+            const metricId = tableMeta.getMetricIdByLabel(labelRaw);
+            if (metricId) {
+                const metricItem = tableMeta.getField(metricId);
+                if (metricItem) {
+                    return formatItemValue(metricItem, cellValue.value.raw);
+                }
+            }
+        }
+    }
 
     if (!currentItem) return formatCellContent(cellValue);
 

@@ -121,6 +121,20 @@ const PivotTable: FC<PivotTableProps> = ({
 
     const hasRowTotals = data.pivotConfig.rowTotals;
 
+    const metricIdsForRows = useMemo(() => {
+        if (!data.pivotConfig.metricsAsRows || !data.indexValues?.length)
+            return [];
+        const ids = new Set<string>();
+        data.indexValues.forEach((row) => {
+            const labelCell = row.find(
+                (c): c is { type: 'label'; fieldId: string } =>
+                    c.type === 'label',
+            );
+            if (labelCell) ids.add(labelCell.fieldId);
+        });
+        return Array.from(ids);
+    }, [data.pivotConfig.metricsAsRows, data.indexValues]);
+
     const { columns, columnOrder } = useMemo(() => {
         // Pivoting all dimensions requires a spacer column under the pivoted headers.
         const allDimensionsPivoted =
@@ -272,6 +286,12 @@ const PivotTable: FC<PivotTableProps> = ({
         return { columns: newColumns, columnOrder: newColumnOrder };
     }, [data, hideRowNumbers, getField, columnProperties]);
 
+    const getMetricIdByLabel = useCallback(
+        (label: string) =>
+            metricIdsForRows.find((id) => getFieldLabel(id) === label),
+        [metricIdsForRows, getFieldLabel],
+    );
+
     const table = useReactTable({
         data: data.retrofitData.allCombinedData,
         columns: columns,
@@ -289,6 +309,9 @@ const PivotTable: FC<PivotTableProps> = ({
         meta: {
             columnProperties,
             minMaxMap,
+            getField,
+            pivotConfig: data.pivotConfig,
+            getMetricIdByLabel,
         },
     });
 
