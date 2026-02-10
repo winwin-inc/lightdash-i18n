@@ -153,7 +153,7 @@ const VisualizationProvider: FC<
     const { validPivotDimensions, setPivotDimensions } = usePivotDimensions(
         initialPivotDimensions,
         useSqlPivotResults?.enabled
-            ? unsavedMetricQuery ?? lastValidResultsData?.metricQuery
+            ? (unsavedMetricQuery ?? lastValidResultsData?.metricQuery)
             : lastValidResultsData?.metricQuery,
     );
 
@@ -233,6 +233,8 @@ const VisualizationProvider: FC<
         if (!resultsData) return;
         setLastValidResultsData(resultsData);
     }, [resultsData]);
+
+    const effectiveResultsData = resultsData ?? lastValidResultsData;
 
     useEffect(() => {
         onPivotDimensionsChange?.(validPivotDimensions);
@@ -332,7 +334,7 @@ const VisualizationProvider: FC<
         isDashboard,
         pivotDimensions: validPivotDimensions,
         chartRef,
-        resultsData: lastValidResultsData,
+        resultsData: effectiveResultsData,
         isLoading,
         apiErrorDetail,
         columnOrder,
@@ -353,7 +355,7 @@ const VisualizationProvider: FC<
             return (
                 <VisualizationCartesianConfig
                     itemsMap={itemsMap}
-                    resultsData={lastValidResultsData}
+                    resultsData={effectiveResultsData}
                     validPivotDimensions={validPivotDimensions}
                     columnOrder={defaultColumnOrder}
                     initialChartConfig={chartConfig.config}
@@ -377,7 +379,7 @@ const VisualizationProvider: FC<
             return (
                 <VisualizationPieConfig
                     itemsMap={itemsMap}
-                    resultsData={lastValidResultsData}
+                    resultsData={effectiveResultsData}
                     initialChartConfig={chartConfig.config}
                     onChartConfigChange={handleChartConfigChange}
                     colorPalette={colorPalette}
@@ -396,7 +398,7 @@ const VisualizationProvider: FC<
             return (
                 <VisualizationConfigFunnel
                     itemsMap={itemsMap}
-                    resultsData={lastValidResultsData}
+                    resultsData={effectiveResultsData}
                     initialChartConfig={chartConfig.config}
                     onChartConfigChange={handleChartConfigChange}
                     colorPalette={colorPalette}
@@ -415,7 +417,7 @@ const VisualizationProvider: FC<
             return (
                 <VisualizationBigNumberConfig
                     itemsMap={itemsMap}
-                    resultsData={lastValidResultsData}
+                    resultsData={effectiveResultsData}
                     initialChartConfig={chartConfig.config}
                     onChartConfigChange={handleChartConfigChange}
                     tableCalculationsMetadata={tableCalculationsMetadata}
@@ -433,7 +435,7 @@ const VisualizationProvider: FC<
             return (
                 <VisualizationTreemapConfig
                     itemsMap={itemsMap}
-                    resultsData={lastValidResultsData}
+                    resultsData={effectiveResultsData}
                     initialChartConfig={chartConfig.config}
                     onChartConfigChange={handleChartConfigChange}
                     parameters={parameters}
@@ -451,7 +453,7 @@ const VisualizationProvider: FC<
             return (
                 <VisualizationTableConfig
                     itemsMap={itemsMap}
-                    resultsData={lastValidResultsData}
+                    resultsData={effectiveResultsData}
                     columnOrder={defaultColumnOrder}
                     validPivotDimensions={validPivotDimensions}
                     pivotTableMaxColumnLimit={pivotTableMaxColumnLimit}
@@ -476,7 +478,7 @@ const VisualizationProvider: FC<
         case ChartType.CUSTOM:
             return (
                 <VisualizationCustomConfig
-                    resultsData={lastValidResultsData}
+                    resultsData={effectiveResultsData}
                     itemsMap={itemsMap}
                     initialChartConfig={chartConfig.config}
                     onChartConfigChange={handleChartConfigChange}
