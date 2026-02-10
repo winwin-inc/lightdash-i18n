@@ -142,7 +142,7 @@ const DashboardHeader = ({
         setIsUpdating(true);
         track({ name: EventName.UPDATE_DASHBOARD_NAME_CLICKED });
     };
-    const { mutate: promoteDashboard, isPending: isPromoteDashboardPending } =
+    const { mutate: promoteDashboard, isLoading: isPromoteDashboardPending } =
         usePromoteDashboardMutation();
     const {
         mutate: getPromoteDashboardDiff,

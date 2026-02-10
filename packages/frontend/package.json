@@ -1,6 +1,6 @@
 {
     "name": "@lightdash/frontend",
-    "version": "0.2093.3",
+    "version": "0.2093.4",
     "private": true,
     "scripts": {
         "typecheck": "tsc --project tsconfig.json --noEmit --skipLibCheck",
@@ -132,6 +132,7 @@
         "zod": "^3.25.55"
     },
     "devDependencies": {
+        "eslint": "^8.57.0",
         "@chromatic-com/storybook": "^3",
         "@mantine/styles": "6.0.21",
         "@storybook/addon-essentials": "^8.6.6",

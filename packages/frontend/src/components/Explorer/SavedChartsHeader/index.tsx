@@ -105,7 +105,7 @@ const SavedChartsHeader: FC = () => {
 
     const { data: project } = useProject(projectUuid);
 
-    const { mutate: promoteChart, isPending: isPromoteChartPending } =
+    const { mutate: promoteChart, isLoading: isPromoteChartPending } =
         usePromoteMutation();
     const {
         mutate: getPromoteChartDiff,

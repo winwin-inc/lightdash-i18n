@@ -85,9 +85,9 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
     const isPinned = !!item.data.pinnedListUuid;
     const isDashboardPage = location.pathname.includes('/dashboards');
 
-    const { mutate: promoteChart, isPending: isPromoteChartPending } =
+    const { mutate: promoteChart, isLoading: isPromoteChartPending } =
         usePromoteMutation();
-    const { mutate: promoteDashboard, isPending: isPromoteDashboardPending } =
+    const { mutate: promoteDashboard, isLoading: isPromoteDashboardPending } =
         usePromoteDashboardMutation();
     const {
         mutate: getPromoteDashboardDiff,
