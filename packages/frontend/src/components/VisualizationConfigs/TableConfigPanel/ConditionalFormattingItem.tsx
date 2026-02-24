@@ -1,3 +1,4 @@
+import type { ConditionalFormattingColorApplyTo } from '@lightdash/common';
 import {
     ConditionalFormattingComparisonType,
     ConditionalFormattingConfigType,
@@ -15,7 +16,6 @@ import {
     isConditionalFormattingWithCompareTarget,
     isNumericItem,
     isStringDimension,
-    type ConditionalFormattingColorApplyTo,
     type ConditionalFormattingColorRange,
     type ConditionalFormattingConfig,
     type ConditionalFormattingConfigWithColorRange,

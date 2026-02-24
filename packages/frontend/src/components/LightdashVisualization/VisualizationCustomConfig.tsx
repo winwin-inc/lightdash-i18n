@@ -32,7 +32,11 @@ const VisualizationCustomConfig: FC<VisualizationCustomConfigProps> = ({
                 },
             });
         }
-    }, [customVisConfig?.validConfig.spec, onChartConfigChange]);
+    }, [
+        customVisConfig,
+        customVisConfig?.validConfig.spec,
+        onChartConfigChange,
+    ]);
 
     return children({
         visualizationConfig: {
