@@ -15,6 +15,7 @@ import {
     isConditionalFormattingWithCompareTarget,
     isNumericItem,
     isStringDimension,
+    type ConditionalFormattingColorApplyTo,
     type ConditionalFormattingColorRange,
     type ConditionalFormattingConfig,
     type ConditionalFormattingConfigWithColorRange,
@@ -33,7 +34,14 @@ import {
 } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import { produce } from 'immer';
-import { Fragment, useCallback, useMemo, useState, type FC } from 'react';
+import {
+    Fragment,
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type FC,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import FieldSelect from '../../common/FieldSelect';
@@ -84,6 +92,11 @@ export const ConditionalFormattingItem: FC<Props> = ({
     const [config, setConfig] = useState<ConditionalFormattingConfig>(value);
     const { itemsMap } = useVisualizationContext();
 
+    // 与父组件 value 同步，确保切换「背景/字体」后右侧表格能拿到最新配置并实时渲染
+    useEffect(() => {
+        setConfig(value);
+    }, [value]);
+
     const field = useMemo(
         () => fields.find((f) => getItemId(f) === config?.target?.fieldId),
         [fields, config],
@@ -121,6 +134,7 @@ export const ConditionalFormattingItem: FC<Props> = ({
                         return createConditionalFormattingConfigWithSingleColor(
                             colorPalette[0],
                             { fieldId: getItemId(newField) },
+                            config.colorApplyTo ?? 'background',
                         );
                     } else if (newField) {
                         // Update the target if the field is changed
@@ -155,6 +169,8 @@ export const ConditionalFormattingItem: FC<Props> = ({
                         // Reset the config if the field is removed
                         return createConditionalFormattingConfigWithSingleColor(
                             colorPalette[0],
+                            null,
+                            config.colorApplyTo ?? 'background',
                         );
                     }
                 }),
@@ -162,6 +178,13 @@ export const ConditionalFormattingItem: FC<Props> = ({
         },
         [handleChange, config, colorPalette, itemsMap],
     );
+
+    const colorApplyTo =
+        (isConditionalFormattingConfigWithSingleColor(config)
+            ? config.colorApplyTo
+            : isConditionalFormattingConfigWithColorRange(config)
+              ? config.colorApplyTo
+              : undefined) ?? 'background';
 
     const handleConfigTypeChange = useCallback(
         (newConfigType: ConditionalFormattingConfigType) => {
@@ -171,6 +194,7 @@ export const ConditionalFormattingItem: FC<Props> = ({
                         createConditionalFormattingConfigWithSingleColor(
                             colorPalette[0],
                             config.target,
+                            colorApplyTo,
                         ),
                     );
                 case ConditionalFormattingConfigType.Range:
@@ -178,6 +202,7 @@ export const ConditionalFormattingItem: FC<Props> = ({
                         createConditionalFormattingConfigWithColorRange(
                             colorPalette[0],
                             config.target,
+                            colorApplyTo,
                         ),
                     );
                 default:
@@ -187,7 +212,7 @@ export const ConditionalFormattingItem: FC<Props> = ({
                     );
             }
         },
-        [handleChange, config, colorPalette],
+        [handleChange, config, colorPalette, colorApplyTo],
     );
 
     const handleAddRule = useCallback(() => {
@@ -327,6 +352,17 @@ export const ConditionalFormattingItem: FC<Props> = ({
         [handleChange, config],
     );
 
+    const handleChangeColorApplyTo = useCallback(
+        (newApplyTo: ConditionalFormattingColorApplyTo) => {
+            handleChange(
+                produce(config, (draft) => {
+                    draft.colorApplyTo = newApplyTo;
+                }),
+            );
+        },
+        [handleChange, config],
+    );
+
     const controlLabel = `Rule ${configIndex}`;
     const accordionValue = `${configIndex}`;
 
@@ -414,6 +450,36 @@ export const ConditionalFormattingItem: FC<Props> = ({
                                     onColorChange={handleChangeSingleColor}
                                 />
                             ) : null}
+                        </Group>
+
+                        <Group spacing="xs">
+                            <Config.Label>
+                                {t(
+                                    'components_visualization_configs_table.formatting_item.apply_color_to',
+                                )}
+                            </Config.Label>
+                            <SegmentedControl
+                                data={[
+                                    {
+                                        value: 'background',
+                                        label: t(
+                                            'components_visualization_configs_table.formatting_item.apply_to_background',
+                                        ),
+                                    },
+                                    {
+                                        value: 'font',
+                                        label: t(
+                                            'components_visualization_configs_table.formatting_item.apply_to_font',
+                                        ),
+                                    },
+                                ]}
+                                value={colorApplyTo}
+                                onChange={(v: string) =>
+                                    handleChangeColorApplyTo(
+                                        v as ConditionalFormattingColorApplyTo,
+                                    )
+                                }
+                            />
                         </Group>
 
                         {isConditionalFormattingConfigWithSingleColor(

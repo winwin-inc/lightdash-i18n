@@ -5012,13 +5012,17 @@
             "min": "Min",
             "max": "Max",
             "add_new_condition": "Add new condition",
-            "color": "Color"
+            "color": "Color",
+            "apply_color_to": "Apply color to",
+            "apply_to_background": "Background",
+            "apply_to_font": "Font"
         },
         "compare": {
             "compare": "Compare",
             "compare_selected_field_to_values": "Compare selected field to values",
             "compare_selected_field_to_another_field": "Compare selected field to another field",
             "compare_another_field_to_values": "Compare another field to values",
+            "field": "Field",
             "field_values": "Field values",
             "compare_field": "Compare field",
             "condition": "Condition",

@@ -115,10 +115,24 @@ const TableRow: FC<TableRowProps> = ({
                         getColorFromRange,
                     });
 
+                const colorApplyTo =
+                    conditionalFormattingConfig?.colorApplyTo ?? 'background';
+
                 // Frozen/locked rows should have a white background, unless there is a conditional formatting color
                 let backgroundColor: string | undefined;
+                let fontColor: string | undefined;
                 if (conditionalFormattingColor) {
-                    backgroundColor = conditionalFormattingColor;
+                    if (colorApplyTo === 'font') {
+                        fontColor = conditionalFormattingColor;
+                    } else {
+                        backgroundColor = conditionalFormattingColor;
+                        // When using background, use readable color for font contrast
+                        fontColor =
+                            readableColor(conditionalFormattingColor) ===
+                            'white'
+                                ? 'white'
+                                : undefined;
+                    }
                 } else if (meta?.frozen) {
                     backgroundColor = 'white';
                 }
@@ -131,11 +145,6 @@ const TableRow: FC<TableRowProps> = ({
                 );
 
                 const toggleExpander = row.getToggleExpandedHandler();
-                const fontColor =
-                    conditionalFormattingColor &&
-                    readableColor(conditionalFormattingColor) === 'white'
-                        ? 'white'
-                        : undefined;
 
                 const suppressContextMenu =
                     cell.getIsPlaceholder() || cell.getIsAggregated();

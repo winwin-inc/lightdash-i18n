@@ -57,15 +57,18 @@ export const createConditionalFormattingRuleWithCompareTargetValues =
 export const createConditionalFormattingConfigWithSingleColor = (
     defaultColor: string,
     target: FieldTarget | null = null,
+    colorApplyTo: 'background' | 'font' = 'background',
 ): ConditionalFormattingConfigWithSingleColor => ({
     target,
     color: defaultColor,
     rules: [createConditionalFormattingRuleWithValues()],
+    colorApplyTo,
 });
 
 export const createConditionalFormattingConfigWithColorRange = (
     defaultColor: string,
     target: FieldTarget | null = null,
+    colorApplyTo: 'background' | 'font' = 'background',
 ): ConditionalFormattingConfigWithColorRange => ({
     target,
     color: {
@@ -76,6 +79,7 @@ export const createConditionalFormattingConfigWithColorRange = (
         min: 0,
         max: 100,
     },
+    colorApplyTo,
 });
 
 export const hasPercentageFormat = (field: ItemsMap[string] | undefined) => {

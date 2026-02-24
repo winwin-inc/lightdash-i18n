@@ -4995,13 +4995,17 @@
             "min": "最小",
             "max": "最大",
             "add_new_condition": "添加新条件",
-            "color": "颜色"
+            "color": "颜色",
+            "apply_color_to": "应用到",
+            "apply_to_background": "背景",
+            "apply_to_font": "字体"
         },
         "compare": {
             "compare": "比较",
             "compare_selected_field_to_values": "将选定字段与值进行比较",
             "compare_selected_field_to_another_field": "将选定字段与另一个字段进行比较",
             "compare_another_field_to_values": "将另一个字段与值进行比较",
+            "field": "字段",
             "field_values": "字段值",
             "compare_field": "比较字段",
             "condition": "条件",

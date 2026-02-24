@@ -70,6 +70,7 @@ import { formatChartErrorMessage } from '../../utils/chartErrorUtils';
 
 import { DashboardTileComments } from '../../features/comments';
 import { DateZoomInfoOnTile } from '../../features/dateZoom';
+import ErrorBoundary from '../../features/errorBoundary/ErrorBoundary';
 import { ExportToGoogleSheet } from '../../features/export';
 import {
     getExpectedSeriesMap,
@@ -136,7 +137,7 @@ const ExportGoogleSheet: FC<ExportGoogleSheetProps> = ({
             metricQuery: savedChart.metricQuery,
             columnOrder: savedChart.tableConfig.columnOrder,
             showTableNames: isTableChartConfig(savedChart.chartConfig.config)
-                ? savedChart.chartConfig.config.showTableNames ?? false
+                ? (savedChart.chartConfig.config.showTableNames ?? false)
                 : true,
             customLabels: getCustomLabelsFromTableConfig(
                 savedChart.chartConfig.config,
@@ -281,7 +282,9 @@ const ValidDashboardChartTile: FC<{
             chartConfig={chart.chartConfig}
             initialPivotDimensions={chart.pivotConfig?.columns}
             resultsData={resultsDataWithQueryData}
-            isLoading={resultsData.isFetchingRows || resultsData.isInitialLoading}
+            isLoading={
+                resultsData.isFetchingRows || resultsData.isInitialLoading
+            }
             onSeriesContextMenu={onSeriesContextMenu}
             columnOrder={chart.tableConfig.columnOrder}
             pivotTableMaxColumnLimit={health.data.pivotTable.maxColumnLimit}
@@ -298,11 +301,13 @@ const ValidDashboardChartTile: FC<{
             dashboardSlug={dashboardSlug}
             dashboardName={dashboardName}
         >
-            <LightdashVisualization
-                isDashboard
-                tileUuid={tileUuid}
-                isTitleHidden={isTitleHidden}
-            />
+            <ErrorBoundary wrapper={{ h: '100%', w: '100%', minHeight: 0 }}>
+                <LightdashVisualization
+                    isDashboard
+                    tileUuid={tileUuid}
+                    isTitleHidden={isTitleHidden}
+                />
+            </ErrorBoundary>
         </VisualizationProvider>
     );
 };
@@ -379,7 +384,9 @@ const ValidDashboardChartTileMinimal: FC<{
             chartConfig={chart.chartConfig}
             initialPivotDimensions={chart.pivotConfig?.columns}
             resultsData={resultsDataWithQueryData}
-            isLoading={resultsData.isFetchingRows || resultsData.isInitialLoading}
+            isLoading={
+                resultsData.isFetchingRows || resultsData.isInitialLoading
+            }
             onSeriesContextMenu={onSeriesContextMenu}
             columnOrder={chart.tableConfig.columnOrder}
             pivotTableMaxColumnLimit={health.data.pivotTable.maxColumnLimit}
@@ -395,11 +402,13 @@ const ValidDashboardChartTileMinimal: FC<{
             dashboardSlug={dashboardSlug}
             dashboardName={dashboardName}
         >
-            <LightdashVisualization
-                isDashboard
-                tileUuid={tileUuid}
-                isTitleHidden={isTitleHidden}
-            />
+            <ErrorBoundary wrapper={{ h: '100%', w: '100%', minHeight: 0 }}>
+                <LightdashVisualization
+                    isDashboard
+                    tileUuid={tileUuid}
+                    isTitleHidden={isTitleHidden}
+                />
+            </ErrorBoundary>
         </VisualizationProvider>
     );
 };
@@ -451,10 +460,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
     } = props;
 
     const {
-        executeQueryResponse: {
-            metricQuery,
-            usedParametersValues,
-        },
+        executeQueryResponse: { metricQuery, usedParametersValues },
         chart,
         explore,
     } = dashboardChartReadyQuery;
@@ -1866,9 +1872,7 @@ const DashboardChartTile: FC<DashboardChartTileProps> = (props) => {
         const isFetchingAllRows =
             resultsData.fetchAll && !resultsData.hasFetchedAllRows;
         return (
-            (isCreatingQuery ||
-                isFetchingFirstPage ||
-                isFetchingAllRows) &&
+            (isCreatingQuery || isFetchingFirstPage || isFetchingAllRows) &&
             !resultsData.error
         );
     }, [

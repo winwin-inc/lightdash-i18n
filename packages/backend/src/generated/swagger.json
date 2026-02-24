@@ -1042,6 +1042,1187 @@
                 "type": "object",
                 "additionalProperties": true
             },
+            "WarehouseTypes": {
+                "enum": [
+                    "bigquery",
+                    "postgres",
+                    "redshift",
+                    "snowflake",
+                    "databricks",
+                    "trino",
+                    "clickhouse"
+                ],
+                "type": "string"
+            },
+            "WarehouseTypes.SNOWFLAKE": {
+                "enum": ["snowflake"],
+                "type": "string"
+            },
+            "SnowflakeAuthenticationType": {
+                "enum": ["password", "private_key", "sso"],
+                "type": "string"
+            },
+            "WeekDay": {
+                "enum": [0, 1, 2, 3, 4, 5, 6],
+                "type": "number"
+            },
+            "Pick_CreateSnowflakeCredentials.Exclude_keyofCreateSnowflakeCredentials.SensitiveCredentialsFieldNames__": {
+                "properties": {
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.SNOWFLAKE"
+                    },
+                    "account": {
+                        "type": "string"
+                    },
+                    "requireUserCredentials": {
+                        "type": "boolean"
+                    },
+                    "authenticationType": {
+                        "$ref": "#/components/schemas/SnowflakeAuthenticationType"
+                    },
+                    "role": {
+                        "type": "string"
+                    },
+                    "database": {
+                        "type": "string"
+                    },
+                    "warehouse": {
+                        "type": "string"
+                    },
+                    "schema": {
+                        "type": "string"
+                    },
+                    "threads": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "clientSessionKeepAlive": {
+                        "type": "boolean"
+                    },
+                    "queryTag": {
+                        "type": "string"
+                    },
+                    "accessUrl": {
+                        "type": "string"
+                    },
+                    "startOfWeek": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/WeekDay"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "quotedIdentifiersIgnoreCase": {
+                        "type": "boolean"
+                    },
+                    "override": {
+                        "type": "boolean"
+                    },
+                    "organizationWarehouseCredentialsUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "type",
+                    "account",
+                    "database",
+                    "warehouse",
+                    "schema"
+                ],
+                "type": "object",
+                "description": "From T, pick a set of properties whose keys are in the union K"
+            },
+            "Omit_CreateSnowflakeCredentials.SensitiveCredentialsFieldNames_": {
+                "$ref": "#/components/schemas/Pick_CreateSnowflakeCredentials.Exclude_keyofCreateSnowflakeCredentials.SensitiveCredentialsFieldNames__",
+                "description": "Construct a type with the properties of T except for those in type K."
+            },
+            "SnowflakeCredentials": {
+                "$ref": "#/components/schemas/Omit_CreateSnowflakeCredentials.SensitiveCredentialsFieldNames_"
+            },
+            "WarehouseTypes.REDSHIFT": {
+                "enum": ["redshift"],
+                "type": "string"
+            },
+            "Pick_CreateRedshiftCredentials.Exclude_keyofCreateRedshiftCredentials.SensitiveCredentialsFieldNames__": {
+                "properties": {
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.REDSHIFT"
+                    },
+                    "requireUserCredentials": {
+                        "type": "boolean"
+                    },
+                    "schema": {
+                        "type": "string"
+                    },
+                    "threads": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "startOfWeek": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/WeekDay"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "useSshTunnel": {
+                        "type": "boolean"
+                    },
+                    "sshTunnelHost": {
+                        "type": "string"
+                    },
+                    "sshTunnelPort": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "sshTunnelUser": {
+                        "type": "string"
+                    },
+                    "sshTunnelPublicKey": {
+                        "type": "string"
+                    },
+                    "host": {
+                        "type": "string"
+                    },
+                    "port": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "dbname": {
+                        "type": "string"
+                    },
+                    "keepalivesIdle": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "sslmode": {
+                        "type": "string"
+                    },
+                    "ra3Node": {
+                        "type": "boolean"
+                    },
+                    "timeoutSeconds": {
+                        "type": "number",
+                        "format": "double"
+                    }
+                },
+                "required": ["type", "schema", "host", "port", "dbname"],
+                "type": "object",
+                "description": "From T, pick a set of properties whose keys are in the union K"
+            },
+            "Omit_CreateRedshiftCredentials.SensitiveCredentialsFieldNames_": {
+                "$ref": "#/components/schemas/Pick_CreateRedshiftCredentials.Exclude_keyofCreateRedshiftCredentials.SensitiveCredentialsFieldNames__",
+                "description": "Construct a type with the properties of T except for those in type K."
+            },
+            "RedshiftCredentials": {
+                "$ref": "#/components/schemas/Omit_CreateRedshiftCredentials.SensitiveCredentialsFieldNames_"
+            },
+            "WarehouseTypes.POSTGRES": {
+                "enum": ["postgres"],
+                "type": "string"
+            },
+            "Pick_CreatePostgresCredentials.Exclude_keyofCreatePostgresCredentials.SensitiveCredentialsFieldNames__": {
+                "properties": {
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.POSTGRES"
+                    },
+                    "requireUserCredentials": {
+                        "type": "boolean"
+                    },
+                    "role": {
+                        "type": "string"
+                    },
+                    "schema": {
+                        "type": "string"
+                    },
+                    "threads": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "startOfWeek": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/WeekDay"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "useSshTunnel": {
+                        "type": "boolean"
+                    },
+                    "sshTunnelHost": {
+                        "type": "string"
+                    },
+                    "sshTunnelPort": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "sshTunnelUser": {
+                        "type": "string"
+                    },
+                    "sshTunnelPublicKey": {
+                        "type": "string"
+                    },
+                    "host": {
+                        "type": "string"
+                    },
+                    "port": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "dbname": {
+                        "type": "string"
+                    },
+                    "keepalivesIdle": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "sslmode": {
+                        "type": "string"
+                    },
+                    "timeoutSeconds": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "sslcertFileName": {
+                        "type": "string"
+                    },
+                    "sslkeyFileName": {
+                        "type": "string"
+                    },
+                    "sslrootcertFileName": {
+                        "type": "string"
+                    },
+                    "searchPath": {
+                        "type": "string"
+                    }
+                },
+                "required": ["type", "schema", "host", "port", "dbname"],
+                "type": "object",
+                "description": "From T, pick a set of properties whose keys are in the union K"
+            },
+            "Omit_CreatePostgresCredentials.SensitiveCredentialsFieldNames_": {
+                "$ref": "#/components/schemas/Pick_CreatePostgresCredentials.Exclude_keyofCreatePostgresCredentials.SensitiveCredentialsFieldNames__",
+                "description": "Construct a type with the properties of T except for those in type K."
+            },
+            "PostgresCredentials": {
+                "$ref": "#/components/schemas/Omit_CreatePostgresCredentials.SensitiveCredentialsFieldNames_"
+            },
+            "WarehouseTypes.BIGQUERY": {
+                "enum": ["bigquery"],
+                "type": "string"
+            },
+            "BigqueryAuthenticationType": {
+                "enum": ["sso", "private_key", "adc"],
+                "type": "string"
+            },
+            "Pick_CreateBigqueryCredentials.Exclude_keyofCreateBigqueryCredentials.SensitiveCredentialsFieldNames__": {
+                "properties": {
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.BIGQUERY"
+                    },
+                    "requireUserCredentials": {
+                        "type": "boolean"
+                    },
+                    "authenticationType": {
+                        "$ref": "#/components/schemas/BigqueryAuthenticationType"
+                    },
+                    "threads": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "startOfWeek": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/WeekDay"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "timeoutSeconds": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "project": {
+                        "type": "string"
+                    },
+                    "dataset": {
+                        "type": "string"
+                    },
+                    "priority": {
+                        "type": "string",
+                        "enum": ["interactive", "batch"]
+                    },
+                    "retries": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "location": {
+                        "type": "string"
+                    },
+                    "maximumBytesBilled": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "executionProject": {
+                        "type": "string"
+                    }
+                },
+                "required": ["type", "project", "dataset"],
+                "type": "object",
+                "description": "From T, pick a set of properties whose keys are in the union K"
+            },
+            "Omit_CreateBigqueryCredentials.SensitiveCredentialsFieldNames_": {
+                "$ref": "#/components/schemas/Pick_CreateBigqueryCredentials.Exclude_keyofCreateBigqueryCredentials.SensitiveCredentialsFieldNames__",
+                "description": "Construct a type with the properties of T except for those in type K."
+            },
+            "BigqueryCredentials": {
+                "$ref": "#/components/schemas/Omit_CreateBigqueryCredentials.SensitiveCredentialsFieldNames_"
+            },
+            "WarehouseTypes.DATABRICKS": {
+                "enum": ["databricks"],
+                "type": "string"
+            },
+            "Pick_CreateDatabricksCredentials.Exclude_keyofCreateDatabricksCredentials.SensitiveCredentialsFieldNames__": {
+                "properties": {
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.DATABRICKS"
+                    },
+                    "requireUserCredentials": {
+                        "type": "boolean"
+                    },
+                    "database": {
+                        "type": "string"
+                    },
+                    "startOfWeek": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/WeekDay"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "catalog": {
+                        "type": "string"
+                    },
+                    "serverHostName": {
+                        "type": "string"
+                    },
+                    "httpPath": {
+                        "type": "string"
+                    },
+                    "compute": {
+                        "items": {
+                            "properties": {
+                                "httpPath": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["httpPath", "name"],
+                            "type": "object"
+                        },
+                        "type": "array"
+                    }
+                },
+                "required": ["type", "database", "serverHostName", "httpPath"],
+                "type": "object",
+                "description": "From T, pick a set of properties whose keys are in the union K"
+            },
+            "Omit_CreateDatabricksCredentials.SensitiveCredentialsFieldNames_": {
+                "$ref": "#/components/schemas/Pick_CreateDatabricksCredentials.Exclude_keyofCreateDatabricksCredentials.SensitiveCredentialsFieldNames__",
+                "description": "Construct a type with the properties of T except for those in type K."
+            },
+            "DatabricksCredentials": {
+                "$ref": "#/components/schemas/Omit_CreateDatabricksCredentials.SensitiveCredentialsFieldNames_"
+            },
+            "WarehouseTypes.TRINO": {
+                "enum": ["trino"],
+                "type": "string"
+            },
+            "Pick_CreateTrinoCredentials.Exclude_keyofCreateTrinoCredentials.SensitiveCredentialsFieldNames__": {
+                "properties": {
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.TRINO"
+                    },
+                    "requireUserCredentials": {
+                        "type": "boolean"
+                    },
+                    "schema": {
+                        "type": "string"
+                    },
+                    "startOfWeek": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/WeekDay"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "host": {
+                        "type": "string"
+                    },
+                    "port": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "dbname": {
+                        "type": "string"
+                    },
+                    "http_scheme": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "type",
+                    "schema",
+                    "host",
+                    "port",
+                    "dbname",
+                    "http_scheme"
+                ],
+                "type": "object",
+                "description": "From T, pick a set of properties whose keys are in the union K"
+            },
+            "Omit_CreateTrinoCredentials.SensitiveCredentialsFieldNames_": {
+                "$ref": "#/components/schemas/Pick_CreateTrinoCredentials.Exclude_keyofCreateTrinoCredentials.SensitiveCredentialsFieldNames__",
+                "description": "Construct a type with the properties of T except for those in type K."
+            },
+            "TrinoCredentials": {
+                "$ref": "#/components/schemas/Omit_CreateTrinoCredentials.SensitiveCredentialsFieldNames_"
+            },
+            "WarehouseTypes.CLICKHOUSE": {
+                "enum": ["clickhouse"],
+                "type": "string"
+            },
+            "Pick_CreateClickhouseCredentials.Exclude_keyofCreateClickhouseCredentials.SensitiveCredentialsFieldNames__": {
+                "properties": {
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.CLICKHOUSE"
+                    },
+                    "requireUserCredentials": {
+                        "type": "boolean"
+                    },
+                    "schema": {
+                        "type": "string"
+                    },
+                    "startOfWeek": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/WeekDay"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "host": {
+                        "type": "string"
+                    },
+                    "port": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "timeoutSeconds": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "secure": {
+                        "type": "boolean"
+                    }
+                },
+                "required": ["type", "schema", "host", "port"],
+                "type": "object",
+                "description": "From T, pick a set of properties whose keys are in the union K"
+            },
+            "Omit_CreateClickhouseCredentials.SensitiveCredentialsFieldNames_": {
+                "$ref": "#/components/schemas/Pick_CreateClickhouseCredentials.Exclude_keyofCreateClickhouseCredentials.SensitiveCredentialsFieldNames__",
+                "description": "Construct a type with the properties of T except for those in type K."
+            },
+            "ClickhouseCredentials": {
+                "$ref": "#/components/schemas/Omit_CreateClickhouseCredentials.SensitiveCredentialsFieldNames_"
+            },
+            "WarehouseCredentials": {
+                "anyOf": [
+                    {
+                        "$ref": "#/components/schemas/SnowflakeCredentials"
+                    },
+                    {
+                        "$ref": "#/components/schemas/RedshiftCredentials"
+                    },
+                    {
+                        "$ref": "#/components/schemas/PostgresCredentials"
+                    },
+                    {
+                        "$ref": "#/components/schemas/BigqueryCredentials"
+                    },
+                    {
+                        "$ref": "#/components/schemas/DatabricksCredentials"
+                    },
+                    {
+                        "$ref": "#/components/schemas/TrinoCredentials"
+                    },
+                    {
+                        "$ref": "#/components/schemas/ClickhouseCredentials"
+                    }
+                ]
+            },
+            "OrganizationWarehouseCredentials": {
+                "properties": {
+                    "credentials": {
+                        "$ref": "#/components/schemas/WarehouseCredentials"
+                    },
+                    "createdByUserUuid": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "warehouseType": {
+                        "$ref": "#/components/schemas/WarehouseTypes"
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "organizationUuid": {
+                        "type": "string"
+                    },
+                    "organizationWarehouseCredentialsUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "credentials",
+                    "createdByUserUuid",
+                    "createdAt",
+                    "warehouseType",
+                    "description",
+                    "name",
+                    "organizationUuid",
+                    "organizationWarehouseCredentialsUuid"
+                ],
+                "type": "object",
+                "description": "Organization-level warehouse credentials"
+            },
+            "ApiOrganizationWarehouseCredentialsListResponse": {
+                "properties": {
+                    "results": {
+                        "items": {
+                            "$ref": "#/components/schemas/OrganizationWarehouseCredentials"
+                        },
+                        "type": "array"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiOrganizationWarehouseCredentialsResponse": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/OrganizationWarehouseCredentials"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "SshTunnelConfiguration": {
+                "properties": {
+                    "sshTunnelPrivateKey": {
+                        "type": "string"
+                    },
+                    "sshTunnelPublicKey": {
+                        "type": "string"
+                    },
+                    "sshTunnelUser": {
+                        "type": "string"
+                    },
+                    "sshTunnelPort": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "sshTunnelHost": {
+                        "type": "string"
+                    },
+                    "useSshTunnel": {
+                        "type": "boolean"
+                    }
+                },
+                "type": "object"
+            },
+            "CreateRedshiftCredentials": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/SshTunnelConfiguration"
+                    },
+                    {
+                        "properties": {
+                            "timeoutSeconds": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "startOfWeek": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/WeekDay"
+                                    }
+                                ],
+                                "nullable": true
+                            },
+                            "ra3Node": {
+                                "type": "boolean"
+                            },
+                            "sslmode": {
+                                "type": "string"
+                            },
+                            "keepalivesIdle": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "threads": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "schema": {
+                                "type": "string"
+                            },
+                            "dbname": {
+                                "type": "string"
+                            },
+                            "port": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "requireUserCredentials": {
+                                "type": "boolean"
+                            },
+                            "password": {
+                                "type": "string"
+                            },
+                            "user": {
+                                "type": "string"
+                            },
+                            "host": {
+                                "type": "string"
+                            },
+                            "type": {
+                                "$ref": "#/components/schemas/WarehouseTypes.REDSHIFT"
+                            }
+                        },
+                        "required": [
+                            "schema",
+                            "dbname",
+                            "port",
+                            "password",
+                            "user",
+                            "host",
+                            "type"
+                        ],
+                        "type": "object"
+                    }
+                ]
+            },
+            "Record_string.string_": {
+                "properties": {},
+                "additionalProperties": {
+                    "type": "string"
+                },
+                "type": "object",
+                "description": "Construct a type with a set of properties K of type T"
+            },
+            "CreateBigqueryCredentials": {
+                "properties": {
+                    "executionProject": {
+                        "type": "string"
+                    },
+                    "startOfWeek": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/WeekDay"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "maximumBytesBilled": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "location": {
+                        "type": "string"
+                    },
+                    "retries": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "requireUserCredentials": {
+                        "type": "boolean"
+                    },
+                    "keyfileContents": {
+                        "$ref": "#/components/schemas/Record_string.string_"
+                    },
+                    "authenticationType": {
+                        "$ref": "#/components/schemas/BigqueryAuthenticationType"
+                    },
+                    "priority": {
+                        "type": "string",
+                        "enum": ["interactive", "batch"]
+                    },
+                    "timeoutSeconds": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "threads": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "dataset": {
+                        "type": "string"
+                    },
+                    "project": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.BIGQUERY"
+                    }
+                },
+                "required": ["keyfileContents", "dataset", "project", "type"],
+                "type": "object"
+            },
+            "SslConfiguration": {
+                "properties": {
+                    "sslrootcert": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "sslrootcertFileName": {
+                        "type": "string"
+                    },
+                    "sslkey": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "sslkeyFileName": {
+                        "type": "string"
+                    },
+                    "sslcert": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "sslcertFileName": {
+                        "type": "string"
+                    },
+                    "sslmode": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "CreatePostgresCredentials": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/SshTunnelConfiguration"
+                    },
+                    {
+                        "$ref": "#/components/schemas/SslConfiguration"
+                    },
+                    {
+                        "properties": {
+                            "timeoutSeconds": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "startOfWeek": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/WeekDay"
+                                    }
+                                ],
+                                "nullable": true
+                            },
+                            "role": {
+                                "type": "string"
+                            },
+                            "searchPath": {
+                                "type": "string"
+                            },
+                            "keepalivesIdle": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "threads": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "schema": {
+                                "type": "string"
+                            },
+                            "dbname": {
+                                "type": "string"
+                            },
+                            "port": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "requireUserCredentials": {
+                                "type": "boolean"
+                            },
+                            "password": {
+                                "type": "string"
+                            },
+                            "user": {
+                                "type": "string"
+                            },
+                            "host": {
+                                "type": "string"
+                            },
+                            "type": {
+                                "$ref": "#/components/schemas/WarehouseTypes.POSTGRES"
+                            }
+                        },
+                        "required": [
+                            "schema",
+                            "dbname",
+                            "port",
+                            "password",
+                            "user",
+                            "host",
+                            "type"
+                        ],
+                        "type": "object"
+                    }
+                ]
+            },
+            "CreateSnowflakeCredentials": {
+                "properties": {
+                    "organizationWarehouseCredentialsUuid": {
+                        "type": "string"
+                    },
+                    "override": {
+                        "type": "boolean"
+                    },
+                    "quotedIdentifiersIgnoreCase": {
+                        "type": "boolean"
+                    },
+                    "startOfWeek": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/WeekDay"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "accessUrl": {
+                        "type": "string"
+                    },
+                    "queryTag": {
+                        "type": "string"
+                    },
+                    "clientSessionKeepAlive": {
+                        "type": "boolean"
+                    },
+                    "threads": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "schema": {
+                        "type": "string"
+                    },
+                    "warehouse": {
+                        "type": "string"
+                    },
+                    "database": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "type": "string"
+                    },
+                    "token": {
+                        "type": "string"
+                    },
+                    "refreshToken": {
+                        "type": "string"
+                    },
+                    "authenticationType": {
+                        "$ref": "#/components/schemas/SnowflakeAuthenticationType"
+                    },
+                    "privateKeyPass": {
+                        "type": "string"
+                    },
+                    "privateKey": {
+                        "type": "string"
+                    },
+                    "requireUserCredentials": {
+                        "type": "boolean"
+                    },
+                    "password": {
+                        "type": "string"
+                    },
+                    "user": {
+                        "type": "string"
+                    },
+                    "account": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.SNOWFLAKE"
+                    }
+                },
+                "required": [
+                    "schema",
+                    "warehouse",
+                    "database",
+                    "user",
+                    "account",
+                    "type"
+                ],
+                "type": "object"
+            },
+            "CreateDatabricksCredentials": {
+                "properties": {
+                    "compute": {
+                        "items": {
+                            "properties": {
+                                "httpPath": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["httpPath", "name"],
+                            "type": "object"
+                        },
+                        "type": "array"
+                    },
+                    "startOfWeek": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/WeekDay"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "requireUserCredentials": {
+                        "type": "boolean"
+                    },
+                    "personalAccessToken": {
+                        "type": "string"
+                    },
+                    "httpPath": {
+                        "type": "string"
+                    },
+                    "serverHostName": {
+                        "type": "string"
+                    },
+                    "database": {
+                        "type": "string"
+                    },
+                    "catalog": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.DATABRICKS"
+                    }
+                },
+                "required": [
+                    "personalAccessToken",
+                    "httpPath",
+                    "serverHostName",
+                    "database",
+                    "type"
+                ],
+                "type": "object"
+            },
+            "CreateTrinoCredentials": {
+                "properties": {
+                    "startOfWeek": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/WeekDay"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "http_scheme": {
+                        "type": "string"
+                    },
+                    "schema": {
+                        "type": "string"
+                    },
+                    "dbname": {
+                        "type": "string"
+                    },
+                    "port": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "requireUserCredentials": {
+                        "type": "boolean"
+                    },
+                    "password": {
+                        "type": "string"
+                    },
+                    "user": {
+                        "type": "string"
+                    },
+                    "host": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.TRINO"
+                    }
+                },
+                "required": [
+                    "http_scheme",
+                    "schema",
+                    "dbname",
+                    "port",
+                    "password",
+                    "user",
+                    "host",
+                    "type"
+                ],
+                "type": "object"
+            },
+            "CreateClickhouseCredentials": {
+                "properties": {
+                    "timeoutSeconds": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "startOfWeek": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/WeekDay"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "secure": {
+                        "type": "boolean"
+                    },
+                    "schema": {
+                        "type": "string"
+                    },
+                    "port": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "requireUserCredentials": {
+                        "type": "boolean"
+                    },
+                    "password": {
+                        "type": "string"
+                    },
+                    "user": {
+                        "type": "string"
+                    },
+                    "host": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.CLICKHOUSE"
+                    }
+                },
+                "required": [
+                    "schema",
+                    "port",
+                    "password",
+                    "user",
+                    "host",
+                    "type"
+                ],
+                "type": "object"
+            },
+            "CreateWarehouseCredentials": {
+                "anyOf": [
+                    {
+                        "$ref": "#/components/schemas/CreateRedshiftCredentials"
+                    },
+                    {
+                        "$ref": "#/components/schemas/CreateBigqueryCredentials"
+                    },
+                    {
+                        "$ref": "#/components/schemas/CreatePostgresCredentials"
+                    },
+                    {
+                        "$ref": "#/components/schemas/CreateSnowflakeCredentials"
+                    },
+                    {
+                        "$ref": "#/components/schemas/CreateDatabricksCredentials"
+                    },
+                    {
+                        "$ref": "#/components/schemas/CreateTrinoCredentials"
+                    },
+                    {
+                        "$ref": "#/components/schemas/CreateClickhouseCredentials"
+                    }
+                ]
+            },
+            "CreateOrganizationWarehouseCredentials": {
+                "properties": {
+                    "credentials": {
+                        "$ref": "#/components/schemas/CreateWarehouseCredentials"
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": ["credentials", "name"],
+                "type": "object"
+            },
+            "UpdateOrganizationWarehouseCredentials": {
+                "properties": {
+                    "credentials": {
+                        "$ref": "#/components/schemas/CreateWarehouseCredentials"
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "Pick_LightdashUser.userUuid-or-firstName-or-lastName_": {
+                "properties": {
+                    "userUuid": {
+                        "type": "string"
+                    },
+                    "firstName": {
+                        "type": "string"
+                    },
+                    "lastName": {
+                        "type": "string"
+                    }
+                },
+                "required": ["userUuid", "firstName", "lastName"],
+                "type": "object",
+                "description": "From T, pick a set of properties whose keys are in the union K"
+            },
             "Pick_Organization.name-or-createdAt-or-organizationUuid_": {
                 "properties": {
                     "name": {
@@ -1062,24 +2243,11 @@
                 "type": "object",
                 "description": "From T, pick a set of properties whose keys are in the union K"
             },
-            "Pick_LightdashUser.userUuid-or-firstName-or-lastName_": {
-                "properties": {
-                    "userUuid": {
-                        "type": "string"
-                    },
-                    "firstName": {
-                        "type": "string"
-                    },
-                    "lastName": {
-                        "type": "string"
-                    }
-                },
-                "required": ["userUuid", "firstName", "lastName"],
-                "type": "object",
-                "description": "From T, pick a set of properties whose keys are in the union K"
-            },
             "Pick_Embed.Exclude_keyofEmbed.encodedSecret__": {
                 "properties": {
+                    "user": {
+                        "$ref": "#/components/schemas/Pick_LightdashUser.userUuid-or-firstName-or-lastName_"
+                    },
                     "projectUuid": {
                         "type": "string"
                     },
@@ -1097,18 +2265,15 @@
                     },
                     "createdAt": {
                         "type": "string"
-                    },
-                    "user": {
-                        "$ref": "#/components/schemas/Pick_LightdashUser.userUuid-or-firstName-or-lastName_"
                     }
                 },
                 "required": [
+                    "user",
                     "projectUuid",
                     "organization",
                     "dashboardUuids",
                     "allowAllDashboards",
-                    "createdAt",
-                    "user"
+                    "createdAt"
                 ],
                 "type": "object",
                 "description": "From T, pick a set of properties whose keys are in the union K"
@@ -2188,14 +3353,6 @@
                     "MINUTE_OF_HOUR_NUM"
                 ],
                 "type": "string"
-            },
-            "Record_string.string_": {
-                "properties": {},
-                "additionalProperties": {
-                    "type": "string"
-                },
-                "type": "object",
-                "description": "Construct a type with a set of properties K of type T"
             },
             "FieldType": {
                 "enum": ["metric", "dimension"],
@@ -4194,8 +5351,17 @@
                     }
                 ]
             },
+            "ConditionalFormattingColorApplyTo": {
+                "type": "string",
+                "enum": ["background", "font"],
+                "description": "Where to apply the conditional formatting color:\n- 'background': apply color as cell background (default)\n- 'font': apply color to cell text/font"
+            },
             "ConditionalFormattingConfigWithSingleColor": {
                 "properties": {
+                    "colorApplyTo": {
+                        "$ref": "#/components/schemas/ConditionalFormattingColorApplyTo",
+                        "description": "Where to apply the color. Default: 'background' for backward compatibility"
+                    },
                     "rules": {
                         "items": {
                             "$ref": "#/components/schemas/ConditionalFormattingWithFilterOperator"
@@ -4261,6 +5427,10 @@
             },
             "ConditionalFormattingConfigWithColorRange": {
                 "properties": {
+                    "colorApplyTo": {
+                        "$ref": "#/components/schemas/ConditionalFormattingColorApplyTo",
+                        "description": "Where to apply the color. Default: 'background' for backward compatibility"
+                    },
                     "rule": {
                         "$ref": "#/components/schemas/ConditionalFormattingMinMax_number-or-auto_"
                     },
@@ -5887,6 +7057,132 @@
                 "required": ["refreshedAt", "cached", "results", "search"],
                 "type": "object"
             },
+            "Role": {
+                "properties": {
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "createdBy": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "ownerType": {
+                        "type": "string",
+                        "enum": ["user", "system"]
+                    },
+                    "organizationUuid": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "roleUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "updatedAt",
+                    "createdAt",
+                    "createdBy",
+                    "ownerType",
+                    "organizationUuid",
+                    "description",
+                    "name",
+                    "roleUuid"
+                ],
+                "type": "object"
+            },
+            "ApiDefaultRoleResponse": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/Role"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "CreateRole": {
+                "properties": {
+                    "scopes": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": ["name"],
+                "type": "object"
+            },
+            "UpdateRole": {
+                "properties": {
+                    "scopes": {
+                        "properties": {
+                            "remove": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            },
+                            "add": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            }
+                        },
+                        "required": ["remove", "add"],
+                        "type": "object"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "ApiUnassignRoleFromUserResponse": {
+                "$ref": "#/components/schemas/ApiSuccessEmpty"
+            },
+            "AddScopesToRole": {
+                "properties": {
+                    "scopeNames": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    }
+                },
+                "required": ["scopeNames"],
+                "type": "object"
+            },
+            "ApiRemoveScopeFromRoleResponse": {
+                "$ref": "#/components/schemas/ApiSuccessEmpty"
+            },
             "DashboardSummaryTone": {
                 "enum": ["friendly", "formal", "direct", "enthusiastic"],
                 "type": "string"
@@ -6773,19 +8069,6 @@
                                                         "type": "string",
                                                         "enum": ["error"],
                                                         "nullable": false
-                                                    }
-                                                },
-                                                "required": ["status"],
-                                                "type": "object"
-                                            },
-                                            {
-                                                "properties": {
-                                                    "status": {
-                                                        "type": "string",
-                                                        "enum": [
-                                                            "success",
-                                                            "error"
-                                                        ]
                                                     }
                                                 },
                                                 "required": ["status"],
@@ -7830,1294 +9113,8 @@
                 "required": ["changeUuid"],
                 "type": "object"
             },
-            "WarehouseTypes": {
-                "enum": [
-                    "bigquery",
-                    "postgres",
-                    "redshift",
-                    "snowflake",
-                    "databricks",
-                    "trino",
-                    "clickhouse"
-                ],
-                "type": "string"
-            },
-            "WarehouseTypes.SNOWFLAKE": {
-                "enum": ["snowflake"],
-                "type": "string"
-            },
-            "SnowflakeAuthenticationType": {
-                "enum": ["password", "private_key", "sso"],
-                "type": "string"
-            },
-            "WeekDay": {
-                "enum": [0, 1, 2, 3, 4, 5, 6],
-                "type": "number"
-            },
-            "Pick_CreateSnowflakeCredentials.Exclude_keyofCreateSnowflakeCredentials.SensitiveCredentialsFieldNames__": {
-                "properties": {
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.SNOWFLAKE"
-                    },
-                    "account": {
-                        "type": "string"
-                    },
-                    "requireUserCredentials": {
-                        "type": "boolean"
-                    },
-                    "authenticationType": {
-                        "$ref": "#/components/schemas/SnowflakeAuthenticationType"
-                    },
-                    "role": {
-                        "type": "string"
-                    },
-                    "database": {
-                        "type": "string"
-                    },
-                    "warehouse": {
-                        "type": "string"
-                    },
-                    "schema": {
-                        "type": "string"
-                    },
-                    "threads": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "clientSessionKeepAlive": {
-                        "type": "boolean"
-                    },
-                    "queryTag": {
-                        "type": "string"
-                    },
-                    "accessUrl": {
-                        "type": "string"
-                    },
-                    "startOfWeek": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/WeekDay"
-                            }
-                        ],
-                        "nullable": true
-                    },
-                    "quotedIdentifiersIgnoreCase": {
-                        "type": "boolean"
-                    },
-                    "override": {
-                        "type": "boolean"
-                    },
-                    "organizationWarehouseCredentialsUuid": {
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "type",
-                    "account",
-                    "database",
-                    "warehouse",
-                    "schema"
-                ],
-                "type": "object",
-                "description": "From T, pick a set of properties whose keys are in the union K"
-            },
-            "Omit_CreateSnowflakeCredentials.SensitiveCredentialsFieldNames_": {
-                "$ref": "#/components/schemas/Pick_CreateSnowflakeCredentials.Exclude_keyofCreateSnowflakeCredentials.SensitiveCredentialsFieldNames__",
-                "description": "Construct a type with the properties of T except for those in type K."
-            },
-            "SnowflakeCredentials": {
-                "$ref": "#/components/schemas/Omit_CreateSnowflakeCredentials.SensitiveCredentialsFieldNames_"
-            },
-            "WarehouseTypes.REDSHIFT": {
-                "enum": ["redshift"],
-                "type": "string"
-            },
-            "Pick_CreateRedshiftCredentials.Exclude_keyofCreateRedshiftCredentials.SensitiveCredentialsFieldNames__": {
-                "properties": {
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.REDSHIFT"
-                    },
-                    "requireUserCredentials": {
-                        "type": "boolean"
-                    },
-                    "schema": {
-                        "type": "string"
-                    },
-                    "threads": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "startOfWeek": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/WeekDay"
-                            }
-                        ],
-                        "nullable": true
-                    },
-                    "useSshTunnel": {
-                        "type": "boolean"
-                    },
-                    "sshTunnelHost": {
-                        "type": "string"
-                    },
-                    "sshTunnelPort": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "sshTunnelUser": {
-                        "type": "string"
-                    },
-                    "sshTunnelPublicKey": {
-                        "type": "string"
-                    },
-                    "host": {
-                        "type": "string"
-                    },
-                    "port": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "dbname": {
-                        "type": "string"
-                    },
-                    "keepalivesIdle": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "sslmode": {
-                        "type": "string"
-                    },
-                    "ra3Node": {
-                        "type": "boolean"
-                    },
-                    "timeoutSeconds": {
-                        "type": "number",
-                        "format": "double"
-                    }
-                },
-                "required": ["type", "schema", "host", "port", "dbname"],
-                "type": "object",
-                "description": "From T, pick a set of properties whose keys are in the union K"
-            },
-            "Omit_CreateRedshiftCredentials.SensitiveCredentialsFieldNames_": {
-                "$ref": "#/components/schemas/Pick_CreateRedshiftCredentials.Exclude_keyofCreateRedshiftCredentials.SensitiveCredentialsFieldNames__",
-                "description": "Construct a type with the properties of T except for those in type K."
-            },
-            "RedshiftCredentials": {
-                "$ref": "#/components/schemas/Omit_CreateRedshiftCredentials.SensitiveCredentialsFieldNames_"
-            },
-            "WarehouseTypes.POSTGRES": {
-                "enum": ["postgres"],
-                "type": "string"
-            },
-            "Pick_CreatePostgresCredentials.Exclude_keyofCreatePostgresCredentials.SensitiveCredentialsFieldNames__": {
-                "properties": {
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.POSTGRES"
-                    },
-                    "requireUserCredentials": {
-                        "type": "boolean"
-                    },
-                    "role": {
-                        "type": "string"
-                    },
-                    "schema": {
-                        "type": "string"
-                    },
-                    "threads": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "startOfWeek": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/WeekDay"
-                            }
-                        ],
-                        "nullable": true
-                    },
-                    "useSshTunnel": {
-                        "type": "boolean"
-                    },
-                    "sshTunnelHost": {
-                        "type": "string"
-                    },
-                    "sshTunnelPort": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "sshTunnelUser": {
-                        "type": "string"
-                    },
-                    "sshTunnelPublicKey": {
-                        "type": "string"
-                    },
-                    "host": {
-                        "type": "string"
-                    },
-                    "port": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "dbname": {
-                        "type": "string"
-                    },
-                    "keepalivesIdle": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "sslmode": {
-                        "type": "string"
-                    },
-                    "timeoutSeconds": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "sslcertFileName": {
-                        "type": "string"
-                    },
-                    "sslkeyFileName": {
-                        "type": "string"
-                    },
-                    "sslrootcertFileName": {
-                        "type": "string"
-                    },
-                    "searchPath": {
-                        "type": "string"
-                    }
-                },
-                "required": ["type", "schema", "host", "port", "dbname"],
-                "type": "object",
-                "description": "From T, pick a set of properties whose keys are in the union K"
-            },
-            "Omit_CreatePostgresCredentials.SensitiveCredentialsFieldNames_": {
-                "$ref": "#/components/schemas/Pick_CreatePostgresCredentials.Exclude_keyofCreatePostgresCredentials.SensitiveCredentialsFieldNames__",
-                "description": "Construct a type with the properties of T except for those in type K."
-            },
-            "PostgresCredentials": {
-                "$ref": "#/components/schemas/Omit_CreatePostgresCredentials.SensitiveCredentialsFieldNames_"
-            },
-            "WarehouseTypes.BIGQUERY": {
-                "enum": ["bigquery"],
-                "type": "string"
-            },
-            "BigqueryAuthenticationType": {
-                "enum": ["sso", "private_key", "adc"],
-                "type": "string"
-            },
-            "Pick_CreateBigqueryCredentials.Exclude_keyofCreateBigqueryCredentials.SensitiveCredentialsFieldNames__": {
-                "properties": {
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.BIGQUERY"
-                    },
-                    "requireUserCredentials": {
-                        "type": "boolean"
-                    },
-                    "authenticationType": {
-                        "$ref": "#/components/schemas/BigqueryAuthenticationType"
-                    },
-                    "threads": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "startOfWeek": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/WeekDay"
-                            }
-                        ],
-                        "nullable": true
-                    },
-                    "timeoutSeconds": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "project": {
-                        "type": "string"
-                    },
-                    "dataset": {
-                        "type": "string"
-                    },
-                    "priority": {
-                        "type": "string",
-                        "enum": ["interactive", "batch"]
-                    },
-                    "retries": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "location": {
-                        "type": "string"
-                    },
-                    "maximumBytesBilled": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "executionProject": {
-                        "type": "string"
-                    }
-                },
-                "required": ["type", "project", "dataset"],
-                "type": "object",
-                "description": "From T, pick a set of properties whose keys are in the union K"
-            },
-            "Omit_CreateBigqueryCredentials.SensitiveCredentialsFieldNames_": {
-                "$ref": "#/components/schemas/Pick_CreateBigqueryCredentials.Exclude_keyofCreateBigqueryCredentials.SensitiveCredentialsFieldNames__",
-                "description": "Construct a type with the properties of T except for those in type K."
-            },
-            "BigqueryCredentials": {
-                "$ref": "#/components/schemas/Omit_CreateBigqueryCredentials.SensitiveCredentialsFieldNames_"
-            },
-            "WarehouseTypes.DATABRICKS": {
-                "enum": ["databricks"],
-                "type": "string"
-            },
-            "Pick_CreateDatabricksCredentials.Exclude_keyofCreateDatabricksCredentials.SensitiveCredentialsFieldNames__": {
-                "properties": {
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.DATABRICKS"
-                    },
-                    "requireUserCredentials": {
-                        "type": "boolean"
-                    },
-                    "database": {
-                        "type": "string"
-                    },
-                    "startOfWeek": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/WeekDay"
-                            }
-                        ],
-                        "nullable": true
-                    },
-                    "catalog": {
-                        "type": "string"
-                    },
-                    "serverHostName": {
-                        "type": "string"
-                    },
-                    "httpPath": {
-                        "type": "string"
-                    },
-                    "compute": {
-                        "items": {
-                            "properties": {
-                                "httpPath": {
-                                    "type": "string"
-                                },
-                                "name": {
-                                    "type": "string"
-                                }
-                            },
-                            "required": ["httpPath", "name"],
-                            "type": "object"
-                        },
-                        "type": "array"
-                    }
-                },
-                "required": ["type", "database", "serverHostName", "httpPath"],
-                "type": "object",
-                "description": "From T, pick a set of properties whose keys are in the union K"
-            },
-            "Omit_CreateDatabricksCredentials.SensitiveCredentialsFieldNames_": {
-                "$ref": "#/components/schemas/Pick_CreateDatabricksCredentials.Exclude_keyofCreateDatabricksCredentials.SensitiveCredentialsFieldNames__",
-                "description": "Construct a type with the properties of T except for those in type K."
-            },
-            "DatabricksCredentials": {
-                "$ref": "#/components/schemas/Omit_CreateDatabricksCredentials.SensitiveCredentialsFieldNames_"
-            },
-            "WarehouseTypes.TRINO": {
-                "enum": ["trino"],
-                "type": "string"
-            },
-            "Pick_CreateTrinoCredentials.Exclude_keyofCreateTrinoCredentials.SensitiveCredentialsFieldNames__": {
-                "properties": {
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.TRINO"
-                    },
-                    "requireUserCredentials": {
-                        "type": "boolean"
-                    },
-                    "schema": {
-                        "type": "string"
-                    },
-                    "startOfWeek": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/WeekDay"
-                            }
-                        ],
-                        "nullable": true
-                    },
-                    "host": {
-                        "type": "string"
-                    },
-                    "port": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "dbname": {
-                        "type": "string"
-                    },
-                    "http_scheme": {
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "type",
-                    "schema",
-                    "host",
-                    "port",
-                    "dbname",
-                    "http_scheme"
-                ],
-                "type": "object",
-                "description": "From T, pick a set of properties whose keys are in the union K"
-            },
-            "Omit_CreateTrinoCredentials.SensitiveCredentialsFieldNames_": {
-                "$ref": "#/components/schemas/Pick_CreateTrinoCredentials.Exclude_keyofCreateTrinoCredentials.SensitiveCredentialsFieldNames__",
-                "description": "Construct a type with the properties of T except for those in type K."
-            },
-            "TrinoCredentials": {
-                "$ref": "#/components/schemas/Omit_CreateTrinoCredentials.SensitiveCredentialsFieldNames_"
-            },
-            "WarehouseTypes.CLICKHOUSE": {
-                "enum": ["clickhouse"],
-                "type": "string"
-            },
-            "Pick_CreateClickhouseCredentials.Exclude_keyofCreateClickhouseCredentials.SensitiveCredentialsFieldNames__": {
-                "properties": {
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.CLICKHOUSE"
-                    },
-                    "requireUserCredentials": {
-                        "type": "boolean"
-                    },
-                    "schema": {
-                        "type": "string"
-                    },
-                    "startOfWeek": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/WeekDay"
-                            }
-                        ],
-                        "nullable": true
-                    },
-                    "host": {
-                        "type": "string"
-                    },
-                    "port": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "timeoutSeconds": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "secure": {
-                        "type": "boolean"
-                    }
-                },
-                "required": ["type", "schema", "host", "port"],
-                "type": "object",
-                "description": "From T, pick a set of properties whose keys are in the union K"
-            },
-            "Omit_CreateClickhouseCredentials.SensitiveCredentialsFieldNames_": {
-                "$ref": "#/components/schemas/Pick_CreateClickhouseCredentials.Exclude_keyofCreateClickhouseCredentials.SensitiveCredentialsFieldNames__",
-                "description": "Construct a type with the properties of T except for those in type K."
-            },
-            "ClickhouseCredentials": {
-                "$ref": "#/components/schemas/Omit_CreateClickhouseCredentials.SensitiveCredentialsFieldNames_"
-            },
-            "WarehouseCredentials": {
-                "anyOf": [
-                    {
-                        "$ref": "#/components/schemas/SnowflakeCredentials"
-                    },
-                    {
-                        "$ref": "#/components/schemas/RedshiftCredentials"
-                    },
-                    {
-                        "$ref": "#/components/schemas/PostgresCredentials"
-                    },
-                    {
-                        "$ref": "#/components/schemas/BigqueryCredentials"
-                    },
-                    {
-                        "$ref": "#/components/schemas/DatabricksCredentials"
-                    },
-                    {
-                        "$ref": "#/components/schemas/TrinoCredentials"
-                    },
-                    {
-                        "$ref": "#/components/schemas/ClickhouseCredentials"
-                    }
-                ]
-            },
-            "OrganizationWarehouseCredentials": {
-                "properties": {
-                    "credentials": {
-                        "$ref": "#/components/schemas/WarehouseCredentials"
-                    },
-                    "createdByUserUuid": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "createdAt": {
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "warehouseType": {
-                        "$ref": "#/components/schemas/WarehouseTypes"
-                    },
-                    "description": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "organizationUuid": {
-                        "type": "string"
-                    },
-                    "organizationWarehouseCredentialsUuid": {
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "credentials",
-                    "createdByUserUuid",
-                    "createdAt",
-                    "warehouseType",
-                    "description",
-                    "name",
-                    "organizationUuid",
-                    "organizationWarehouseCredentialsUuid"
-                ],
-                "type": "object",
-                "description": "Organization-level warehouse credentials"
-            },
-            "ApiOrganizationWarehouseCredentialsListResponse": {
-                "properties": {
-                    "results": {
-                        "items": {
-                            "$ref": "#/components/schemas/OrganizationWarehouseCredentials"
-                        },
-                        "type": "array"
-                    },
-                    "status": {
-                        "type": "string",
-                        "enum": ["ok"],
-                        "nullable": false
-                    }
-                },
-                "required": ["results", "status"],
-                "type": "object"
-            },
-            "ApiOrganizationWarehouseCredentialsResponse": {
-                "properties": {
-                    "results": {
-                        "$ref": "#/components/schemas/OrganizationWarehouseCredentials"
-                    },
-                    "status": {
-                        "type": "string",
-                        "enum": ["ok"],
-                        "nullable": false
-                    }
-                },
-                "required": ["results", "status"],
-                "type": "object"
-            },
-            "SshTunnelConfiguration": {
-                "properties": {
-                    "sshTunnelPrivateKey": {
-                        "type": "string"
-                    },
-                    "sshTunnelPublicKey": {
-                        "type": "string"
-                    },
-                    "sshTunnelUser": {
-                        "type": "string"
-                    },
-                    "sshTunnelPort": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "sshTunnelHost": {
-                        "type": "string"
-                    },
-                    "useSshTunnel": {
-                        "type": "boolean"
-                    }
-                },
-                "type": "object"
-            },
-            "CreateRedshiftCredentials": {
-                "allOf": [
-                    {
-                        "$ref": "#/components/schemas/SshTunnelConfiguration"
-                    },
-                    {
-                        "properties": {
-                            "timeoutSeconds": {
-                                "type": "number",
-                                "format": "double"
-                            },
-                            "startOfWeek": {
-                                "allOf": [
-                                    {
-                                        "$ref": "#/components/schemas/WeekDay"
-                                    }
-                                ],
-                                "nullable": true
-                            },
-                            "ra3Node": {
-                                "type": "boolean"
-                            },
-                            "sslmode": {
-                                "type": "string"
-                            },
-                            "keepalivesIdle": {
-                                "type": "number",
-                                "format": "double"
-                            },
-                            "threads": {
-                                "type": "number",
-                                "format": "double"
-                            },
-                            "schema": {
-                                "type": "string"
-                            },
-                            "dbname": {
-                                "type": "string"
-                            },
-                            "port": {
-                                "type": "number",
-                                "format": "double"
-                            },
-                            "requireUserCredentials": {
-                                "type": "boolean"
-                            },
-                            "password": {
-                                "type": "string"
-                            },
-                            "user": {
-                                "type": "string"
-                            },
-                            "host": {
-                                "type": "string"
-                            },
-                            "type": {
-                                "$ref": "#/components/schemas/WarehouseTypes.REDSHIFT"
-                            }
-                        },
-                        "required": [
-                            "schema",
-                            "dbname",
-                            "port",
-                            "password",
-                            "user",
-                            "host",
-                            "type"
-                        ],
-                        "type": "object"
-                    }
-                ]
-            },
-            "CreateBigqueryCredentials": {
-                "properties": {
-                    "executionProject": {
-                        "type": "string"
-                    },
-                    "startOfWeek": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/WeekDay"
-                            }
-                        ],
-                        "nullable": true
-                    },
-                    "maximumBytesBilled": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "location": {
-                        "type": "string"
-                    },
-                    "retries": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "requireUserCredentials": {
-                        "type": "boolean"
-                    },
-                    "keyfileContents": {
-                        "$ref": "#/components/schemas/Record_string.string_"
-                    },
-                    "authenticationType": {
-                        "$ref": "#/components/schemas/BigqueryAuthenticationType"
-                    },
-                    "priority": {
-                        "type": "string",
-                        "enum": ["interactive", "batch"]
-                    },
-                    "timeoutSeconds": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "threads": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "dataset": {
-                        "type": "string"
-                    },
-                    "project": {
-                        "type": "string"
-                    },
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.BIGQUERY"
-                    }
-                },
-                "required": ["keyfileContents", "dataset", "project", "type"],
-                "type": "object"
-            },
-            "SslConfiguration": {
-                "properties": {
-                    "sslrootcert": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "sslrootcertFileName": {
-                        "type": "string"
-                    },
-                    "sslkey": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "sslkeyFileName": {
-                        "type": "string"
-                    },
-                    "sslcert": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "sslcertFileName": {
-                        "type": "string"
-                    },
-                    "sslmode": {
-                        "type": "string"
-                    }
-                },
-                "type": "object"
-            },
-            "CreatePostgresCredentials": {
-                "allOf": [
-                    {
-                        "$ref": "#/components/schemas/SshTunnelConfiguration"
-                    },
-                    {
-                        "$ref": "#/components/schemas/SslConfiguration"
-                    },
-                    {
-                        "properties": {
-                            "timeoutSeconds": {
-                                "type": "number",
-                                "format": "double"
-                            },
-                            "startOfWeek": {
-                                "allOf": [
-                                    {
-                                        "$ref": "#/components/schemas/WeekDay"
-                                    }
-                                ],
-                                "nullable": true
-                            },
-                            "role": {
-                                "type": "string"
-                            },
-                            "searchPath": {
-                                "type": "string"
-                            },
-                            "keepalivesIdle": {
-                                "type": "number",
-                                "format": "double"
-                            },
-                            "threads": {
-                                "type": "number",
-                                "format": "double"
-                            },
-                            "schema": {
-                                "type": "string"
-                            },
-                            "dbname": {
-                                "type": "string"
-                            },
-                            "port": {
-                                "type": "number",
-                                "format": "double"
-                            },
-                            "requireUserCredentials": {
-                                "type": "boolean"
-                            },
-                            "password": {
-                                "type": "string"
-                            },
-                            "user": {
-                                "type": "string"
-                            },
-                            "host": {
-                                "type": "string"
-                            },
-                            "type": {
-                                "$ref": "#/components/schemas/WarehouseTypes.POSTGRES"
-                            }
-                        },
-                        "required": [
-                            "schema",
-                            "dbname",
-                            "port",
-                            "password",
-                            "user",
-                            "host",
-                            "type"
-                        ],
-                        "type": "object"
-                    }
-                ]
-            },
-            "CreateSnowflakeCredentials": {
-                "properties": {
-                    "organizationWarehouseCredentialsUuid": {
-                        "type": "string"
-                    },
-                    "override": {
-                        "type": "boolean"
-                    },
-                    "quotedIdentifiersIgnoreCase": {
-                        "type": "boolean"
-                    },
-                    "startOfWeek": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/WeekDay"
-                            }
-                        ],
-                        "nullable": true
-                    },
-                    "accessUrl": {
-                        "type": "string"
-                    },
-                    "queryTag": {
-                        "type": "string"
-                    },
-                    "clientSessionKeepAlive": {
-                        "type": "boolean"
-                    },
-                    "threads": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "schema": {
-                        "type": "string"
-                    },
-                    "warehouse": {
-                        "type": "string"
-                    },
-                    "database": {
-                        "type": "string"
-                    },
-                    "role": {
-                        "type": "string"
-                    },
-                    "token": {
-                        "type": "string"
-                    },
-                    "refreshToken": {
-                        "type": "string"
-                    },
-                    "authenticationType": {
-                        "$ref": "#/components/schemas/SnowflakeAuthenticationType"
-                    },
-                    "privateKeyPass": {
-                        "type": "string"
-                    },
-                    "privateKey": {
-                        "type": "string"
-                    },
-                    "requireUserCredentials": {
-                        "type": "boolean"
-                    },
-                    "password": {
-                        "type": "string"
-                    },
-                    "user": {
-                        "type": "string"
-                    },
-                    "account": {
-                        "type": "string"
-                    },
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.SNOWFLAKE"
-                    }
-                },
-                "required": [
-                    "schema",
-                    "warehouse",
-                    "database",
-                    "user",
-                    "account",
-                    "type"
-                ],
-                "type": "object"
-            },
-            "CreateDatabricksCredentials": {
-                "properties": {
-                    "compute": {
-                        "items": {
-                            "properties": {
-                                "httpPath": {
-                                    "type": "string"
-                                },
-                                "name": {
-                                    "type": "string"
-                                }
-                            },
-                            "required": ["httpPath", "name"],
-                            "type": "object"
-                        },
-                        "type": "array"
-                    },
-                    "startOfWeek": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/WeekDay"
-                            }
-                        ],
-                        "nullable": true
-                    },
-                    "requireUserCredentials": {
-                        "type": "boolean"
-                    },
-                    "personalAccessToken": {
-                        "type": "string"
-                    },
-                    "httpPath": {
-                        "type": "string"
-                    },
-                    "serverHostName": {
-                        "type": "string"
-                    },
-                    "database": {
-                        "type": "string"
-                    },
-                    "catalog": {
-                        "type": "string"
-                    },
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.DATABRICKS"
-                    }
-                },
-                "required": [
-                    "personalAccessToken",
-                    "httpPath",
-                    "serverHostName",
-                    "database",
-                    "type"
-                ],
-                "type": "object"
-            },
-            "CreateTrinoCredentials": {
-                "properties": {
-                    "startOfWeek": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/WeekDay"
-                            }
-                        ],
-                        "nullable": true
-                    },
-                    "http_scheme": {
-                        "type": "string"
-                    },
-                    "schema": {
-                        "type": "string"
-                    },
-                    "dbname": {
-                        "type": "string"
-                    },
-                    "port": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "requireUserCredentials": {
-                        "type": "boolean"
-                    },
-                    "password": {
-                        "type": "string"
-                    },
-                    "user": {
-                        "type": "string"
-                    },
-                    "host": {
-                        "type": "string"
-                    },
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.TRINO"
-                    }
-                },
-                "required": [
-                    "http_scheme",
-                    "schema",
-                    "dbname",
-                    "port",
-                    "password",
-                    "user",
-                    "host",
-                    "type"
-                ],
-                "type": "object"
-            },
-            "CreateClickhouseCredentials": {
-                "properties": {
-                    "timeoutSeconds": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "startOfWeek": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/WeekDay"
-                            }
-                        ],
-                        "nullable": true
-                    },
-                    "secure": {
-                        "type": "boolean"
-                    },
-                    "schema": {
-                        "type": "string"
-                    },
-                    "port": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "requireUserCredentials": {
-                        "type": "boolean"
-                    },
-                    "password": {
-                        "type": "string"
-                    },
-                    "user": {
-                        "type": "string"
-                    },
-                    "host": {
-                        "type": "string"
-                    },
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.CLICKHOUSE"
-                    }
-                },
-                "required": [
-                    "schema",
-                    "port",
-                    "password",
-                    "user",
-                    "host",
-                    "type"
-                ],
-                "type": "object"
-            },
-            "CreateWarehouseCredentials": {
-                "anyOf": [
-                    {
-                        "$ref": "#/components/schemas/CreateRedshiftCredentials"
-                    },
-                    {
-                        "$ref": "#/components/schemas/CreateBigqueryCredentials"
-                    },
-                    {
-                        "$ref": "#/components/schemas/CreatePostgresCredentials"
-                    },
-                    {
-                        "$ref": "#/components/schemas/CreateSnowflakeCredentials"
-                    },
-                    {
-                        "$ref": "#/components/schemas/CreateDatabricksCredentials"
-                    },
-                    {
-                        "$ref": "#/components/schemas/CreateTrinoCredentials"
-                    },
-                    {
-                        "$ref": "#/components/schemas/CreateClickhouseCredentials"
-                    }
-                ]
-            },
-            "CreateOrganizationWarehouseCredentials": {
-                "properties": {
-                    "credentials": {
-                        "$ref": "#/components/schemas/CreateWarehouseCredentials"
-                    },
-                    "description": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "name": {
-                        "type": "string"
-                    }
-                },
-                "required": ["credentials", "name"],
-                "type": "object"
-            },
-            "UpdateOrganizationWarehouseCredentials": {
-                "properties": {
-                    "credentials": {
-                        "$ref": "#/components/schemas/CreateWarehouseCredentials"
-                    },
-                    "description": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "name": {
-                        "type": "string"
-                    }
-                },
-                "type": "object"
-            },
-            "Role": {
-                "properties": {
-                    "updatedAt": {
-                        "type": "string",
-                        "format": "date-time",
-                        "nullable": true
-                    },
-                    "createdAt": {
-                        "type": "string",
-                        "format": "date-time",
-                        "nullable": true
-                    },
-                    "createdBy": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "ownerType": {
-                        "type": "string",
-                        "enum": ["user", "system"]
-                    },
-                    "organizationUuid": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "description": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "roleUuid": {
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "updatedAt",
-                    "createdAt",
-                    "createdBy",
-                    "ownerType",
-                    "organizationUuid",
-                    "description",
-                    "name",
-                    "roleUuid"
-                ],
-                "type": "object"
-            },
-            "ApiDefaultRoleResponse": {
-                "properties": {
-                    "results": {
-                        "$ref": "#/components/schemas/Role"
-                    },
-                    "status": {
-                        "type": "string",
-                        "enum": ["ok"],
-                        "nullable": false
-                    }
-                },
-                "required": ["results", "status"],
-                "type": "object"
-            },
-            "CreateRole": {
-                "properties": {
-                    "scopes": {
-                        "items": {
-                            "type": "string"
-                        },
-                        "type": "array"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "name": {
-                        "type": "string"
-                    }
-                },
-                "required": ["name"],
-                "type": "object"
-            },
-            "UpdateRole": {
-                "properties": {
-                    "scopes": {
-                        "properties": {
-                            "remove": {
-                                "items": {
-                                    "type": "string"
-                                },
-                                "type": "array"
-                            },
-                            "add": {
-                                "items": {
-                                    "type": "string"
-                                },
-                                "type": "array"
-                            }
-                        },
-                        "required": ["remove", "add"],
-                        "type": "object"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "name": {
-                        "type": "string"
-                    }
-                },
-                "type": "object"
-            },
-            "ApiUnassignRoleFromUserResponse": {
-                "$ref": "#/components/schemas/ApiSuccessEmpty"
-            },
-            "AddScopesToRole": {
-                "properties": {
-                    "scopeNames": {
-                        "items": {
-                            "type": "string"
-                        },
-                        "type": "array"
-                    }
-                },
-                "required": ["scopeNames"],
-                "type": "object"
-            },
-            "ApiRemoveScopeFromRoleResponse": {
-                "$ref": "#/components/schemas/ApiSuccessEmpty"
-            },
             "Pick_AiAgentThreadSummary_AiAgentUser-and-_slackUserId-string-or-null--email-string-or-null__.user-or-createdAt-or-createdFrom-or-title-or-uuid_": {
                 "properties": {
-                    "createdAt": {
-                        "type": "string"
-                    },
                     "user": {
                         "allOf": [
                             {
@@ -9139,6 +9136,9 @@
                             }
                         ]
                     },
+                    "createdAt": {
+                        "type": "string"
+                    },
                     "uuid": {
                         "type": "string"
                     },
@@ -9151,8 +9151,8 @@
                     }
                 },
                 "required": [
-                    "createdAt",
                     "user",
+                    "createdAt",
                     "uuid",
                     "title",
                     "createdFrom"
@@ -10027,14 +10027,14 @@
                     "user": {
                         "type": "string"
                     },
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.REDSHIFT"
-                    },
                     "password": {
                         "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.REDSHIFT"
                     }
                 },
-                "required": ["user", "type", "password"],
+                "required": ["user", "password", "type"],
                 "type": "object",
                 "description": "From T, pick a set of properties whose keys are in the union K"
             },
@@ -10043,14 +10043,14 @@
                     "user": {
                         "type": "string"
                     },
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.POSTGRES"
-                    },
                     "password": {
                         "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.POSTGRES"
                     }
                 },
-                "required": ["user", "type", "password"],
+                "required": ["user", "password", "type"],
                 "type": "object",
                 "description": "From T, pick a set of properties whose keys are in the union K"
             },
@@ -10059,14 +10059,14 @@
                     "user": {
                         "type": "string"
                     },
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.SNOWFLAKE"
-                    },
                     "password": {
                         "type": "string"
                     },
                     "token": {
                         "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.SNOWFLAKE"
                     },
                     "authenticationType": {
                         "$ref": "#/components/schemas/SnowflakeAuthenticationType"
@@ -10081,14 +10081,14 @@
                     "user": {
                         "type": "string"
                     },
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.TRINO"
-                    },
                     "password": {
                         "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.TRINO"
                     }
                 },
-                "required": ["user", "type", "password"],
+                "required": ["user", "password", "type"],
                 "type": "object",
                 "description": "From T, pick a set of properties whose keys are in the union K"
             },
@@ -10097,43 +10097,43 @@
                     "user": {
                         "type": "string"
                     },
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.CLICKHOUSE"
-                    },
                     "password": {
                         "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.CLICKHOUSE"
                     }
                 },
-                "required": ["user", "type", "password"],
+                "required": ["user", "password", "type"],
                 "type": "object",
                 "description": "From T, pick a set of properties whose keys are in the union K"
             },
             "Pick_CreateBigqueryCredentials.type-or-keyfileContents-or-authenticationType_": {
                 "properties": {
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.BIGQUERY"
-                    },
                     "keyfileContents": {
                         "$ref": "#/components/schemas/Record_string.string_"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.BIGQUERY"
                     },
                     "authenticationType": {
                         "$ref": "#/components/schemas/BigqueryAuthenticationType"
                     }
                 },
-                "required": ["type", "keyfileContents"],
+                "required": ["keyfileContents", "type"],
                 "type": "object",
                 "description": "From T, pick a set of properties whose keys are in the union K"
             },
             "Pick_CreateDatabricksCredentials.type-or-personalAccessToken_": {
                 "properties": {
-                    "type": {
-                        "$ref": "#/components/schemas/WarehouseTypes.DATABRICKS"
-                    },
                     "personalAccessToken": {
                         "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/WarehouseTypes.DATABRICKS"
                     }
                 },
-                "required": ["type", "personalAccessToken"],
+                "required": ["personalAccessToken", "type"],
                 "type": "object",
                 "description": "From T, pick a set of properties whose keys are in the union K"
             },
@@ -12559,14 +12559,14 @@
             },
             "Pick_SpaceShare.userUuid-or-role_": {
                 "properties": {
-                    "userUuid": {
-                        "type": "string"
-                    },
                     "role": {
                         "$ref": "#/components/schemas/SpaceMemberRole"
+                    },
+                    "userUuid": {
+                        "type": "string"
                     }
                 },
-                "required": ["userUuid", "role"],
+                "required": ["role", "userUuid"],
                 "type": "object",
                 "description": "From T, pick a set of properties whose keys are in the union K"
             },
@@ -14269,6 +14269,107 @@
                     }
                 },
                 "required": ["results", "status"],
+                "type": "object"
+            },
+            "RoleAssignment": {
+                "properties": {
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "organizationId": {
+                        "type": "string"
+                    },
+                    "assigneeName": {
+                        "type": "string"
+                    },
+                    "assigneeId": {
+                        "type": "string"
+                    },
+                    "assigneeType": {
+                        "type": "string",
+                        "enum": ["user", "group"]
+                    },
+                    "ownerType": {
+                        "type": "string",
+                        "enum": ["user", "system"]
+                    },
+                    "roleName": {
+                        "type": "string"
+                    },
+                    "roleId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "updatedAt",
+                    "createdAt",
+                    "assigneeName",
+                    "assigneeId",
+                    "assigneeType",
+                    "ownerType",
+                    "roleName",
+                    "roleId"
+                ],
+                "type": "object"
+            },
+            "ApiRoleAssignmentListResponse": {
+                "properties": {
+                    "results": {
+                        "items": {
+                            "$ref": "#/components/schemas/RoleAssignment"
+                        },
+                        "type": "array"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiRoleAssignmentResponse": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/RoleAssignment"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "UpsertUserRoleAssignmentRequest": {
+                "properties": {
+                    "sendEmail": {
+                        "type": "boolean"
+                    },
+                    "roleId": {
+                        "type": "string"
+                    }
+                },
+                "required": ["roleId"],
+                "type": "object"
+            },
+            "UpdateRoleAssignmentRequest": {
+                "properties": {
+                    "roleId": {
+                        "type": "string"
+                    }
+                },
+                "required": ["roleId"],
                 "type": "object"
             },
             "ProjectType": {
@@ -16126,22 +16227,22 @@
                     }
                 ]
             },
-            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__": {
+            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__": {
                 "properties": {},
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
-            "PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__": {
+            "PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__": {
                 "properties": {
                     "dashboard": {
-                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__"
+                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__"
                     }
                 },
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
             "PartialDeep_DashboardAsCodeLanguageMap._recurseIntoArrays-true__": {
-                "$ref": "#/components/schemas/PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__",
+                "$ref": "#/components/schemas/PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__",
                 "description": "Create a type from another type with all keys and nested keys set to optional.\n\nUse-cases:\n- Merging a default settings/config object with another object, the second object would be a deep partial of the default object.\n- Mocking and testing complex entities, where populating an entire object with its keys would be redundant in terms of the mock or test."
             },
             "ApiDashboardAsCodeListResponse": {
@@ -16752,6 +16853,66 @@
                     }
                 },
                 "required": ["contentType", "fileName"],
+                "type": "object"
+            },
+            "RoleWithScopes": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Role"
+                    },
+                    {
+                        "properties": {
+                            "scopes": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            }
+                        },
+                        "required": ["scopes"],
+                        "type": "object"
+                    }
+                ]
+            },
+            "ApiGetRolesResponse": {
+                "properties": {
+                    "results": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "$ref": "#/components/schemas/Role"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "items": {
+                                    "$ref": "#/components/schemas/RoleWithScopes"
+                                },
+                                "type": "array"
+                            }
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiRoleWithScopesResponse": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/RoleWithScopes"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
                 "type": "object"
             },
             "Organization": {
@@ -18460,6 +18621,9 @@
                     "type": {
                         "$ref": "#/components/schemas/ExploreType"
                     },
+                    "warehouse": {
+                        "type": "string"
+                    },
                     "label": {
                         "type": "string"
                     },
@@ -18484,9 +18648,6 @@
                             "type": "string"
                         },
                         "type": "array"
-                    },
-                    "warehouse": {
-                        "type": "string"
                     },
                     "parameters": {
                         "$ref": "#/components/schemas/Record_string.LightdashProjectParameter_"
@@ -18734,6 +18895,43 @@
                     }
                 },
                 "required": ["status"],
+                "type": "object"
+            },
+            "ChangesetTSOACompat": {
+                "$ref": "#/components/schemas/Record_string.unknown_"
+            },
+            "ApiChangesetsResponseTSOACompat": {
+                "properties": {
+                    "results": {
+                        "items": {
+                            "$ref": "#/components/schemas/ChangesetTSOACompat"
+                        },
+                        "type": "array"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ChangeTSOACompat": {
+                "$ref": "#/components/schemas/Record_string.unknown_"
+            },
+            "ApiGetChangeResponseTSOACompat": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/ChangeTSOACompat"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
                 "type": "object"
             },
             "Pick_Field.name-or-label-or-fieldType-or-tableLabel-or-description_": {
@@ -19348,204 +19546,6 @@
                             "$ref": "#/components/schemas/BigqueryDataset"
                         },
                         "type": "array"
-                    },
-                    "status": {
-                        "type": "string",
-                        "enum": ["ok"],
-                        "nullable": false
-                    }
-                },
-                "required": ["results", "status"],
-                "type": "object"
-            },
-            "RoleAssignment": {
-                "properties": {
-                    "updatedAt": {
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "createdAt": {
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "projectId": {
-                        "type": "string"
-                    },
-                    "organizationId": {
-                        "type": "string"
-                    },
-                    "assigneeName": {
-                        "type": "string"
-                    },
-                    "assigneeId": {
-                        "type": "string"
-                    },
-                    "assigneeType": {
-                        "type": "string",
-                        "enum": ["user", "group"]
-                    },
-                    "ownerType": {
-                        "type": "string",
-                        "enum": ["user", "system"]
-                    },
-                    "roleName": {
-                        "type": "string"
-                    },
-                    "roleId": {
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "updatedAt",
-                    "createdAt",
-                    "assigneeName",
-                    "assigneeId",
-                    "assigneeType",
-                    "ownerType",
-                    "roleName",
-                    "roleId"
-                ],
-                "type": "object"
-            },
-            "ApiRoleAssignmentListResponse": {
-                "properties": {
-                    "results": {
-                        "items": {
-                            "$ref": "#/components/schemas/RoleAssignment"
-                        },
-                        "type": "array"
-                    },
-                    "status": {
-                        "type": "string",
-                        "enum": ["ok"],
-                        "nullable": false
-                    }
-                },
-                "required": ["results", "status"],
-                "type": "object"
-            },
-            "ApiRoleAssignmentResponse": {
-                "properties": {
-                    "results": {
-                        "$ref": "#/components/schemas/RoleAssignment"
-                    },
-                    "status": {
-                        "type": "string",
-                        "enum": ["ok"],
-                        "nullable": false
-                    }
-                },
-                "required": ["results", "status"],
-                "type": "object"
-            },
-            "UpsertUserRoleAssignmentRequest": {
-                "properties": {
-                    "sendEmail": {
-                        "type": "boolean"
-                    },
-                    "roleId": {
-                        "type": "string"
-                    }
-                },
-                "required": ["roleId"],
-                "type": "object"
-            },
-            "UpdateRoleAssignmentRequest": {
-                "properties": {
-                    "roleId": {
-                        "type": "string"
-                    }
-                },
-                "required": ["roleId"],
-                "type": "object"
-            },
-            "RoleWithScopes": {
-                "allOf": [
-                    {
-                        "$ref": "#/components/schemas/Role"
-                    },
-                    {
-                        "properties": {
-                            "scopes": {
-                                "items": {
-                                    "type": "string"
-                                },
-                                "type": "array"
-                            }
-                        },
-                        "required": ["scopes"],
-                        "type": "object"
-                    }
-                ]
-            },
-            "ApiGetRolesResponse": {
-                "properties": {
-                    "results": {
-                        "anyOf": [
-                            {
-                                "items": {
-                                    "$ref": "#/components/schemas/Role"
-                                },
-                                "type": "array"
-                            },
-                            {
-                                "items": {
-                                    "$ref": "#/components/schemas/RoleWithScopes"
-                                },
-                                "type": "array"
-                            }
-                        ]
-                    },
-                    "status": {
-                        "type": "string",
-                        "enum": ["ok"],
-                        "nullable": false
-                    }
-                },
-                "required": ["results", "status"],
-                "type": "object"
-            },
-            "ApiRoleWithScopesResponse": {
-                "properties": {
-                    "results": {
-                        "$ref": "#/components/schemas/RoleWithScopes"
-                    },
-                    "status": {
-                        "type": "string",
-                        "enum": ["ok"],
-                        "nullable": false
-                    }
-                },
-                "required": ["results", "status"],
-                "type": "object"
-            },
-            "ChangesetTSOACompat": {
-                "$ref": "#/components/schemas/Record_string.unknown_"
-            },
-            "ApiChangesetsResponseTSOACompat": {
-                "properties": {
-                    "results": {
-                        "items": {
-                            "$ref": "#/components/schemas/ChangesetTSOACompat"
-                        },
-                        "type": "array"
-                    },
-                    "status": {
-                        "type": "string",
-                        "enum": ["ok"],
-                        "nullable": false
-                    }
-                },
-                "required": ["results", "status"],
-                "type": "object"
-            },
-            "ChangeTSOACompat": {
-                "$ref": "#/components/schemas/Record_string.unknown_"
-            },
-            "ApiGetChangeResponseTSOACompat": {
-                "properties": {
-                    "results": {
-                        "$ref": "#/components/schemas/ChangeTSOACompat"
                     },
                     "status": {
                         "type": "string",
@@ -21201,7 +21201,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "0.2092.27",
+        "version": "0.2094.2",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"
@@ -26318,6 +26318,310 @@
                 ]
             }
         },
+        "/api/v2/projects/{projectId}/roles/assignments": {
+            "get": {
+                "operationId": "GetProjectRoleAssignments",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiRoleAssignmentListResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "List project role assignments",
+                "tags": ["v2", "Project Roles"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v2/projects/{projectId}/roles/assignments/user/{userId}": {
+            "post": {
+                "operationId": "UpsertProjectUserRoleAssignment",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiRoleAssignmentResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Create or update project role assignment for user (upsert)",
+                "tags": ["v2", "Project Roles"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "path",
+                        "name": "userId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpsertUserRoleAssignmentRequest"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "DeleteProjectUserRoleAssignment",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiUnassignRoleFromUserResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Delete project role assignment for user",
+                "tags": ["v2", "Project Roles"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "path",
+                        "name": "userId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v2/projects/{projectId}/roles/assignments/group/{groupId}": {
+            "post": {
+                "operationId": "UpsertProjectGroupRoleAssignment",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiRoleAssignmentResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Create or update project role assignment for group (upsert)",
+                "tags": ["v2", "Project Roles"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "path",
+                        "name": "groupId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpsertUserRoleAssignmentRequest"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "UpdateProjectGroupRoleAssignment",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiRoleAssignmentResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Update project role assignment for group",
+                "tags": ["v2", "Project Roles"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "path",
+                        "name": "groupId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateRoleAssignmentRequest"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "DeleteProjectGroupRoleAssignment",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiUnassignRoleFromUserResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Delete project role assignment for group",
+                "tags": ["v2", "Project Roles"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "path",
+                        "name": "groupId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
         "/api/v1/projects/{projectUuid}": {
             "get": {
                 "operationId": "GetProject",
@@ -28264,6 +28568,168 @@
                 }
             }
         },
+        "/api/v2/orgs/{orgUuid}/roles/assignments": {
+            "get": {
+                "operationId": "GetOrganizationRoleAssignments",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiRoleAssignmentListResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "List organization role assignments (system roles only)",
+                "tags": ["v2", "Organization Roles"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "orgUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v2/orgs/{orgUuid}/roles/assignments/user/{userId}": {
+            "post": {
+                "operationId": "UpsertOrganizationUserRoleAssignment",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiRoleAssignmentResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Assign system role to user at organization level",
+                "tags": ["v2", "Organization Roles"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "orgUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "path",
+                        "name": "userId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "roleId": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": ["roleId"],
+                                "type": "object"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/orgs/{orgUuid}/roles/{roleId}/duplicate": {
+            "post": {
+                "operationId": "DuplicateRole",
+                "responses": {
+                    "201": {
+                        "description": "Role duplicated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiRoleWithScopesResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Duplicate a role",
+                "tags": ["v2", "Organization Roles"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "orgUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "path",
+                        "name": "roleId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateRole"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/org": {
             "get": {
                 "operationId": "GetMyOrganization",
@@ -30086,151 +30552,6 @@
                 "parameters": []
             }
         },
-        "/api/v1/github/install": {
-            "get": {
-                "operationId": "installGithubAppForOrganization",
-                "responses": {
-                    "302": {
-                        "description": "Not found"
-                    }
-                },
-                "description": "Install the Lightdash GitHub App and link to an organization",
-                "security": [],
-                "parameters": []
-            }
-        },
-        "/api/v1/github/config": {
-            "get": {
-                "operationId": "configurationGithubAppForOrganization",
-                "responses": {
-                    "200": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "results": {
-                                            "$ref": "#/components/schemas/GitIntegrationConfiguration"
-                                        },
-                                        "status": {
-                                            "type": "string",
-                                            "enum": ["ok"],
-                                            "nullable": false
-                                        }
-                                    },
-                                    "required": ["results", "status"],
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [],
-                "parameters": []
-            }
-        },
-        "/api/v1/github/oauth/callback": {
-            "get": {
-                "operationId": "githubOauthCallback",
-                "responses": {
-                    "204": {
-                        "description": "No content"
-                    }
-                },
-                "description": "Callback URL for GitHub App Authorization also used for GitHub App Installation with combined Authorization",
-                "security": [],
-                "parameters": [
-                    {
-                        "description": "authorization code from GitHub",
-                        "in": "query",
-                        "name": "code",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "oauth state parameter",
-                        "in": "query",
-                        "name": "state",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "installation id from GitHub",
-                        "in": "query",
-                        "name": "installation_id",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "setup action from GitHub",
-                        "in": "query",
-                        "name": "setup_action",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
-        "/api/v1/github/uninstall": {
-            "delete": {
-                "operationId": "uninstallGithubAppForOrganization",
-                "responses": {
-                    "200": {
-                        "description": "Ok",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiSuccessEmpty"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [],
-                "parameters": []
-            }
-        },
-        "/api/v1/github/repos/list": {
-            "get": {
-                "operationId": "getGithubListRepositories",
-                "responses": {
-                    "200": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "results": {
-                                            "items": {
-                                                "$ref": "#/components/schemas/GitRepo"
-                                            },
-                                            "type": "array"
-                                        },
-                                        "status": {
-                                            "type": "string",
-                                            "enum": ["ok"],
-                                            "nullable": false
-                                        }
-                                    },
-                                    "required": ["results", "status"],
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [],
-                "parameters": []
-            }
-        },
         "/api/v1/projects/{projectUuid}/git-integration/pull-requests/custom-metrics": {
             "post": {
                 "operationId": "CreatePullRequestForCustomMetrics",
@@ -30375,6 +30696,151 @@
                         }
                     }
                 }
+            }
+        },
+        "/api/v1/github/install": {
+            "get": {
+                "operationId": "installGithubAppForOrganization",
+                "responses": {
+                    "302": {
+                        "description": "Not found"
+                    }
+                },
+                "description": "Install the Lightdash GitHub App and link to an organization",
+                "security": [],
+                "parameters": []
+            }
+        },
+        "/api/v1/github/config": {
+            "get": {
+                "operationId": "configurationGithubAppForOrganization",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "$ref": "#/components/schemas/GitIntegrationConfiguration"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["ok"],
+                                            "nullable": false
+                                        }
+                                    },
+                                    "required": ["results", "status"],
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [],
+                "parameters": []
+            }
+        },
+        "/api/v1/github/oauth/callback": {
+            "get": {
+                "operationId": "githubOauthCallback",
+                "responses": {
+                    "204": {
+                        "description": "No content"
+                    }
+                },
+                "description": "Callback URL for GitHub App Authorization also used for GitHub App Installation with combined Authorization",
+                "security": [],
+                "parameters": [
+                    {
+                        "description": "authorization code from GitHub",
+                        "in": "query",
+                        "name": "code",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "oauth state parameter",
+                        "in": "query",
+                        "name": "state",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "installation id from GitHub",
+                        "in": "query",
+                        "name": "installation_id",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "setup action from GitHub",
+                        "in": "query",
+                        "name": "setup_action",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v1/github/uninstall": {
+            "delete": {
+                "operationId": "uninstallGithubAppForOrganization",
+                "responses": {
+                    "200": {
+                        "description": "Ok",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccessEmpty"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [],
+                "parameters": []
+            }
+        },
+        "/api/v1/github/repos/list": {
+            "get": {
+                "operationId": "getGithubListRepositories",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "items": {
+                                                "$ref": "#/components/schemas/GitRepo"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["ok"],
+                                            "nullable": false
+                                        }
+                                    },
+                                    "required": ["results", "status"],
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [],
+                "parameters": []
             }
         },
         "/api/v1/projects/{projectUuid}/explores": {
@@ -31054,6 +31520,182 @@
                         "description": "the uuid of the comment",
                         "in": "path",
                         "name": "commentId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v1/projects/{projectUuid}/changesets": {
+            "get": {
+                "operationId": "listActiveChangesetWithChanges",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiChangesetsResponseTSOACompat"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Get active changeset for a project",
+                "summary": "List changesets",
+                "tags": ["Changesets"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v1/projects/{projectUuid}/changesets/changes/{changeUuid}": {
+            "get": {
+                "operationId": "getChange",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiGetChangeResponseTSOACompat"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Get a specific change by UUID",
+                "summary": "Get change",
+                "tags": ["Changesets"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "path",
+                        "name": "changeUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v1/projects/{projectUuid}/changesets/changes/{changeUuid}/revert": {
+            "post": {
+                "operationId": "revertChange",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiRevertChangeResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["Changesets"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "path",
+                        "name": "changeUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v1/projects/{projectUuid}/changesets/revert-all": {
+            "post": {
+                "operationId": "revertAllChanges",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiRevertChangeResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["Changesets"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectUuid",
                         "required": true,
                         "schema": {
                             "type": "string"
@@ -32012,648 +32654,6 @@
                 "tags": ["Projects"],
                 "security": [],
                 "parameters": []
-            }
-        },
-        "/api/v2/projects/{projectId}/roles/assignments": {
-            "get": {
-                "operationId": "GetProjectRoleAssignments",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiRoleAssignmentListResponse"
-                                }
-                            }
-                        }
-                    },
-                    "default": {
-                        "description": "Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiErrorPayload"
-                                }
-                            }
-                        }
-                    }
-                },
-                "description": "List project role assignments",
-                "tags": ["v2", "Project Roles"],
-                "security": [],
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "projectId",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
-        "/api/v2/projects/{projectId}/roles/assignments/user/{userId}": {
-            "post": {
-                "operationId": "UpsertProjectUserRoleAssignment",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiRoleAssignmentResponse"
-                                }
-                            }
-                        }
-                    },
-                    "default": {
-                        "description": "Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiErrorPayload"
-                                }
-                            }
-                        }
-                    }
-                },
-                "description": "Create or update project role assignment for user (upsert)",
-                "tags": ["v2", "Project Roles"],
-                "security": [],
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "projectId",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "in": "path",
-                        "name": "userId",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/UpsertUserRoleAssignmentRequest"
-                            }
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "operationId": "DeleteProjectUserRoleAssignment",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiUnassignRoleFromUserResponse"
-                                }
-                            }
-                        }
-                    },
-                    "default": {
-                        "description": "Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiErrorPayload"
-                                }
-                            }
-                        }
-                    }
-                },
-                "description": "Delete project role assignment for user",
-                "tags": ["v2", "Project Roles"],
-                "security": [],
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "projectId",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "in": "path",
-                        "name": "userId",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
-        "/api/v2/projects/{projectId}/roles/assignments/group/{groupId}": {
-            "post": {
-                "operationId": "UpsertProjectGroupRoleAssignment",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiRoleAssignmentResponse"
-                                }
-                            }
-                        }
-                    },
-                    "default": {
-                        "description": "Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiErrorPayload"
-                                }
-                            }
-                        }
-                    }
-                },
-                "description": "Create or update project role assignment for group (upsert)",
-                "tags": ["v2", "Project Roles"],
-                "security": [],
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "projectId",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "in": "path",
-                        "name": "groupId",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/UpsertUserRoleAssignmentRequest"
-                            }
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "operationId": "UpdateProjectGroupRoleAssignment",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiRoleAssignmentResponse"
-                                }
-                            }
-                        }
-                    },
-                    "default": {
-                        "description": "Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiErrorPayload"
-                                }
-                            }
-                        }
-                    }
-                },
-                "description": "Update project role assignment for group",
-                "tags": ["v2", "Project Roles"],
-                "security": [],
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "projectId",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "in": "path",
-                        "name": "groupId",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/UpdateRoleAssignmentRequest"
-                            }
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "operationId": "DeleteProjectGroupRoleAssignment",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiUnassignRoleFromUserResponse"
-                                }
-                            }
-                        }
-                    },
-                    "default": {
-                        "description": "Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiErrorPayload"
-                                }
-                            }
-                        }
-                    }
-                },
-                "description": "Delete project role assignment for group",
-                "tags": ["v2", "Project Roles"],
-                "security": [],
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "projectId",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "in": "path",
-                        "name": "groupId",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
-        "/api/v2/orgs/{orgUuid}/roles/assignments": {
-            "get": {
-                "operationId": "GetOrganizationRoleAssignments",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiRoleAssignmentListResponse"
-                                }
-                            }
-                        }
-                    },
-                    "default": {
-                        "description": "Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiErrorPayload"
-                                }
-                            }
-                        }
-                    }
-                },
-                "description": "List organization role assignments (system roles only)",
-                "tags": ["v2", "Organization Roles"],
-                "security": [],
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "orgUuid",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
-        "/api/v2/orgs/{orgUuid}/roles/assignments/user/{userId}": {
-            "post": {
-                "operationId": "UpsertOrganizationUserRoleAssignment",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiRoleAssignmentResponse"
-                                }
-                            }
-                        }
-                    },
-                    "default": {
-                        "description": "Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiErrorPayload"
-                                }
-                            }
-                        }
-                    }
-                },
-                "description": "Assign system role to user at organization level",
-                "tags": ["v2", "Organization Roles"],
-                "security": [],
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "orgUuid",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "in": "path",
-                        "name": "userId",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "properties": {
-                                    "roleId": {
-                                        "type": "string"
-                                    }
-                                },
-                                "required": ["roleId"],
-                                "type": "object"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v2/orgs/{orgUuid}/roles/{roleId}/duplicate": {
-            "post": {
-                "operationId": "DuplicateRole",
-                "responses": {
-                    "201": {
-                        "description": "Role duplicated",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiRoleWithScopesResponse"
-                                }
-                            }
-                        }
-                    },
-                    "default": {
-                        "description": "Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiErrorPayload"
-                                }
-                            }
-                        }
-                    }
-                },
-                "description": "Duplicate a role",
-                "tags": ["v2", "Organization Roles"],
-                "security": [],
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "orgUuid",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "in": "path",
-                        "name": "roleId",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/CreateRole"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/projects/{projectUuid}/changesets": {
-            "get": {
-                "operationId": "listActiveChangesetWithChanges",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiChangesetsResponseTSOACompat"
-                                }
-                            }
-                        }
-                    },
-                    "default": {
-                        "description": "Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiErrorPayload"
-                                }
-                            }
-                        }
-                    }
-                },
-                "description": "Get active changeset for a project",
-                "summary": "List changesets",
-                "tags": ["Changesets"],
-                "security": [],
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "projectUuid",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
-        "/api/v1/projects/{projectUuid}/changesets/changes/{changeUuid}": {
-            "get": {
-                "operationId": "getChange",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiGetChangeResponseTSOACompat"
-                                }
-                            }
-                        }
-                    },
-                    "default": {
-                        "description": "Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiErrorPayload"
-                                }
-                            }
-                        }
-                    }
-                },
-                "description": "Get a specific change by UUID",
-                "summary": "Get change",
-                "tags": ["Changesets"],
-                "security": [],
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "projectUuid",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "in": "path",
-                        "name": "changeUuid",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
-        "/api/v1/projects/{projectUuid}/changesets/changes/{changeUuid}/revert": {
-            "post": {
-                "operationId": "revertChange",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiRevertChangeResponse"
-                                }
-                            }
-                        }
-                    },
-                    "default": {
-                        "description": "Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiErrorPayload"
-                                }
-                            }
-                        }
-                    }
-                },
-                "tags": ["Changesets"],
-                "security": [],
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "projectUuid",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "in": "path",
-                        "name": "changeUuid",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
-        "/api/v1/projects/{projectUuid}/changesets/revert-all": {
-            "post": {
-                "operationId": "revertAllChanges",
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiRevertChangeResponse"
-                                }
-                            }
-                        }
-                    },
-                    "default": {
-                        "description": "Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ApiErrorPayload"
-                                }
-                            }
-                        }
-                    }
-                },
-                "tags": ["Changesets"],
-                "security": [],
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "projectUuid",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
             }
         },
         "/api/v2/projects/{projectUuid}/query/{queryUuid}": {

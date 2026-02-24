@@ -34,10 +34,19 @@ export const isConditionalFormattingWithCompareTarget = (
     rule: ConditionalFormattingWithFilterOperator,
 ): rule is ConditionalFormattingWithCompareTarget => 'compareTarget' in rule;
 
+/**
+ * Where to apply the conditional formatting color:
+ * - 'background': apply color as cell background (default)
+ * - 'font': apply color to cell text/font
+ */
+export type ConditionalFormattingColorApplyTo = 'background' | 'font';
+
 export type ConditionalFormattingConfigWithSingleColor = {
     target: FieldTarget | null;
     color: string;
     rules: ConditionalFormattingWithFilterOperator[];
+    /** Where to apply the color. Default: 'background' for backward compatibility */
+    colorApplyTo?: ConditionalFormattingColorApplyTo;
 };
 
 export const isConditionalFormattingConfigWithSingleColor = (
@@ -49,6 +58,8 @@ export type ConditionalFormattingConfigWithColorRange = {
     target: FieldTarget | null;
     color: ConditionalFormattingColorRange;
     rule: ConditionalFormattingMinMax<number | 'auto'>;
+    /** Where to apply the color. Default: 'background' for backward compatibility */
+    colorApplyTo?: ConditionalFormattingColorApplyTo;
 };
 
 export const isConditionalFormattingConfigWithColorRange = (

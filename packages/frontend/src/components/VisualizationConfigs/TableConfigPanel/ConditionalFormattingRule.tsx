@@ -273,7 +273,11 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
                                             withinPortal
                                             variant="xs"
                                         >
-                                            <Center>Values</Center>
+                                            <Center>
+                                                {t(
+                                                    'components_visualization_configs_table.compare.values',
+                                                )}
+                                            </Center>
                                         </Tooltip>
                                     ),
                                     value: ConditionalFormattingComparisonType.VALUES,
@@ -287,7 +291,11 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
                                             withinPortal
                                             variant="xs"
                                         >
-                                            <Center>Field</Center>
+                                            <Center>
+                                                {t(
+                                                    'components_visualization_configs_table.compare.field',
+                                                )}
+                                            </Center>
                                         </Tooltip>
                                     ),
                                     value: ConditionalFormattingComparisonType.TARGET_FIELD,
@@ -301,7 +309,11 @@ const ConditionalFormattingRule: FC<ConditionalFormattingRuleProps> = ({
                                             withinPortal
                                             variant="xs"
                                         >
-                                            <Center>Field values</Center>
+                                            <Center>
+                                                {t(
+                                                    'components_visualization_configs_table.compare.field_values',
+                                                )}
+                                            </Center>
                                         </Tooltip>
                                     ),
                                     value: ConditionalFormattingComparisonType.TARGET_TO_VALUES,

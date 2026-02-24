@@ -658,6 +658,10 @@ const PivotTable: FC<PivotTableProps> = ({
                                         getColorFromRange,
                                     });
 
+                                const colorApplyTo =
+                                    conditionalFormattingConfig?.colorApplyTo ??
+                                    'background';
+
                                 const conditionalFormatting = (() => {
                                     const tooltipContent =
                                         getConditionalFormattingDescription(
@@ -676,6 +680,13 @@ const PivotTable: FC<PivotTableProps> = ({
                                         return undefined;
                                     }
 
+                                    if (colorApplyTo === 'font') {
+                                        return {
+                                            tooltipContent,
+                                            color: conditionalFormattingColor,
+                                            backgroundColor: undefined,
+                                        };
+                                    }
                                     return {
                                         tooltipContent,
                                         color: readableColor(
@@ -686,13 +697,16 @@ const PivotTable: FC<PivotTableProps> = ({
                                     };
                                 })();
 
-                                const fontColor =
-                                    conditionalFormattingColor &&
-                                    readableColor(
-                                        conditionalFormattingColor,
-                                    ) === 'white'
-                                        ? 'white'
-                                        : undefined;
+                                // Font color for grouped row expander button
+                                const fontColor = conditionalFormattingColor
+                                    ? colorApplyTo === 'font'
+                                        ? conditionalFormattingColor
+                                        : readableColor(
+                                                conditionalFormattingColor,
+                                            ) === 'white'
+                                          ? 'white'
+                                          : undefined
+                                    : undefined;
 
                                 const suppressContextMenu =
                                     (value === undefined ||
