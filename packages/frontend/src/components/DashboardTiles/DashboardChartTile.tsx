@@ -301,7 +301,7 @@ const ValidDashboardChartTile: FC<{
             dashboardSlug={dashboardSlug}
             dashboardName={dashboardName}
         >
-            <ErrorBoundary wrapper={{ h: '100%', w: '100%', minHeight: 0 }}>
+            <ErrorBoundary wrapper={{ h: '100%', w: '100%' }}>
                 <LightdashVisualization
                     isDashboard
                     tileUuid={tileUuid}
@@ -402,7 +402,7 @@ const ValidDashboardChartTileMinimal: FC<{
             dashboardSlug={dashboardSlug}
             dashboardName={dashboardName}
         >
-            <ErrorBoundary wrapper={{ h: '100%', w: '100%', minHeight: 0 }}>
+            <ErrorBoundary wrapper={{ h: '100%', w: '100%' }}>
                 <LightdashVisualization
                     isDashboard
                     tileUuid={tileUuid}
