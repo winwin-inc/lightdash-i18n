@@ -17,6 +17,7 @@ import { isCustomVisualizationConfig } from '../LightdashVisualization/types';
 import { useVisualizationContext } from '../LightdashVisualization/useVisualizationContext';
 import { LoadingChart } from '../SimpleChart';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
+import { prepareSpecForVega } from './rewriteVegaSpecFieldLabels';
 
 const VegaLite = lazy(() =>
     import('react-vega').then((module) => ({ default: module.VegaLite })),
@@ -34,6 +35,7 @@ const CustomVisualization: FC<Props> = (props) => {
         visualizationConfig,
         resultsData,
         isDashboard,
+        itemsMap,
     } = useVisualizationContext();
     const { t } = useTranslation();
 
@@ -113,7 +115,23 @@ const CustomVisualization: FC<Props> = (props) => {
     const visProps =
         visualizationConfig.chartConfig as CustomVisualizationConfigAndData;
 
+    const fieldIds =
+        visProps.fields ??
+        (visProps.series?.[0] ? Object.keys(visProps.series[0]) : []);
+    const needsRewrite = (spec as Record<string, unknown>)?.rewrite === true;
+    const canRewrite = needsRewrite && fieldIds.length > 0;
+    const specForVega =
+        prepareSpecForVega(
+            spec as Record<string, unknown>,
+            itemsMap,
+            fieldIds,
+        ) ?? spec;
+
     const data = { values: visProps.series };
+
+    if (needsRewrite && !canRewrite) {
+        return <LoadingChart />;
+    }
 
     const rw = rect.width ?? 0;
     const rh = rect.height ?? 0;
@@ -136,7 +154,9 @@ const CustomVisualization: FC<Props> = (props) => {
             {hasSize ? (
                 <Suspense fallback={<LoadingChart />}>
                     <VegaLite
-                        key={`vega-${visProps.series?.length ?? 0}-${resultsData?.hasFetchedAllRows ?? false}`}
+                        key={`vega-${visProps.series?.length ?? 0}-${
+                            resultsData?.hasFetchedAllRows ?? false
+                        }`}
                         ref={chartRef}
                         style={{
                             width,
@@ -155,7 +175,7 @@ const CustomVisualization: FC<Props> = (props) => {
                         // picked, or a bug in the vegalite typescript definitions.
                         // @ts-ignore
                         spec={{
-                            ...spec,
+                            ...specForVega,
                             // @ts-ignore, see above
                             width: 'container',
                             // @ts-ignore, see above
