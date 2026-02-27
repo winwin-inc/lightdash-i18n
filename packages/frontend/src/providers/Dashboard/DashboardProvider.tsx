@@ -240,10 +240,11 @@ const DashboardProvider: React.FC<
                     hasChanges = true;
                     workingFilters = {
                         ...workingFilters,
-                        dimensions: workingFilters.dimensions.map((dimension) =>
-                            dimension.id === filter.id
-                                ? initializedFilter
-                                : dimension,
+                        dimensions: workingFilters.dimensions.map(
+                            (dimension) =>
+                                dimension.id === filter.id
+                                    ? initializedFilter
+                                    : dimension,
                         ),
                     };
                     return initializedFilter;
@@ -512,16 +513,51 @@ const DashboardProvider: React.FC<
         }
     }, [dashboard?.config?.pinnedParameters, dashboard?.config]);
 
-    // Set active tab when dashboard and tabs are loaded
-    useEffect(() => {
-        if (dashboardTabs && dashboardTabs.length > 0) {
-            const matchedTab =
-                dashboardTabs.find((item) => item.uuid === tabUuid) ??
-                dashboardTabs[0];
+    // 按 order 排序后的第一个 tab（与 DashboardTabs 展示顺序一致）
+    const firstTabByOrder = useMemo(() => {
+        if (!dashboardTabs?.length) return undefined;
+        const sorted = [...dashboardTabs].sort((a, b) => a.order - b.order);
+        return sorted[0];
+    }, [dashboardTabs]);
 
-            setActiveTab(matchedTab);
+    // 同步当前 tab：根据 URL tabUuid 解析，未指定时用第一个（按 order）；多 tab 且 URL 无 tab 时重定向到第一个 tab（embed 不重定向）
+    useEffect(() => {
+        if (!dashboardTabs?.length || !firstTabByOrder) return;
+
+        const matchedTab = tabUuid
+            ? (dashboardTabs.find((item) => item.uuid === tabUuid) ??
+              firstTabByOrder)
+            : firstTabByOrder;
+
+        setActiveTab(matchedTab);
+
+        // 仅在「当前展示的是第一个 tab 且 URL 未带或带错 tab」时重定向，避免循环（重定向后 tabUuid 会写入 URL）
+        const showingFirstTab = matchedTab.uuid === firstTabByOrder.uuid;
+        const urlMissingOrWrongTab =
+            !tabUuid || tabUuid !== firstTabByOrder.uuid;
+        const needRedirect =
+            !embedToken &&
+            dashboardTabs.length > 1 &&
+            projectUuid &&
+            showingFirstTab &&
+            urlMissingOrWrongTab;
+
+        if (needRedirect) {
+            const base = `/projects/${projectUuid}/dashboards/${dashboardUuid}/${mode || 'view'}`;
+            void navigate(`${base}/tabs/${firstTabByOrder.uuid}`, {
+                replace: true,
+            });
         }
-    }, [dashboardTabs, tabUuid]);
+    }, [
+        dashboardTabs,
+        tabUuid,
+        firstTabByOrder,
+        embedToken,
+        projectUuid,
+        dashboardUuid,
+        mode,
+        navigate,
+    ]);
 
     // Apply scheduler parameters when provided (for scheduled deliveries)
     useEffect(() => {
@@ -1079,12 +1115,16 @@ const DashboardProvider: React.FC<
             const filters = JSON.parse(tempTabFilterSearchParam);
 
             setTabTemporaryFilters(
-                Object.entries(filters).reduce((acc, [uuid, filter]) => {
-                    acc[uuid] = convertDashboardFiltersParamToDashboardFilters(
-                        filter as DashboardFiltersFromSearchParam,
-                    );
-                    return acc;
-                }, {} as Record<string, DashboardFilters>),
+                Object.entries(filters).reduce(
+                    (acc, [uuid, filter]) => {
+                        acc[uuid] =
+                            convertDashboardFiltersParamToDashboardFilters(
+                                filter as DashboardFiltersFromSearchParam,
+                            );
+                        return acc;
+                    },
+                    {} as Record<string, DashboardFilters>,
+                ),
             );
         }
     });
