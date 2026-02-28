@@ -17,7 +17,7 @@ import {
 } from '@mantine/core';
 import { useDisclosure, useId } from '@mantine/hooks';
 import { IconGripVertical } from '@tabler/icons-react';
-import { useCallback, useMemo, type FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
@@ -43,6 +43,38 @@ const useDashboardFilterStyles = createStyles((theme) => ({
         borderWidth: '1px',
         borderColor: theme.fn.rgba(theme.colors.gray[5], 0.7),
         backgroundColor: theme.fn.rgba(theme.white, 0.7),
+    },
+    /** Popover.Dropdown 整块白盒子：仅限制宽度，高度随内容，不裁切内部下拉 */
+    dropdown: {
+        maxWidth: 'min(90vw, 500px)',
+        width: 'min(90vw, 500px)',
+        maxHeight: 'none',
+        overflow: 'visible',
+    },
+    /** 内部下拉打开时：预留高度略大于 MultiSelect 原有最大高度 + 露出应用按钮即可 */
+    dropdownWithSubOpen: {
+        minHeight: 'min(400px, 80vh)',
+        maxHeight: '80vh',
+        display: 'flex',
+        flexDirection: 'column',
+    },
+    /** 与 dropdownWithSubOpen 配合：内容区占满剩余高度，应用按钮自然在底部 */
+    dropdownContent: {
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        '& > *': {
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+        },
+        /* FilterConfiguration 内 Tabs 占满空间，Flex(应用按钮) 沉底 */
+        '& > * > *:first-child': {
+            flex: 1,
+            minHeight: 0,
+        },
     },
 }));
 
@@ -107,6 +139,69 @@ const Filter: FC<Props> = ({
 
     const [isSubPopoverOpen, { close: closeSubPopover, open: openSubPopover }] =
         useDisclosure();
+
+    const closeTimeoutIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+    const allowSubOpenRef = useRef(false);
+    /** 内部下拉（运算符 Select、取值 MultiSelect 等）可能多个，只有全部 onClose 后才收起占位高度 */
+    const subPopoverOpenCountRef = useRef(0);
+
+    useEffect(() => {
+        if (!isPopoverOpen) {
+            allowSubOpenRef.current = false;
+            subPopoverOpenCountRef.current = 0;
+            return;
+        }
+        allowSubOpenRef.current = false;
+        const onUserInteraction = () => {
+            allowSubOpenRef.current = true;
+        };
+        document.addEventListener('mousedown', onUserInteraction, true);
+        document.addEventListener('touchstart', onUserInteraction, true);
+        // 从其他筛选器切回本面板时，用户点「本面板」时 mousedown 在切换前已发生，本面板的 allowSubOpenRef 仍为 false；
+        // 短延时兜底：切换后用户再点开内部下拉时一定能出占位
+        const fallbackTimer = setTimeout(() => {
+            allowSubOpenRef.current = true;
+        }, 180);
+        return () => {
+            clearTimeout(fallbackTimer);
+            document.removeEventListener('mousedown', onUserInteraction, true);
+            document.removeEventListener('touchstart', onUserInteraction, true);
+        };
+    }, [isPopoverOpen]);
+
+    /** 仅在有真实用户点击/触摸后再响应 onOpen，避免首开误触；切换筛选项后点开下拉会先触发 mousedown，再 onOpen，稳定出高度 */
+    const openSubPopoverWrapped = useCallback(() => {
+        if (!allowSubOpenRef.current) return;
+        closeTimeoutIdsRef.current.forEach((id) => clearTimeout(id));
+        closeTimeoutIdsRef.current = [];
+        subPopoverOpenCountRef.current += 1;
+        openSubPopover();
+    }, [openSubPopover]);
+
+    /** 多个内部下拉共享同一占位；每个 onClose 在 150ms 后计数减 1，仅当计数归零才收起占位，避免从 A 下拉切到 B 时误关高度 */
+    const closeSubPopoverWrapped = useCallback(() => {
+        const id = setTimeout(() => {
+            subPopoverOpenCountRef.current = Math.max(
+                0,
+                subPopoverOpenCountRef.current - 1,
+            );
+            if (subPopoverOpenCountRef.current === 0) {
+                closeSubPopover();
+            }
+            closeTimeoutIdsRef.current = closeTimeoutIdsRef.current.filter(
+                (x) => x !== id,
+            );
+        }, 150);
+        closeTimeoutIdsRef.current.push(id);
+    }, [closeSubPopover]);
+
+    useEffect(
+        () => () => {
+            closeTimeoutIdsRef.current.forEach((id) => clearTimeout(id));
+            closeTimeoutIdsRef.current = [];
+        },
+        [],
+    );
 
     const isDraggable = isEditMode && !isTemporary;
 
@@ -195,6 +290,8 @@ const Filter: FC<Props> = ({
     }, [activeTabUuid, appliesToTabs, dashboardTabs, t]);
 
     const handleClose = useCallback(() => {
+        closeTimeoutIdsRef.current.forEach((id) => clearTimeout(id));
+        closeTimeoutIdsRef.current = [];
         if (isPopoverOpen) onPopoverClose();
         closeSubPopover();
     }, [isPopoverOpen, onPopoverClose, closeSubPopover]);
@@ -395,7 +492,9 @@ const Filter: FC<Props> = ({
                                                     color="gray.7"
                                                     truncate
                                                 >
-                                                    {filterRuleLabels?.operator}{' '}
+                                                    {
+                                                        filterRuleLabels?.operator
+                                                    }{' '}
                                                 </Text>
                                                 <Text fw={700} span truncate>
                                                     {filterRuleLabels?.value}
@@ -410,38 +509,47 @@ const Filter: FC<Props> = ({
                 </Popover.Target>
 
                 <Popover.Dropdown
-                    sx={{
-                        maxWidth: 'min(90vw, 500px)',
-                        width: 'min(90vw, 500px)',
-                    }}
+                    className={
+                        isSubPopoverOpen
+                            ? `${classes.dropdown} ${classes.dropdownWithSubOpen}`
+                            : classes.dropdown
+                    }
                 >
                     {appliedDashboardTiles && (
-                        <FilterConfiguration
-                            isCreatingNew={false}
-                            isEditMode={isEditMode}
-                            isTemporary={isTemporary}
-                            field={field}
-                            fields={allFilterableFields || []}
-                            tiles={appliedDashboardTiles}
-                            tabs={appliedDashboardTabs}
-                            activeTabUuid={activeTabUuid}
-                            originalFilterRule={originalFilterRule}
-                            availableTileFilters={
-                                appliedFilterableFieldsByTileUuid ?? {}
-                            }
-                            defaultFilterRule={defaultFilterRule}
-                            onSave={handleSaveChanges}
-                            popoverProps={{
-                                onOpen: openSubPopover,
-                                onClose: closeSubPopover,
-                            }}
-                            filterScope={filterScope}
-                            tabUuid={
-                                filterScope === 'tab'
-                                    ? appliesToTabs[0] ?? activeTabUuid
+                        <Box
+                            className={
+                                isSubPopoverOpen
+                                    ? classes.dropdownContent
                                     : undefined
                             }
-                        />
+                        >
+                            <FilterConfiguration
+                                isCreatingNew={false}
+                                isEditMode={isEditMode}
+                                isTemporary={isTemporary}
+                                field={field}
+                                fields={allFilterableFields || []}
+                                tiles={appliedDashboardTiles}
+                                tabs={appliedDashboardTabs}
+                                activeTabUuid={activeTabUuid}
+                                originalFilterRule={originalFilterRule}
+                                availableTileFilters={
+                                    appliedFilterableFieldsByTileUuid ?? {}
+                                }
+                                defaultFilterRule={defaultFilterRule}
+                                onSave={handleSaveChanges}
+                                popoverProps={{
+                                    onOpen: openSubPopoverWrapped,
+                                    onClose: closeSubPopoverWrapped,
+                                }}
+                                filterScope={filterScope}
+                                tabUuid={
+                                    filterScope === 'tab'
+                                        ? (appliesToTabs[0] ?? activeTabUuid)
+                                        : undefined
+                                }
+                            />
+                        </Box>
                     )}
                 </Popover.Dropdown>
             </Popover>
