@@ -1,0 +1,10 @@
+* {
+    box-sizing: border-box;
+}
+body {
+    min-height: 100vh;
+    background: var(--mantine-color-gray-0, #f5f5f5);
+}
+.field-list-item:hover {
+    background: var(--mantine-color-gray-1, #eee);
+}

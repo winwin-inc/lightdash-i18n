@@ -142,12 +142,12 @@ export class QueryController extends BaseController {
 
         const metricQuery: MetricQuery = {
             exploreName: body.query.exploreName,
-            dimensions: body.query.dimensions,
-            metrics: body.query.metrics,
-            filters: body.query.filters,
-            sorts: body.query.sorts,
-            limit: body.query.limit,
-            tableCalculations: body.query.tableCalculations,
+            dimensions: body.query.dimensions ?? [],
+            metrics: body.query.metrics ?? [],
+            filters: body.query.filters ?? {},
+            sorts: body.query.sorts ?? [],
+            limit: body.query.limit ?? 500,
+            tableCalculations: body.query.tableCalculations ?? [],
             additionalMetrics: body.query.additionalMetrics,
             customDimensions: body.query.customDimensions,
             timezone: body.query.timezone,

@@ -1,0 +1,27 @@
+{
+    "name": "charts-viewer",
+    "version": "0.0.1",
+    "private": true,
+    "scripts": {
+        "dev": "next dev --turbopack --port 3999",
+        "build": "next build",
+        "start": "next start --port 3999",
+        "lint": "next lint"
+    },
+    "dependencies": {
+        "@mantine/core": "^8.0.0",
+        "@mantine/hooks": "^8.0.0",
+        "echarts": "^5.5.0",
+        "echarts-for-react": "^3.0.2",
+        "next": "15.3.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "postcss": "^8.4.49",
+        "typescript": "^5"
+    }
+}
