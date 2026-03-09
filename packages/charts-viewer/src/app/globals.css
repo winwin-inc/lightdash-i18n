@@ -8,3 +8,8 @@ body {
 .field-list-item:hover {
     background: var(--mantine-color-gray-1, #eee);
 }
+
+/* 热力图页：地图区域与品牌化布局 */
+.heatmap-page .echarts-for-react {
+    outline: none;
+}

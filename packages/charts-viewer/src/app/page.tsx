@@ -308,7 +308,10 @@ export default function ChartsViewerPage() {
 
     return (
         <Box p="xl" style={{ height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <Title order={1} mb="lg" style={{ flexShrink: 0 }}>图表查看器</Title>
+            <Box style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+                <Title order={1} style={{ margin: 0 }}>图表查看器</Title>
+                <Button component="a" href="/heatmap" variant="light" size="sm">省份热力图</Button>
+            </Box>
 
             <Box style={{ display: 'flex', gap: 24, flex: 1, minHeight: 0, overflow: 'hidden', alignItems: 'stretch' }}>
                 <Stack gap="md" w={400} style={{ flexShrink: 0, minHeight: 0, overflow: 'hidden' }} miw={400}>
