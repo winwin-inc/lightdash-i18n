@@ -121,7 +121,7 @@ export async function executeMetricQuery(
 export async function fetchQueryResults(
     projectUuid: string,
     queryUuid: string,
-    pageSize = 5000,
+    pageSize = 2500,
 ): Promise<{ rows: unknown[]; columns: unknown }> {
     const maxAttempts = 120;
     let attempts = 0;

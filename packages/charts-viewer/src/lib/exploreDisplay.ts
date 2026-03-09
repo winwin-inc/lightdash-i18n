@@ -17,6 +17,7 @@ type RawDimension = {
     hidden?: boolean;
     groupLabel?: string;
     timeInterval?: string;
+    timeIntervalBaseDimensionName?: string;
     group?: string;
     index?: number;
 };
@@ -126,13 +127,31 @@ export function buildExploreDisplay(
     );
 
     type DimOption = FieldOption & { groupLabel?: string; timeInterval?: string; index?: number };
-    const dims: DimOption[] = dimEntries.map(([key, meta]) => ({
-        id: toFieldId(key, meta, base),
-        label: toDimLabel(meta, key),
-        groupLabel: meta?.groupLabel,
-        timeInterval: meta?.timeInterval,
-        index: meta?.index,
-    }));
+    const baseDimensionLabels = new Map<string, string>();
+    dimEntries.forEach(([k, m]) => {
+        const lid = toFieldId(k, m, base);
+        const rawLabel = (m?.label || m?.name || k).trim() || k;
+        baseDimensionLabels.set(lid, rawLabel);
+    });
+    const dims: DimOption[] = dimEntries.map(([key, meta]) => {
+        let groupLabel = meta?.groupLabel;
+        if (meta?.timeInterval && !groupLabel && meta?.timeIntervalBaseDimensionName !== undefined) {
+            const baseId = `${meta?.table ?? base}_${(meta.timeIntervalBaseDimensionName ?? '').replaceAll('.', '__')}`;
+            groupLabel = baseDimensionLabels.get(baseId) ?? '时间';
+        }
+        if (meta?.timeInterval && !groupLabel) {
+            const rawLabel = (meta?.label || meta?.name || key).trim() || key;
+            const firstPart = rawLabel.split(/\s+/)[0];
+            groupLabel = firstPart || '时间';
+        }
+        return {
+            id: toFieldId(key, meta, base),
+            label: toDimLabel(meta, key),
+            groupLabel,
+            timeInterval: meta?.timeInterval,
+            index: meta?.index,
+        };
+    });
 
     const byGroup = new Map<string, DimOption[]>();
     const ungrouped: DimOption[] = [];

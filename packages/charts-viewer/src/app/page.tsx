@@ -410,21 +410,30 @@ export default function ChartsViewerPage() {
                                                     onClick={() => setDimensionGroupOpen((o) => ({ ...o, [entry.groupLabel]: !o[entry.groupLabel] }))}
                                                     style={{ display: 'block', width: '100%', textAlign: 'left', padding: '2px 8px', borderRadius: 4 }}
                                                 >
-                                                    <Text size="xs" fw={500} c="blue" style={{ textDecoration: 'underline' }}>
+                                                    <Text size="xs" fw={500} c="blue">
                                                         {entry.groupLabel}
                                                     </Text>
                                                 </UnstyledButton>
                                                 <Collapse in={dimensionGroupOpen[entry.groupLabel] !== false}>
-                                                    <Stack gap={0} pl={24}>
-                                                        {entry.children.map((c) => (
-                                                            <FieldListRow
-                                                                key={c.id}
-                                                                item={c}
-                                                                copiedId={copiedId}
-                                                                onCopy={handleCopyField}
-                                                            />
-                                                        ))}
-                                                    </Stack>
+                                                    <Box
+                                                        component="div"
+                                                        style={{
+                                                            paddingLeft: 20,
+                                                            marginLeft: 4,
+                                                            borderLeft: '2px solid var(--mantine-color-gray-3)',
+                                                        }}
+                                                    >
+                                                        <Stack gap={0}>
+                                                            {entry.children.map((c) => (
+                                                                <FieldListRow
+                                                                    key={c.id}
+                                                                    item={c}
+                                                                    copiedId={copiedId}
+                                                                    onCopy={handleCopyField}
+                                                                />
+                                                            ))}
+                                                        </Stack>
+                                                    </Box>
                                                 </Collapse>
                                             </Box>
                                         ) : (
