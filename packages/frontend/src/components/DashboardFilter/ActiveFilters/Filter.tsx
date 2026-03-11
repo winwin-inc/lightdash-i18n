@@ -28,8 +28,8 @@ import {
 } from '../../common/Filters/FilterInputs/utils';
 import MantineIcon from '../../common/MantineIcon';
 import FilterConfiguration from '../FilterConfiguration';
-import { useFilterDropdownStyles } from '../filterDropdownStyles';
 import { hasFilterValueSet } from '../FilterConfiguration/utils';
+import { useFilterDropdownStyles } from '../filterDropdownStyles';
 
 const useDashboardFilterStyles = createStyles((theme) => ({
     root: {
@@ -480,7 +480,7 @@ const Filter: FC<Props> = ({
 
                 <Popover.Dropdown
                     className={
-                        isSubPopoverOpen
+                        isPopoverOpen
                             ? `${dropdownClasses.classes.dropdown} ${dropdownClasses.classes.dropdownWithSubOpen}`
                             : dropdownClasses.classes.dropdown
                     }
@@ -488,7 +488,7 @@ const Filter: FC<Props> = ({
                     {appliedDashboardTiles && (
                         <Box
                             className={
-                                isSubPopoverOpen
+                                isPopoverOpen
                                     ? dropdownClasses.classes.dropdownContent
                                     : undefined
                             }

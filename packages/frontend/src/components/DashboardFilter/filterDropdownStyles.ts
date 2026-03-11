@@ -9,14 +9,21 @@ export const useFilterDropdownStyles = createStyles(() => ({
         maxHeight: 'none',
         overflow: 'visible',
     },
-    /** 内部下拉打开时：预留高度，露出应用按钮 */
+    /** 内部下拉打开时：其他筛选器（编辑已有筛选）使用，默认预留高度 */
     dropdownWithSubOpen: {
-        minHeight: 'min(400px, 80vh)',
-        maxHeight: '80vh',
+        minHeight: 'min(400px, 60vh)',
+        maxHeight: '60vh',
         display: 'flex',
         flexDirection: 'column',
     },
-    /** 与 dropdownWithSubOpen 配合：内容区占满剩余高度，应用按钮自然在底部 */
+    /** 添加全局/tab 筛选器：弹窗打开即占位默认高度，从第二个切回第一个时高度不丢失 */
+    dropdownAddFilterWithSubOpen: {
+        minHeight: 'min(520px, 60vh)',
+        maxHeight: '60vh',
+        display: 'flex',
+        flexDirection: 'column',
+    },
+    /** 与 dropdownWithSubOpen / dropdownAddFilterWithSubOpen 配合：内容区占满剩余高度，应用按钮自然在底部 */
     dropdownContent: {
         flex: 1,
         minHeight: 0,

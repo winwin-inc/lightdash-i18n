@@ -4,11 +4,11 @@ import {
 } from '@lightdash/common';
 import { Box, Button, Popover, Text, Tooltip } from '@mantine/core';
 
-import { useFilterDropdownStyles } from './filterDropdownStyles';
 import { useDisclosure, useId } from '@mantine/hooks';
 import { IconFilter } from '@tabler/icons-react';
 import { useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useFilterDropdownStyles } from './filterDropdownStyles';
 
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../common/MantineIcon';
@@ -199,41 +199,41 @@ const AddFilterButton: FC<Props> = ({
 
                 <Popover.Dropdown
                     className={
-                        isSubPopoverOpen
-                            ? `${dropdownClasses.classes.dropdown} ${dropdownClasses.classes.dropdownWithSubOpen}`
+                        isPopoverOpen
+                            ? `${dropdownClasses.classes.dropdown} ${dropdownClasses.classes.dropdownAddFilterWithSubOpen}`
                             : dropdownClasses.classes.dropdown
                     }
                 >
                     {appliedDashboardTiles && (
                         <Box
                             className={
-                                isSubPopoverOpen
+                                isPopoverOpen
                                     ? dropdownClasses.classes.dropdownContent
                                     : undefined
                             }
                         >
-                        <FilterConfiguration
-                            isCreatingNew={true}
-                            isEditMode={isEditMode}
-                            fields={allFilterableFields || []}
-                            tiles={appliedDashboardTiles}
-                            tabs={appliedDashboardTabs}
-                            activeTabUuid={activeTabUuid}
-                            availableTileFilters={
-                                appliedFilterableFieldsByTileUuid ?? {}
-                            }
-                            onSave={handleSaveChanges}
-                            popoverProps={{
-                                onOpen: openSubPopover,
-                                onClose: closeSubPopover,
-                            }}
-                            filterScope={filterScope}
-                            tabUuid={
-                                filterScope === 'tab'
-                                    ? activeTabUuid
-                                    : undefined
-                            }
-                        />
+                            <FilterConfiguration
+                                isCreatingNew={true}
+                                isEditMode={isEditMode}
+                                fields={allFilterableFields || []}
+                                tiles={appliedDashboardTiles}
+                                tabs={appliedDashboardTabs}
+                                activeTabUuid={activeTabUuid}
+                                availableTileFilters={
+                                    appliedFilterableFieldsByTileUuid ?? {}
+                                }
+                                onSave={handleSaveChanges}
+                                popoverProps={{
+                                    onOpen: openSubPopover,
+                                    onClose: closeSubPopover,
+                                }}
+                                filterScope={filterScope}
+                                tabUuid={
+                                    filterScope === 'tab'
+                                        ? activeTabUuid
+                                        : undefined
+                                }
+                            />
                         </Box>
                     )}
                 </Popover.Dropdown>
