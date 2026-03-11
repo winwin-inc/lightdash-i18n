@@ -1,9 +1,10 @@
 /**
  * Renders a bar chart display for positive numeric values in table cells.
  * Text is overlaid on the bar to save space and ensure consistent bar widths.
+ * 懒加载：首帧只展示文字，下一帧再渲染条形，减轻表格滚动时主线程压力。
  */
 import { Tooltip } from '@mantine/core';
-import { type FC } from 'react';
+import { memo, useEffect, useState, type FC } from 'react';
 
 type BarChartDisplayProps = {
     value: number;
@@ -13,31 +14,33 @@ type BarChartDisplayProps = {
     color?: string;
 };
 
-export const BarChartDisplay: FC<BarChartDisplayProps> = ({
+export const BarChartDisplay: FC<BarChartDisplayProps> = memo(({
     value,
     formatted,
     min,
     max,
     color = '#5470c6',
 }) => {
-    // Calculate bar width percentage based on value range
-    // Formula: (value - min) / range * 100
+    const [showBar, setShowBar] = useState(false);
+    useEffect(() => {
+        const rafId = requestAnimationFrame(() => setShowBar(true));
+        return () => cancelAnimationFrame(rafId);
+    }, []);
+
     const range = max - min;
     let percentage: number;
-
     if (range > 0) {
         percentage = Math.max(0, Math.min(100, ((value - min) / range) * 100));
     } else {
         percentage = 0;
     }
-
     const maxBarWidthPercent = 90;
     const barWidth = Math.min(percentage, maxBarWidthPercent);
-    const showBar = value > 0;
+    const showBarElement = value > 0 && showBar;
 
     const estimatedTextWidthPx = formatted.length * 7 + 16;
     const minBarWidthForText = Math.max(30, (estimatedTextWidthPx / 250) * 100);
-    const showTextOnBar = showBar && barWidth >= minBarWidthForText;
+    const showTextOnBar = showBarElement && barWidth >= minBarWidthForText;
     const textColor = showTextOnBar ? '#ffffff' : 'inherit';
 
     return (
@@ -53,7 +56,7 @@ export const BarChartDisplay: FC<BarChartDisplayProps> = ({
                 alignItems: 'center',
             }}
         >
-            {showBar && (
+            {showBarElement && (
                 <div
                     style={{
                         width: `${barWidth}%`,
@@ -73,7 +76,7 @@ export const BarChartDisplay: FC<BarChartDisplayProps> = ({
                         position: 'absolute',
                         left: showTextOnBar
                             ? '8px'
-                            : showBar
+                            : showBarElement
                             ? `calc(${Math.max(barWidth, 2)}% + 8px)`
                             : '0',
                         top: '50%',
@@ -88,7 +91,7 @@ export const BarChartDisplay: FC<BarChartDisplayProps> = ({
                         cursor: 'help',
                         maxWidth: showTextOnBar
                             ? `calc(${barWidth}% - 16px)`
-                            : showBar
+                            : showBarElement
                             ? `calc((100% - ${Math.max(barWidth, 2)}%) - 8px)`
                             : '100%',
                         zIndex: 1,
@@ -99,4 +102,5 @@ export const BarChartDisplay: FC<BarChartDisplayProps> = ({
             </Tooltip>
         </div>
     );
-};
+});
+BarChartDisplay.displayName = 'BarChartDisplay';

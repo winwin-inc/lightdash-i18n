@@ -189,7 +189,16 @@ const TableComponent = forwardRef<HTMLTableElement, TableProps>(
                 miw="inherit"
                 h="inherit"
                 pos="relative"
-                sx={{ overflow: 'auto' }}
+                sx={{
+                    overflow: 'auto',
+                    // 滚动容器优化（详见 docs/table-scroll-performance.md）：
+                    // contain: paint — 裁剪子元素绘制到本框内，减少重绘范围、利于合成
+                    // willChange: transform — 提示将发生位移，提前升为合成层，滚动时减少主线程重排，但新滚入内容可能稍晚才绘制
+                    // overflowAnchor: none — 关闭滚动锚定，避免动态插入/删除行时视口被“拽走”
+                    contain: 'paint',
+                    // willChange: 'transform',
+                    overflowAnchor: 'none',
+                }}
             >
                 <Box
                     ref={ref}

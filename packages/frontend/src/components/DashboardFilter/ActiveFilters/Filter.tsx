@@ -70,8 +70,8 @@ const useDashboardFilterStyles = createStyles((theme) => ({
             display: 'flex',
             flexDirection: 'column',
         },
-        /* FilterConfiguration 内 Tabs 占满空间，Flex(应用按钮) 沉底 */
-        '& > * > *:first-child': {
+        /* FilterConfiguration 内 Tabs 占满空间，Flex(应用按钮) 沉底；用 first-of-type 避免 SSR 下 first-child 警告 */
+        '& > * > *:first-of-type': {
             flex: 1,
             minHeight: 0,
         },

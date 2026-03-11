@@ -78,7 +78,7 @@ export const useTableDataModel = ({
         getScrollElement: () => tableWrapperRef.current,
         count: tableModel.getRowsCount(),
         estimateSize: () => getRowHeight(),
-        overscan: 25,
+        overscan: 10,
     });
 
     const getTableData = () => {
