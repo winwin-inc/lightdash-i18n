@@ -237,6 +237,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 newFilterRule as DashboardFilterRule,
                             )
                         }
+                        closeDropdownOnMouseLeave={isEditMode}
                     />
                 )}
 

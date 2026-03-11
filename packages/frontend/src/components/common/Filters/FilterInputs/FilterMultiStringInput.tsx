@@ -19,6 +19,8 @@ import { formatDisplayValue } from './utils';
 type Props = Omit<MultiSelectProps, 'data' | 'onChange'> & {
     values: string[];
     onChange: (values: string[]) => void;
+    /** 编辑模式为 true 时启用「鼠标移出下拉区域则收起」；查看模式不传或 false，不收起 */
+    closeDropdownOnMouseLeave?: boolean;
 };
 
 const FilterMultiStringInput: FC<Props> = ({
@@ -26,6 +28,7 @@ const FilterMultiStringInput: FC<Props> = ({
     disabled,
     onChange,
     placeholder,
+    closeDropdownOnMouseLeave = false,
     ...rest
 }) => {
     const { t } = useTranslation();
@@ -198,10 +201,10 @@ const FilterMultiStringInput: FC<Props> = ({
     // 检测是否为移动设备
     const isMobileDevice = useIsMobileDevice();
 
-    // 监听鼠标移动，只在鼠标离开下拉框范围时关闭（仅PC端）
+    // 编辑模式下：鼠标离开下拉框范围时关闭（仅PC端）；查看模式不启用
     useEffect(() => {
         if (!isDropdownOpen) return;
-        // 移动端选择后自动关闭，不需要监听触摸事件
+        if (!closeDropdownOnMouseLeave) return;
         if (isMobileDevice) return;
 
         // 下拉框打开时，延迟查找下拉框元素（等待渲染）
@@ -234,6 +237,7 @@ const FilterMultiStringInput: FC<Props> = ({
         };
     }, [
         isDropdownOpen,
+        closeDropdownOnMouseLeave,
         isMouseInSelectArea,
         findDropdownElement,
         cancelDebouncedClose,

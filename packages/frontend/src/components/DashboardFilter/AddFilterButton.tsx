@@ -2,7 +2,9 @@ import {
     type DashboardFilterRule,
     type FilterableDimension,
 } from '@lightdash/common';
-import { Button, Popover, Text, Tooltip } from '@mantine/core';
+import { Box, Button, Popover, Text, Tooltip } from '@mantine/core';
+
+import { useFilterDropdownStyles } from './filterDropdownStyles';
 import { useDisclosure, useId } from '@mantine/hooks';
 import { IconFilter } from '@tabler/icons-react';
 import { useCallback, useMemo, type FC } from 'react';
@@ -64,6 +66,7 @@ const AddFilterButton: FC<Props> = ({
     );
 
     const isPopoverOpen = openPopoverId === popoverId;
+    const dropdownClasses = useFilterDropdownStyles();
 
     const [isSubPopoverOpen, { close: closeSubPopover, open: openSubPopover }] =
         useDisclosure();
@@ -194,8 +197,21 @@ const AddFilterButton: FC<Props> = ({
                     </Tooltip>
                 </Popover.Target>
 
-                <Popover.Dropdown>
+                <Popover.Dropdown
+                    className={
+                        isSubPopoverOpen
+                            ? `${dropdownClasses.classes.dropdown} ${dropdownClasses.classes.dropdownWithSubOpen}`
+                            : dropdownClasses.classes.dropdown
+                    }
+                >
                     {appliedDashboardTiles && (
+                        <Box
+                            className={
+                                isSubPopoverOpen
+                                    ? dropdownClasses.classes.dropdownContent
+                                    : undefined
+                            }
+                        >
                         <FilterConfiguration
                             isCreatingNew={true}
                             isEditMode={isEditMode}
@@ -218,6 +234,7 @@ const AddFilterButton: FC<Props> = ({
                                     : undefined
                             }
                         />
+                        </Box>
                     )}
                 </Popover.Dropdown>
             </Popover>
