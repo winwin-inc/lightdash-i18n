@@ -2364,7 +2364,8 @@
                 "parent_filter_label": "父级筛选器",
                 "parent_filter_placeholder": "不设置父级筛选器"
             },
-            "filter_read_only": "筛选器只读"
+            "filter_read_only": "筛选器只读",
+            "filter_hidden": "筛选器隐藏"
         },
         "tabs": {
             "tooltip_filter": {

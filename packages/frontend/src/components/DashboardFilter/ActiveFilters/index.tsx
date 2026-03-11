@@ -349,6 +349,22 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
         ],
     );
 
+    // 查看模式下不展示隐藏的筛选器，编辑模式下展示以便配置（需在 early return 前调用，符合 hooks 规则）
+    const visibleDimensions = useMemo(
+        () =>
+            appliedFilters.dimensions.filter(
+                (d) => isEditMode || !d.hidden,
+            ),
+        [appliedFilters.dimensions, isEditMode],
+    );
+    const visibleTemporaryDimensions = useMemo(
+        () =>
+            appliedTemporaryFilters.dimensions.filter(
+                (d) => isEditMode || !d.hidden,
+            ),
+        [appliedTemporaryFilters.dimensions, isEditMode],
+    );
+
     if (isLoadingDashboardFilters || isFetchingDashboardFilters) {
         return (
             <Group spacing="xs" ml="xs">
@@ -418,9 +434,13 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
             >
-                {appliedFilters?.dimensions?.map((item, index) => {
+                {visibleDimensions?.map((item) => {
                     const field = allFilterableFieldsMap[item.target.fieldId];
                     const appliesToTabs = getTabsUsingFilter(item.id);
+                    const actualIndex =
+                        appliedFilters.dimensions.findIndex(
+                            (d) => d.id === item.id,
+                        );
                     return (
                         <DroppableArea
                             key={item.id}
@@ -447,14 +467,14 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                                         onPopoverClose={onPopoverClose}
                                         onRemove={() =>
                                             appliedRemoveDimensionFilter(
-                                                index,
+                                                actualIndex,
                                                 false,
                                             )
                                         }
                                         onUpdate={(value) =>
                                             appliedUpdateDimensionFilter(
                                                 value,
-                                                index,
+                                                actualIndex,
                                                 false,
                                             )
                                         }
@@ -466,7 +486,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                                         filterRule={item}
                                         onRemove={() =>
                                             appliedRemoveDimensionFilter(
-                                                index,
+                                                actualIndex,
                                                 false,
                                             )
                                         }
@@ -479,9 +499,13 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                 <DragOverlay />
             </DndContext>
 
-            {appliedTemporaryFilters?.dimensions?.map((item, index) => {
+            {visibleTemporaryDimensions?.map((item) => {
                 const field = allFilterableFieldsMap[item.target.fieldId];
                 const appliesToTabs = getTabsUsingTemporaryFilter(item.id);
+                const actualIndex =
+                    appliedTemporaryFilters.dimensions.findIndex(
+                        (d) => d.id === item.id,
+                    );
                 return field || item.target.isSqlColumn ? (
                     <Filter
                         key={item.id}
@@ -496,10 +520,14 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                         onPopoverOpen={onPopoverOpen}
                         onPopoverClose={onPopoverClose}
                         onRemove={() =>
-                            appliedRemoveDimensionFilter(index, true)
+                            appliedRemoveDimensionFilter(actualIndex, true)
                         }
                         onUpdate={(value) =>
-                            appliedUpdateDimensionFilter(value, index, true)
+                            appliedUpdateDimensionFilter(
+                                value,
+                                actualIndex,
+                                true,
+                            )
                         }
                     />
                 ) : (
@@ -508,7 +536,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                         isEditMode={isEditMode}
                         filterRule={item}
                         onRemove={() =>
-                            appliedRemoveDimensionFilter(index, false)
+                            appliedRemoveDimensionFilter(actualIndex, false)
                         }
                     />
                 );

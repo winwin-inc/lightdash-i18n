@@ -332,9 +332,8 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                             )}
                         />
 
-                        {/* 类目层级配置 - 仅在客户使用模式下显示 */}
-                        {isCustomerUse && (
-                            <Box mt="xs">
+                        {/* 类目层级、筛选器只读、筛选器隐藏：所有环境可配置，配置随看板保存，提升到线上后即生效 */}
+                        <Box mt="xs">
                                 <Group spacing="xs" mb="xs">
                                     <Text size="xs" fw={500}>
                                         {t(
@@ -449,8 +448,29 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                         });
                                     }}
                                 />
-                            </Box>
-                        )}
+
+                                {/* 筛选器隐藏配置 */}
+                                <Switch
+                                    mt="xs"
+                                    label={
+                                        <Text size="xs" mt="two" fw={500}>
+                                            {t(
+                                                'components_dashboard_filter.configuration.filter_hidden',
+                                            )}
+                                        </Text>
+                                    }
+                                    labelPosition="right"
+                                    checked={!!filterRule.hidden}
+                                    onChange={(e) => {
+                                        onChangeFilterRule({
+                                            ...filterRule,
+                                            hidden:
+                                                e.currentTarget.checked ||
+                                                undefined,
+                                        });
+                                    }}
+                                />
+                        </Box>
                     </>
                 )}
             </Stack>
