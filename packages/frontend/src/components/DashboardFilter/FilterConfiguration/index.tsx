@@ -33,7 +33,13 @@ import {
 } from '@mantine/core';
 import { IconRotate2, IconSql } from '@tabler/icons-react';
 import { produce } from 'immer';
-import { useCallback, useMemo, useState, type FC } from 'react';
+import {
+    useCallback,
+    useMemo,
+    useState,
+    type FC,
+    type MouseEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
@@ -649,7 +655,7 @@ const FilterConfiguration: FC<Props> = ({
                                 size="xs"
                                 variant="filled"
                                 disabled={isApplyDisabled}
-                                onMouseDown={(e) => {
+                                onMouseDown={(e: MouseEvent<HTMLButtonElement>) => {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setSelectedTabId(FilterTabs.SETTINGS);
