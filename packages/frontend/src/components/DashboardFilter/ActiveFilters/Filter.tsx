@@ -45,41 +45,6 @@ const useDashboardFilterStyles = createStyles((theme) => ({
         borderColor: theme.fn.rgba(theme.colors.gray[5], 0.7),
         backgroundColor: theme.fn.rgba(theme.white, 0.7),
     },
-<<<<<<< HEAD
-    /** Popover.Dropdown 整块白盒子：仅限制宽度，高度随内容，不裁切内部下拉 */
-    dropdown: {
-        maxWidth: 'min(90vw, 500px)',
-        width: 'min(90vw, 500px)',
-        maxHeight: 'none',
-        overflow: 'visible',
-    },
-    /** 内部下拉打开时：预留高度略大于 MultiSelect 原有最大高度 + 露出应用按钮即可 */
-    dropdownWithSubOpen: {
-        minHeight: 'min(400px, 80vh)',
-        maxHeight: '80vh',
-        display: 'flex',
-        flexDirection: 'column',
-    },
-    /** 与 dropdownWithSubOpen 配合：内容区占满剩余高度，应用按钮自然在底部 */
-    dropdownContent: {
-        flex: 1,
-        minHeight: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        '& > *': {
-            flex: 1,
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-        },
-        /* FilterConfiguration 内 Tabs 占满空间，Flex(应用按钮) 沉底；用 first-of-type 避免 SSR 下 first-child 警告 */
-        '& > * > *:first-of-type': {
-            flex: 1,
-            minHeight: 0,
-        },
-    },
-=======
->>>>>>> dev
 }));
 
 type Props = {
