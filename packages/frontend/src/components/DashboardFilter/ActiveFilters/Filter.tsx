@@ -29,6 +29,7 @@ import {
 import MantineIcon from '../../common/MantineIcon';
 import FilterConfiguration from '../FilterConfiguration';
 import { hasFilterValueSet } from '../FilterConfiguration/utils';
+import { useFilterDropdownStyles } from '../filterDropdownStyles';
 
 const useDashboardFilterStyles = createStyles((theme) => ({
     root: {
@@ -44,6 +45,7 @@ const useDashboardFilterStyles = createStyles((theme) => ({
         borderColor: theme.fn.rgba(theme.colors.gray[5], 0.7),
         backgroundColor: theme.fn.rgba(theme.white, 0.7),
     },
+<<<<<<< HEAD
     /** Popover.Dropdown 整块白盒子：仅限制宽度，高度随内容，不裁切内部下拉 */
     dropdown: {
         maxWidth: 'min(90vw, 500px)',
@@ -76,6 +78,8 @@ const useDashboardFilterStyles = createStyles((theme) => ({
             minHeight: 0,
         },
     },
+=======
+>>>>>>> dev
 }));
 
 type Props = {
@@ -110,6 +114,7 @@ const Filter: FC<Props> = ({
     const { t } = useTranslation();
 
     const { classes } = useDashboardFilterStyles();
+    const dropdownClasses = useFilterDropdownStyles();
     const popoverId = useId();
 
     const getConditionalRuleLabel = useConditionalRuleLabel();
@@ -149,6 +154,7 @@ const Filter: FC<Props> = ({
         if (!isPopoverOpen) {
             allowSubOpenRef.current = false;
             subPopoverOpenCountRef.current = 0;
+            closeSubPopover();
             return;
         }
         allowSubOpenRef.current = false;
@@ -167,7 +173,7 @@ const Filter: FC<Props> = ({
             document.removeEventListener('mousedown', onUserInteraction, true);
             document.removeEventListener('touchstart', onUserInteraction, true);
         };
-    }, [isPopoverOpen]);
+    }, [isPopoverOpen, closeSubPopover]);
 
     /** 仅在有真实用户点击/触摸后再响应 onOpen，避免首开误触；切换筛选项后点开下拉会先触发 mousedown，再 onOpen，稳定出高度 */
     const openSubPopoverWrapped = useCallback(() => {
@@ -511,15 +517,15 @@ const Filter: FC<Props> = ({
                 <Popover.Dropdown
                     className={
                         isSubPopoverOpen
-                            ? `${classes.dropdown} ${classes.dropdownWithSubOpen}`
-                            : classes.dropdown
+                            ? `${dropdownClasses.classes.dropdown} ${dropdownClasses.classes.dropdownWithSubOpen}`
+                            : dropdownClasses.classes.dropdown
                     }
                 >
                     {appliedDashboardTiles && (
                         <Box
                             className={
                                 isSubPopoverOpen
-                                    ? classes.dropdownContent
+                                    ? dropdownClasses.classes.dropdownContent
                                     : undefined
                             }
                         >

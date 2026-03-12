@@ -42,6 +42,8 @@ type Props = Omit<MultiSelectProps, 'data' | 'onChange'> & {
     suggestions: string[];
     onChange: (values: string[]) => void;
     singleValue?: boolean;
+    /** 编辑模式为 true 时启用「鼠标移出下拉区域则收起」；查看模式不传或 false，不收起 */
+    closeDropdownOnMouseLeave?: boolean;
 };
 
 // Single value component that mimics a single select behavior - maxSelectedValues={1} behaves weirdly so we don't use it.
@@ -71,6 +73,7 @@ const FilterStringAutoComplete: FC<Props> = ({
     onDropdownOpen,
     onDropdownClose,
     singleValue,
+    closeDropdownOnMouseLeave = false,
     ...rest
 }) => {
     const { t } = useTranslation();
@@ -306,10 +309,10 @@ const FilterStringAutoComplete: FC<Props> = ({
         };
     }, [isInitialLoading, isDropdownOpen, singleValue, findDropdownElement]);
 
-    // 监听鼠标移动，只在鼠标离开下拉框范围时关闭（仅PC端）
+    // 编辑模式下：鼠标离开下拉框范围时关闭（仅PC端）；查看模式不启用
     useEffect(() => {
         if (!isDropdownOpen || singleValue) return;
-        // 移动端选择后自动关闭，不需要监听触摸事件
+        if (!closeDropdownOnMouseLeave) return;
         if (isMobileDevice) return;
 
         // 下拉框打开时，延迟查找下拉框元素（等待渲染）
@@ -343,6 +346,7 @@ const FilterStringAutoComplete: FC<Props> = ({
     }, [
         isDropdownOpen,
         singleValue,
+        closeDropdownOnMouseLeave,
         isMouseInSelectArea,
         findDropdownElement,
         cancelDebouncedClose,

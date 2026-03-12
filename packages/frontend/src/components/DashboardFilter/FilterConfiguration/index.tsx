@@ -33,7 +33,13 @@ import {
 } from '@mantine/core';
 import { IconRotate2, IconSql } from '@tabler/icons-react';
 import { produce } from 'immer';
-import { useCallback, useMemo, useState, type FC } from 'react';
+import {
+    useCallback,
+    useMemo,
+    useState,
+    type FC,
+    type MouseEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
@@ -354,14 +360,14 @@ const FilterConfiguration: FC<Props> = ({
             dashboardFiltersFromContext?.dimensions &&
             dashboardFiltersFromContext.dimensions.length > 0
                 ? dashboardFiltersFromContext.dimensions
-                : allFiltersFromContext?.dimensions ?? [];
+                : (allFiltersFromContext?.dimensions ?? []);
 
         const sourceFilters =
             filterScope === 'global'
                 ? globalFilters
                 : tabUuid
-                ? tabFiltersFromContext?.[tabUuid]?.dimensions ?? []
-                : [];
+                  ? (tabFiltersFromContext?.[tabUuid]?.dimensions ?? [])
+                  : [];
 
         const childLevel = draftFilterRule.categoryLevel;
         const currentId = draftFilterRule.id;
@@ -417,229 +423,255 @@ const FilterConfiguration: FC<Props> = ({
             sx={{
                 width: '100%',
                 maxWidth: '100%',
+                height: '100%',
+                minHeight: 0,
             }}
         >
-            <Tabs
-                value={selectedTabId}
-                onTabChange={(tabId: FilterTabs) => setSelectedTabId(tabId)}
+            <Box
+                sx={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflow: 'auto',
+                }}
+                data-filter-scroll-content
             >
-                {isCreatingNew || isEditMode || isTemporary ? (
-                    <Tabs.List mb="md">
-                        <Tooltip
-                            label={t(
-                                'components_dashboard_filter.tabs.tooltip_filter.label',
-                            )}
-                            position="top-start"
-                        >
-                            <Tabs.Tab value={FilterTabs.SETTINGS}>
-                                {t(
-                                    'components_dashboard_filter.tabs.tooltip_filter.content',
-                                )}
-                            </Tabs.Tab>
-                        </Tooltip>
-
-                        <Tooltip
-                            label={t(
-                                'components_dashboard_filter.tabs.tooltip_chart_tile.label',
-                            )}
-                            position="top-start"
-                        >
-                            <Tabs.Tab
-                                value={FilterTabs.TILES}
-                                disabled={!draftFilterRule}
-                            >
-                                {t(
-                                    'components_dashboard_filter.tabs.tooltip_chart_tile.content',
-                                )}
-                            </Tabs.Tab>
-                        </Tooltip>
-                    </Tabs.List>
-                ) : null}
-
-                <Tabs.Panel value={FilterTabs.SETTINGS} miw={350} maw={520}>
-                    <Stack spacing="sm">
-                        {isCreatingNew ? (
-                            !!fields && fields.length > 0 ? (
-                                <FieldSelect
-                                    data-testid="FilterConfiguration/FieldSelect"
-                                    size="xs"
-                                    focusOnRender={true}
-                                    label={
-                                        <Text>
-                                            {t(
-                                                'components_dashboard_filter.tabs.select_dimension',
-                                            )}{' '}
-                                            <Text color="red" span>
-                                                *
-                                            </Text>{' '}
-                                        </Text>
-                                    }
-                                    withinPortal={popoverProps?.withinPortal}
-                                    onDropdownOpen={popoverProps?.onOpen}
-                                    onDropdownClose={popoverProps?.onClose}
-                                    hasGrouping
-                                    item={selectedField}
-                                    items={fields}
-                                    onChange={(newField) => {
-                                        if (!newField) return;
-
-                                        handleChangeField(newField);
-                                    }}
-                                />
-                            ) : (
-                                <Select
-                                    size="xs"
-                                    label={
-                                        <Text>
-                                            {t(
-                                                'components_dashboard_filter.tabs.select_column',
-                                            )}{' '}
-                                            <Text color="red" span>
-                                                *
-                                            </Text>{' '}
-                                        </Text>
-                                    }
-                                    placeholder={t(
-                                        'components_dashboard_filter.tabs.select_column_placeholder',
-                                    )}
-                                    value={draftFilterRule?.target.fieldId}
-                                    data={columnsOptions.map(
-                                        ({ reference }) => reference,
-                                    )}
-                                    onChange={(newValue) => {
-                                        if (!newValue) return;
-                                        const selectedColumn =
-                                            columnsOptions.find(
-                                                (column) =>
-                                                    column.reference ===
-                                                    newValue,
-                                            );
-                                        if (!selectedColumn) return;
-                                        handleChangeColumn(selectedColumn);
-                                    }}
-                                />
-                            )
-                        ) : selectedField ? (
-                            <Group spacing="xs">
-                                <FieldIcon item={selectedField} />
-                                {originalFilterRule?.label && !isEditMode ? (
-                                    <Text span fw={500}>
-                                        {originalFilterRule.label}
-                                    </Text>
-                                ) : (
-                                    <FieldLabel item={selectedField} />
-                                )}
-                            </Group>
-                        ) : (
-                            <Group spacing="xs">
-                                <MantineIcon
-                                    icon={IconSql}
-                                    size={'lg'}
-                                    color={'#0E5A8A'}
-                                />
-                                {originalFilterRule?.label && !isEditMode ? (
-                                    <Text span fw={500}>
-                                        {originalFilterRule.label}
-                                    </Text>
-                                ) : (
-                                    <Text span fw={500}>
-                                        {draftFilterRule?.target.fieldId ||
-                                            t(
-                                                'components_dashboard_filter.tabs.select_column_sql',
-                                            )}
-                                    </Text>
-                                )}
-                            </Group>
-                        )}
-
-                        {draftFilterRule && (
-                            <FilterSettings
-                                isEditMode={isEditMode}
-                                isCreatingNew={isCreatingNew}
-                                filterType={filterType}
-                                field={selectedField}
-                                filterRule={draftFilterRule}
-                                onChangeFilterRule={handleChangeFilterRule}
-                                popoverProps={popoverProps}
-                                isCustomerUse={isCustomerUse}
-                                parentFilterOptions={parentFilterOptions}
-                            />
-                        )}
-                    </Stack>
-                </Tabs.Panel>
-
-                {draftFilterRule && (
-                    <Tabs.Panel
-                        value={FilterTabs.TILES}
-                        w={500}
-                        data-testid="DashboardFilterConfiguration/ChartTiles"
-                    >
-                        <TileFilterConfiguration
-                            field={selectedField}
-                            tabs={tabs}
-                            activeTabUuid={activeTabUuid}
-                            filterRule={draftFilterRule}
-                            popoverProps={popoverProps}
-                            tiles={tiles}
-                            availableTileFilters={availableTileFilters}
-                            onChange={handleChangeTileConfiguration}
-                            onToggleAll={handleToggleAll}
-                        />
-                    </Tabs.Panel>
-                )}
-            </Tabs>
-
-            <Flex gap="sm">
-                <Box sx={{ flexGrow: 1 }} />
-
-                {!isTemporary &&
-                    isFilterModified &&
-                    selectedTabId === FilterTabs.SETTINGS &&
-                    !isEditMode && (
-                        <Tooltip
-                            label={t(
-                                'components_dashboard_filter.tabs.tooltip_reset.label',
-                            )}
-                            position="left"
-                        >
-                            <Button
-                                aria-label={t(
-                                    'components_dashboard_filter.tabs.tooltip_reset.reset',
-                                )}
-                                size="xs"
-                                variant="default"
-                                color="gray"
-                                onClick={handleRevert}
-                            >
-                                <MantineIcon icon={IconRotate2} />
-                            </Button>
-                        </Tooltip>
-                    )}
-
-                <Tooltip
-                    label={t(
-                        'components_dashboard_filter.tabs.tooltip_filter_field.label',
-                    )}
-                    disabled={!isApplyDisabled}
+                <Tabs
+                    value={selectedTabId}
+                    onTabChange={(tabId: FilterTabs) => setSelectedTabId(tabId)}
                 >
-                    <Box>
-                        <Button
-                            size="xs"
-                            variant="filled"
-                            disabled={isApplyDisabled}
-                            onClick={() => {
-                                setSelectedTabId(FilterTabs.SETTINGS);
+                    {isCreatingNew || isEditMode || isTemporary ? (
+                        <Tabs.List mb="md">
+                            <Tooltip
+                                label={t(
+                                    'components_dashboard_filter.tabs.tooltip_filter.label',
+                                )}
+                                position="top-start"
+                            >
+                                <Tabs.Tab value={FilterTabs.SETTINGS}>
+                                    {t(
+                                        'components_dashboard_filter.tabs.tooltip_filter.content',
+                                    )}
+                                </Tabs.Tab>
+                            </Tooltip>
 
-                                if (!!draftFilterRule) onSave(draftFilterRule);
-                            }}
-                        >
-                            {t(
-                                'components_dashboard_filter.tabs.tooltip_filter_field.content',
+                            <Tooltip
+                                label={t(
+                                    'components_dashboard_filter.tabs.tooltip_chart_tile.label',
+                                )}
+                                position="top-start"
+                            >
+                                <Tabs.Tab
+                                    value={FilterTabs.TILES}
+                                    disabled={!draftFilterRule}
+                                >
+                                    {t(
+                                        'components_dashboard_filter.tabs.tooltip_chart_tile.content',
+                                    )}
+                                </Tabs.Tab>
+                            </Tooltip>
+                        </Tabs.List>
+                    ) : null}
+
+                    <Tabs.Panel value={FilterTabs.SETTINGS} miw={350} maw={520}>
+                        <Stack spacing="sm">
+                            {isCreatingNew ? (
+                                !!fields && fields.length > 0 ? (
+                                    <FieldSelect
+                                        data-testid="FilterConfiguration/FieldSelect"
+                                        size="xs"
+                                        focusOnRender={true}
+                                        label={
+                                            <Text>
+                                                {t(
+                                                    'components_dashboard_filter.tabs.select_dimension',
+                                                )}{' '}
+                                                <Text color="red" span>
+                                                    *
+                                                </Text>{' '}
+                                            </Text>
+                                        }
+                                        withinPortal={
+                                            popoverProps?.withinPortal
+                                        }
+                                        onDropdownOpen={popoverProps?.onOpen}
+                                        onDropdownClose={popoverProps?.onClose}
+                                        hasGrouping
+                                        item={selectedField}
+                                        items={fields}
+                                        onChange={(newField) => {
+                                            if (!newField) return;
+
+                                            handleChangeField(newField);
+                                        }}
+                                    />
+                                ) : (
+                                    <Select
+                                        size="xs"
+                                        label={
+                                            <Text>
+                                                {t(
+                                                    'components_dashboard_filter.tabs.select_column',
+                                                )}{' '}
+                                                <Text color="red" span>
+                                                    *
+                                                </Text>{' '}
+                                            </Text>
+                                        }
+                                        placeholder={t(
+                                            'components_dashboard_filter.tabs.select_column_placeholder',
+                                        )}
+                                        value={draftFilterRule?.target.fieldId}
+                                        data={columnsOptions.map(
+                                            ({ reference }) => reference,
+                                        )}
+                                        onChange={(newValue) => {
+                                            if (!newValue) return;
+                                            const selectedColumn =
+                                                columnsOptions.find(
+                                                    (column) =>
+                                                        column.reference ===
+                                                        newValue,
+                                                );
+                                            if (!selectedColumn) return;
+                                            handleChangeColumn(selectedColumn);
+                                        }}
+                                    />
+                                )
+                            ) : selectedField ? (
+                                <Group spacing="xs">
+                                    <FieldIcon item={selectedField} />
+                                    {originalFilterRule?.label &&
+                                    !isEditMode ? (
+                                        <Text span fw={500}>
+                                            {originalFilterRule.label}
+                                        </Text>
+                                    ) : (
+                                        <FieldLabel item={selectedField} />
+                                    )}
+                                </Group>
+                            ) : (
+                                <Group spacing="xs">
+                                    <MantineIcon
+                                        icon={IconSql}
+                                        size={'lg'}
+                                        color={'#0E5A8A'}
+                                    />
+                                    {originalFilterRule?.label &&
+                                    !isEditMode ? (
+                                        <Text span fw={500}>
+                                            {originalFilterRule.label}
+                                        </Text>
+                                    ) : (
+                                        <Text span fw={500}>
+                                            {draftFilterRule?.target.fieldId ||
+                                                t(
+                                                    'components_dashboard_filter.tabs.select_column_sql',
+                                                )}
+                                        </Text>
+                                    )}
+                                </Group>
                             )}
-                        </Button>
-                    </Box>
-                </Tooltip>
-            </Flex>
+
+                            {draftFilterRule && (
+                                <FilterSettings
+                                    isEditMode={isEditMode}
+                                    isCreatingNew={isCreatingNew}
+                                    filterType={filterType}
+                                    field={selectedField}
+                                    filterRule={draftFilterRule}
+                                    onChangeFilterRule={handleChangeFilterRule}
+                                    popoverProps={popoverProps}
+                                    isCustomerUse={isCustomerUse}
+                                    parentFilterOptions={parentFilterOptions}
+                                />
+                            )}
+                        </Stack>
+                    </Tabs.Panel>
+
+                    {draftFilterRule && (
+                        <Tabs.Panel
+                            value={FilterTabs.TILES}
+                            w={500}
+                            data-testid="DashboardFilterConfiguration/ChartTiles"
+                        >
+                            <TileFilterConfiguration
+                                field={selectedField}
+                                tabs={tabs}
+                                activeTabUuid={activeTabUuid}
+                                filterRule={draftFilterRule}
+                                popoverProps={popoverProps}
+                                tiles={tiles}
+                                availableTileFilters={availableTileFilters}
+                                onChange={handleChangeTileConfiguration}
+                                onToggleAll={handleToggleAll}
+                            />
+                        </Tabs.Panel>
+                    )}
+                </Tabs>
+            </Box>
+
+            <Box
+                sx={{
+                    position: 'relative',
+                    zIndex: 1002,
+                    flexShrink: 0,
+                }}
+            >
+                <Flex gap="sm">
+                    <Box sx={{ flexGrow: 1 }} />
+
+                    {!isTemporary &&
+                        isFilterModified &&
+                        selectedTabId === FilterTabs.SETTINGS &&
+                        !isEditMode && (
+                            <Tooltip
+                                label={t(
+                                    'components_dashboard_filter.tabs.tooltip_reset.label',
+                                )}
+                                position="left"
+                            >
+                                <Button
+                                    aria-label={t(
+                                        'components_dashboard_filter.tabs.tooltip_reset.reset',
+                                    )}
+                                    size="xs"
+                                    variant="default"
+                                    color="gray"
+                                    onClick={handleRevert}
+                                >
+                                    <MantineIcon icon={IconRotate2} />
+                                </Button>
+                            </Tooltip>
+                        )}
+
+                    <Tooltip
+                        label={t(
+                            'components_dashboard_filter.tabs.tooltip_filter_field.label',
+                        )}
+                        disabled={!isApplyDisabled}
+                    >
+                        <Box>
+                            <Button
+                                size="xs"
+                                variant="filled"
+                                disabled={isApplyDisabled}
+                                onMouseDown={(e: MouseEvent<HTMLButtonElement>) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setSelectedTabId(FilterTabs.SETTINGS);
+                                    popoverProps?.onClose?.();
+                                    if (!!draftFilterRule)
+                                        onSave(draftFilterRule);
+                                }}
+                            >
+                                {t(
+                                    'components_dashboard_filter.tabs.tooltip_filter_field.content',
+                                )}
+                            </Button>
+                        </Box>
+                    </Tooltip>
+                </Flex>
+            </Box>
         </Stack>
     );
 };
