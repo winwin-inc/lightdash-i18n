@@ -2,12 +2,11 @@
  * Web Worker：条件格式计算（backgroundColor / fontColor），减轻主线程 Scripting。
  * tooltipContent 仍在主线程用 getConditionalFormattingDescription 补算。
  */
+/* eslint-disable no-restricted-globals -- Worker 内 self 为全局对象 */
 import {
     getConditionalFormattingColor,
     getConditionalFormattingConfig,
-    getItemId,
     type ConditionalFormattingRowFields,
-    type ItemsMap,
 } from '@lightdash/common';
 import { getColorFromRange, readableColor } from '../utils/colorUtils';
 import type { WorkerRequest, WorkerResponse } from './conditionalFormatting.worker.types';

@@ -505,7 +505,7 @@ export function pivotDataToVTable(
 
     if (data.pivotConfig.columnTotals && data.columnTotals) {
         columnTotalsRecords = data.columnTotals.map(
-            (totalsRow, totalRowIndex) => {
+            (totalsRow, _totalRowIndex) => {
                 const record: Record<
                     string,
                     string | number | null | undefined

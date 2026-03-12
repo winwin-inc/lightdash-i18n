@@ -33,10 +33,6 @@ import {
     type VTableListOption,
 } from './pivotDataToVTable';
 
-import { ROW_NUMBER_COLUMN_ID } from '../Table/constants';
-
-const ALL_PIVOTED_SPACER_FIELD = '__pivot_spacer__';
-
 /**
  * 对列树递归添加条件格式 style；条形图列（progressbar 或 customRender）不设置 bgColor，避免盖住条形图
  */
@@ -261,6 +257,9 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
         hideRowNumbers,
         formatMap,
         dataRowCount,
+        columnProperties,
+        getField,
+        minMaxMap,
     ]);
 
     useEffect(() => {
@@ -288,20 +287,7 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
             const headerRowCount = headerRowCountRef.current;
             const recordIndex = row - headerRowCount;
             if (col < 0 || col >= cols.length || recordIndex < 0 || recordIndex >= records.length) return;
-            const colDef = cols[col];
-            const fieldId = colDef.field;
-            const record = records[recordIndex];
-            const displayVal = record[fieldId];
-            const pivotCol = pivotColumnInfoRef.current.find((c) => c.fieldId === fieldId);
             const originalRows = originalRowsRef.current;
-            const originalRow =
-                recordIndex < originalRows.length ? originalRows[recordIndex] : null;
-            const cellValue = originalRow?.[fieldId];
-            const value =
-                cellValue && typeof cellValue === 'object' && 'value' in cellValue
-                    ? (cellValue as { value: { raw?: unknown; formatted?: string } }).value
-                    : { raw: displayVal, formatted: displayVal != null ? String(displayVal) : '-' };
-
             const rowOriginal = recordIndex < originalRows.length ? originalRows[recordIndex] : null;
             const rowRecord = records[recordIndex];
             const allRowCells: Cell<ResultRow, unknown>[] = cols.map((c) => {
@@ -356,7 +342,9 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
             }
             tableRef.current = null;
         };
-    }, []); // 仅挂载/卸载时创建/销毁，option 变更通过 updateOption 处理
+        // 仅挂载/卸载时创建/销毁，option 变更通过 updateOption 处理；省略 deps 避免重复创建 table
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         const table = tableRef.current;

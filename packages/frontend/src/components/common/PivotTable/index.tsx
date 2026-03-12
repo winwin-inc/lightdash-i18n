@@ -6,7 +6,6 @@ import {
     getItemId,
     isDimension,
     isField,
-    isHexCodeColor,
     isNumericItem,
     isSummable,
     type BaseFilterRule,
@@ -44,7 +43,6 @@ import React, {
     useCallback,
     useDeferredValue,
     useEffect,
-    useLayoutEffect,
     useMemo,
     useRef,
     useState,
@@ -127,22 +125,6 @@ function getConditionalFormatCacheKey(
         .map(([k, v]) => `${k}:${v?.value}`)
         .join(';');
     return `${fieldId}:${JSON.stringify(value)}:${rowPart}`;
-}
-
-function getRowFieldsForRow(row: Row<ResultRow>): ConditionalFormattingRowFields {
-    return row
-        .getVisibleCells()
-        .reduce<ConditionalFormattingRowFields>((acc, cell) => {
-            const meta = cell.column.columnDef.meta;
-            if (meta?.item) {
-                const cellValue = cell.getValue() as ResultRow[0] | undefined;
-                acc[getItemId(meta.item)] = {
-                    field: meta.item,
-                    value: cellValue?.value?.raw,
-                };
-            }
-            return acc;
-        }, {});
 }
 
 function computeCellFormatMapForRow(
@@ -463,12 +445,12 @@ const PivotTableRow: FC<PivotTableRowProps> = memo(
                                         isRowTotal
                                             ? undefined
                                             : (
-                                                  colIndex: number,
+                                                  underlyingColIndex: number,
                                                   rIndex: number,
                                               ) =>
                                                   getUnderlyingFieldValues(
                                                       rIndex,
-                                                      colIndex,
+                                                      underlyingColIndex,
                                                   )
                                     }
                                     onClose={onClose}
