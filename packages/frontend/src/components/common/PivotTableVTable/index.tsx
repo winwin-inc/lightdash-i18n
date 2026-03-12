@@ -215,6 +215,7 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
             },
             defaultRowHeight: 32,
             defaultHeaderRowHeight: 32,
+            columnResizeMode: 'none',
             theme: {
                 bodyStyle: {
                     fontSize: 13,
@@ -238,7 +239,7 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
                 },
                 scrollStyle: {
                     hoverOn: false,
-                    visible: 'scrolling',
+                    visible: 'always',
                     width: 6,
                 },
             },
