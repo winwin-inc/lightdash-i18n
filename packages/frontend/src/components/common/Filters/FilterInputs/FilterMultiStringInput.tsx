@@ -29,6 +29,8 @@ const FilterMultiStringInput: FC<Props> = ({
     onChange,
     placeholder,
     closeDropdownOnMouseLeave = false,
+    onDropdownOpen: onDropdownOpenProp,
+    onDropdownClose: onDropdownCloseProp,
     ...rest
 }) => {
     const { t } = useTranslation();
@@ -408,12 +410,14 @@ const FilterMultiStringInput: FC<Props> = ({
                 value={values}
                 onDropdownOpen={() => {
                     setIsDropdownOpen(true);
+                    onDropdownOpenProp?.();
                 }}
                 onDropdownClose={() => {
                     setIsDropdownOpen(false);
                     cancelDebouncedClose(); // 取消防抖，因为下拉框已经关闭
                     dropdownElementRef.current = null; // 清理下拉框引用
                     handleResetSearch();
+                    onDropdownCloseProp?.();
                 }}
                 onChange={handleChange}
                 onCreate={handleAdd}

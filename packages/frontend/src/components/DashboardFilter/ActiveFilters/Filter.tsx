@@ -119,6 +119,7 @@ const Filter: FC<Props> = ({
         if (!isPopoverOpen) {
             allowSubOpenRef.current = false;
             subPopoverOpenCountRef.current = 0;
+            closeSubPopover();
             return;
         }
         allowSubOpenRef.current = false;
@@ -137,7 +138,7 @@ const Filter: FC<Props> = ({
             document.removeEventListener('mousedown', onUserInteraction, true);
             document.removeEventListener('touchstart', onUserInteraction, true);
         };
-    }, [isPopoverOpen]);
+    }, [isPopoverOpen, closeSubPopover]);
 
     /** 仅在有真实用户点击/触摸后再响应 onOpen，避免首开误触；切换筛选项后点开下拉会先触发 mousedown，再 onOpen，稳定出高度 */
     const openSubPopoverWrapped = useCallback(() => {
@@ -480,7 +481,7 @@ const Filter: FC<Props> = ({
 
                 <Popover.Dropdown
                     className={
-                        isPopoverOpen
+                        isSubPopoverOpen
                             ? `${dropdownClasses.classes.dropdown} ${dropdownClasses.classes.dropdownWithSubOpen}`
                             : dropdownClasses.classes.dropdown
                     }
@@ -488,7 +489,7 @@ const Filter: FC<Props> = ({
                     {appliedDashboardTiles && (
                         <Box
                             className={
-                                isPopoverOpen
+                                isSubPopoverOpen
                                     ? dropdownClasses.classes.dropdownContent
                                     : undefined
                             }

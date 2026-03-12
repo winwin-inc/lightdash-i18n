@@ -6,7 +6,14 @@ import { Box, Button, Popover, Text, Tooltip } from '@mantine/core';
 
 import { useDisclosure, useId } from '@mantine/hooks';
 import { IconFilter } from '@tabler/icons-react';
-import { useCallback, useMemo, type FC } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type FC,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFilterDropdownStyles } from './filterDropdownStyles';
 
@@ -70,8 +77,75 @@ const AddFilterButton: FC<Props> = ({
 
     const [isSubPopoverOpen, { close: closeSubPopover, open: openSubPopover }] =
         useDisclosure();
+    /** 主面板打开后，是否已经关闭过内部下拉；用于「默认打开有占位，关闭选择维度后占位消失」 */
+    const [hasSubClosedSinceOpen, setHasSubClosedSinceOpen] = useState(false);
+
+    const closeTimeoutIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+    /** 仅在有真实用户点击/触摸或短延时后再响应 onOpen，避免首次打开面板时 focusOnRender 触发的下拉误判为「打开 Select」 */
+    const allowSubOpenRef = useRef(false);
+    const subPopoverOpenCountRef = useRef(0);
+
+    useEffect(() => {
+        if (!isPopoverOpen) {
+            allowSubOpenRef.current = false;
+            subPopoverOpenCountRef.current = 0;
+            closeSubPopover();
+            setHasSubClosedSinceOpen(false);
+            return;
+        }
+        setHasSubClosedSinceOpen(false);
+        allowSubOpenRef.current = false;
+        const onUserInteraction = () => {
+            allowSubOpenRef.current = true;
+        };
+        document.addEventListener('mousedown', onUserInteraction, true);
+        document.addEventListener('touchstart', onUserInteraction, true);
+        const fallbackTimer = setTimeout(() => {
+            allowSubOpenRef.current = true;
+        }, 180);
+        return () => {
+            clearTimeout(fallbackTimer);
+            document.removeEventListener('mousedown', onUserInteraction, true);
+            document.removeEventListener('touchstart', onUserInteraction, true);
+        };
+    }, [isPopoverOpen, closeSubPopover]);
+
+    const openSubPopoverWrapped = useCallback(() => {
+        if (!allowSubOpenRef.current) return;
+        closeTimeoutIdsRef.current.forEach((id) => clearTimeout(id));
+        closeTimeoutIdsRef.current = [];
+        subPopoverOpenCountRef.current += 1;
+        openSubPopover();
+    }, [openSubPopover]);
+
+    const closeSubPopoverWrapped = useCallback(() => {
+        const id = setTimeout(() => {
+            subPopoverOpenCountRef.current = Math.max(
+                0,
+                subPopoverOpenCountRef.current - 1,
+            );
+            if (subPopoverOpenCountRef.current === 0) {
+                closeSubPopover();
+                setHasSubClosedSinceOpen(true); // 内部下拉全部关闭后，占位消失
+            }
+            closeTimeoutIdsRef.current = closeTimeoutIdsRef.current.filter(
+                (x) => x !== id,
+            );
+        }, 150);
+        closeTimeoutIdsRef.current.push(id);
+    }, [closeSubPopover]);
+
+    useEffect(
+        () => () => {
+            closeTimeoutIdsRef.current.forEach((id) => clearTimeout(id));
+            closeTimeoutIdsRef.current = [];
+        },
+        [],
+    );
 
     const handleClose = useCallback(() => {
+        closeTimeoutIdsRef.current.forEach((id) => clearTimeout(id));
+        closeTimeoutIdsRef.current = [];
         if (isPopoverOpen) onPopoverClose();
         closeSubPopover();
     }, [isPopoverOpen, onPopoverClose, closeSubPopover]);
@@ -197,9 +271,11 @@ const AddFilterButton: FC<Props> = ({
                     </Tooltip>
                 </Popover.Target>
 
+                {/* 添加全局/tab：默认打开有占位；当「选择维度」等内部下拉关闭后，占位消失 */}
                 <Popover.Dropdown
                     className={
-                        isPopoverOpen
+                        isPopoverOpen &&
+                        (isSubPopoverOpen || !hasSubClosedSinceOpen)
                             ? `${dropdownClasses.classes.dropdown} ${dropdownClasses.classes.dropdownAddFilterWithSubOpen}`
                             : dropdownClasses.classes.dropdown
                     }
@@ -207,7 +283,8 @@ const AddFilterButton: FC<Props> = ({
                     {appliedDashboardTiles && (
                         <Box
                             className={
-                                isPopoverOpen
+                                isPopoverOpen &&
+                                (isSubPopoverOpen || !hasSubClosedSinceOpen)
                                     ? dropdownClasses.classes.dropdownContent
                                     : undefined
                             }
@@ -224,8 +301,8 @@ const AddFilterButton: FC<Props> = ({
                                 }
                                 onSave={handleSaveChanges}
                                 popoverProps={{
-                                    onOpen: openSubPopover,
-                                    onClose: closeSubPopover,
+                                    onOpen: openSubPopoverWrapped,
+                                    onClose: closeSubPopoverWrapped,
                                 }}
                                 filterScope={filterScope}
                                 tabUuid={
