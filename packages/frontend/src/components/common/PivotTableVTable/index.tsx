@@ -35,11 +35,13 @@ import {
 
 /**
  * 对列树递归添加条件格式 style；条形图列（progressbar 或 customRender）不设置 bgColor，避免盖住条形图
+ * VTable 的 style 回调里 args.row 为表格绝对行号（含表头），formatMap 的 key 为 `${dataRowIndex}-${fieldId}`，故需用 dataRowIndex = args.row - headerRowCount 查表
  */
 function addConditionalStyleToColumns(
     cols: (VTableColumnDef | VTableColumnGroup)[],
     formatMap: Map<string, { backgroundColor?: string; fontColor?: string }>,
     dataRowCount: number,
+    headerRowCount: number,
     startIndex: number,
 ): { result: (VTableColumnDef | VTableColumnGroup)[]; nextIndex: number } {
     const result: (VTableColumnDef | VTableColumnGroup)[] = [];
@@ -55,9 +57,10 @@ function addConditionalStyleToColumns(
             const styleFn =
                 formatMap.size > 0 && fieldId
                     ? (args: { row: number; col: number }) => {
-                          if (args.row >= dataRowCount)
+                          const dataRowIndex = args.row - headerRowCount;
+                          if (dataRowIndex < 0 || dataRowIndex >= dataRowCount)
                               return staticStyle ?? {};
-                          const key = `${args.row}-${fieldId}`;
+                          const key = `${dataRowIndex}-${fieldId}`;
                           const format = formatMap.get(key);
                           const style: Record<string, string> = {
                               ...staticStyle,
@@ -80,6 +83,7 @@ function addConditionalStyleToColumns(
                 c.columns,
                 formatMap,
                 dataRowCount,
+                headerRowCount,
                 idx,
             );
             result.push({ ...c, columns: children });
@@ -195,17 +199,19 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
             ...base.records,
             ...(base.columnTotalsRecords ?? []),
         ];
+        const headerRowCount = getHeaderRowCount(base.columns);
         const { result: columnsWithStyle } = addConditionalStyleToColumns(
             base.columns,
             formatMap,
             dataRowCount,
+            headerRowCount,
             0,
         );
         allRecordsRef.current = allRecords;
         flattenedColsRef.current = flattenLeafColumns(columnsWithStyle);
         originalRowsRef.current = data.retrofitData.allCombinedData;
         pivotColumnInfoRef.current = data.retrofitData.pivotColumnInfo;
-        headerRowCountRef.current = getHeaderRowCount(columnsWithStyle);
+        headerRowCountRef.current = headerRowCount;
 
         const fullOption: Record<string, unknown> = {
             columns: columnsWithStyle,
@@ -221,7 +227,7 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
                     fontSize: 13,
                     lineHeight: 16,
                     bgColor: (args: { row: number }) =>
-                        args.row % 2 === 1 ? '#fafafa' : '#ffffff',
+                        (args.row - headerRowCount) % 2 === 1 ? '#fafafa' : '#ffffff',
                     borderColor: '#e8e8e8',
                     borderLineWidth: 1,
                     padding: [1, 8],
