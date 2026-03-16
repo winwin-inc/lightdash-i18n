@@ -23,6 +23,8 @@ export type ExecuteAsyncMetricQueryRequestParams =
         query: Omit<MetricQueryRequest, 'csvLimit'>;
         dateZoom?: DateZoom;
         pivotConfiguration?: PivotConfiguration;
+        /** 从看板跳转到探索页时传入，用于在查询时保持看板上下文（dashboardSlug/dashboardName 等内置用户属性） */
+        dashboardUuid?: string;
     };
 
 export type ExecuteAsyncSavedChartRequestParams =

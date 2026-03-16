@@ -59,6 +59,8 @@ export type ExecuteAsyncMetricQueryArgs = CommonAsyncQueryArgs & {
     metricQuery: MetricQuery;
     dateZoom?: DateZoom;
     pivotConfiguration?: PivotConfiguration;
+    /** 从看板跳转到探索页时传入，用于保持看板上下文（dashboardSlug/dashboardName 等内置用户属性） */
+    dashboardUuid?: string;
 };
 
 export type ExecuteAsyncSavedChartQueryArgs = CommonAsyncQueryArgs & {

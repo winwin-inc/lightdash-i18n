@@ -1940,6 +1940,7 @@ export class AsyncQueryService extends ProjectService {
         invalidateCache,
         parameters,
         pivotConfiguration,
+        dashboardUuid,
     }: ExecuteAsyncMetricQueryArgs): Promise<ApiExecuteAsyncMetricQueryResults> {
         assertIsAccountWithOrg(account);
 
@@ -2004,6 +2005,19 @@ export class AsyncQueryService extends ProjectService {
             parameters,
         );
 
+        // 从看板跳转到探索页时，通过 dashboardUuid 获取看板上下文，以便 SQL 变量替换正常工作
+        let exploreContext:
+            | { dashboardSlug?: string; dashboardName?: string }
+            | undefined;
+        if (dashboardUuid) {
+            const dashboard =
+                await this.dashboardModel.getByIdOrSlug(dashboardUuid);
+            exploreContext = {
+                dashboardSlug: dashboard.slug,
+                dashboardName: dashboard.name,
+            };
+        }
+
         const {
             sql,
             fields,
@@ -2020,6 +2034,7 @@ export class AsyncQueryService extends ProjectService {
             parameters: combinedParameters,
             projectUuid,
             pivotConfiguration,
+            context: exploreContext,
         });
 
         const { queryUuid, cacheMetadata } = await this.executeAsyncQuery(
@@ -2556,7 +2571,7 @@ export class AsyncQueryService extends ProjectService {
             | undefined;
         if (isDashboardContext) {
             const dashboard = await this.dashboardModel.getByIdOrSlug(
-                requestParameters.dashboardUuid,
+                requestParameters.dashboardUuid!,
             );
             dashboardContext = {
                 dashboardSlug: dashboard.slug,
