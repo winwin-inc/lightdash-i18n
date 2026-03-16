@@ -90,6 +90,9 @@ services:
             - STATIC_FILES_VERSION=${STATIC_FILES_VERSION}
             - ADMIN_API_HOST=${ADMIN_API_HOST}
             - ADMIN_API_KEY=${ADMIN_API_KEY}
+            - OTEL_EXPORTER_ZIPKIN_ENDPOINT=${OTEL_EXPORTER_ZIPKIN_ENDPOINT}
+            - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+            - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-lightdash-backend}
         volumes:
             - '${DBT_PROJECT_DIR}:/usr/app/dbt'
         ports:

@@ -4963,7 +4963,7 @@
             "custom_format": {
                 "label": "自定义格式",
                 "placeholder": "例如 {{example}}",
-                "hint": "可使用 {{tokens}} 占位符，支持添加连字符、中括号等符号。示例：{percent}% - {value}、{value} ({percent}%)、{name}: {value}",
+                "hint": "占位符：{{tokens}}。可选小数位：{percent:0}、{value:2}（默认 2）。示例：{percent}% - {value}、{value} ({percent:1}%)、{name}: {value}",
                 "reset": "恢复继承"
             },
             "options": {

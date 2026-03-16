@@ -186,7 +186,7 @@ export const ValueOptions: FC<ValueOptionsProps> = ({
                                 {t(
                                     'components_visualization_configs_chart_pie.value_options.custom_format.hint',
                                     {
-                                        tokens: '{name}, {value}, {percent}',
+                                        tokens: '{name}, {value}, {rawValue}, {percent}',
                                     },
                                 )}
                             </Text>

@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/node';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { lightdashConfig } from './config/lightdashConfig';
+import { getJaegerSpanProcessors } from './instrumentation';
 import { VERSION } from './version';
 
 export const IGNORE_ERRORS = [
@@ -101,4 +102,8 @@ Sentry.init({
         }
         return breadcrumb;
     },
+    ...(() => {
+        const processors = getJaegerSpanProcessors();
+        return processors.length > 0 ? { spanProcessors: processors } : {};
+    })(),
 });

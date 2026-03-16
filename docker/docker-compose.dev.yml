@@ -75,6 +75,9 @@ x-lightdash-environment: &lightdash-environment
     LIGHTDASH_PROMETHEUS_ENABLED: ${LIGHTDASH_PROMETHEUS_ENABLED}
     ADMIN_API_HOST: ${ADMIN_API_HOST}
     ADMIN_API_KEY: ${ADMIN_API_KEY}
+    OTEL_EXPORTER_ZIPKIN_ENDPOINT: ${OTEL_EXPORTER_ZIPKIN_ENDPOINT}
+    OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+    OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-lightdash-backend}
 
 x-lightdash-base: &lightdash-base
     build: *lightdash-build

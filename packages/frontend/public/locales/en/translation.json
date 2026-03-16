@@ -4980,7 +4980,7 @@
             "custom_format": {
                 "label": "Custom format",
                 "placeholder": "e.g. {{example}}",
-                "hint": "Use {{tokens}} placeholders. Examples: {percent}% - {value}, {value} ({percent}%), {name}: {value}",
+                "hint": "Placeholders: {{tokens}}. Optional decimals: {percent:0}, {value:2} (default 2). Examples: {percent}% - {value}, {value} ({percent:1}%), {name}: {value}",
                 "reset": "Reset override"
             },
             "options": {

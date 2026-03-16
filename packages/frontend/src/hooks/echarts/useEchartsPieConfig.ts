@@ -13,6 +13,10 @@ import { type EChartsOption, type PieSeriesOption } from 'echarts';
 import { useMemo } from 'react';
 import { isPieVisualizationConfig } from '../../components/LightdashVisualization/types';
 import { useVisualizationContext } from '../../components/LightdashVisualization/useVisualizationContext';
+import {
+    applyPieLabelTemplate,
+    formatPercentForLabel,
+} from './pieLabelFormatters';
 import { useLegendDoubleClickTooltip } from './useLegendDoubleClickTooltip';
 export type PieSeriesDataPoint = NonNullable<
     PieSeriesOption['data']
@@ -150,30 +154,22 @@ const useEchartsPieConfig = (
                                 labelTemplate &&
                                 labelTemplate.trim() !== ''
                             ) {
-                                // Replace placeholders with actual values
-                                // In custom format mode, always show values regardless of showValue/showPercentage
-                                // {name} - the group name
-                                // {value} - the formatted numeric value (keeps original format, e.g., "1,234.56" or "50%")
-                                //   Note: For percentage format metrics, this will include the % symbol
-                                // {rawValue} - the raw numeric value (e.g., 1234.56)
-                                // {percent} - the percentage value (0-100, user can add % symbol in template)
-
-                                // Use the original formatted value to preserve the format
-                                // The format is determined by the metric's formatOptions/format settings
-                                // For percentage format metrics (CustomFormatType.PERCENT), this will include the % symbol
+                                const rawNum =
+                                    meta.value.raw ?? rawValueFromParams;
                                 const formattedValue =
                                     meta.value.formatted ?? '';
 
-                                let formattedLabel = labelTemplate
-                                    .replaceAll('{name}', params.name ?? '')
-                                    .replaceAll('{value}', formattedValue)
-                                    .replaceAll(
-                                        '{rawValue}',
-                                        `${
-                                            meta.value.raw ?? rawValueFromParams
-                                        }`,
-                                    )
-                                    .replaceAll('{percent}', `${percentValue}`);
+                                // 未写 :N 时默认 2 位小数，与原有行为一致
+                                let formattedLabel = applyPieLabelTemplate(
+                                    labelTemplate,
+                                    {
+                                        name: params.name ?? '',
+                                        percentValue,
+                                        formattedValue,
+                                        rawValue: rawNum,
+                                    },
+                                    2,
+                                );
 
                                 formattedLabel = formattedLabel.trim();
 
@@ -227,16 +223,18 @@ const useEchartsPieConfig = (
                                 }
                             }
 
-                            // Default behavior for non-custom modes
+                            // Default behavior for non-custom modes (percent fixed 2 decimals for consistency)
+                            const percentFormattedDefault =
+                                formatPercentForLabel(percentValue, 2);
                             let labelText =
                                 valueLabel !== 'hidden' &&
                                 showValue &&
                                 showPercentage
-                                    ? `${percentValue}% - ${meta.value.formatted}`
+                                    ? `${percentFormattedDefault}% - ${meta.value.formatted}`
                                     : showValue
                                     ? `${meta.value.formatted}`
                                     : showPercentage
-                                    ? `${percentValue}%`
+                                    ? `${percentFormattedDefault}%`
                                     : `${params.name}`;
 
                             // 移动端外侧标签：如果文本较长，在合适位置插入换行符
@@ -383,7 +381,11 @@ const useEchartsPieConfig = (
                               )}...`
                             : name;
 
-                    return `${marker} <b>${truncatedName}</b><br />${percent}% - ${formattedValue}`;
+                    const percentFormatted = formatPercentForLabel(
+                        Number(percent),
+                        2,
+                    );
+                    return `${marker} <b>${truncatedName}</b><br />${percentFormatted}% - ${formattedValue}`;
                 },
             },
         };

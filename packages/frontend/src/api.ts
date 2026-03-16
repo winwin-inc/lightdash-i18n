@@ -57,6 +57,14 @@ const finalizeHeaders = (
         requestHeaders['sentry-trace'] = sentryTrace;
     }
 
+    const jaegerDebugId =
+        typeof sessionStorage !== 'undefined'
+            ? sessionStorage.getItem('jaeger_debug_id')
+            : null;
+    if (jaegerDebugId) {
+        requestHeaders['jaeger-debug-id'] = jaegerDebugId;
+    }
+
     return requestHeaders;
 };
 
@@ -235,13 +243,18 @@ export const lightdashApiStream = ({
         },
     );
 
+    const streamHeaders: Record<string, string> = {
+        ...defaultHeaders,
+        ...headers,
+        ...(sentryTrace ? { 'sentry-trace': sentryTrace } : {}),
+    };
+    const jaegerDebugId = sessionStorage.getItem('jaeger_debug_id');
+    if (jaegerDebugId) {
+        streamHeaders['jaeger-debug-id'] = jaegerDebugId;
+    }
     return fetch(`${apiPrefix}${url}`, {
         method,
-        headers: {
-            ...defaultHeaders,
-            ...headers,
-            ...(sentryTrace ? { 'sentry-trace': sentryTrace } : {}),
-        },
+        headers: streamHeaders,
         body,
         signal,
     })
