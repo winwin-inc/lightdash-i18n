@@ -207,10 +207,7 @@ const useCartesianChartConfig = ({
                         // Merge config properties (tooltipSortByValue, etc.) from initialSerie
                         return {
                             ...serie,
-                            ...(initialSerie.tooltipSortByValue && {
-                                tooltipSortByValue:
-                                    initialSerie.tooltipSortByValue,
-                            }),
+                            tooltipSortByValue: initialSerie.tooltipSortByValue,
                         };
                     }
                     return serie;

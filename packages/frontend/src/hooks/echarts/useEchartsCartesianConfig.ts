@@ -880,9 +880,21 @@ const getEchartsSeriesFromPivotedData = (
 
     const allSeries = cartesianChart.eChartsConfig.series || [];
 
+    // Check if any series has tooltipSortByValue enabled
+    const hasTooltipSortByValue = allSeries.some(
+        (s) =>
+            s.tooltipSortByValue === 'asc' || s.tooltipSortByValue === 'desc',
+    );
+
     const resultSeries = allSeries
         .filter((s) => !s.hidden)
         .sort((a, b) => {
+            // If tooltipSortByValue is enabled, preserve the original order
+            // The sorting will be done later in stackedSeriesWithColorAssignments
+            if (hasTooltipSortByValue) {
+                return 0;
+            }
+
             const aColumnName = findMatchingColumnName(a);
             const bColumnName = findMatchingColumnName(b);
 
@@ -1441,7 +1453,7 @@ const getEchartAxes = ({
         targetZeroPosition: number,
     ): { min: number; max: number } => {
         const range = currentMax - currentMin;
-        
+
         // 如果目标位置在底部或顶部，直接设置边界
         if (targetZeroPosition <= 0.001) {
             return {
@@ -1455,24 +1467,23 @@ const getEchartAxes = ({
                 max: Math.max(0, currentMax),
             };
         }
-        
+
         // 计算所需的最小范围
         const minRangeForMax = currentMax / (1 - targetZeroPosition);
-        const minRangeForMin = currentMin < 0 
-            ? -currentMin / targetZeroPosition 
-            : 0;
-        
+        const minRangeForMin =
+            currentMin < 0 ? -currentMin / targetZeroPosition : 0;
+
         // 限制扩展范围，避免扩展得太大（最多扩展到原始范围的3倍）
         const maxAllowedRange = Math.max(range * 3, Math.abs(currentMax) * 2);
         const newRange = Math.min(
             Math.max(range, minRangeForMax, minRangeForMin),
-            maxAllowedRange
+            maxAllowedRange,
         );
-        
+
         // 计算对齐后的min和max，并进行四舍五入以减少小数位（保留2位小数）
         const calculatedMin = 0 - targetZeroPosition * newRange;
         const calculatedMax = calculatedMin + newRange;
-        
+
         return {
             min: Math.round(calculatedMin * 100) / 100,
             max: Math.round(calculatedMax * 100) / 100,
@@ -1483,12 +1494,13 @@ const getEchartAxes = ({
         // 检查是否需要对齐0轴（至少一个轴包含0值，或者一个轴有负数另一个轴没有）
         // 注意：此逻辑适用于任何数值类型的字段，包括百分比字段和普通数值字段
         // 因为对齐是基于数值0的位置计算的，不依赖于字段的单位或格式化方式
-        const leftCrossesZero =
-            leftAxisDataMin <= 0 && leftAxisDataMax >= 0;
-        const rightCrossesZero =
-            rightAxisDataMin <= 0 && rightAxisDataMax >= 0;
+        const leftCrossesZero = leftAxisDataMin <= 0 && leftAxisDataMax >= 0;
+        const rightCrossesZero = rightAxisDataMin <= 0 && rightAxisDataMax >= 0;
         const needsZeroAlignment =
-            leftCrossesZero || rightCrossesZero || leftAxisDataMin < 0 || rightAxisDataMin < 0;
+            leftCrossesZero ||
+            rightCrossesZero ||
+            leftAxisDataMin < 0 ||
+            rightAxisDataMin < 0;
 
         if (needsZeroAlignment) {
             // 检查是否有负数
@@ -1500,22 +1512,32 @@ const getEchartAxes = ({
             // 计算0值在每个轴上的相对位置
             const leftZeroPosition =
                 leftAxisDataMax !== leftAxisDataMin
-                    ? (0 - leftAxisDataMin) / (leftAxisDataMax - leftAxisDataMin)
+                    ? (0 - leftAxisDataMin) /
+                      (leftAxisDataMax - leftAxisDataMin)
                     : 0.5;
             const rightZeroPosition =
                 rightAxisDataMax !== rightAxisDataMin
-                    ? (0 - rightAxisDataMin) / (rightAxisDataMax - rightAxisDataMin)
+                    ? (0 - rightAxisDataMin) /
+                      (rightAxisDataMax - rightAxisDataMin)
                     : 0.5;
 
             // 如果两个轴的0值位置不同，需要调整其中一个轴
             if (Math.abs(leftZeroPosition - rightZeroPosition) > 0.001) {
-                const leftHasManualMin = yAxisConfiguration?.[0]?.min !== undefined;
-                const leftHasManualMax = yAxisConfiguration?.[0]?.max !== undefined;
-                const rightHasManualMin = yAxisConfiguration?.[1]?.min !== undefined;
-                const rightHasManualMax = yAxisConfiguration?.[1]?.max !== undefined;
+                const leftHasManualMin =
+                    yAxisConfiguration?.[0]?.min !== undefined;
+                const leftHasManualMax =
+                    yAxisConfiguration?.[0]?.max !== undefined;
+                const rightHasManualMin =
+                    yAxisConfiguration?.[1]?.min !== undefined;
+                const rightHasManualMax =
+                    yAxisConfiguration?.[1]?.max !== undefined;
 
                 // 如果右侧有负数，确保右侧向下扩展以包含0值
-                if (rightHasNegative && !rightHasManualMin && !rightHasManualMax) {
+                if (
+                    rightHasNegative &&
+                    !rightHasManualMin &&
+                    !rightHasManualMax
+                ) {
                     alignedRightMin = Math.min(0, rightAxisDataMin);
                     alignedRightMax = rightAxisDataMax;
                 }
@@ -1527,22 +1549,44 @@ const getEchartAxes = ({
                 }
 
                 // 如果右侧有负数但左侧没有，左侧应该向下扩展以包含0值
-                if (rightHasNegative && leftAllPositive && !leftHasManualMin && !leftHasManualMax) {
+                if (
+                    rightHasNegative &&
+                    leftAllPositive &&
+                    !leftHasManualMin &&
+                    !leftHasManualMax
+                ) {
                     alignedLeftMin = 0;
                     alignedLeftMax = leftAxisDataMax;
                 }
 
                 // 如果左侧有负数但右侧没有，右侧应该向下扩展以包含0值
-                if (leftHasNegative && rightAllPositive && !rightHasManualMin && !rightHasManualMax) {
+                if (
+                    leftHasNegative &&
+                    rightAllPositive &&
+                    !rightHasManualMin &&
+                    !rightHasManualMax
+                ) {
                     alignedRightMin = 0;
                     alignedRightMax = rightAxisDataMax;
                 }
 
                 // 重新计算0值位置（基于调整后的范围）
-                const finalLeftMin = alignedLeftMin !== undefined ? alignedLeftMin : leftAxisDataMin;
-                const finalLeftMax = alignedLeftMax !== undefined ? alignedLeftMax : leftAxisDataMax;
-                const finalRightMin = alignedRightMin !== undefined ? alignedRightMin : rightAxisDataMin;
-                const finalRightMax = alignedRightMax !== undefined ? alignedRightMax : rightAxisDataMax;
+                const finalLeftMin =
+                    alignedLeftMin !== undefined
+                        ? alignedLeftMin
+                        : leftAxisDataMin;
+                const finalLeftMax =
+                    alignedLeftMax !== undefined
+                        ? alignedLeftMax
+                        : leftAxisDataMax;
+                const finalRightMin =
+                    alignedRightMin !== undefined
+                        ? alignedRightMin
+                        : rightAxisDataMin;
+                const finalRightMax =
+                    alignedRightMax !== undefined
+                        ? alignedRightMax
+                        : rightAxisDataMax;
 
                 const finalLeftZeroPosition =
                     finalLeftMax !== finalLeftMin
@@ -1554,23 +1598,26 @@ const getEchartAxes = ({
                         : 0.5;
 
                 // 如果0值位置仍然不同，调整其中一个轴以对齐
-                if (Math.abs(finalLeftZeroPosition - finalRightZeroPosition) > 0.001) {
+                if (
+                    Math.abs(finalLeftZeroPosition - finalRightZeroPosition) >
+                    0.001
+                ) {
                     // 统一的负数处理逻辑：
                     // 如果一侧有负数且0值不在底部，另一侧应该向下扩展以匹配0值位置
                     // 优先调整没有手动设置的轴
 
-                    const shouldAdjustLeftForRightZero = 
-                        rightHasNegative && 
-                        finalRightZeroPosition > 0.001 && 
-                        finalRightZeroPosition < 0.999 && 
-                        !leftHasManualMin && 
+                    const shouldAdjustLeftForRightZero =
+                        rightHasNegative &&
+                        finalRightZeroPosition > 0.001 &&
+                        finalRightZeroPosition < 0.999 &&
+                        !leftHasManualMin &&
                         !leftHasManualMax;
 
-                    const shouldAdjustRightForLeftZero = 
-                        leftHasNegative && 
-                        finalLeftZeroPosition > 0.001 && 
-                        finalLeftZeroPosition < 0.999 && 
-                        !rightHasManualMin && 
+                    const shouldAdjustRightForLeftZero =
+                        leftHasNegative &&
+                        finalLeftZeroPosition > 0.001 &&
+                        finalLeftZeroPosition < 0.999 &&
+                        !rightHasManualMin &&
                         !rightHasManualMax;
 
                     if (shouldAdjustLeftForRightZero) {
@@ -1643,10 +1690,10 @@ const getEchartAxes = ({
             ? shouldStack100 && !validCartesianConfig.layout.flipAxes
                 ? 100 // For 100% stacking without flipped axes, max is always 100
                 : shouldUseAlignedMaxForLeftAxis
-                    ? String(alignedLeftMax) // 使用对齐后的 max 值，以对齐零轴
-                    : yAxisConfiguration?.[0]?.max ||
-                      referenceLineMaxLeftY ||
-                      maybeGetAxisDefaultMaxValue(allowFirstAxisDefaultRange)
+                  ? String(alignedLeftMax) // 使用对齐后的 max 值，以对齐零轴
+                  : yAxisConfiguration?.[0]?.max ||
+                    referenceLineMaxLeftY ||
+                    maybeGetAxisDefaultMaxValue(allowFirstAxisDefaultRange)
             : undefined;
 
     const minYAxisValue =
@@ -2223,7 +2270,8 @@ const useEchartsCartesianConfig = (
             if (!seriesConfig) return undefined;
             for (const s of seriesConfig) {
                 // Access tooltipSortByValue using index access since EChartsConfig.series is Partial<Series[]>
-                const sortValue = (s as Record<string, unknown>).tooltipSortByValue as 'asc' | 'desc' | undefined;
+                const sortValue = (s as Record<string, unknown>)
+                    .tooltipSortByValue as 'asc' | 'desc' | undefined;
                 if (sortValue === 'asc' || sortValue === 'desc') {
                     return sortValue;
                 }
@@ -2583,7 +2631,8 @@ const useEchartsCartesianConfig = (
                     if (!sortSeries) return undefined;
                     for (const s of sortSeries) {
                         // Access tooltipSortByValue using index access since EChartsConfig.series is Partial<Series[]>
-                        const sortValue = (s as Record<string, unknown>).tooltipSortByValue as 'asc' | 'desc' | undefined;
+                        const sortValue = (s as Record<string, unknown>)
+                            .tooltipSortByValue as 'asc' | 'desc' | undefined;
                         if (sortValue === 'asc' || sortValue === 'desc') {
                             return sortValue;
                         }
