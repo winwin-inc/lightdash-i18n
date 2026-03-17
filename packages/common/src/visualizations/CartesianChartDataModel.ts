@@ -355,12 +355,80 @@ export class CartesianChartDataModel {
 
     static getDefaultColor(index: number, orgColors?: string[]) {
         const colorPalette = orgColors || ECHARTS_DEFAULT_COLORS;
-        // This code assigns a color to a series in the chart
-        const color =
-            colorPalette[
-                index % colorPalette.length // This ensures we cycle through the colors if we have more series than colors
-            ];
-        return color;
+
+        // If index is within palette range, return the original color
+        if (index < colorPalette.length) {
+            return colorPalette[index];
+        }
+
+        // Beyond palette range, generate new colors using hue rotation
+        // Use golden angle (137.5°) for optimal color distribution
+        const baseColorIndex = index % colorPalette.length;
+        const baseColor = colorPalette[baseColorIndex];
+        const rotationCycles = Math.floor(index / colorPalette.length);
+        const hueRotation = rotationCycles * 137.5; // Golden angle
+
+        return this.rotateHue(baseColor, hueRotation);
+    }
+
+    private static rotateHue(hexColor: string, degrees: number): string {
+        const { h, s, l } = this.hexToHSL(hexColor);
+        const newH = (h + degrees) % 360;
+        return this.hslToHex(newH, s, l);
+    }
+
+    private static hexToHSL(hex: string): { h: number; s: number; l: number } {
+        // Remove # if present
+        const cleanHex = hex.replace('#', '');
+        const r = parseInt(cleanHex.slice(0, 2), 16) / 255;
+        const g = parseInt(cleanHex.slice(2, 4), 16) / 255;
+        const b = parseInt(cleanHex.slice(4, 6), 16) / 255;
+
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const l = (max + min) / 2;
+
+        if (max === min) {
+            return { h: 0, s: 0, l };
+        }
+
+        const d = max - min;
+        const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+        let h = 0;
+        if (max === r) {
+            h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        } else if (max === g) {
+            h = ((b - r) / d + 2) / 6;
+        } else {
+            h = ((r - g) / d + 4) / 6;
+        }
+
+        return { h: h * 360, s, l };
+    }
+
+    private static hslToHex(h: number, s: number, l: number): string {
+        const hueToRgb = (p: number, q: number, t: number) => {
+            let tNorm = t;
+            if (tNorm < 0) tNorm += 1;
+            if (tNorm > 1) tNorm -= 1;
+            if (tNorm < 1 / 6) return p + (q - p) * 6 * tNorm;
+            if (tNorm < 1 / 2) return q;
+            if (tNorm < 2 / 3) return p + (q - p) * (2 / 3 - tNorm) * 6;
+            return p;
+        };
+
+        const hNorm = h / 360;
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+
+        const r = Math.round(hueToRgb(p, q, hNorm + 1 / 3) * 255);
+        const g = Math.round(hueToRgb(p, q, hNorm) * 255);
+        const b = Math.round(hueToRgb(p, q, hNorm - 1 / 3) * 255);
+
+        return `#${r.toString(16).padStart(2, '0')}${g
+            .toString(16)
+            .padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     }
 
     async getTransformedData(query?: SqlRunnerQuery) {

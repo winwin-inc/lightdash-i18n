@@ -1,5 +1,6 @@
 import {
     assertUnreachable,
+    CartesianChartDataModel,
     ChartType,
     FeatureFlags,
     isDimension,
@@ -214,7 +215,10 @@ const VisualizationProvider: FC<
 
         return Object.fromEntries(
             sortedSeriesIdentifiers.map((identifier, i) => {
-                return [identifier, colorPalette[i % colorPalette.length]];
+                return [
+                    identifier,
+                    CartesianChartDataModel.getDefaultColor(i, colorPalette),
+                ];
             }),
         );
     }, [chartConfig, colorPalette, computedSeries]);
