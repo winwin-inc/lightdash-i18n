@@ -56,15 +56,9 @@ const hslToHex = (h: number, s: number, l: number): string => {
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 };
 
-const rotateHue = (hexColor: string, degrees: number): string => {
-    const { h, s, l } = hexToHSL(hexColor);
-    const newH = (h + degrees) % 360;
-    return hslToHex(newH, s, l);
-};
-
 /**
  * Get a color from the palette, generating new colors beyond palette size.
- * Uses hue rotation with golden angle (137.5°) for optimal color distribution.
+ * Uses hue rotation (30°) with saturation/lightness adjustments for harmonious colors.
  */
 const getColorFromPalette = (index: number, colorPalette: string[]): string => {
     // If index is within palette range, return the original color
@@ -72,13 +66,25 @@ const getColorFromPalette = (index: number, colorPalette: string[]): string => {
         return colorPalette[index];
     }
 
-    // Beyond palette range, generate new colors using hue rotation
+    // Beyond palette range, generate new colors
     const baseColorIndex = index % colorPalette.length;
     const baseColor = colorPalette[baseColorIndex];
     const rotationCycles = Math.floor(index / colorPalette.length);
-    const hueRotation = rotationCycles * 137.5; // Golden angle
 
-    return rotateHue(baseColor, hueRotation);
+    // Use 30° hue rotation - more subtle than golden angle
+    const hueRotation = rotationCycles * 30;
+
+    // Adjust saturation and lightness in a wave pattern for visual variety
+    const saturationAdjustment = Math.sin(rotationCycles * Math.PI * 0.5) * 15;
+    const lightnessAdjustment = Math.sin(rotationCycles * Math.PI * 0.3) * 10;
+
+    // Convert base color to HSL, adjust, and convert back
+    const { h, s, l } = hexToHSL(baseColor);
+    const newH = (h + hueRotation) % 360;
+    const newS = Math.max(0.4, Math.min(1.0, s + saturationAdjustment / 100));
+    const newL = Math.max(0.3, Math.min(0.8, l + lightnessAdjustment / 100));
+
+    return hslToHex(newH, newS, newL);
 };
 
 const useChartColorMappingContext = (): ChartColorMappingContextProps => {

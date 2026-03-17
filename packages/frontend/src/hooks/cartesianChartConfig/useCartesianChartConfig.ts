@@ -22,6 +22,7 @@ import {
     type XAxis,
 } from '@lightdash/common';
 import { produce } from 'immer';
+import isEqual from 'lodash/isEqual';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     getMarkLineAxis,
@@ -185,6 +186,20 @@ const useCartesianChartConfig = ({
         (series: Series) => series.stack !== undefined,
     );
     const [isStacked, setIsStacked] = useState<boolean>(isInitiallyStacked);
+
+    // Sync dirtyEchartsConfig with initialChartConfig when it changes
+    // This is needed for dashboard tiles where the component doesn't remount on refresh
+    useEffect(() => {
+        if (initialChartConfig?.eChartsConfig) {
+            setDirtyEchartsConfig((prevState) => {
+                // Only update if the initial config is different from current state
+                if (!isEqual(prevState, initialChartConfig.eChartsConfig)) {
+                    return initialChartConfig.eChartsConfig;
+                }
+                return prevState;
+            });
+        }
+    }, [initialChartConfig?.eChartsConfig]);
 
     const setLegend = useCallback((legend: EchartsLegend) => {
         const removePropertiesWithAuto = Object.entries(
@@ -555,8 +570,8 @@ const useCartesianChartConfig = ({
                     stack === true
                         ? StackType.NORMAL
                         : stack === false
-                        ? StackType.NONE
-                        : stack,
+                          ? StackType.NONE
+                          : stack,
             }));
 
             setDirtyEchartsConfig(
@@ -873,8 +888,8 @@ const useCartesianChartConfig = ({
                                     ? serie.encode.yRef
                                     : serie.encode.xRef
                                 : dirtyLayout?.flipAxes
-                                ? serie.encode.xRef
-                                : serie.encode.yRef;
+                                  ? serie.encode.xRef
+                                  : serie.encode.yRef;
                         return {
                             fieldId: axis.field,
                             data: {

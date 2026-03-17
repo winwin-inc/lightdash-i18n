@@ -361,14 +361,45 @@ export class CartesianChartDataModel {
             return colorPalette[index];
         }
 
-        // Beyond palette range, generate new colors using hue rotation
-        // Use golden angle (137.5°) for optimal color distribution
+        // Beyond palette range, generate new colors
+        // Use a smaller rotation angle (30°) with saturation/lightness adjustments
+        // for more visually harmonious colors
         const baseColorIndex = index % colorPalette.length;
         const baseColor = colorPalette[baseColorIndex];
         const rotationCycles = Math.floor(index / colorPalette.length);
-        const hueRotation = rotationCycles * 137.5; // Golden angle
 
-        return this.rotateHue(baseColor, hueRotation);
+        // Use 30° hue rotation - more subtle than golden angle
+        const hueRotation = rotationCycles * 30;
+
+        // Adjust saturation and lightness in a wave pattern for visual variety
+        // Saturation oscillates between 60% and 90%
+        // Lightness oscillates between 40% and 70%
+        const saturationAdjustment =
+            Math.sin(rotationCycles * Math.PI * 0.5) * 15;
+        const lightnessAdjustment =
+            Math.sin(rotationCycles * Math.PI * 0.3) * 10;
+
+        return this.rotateAndAdjustHue(
+            baseColor,
+            hueRotation,
+            saturationAdjustment,
+            lightnessAdjustment,
+        );
+    }
+
+    private static rotateAndAdjustHue(
+        hexColor: string,
+        degrees: number,
+        saturationAdjust: number,
+        lightnessAdjust: number,
+    ): string {
+        const { h, s, l } = this.hexToHSL(hexColor);
+        const newH = (h + degrees) % 360;
+        // Clamp saturation between 0.4 and 1.0
+        const newS = Math.max(0.4, Math.min(1.0, s + saturationAdjust / 100));
+        // Clamp lightness between 0.3 and 0.8
+        const newL = Math.max(0.3, Math.min(0.8, l + lightnessAdjust / 100));
+        return this.hslToHex(newH, newS, newL);
     }
 
     private static rotateHue(hexColor: string, degrees: number): string {
