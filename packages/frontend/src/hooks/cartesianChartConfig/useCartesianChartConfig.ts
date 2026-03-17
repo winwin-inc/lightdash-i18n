@@ -187,19 +187,46 @@ const useCartesianChartConfig = ({
     );
     const [isStacked, setIsStacked] = useState<boolean>(isInitiallyStacked);
 
-    // Sync dirtyEchartsConfig with initialChartConfig when it changes
+    // Sync series configuration (like tooltipSortByValue) from initialChartConfig
     // This is needed for dashboard tiles where the component doesn't remount on refresh
     useEffect(() => {
-        if (initialChartConfig?.eChartsConfig) {
+        if (initialChartConfig?.eChartsConfig?.series) {
             setDirtyEchartsConfig((prevState) => {
-                // Only update if the initial config is different from current state
-                if (!isEqual(prevState, initialChartConfig.eChartsConfig)) {
-                    return initialChartConfig.eChartsConfig;
+                if (!prevState?.series) return prevState;
+
+                // Merge tooltipSortByValue and other config from initialChartConfig into existing series
+                const updatedSeries = prevState.series.map((serie) => {
+                    const serieId = getSeriesId(serie);
+                    // Find matching series in initialChartConfig
+                    const initialSerie =
+                        initialChartConfig.eChartsConfig.series?.find(
+                            (s) => getSeriesId(s) === serieId,
+                        );
+
+                    if (initialSerie) {
+                        // Merge config properties (tooltipSortByValue, etc.) from initialSerie
+                        return {
+                            ...serie,
+                            ...(initialSerie.tooltipSortByValue && {
+                                tooltipSortByValue:
+                                    initialSerie.tooltipSortByValue,
+                            }),
+                        };
+                    }
+                    return serie;
+                });
+
+                // Only update if something changed
+                if (!isEqual(prevState.series, updatedSeries)) {
+                    return {
+                        ...prevState,
+                        series: updatedSeries,
+                    };
                 }
                 return prevState;
             });
         }
-    }, [initialChartConfig?.eChartsConfig]);
+    }, [initialChartConfig?.eChartsConfig?.series]);
 
     const setLegend = useCallback((legend: EchartsLegend) => {
         const removePropertiesWithAuto = Object.entries(
