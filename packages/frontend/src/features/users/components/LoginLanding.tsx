@@ -57,10 +57,16 @@ const Login: FC<{}> = () => {
     const flashMessages = useFlashMessages();
     useEffect(() => {
         if (flashMessages.data?.error) {
-            showToastError({
-                title: t('features_users.user_no_auth_tip'),
-                subtitle: flashMessages.data.error.join('\n'),
-            });
+            // 隐藏 OAuth state mismatch 错误（通常由重复认证请求引起，不影响最终登录）
+            const filteredErrors = flashMessages.data.error.filter(
+                (msg) => !msg.includes('state mismatch'),
+            );
+            if (filteredErrors.length > 0) {
+                showToastError({
+                    title: t('features_users.user_no_auth_tip'),
+                    subtitle: filteredErrors.join('\n'),
+                });
+            }
         }
     }, [flashMessages.data, showToastError, t]);
     const queryParams = new URLSearchParams(location.search);
@@ -75,8 +81,8 @@ const Login: FC<{}> = () => {
     const redirectUrl = location.state?.from
         ? `${location.state.from.pathname}${location.state.from.search}`
         : redirectParam
-        ? redirectParam
-        : '/';
+          ? redirectParam
+          : '/';
 
     // If OIDC is enabled and force redirect is enabled, check if the user is authenticated
     const isOidcForceRedirect =
