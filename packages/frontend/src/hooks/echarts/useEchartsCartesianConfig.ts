@@ -2300,7 +2300,7 @@ const useEchartsCartesianConfig = (
             const sortedStacks: EChartSeries[] = [];
             seriesByStack.forEach((stackSeries) => {
                 // Calculate total value for each series in this stack
-                const seriesWithTotals = stackSeries.map((serie) => {
+                const seriesWithTotals = stackSeries.map((serie, idx) => {
                     let total = 0;
                     const yFieldHash = validCartesianConfig?.layout.flipAxes
                         ? serie.encode?.x
@@ -2337,14 +2337,17 @@ const useEchartsCartesianConfig = (
                         });
                     }
 
-                    return { serie, total };
+                    return { serie, total, originalIndex: idx };
                 });
 
-                // Sort by total value
+                // Stable sort: by total value, then by original index as tie-breaker
                 seriesWithTotals.sort((a, b) => {
-                    return sortDirection === 'desc'
-                        ? b.total - a.total
-                        : a.total - b.total;
+                    const diff =
+                        sortDirection === 'desc'
+                            ? b.total - a.total
+                            : a.total - b.total;
+                    if (diff !== 0) return diff;
+                    return a.originalIndex - b.originalIndex;
                 });
 
                 sortedStacks.push(
