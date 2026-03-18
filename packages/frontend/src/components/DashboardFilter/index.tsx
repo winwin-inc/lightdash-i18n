@@ -4,7 +4,7 @@ import {
     type FilterableDimension,
     type FilterOperator,
 } from '@lightdash/common';
-import { Checkbox, Flex } from '@mantine/core';
+import { Button, Checkbox, Flex } from '@mantine/core';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
@@ -16,6 +16,7 @@ import { EventName } from '../../types/Events';
 import FiltersProvider from '../common/Filters/FiltersProvider';
 import ActiveFilters from './ActiveFilters';
 import AddFilterButton from './AddFilterButton';
+import BatchBindModal from './BatchBindModal';
 
 interface Props {
     isEditMode: boolean;
@@ -33,6 +34,7 @@ const DashboardFilter: FC<Props> = ({
     const { track } = useTracking();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const [openPopoverId, setPopoverId] = useState<string>();
+    const [batchBindModalOpened, setBatchBindModalOpened] = useState(false);
 
     const project = useProject(projectUuid);
 
@@ -70,7 +72,7 @@ const DashboardFilter: FC<Props> = ({
     const isFilterEnabled =
         filterScope === 'global'
             ? isGlobalFilterEnabled
-            : isTabFilterEnabled[activeTabUuid || ''] ?? true;
+            : (isTabFilterEnabled[activeTabUuid || ''] ?? true);
     const setIsFilterEnabled =
         filterScope === 'global'
             ? setIsGlobalFilterEnabled
@@ -87,7 +89,7 @@ const DashboardFilter: FC<Props> = ({
     const showAddFilterButton =
         filterScope === 'global'
             ? showGlobalAddFilterButton
-            : showTabAddFilterButton[activeTabUuid || ''] ?? false;
+            : (showTabAddFilterButton[activeTabUuid || ''] ?? false);
     const setShowAddFilterButton =
         filterScope === 'global'
             ? setShowGlobalAddFilterButton
@@ -185,6 +187,40 @@ const DashboardFilter: FC<Props> = ({
         setPopoverId(undefined);
     }, []);
 
+    // 批量绑定相关
+    const tiles = useDashboardContext((c) => c.dashboardTiles);
+    const filterableFieldsByTileUuid = useDashboardContext(
+        (c) => c.filterableFieldsByTileUuid,
+    );
+    const tabFilters = useDashboardContext((c) => c.tabFilters);
+    const updateTabDimensionFilter = useDashboardContext(
+        (c) => c.updateTabDimensionFilter,
+    );
+
+    const currentFilters = useMemo(() => {
+        if (filterScope === 'global') {
+            return allFilters?.dimensions || [];
+        }
+        return tabFilters?.[activeTabUuid || '']?.dimensions || [];
+    }, [filterScope, allFilters, tabFilters, activeTabUuid]);
+
+    const handleBatchBind = useCallback(
+        (updatedFilters: DashboardFilterRule[]) => {
+            if (filterScope === 'tab' && activeTabUuid) {
+                // 批量更新筛选器
+                updatedFilters.forEach((filter, index) => {
+                    updateTabDimensionFilter(
+                        activeTabUuid,
+                        filter,
+                        index,
+                        false,
+                    );
+                });
+            }
+        },
+        [filterScope, activeTabUuid, updateTabDimensionFilter],
+    );
+
     return (
         <FiltersProvider<Record<string, FilterableDimension>>
             projectUuid={projectUuid}
@@ -243,8 +279,8 @@ const DashboardFilter: FC<Props> = ({
                                         ? 'xl'
                                         : 'none'
                                     : isFilterEnabled
-                                    ? 'xl'
-                                    : 'xs'
+                                      ? 'xl'
+                                      : 'xs'
                             }
                             styles={{
                                 input: { cursor: 'pointer' },
@@ -255,30 +291,67 @@ const DashboardFilter: FC<Props> = ({
                             )}
                         />
                         {isFilterEnabled && (
-                            <Checkbox
-                                checked={showAddFilterButton}
-                                onChange={(event) =>
-                                    setShowAddFilterButton(
-                                        event.currentTarget.checked,
-                                    )
-                                }
-                                size="sm"
-                                ml={'md'}
-                                styles={{
-                                    input: { cursor: 'pointer' },
-                                    root: {
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                    },
-                                }}
-                                label={t(
-                                    'components_dashboard_filter.show_add_filter_button',
-                                )}
-                            />
+                            <>
+                                <Checkbox
+                                    checked={showAddFilterButton}
+                                    onChange={(event) =>
+                                        setShowAddFilterButton(
+                                            event.currentTarget.checked,
+                                        )
+                                    }
+                                    size="sm"
+                                    ml={'md'}
+                                    styles={{
+                                        input: { cursor: 'pointer' },
+                                        root: {
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                        },
+                                    }}
+                                    label={t(
+                                        'components_dashboard_filter.show_add_filter_button',
+                                    )}
+                                />
+                                {filterScope === 'tab' &&
+                                    currentFilters.length > 0 && (
+                                        <Button
+                                            size="sm"
+                                            variant="subtle"
+                                            compact
+                                            ml="sm"
+                                            onClick={() =>
+                                                setBatchBindModalOpened(true)
+                                            }
+                                            styles={{
+                                                root: {
+                                                    fontWeight: 400,
+                                                    fontSize: '14px',
+                                                },
+                                            }}
+                                        >
+                                            {t(
+                                                'components_dashboard_filter.batch_bind.button',
+                                            )}
+                                        </Button>
+                                    )}
+                            </>
                         )}
                     </>
                 )}
             </Flex>
+
+            {/* 批量绑定 Modal */}
+            {filterScope === 'tab' && (
+                <BatchBindModal
+                    opened={batchBindModalOpened}
+                    onClose={() => setBatchBindModalOpened(false)}
+                    filters={currentFilters}
+                    tiles={tiles || []}
+                    availableTileFilters={filterableFieldsByTileUuid || {}}
+                    allFilterableFieldsMap={allFilterableFieldsMap}
+                    onApply={handleBatchBind}
+                />
+            )}
         </FiltersProvider>
     );
 };

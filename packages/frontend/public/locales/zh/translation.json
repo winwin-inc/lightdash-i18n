@@ -2367,6 +2367,20 @@
             "filter_read_only": "筛选器只读",
             "filter_hidden": "筛选器隐藏"
         },
+        "batch_bind": {
+            "button": "批量绑定",
+            "title": "批量绑定类目筛选器",
+            "no_changes": "所有类目筛选器的父级关系都已正确设置，无需更新。",
+            "select_filters": "选择要更新的筛选器",
+            "select_all": "全选",
+            "deselect_all": "取消全选",
+            "category_level_change": "类目层级：{{from}} → {{to}}",
+            "parent_filter_change": "父级筛选器：{{from}} → {{to}}",
+            "none": "无",
+            "unset": "未设置",
+            "cancel": "取消",
+            "apply": "应用"
+        },
         "tabs": {
             "tooltip_filter": {
                 "label": "选择要按其筛选维度的值",

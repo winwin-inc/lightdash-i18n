@@ -9,6 +9,7 @@ import {
     getItemId,
     isField,
     isFilterableField,
+    matchFieldByLabel,
     matchFieldByType,
     matchFieldByTypeAndName,
     matchFieldExact,
@@ -84,6 +85,7 @@ const getDefaultField = (
 ) => {
     return (
         fields.find(matchFieldExact(selectedField)) ??
+        fields.find(matchFieldByLabel(selectedField)) ??
         fields.find(matchFieldByTypeAndName(selectedField)) ??
         fields.find(matchFieldByType(selectedField))
     );
@@ -352,9 +354,7 @@ const FilterConfiguration: FC<Props> = ({
     );
 
     const parentFilterOptions = useMemo(() => {
-        // Only show parent filter options in customer use mode
-        // Configuration (parentFieldId) is preserved in non-customer-use mode but UI is hidden
-        if (!isCustomerUse || !draftFilterRule?.target) return [];
+        if (!draftFilterRule?.target) return [];
 
         const globalFilters =
             dashboardFiltersFromContext?.dimensions &&
@@ -405,10 +405,10 @@ const FilterConfiguration: FC<Props> = ({
                     label: levelLabel
                         ? `${baseLabel} • ${levelLabel}`
                         : baseLabel,
+                    categoryLevel: candidate.categoryLevel,
                 };
             });
     }, [
-        isCustomerUse,
         draftFilterRule,
         filterScope,
         allFiltersFromContext,
@@ -655,7 +655,9 @@ const FilterConfiguration: FC<Props> = ({
                                 size="xs"
                                 variant="filled"
                                 disabled={isApplyDisabled}
-                                onMouseDown={(e: MouseEvent<HTMLButtonElement>) => {
+                                onMouseDown={(
+                                    e: MouseEvent<HTMLButtonElement>,
+                                ) => {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setSelectedTabId(FilterTabs.SETTINGS);

@@ -32,6 +32,7 @@ import MantineIcon from '../../common/MantineIcon';
 type ParentFilterOption = {
     value: string;
     label: string;
+    categoryLevel?: number;
 };
 
 interface FilterSettingsProps {
@@ -387,15 +388,40 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 ]}
                                 value={filterRule.categoryLevel?.toString()}
                                 onChange={(value) => {
+                                    const newCategoryLevel = value
+                                        ? (Number.parseInt(value, 10) as
+                                              | 1
+                                              | 2
+                                              | 3
+                                              | 4)
+                                        : undefined;
+
+                                    // 自动查找并设置父级筛选器
+                                    let autoParentFieldId: string | undefined;
+                                    if (
+                                        newCategoryLevel &&
+                                        newCategoryLevel > 1 &&
+                                        parentFilterOptions.length > 0
+                                    ) {
+                                        // 查找 categoryLevel 为 newCategoryLevel - 1 的筛选器
+                                        const targetParentLevel =
+                                            newCategoryLevel - 1;
+                                        const parentOption =
+                                            parentFilterOptions.find(
+                                                (option) =>
+                                                    option.categoryLevel ===
+                                                    targetParentLevel,
+                                            );
+                                        autoParentFieldId = parentOption?.value;
+                                    }
+
                                     onChangeFilterRule({
                                         ...filterRule,
-                                        categoryLevel: value
-                                            ? (Number.parseInt(value, 10) as
-                                                  | 1
-                                                  | 2
-                                                  | 3
-                                                  | 4)
-                                            : undefined,
+                                        categoryLevel: newCategoryLevel,
+                                        parentFieldId:
+                                            autoParentFieldId || undefined,
+                                    } as DashboardFilterRule & {
+                                        parentFieldId?: string;
                                     });
                                 }}
                             />

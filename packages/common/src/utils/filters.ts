@@ -361,6 +361,9 @@ export const matchFieldByTypeAndName = (a: Field) => (b: Field) =>
 
 export const matchFieldByType = (a: Field) => (b: Field) => a.type === b.type;
 
+export const matchFieldByLabel = (a: Field) => (b: Field) =>
+    !!(a.label && b.label && a.label === b.label && a.type === b.type);
+
 export const isTileFilterable = (tile: DashboardTile) =>
     ![DashboardTileTypes.MARKDOWN, DashboardTileTypes.LOOM].includes(tile.type);
 
@@ -373,7 +376,14 @@ const getDefaultTileTargets = (
     >((acc, [tileUuid, availableFilters]) => {
         if (!availableFilters) return acc;
 
-        const filterableField = availableFilters.find(matchFieldExact(field));
+        // 优先尝试精确匹配 (type + name + table)
+        let filterableField = availableFilters.find(matchFieldExact(field));
+
+        // 如果没有精确匹配，尝试 label 匹配 (label + type)
+        if (!filterableField) {
+            filterableField = availableFilters.find(matchFieldByLabel(field));
+        }
+
         if (!filterableField) return acc;
 
         return {
@@ -381,6 +391,7 @@ const getDefaultTileTargets = (
             [tileUuid]: {
                 fieldId: getItemId(filterableField),
                 tableName: filterableField.table,
+                fieldLabel: filterableField.label,
             },
         };
     }, {});

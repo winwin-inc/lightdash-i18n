@@ -4,6 +4,7 @@ import {
     isDashboardFieldTarget,
     isDashboardSqlChartTile,
     isField,
+    matchFieldByLabel,
     matchFieldByType,
     matchFieldByTypeAndName,
     matchFieldExact,
@@ -127,7 +128,13 @@ const TileFilterConfiguration: FC<Props> = ({
     const sortedTileWithFilters = useMemo(() => {
         return Object.entries(availableTileFilters)
             .sort(([, a], [, b]) =>
+                sortTilesByFieldMatch(matchFieldByType, a, b),
+            )
+            .sort(([, a], [, b]) =>
                 sortTilesByFieldMatch(matchFieldByTypeAndName, a, b),
+            )
+            .sort(([, a], [, b]) =>
+                sortTilesByFieldMatch(matchFieldByLabel, a, b),
             )
             .sort(([, a], [, b]) =>
                 sortTilesByFieldMatch(matchFieldExact, a, b),
@@ -156,10 +163,10 @@ const TileFilterConfiguration: FC<Props> = ({
                                           tileConfig?.fieldId === getItemId(f),
                                   )
                                 : field
-                                ? filters?.find((f) =>
-                                      matchFieldExact(f)(field),
-                                  )
-                                : undefined;
+                                  ? filters?.find((f) =>
+                                        matchFieldExact(f)(field),
+                                    )
+                                  : undefined;
 
                         // If tileConfig?.fieldId is set, but the field is not found in the filters, we mark it as invalid filter (missing dimension in model)
                         invalidField =
@@ -172,18 +179,24 @@ const TileFilterConfiguration: FC<Props> = ({
                     }
 
                     const isFilterAvailable = field
-                        ? filters?.some(matchFieldByType(field)) ?? false
+                        ? (filters?.some(matchFieldByType(field)) ?? false)
                         : false;
 
                     const sortedFilters = field
                         ? filters
                               ?.filter(matchFieldByType(field))
                               .sort((a, b) =>
+                                  sortFieldsByMatch(matchFieldByType, a, b),
+                              )
+                              .sort((a, b) =>
                                   sortFieldsByMatch(
                                       matchFieldByTypeAndName,
                                       a,
                                       b,
                                   ),
+                              )
+                              .sort((a, b) =>
+                                  sortFieldsByMatch(matchFieldByLabel, a, b),
                               )
                               .sort((a, b) =>
                                   sortFieldsByMatch(matchFieldExact, a, b),
