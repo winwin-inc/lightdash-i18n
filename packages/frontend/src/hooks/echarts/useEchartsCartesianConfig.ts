@@ -2269,7 +2269,6 @@ const useEchartsCartesianConfig = (
             const seriesConfig = validCartesianConfig?.eChartsConfig.series;
             if (!seriesConfig) return undefined;
             for (const s of seriesConfig) {
-                // Access tooltipSortByValue using index access since EChartsConfig.series is Partial<Series[]>
                 const sortValue = (s as Record<string, unknown>)
                     .tooltipSortByValue as 'asc' | 'desc' | undefined;
                 if (sortValue === 'asc' || sortValue === 'desc') {
@@ -2309,7 +2308,28 @@ const useEchartsCartesianConfig = (
 
                     if (yFieldHash) {
                         rows.forEach((row) => {
-                            const value = row[yFieldHash]?.value?.raw;
+                            // Direct access for pivoted data
+                            let value = row[yFieldHash]?.value?.raw;
+
+                            // Fallback: match by category value for non-pivoted data
+                            // yFieldHash format: "metricField.dimensionField.categoryValue"
+                            if (value === undefined) {
+                                const parts = yFieldHash.split('.');
+                                if (parts.length >= 3) {
+                                    const metricField = parts[0];
+                                    const dimensionField = parts[1];
+                                    const categoryValue = parts
+                                        .slice(2)
+                                        .join('.');
+                                    if (
+                                        row[dimensionField]?.value?.raw ===
+                                        categoryValue
+                                    ) {
+                                        value = row[metricField]?.value?.raw;
+                                    }
+                                }
+                            }
+
                             const numValue = toNumber(value);
                             if (!isNaN(numValue)) {
                                 total += numValue;
