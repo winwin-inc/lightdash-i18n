@@ -953,6 +953,10 @@ const useCartesianChartConfig = ({
                 const defaultLabel = prev?.series?.[0]?.label;
 
                 const defaultShowSymbol = prev?.series?.[0]?.showSymbol;
+                // Preserve tooltipSortByValue from the template series
+                // so it propagates to all expanded pivot series
+                const defaultTooltipSortByValue =
+                    prev?.series?.[0]?.tooltipSortByValue;
                 const expectedSeriesMap = getExpectedSeriesMap({
                     defaultSmooth,
                     defaultShowSymbol,
@@ -986,6 +990,11 @@ const useCartesianChartConfig = ({
                         ...(!serie.yAxisIndex && {
                             yAxisIndex: 0,
                         }),
+                        // Propagate tooltipSortByValue from template series to all expanded series
+                        ...(defaultTooltipSortByValue &&
+                            !serie.tooltipSortByValue && {
+                                tooltipSortByValue: defaultTooltipSortByValue,
+                            }),
                     })),
                 };
             });
