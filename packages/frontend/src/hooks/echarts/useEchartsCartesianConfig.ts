@@ -2357,6 +2357,91 @@ const useEchartsCartesianConfig = (
 
             // Combine sorted stacks with non-stacked series
             sortedSeries = [...sortedStacks, ...seriesWithoutStack];
+
+            // 当 rows 没有 pivot 但 series 使用 pivot encode 时，直接注入数据到 series
+            // 避免 ECharts 因 dataset 列名和 encode 不匹配导致渲染错误
+            if (rows.length > 0 && rows[0]) {
+                const rowKeys = Object.keys(rows[0]);
+                // 检测是否未 pivot：通过检查 series encode 是否能在 rows 列名中找到
+                // pivot 后的列名格式是 "metricField.dimensionField.categoryValue"
+                const hasPivotFormatKeys = rowKeys.some(
+                    (k) => k.split('.').length >= 3,
+                );
+                const isNonPivoted = !hasPivotFormatKeys;
+
+                if (isNonPivoted && sortDirection) {
+                    // 从任意一个 series 的 encode 中解析出 metricField 和 dimensionField
+                    const sampleSerie = sortedSeries[0];
+                    const sampleYFieldHash = validCartesianConfig?.layout
+                        .flipAxes
+                        ? sampleSerie?.encode?.x
+                        : sampleSerie?.encode?.y;
+
+                    if (!sampleYFieldHash) return sortedSeries;
+
+                    const parts = sampleYFieldHash.split('.');
+                    if (parts.length < 2) return sortedSeries;
+
+                    const metricField = parts[0];
+                    const dimensionField = parts[1];
+
+                    // 获取维度字段的所有唯一值（如 2024年, 2025年）
+                    const dimensionValues = [
+                        ...new Set(
+                            rows
+                                .map((r) => r[dimensionField]?.value?.raw)
+                                .filter(Boolean),
+                        ),
+                    ];
+
+                    if (dimensionValues.length > 0) {
+                        sortedSeries = sortedSeries.map((serie) => {
+                            if (
+                                serie.type !== CartesianSeriesType.BAR ||
+                                !serie.stack
+                            ) {
+                                return serie;
+                            }
+
+                            const yFieldHash = validCartesianConfig?.layout
+                                .flipAxes
+                                ? serie.encode?.x
+                                : serie.encode?.y;
+
+                            if (!yFieldHash) return serie;
+
+                            // 从 yFieldHash 提取品类名（如 "低温酸奶"）
+                            const serieParts = yFieldHash.split('.');
+                            const categoryValue =
+                                serieParts.length >= 3
+                                    ? serieParts.slice(2).join('.')
+                                    : null;
+
+                            if (!categoryValue) return serie;
+
+                            // 构建该 series 的数据：按 dimensionValues 顺序
+                            const data = dimensionValues.map((dimValue) => {
+                                const matchingRow = rows.find(
+                                    (r) =>
+                                        r[dimensionField]?.value?.raw ===
+                                            dimValue &&
+                                        r[serieParts[1]]?.value?.raw ===
+                                            categoryValue,
+                                );
+                                const value =
+                                    matchingRow?.[metricField]?.value?.raw;
+                                return value !== undefined ? Number(value) : 0;
+                            });
+
+                            // 注入 data，ECharts 会优先使用 data 属性
+                            return {
+                                ...serie,
+                                data,
+                            };
+                        });
+                    }
+                }
+            }
         }
 
         return [
