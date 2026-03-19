@@ -2340,12 +2340,14 @@ const useEchartsCartesianConfig = (
                     return { serie, total, originalIndex: idx };
                 });
 
-                // Stable sort: by total value, then by original index as tie-breaker
+                // Stable sort: by total value, then by original index as tie-breaker.
+                // For stacked charts, later series render above earlier ones, so we invert
+                // the array order to match the visual asc/desc expectation in the chart.
                 seriesWithTotals.sort((a, b) => {
                     const diff =
                         sortDirection === 'desc'
-                            ? b.total - a.total
-                            : a.total - b.total;
+                            ? a.total - b.total
+                            : b.total - a.total;
                     if (diff !== 0) return diff;
                     return a.originalIndex - b.originalIndex;
                 });
