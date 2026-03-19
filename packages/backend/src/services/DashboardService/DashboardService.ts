@@ -727,7 +727,6 @@ export class DashboardService
                 newDashboard.tiles.map(async (tile) => {
                     if (
                         isDashboardChartTileType(tile) &&
-                        tile.properties.belongsToDashboard &&
                         tile.properties.savedChartUuid
                     ) {
                         const chartInDashboard = await this.savedChartModel.get(
