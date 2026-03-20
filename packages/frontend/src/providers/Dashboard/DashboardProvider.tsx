@@ -337,7 +337,7 @@ const DashboardProvider: React.FC<
                 return;
             }
 
-            const newValue = String(item.values[0]);
+            const newValue = String(item.values![0]);
             const nextFilters = replaceDimensionFilterAtIndex(
                 dashboardFilters,
                 index,
@@ -407,7 +407,7 @@ const DashboardProvider: React.FC<
                 return;
             }
 
-            const newValue = String(item.values[0]);
+            const newValue = String(item.values![0]);
             const currentTabFilter = tabFilters[uuid] ?? emptyFilters;
             const nextTabFilter = replaceDimensionFilterAtIndex(
                 currentTabFilter,
