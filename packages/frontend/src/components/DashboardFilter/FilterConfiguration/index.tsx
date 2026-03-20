@@ -160,9 +160,10 @@ const FilterConfiguration: FC<Props> = ({
     const handleChangeFilterRule = useCallback(
         (newFilterRule: DashboardFilterRule) => {
             setDraftFilterRule(() => {
-                // When a disabled filter has a value set, it should be enabled by setting it to false
-                const isNewFilterDisabled =
-                    newFilterRule.disabled && !hasFilterValueSet(newFilterRule);
+                // Any explicit value means the filter is enabled; empty values preserve the configured disabled state.
+                const isNewFilterDisabled = hasFilterValueSet(newFilterRule)
+                    ? false
+                    : newFilterRule.disabled;
                 return { ...newFilterRule, disabled: isNewFilterDisabled };
             });
         },
@@ -347,11 +348,31 @@ const FilterConfiguration: FC<Props> = ({
         ],
     );
 
-    const isApplyDisabled = !isFilterEnabled(
+    const isApplyDisabled = useMemo(() => {
+        if (!draftFilterRule) {
+            return true;
+        }
+
+        if (!originalFilterRule) {
+            return !isFilterEnabled(draftFilterRule, isEditMode, isCreatingNew);
+        }
+
+        if (!isFilterModified) {
+            return true;
+        }
+
+        if (hasFilterValueSet(draftFilterRule)) {
+            return false;
+        }
+
+        return !hasFilterValueSet(originalFilterRule);
+    }, [
         draftFilterRule,
+        originalFilterRule,
+        isFilterModified,
         isEditMode,
         isCreatingNew,
-    );
+    ]);
 
     const parentFilterOptions = useMemo(() => {
         if (!draftFilterRule?.target) return [];
