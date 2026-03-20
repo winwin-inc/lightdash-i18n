@@ -529,20 +529,31 @@ const resolveCategoryFilterValueAsync = async ({
     // 收集上游已确定的筛选器，用于传给 field/search 做级联过滤
     const parentFilters: DashboardFilterRule[] = [];
 
+    // 首次加载时（parentValueOverride === undefined），如果父级没有值，
+    // 仍然获取该层级所有有权限的类目，用于验证当前值是否有效
+    let parentLabel: string | null | undefined;
     if (parentFieldId) {
         const parentFilter = findParentFilter(filters, parentFieldId);
         if (!parentFilter || !isCategoryField(parentFilter)) {
             return undefined;
         }
 
-        const parentLabel =
-            parentValueOverride !== undefined
-                ? (parentValueOverride ?? undefined)
-                : parentFilter.values && parentFilter.values.length > 0
-                  ? String(parentFilter.values[0])
-                  : undefined;
+        // parentValueOverride === null 表示用户清空了父级筛选器
+        // parentValueOverride === undefined 表示首次加载
+        // parentValueOverride 有具体值表示用户切换了父级
+        if (parentValueOverride !== undefined) {
+            parentLabel = parentValueOverride;
+        } else {
+            parentLabel = parentFilter.values?.[0]
+                ? String(parentFilter.values[0])
+                : undefined;
+        }
+    }
 
-        if (!parentLabel) {
+    // 如果父级有值，获取子级类目
+    if (parentLabel && parentFieldId) {
+        const parentFilter = findParentFilter(filters, parentFieldId);
+        if (!parentFilter) {
             return undefined;
         }
 
@@ -568,6 +579,7 @@ const resolveCategoryFilterValueAsync = async ({
             level as Exclude<CategoryLevel, 1>,
         );
     } else {
+        // 没有父级，或父级没有值，获取该层级所有有权限的类目
         availableCategories = getCategoriesForLevel(level, userCategories);
     }
 
@@ -588,36 +600,54 @@ const resolveCategoryFilterValueAsync = async ({
     );
 
     // 取交集：权限类目 ∩ 实际字段值
-    let availableLabels: string[];
+    let intersection: string[];
     if (fieldValues.length > 0) {
         const fieldValueSet = new Set(fieldValues);
-        availableLabels = categoryLabels.filter((label) =>
+        intersection = categoryLabels.filter((label) =>
             fieldValueSet.has(label),
         );
     } else {
         // field/search 返回空（可能请求失败），回退到仅用权限类目
-        availableLabels = categoryLabels;
+        intersection = categoryLabels;
     }
 
-    if (availableLabels.length === 0) {
+    if (intersection.length === 0) {
         return undefined;
     }
 
+    // 检查当前值是否在交集中（既在权限内又有数据）
     const currentValue =
         filter.values && filter.values.length > 0
             ? String(filter.values[0])
             : undefined;
 
-    if (currentValue && availableLabels.includes(currentValue)) {
+    if (currentValue && intersection.includes(currentValue)) {
+        // 当前值在交集中，保留当前值
         return currentValue;
     }
 
-    return availableLabels[0];
+    // 当前值不在交集中，从交集中按 search 顺序取第一个
+    const intersectionSet = new Set(intersection);
+    let resolvedValue: string | undefined;
+    for (const v of fieldValues) {
+        if (intersectionSet.has(v)) {
+            resolvedValue = v;
+            break;
+        }
+    }
+
+    // 如果 search 为空，回退到交集的第一个
+    if (!resolvedValue) {
+        resolvedValue = intersection[0];
+    }
+
+    return resolvedValue;
 };
 
 /**
  * 异步初始化类目筛选器
  * 按顺序处理每个类目筛选器（因为子级依赖父级的值）
+ * 统一逻辑：当前值在交集中则保留，否则切换到第一个有效值
  */
 export const initializeCategoryFiltersAsync = async (
     filters: DashboardFilters,
@@ -632,10 +662,16 @@ export const initializeCategoryFiltersAsync = async (
             continue;
         }
 
+        const currentFilter =
+            workingFilters.dimensions.find((d) => d.id === filter.id) ?? filter;
+
+        // 如果用户手动修改过 operator（如 NOT_NULL, NULL），保留用户的设置
+        if (currentFilter.operator !== FilterOperator.EQUALS) {
+            continue;
+        }
+
         const resolvedValue = await resolveCategoryFilterValueAsync({
-            filter:
-                workingFilters.dimensions.find((d) => d.id === filter.id) ??
-                filter,
+            filter: currentFilter,
             filters: workingFilters,
             userCategories,
             projectUuid,
@@ -645,8 +681,11 @@ export const initializeCategoryFiltersAsync = async (
             continue;
         }
 
-        const currentFilter =
-            workingFilters.dimensions.find((d) => d.id === filter.id) ?? filter;
+        // resolveCategoryFilterValueAsync 已经处理了：
+        // - 如果当前值在交集中 → 返回当前值
+        // - 如果当前值不在交集中 → 返回第一个有效值
+        // 所以这里只需要比较是否有变化
+
         const currentValue = currentFilter.values?.[0];
         if (currentValue && String(currentValue) === resolvedValue) {
             continue;
@@ -707,6 +746,11 @@ export const updateCategoryFilterCascadeAsync = async (
             // 没有配置默认值的 filter 不需要联动赋值，保持为空/无限制
             if (filter.disabled) continue;
 
+            // 如果 operator 不是默认的 EQUALS，说明用户手动修改过，保留用户的设置
+            if (filter.operator !== FilterOperator.EQUALS) {
+                continue;
+            }
+
             const resolvedValue = await resolveCategoryFilterValueAsync({
                 filter,
                 filters: updatedFilters,
@@ -715,18 +759,25 @@ export const updateCategoryFilterCascadeAsync = async (
                 parentValueOverride: parentValue,
             });
 
+            if (!resolvedValue) {
+                continue;
+            }
+
+            // resolveCategoryFilterValueAsync 已经处理了：
+            // - 如果当前值在交集中 → 返回当前值
+            // - 如果当前值不在交集中 → 返回第一个有效值
+            // 所以这里只需要比较是否有变化
+
             const currentValue =
                 filter.values && filter.values.length > 0
                     ? String(filter.values[0])
                     : undefined;
 
-            // 只有当子级 filter 没有手动修改过才自动覆盖
-            // 如果 operator 不是默认的 EQUALS，说明用户手动修改过，保留用户的设置
-            const isUserModified =
-                filter.operator !== FilterOperator.EQUALS ||
-                filter.values === undefined;
+            if (currentValue && currentValue === resolvedValue) {
+                continue;
+            }
 
-            if (!isUserModified && resolvedValue !== currentValue) {
+            if (resolvedValue !== currentValue) {
                 hasChanges = true;
 
                 const updatedFilter: DashboardFilterRule = {
