@@ -720,7 +720,13 @@ export const updateCategoryFilterCascadeAsync = async (
                     ? String(filter.values[0])
                     : undefined;
 
-            if (resolvedValue !== currentValue) {
+            // 只有当子级 filter 没有手动修改过才自动覆盖
+            // 如果 operator 不是默认的 EQUALS，说明用户手动修改过，保留用户的设置
+            const isUserModified =
+                filter.operator !== FilterOperator.EQUALS ||
+                filter.values === undefined;
+
+            if (!isUserModified && resolvedValue !== currentValue) {
                 hasChanges = true;
 
                 const updatedFilter: DashboardFilterRule = {
