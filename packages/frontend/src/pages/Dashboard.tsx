@@ -19,7 +19,7 @@ import {
     Stack,
     Switch,
     Text,
-} from '@mantine/core';
+} from '@mantine-8/core';
 import { useDisclosure } from '@mantine/hooks';
 import { captureException, useProfiler } from '@sentry/react';
 import { IconAlertCircle } from '@tabler/icons-react';
@@ -849,13 +849,10 @@ const Dashboard: FC = () => {
 
         setTimeout(() => {
             setTabFilters(
-                dashboard.tabs.reduce(
-                    (acc, tab) => {
-                        acc[tab.uuid] = tab.filters || emptyFilters;
-                        return acc;
-                    },
-                    {} as Record<string, DashboardFilters>,
-                ),
+                dashboard.tabs.reduce((acc, tab) => {
+                    acc[tab.uuid] = tab.filters || emptyFilters;
+                    return acc;
+                }, {} as Record<string, DashboardFilters>),
             );
         }, 100);
     }, [
@@ -1112,7 +1109,7 @@ const Dashboard: FC = () => {
                     closeOnClickOutside={false}
                 >
                     <Stack>
-                        <Group noWrap spacing="xs">
+                        <Group wrap="nowrap" gap="xs">
                             <MantineIcon
                                 icon={IconAlertCircle}
                                 color="red"
@@ -1123,7 +1120,7 @@ const Dashboard: FC = () => {
                             </Text>
                         </Group>
 
-                        <Group position="right">
+                        <Group justify="flex-end">
                             <Button
                                 onClick={() => {
                                     blocker.reset();
@@ -1189,14 +1186,19 @@ const Dashboard: FC = () => {
                 }
                 withFullHeight={true}
             >
-                <Group position="apart" align="flex-start" noWrap px={'lg'}>
+                <Group
+                    justify="space-between"
+                    align="flex-start"
+                    wrap="nowrap"
+                    px={'lg'}
+                >
                     {/* This Group will take up remaining space (and not push DateZoom) */}
                     <Group
-                        position="apart"
+                        justify="space-between"
                         align="flex-start"
-                        noWrap
+                        wrap="nowrap"
                         grow
-                        sx={{
+                        style={{
                             overflow: 'auto',
                         }}
                     >
@@ -1210,7 +1212,7 @@ const Dashboard: FC = () => {
                     </Group>
                     {/* DateZoom section will adjust width dynamically */}
                     {hasDashboardTiles && isEditMode && (
-                        <Group spacing="xs" style={{ marginLeft: 'auto' }}>
+                        <Group gap="xs" style={{ marginLeft: 'auto' }}>
                             <Switch
                                 label={t(
                                     'features_date_zoom.sync_chart_colors',
@@ -1265,8 +1267,8 @@ const Dashboard: FC = () => {
                                                             }
                                                         >
                                                             <Group
-                                                                spacing={4}
-                                                                noWrap
+                                                                gap={4}
+                                                                wrap="nowrap"
                                                             >
                                                                 <Text
                                                                     size="xs"
@@ -1457,7 +1459,7 @@ const Dashboard: FC = () => {
                     )}
                 </Group>
                 {hasDashboardTiles && (
-                    <Group spacing="xs" align="flex-start" noWrap px={'lg'}>
+                    <Group gap="xs" align="flex-start" wrap="nowrap" px={'lg'}>
                         <Parameters
                             isEditMode={isEditMode}
                             parameterValues={parameterValues}
