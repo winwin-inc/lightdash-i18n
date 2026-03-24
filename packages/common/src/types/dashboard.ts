@@ -151,6 +151,12 @@ export type DashboardConfig = {
     isGlobalFilterEnabled?: boolean;
     showGlobalAddFilterButton?: boolean;
     showTabAddFilterButton?: Record<string, boolean>;
+    /** 开启颜色同步功能 */
+    syncChartColors?: boolean;
+    /** 看板级别的颜色调色板，当 syncChartColors 开启时使用 */
+    colorPalette?: string[];
+    /** 记录需要同步颜色的图表 tile uuid 列表 */
+    syncChartTileUuids?: string[];
 };
 
 export type Dashboard = {

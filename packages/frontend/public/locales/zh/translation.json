@@ -849,12 +849,30 @@
         "default": "默认",
         "delete_zoom": "删除缩放",
         "on": "在",
+        "sync_chart_colors": "同步图表颜色",
         "options": {
             "day": "日",
             "week": "周",
             "month": "月",
             "quarter": "季度",
             "year": "年"
+        }
+    },
+    "dashboard": {
+        "color_palette": "颜色",
+        "select_color_palette": "选择颜色调色板",
+        "select_charts": "选择图表",
+        "sync_chart_colors_for": "同步颜色的图表：",
+        "clear_all": "清除全部",
+        "default": "默认",
+        "palettes": {
+            "echarts": "图表默认",
+            "default": "标准预设",
+            "modern": "现代风格",
+            "retro": "复古风格",
+            "business": "商务风格",
+            "lightdash": "品牌色",
+            "dataMatrix": "数据矩阵"
         }
     },
     "features_error_boundary": {

@@ -5,6 +5,31 @@ import { ChartColorMappingContext } from './context';
 import { type ChartColorMappingContextProps, type SeriesLike } from './types';
 import { calculateSeriesLikeIdentifier } from './utils';
 
+/**
+ * 提取维度值的类别部分
+ * 例如: "其他品牌：包含494个" -> "其他品牌", "QQ星, 4.44%" -> "QQ星"
+ */
+const extractCategory = (str: string): string => {
+    const separators = ['：', ',', '，'];
+    for (const sep of separators) {
+        const parts = str.split(sep);
+        if (parts.length > 1) {
+            return parts[0].trim();
+        }
+    }
+    return str;
+};
+
+const hashString = (str: string): number => {
+    const category = extractCategory(str);
+    let hash = 0;
+    for (let i = 0; i < category.length; i++) {
+        const char = category.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+    }
+    return Math.abs(hash);
+};
+
 const hexToHSL = (hex: string): { h: number; s: number; l: number } => {
     const cleanHex = hex.replace('#', '');
     const r = parseInt(cleanHex.slice(0, 2), 16) / 255;
@@ -61,6 +86,11 @@ const hslToHex = (h: number, s: number, l: number): string => {
  * Uses hue rotation (30°) with saturation/lightness adjustments for harmonious colors.
  */
 const getColorFromPalette = (index: number, colorPalette: string[]): string => {
+    // Safety check: if palette is empty or undefined, return a default gray color
+    if (!colorPalette || colorPalette.length === 0) {
+        return '#868e96'; // gray.6 fallback
+    }
+
     // If index is within palette range, return the original color
     if (index < colorPalette.length) {
         return colorPalette[index];
@@ -87,6 +117,76 @@ const getColorFromPalette = (index: number, colorPalette: string[]): string => {
     return hslToHex(newH, newS, newL);
 };
 
+/**
+ * 扩展调色板：为每个基色生成 4 个变体，用于 hash 模式减少碰撞
+ * 9 色 → 45 色，碰撞概率进一步降低到 ~2.2%
+ * 纯函数，结果缓存
+ */
+const expandedPaletteCache = new Map<string, string[]>();
+const expandPalette = (colorPalette: string[]): string[] => {
+    const cacheKey = colorPalette.join(',');
+    const cached = expandedPaletteCache.get(cacheKey);
+    if (cached) return cached;
+
+    const expanded: string[] = [...colorPalette];
+    for (const color of colorPalette) {
+        const { h, s, l } = hexToHSL(color);
+        // 变体1：略浅（亮度+10%，饱和度-8%）
+        expanded.push(
+            hslToHex(
+                h,
+                Math.max(0.2, Math.min(1.0, s - 0.08)),
+                Math.max(0.35, Math.min(0.85, l + 0.1)),
+            ),
+        );
+        // 变体2：略深（亮度-10%，饱和度+6%）
+        expanded.push(
+            hslToHex(
+                h,
+                Math.max(0.25, Math.min(1.0, s + 0.06)),
+                Math.max(0.25, Math.min(0.65, l - 0.1)),
+            ),
+        );
+        // 变体3：更浅（亮度+18%，饱和度-12%）
+        expanded.push(
+            hslToHex(
+                h,
+                Math.max(0.15, Math.min(0.9, s - 0.12)),
+                Math.max(0.45, Math.min(0.9, l + 0.18)),
+            ),
+        );
+        // 变体4：更深（亮度-18%，饱和度+10%）
+        expanded.push(
+            hslToHex(
+                h,
+                Math.max(0.3, Math.min(1.0, s + 0.1)),
+                Math.max(0.2, Math.min(0.55, l - 0.18)),
+            ),
+        );
+    }
+
+    expandedPaletteCache.set(cacheKey, expanded);
+    return expanded;
+};
+
+/**
+ * 哈希颜色分配（纯函数）
+ * 使用扩展调色板（原色+变体），减少碰撞
+ * 相同 identifier + 相同 colorPalette → 永远返回相同颜色
+ * 保证跨图表一致性：不同图表中同名的 identifier 颜色一定相同
+ */
+export const getHashColor = (
+    identifier: string,
+    colorPalette: string[],
+): string => {
+    if (!colorPalette || colorPalette.length === 0) {
+        return '#868e96';
+    }
+    const expanded = expandPalette(colorPalette);
+    const colorIndex = hashString(identifier) % expanded.length;
+    return expanded[colorIndex];
+};
+
 const useChartColorMappingContext = (): ChartColorMappingContextProps => {
     const ctx = useContext(ChartColorMappingContext);
 
@@ -101,8 +201,11 @@ const useChartColorMappingContext = (): ChartColorMappingContextProps => {
 
 export const useChartColorConfig = ({
     colorPalette,
+    useHashBased = false,
 }: {
     colorPalette: string[];
+    /** 当为 true 时，使用哈希分配颜色，相同 identifier 获得相同颜色 */
+    useHashBased?: boolean;
 }) => {
     const theme = useMantineTheme();
     const { colorMappings } = useChartColorMappingContext();
@@ -127,6 +230,12 @@ export const useChartColorConfig = ({
                 return theme.colors.gray[6];
             }
 
+            // 哈希模式：纯函数分配，跨图表一致
+            if (useHashBased) {
+                return getHashColor(identifier, colorPalette);
+            }
+
+            // 顺序模式：按到达顺序分配颜色（原有逻辑）
             let groupMappings = colorMappings.get(group);
 
             /**
@@ -161,7 +270,7 @@ export const useChartColorConfig = ({
 
             return colorHex;
         },
-        [colorPalette, colorMappings, theme],
+        [colorPalette, colorMappings, theme, useHashBased],
     );
 
     const calculateSeriesColorAssignment = useCallback(

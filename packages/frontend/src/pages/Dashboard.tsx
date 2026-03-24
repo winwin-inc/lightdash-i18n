@@ -1,11 +1,25 @@
 import {
     ContentType,
+    DashboardTileTypes,
+    ECHARTS_DEFAULT_COLORS,
     type DashboardFilterRule,
     type DashboardFilters,
     type DashboardTile,
     type Dashboard as IDashboard,
 } from '@lightdash/common';
-import { Box, Button, Flex, Group, Modal, Stack, Text } from '@mantine/core';
+import {
+    Box,
+    Button,
+    Divider,
+    Flex,
+    Group,
+    Modal,
+    Popover,
+    ScrollArea,
+    Stack,
+    Switch,
+    Text,
+} from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { captureException, useProfiler } from '@sentry/react';
 import { IconAlertCircle } from '@tabler/icons-react';
@@ -42,6 +56,164 @@ import DashboardProvider from '../providers/Dashboard/DashboardProvider';
 import useDashboardContext from '../providers/Dashboard/useDashboardContext';
 import useFullscreen from '../providers/Fullscreen/useFullscreen';
 import '../styles/react-grid.css';
+
+// 预设颜色调色板
+const COLOR_PALETTE_PRESETS = [
+    {
+        name: 'echarts',
+        colors: ECHARTS_DEFAULT_COLORS,
+    },
+    {
+        name: 'default',
+        colors: [
+            '#5470c6',
+            '#91cc75',
+            '#fac858',
+            '#ee6666',
+            '#73c0de',
+            '#3ba272',
+            '#fc8452',
+            '#9a60b4',
+            '#ea7ccc',
+            '#33ff7d',
+            '#33ffb1',
+            '#33ffe6',
+            '#33e6ff',
+            '#33b1ff',
+            '#337dff',
+            '#3349ff',
+            '#5e33ff',
+            '#9233ff',
+            '#c633ff',
+            '#ff33e1',
+        ],
+    },
+    {
+        name: 'modern',
+        colors: [
+            '#7162FF',
+            '#1A1B1E',
+            '#2D2E30',
+            '#4A4B4D',
+            '#6B6C6E',
+            '#E8DDFB',
+            '#D4F7E9',
+            '#F0A3FF',
+            '#00FFEA',
+            '#FFEA00',
+            '#00FF7A',
+            '#FF0080',
+            '#FF6A00',
+            '#6A00FF',
+            '#00FF00',
+            '#FF0000',
+            '#FF00FF',
+            '#00FFFF',
+            '#7A00FF',
+            '#FFAA00',
+        ],
+    },
+    {
+        name: 'retro',
+        colors: [
+            '#FF6B35',
+            '#ECB88A',
+            '#D4A373',
+            '#BC8A5F',
+            '#A47148',
+            '#8A5A39',
+            '#6F4E37',
+            '#544334',
+            '#393731',
+            '#2E2E2E',
+            '#F4D06F',
+            '#FFD700',
+            '#C0BABC',
+            '#A9A9A9',
+            '#808080',
+            '#696969',
+            '#556B2F',
+            '#6B8E23',
+            '#8FBC8B',
+            '#BDB76B',
+        ],
+    },
+    {
+        name: 'business',
+        colors: [
+            '#1A237E',
+            '#283593',
+            '#303F9F',
+            '#3949AB',
+            '#3F51B5',
+            '#5C6BC0',
+            '#7986CB',
+            '#9FA8DA',
+            '#C5CAE9',
+            '#E8EAF6',
+            '#4CAF50',
+            '#66BB6A',
+            '#81C784',
+            '#A5D6A7',
+            '#C8E6C9',
+            '#FFA726',
+            '#FFB74D',
+            '#FFCC80',
+            '#FFE0B2',
+            '#FFF3E0',
+        ],
+    },
+    {
+        name: 'lightdash',
+        colors: [
+            '#7162FF',
+            '#1A1B1E',
+            '#E8DDFB',
+            '#D4F7E9',
+            '#F0A3FF',
+            '#00FFEA',
+            '#FFEA00',
+            '#00FF7A',
+            '#FF0080',
+            '#FF6A00',
+            '#6A00FF',
+            '#00FF00',
+            '#FF0000',
+            '#FF00FF',
+            '#00FFFF',
+            '#7A00FF',
+            '#FF7A00',
+            '#00FFAA',
+            '#FF00AA',
+            '#FFAA00',
+        ],
+    },
+    {
+        name: 'dataMatrix',
+        colors: [
+            '#FF00FF',
+            '#00FFFF',
+            '#FFFF00',
+            '#FF0080',
+            '#00FF00',
+            '#00FF80',
+            '#8000FF',
+            '#FF8000',
+            '#FF0088',
+            '#00FF88',
+            '#0088FF',
+            '#88FF00',
+            '#FF8800',
+            '#8800FF',
+            '#0088FF',
+            '#FF00CC',
+            '#CCFF00',
+            '#00CCFF',
+            '#CC00FF',
+            '#FFCC00',
+        ],
+    },
+];
 
 const Dashboard: FC = () => {
     const { t } = useTranslation();
@@ -160,6 +332,17 @@ const Dashboard: FC = () => {
 
     const isEditMode = useMemo(() => mode === 'edit', [mode]);
 
+    // 看板颜色同步状态
+    const [syncChartColors, setSyncChartColors] = useState<boolean>(
+        dashboard?.config?.syncChartColors ?? false,
+    );
+    const [dashboardColorPalette, setDashboardColorPalette] = useState<
+        string[]
+    >(dashboard?.config?.colorPalette ?? ECHARTS_DEFAULT_COLORS);
+    const [syncChartTileUuids, setSyncChartTileUuids] = useState<string[]>(
+        dashboard?.config?.syncChartTileUuids ?? [],
+    );
+
     const setSavedParameters = useDashboardContext((c) => c.setSavedParameters);
     const parametersHaveChanged = useDashboardContext(
         (c) => c.parametersHaveChanged,
@@ -172,6 +355,27 @@ const Dashboard: FC = () => {
             isDateZoomDisabled
         );
     }, [dashboard, isDateZoomDisabled]);
+    const hasSyncChartColorsChanged = useMemo(() => {
+        return (
+            (dashboard?.config?.syncChartColors ?? false) !== syncChartColors
+        );
+    }, [dashboard, syncChartColors]);
+    const hasSyncChartTileUuidsChanged = useMemo(() => {
+        const savedUuids = dashboard?.config?.syncChartTileUuids ?? [];
+        const currentUuids = syncChartTileUuids ?? [];
+        return (
+            savedUuids.length !== currentUuids.length ||
+            savedUuids.some((id) => !currentUuids.includes(id)) ||
+            currentUuids.some((id) => !savedUuids.includes(id))
+        );
+    }, [dashboard, syncChartTileUuids]);
+    const hasColorPaletteChanged = useMemo(() => {
+        const savedPalette = dashboard?.config?.colorPalette;
+        const currentPalette = dashboardColorPalette;
+        if (!savedPalette && !currentPalette) return false;
+        if (!savedPalette || !currentPalette) return true;
+        return savedPalette.join(',') !== currentPalette.join(',');
+    }, [dashboard, dashboardColorPalette]);
     const oldestCacheTime = useDashboardContext((c) => c.oldestCacheTime);
     const dashboardParameters = useDashboardContext(
         (c) => c.dashboardParameters,
@@ -237,6 +441,77 @@ const Dashboard: FC = () => {
     const [addingTab, setAddingTab] = useState<boolean>(false);
 
     const hasDashboardTiles = dashboardTiles && dashboardTiles.length > 0;
+
+    // 获取图表类型的 tiles（用于颜色同步选择）
+    const chartTiles = useMemo(() => {
+        if (!dashboardTiles) return [];
+        return dashboardTiles.filter(
+            (
+                tile,
+            ): tile is DashboardTile & {
+                type:
+                    | DashboardTileTypes.SAVED_CHART
+                    | DashboardTileTypes.SQL_CHART;
+            } => {
+                if (
+                    tile.type !== DashboardTileTypes.SAVED_CHART &&
+                    tile.type !== DashboardTileTypes.SQL_CHART
+                ) {
+                    return false;
+                }
+                const name = (
+                    tile.properties.title ||
+                    tile.properties.chartName ||
+                    ''
+                ).trim();
+                return name.length > 0;
+            },
+        );
+    }, [dashboardTiles]);
+
+    const tabNameMap = useMemo(() => {
+        if (!dashboardTabs) return new Map<string, string>();
+        return new Map(dashboardTabs.map((tab) => [tab.uuid, tab.name]));
+    }, [dashboardTabs]);
+
+    // 按 tab 分组图表 tiles，保持 tab 顺序
+    const chartTilesByTab = useMemo(() => {
+        const groups: Array<{
+            tabUuid: string | undefined;
+            tabName: string | undefined;
+            tiles: typeof chartTiles;
+        }> = [];
+        const tabOrder = dashboardTabs?.map((tab) => tab.uuid) ?? [];
+        const grouped = new Map<string | undefined, typeof chartTiles>();
+        for (const tile of chartTiles) {
+            const key = tile.tabUuid || undefined;
+            if (!grouped.has(key)) grouped.set(key, []);
+            grouped.get(key)!.push(tile);
+        }
+        // 按 tab 顺序排列
+        for (const tabUuid of tabOrder) {
+            const tiles = grouped.get(tabUuid);
+            if (tiles) {
+                groups.push({
+                    tabUuid,
+                    tabName: tabNameMap.get(tabUuid),
+                    tiles,
+                });
+                grouped.delete(tabUuid);
+            }
+        }
+        // 无 tab 的放最后
+        const noTab = grouped.get(undefined);
+        if (noTab) {
+            groups.push({
+                tabUuid: undefined,
+                tabName: undefined,
+                tiles: noTab,
+            });
+        }
+        return groups;
+    }, [chartTiles, dashboardTabs, tabNameMap]);
+
     const tabsEnabled = dashboardTabs && dashboardTabs.length > 0;
 
     const defaultTab = dashboardTabs?.[0];
@@ -256,6 +531,38 @@ const Dashboard: FC = () => {
         setDashboardTabs,
         setSavedParameters,
     ]);
+
+    // 同步 syncChartColors 状态
+    useEffect(() => {
+        if (isDashboardLoading) return;
+        if (!isEditMode) return;
+
+        setSyncChartColors(dashboard?.config?.syncChartColors ?? false);
+    }, [isDashboardLoading, isEditMode, dashboard?.config?.syncChartColors]);
+
+    // 同步 colorPalette 状态
+    useEffect(() => {
+        if (isDashboardLoading) return;
+
+        // 编辑模式和查看模式都需要同步 colorPalette
+        setDashboardColorPalette(
+            dashboard?.config?.colorPalette ??
+                organization?.chartColors ??
+                ECHARTS_DEFAULT_COLORS,
+        );
+    }, [
+        isDashboardLoading,
+        dashboard?.config?.colorPalette,
+        organization?.chartColors,
+    ]);
+
+    // 同步 syncChartTileUuids 状态
+    useEffect(() => {
+        if (isDashboardLoading) return;
+        if (!isEditMode) return;
+
+        setSyncChartTileUuids(dashboard?.config?.syncChartTileUuids ?? []);
+    }, [isDashboardLoading, isEditMode, dashboard?.config?.syncChartTileUuids]);
 
     useEffect(() => {
         if (isDashboardLoading) return;
@@ -542,10 +849,13 @@ const Dashboard: FC = () => {
 
         setTimeout(() => {
             setTabFilters(
-                dashboard.tabs.reduce((acc, tab) => {
-                    acc[tab.uuid] = tab.filters || emptyFilters;
-                    return acc;
-                }, {} as Record<string, DashboardFilters>),
+                dashboard.tabs.reduce(
+                    (acc, tab) => {
+                        acc[tab.uuid] = tab.filters || emptyFilters;
+                        return acc;
+                    },
+                    {} as Record<string, DashboardFilters>,
+                ),
             );
         }, 100);
     }, [
@@ -775,6 +1085,15 @@ const Dashboard: FC = () => {
                 ...(Object.keys(showTabAddFilterButton).length > 0 && {
                     showTabAddFilterButton,
                 }),
+                syncChartColors,
+                ...(syncChartColors &&
+                    dashboardColorPalette && {
+                        colorPalette: dashboardColorPalette,
+                    }),
+                ...(syncChartColors &&
+                    syncChartTileUuids.length > 0 && {
+                        syncChartTileUuids,
+                    }),
             },
             parameters: dashboardParameters,
         });
@@ -848,6 +1167,9 @@ const Dashboard: FC = () => {
                             haveTabsChanged ||
                             haveTabFiltersChanged ||
                             hasDateZoomDisabledChanged ||
+                            hasSyncChartColorsChanged ||
+                            hasSyncChartTileUuidsChanged ||
+                            hasColorPaletteChanged ||
                             parametersHaveChanged ||
                             havePinnedParametersChanged ||
                             haveFilterEnabledStatesChanged ||
@@ -887,9 +1209,250 @@ const Dashboard: FC = () => {
                         )}
                     </Group>
                     {/* DateZoom section will adjust width dynamically */}
-                    {hasDashboardTiles && (
+                    {hasDashboardTiles && isEditMode && (
                         <Group spacing="xs" style={{ marginLeft: 'auto' }}>
-                            <DateZoom isEditMode={isEditMode} />
+                            <Switch
+                                label={t(
+                                    'features_date_zoom.sync_chart_colors',
+                                    'Sync chart colors',
+                                )}
+                                checked={syncChartColors}
+                                onChange={(e) =>
+                                    setSyncChartColors(e.currentTarget.checked)
+                                }
+                            />
+                            {syncChartColors && isEditMode && (
+                                <Popover width={300} position="bottom">
+                                    <Popover.Target>
+                                        <Button size="xs" variant="outline">
+                                            {t(
+                                                'dashboard.color_palette',
+                                                'Colors',
+                                            )}
+                                        </Button>
+                                    </Popover.Target>
+                                    <Popover.Dropdown>
+                                        <Text size="sm" fw={500} mb="xs">
+                                            {t(
+                                                'dashboard.select_color_palette',
+                                                'Select color palette',
+                                            )}
+                                        </Text>
+                                        <Stack>
+                                            {COLOR_PALETTE_PRESETS.map(
+                                                (preset) => {
+                                                    const isSelected =
+                                                        dashboardColorPalette &&
+                                                        dashboardColorPalette.join(
+                                                            ',',
+                                                        ) ===
+                                                            preset.colors.join(
+                                                                ',',
+                                                            );
+                                                    return (
+                                                        <Button
+                                                            key={preset.name}
+                                                            size="xs"
+                                                            variant={
+                                                                isSelected
+                                                                    ? 'filled'
+                                                                    : 'outline'
+                                                            }
+                                                            onClick={() =>
+                                                                setDashboardColorPalette(
+                                                                    preset.colors,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Group
+                                                                spacing={4}
+                                                                noWrap
+                                                            >
+                                                                <Text
+                                                                    size="xs"
+                                                                    mr="xs"
+                                                                >
+                                                                    {t(
+                                                                        `dashboard.palettes.${preset.name}`,
+                                                                        preset.name,
+                                                                    )}
+                                                                </Text>
+                                                                {preset.colors
+                                                                    .slice(
+                                                                        0,
+                                                                        10,
+                                                                    )
+                                                                    .map(
+                                                                        (
+                                                                            color,
+                                                                            idx,
+                                                                        ) => (
+                                                                            <Box
+                                                                                key={
+                                                                                    idx
+                                                                                }
+                                                                                w={
+                                                                                    10
+                                                                                }
+                                                                                h={
+                                                                                    10
+                                                                                }
+                                                                                bg={
+                                                                                    color
+                                                                                }
+                                                                                style={{
+                                                                                    borderRadius: 2,
+                                                                                }}
+                                                                            />
+                                                                        ),
+                                                                    )}
+                                                            </Group>
+                                                        </Button>
+                                                    );
+                                                },
+                                            )}
+                                        </Stack>
+                                    </Popover.Dropdown>
+                                </Popover>
+                            )}
+                            {syncChartColors &&
+                                isEditMode &&
+                                chartTiles.length > 0 && (
+                                    <Popover width={400} position="bottom">
+                                        <Popover.Target>
+                                            <Button size="xs" variant="outline">
+                                                {t(
+                                                    'dashboard.select_charts',
+                                                    'Select charts',
+                                                )}
+                                            </Button>
+                                        </Popover.Target>
+                                        <Popover.Dropdown>
+                                            <Text size="sm" fw={500} mb="xs">
+                                                {t(
+                                                    'dashboard.sync_chart_colors_for',
+                                                    'Sync chart colors for:',
+                                                )}
+                                            </Text>
+                                            <ScrollArea.Autosize mah={400}>
+                                                <Stack>
+                                                    {chartTilesByTab.map(
+                                                        (group, groupIdx) => (
+                                                            <Box
+                                                                key={
+                                                                    group.tabUuid ??
+                                                                    'no-tab'
+                                                                }
+                                                            >
+                                                                {chartTilesByTab.length >
+                                                                    1 && (
+                                                                    <Divider
+                                                                        label={
+                                                                            group.tabName ??
+                                                                            t(
+                                                                                'dashboard.no_tab',
+                                                                                'No tab',
+                                                                            )
+                                                                        }
+                                                                        labelPosition="left"
+                                                                        mt={
+                                                                            groupIdx >
+                                                                            0
+                                                                                ? 'xs'
+                                                                                : 0
+                                                                        }
+                                                                        mb="xs"
+                                                                    />
+                                                                )}
+                                                                <Stack gap="xs">
+                                                                    {group.tiles.map(
+                                                                        (
+                                                                            tile,
+                                                                        ) => {
+                                                                            const chartName =
+                                                                                tile
+                                                                                    .properties
+                                                                                    .title ||
+                                                                                tile
+                                                                                    .properties
+                                                                                    .chartName ||
+                                                                                'Untitled chart';
+                                                                            const isSelected =
+                                                                                syncChartTileUuids.includes(
+                                                                                    tile.uuid,
+                                                                                );
+                                                                            return (
+                                                                                <Switch
+                                                                                    key={
+                                                                                        tile.uuid
+                                                                                    }
+                                                                                    label={
+                                                                                        chartName
+                                                                                    }
+                                                                                    checked={
+                                                                                        isSelected
+                                                                                    }
+                                                                                    onChange={(
+                                                                                        e,
+                                                                                    ) => {
+                                                                                        const checked =
+                                                                                            e
+                                                                                                .currentTarget
+                                                                                                .checked;
+                                                                                        if (
+                                                                                            checked
+                                                                                        ) {
+                                                                                            setSyncChartTileUuids(
+                                                                                                [
+                                                                                                    ...syncChartTileUuids,
+                                                                                                    tile.uuid,
+                                                                                                ],
+                                                                                            );
+                                                                                        } else {
+                                                                                            setSyncChartTileUuids(
+                                                                                                syncChartTileUuids.filter(
+                                                                                                    (
+                                                                                                        uuid,
+                                                                                                    ) =>
+                                                                                                        uuid !==
+                                                                                                        tile.uuid,
+                                                                                                ),
+                                                                                            );
+                                                                                        }
+                                                                                    }}
+                                                                                />
+                                                                            );
+                                                                        },
+                                                                    )}
+                                                                </Stack>
+                                                            </Box>
+                                                        ),
+                                                    )}
+                                                </Stack>
+                                            </ScrollArea.Autosize>
+                                            {syncChartTileUuids.length > 0 && (
+                                                <Button
+                                                    size="xs"
+                                                    variant="subtle"
+                                                    mt="xs"
+                                                    onClick={() =>
+                                                        setSyncChartTileUuids(
+                                                            [],
+                                                        )
+                                                    }
+                                                >
+                                                    {t(
+                                                        'dashboard.clear_all',
+                                                        'Clear all',
+                                                    )}
+                                                </Button>
+                                            )}
+                                        </Popover.Dropdown>
+                                    </Popover>
+                                )}
+                            <Group ml="md">
+                                <DateZoom isEditMode={isEditMode} />
+                            </Group>
                         </Group>
                     )}
                 </Group>

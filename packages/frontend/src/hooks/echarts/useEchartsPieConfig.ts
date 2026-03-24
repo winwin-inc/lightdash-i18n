@@ -37,8 +37,13 @@ const useEchartsPieConfig = (
     selectedLegends?: Record<string, boolean>,
     isInDashboard?: boolean,
 ) => {
-    const { visualizationConfig, itemsMap, getGroupColor, minimal } =
-        useVisualizationContext();
+    const {
+        visualizationConfig,
+        itemsMap,
+        getGroupColor,
+        minimal,
+        useHashBased,
+    } = useVisualizationContext();
 
     const theme = useMantineTheme();
     const isMobile = useMediaQuery('(max-width: 768px)');
@@ -103,9 +108,11 @@ const useEchartsPieConfig = (
 
                 // Use all group field IDs as the group prefix for color assignment:
                 const groupPrefix = groupFieldIds.join('_');
-                const itemColor =
-                    groupColorOverrides?.[name] ??
-                    getGroupColor(groupPrefix, name);
+                // 哈希模式下，忽略 groupColorOverrides，强制走哈希分配
+                const itemColor = useHashBased
+                    ? getGroupColor(groupPrefix, name)
+                    : (groupColorOverrides?.[name] ??
+                      getGroupColor(groupPrefix, name));
 
                 const isOutsideLabel = valueLabel === 'outside';
                 const isMobileOutsideLabel = isMobile && isOutsideLabel;
@@ -232,10 +239,10 @@ const useEchartsPieConfig = (
                                 showPercentage
                                     ? `${percentFormattedDefault}% - ${meta.value.formatted}`
                                     : showValue
-                                    ? `${meta.value.formatted}`
-                                    : showPercentage
-                                    ? `${percentFormattedDefault}%`
-                                    : `${params.name}`;
+                                      ? `${meta.value.formatted}`
+                                      : showPercentage
+                                        ? `${percentFormattedDefault}%`
+                                        : `${params.name}`;
 
                             // 移动端外侧标签：如果文本较长，在合适位置插入换行符
                             if (isMobileOutsideLabel && labelText.length > 15) {
@@ -278,7 +285,7 @@ const useEchartsPieConfig = (
 
                 return config;
             });
-    }, [chartConfig, getGroupColor, isMobile]);
+    }, [chartConfig, getGroupColor, isMobile, useHashBased]);
 
     const pieSeriesOption: PieSeriesOption | undefined = useMemo(() => {
         if (!chartConfig) return;
@@ -316,8 +323,8 @@ const useEchartsPieConfig = (
                 ? ['15%', '40%'] // 进一步减小半径，为标签留出更多空间
                 : '40%' // 移动端外侧标签使用更小的半径
             : isDonut
-            ? ['30%', '70%']
-            : '70%';
+              ? ['30%', '70%']
+              : '70%';
 
         // 移动端外侧标签时，调整中心位置以留出标签空间
         let center: [string, string];
@@ -331,8 +338,8 @@ const useEchartsPieConfig = (
                 (showValueDefault || showPercentageDefault)
                     ? ['50%', '55%']
                     : showLegend
-                    ? ['50%', '52%']
-                    : ['50%', '50%'];
+                      ? ['50%', '52%']
+                      : ['50%', '50%'];
         } else {
             center = ['50%', '50%'];
         }
@@ -359,12 +366,12 @@ const useEchartsPieConfig = (
                       },
                   }
                 : hasOutsideLabels
-                ? {
-                      labelLine: {
-                          show: true,
-                      },
-                  }
-                : {}),
+                  ? {
+                        labelLine: {
+                            show: true,
+                        },
+                    }
+                  : {}),
             tooltip: {
                 trigger: 'item',
                 formatter: ({ marker, name, value, percent }) => {

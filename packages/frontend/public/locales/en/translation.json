@@ -865,6 +865,26 @@
             "year": "Year"
         }
     },
+    "features_date_zoom": {
+        "sync_chart_colors": "Sync chart colors"
+    },
+    "dashboard": {
+        "color_palette": "Colors",
+        "select_color_palette": "Select color palette",
+        "select_charts": "Select charts",
+        "sync_chart_colors_for": "Sync chart colors for:",
+        "clear_all": "Clear all",
+        "default": "Default",
+        "palettes": {
+            "echarts": "Chart Default",
+            "default": "Standard",
+            "modern": "Modern",
+            "retro": "Retro",
+            "business": "Business",
+            "lightdash": "Brand",
+            "dataMatrix": "Data Matrix"
+        }
+    },
     "features_error_boundary": {
         "something_went_wrong": "Something went wrong",
         "tip": {

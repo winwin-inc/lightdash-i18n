@@ -30,7 +30,10 @@ import {
 import { type CartesianTypeOptions } from '../../hooks/cartesianChartConfig/useCartesianChartConfig';
 import { type EChartSeries } from '../../hooks/echarts/useEchartsCartesianConfig';
 import { type SeriesLike } from '../../hooks/useChartColorConfig/types';
-import { useChartColorConfig } from '../../hooks/useChartColorConfig/useChartColorConfig';
+import {
+    getHashColor,
+    useChartColorConfig,
+} from '../../hooks/useChartColorConfig/useChartColorConfig';
 import {
     calculateSeriesLikeIdentifier,
     isGroupedSeries,
@@ -83,6 +86,8 @@ export type VisualizationProviderProps = {
     apiErrorDetail?: ApiErrorDetail | null;
     dashboardSlug?: string;
     dashboardName?: string;
+    /** 当为 true 时，使用哈希分配颜色，相同 identifier 获得相同颜色 */
+    useHashBased?: boolean;
 };
 
 const VisualizationProvider: FC<
@@ -113,6 +118,7 @@ const VisualizationProvider: FC<
     unsavedMetricQuery,
     dashboardSlug,
     dashboardName,
+    useHashBased = false,
 }) => {
     const itemsMap = useMemo(() => {
         const metricOverrides = resultsData?.metricQuery?.metricOverrides;
@@ -164,7 +170,7 @@ const VisualizationProvider: FC<
     );
 
     const { calculateKeyColorAssignment, calculateSeriesColorAssignment } =
-        useChartColorConfig({ colorPalette });
+        useChartColorConfig({ colorPalette, useHashBased });
 
     // cartesian config related
     const [stacking, setStacking] = useState<boolean | StackType>();
@@ -213,6 +219,18 @@ const VisualizationProvider: FC<
             .map((series) => calculateSeriesLikeIdentifier(series).join('|'))
             .sort((a, b) => b.localeCompare(a));
 
+        // 当 useHashBased 开启时，使用哈希分配颜色而非按顺序
+        if (useHashBased) {
+            return Object.fromEntries(
+                sortedSeriesIdentifiers.map((identifier) => {
+                    const parts = identifier.split('|');
+                    const value = parts[parts.length - 1];
+                    const color = getHashColor(value, colorPalette);
+                    return [identifier, color];
+                }),
+            );
+        }
+
         return Object.fromEntries(
             sortedSeriesIdentifiers.map((identifier, i) => {
                 return [
@@ -221,7 +239,7 @@ const VisualizationProvider: FC<
                 ];
             }),
         );
-    }, [chartConfig, colorPalette, computedSeries]);
+    }, [chartConfig, colorPalette, computedSeries, useHashBased]);
 
     const handleChartConfigChange = useCallback(
         (newChartConfig: ChartConfig) => {
@@ -274,7 +292,8 @@ const VisualizationProvider: FC<
      */
     const getSeriesColor = useCallback(
         (seriesLike: SeriesLike) => {
-            if (seriesLike.color) return seriesLike.color;
+            // 哈希模式下，忽略 series 预设颜色，强制走哈希分配
+            if (!useHashBased && seriesLike.color) return seriesLike.color;
 
             // Check if color is stored in metadata
             const serieId = calculateSeriesLikeIdentifier(seriesLike).join('.');
@@ -327,6 +346,7 @@ const VisualizationProvider: FC<
             chartConfig,
             itemsMap,
             isCalculateSeriesColorEnabled,
+            useHashBased,
         ],
     );
 
@@ -352,6 +372,7 @@ const VisualizationProvider: FC<
         getGroupColor,
         getSeriesColor,
         chartConfig,
+        useHashBased,
     };
 
     switch (chartConfig.type) {
