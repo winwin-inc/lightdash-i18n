@@ -8,10 +8,11 @@ import { calculateSeriesLikeIdentifier } from './utils';
 
 /**
  * 提取维度值的类别部分
- * 例如: "其他品牌：包含494个" -> "其他品牌", "QQ星, 4.44%" -> "QQ星"
+ * 例如: "其他品牌：包含494个" -> "其他品牌", "其他集团-包含368个" -> "其他集团", "QQ星, 4.44%" -> "QQ星", "品牌A_已选择" -> "品牌A"
  */
 const extractCategory = (str: string): string => {
-    const separators = ['：', ',', '，'];
+    // 常见分隔符：下划线、竖线、斜杠、连字符、中文冒号、逗号、括号等
+    const separators = ['-', '_', '|', '/', '\\', '：', ',', '，', '(', '（'];
     for (const sep of separators) {
         const parts = str.split(sep);
         if (parts.length > 1) {
