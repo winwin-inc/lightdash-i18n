@@ -231,9 +231,15 @@ export const getGlobalHashColor = (
             // 使用更大的色相间隔，确保颜色差异明显
             const step = 13 + safetyCounter * 7; // 质数间隔，分布更均匀
             const hue = (hash + step * safetyCounter * 17) % 360;
-            // 饱和度和亮度使用更大范围
-            const sat = 0.5 + ((safetyCounter * 11) % 50) / 100; // 0.5-1.0
-            const lig = 0.3 + ((safetyCounter * 13) % 50) / 100; // 0.3-0.8
+            // 饱和度和亮度使用更大范围，确保不会过低
+            const sat = Math.max(
+                0.5,
+                Math.min(1.0, 0.5 + ((safetyCounter * 11) % 50) / 100),
+            ); // 0.5-1.0
+            const lig = Math.max(
+                0.4,
+                Math.min(0.7, 0.4 + ((safetyCounter * 13) % 30) / 100),
+            ); // 0.4-0.7
             currentColor = hslToHex(hue, sat, lig);
         } else {
             currentColor = expanded[colorIndex];
