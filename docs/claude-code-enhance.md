@@ -98,6 +98,42 @@ npm install -g socraticode
 claude mcp add socraticode "socraticode"
 ```
 
+### 手动拉取镜像（可选）
+
+首次使用 SocratiCode 时会自动拉取，如果卡住可以手动执行：
+
+```bash
+# 拉取 Qdrant 向量数据库
+docker pull qdrant/qdrant:v1.17.0
+
+# 拉取 Ollama
+docker pull ollama/ollama:latest
+```
+
+### 手动启动容器（可选）
+
+如果未自动启动，可以手动启动：
+
+```bash
+# 启动 Qdrant
+docker run -d --name socraticode-qdrant -p 16333:6333 -v socraticode_qdrant_data:/qdrant/storage qdrant/qdrant:v1.17.0
+
+# 启动 Ollama
+docker run -d --name socraticode-ollama -p 11435:11434 -v socraticode_ollama_data:/root/.ollama ollama/ollama:latest
+
+# 下载 embedding 模型
+docker exec socraticode-ollama ollama pull nomic-embed-text
+```
+
+### Embedding Provider 选择
+
+| Provider | 配置方式 | 优点 |
+|----------|----------|------|
+| **本地 Ollama Docker**（默认） | 无需配置 | 完全离线 |
+| **Native Ollama**（推荐） | 安装 [ollama.com](https://ollama.com) | GPU 加速 |
+| **OpenAI** | `EMBEDDING_PROVIDER=openai` + API Key | 速度快 |
+| **Google Gemini** | `EMBEDDING_PROVIDER=google` + API Key | 免费额度 |
+
 ---
 
 # 二、工作流管理
