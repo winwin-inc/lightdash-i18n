@@ -63,6 +63,11 @@ const hexToHSL = (hex: string): { h: number; s: number; l: number } => {
 };
 
 const hslToHex = (h: number, s: number, l: number): string => {
+    // 安全检查：确保值在有效范围内
+    const safeH = ((h % 360) + 360) % 360; // 确保色相在 0-359 之间
+    const safeS = Math.max(0, Math.min(1, s)); // 确保饱和度 0-1
+    const safeL = Math.max(0, Math.min(1, l)); // 确保亮度 0-1
+
     const hueToRgb = (p: number, q: number, t: number) => {
         let tNorm = t;
         if (tNorm < 0) tNorm += 1;
@@ -73,13 +78,19 @@ const hslToHex = (h: number, s: number, l: number): string => {
         return p;
     };
 
-    const hNorm = h / 360;
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
+    const hNorm = safeH / 360;
+    const q = safeL < 0.5 ? safeL * (1 + safeS) : safeL + safeS - safeL * safeS;
+    const p = 2 * safeL - q;
 
-    const r = Math.round(hueToRgb(p, q, hNorm + 1 / 3) * 255);
-    const g = Math.round(hueToRgb(p, q, hNorm) * 255);
-    const b = Math.round(hueToRgb(p, q, hNorm - 1 / 3) * 255);
+    const r = Math.round(
+        Math.max(0, Math.min(255, hueToRgb(p, q, hNorm + 1 / 3) * 255)),
+    );
+    const g = Math.round(
+        Math.max(0, Math.min(255, hueToRgb(p, q, hNorm) * 255)),
+    );
+    const b = Math.round(
+        Math.max(0, Math.min(255, hueToRgb(p, q, hNorm - 1 / 3) * 255)),
+    );
 
     return `#${r.toString(16).padStart(2, '0')}${g
         .toString(16)
@@ -126,39 +137,91 @@ const expandPalette = (colorPalette: string[]): string[] => {
     const expanded: string[] = [...colorPalette];
     for (const color of colorPalette) {
         const { h, s, l } = hexToHSL(color);
-        // 变体1-4
+        // 确保饱和度和亮度在合理范围
+        const safeS = Math.max(0.4, Math.min(1.0, s));
+        const safeL = Math.max(0.35, Math.min(0.75, l));
+
+        // 变体1-4：亮度/饱和度微调
         expanded.push(
-            hslToHex(h, Math.max(0.2, s - 0.08), Math.max(0.35, l + 0.1)),
+            hslToHex(
+                h,
+                Math.max(0.4, safeS - 0.08),
+                Math.min(0.75, safeL + 0.1),
+            ),
         );
         expanded.push(
-            hslToHex(h, Math.max(0.25, s + 0.06), Math.max(0.25, l - 0.1)),
+            hslToHex(
+                h,
+                Math.max(0.4, safeS + 0.06),
+                Math.max(0.35, safeL - 0.1),
+            ),
         );
         expanded.push(
-            hslToHex(h, Math.max(0.15, s - 0.12), Math.max(0.45, l + 0.18)),
+            hslToHex(
+                h,
+                Math.max(0.4, safeS - 0.12),
+                Math.min(0.8, safeL + 0.18),
+            ),
         );
         expanded.push(
-            hslToHex(h, Math.max(0.3, s + 0.1), Math.max(0.2, l - 0.18)),
+            hslToHex(
+                h,
+                Math.max(0.4, safeS + 0.1),
+                Math.max(0.35, safeL - 0.15),
+            ),
         );
-        // 变体5-8
-        expanded.push(hslToHex((h + 60) % 360, Math.max(0.5, s + 0.15), l));
-        expanded.push(hslToHex((h + 120) % 360, Math.max(0.3, s - 0.1), l));
-        expanded.push(hslToHex((h + 180) % 360, s, Math.max(0.5, l + 0.15)));
-        expanded.push(hslToHex((h + 240) % 360, s, Math.max(0.25, l - 0.15)));
-        // 变体9-12
-        expanded.push(hslToHex((h + 30) % 360, s, l));
-        expanded.push(hslToHex((h + 90) % 360, s, l));
-        expanded.push(hslToHex((h + 150) % 360, s, l));
-        expanded.push(hslToHex((h + 210) % 360, s, l));
-        // 变体13-16
-        expanded.push(hslToHex(h, 0.9, l));
-        expanded.push(hslToHex((h + 60) % 360, 0.9, l));
-        expanded.push(hslToHex((h + 120) % 360, 0.9, l));
-        expanded.push(hslToHex((h + 180) % 360, 0.9, l));
-        // 变体17-20
-        expanded.push(hslToHex(h, 0.3, 0.8));
-        expanded.push(hslToHex((h + 90) % 360, 0.3, 0.8));
-        expanded.push(hslToHex((h + 180) % 360, 0.3, 0.8));
-        expanded.push(hslToHex((h + 270) % 360, 0.3, 0.8));
+        // 变体5-8：色相偏移，确保亮度足够
+        expanded.push(
+            hslToHex((h + 60) % 360, Math.max(0.5, safeS + 0.15), safeL),
+        );
+        expanded.push(
+            hslToHex((h + 120) % 360, Math.max(0.4, safeS - 0.1), safeL),
+        );
+        expanded.push(
+            hslToHex((h + 180) % 360, safeS, Math.min(0.7, safeL + 0.15)),
+        );
+        expanded.push(
+            hslToHex((h + 240) % 360, safeS, Math.max(0.4, safeL - 0.1)),
+        );
+        // 变体9-12：色相偏移
+        expanded.push(
+            hslToHex(
+                (h + 30) % 360,
+                Math.max(0.5, safeS),
+                Math.max(0.4, safeL),
+            ),
+        );
+        expanded.push(
+            hslToHex(
+                (h + 90) % 360,
+                Math.max(0.5, safeS),
+                Math.max(0.4, safeL),
+            ),
+        );
+        expanded.push(
+            hslToHex(
+                (h + 150) % 360,
+                Math.max(0.5, safeS),
+                Math.max(0.4, safeL),
+            ),
+        );
+        expanded.push(
+            hslToHex(
+                (h + 210) % 360,
+                Math.max(0.5, safeS),
+                Math.max(0.4, safeL),
+            ),
+        );
+        // 变体13-16：高饱和度，确保亮度足够
+        expanded.push(hslToHex(h, 0.9, Math.max(0.4, safeL)));
+        expanded.push(hslToHex((h + 60) % 360, 0.9, Math.max(0.4, safeL)));
+        expanded.push(hslToHex((h + 120) % 360, 0.9, Math.max(0.4, safeL)));
+        expanded.push(hslToHex((h + 180) % 360, 0.9, Math.max(0.4, safeL)));
+        // 变体17-20：低饱和度高亮度，确保不产生暗色
+        expanded.push(hslToHex(h, 0.4, 0.65));
+        expanded.push(hslToHex((h + 90) % 360, 0.4, 0.65));
+        expanded.push(hslToHex((h + 180) % 360, 0.4, 0.65));
+        expanded.push(hslToHex((h + 270) % 360, 0.4, 0.65));
     }
 
     expandedPaletteCache.set(cacheKey, expanded);
@@ -215,11 +278,6 @@ export const getGlobalHashColor = (
     const maxAttempts = 100; // 最多尝试100次
     let currentColor = color;
 
-    // eslint-disable-next-line no-console
-    console.log(
-        `[ColorAssign] dashboard=${dashboardUuid} ${identifier}: hash=${hash}, initialIdx=${colorIndex}, initialColor=${currentColor}, usedColors=${usedColors.length}`,
-    );
-
     // 色差检查循环 - 使用函数外部变量来避免闭包问题
     let needsColorAdjustment = usedColors.some(
         (usedColor) =>
@@ -252,24 +310,10 @@ export const getGlobalHashColor = (
         );
         safetyCounter++;
 
-        // eslint-disable-next-line no-console
-        console.log(
-            `[ColorAssign] dashboard=${dashboardUuid} ${identifier}: adjusted idx=${colorIndex}, color=${currentColor}, diff check safetyCounter=${safetyCounter}`,
-        );
-
         if (safetyCounter >= maxAttempts) {
-            // eslint-disable-next-line no-console
-            console.log(
-                `[ColorAssign] dashboard=${dashboardUuid} ${identifier}: MAX attempts reached, using color=${currentColor}`,
-            );
             break;
         }
     }
-
-    // eslint-disable-next-line no-console
-    console.log(
-        `[ColorAssign] dashboard=${dashboardUuid} FINAL ${identifier}: color=${currentColor}, adjustments=${safetyCounter}`,
-    );
 
     // 记录分配结果
     dashboardAssignments.set(identifier, currentColor);
