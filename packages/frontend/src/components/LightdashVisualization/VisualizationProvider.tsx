@@ -31,6 +31,7 @@ import { type CartesianTypeOptions } from '../../hooks/cartesianChartConfig/useC
 import { type EChartSeries } from '../../hooks/echarts/useEchartsCartesianConfig';
 import { type SeriesLike } from '../../hooks/useChartColorConfig/types';
 import {
+    getGlobalHashColor,
     getHashColor,
     useChartColorConfig,
 } from '../../hooks/useChartColorConfig/useChartColorConfig';
@@ -88,6 +89,8 @@ export type VisualizationProviderProps = {
     dashboardName?: string;
     /** 当为 true 时，使用哈希分配颜色，相同 identifier 获得相同颜色 */
     useHashBased?: boolean;
+    /** Dashboard UUID，用于全局颜色分配器隔离 */
+    dashboardUuid?: string;
 };
 
 const VisualizationProvider: FC<
@@ -119,6 +122,7 @@ const VisualizationProvider: FC<
     dashboardSlug,
     dashboardName,
     useHashBased = false,
+    dashboardUuid,
 }) => {
     const itemsMap = useMemo(() => {
         const metricOverrides = resultsData?.metricQuery?.metricOverrides;
@@ -160,7 +164,7 @@ const VisualizationProvider: FC<
     const { validPivotDimensions, setPivotDimensions } = usePivotDimensions(
         initialPivotDimensions,
         useSqlPivotResults?.enabled
-            ? (unsavedMetricQuery ?? lastValidResultsData?.metricQuery)
+            ? unsavedMetricQuery ?? lastValidResultsData?.metricQuery
             : lastValidResultsData?.metricQuery,
     );
 
@@ -170,7 +174,7 @@ const VisualizationProvider: FC<
     );
 
     const { calculateKeyColorAssignment, calculateSeriesColorAssignment } =
-        useChartColorConfig({ colorPalette, useHashBased });
+        useChartColorConfig({ colorPalette, useHashBased, dashboardUuid });
 
     // cartesian config related
     const [stacking, setStacking] = useState<boolean | StackType>();
@@ -225,7 +229,10 @@ const VisualizationProvider: FC<
                 sortedSeriesIdentifiers.map((identifier) => {
                     const parts = identifier.split('|');
                     const value = parts[parts.length - 1];
-                    const color = getHashColor(value, colorPalette);
+                    // 如果有 dashboardUuid，使用全局颜色分配器（带色差保障）
+                    const color = dashboardUuid
+                        ? getGlobalHashColor(value, colorPalette, dashboardUuid)
+                        : getHashColor(value, colorPalette);
                     return [identifier, color];
                 }),
             );
@@ -239,7 +246,13 @@ const VisualizationProvider: FC<
                 ];
             }),
         );
-    }, [chartConfig, colorPalette, computedSeries, useHashBased]);
+    }, [
+        chartConfig,
+        colorPalette,
+        computedSeries,
+        useHashBased,
+        dashboardUuid,
+    ]);
 
     const handleChartConfigChange = useCallback(
         (newChartConfig: ChartConfig) => {

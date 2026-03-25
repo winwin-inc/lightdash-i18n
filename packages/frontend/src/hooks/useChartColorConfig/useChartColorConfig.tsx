@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-loop-func */
 import { useMantineTheme } from '@mantine/core';
 import { useCallback, useContext } from 'react';
 import { ASSIGNMENT_IDX_KEY } from './constants';
@@ -22,10 +23,11 @@ const extractCategory = (str: string): string => {
 
 const hashString = (str: string): number => {
     const category = extractCategory(str);
-    let hash = 0;
+    // FNV-1a 哈希算法，分布更均匀
+    let hash = 2166136261; // FNV offset basis
     for (let i = 0; i < category.length; i++) {
-        const char = category.charCodeAt(i);
-        hash = (hash << 5) - hash + char;
+        hash ^= category.charCodeAt(i);
+        hash *= 16777619; // FNV prime
     }
     return Math.abs(hash);
 };
@@ -78,7 +80,193 @@ const hslToHex = (h: number, s: number, l: number): string => {
     const g = Math.round(hueToRgb(p, q, hNorm) * 255);
     const b = Math.round(hueToRgb(p, q, hNorm - 1 / 3) * 255);
 
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    return `#${r.toString(16).padStart(2, '0')}${g
+        .toString(16)
+        .padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+};
+
+/**
+ * 计算两个颜色的差异度（欧氏距离）
+ * 返回 0-255 之间的值，值越大差异越大
+ * 阈值 30 可以区分明显的颜色差异
+ */
+const colorDifference = (color1: string, color2: string): number => {
+    const hex1 = color1.replace('#', '');
+    const hex2 = color2.replace('#', '');
+
+    const r1 = parseInt(hex1.slice(0, 2), 16);
+    const g1 = parseInt(hex1.slice(2, 4), 16);
+    const b1 = parseInt(hex1.slice(4, 6), 16);
+
+    const r2 = parseInt(hex2.slice(0, 2), 16);
+    const g2 = parseInt(hex2.slice(2, 4), 16);
+    const b2 = parseInt(hex2.slice(4, 6), 16);
+
+    return Math.sqrt(
+        Math.pow(r1 - r2, 2) + Math.pow(g1 - g2, 2) + Math.pow(b1 - b2, 2),
+    );
+};
+
+// 色差最小阈值（低于此值认为颜色太相似）
+const MIN_COLOR_DIFF = 45;
+
+// 扩展调色板缓存
+const expandedPaletteCache = new Map<string, string[]>();
+
+/**
+ * 扩展调色板：为每个基色生成 20 个变体
+ * 9 色 → 189 色
+ */
+const expandPalette = (colorPalette: string[]): string[] => {
+    const cacheKey = colorPalette.join(',');
+    const cached = expandedPaletteCache.get(cacheKey);
+    if (cached) return cached;
+
+    const expanded: string[] = [...colorPalette];
+    for (const color of colorPalette) {
+        const { h, s, l } = hexToHSL(color);
+        // 变体1-4
+        expanded.push(
+            hslToHex(h, Math.max(0.2, s - 0.08), Math.max(0.35, l + 0.1)),
+        );
+        expanded.push(
+            hslToHex(h, Math.max(0.25, s + 0.06), Math.max(0.25, l - 0.1)),
+        );
+        expanded.push(
+            hslToHex(h, Math.max(0.15, s - 0.12), Math.max(0.45, l + 0.18)),
+        );
+        expanded.push(
+            hslToHex(h, Math.max(0.3, s + 0.1), Math.max(0.2, l - 0.18)),
+        );
+        // 变体5-8
+        expanded.push(hslToHex((h + 60) % 360, Math.max(0.5, s + 0.15), l));
+        expanded.push(hslToHex((h + 120) % 360, Math.max(0.3, s - 0.1), l));
+        expanded.push(hslToHex((h + 180) % 360, s, Math.max(0.5, l + 0.15)));
+        expanded.push(hslToHex((h + 240) % 360, s, Math.max(0.25, l - 0.15)));
+        // 变体9-12
+        expanded.push(hslToHex((h + 30) % 360, s, l));
+        expanded.push(hslToHex((h + 90) % 360, s, l));
+        expanded.push(hslToHex((h + 150) % 360, s, l));
+        expanded.push(hslToHex((h + 210) % 360, s, l));
+        // 变体13-16
+        expanded.push(hslToHex(h, 0.9, l));
+        expanded.push(hslToHex((h + 60) % 360, 0.9, l));
+        expanded.push(hslToHex((h + 120) % 360, 0.9, l));
+        expanded.push(hslToHex((h + 180) % 360, 0.9, l));
+        // 变体17-20
+        expanded.push(hslToHex(h, 0.3, 0.8));
+        expanded.push(hslToHex((h + 90) % 360, 0.3, 0.8));
+        expanded.push(hslToHex((h + 180) % 360, 0.3, 0.8));
+        expanded.push(hslToHex((h + 270) % 360, 0.3, 0.8));
+    }
+
+    expandedPaletteCache.set(cacheKey, expanded);
+    return expanded;
+};
+
+// 全局颜色分配器，按 Dashboard 隔离
+const globalColorAssignments = new Map<string, Map<string, string>>();
+
+/**
+ * 重置指定 Dashboard 的颜色分配状态
+ */
+export const resetDashboardColorAssignments = (dashboardUuid: string) => {
+    globalColorAssignments.delete(dashboardUuid);
+};
+
+/**
+ * 全局哈希颜色分配（带色差保障）
+ * - 相同 identifier → 相同颜色（跨图表一致）
+ * - 不同 identifier → 颜色差异足够大（避免相似）
+ */
+export const getGlobalHashColor = (
+    identifier: string,
+    colorPalette: string[],
+    dashboardUuid: string,
+): string => {
+    if (!colorPalette || colorPalette.length === 0) {
+        return '#868e96';
+    }
+
+    // 获取或创建该 Dashboard 的颜色分配记录
+    let dashboardAssignments = globalColorAssignments.get(dashboardUuid);
+    if (!dashboardAssignments) {
+        dashboardAssignments = new Map();
+        globalColorAssignments.set(dashboardUuid, dashboardAssignments);
+    }
+
+    // 如果已分配过，直接返回（跨图表一致）
+    if (dashboardAssignments.has(identifier)) {
+        return dashboardAssignments.get(identifier)!;
+    }
+
+    // 获取扩展调色板（包含所有变体）
+    const expanded = expandPalette(colorPalette);
+
+    // 计算初始颜色索引
+    const hash = hashString(identifier);
+    let colorIndex = hash % expanded.length;
+    let color = expanded[colorIndex];
+
+    // 色差检查
+    const usedColors = [...dashboardAssignments.values()];
+    let safetyCounter = 0;
+    const maxAttempts = 100; // 最多尝试100次
+    let currentColor = color;
+
+    // eslint-disable-next-line no-console
+    console.log(
+        `[ColorAssign] dashboard=${dashboardUuid} ${identifier}: hash=${hash}, initialIdx=${colorIndex}, initialColor=${currentColor}, usedColors=${usedColors.length}`,
+    );
+
+    // 色差检查循环 - 使用函数外部变量来避免闭包问题
+    let needsColorAdjustment = usedColors.some(
+        (usedColor) =>
+            colorDifference(currentColor, usedColor) < MIN_COLOR_DIFF,
+    );
+    while (needsColorAdjustment) {
+        colorIndex++;
+        // 超出扩展调色板范围时，使用色相旋转生成新颜色
+        if (colorIndex >= expanded.length) {
+            // 使用更大的色相间隔，确保颜色差异明显
+            const step = 13 + safetyCounter * 7; // 质数间隔，分布更均匀
+            const hue = (hash + step * safetyCounter * 17) % 360;
+            // 饱和度和亮度使用更大范围
+            const sat = 0.5 + ((safetyCounter * 11) % 50) / 100; // 0.5-1.0
+            const lig = 0.3 + ((safetyCounter * 13) % 50) / 100; // 0.3-0.8
+            currentColor = hslToHex(hue, sat, lig);
+        } else {
+            currentColor = expanded[colorIndex];
+        }
+        // 更新检查条件
+        needsColorAdjustment = usedColors.some(
+            (usedColor) =>
+                colorDifference(currentColor, usedColor) < MIN_COLOR_DIFF,
+        );
+        safetyCounter++;
+
+        // eslint-disable-next-line no-console
+        console.log(
+            `[ColorAssign] dashboard=${dashboardUuid} ${identifier}: adjusted idx=${colorIndex}, color=${currentColor}, diff check safetyCounter=${safetyCounter}`,
+        );
+
+        if (safetyCounter >= maxAttempts) {
+            // eslint-disable-next-line no-console
+            console.log(
+                `[ColorAssign] dashboard=${dashboardUuid} ${identifier}: MAX attempts reached, using color=${currentColor}`,
+            );
+            break;
+        }
+    }
+
+    // eslint-disable-next-line no-console
+    console.log(
+        `[ColorAssign] dashboard=${dashboardUuid} FINAL ${identifier}: color=${currentColor}, adjustments=${safetyCounter}`,
+    );
+
+    // 记录分配结果
+    dashboardAssignments.set(identifier, currentColor);
+    return currentColor;
 };
 
 /**
@@ -118,58 +306,6 @@ const getColorFromPalette = (index: number, colorPalette: string[]): string => {
 };
 
 /**
- * 扩展调色板：为每个基色生成 4 个变体，用于 hash 模式减少碰撞
- * 9 色 → 45 色，碰撞概率进一步降低到 ~2.2%
- * 纯函数，结果缓存
- */
-const expandedPaletteCache = new Map<string, string[]>();
-const expandPalette = (colorPalette: string[]): string[] => {
-    const cacheKey = colorPalette.join(',');
-    const cached = expandedPaletteCache.get(cacheKey);
-    if (cached) return cached;
-
-    const expanded: string[] = [...colorPalette];
-    for (const color of colorPalette) {
-        const { h, s, l } = hexToHSL(color);
-        // 变体1：略浅（亮度+10%，饱和度-8%）
-        expanded.push(
-            hslToHex(
-                h,
-                Math.max(0.2, Math.min(1.0, s - 0.08)),
-                Math.max(0.35, Math.min(0.85, l + 0.1)),
-            ),
-        );
-        // 变体2：略深（亮度-10%，饱和度+6%）
-        expanded.push(
-            hslToHex(
-                h,
-                Math.max(0.25, Math.min(1.0, s + 0.06)),
-                Math.max(0.25, Math.min(0.65, l - 0.1)),
-            ),
-        );
-        // 变体3：更浅（亮度+18%，饱和度-12%）
-        expanded.push(
-            hslToHex(
-                h,
-                Math.max(0.15, Math.min(0.9, s - 0.12)),
-                Math.max(0.45, Math.min(0.9, l + 0.18)),
-            ),
-        );
-        // 变体4：更深（亮度-18%，饱和度+10%）
-        expanded.push(
-            hslToHex(
-                h,
-                Math.max(0.3, Math.min(1.0, s + 0.1)),
-                Math.max(0.2, Math.min(0.55, l - 0.18)),
-            ),
-        );
-    }
-
-    expandedPaletteCache.set(cacheKey, expanded);
-    return expanded;
-};
-
-/**
  * 哈希颜色分配（纯函数）
  * 使用扩展调色板（原色+变体），减少碰撞
  * 相同 identifier + 相同 colorPalette → 永远返回相同颜色
@@ -202,10 +338,13 @@ const useChartColorMappingContext = (): ChartColorMappingContextProps => {
 export const useChartColorConfig = ({
     colorPalette,
     useHashBased = false,
+    dashboardUuid,
 }: {
     colorPalette: string[];
     /** 当为 true 时，使用哈希分配颜色，相同 identifier 获得相同颜色 */
     useHashBased?: boolean;
+    /** Dashboard UUID，用于全局颜色分配器隔离 */
+    dashboardUuid?: string;
 }) => {
     const theme = useMantineTheme();
     const { colorMappings } = useChartColorMappingContext();
@@ -230,8 +369,17 @@ export const useChartColorConfig = ({
                 return theme.colors.gray[6];
             }
 
-            // 哈希模式：纯函数分配，跨图表一致
+            // 哈希模式：带色差保障的全局颜色分配
             if (useHashBased) {
+                // 如果提供了 dashboardUuid，使用全局分配器（跨图表一致 + 色差保障）
+                if (dashboardUuid) {
+                    return getGlobalHashColor(
+                        identifier,
+                        colorPalette,
+                        dashboardUuid,
+                    );
+                }
+                // 否则使用纯函数方式（可能存在颜色相似问题）
                 return getHashColor(identifier, colorPalette);
             }
 
@@ -270,7 +418,7 @@ export const useChartColorConfig = ({
 
             return colorHex;
         },
-        [colorPalette, colorMappings, theme, useHashBased],
+        [colorPalette, colorMappings, theme, useHashBased, dashboardUuid],
     );
 
     const calculateSeriesColorAssignment = useCallback(

@@ -139,7 +139,7 @@ const ExportGoogleSheet: FC<ExportGoogleSheetProps> = ({
             metricQuery: savedChart.metricQuery,
             columnOrder: savedChart.tableConfig.columnOrder,
             showTableNames: isTableChartConfig(savedChart.chartConfig.config)
-                ? (savedChart.chartConfig.config.showTableNames ?? false)
+                ? savedChart.chartConfig.config.showTableNames ?? false
                 : true,
             customLabels: getCustomLabelsFromTableConfig(
                 savedChart.chartConfig.config,
@@ -273,6 +273,7 @@ const ValidDashboardChartTile: FC<{
 
     const dashboardSlug = useDashboardContext((c) => c.dashboard?.slug);
     const dashboardName = useDashboardContext((c) => c.dashboard?.name);
+    const dashboardUuid = useDashboardContext((c) => c.dashboard?.uuid);
     const dashboardConfig = useDashboardContext((c) => c.dashboard?.config);
     const syncChartColors = dashboardConfig?.syncChartColors;
     const syncChartTileUuids = dashboardConfig?.syncChartTileUuids;
@@ -301,7 +302,7 @@ const ValidDashboardChartTile: FC<{
     const colorPalette = shouldSyncColors
         ? dashboardPalette && dashboardPalette.length > 0
             ? dashboardPalette
-            : (organization?.chartColors ?? ECHARTS_DEFAULT_COLORS)
+            : organization?.chartColors ?? ECHARTS_DEFAULT_COLORS
         : chart.colorPalette;
 
     return (
@@ -329,6 +330,7 @@ const ValidDashboardChartTile: FC<{
             dashboardSlug={dashboardSlug}
             dashboardName={dashboardName}
             useHashBased={shouldSyncColors}
+            dashboardUuid={dashboardUuid}
         >
             <ErrorBoundary wrapper={{ h: '100%', w: '100%' }}>
                 <LightdashVisualization
@@ -401,6 +403,7 @@ const ValidDashboardChartTileMinimal: FC<{
 
     const dashboardSlug = useDashboardContext((c) => c.dashboard?.slug);
     const dashboardName = useDashboardContext((c) => c.dashboard?.name);
+    const dashboardUuid = useDashboardContext((c) => c.dashboard?.uuid);
     const dashboardConfig = useDashboardContext((c) => c.dashboard?.config);
     const syncChartColors = dashboardConfig?.syncChartColors;
     const syncChartTileUuids = dashboardConfig?.syncChartTileUuids;
@@ -429,7 +432,7 @@ const ValidDashboardChartTileMinimal: FC<{
     const colorPalette = shouldSyncColors
         ? dashboardPalette && dashboardPalette.length > 0
             ? dashboardPalette
-            : (organization?.chartColors ?? ECHARTS_DEFAULT_COLORS)
+            : organization?.chartColors ?? ECHARTS_DEFAULT_COLORS
         : chart.colorPalette;
 
     return (
@@ -457,6 +460,7 @@ const ValidDashboardChartTileMinimal: FC<{
             dashboardSlug={dashboardSlug}
             dashboardName={dashboardName}
             useHashBased={shouldSyncColors}
+            dashboardUuid={dashboardUuid}
         >
             <ErrorBoundary wrapper={{ h: '100%', w: '100%' }}>
                 <LightdashVisualization
