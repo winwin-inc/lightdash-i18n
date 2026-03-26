@@ -5,6 +5,7 @@
 ## 当前技能
 
 - `lightdash-data-tools`：路由技能，指导何时使用 `lightdash_list_explores` / `lightdash_get_explore` / `lightdash_run_metric_query`
+  - 同目录 [quickstart.md](./lightdash-data-tools/quickstart.md) / [examples.md](./lightdash-data-tools/examples.md) / [examples-advanced.md](./lightdash-data-tools/examples-advanced.md)
 - `lightdash-metric-query`：补充 Metric Query 组装规范（字段、filters、默认值与排障）
 
 ## 使用约定

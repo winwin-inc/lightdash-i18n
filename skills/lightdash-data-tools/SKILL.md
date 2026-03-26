@@ -36,6 +36,12 @@ description: 用于 Lightdash 提数路由。用户提到 Lightdash、explore、
   - `limit: number`
   - `tableCalculations: []`
 
+## 参考文档
+
+- [quickstart.md](./quickstart.md)：5 步上手
+- [examples.md](./examples.md)：list / get explore / run query 最短可复制示例
+- [examples-advanced.md](./examples-advanced.md)：自定义维度、时区、表计算等
+
 ## 常见错误与处理
 
 - 401/403：检查 `LIGHTDASH_API_KEY` 权限与组织/项目可见性
