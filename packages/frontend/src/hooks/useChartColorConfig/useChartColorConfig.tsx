@@ -22,6 +22,16 @@ const extractCategory = (str: string): string => {
     return str;
 };
 
+/**
+ * 全局颜色分配用的稳定键，须与 hashString 中 extractCategory 语义一致。
+ * 否则会出现：「其他品牌：包含686个, 28.02」与「其他品牌：包含691个, 38.04%」哈希相同
+ * 但因 Map 键不同，第二个系列在色差避让时被顺延成另一种颜色。
+ */
+const getGlobalColorAssignmentKey = (identifier: string): string => {
+    const normalized = extractCategory(identifier).trim();
+    return normalized.length > 0 ? normalized : identifier;
+};
+
 const hashString = (str: string): number => {
     const category = extractCategory(str);
     // FNV-1a 哈希算法，分布更均匀
@@ -259,9 +269,11 @@ export const getGlobalHashColor = (
         globalColorAssignments.set(dashboardUuid, dashboardAssignments);
     }
 
+    const assignmentKey = getGlobalColorAssignmentKey(identifier);
+
     // 如果已分配过，直接返回（跨图表一致）
-    if (dashboardAssignments.has(identifier)) {
-        return dashboardAssignments.get(identifier)!;
+    if (dashboardAssignments.has(assignmentKey)) {
+        return dashboardAssignments.get(assignmentKey)!;
     }
 
     // 获取扩展调色板（包含所有变体）
@@ -315,8 +327,8 @@ export const getGlobalHashColor = (
         }
     }
 
-    // 记录分配结果
-    dashboardAssignments.set(identifier, currentColor);
+    // 记录分配结果（按归一化键，避免同类别不同后缀的多图表不同色）
+    dashboardAssignments.set(assignmentKey, currentColor);
     return currentColor;
 };
 
