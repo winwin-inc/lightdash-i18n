@@ -122,11 +122,23 @@ const FilterConfiguration: FC<Props> = ({
         DashboardFilterRule | undefined
     >(defaultFilterRule);
 
-    const isFilterModified = useMemo(() => {
+    /** 与看板已保存配置对比，用于「还原」等需回到持久化状态的逻辑 */
+    const isDraftModifiedFromSaved = useMemo(() => {
         if (!originalFilterRule || !draftFilterRule) return false;
 
         return hasSavedFilterValueChanged(originalFilterRule, draftFilterRule);
     }, [originalFilterRule, draftFilterRule]);
+
+    /**
+     * 与当前已应用的筛选对比（打开 Popover 时的 defaultFilterRule）。
+     * 若仅用 isDraftModifiedFromSaved，会出现：先应用不存在的自定义值，再选回与已保存相同的合法选项时，
+     * 草稿与磁盘一致但被误判为「未修改」，无法再次点应用。
+     */
+    const isDraftModifiedFromApplied = useMemo(() => {
+        if (!defaultFilterRule || !draftFilterRule) return false;
+
+        return hasSavedFilterValueChanged(defaultFilterRule, draftFilterRule);
+    }, [defaultFilterRule, draftFilterRule]);
 
     const handleChangeField = (newField: FilterableDimension) => {
         const isCreatingTemporary = isCreatingNew && !isEditMode;
@@ -357,7 +369,7 @@ const FilterConfiguration: FC<Props> = ({
             return !isFilterEnabled(draftFilterRule, isEditMode, isCreatingNew);
         }
 
-        if (!isFilterModified) {
+        if (!isDraftModifiedFromApplied) {
             return true;
         }
 
@@ -369,7 +381,7 @@ const FilterConfiguration: FC<Props> = ({
     }, [
         draftFilterRule,
         originalFilterRule,
-        isFilterModified,
+        isDraftModifiedFromApplied,
         isEditMode,
         isCreatingNew,
     ]);
@@ -381,14 +393,14 @@ const FilterConfiguration: FC<Props> = ({
             dashboardFiltersFromContext?.dimensions &&
             dashboardFiltersFromContext.dimensions.length > 0
                 ? dashboardFiltersFromContext.dimensions
-                : (allFiltersFromContext?.dimensions ?? []);
+                : allFiltersFromContext?.dimensions ?? [];
 
         const sourceFilters =
             filterScope === 'global'
                 ? globalFilters
                 : tabUuid
-                  ? (tabFiltersFromContext?.[tabUuid]?.dimensions ?? [])
-                  : [];
+                ? tabFiltersFromContext?.[tabUuid]?.dimensions ?? []
+                : [];
 
         const childLevel = draftFilterRule.categoryLevel;
         const currentId = draftFilterRule.id;
@@ -642,7 +654,7 @@ const FilterConfiguration: FC<Props> = ({
                     <Box sx={{ flexGrow: 1 }} />
 
                     {!isTemporary &&
-                        isFilterModified &&
+                        isDraftModifiedFromSaved &&
                         selectedTabId === FilterTabs.SETTINGS &&
                         !isEditMode && (
                             <Tooltip
