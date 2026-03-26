@@ -44,6 +44,8 @@ export type QueryResultsProps = {
     parameters?: ParametersValuesMap;
     pivotConfiguration?: PivotConfiguration;
     pivotResults?: boolean;
+    /** 从看板跳转到探索页时传入，用于保持看板上下文（dashboardSlug/dashboardName 等内置用户属性） */
+    fromDashboard?: string;
 };
 
 /**
@@ -166,6 +168,7 @@ const executeAsyncQuery = (
                 invalidateCache: true, // Note: do not cache explore queries
                 parameters: data.parameters,
                 pivotConfiguration: data.pivotConfiguration,
+                dashboardUuid: data.fromDashboard,
             },
             { signal },
         );

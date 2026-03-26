@@ -3,7 +3,9 @@ import {
     getAvailableParametersFromTables,
     getDimensions,
     getItemId,
+    isCartesianChartConfig,
     isDateItem,
+    isPivotReferenceWithValues,
     QueryExecutionContext,
     type ApiError,
     type ApiExecuteAsyncDashboardChartQueryResults,
@@ -58,6 +60,18 @@ export type DashboardChartReadyQuery = {
     executeQueryResponse: ApiExecuteAsyncDashboardChartQueryResults;
     chart: SavedChart;
     explore: ApiExploreResults;
+};
+
+const getChartRequiresPivotResults = (
+    chart: SavedChart | undefined,
+): boolean => {
+    if (!chart || !isCartesianChartConfig(chart.chartConfig.config)) {
+        return false;
+    }
+
+    return (chart.chartConfig.config.eChartsConfig.series ?? []).some(
+        (series) => isPivotReferenceWithValues(series.encode.yRef),
+    );
 };
 
 export const useDashboardChartReadyQuery = (
@@ -182,6 +196,10 @@ export const useDashboardChartReadyQuery = (
         FeatureFlags.UseSqlPivotResults,
     );
 
+    const shouldUsePivotResults =
+        useSqlPivotResults?.enabled ||
+        getChartRequiresPivotResults(chartQuery.data);
+
     const queryKey = useMemo(
         () => [
             'dashboard_chart_ready_query',
@@ -197,7 +215,7 @@ export const useDashboardChartReadyQuery = (
             hasADateDimension ? granularity : null,
             invalidateCache,
             chartParameterValues,
-            useSqlPivotResults,
+            shouldUsePivotResults,
         ],
         [
             chartQuery.data?.projectUuid,
@@ -214,7 +232,7 @@ export const useDashboardChartReadyQuery = (
             granularity,
             invalidateCache,
             chartParameterValues,
-            useSqlPivotResults,
+            shouldUsePivotResults,
         ],
     );
 
@@ -245,7 +263,7 @@ export const useDashboardChartReadyQuery = (
                               granularity,
                           },
                           invalidateCache,
-                          pivotResults: useSqlPivotResults?.enabled,
+                          pivotResults: shouldUsePivotResults,
                       },
                   )
                 : await executeAsyncDashboardChartQuery(
@@ -261,7 +279,7 @@ export const useDashboardChartReadyQuery = (
                           },
                           invalidateCache,
                           parameters: parameterValues,
-                          pivotResults: useSqlPivotResults?.enabled,
+                          pivotResults: shouldUsePivotResults,
                       },
                   );
 

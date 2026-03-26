@@ -31,6 +31,7 @@ export function buildQueryArgs(options: {
     dateZoomGranularity?: DateGranularity;
     minimal: boolean;
     savedChart: Pick<SavedChartDAO, 'chartConfig' | 'pivotConfig'>;
+    fromDashboard?: string;
 }): QueryResultsProps | null {
     const {
         activeFields,
@@ -44,6 +45,7 @@ export function buildQueryArgs(options: {
         viewModeQueryArgs,
         dateZoomGranularity,
         minimal,
+        fromDashboard,
     } = options;
 
     const hasFields = activeFields.size > 0;
@@ -71,5 +73,6 @@ export function buildQueryArgs(options: {
         invalidateCache: minimal,
         parameters: parameters || {},
         pivotConfiguration,
+        fromDashboard,
     };
 }

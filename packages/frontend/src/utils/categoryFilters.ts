@@ -2,9 +2,11 @@ import {
     type CategoryTreeNode,
     type DashboardFilterRule,
     type DashboardFilters,
+    type FieldValueSearchResult,
     FilterOperator,
     type UserCategoryList,
 } from '@lightdash/common';
+import { lightdashApi } from '../api';
 
 /**
  * 类目字段名映射
@@ -200,10 +202,10 @@ const resolveCategoryFilterValue = ({
 
         const parentLabel =
             parentValueOverride !== undefined
-                ? parentValueOverride ?? undefined
+                ? (parentValueOverride ?? undefined)
                 : parentFilter.values && parentFilter.values.length > 0
-                ? String(parentFilter.values[0])
-                : undefined;
+                  ? String(parentFilter.values[0])
+                  : undefined;
 
         if (!parentLabel) {
             return undefined;
@@ -382,6 +384,445 @@ export const updateCategoryFilterCascade = (
     const normalizedValue = newValue ? String(newValue) : null;
 
     const result = cascadeChildren(
+        filters,
+        changedFilter.target.fieldId,
+        normalizedValue,
+    );
+
+    if (!result.hasChanges) {
+        return filters;
+    }
+
+    return result.filters;
+};
+
+// ============================================================
+// 异步版本：与 field/search 接口取交集
+// ============================================================
+
+const FIELD_SEARCH_CACHE_TTL_MS = 5000;
+
+type FieldSearchCacheEntry = {
+    expiresAt: number;
+    promise: Promise<string[]>;
+};
+
+const fieldSearchCache = new Map<string, FieldSearchCacheEntry>();
+
+const serializeFieldSearchFilters = (
+    filters?: DashboardFilterRule[],
+): string => {
+    if (!filters || filters.length === 0) {
+        return '[]';
+    }
+
+    return JSON.stringify(
+        filters.map((filter) => ({
+            target: { fieldId: filter.target.fieldId },
+            operator: filter.operator,
+            values: filter.values ?? null,
+        })),
+    );
+};
+
+const getFieldSearchCacheKey = (
+    projectUuid: string,
+    fieldId: string,
+    tableName: string,
+    filters?: DashboardFilterRule[],
+): string =>
+    JSON.stringify({
+        projectUuid,
+        fieldId,
+        tableName,
+        filters: serializeFieldSearchFilters(filters),
+    });
+
+/**
+ * 调用 field/search 接口获取字段的实际可用值
+ */
+const fetchFieldSearchValues = async (
+    projectUuid: string,
+    fieldId: string,
+    tableName: string,
+    filters?: DashboardFilterRule[],
+): Promise<string[]> => {
+    const cacheKey = getFieldSearchCacheKey(
+        projectUuid,
+        fieldId,
+        tableName,
+        filters,
+    );
+    const now = Date.now();
+    const cachedEntry = fieldSearchCache.get(cacheKey);
+
+    if (cachedEntry && cachedEntry.expiresAt > now) {
+        return cachedEntry.promise;
+    }
+
+    const requestPromise = (async () => {
+        try {
+            const filterGroup =
+                filters && filters.length > 0
+                    ? {
+                          id: 'category_cascade_filter',
+                          and: filters.map((f) => ({
+                              id: f.id,
+                              target: { fieldId: f.target.fieldId },
+                              operator: f.operator,
+                              values: f.values,
+                          })),
+                      }
+                    : undefined;
+
+            const result = await lightdashApi<FieldValueSearchResult>({
+                url: `/projects/${projectUuid}/field/${fieldId}/search`,
+                method: 'POST',
+                body: JSON.stringify({
+                    search: '',
+                    limit: 1000,
+                    table: tableName,
+                    filters: filterGroup,
+                    forceRefresh: false,
+                }),
+            });
+            return result.results.filter(
+                (v): v is string => typeof v === 'string',
+            );
+        } catch {
+            fieldSearchCache.delete(cacheKey);
+            // 请求失败时回退到不做交集过滤
+            return [];
+        }
+    })();
+
+    fieldSearchCache.set(cacheKey, {
+        expiresAt: now + FIELD_SEARCH_CACHE_TTL_MS,
+        promise: requestPromise,
+    });
+
+    return requestPromise;
+};
+
+/**
+ * 异步解析类目筛选器的值
+ * 先从 userCategories 获取权限范围内的候选值，
+ * 再调 field/search 获取数据仓库中实际存在的值，取交集
+ */
+const resolveCategoryFilterValueAsync = async ({
+    filter,
+    filters,
+    userCategories,
+    projectUuid,
+    parentValueOverride,
+}: ResolveCategoryValueArgs & { projectUuid: string }): Promise<
+    string | undefined
+> => {
+    if (!isCategoryField(filter)) return undefined;
+
+    const level = getCategoryLevel(filter);
+    if (!level) return undefined;
+
+    const parentFieldId = getParentFieldId(filter);
+    let availableCategories: CategoryTreeNode[] = [];
+
+    // 收集上游已确定的筛选器，用于传给 field/search 做级联过滤
+    const parentFilters: DashboardFilterRule[] = [];
+
+    // 首次加载时（parentValueOverride === undefined），如果父级没有值，
+    // 仍然获取该层级所有有权限的类目，用于验证当前值是否有效
+    let parentLabel: string | null | undefined;
+    if (parentFieldId) {
+        const parentFilter = findParentFilter(filters, parentFieldId);
+        if (!parentFilter || !isCategoryField(parentFilter)) {
+            return undefined;
+        }
+
+        // parentValueOverride === null 表示用户清空了父级筛选器
+        // parentValueOverride === undefined 表示首次加载
+        // parentValueOverride 有具体值表示用户切换了父级
+        if (parentValueOverride !== undefined) {
+            parentLabel = parentValueOverride;
+        } else {
+            parentLabel = parentFilter.values?.[0]
+                ? String(parentFilter.values[0])
+                : undefined;
+        }
+    }
+
+    // 如果父级有值，获取子级类目
+    if (parentLabel && parentFieldId) {
+        const parentFilter = findParentFilter(filters, parentFieldId);
+        if (!parentFilter) {
+            return undefined;
+        }
+
+        // 把父级筛选器加入 parentFilters，让 field/search 做级联
+        parentFilters.push({
+            ...parentFilter,
+            values: [parentLabel],
+            operator: FilterOperator.EQUALS,
+        });
+
+        const parentCategoryNode = getCategoryListForFilter(
+            parentFilter,
+            userCategories,
+        ).find((cat) => getCategoryName(cat) === parentLabel);
+
+        if (!parentCategoryNode) {
+            return undefined;
+        }
+
+        availableCategories = getChildCategoriesForLevel(
+            parentCategoryNode.categoryId,
+            userCategories,
+            level as Exclude<CategoryLevel, 1>,
+        );
+    } else {
+        // 没有父级，或父级没有值，获取该层级所有有权限的类目
+        availableCategories = getCategoriesForLevel(level, userCategories);
+    }
+
+    const categoryLabels = availableCategories
+        .map((cat) => getCategoryName(cat))
+        .filter((label): label is string => !!label);
+
+    if (categoryLabels.length === 0) {
+        return undefined;
+    }
+
+    // 调 field/search 获取数据仓库中实际存在的值
+    const fieldValues = await fetchFieldSearchValues(
+        projectUuid,
+        filter.target.fieldId,
+        filter.target.tableName,
+        parentFilters.length > 0 ? parentFilters : undefined,
+    );
+
+    // 取交集：权限类目 ∩ 实际字段值
+    let intersection: string[];
+    if (fieldValues.length > 0) {
+        const fieldValueSet = new Set(fieldValues);
+        intersection = categoryLabels.filter((label) =>
+            fieldValueSet.has(label),
+        );
+    } else {
+        // field/search 返回空（可能请求失败），回退到仅用权限类目
+        intersection = categoryLabels;
+    }
+
+    if (intersection.length === 0) {
+        return undefined;
+    }
+
+    // 检查当前值是否在交集中（既在权限内又有数据）
+    const currentValue =
+        filter.values && filter.values.length > 0
+            ? String(filter.values[0])
+            : undefined;
+
+    if (currentValue && intersection.includes(currentValue)) {
+        // 当前值在交集中，保留当前值
+        return currentValue;
+    }
+
+    // 当前值不在交集中，从交集中按 search 顺序取第一个
+    const intersectionSet = new Set(intersection);
+    let resolvedValue: string | undefined;
+    for (const v of fieldValues) {
+        if (intersectionSet.has(v)) {
+            resolvedValue = v;
+            break;
+        }
+    }
+
+    // 如果 search 为空，回退到交集的第一个
+    if (!resolvedValue) {
+        resolvedValue = intersection[0];
+    }
+
+    return resolvedValue;
+};
+
+/**
+ * 异步初始化类目筛选器
+ * 按顺序处理每个类目筛选器（因为子级依赖父级的值）
+ * 统一逻辑：当前值在交集中则保留，否则切换到第一个有效值
+ */
+export const initializeCategoryFiltersAsync = async (
+    filters: DashboardFilters,
+    userCategories: UserCategoryList,
+    projectUuid: string,
+): Promise<DashboardFilters> => {
+    let workingFilters = filters;
+    let hasChanges = false;
+
+    for (const filter of filters.dimensions) {
+        if (!isCategoryField(filter) || filter.disabled) {
+            continue;
+        }
+
+        const currentFilter =
+            workingFilters.dimensions.find((d) => d.id === filter.id) ?? filter;
+
+        // 如果用户手动修改过 operator（如 NOT_NULL, NULL），保留用户的设置
+        if (currentFilter.operator !== FilterOperator.EQUALS) {
+            continue;
+        }
+
+        const resolvedValue = await resolveCategoryFilterValueAsync({
+            filter: currentFilter,
+            filters: workingFilters,
+            userCategories,
+            projectUuid,
+        });
+
+        if (!resolvedValue) {
+            continue;
+        }
+
+        // resolveCategoryFilterValueAsync 已经处理了：
+        // - 如果当前值在交集中 → 返回当前值
+        // - 如果当前值不在交集中 → 返回第一个有效值
+        // 所以这里只需要比较是否有变化
+
+        const currentValue = currentFilter.values?.[0];
+        if (currentValue && String(currentValue) === resolvedValue) {
+            continue;
+        }
+
+        hasChanges = true;
+        const updatedFilter: DashboardFilterRule = {
+            ...currentFilter,
+            values: [resolvedValue],
+            operator: FilterOperator.EQUALS,
+        };
+
+        workingFilters = {
+            ...workingFilters,
+            dimensions: workingFilters.dimensions.map((d) =>
+                d.id === filter.id ? updatedFilter : d,
+            ),
+        };
+    }
+
+    if (!hasChanges) return filters;
+    return workingFilters;
+};
+
+/**
+ * 异步处理类目筛选器联动
+ * 当父级类目改变时，自动更新子级类目的可选值（与 field/search 取交集）
+ */
+export const updateCategoryFilterCascadeAsync = async (
+    filters: DashboardFilters,
+    changedFilter: DashboardFilterRule,
+    newValue: string | null,
+    userCategories: UserCategoryList,
+    projectUuid: string,
+): Promise<DashboardFilters> => {
+    if (!isCategoryField(changedFilter)) return filters;
+
+    const cascadeChildren = async (
+        currentFilters: DashboardFilters,
+        parentFieldId: string,
+        parentValue: string | null,
+    ): Promise<{ filters: DashboardFilters; hasChanges: boolean }> => {
+        let updatedFilters = currentFilters;
+        let hasChanges = false;
+
+        for (const originalFilter of currentFilters.dimensions) {
+            const filter =
+                updatedFilters.dimensions.find(
+                    (d) => d.id === originalFilter.id,
+                ) ?? originalFilter;
+
+            if (!isCategoryField(filter)) continue;
+
+            const filterParentFieldId = getParentFieldId(filter);
+            if (!filterParentFieldId || filterParentFieldId !== parentFieldId)
+                continue;
+
+            // 没有配置默认值的 filter 不需要联动赋值，保持为空/无限制
+            if (filter.disabled) continue;
+
+            // 如果 operator 不是默认的 EQUALS，说明用户手动修改过，保留用户的设置
+            if (filter.operator !== FilterOperator.EQUALS) {
+                continue;
+            }
+
+            const resolvedValue = await resolveCategoryFilterValueAsync({
+                filter,
+                filters: updatedFilters,
+                userCategories,
+                projectUuid,
+                parentValueOverride: parentValue,
+            });
+
+            if (!resolvedValue) {
+                continue;
+            }
+
+            // resolveCategoryFilterValueAsync 已经处理了：
+            // - 如果当前值在交集中 → 返回当前值
+            // - 如果当前值不在交集中 → 返回第一个有效值
+            // 所以这里只需要比较是否有变化
+
+            const currentValue =
+                filter.values && filter.values.length > 0
+                    ? String(filter.values[0])
+                    : undefined;
+
+            if (currentValue && currentValue === resolvedValue) {
+                continue;
+            }
+
+            if (resolvedValue !== currentValue) {
+                hasChanges = true;
+
+                const updatedFilter: DashboardFilterRule = {
+                    ...filter,
+                    values: resolvedValue ? [resolvedValue] : undefined,
+                    operator: resolvedValue
+                        ? FilterOperator.EQUALS
+                        : filter.operator,
+                };
+
+                updatedFilters = {
+                    ...updatedFilters,
+                    dimensions: updatedFilters.dimensions.map((d) =>
+                        d.id === filter.id ? updatedFilter : d,
+                    ),
+                };
+            }
+
+            const appliedFilter =
+                updatedFilters.dimensions.find((d) => d.id === filter.id) ??
+                filter;
+
+            const childValue =
+                appliedFilter.values && appliedFilter.values.length > 0
+                    ? String(appliedFilter.values[0])
+                    : null;
+
+            const childResult = await cascadeChildren(
+                updatedFilters,
+                appliedFilter.target.fieldId,
+                childValue,
+            );
+
+            if (childResult.hasChanges) {
+                hasChanges = true;
+                updatedFilters = childResult.filters;
+            }
+        }
+
+        return { filters: updatedFilters, hasChanges };
+    };
+
+    const normalizedValue = newValue ? String(newValue) : null;
+
+    const result = await cascadeChildren(
         filters,
         changedFilter.target.fieldId,
         normalizedValue,

@@ -3,7 +3,13 @@ import isNil from 'lodash/isNil';
 import moment from 'moment';
 import { v4 as uuidv4 } from 'uuid';
 import { type AnyType } from '../types/any';
-import { DashboardTileTypes, type DashboardTile } from '../types/dashboard';
+import {
+    DashboardTileTypes,
+    type DashboardAvailableFilters,
+    type DashboardFilterableField,
+    type DashboardTile,
+    type SavedChartsInfoForDashboardAvailableFilters,
+} from '../types/dashboard';
 import { type Explore } from '../types/explore';
 import {
     DimensionType,
@@ -13,11 +19,11 @@ import {
     isCustomSqlDimension,
     isDimension,
     isTableCalculation,
+    type CompiledCustomSqlDimension,
     type CompiledField,
     type CustomSqlDimension,
     type Dimension,
     type Field,
-    type FilterableDimension,
     type FilterableField,
     type FilterableItem,
     type ItemsMap,
@@ -361,26 +367,61 @@ export const matchFieldByTypeAndName = (a: Field) => (b: Field) =>
 
 export const matchFieldByType = (a: Field) => (b: Field) => a.type === b.type;
 
+export const matchFieldByLabel = (a: Field) => (b: Field) =>
+    !!(a.label && b.label && a.label === b.label && a.type === b.type);
+
 export const isTileFilterable = (tile: DashboardTile) =>
     ![DashboardTileTypes.MARKDOWN, DashboardTileTypes.LOOM].includes(tile.type);
 
 const getDefaultTileTargets = (
-    field: FilterableDimension | Metric | Field,
-    availableTileFilters: Record<string, FilterableDimension[] | undefined>,
+    field: DashboardFilterableField | Metric | Field | CustomSqlDimension,
+    availableTileFilters: Record<
+        string,
+        DashboardFilterableField[] | undefined
+    >,
 ) =>
     Object.entries(availableTileFilters).reduce<
         Record<string, DashboardFieldTarget>
     >((acc, [tileUuid, availableFilters]) => {
         if (!availableFilters) return acc;
 
-        const filterableField = availableFilters.find(matchFieldExact(field));
+        let filterableField = availableFilters.find(
+            (f) => getItemId(f) === getItemId(field),
+        );
+
+        const fieldAsField = field as unknown as Field;
+
+        // 优先尝试精确匹配 (type + name + table)
+        if (!filterableField) {
+            filterableField = availableFilters.find((f) =>
+                matchFieldExact(fieldAsField)(f as unknown as Field),
+            );
+        }
+
+        // 如果没有精确匹配，尝试 label 匹配 (label + type)
+        if (!filterableField) {
+            filterableField = availableFilters.find((f) =>
+                matchFieldByLabel(fieldAsField)(f as unknown as Field),
+            );
+        }
+
         if (!filterableField) return acc;
+
+        const fieldLabel =
+            'label' in filterableField && filterableField.label
+                ? filterableField.label
+                : filterableField.name;
 
         return {
             ...acc,
             [tileUuid]: {
                 fieldId: getItemId(filterableField),
                 tableName: filterableField.table,
+                fieldLabel,
+                ...('tableLabel' in filterableField &&
+                filterableField.tableLabel !== undefined
+                    ? { tableLabel: filterableField.tableLabel }
+                    : {}),
             },
         };
     }, {});
@@ -392,8 +433,11 @@ export const applyDefaultTileTargets = (
         AnyType,
         AnyType
     >,
-    field: FilterableDimension,
-    availableTileFilters: Record<string, FilterableDimension[] | undefined>,
+    field: DashboardFilterableField,
+    availableTileFilters: Record<
+        string,
+        DashboardFilterableField[] | undefined
+    >,
 ) => {
     if (!filterRule.tileTargets) {
         return {
@@ -411,13 +455,26 @@ export const createDashboardFilterRuleFromField = ({
     value,
 }: {
     field:
-        | Exclude<FilterableItem, TableCalculation | CustomSqlDimension>
-        | CompiledField;
-    availableTileFilters: Record<string, FilterableDimension[] | undefined>;
+        | Exclude<FilterableItem, TableCalculation>
+        | CompiledField
+        | CompiledCustomSqlDimension;
+    availableTileFilters: Record<
+        string,
+        DashboardFilterableField[] | undefined
+    >;
     isTemporary: boolean;
     value?: unknown;
-}): FilterDashboardToRule =>
-    getFilterRuleFromFieldWithDefaultValue(
+}): FilterDashboardToRule => {
+    const tableLabel =
+        'tableLabel' in field && field.tableLabel !== undefined
+            ? field.tableLabel
+            : field.table;
+    const fieldLabel =
+        'label' in field && field.label !== undefined
+            ? field.label
+            : field.name;
+
+    return getFilterRuleFromFieldWithDefaultValue(
         field,
         {
             id: uuidv4(),
@@ -426,9 +483,9 @@ export const createDashboardFilterRuleFromField = ({
             target: {
                 fieldId: getItemId(field),
                 tableName: field.table,
-                tableLabel: field.tableLabel,
+                tableLabel,
                 fieldName: field.name,
-                fieldLabel: field.label,
+                fieldLabel,
             },
             tileTargets: getDefaultTileTargets(field, availableTileFilters),
             disabled: !isTemporary,
@@ -436,6 +493,7 @@ export const createDashboardFilterRuleFromField = ({
         },
         !isNil(value) ? [value] : null, // When `null`, don't set default value if no value is provided
     );
+};
 
 const getDefaultTileSqlTargets = (
     column: ResultColumn,
@@ -744,7 +802,7 @@ export const getTabUuidsForFilterRules = (
     dashboardTiles: DashboardTile[] | undefined,
     filters: DashboardFilters,
     filterableFieldsByTileUuid:
-        | Record<string, FilterableDimension[]>
+        | Record<string, DashboardFilterableField[]>
         | undefined,
 ): Record<string, string[]> => {
     if (!dashboardTiles) return {};
@@ -1260,5 +1318,49 @@ export const resetRequiredFilterRules = (
     return {
         ...filterGroup,
         [getFilterGroupItemsPropertyName(filterGroup)]: updatedItems,
+    };
+};
+
+/**
+ * 将各图表的「可筛选字段」合并为看板 availableFilters 响应（按 fieldId 去重、生成 tile → 索引映射）。
+ */
+export const mergeDashboardAvailableFiltersFromChartFilterSets = (
+    allFilters: { uuid: string; filters: DashboardFilterableField[] }[],
+    savedChartUuidsAndTileUuids: SavedChartsInfoForDashboardAvailableFilters,
+): DashboardAvailableFilters => {
+    const allFilterableFields: DashboardFilterableField[] = [];
+    const filterIndexMap: Record<string, number> = {};
+
+    allFilters.forEach((filterSet) => {
+        filterSet.filters.forEach((filter) => {
+            const fieldId = getItemId(filter);
+            if (!(fieldId in filterIndexMap)) {
+                filterIndexMap[fieldId] = allFilterableFields.length;
+                allFilterableFields.push(filter);
+            }
+        });
+    });
+
+    const savedQueryFilters = savedChartUuidsAndTileUuids.reduce<
+        DashboardAvailableFilters['savedQueryFilters']
+    >((acc, savedChartUuidAndTileUuid) => {
+        const filterResult = allFilters.find(
+            (result) =>
+                result.uuid === savedChartUuidAndTileUuid.savedChartUuid,
+        );
+        if (!filterResult || filterResult.filters.length === 0) return acc;
+
+        const filterIndexes = filterResult.filters.map(
+            (filter) => filterIndexMap[getItemId(filter)],
+        );
+        return {
+            ...acc,
+            [savedChartUuidAndTileUuid.tileUuid]: filterIndexes,
+        };
+    }, {});
+
+    return {
+        savedQueryFilters,
+        allFilterableFields,
     };
 };

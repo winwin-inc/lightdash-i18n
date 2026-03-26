@@ -46,6 +46,7 @@ type VisualizationContext = {
     colorPalette: string[];
     chartConfig: ChartConfig;
     apiErrorDetail?: ApiErrorDetail | null;
+    useHashBased: boolean;
 };
 
 const Context = createContext<VisualizationContext | undefined>(undefined);

@@ -2,11 +2,11 @@ import {
     type ApiError,
     type CacheMetadata,
     type Dashboard,
+    type DashboardFilterableField,
     type DashboardFilterRule,
     type DashboardFilters,
     type DashboardParameters,
     type DateGranularity,
-    type FilterableDimension,
     type ParameterDefinitions,
     type ParametersValuesMap,
     type ParameterValue,
@@ -74,10 +74,10 @@ export type DashboardContextType = {
     isAutoRefresh: boolean;
     setIsAutoRefresh: (autoRefresh: boolean) => void;
     clearCacheAndFetch: () => void;
-    allFilterableFieldsMap: Record<string, FilterableDimension>;
-    allFilterableFields: FilterableDimension[] | undefined;
+    allFilterableFieldsMap: Record<string, DashboardFilterableField>;
+    allFilterableFields: DashboardFilterableField[] | undefined;
     filterableFieldsByTileUuid:
-        | Record<string, FilterableDimension[]>
+        | Record<string, DashboardFilterableField[]>
         | undefined;
     hasTilesThatSupportFilters: boolean;
     chartSort: Record<string, SortField[]>;

@@ -22,6 +22,7 @@ import {
     type XAxis,
 } from '@lightdash/common';
 import { produce } from 'immer';
+import isEqual from 'lodash/isEqual';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     getMarkLineAxis,
@@ -185,6 +186,44 @@ const useCartesianChartConfig = ({
         (series: Series) => series.stack !== undefined,
     );
     const [isStacked, setIsStacked] = useState<boolean>(isInitiallyStacked);
+
+    // Sync series configuration (like tooltipSortByValue) from initialChartConfig
+    // This is needed for dashboard tiles where the component doesn't remount on refresh
+    useEffect(() => {
+        if (initialChartConfig?.eChartsConfig?.series) {
+            setDirtyEchartsConfig((prevState) => {
+                if (!prevState?.series) return prevState;
+
+                // Merge tooltipSortByValue and other config from initialChartConfig into existing series
+                const updatedSeries = prevState.series.map((serie) => {
+                    const serieId = getSeriesId(serie);
+                    // Find matching series in initialChartConfig
+                    const initialSerie =
+                        initialChartConfig.eChartsConfig.series?.find(
+                            (s) => getSeriesId(s) === serieId,
+                        );
+
+                    if (initialSerie) {
+                        // Merge config properties (tooltipSortByValue, etc.) from initialSerie
+                        return {
+                            ...serie,
+                            tooltipSortByValue: initialSerie.tooltipSortByValue,
+                        };
+                    }
+                    return serie;
+                });
+
+                // Only update if something changed
+                if (!isEqual(prevState.series, updatedSeries)) {
+                    return {
+                        ...prevState,
+                        series: updatedSeries,
+                    };
+                }
+                return prevState;
+            });
+        }
+    }, [initialChartConfig?.eChartsConfig?.series]);
 
     const setLegend = useCallback((legend: EchartsLegend) => {
         const removePropertiesWithAuto = Object.entries(
@@ -555,8 +594,8 @@ const useCartesianChartConfig = ({
                     stack === true
                         ? StackType.NORMAL
                         : stack === false
-                        ? StackType.NONE
-                        : stack,
+                          ? StackType.NONE
+                          : stack,
             }));
 
             setDirtyEchartsConfig(
@@ -873,8 +912,8 @@ const useCartesianChartConfig = ({
                                     ? serie.encode.yRef
                                     : serie.encode.xRef
                                 : dirtyLayout?.flipAxes
-                                ? serie.encode.xRef
-                                : serie.encode.yRef;
+                                  ? serie.encode.xRef
+                                  : serie.encode.yRef;
                         return {
                             fieldId: axis.field,
                             data: {
@@ -914,6 +953,10 @@ const useCartesianChartConfig = ({
                 const defaultLabel = prev?.series?.[0]?.label;
 
                 const defaultShowSymbol = prev?.series?.[0]?.showSymbol;
+                // Preserve tooltipSortByValue from the template series
+                // so it propagates to all expanded pivot series
+                const defaultTooltipSortByValue =
+                    prev?.series?.[0]?.tooltipSortByValue;
                 const expectedSeriesMap = getExpectedSeriesMap({
                     defaultSmooth,
                     defaultShowSymbol,
@@ -947,6 +990,11 @@ const useCartesianChartConfig = ({
                         ...(!serie.yAxisIndex && {
                             yAxisIndex: 0,
                         }),
+                        // Propagate tooltipSortByValue from template series to all expanded series
+                        ...(defaultTooltipSortByValue &&
+                            !serie.tooltipSortByValue && {
+                                tooltipSortByValue: defaultTooltipSortByValue,
+                            }),
                     })),
                 };
             });

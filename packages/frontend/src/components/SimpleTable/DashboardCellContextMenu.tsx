@@ -166,7 +166,7 @@ const DashboardCellContextMenu: FC<
                             icon={<MantineIcon icon={IconStack} />}
                             onClick={handleViewUnderlyingData}
                         >
-                            View underlying data
+                            {t('components_simple_table.menus.view.title')}
                         </Menu.Item>
                     </Can>
                 )}

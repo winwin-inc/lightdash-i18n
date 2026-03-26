@@ -150,6 +150,8 @@ export type DashboardFilterRule<
     categoryLevel?: 1 | 2 | 3 | 4;
     parentFieldId?: string;
     readOnly?: boolean;
+    /** Hidden filter: not displayed on page, but filter still applies */
+    hidden?: boolean;
 };
 
 export type FilterDashboardToRule = DashboardFilterRule & {

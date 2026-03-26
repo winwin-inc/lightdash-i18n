@@ -4,6 +4,7 @@ import {
     ChartType,
     createDashboardFilterRuleFromField,
     DashboardTileTypes,
+    ECHARTS_DEFAULT_COLORS,
     FeatureFlags,
     getCustomLabelsFromTableConfig,
     getDimensions,
@@ -84,6 +85,7 @@ import {
 import useDashboardFiltersForTile from '../../hooks/dashboard/useDashboardFiltersForTile';
 import { type EChartSeries } from '../../hooks/echarts/useEchartsCartesianConfig';
 import { uploadGsheet } from '../../hooks/gdrive/useGdrive';
+import { useOrganization } from '../../hooks/organization/useOrganization';
 import useToaster from '../../hooks/toaster/useToaster';
 import { getExplorerUrlFromCreateSavedChartVersion } from '../../hooks/useExplorerRoute';
 import { useFeatureFlagEnabled } from '../../hooks/useFeatureFlagEnabled';
@@ -137,7 +139,7 @@ const ExportGoogleSheet: FC<ExportGoogleSheetProps> = ({
             metricQuery: savedChart.metricQuery,
             columnOrder: savedChart.tableConfig.columnOrder,
             showTableNames: isTableChartConfig(savedChart.chartConfig.config)
-                ? (savedChart.chartConfig.config.showTableNames ?? false)
+                ? savedChart.chartConfig.config.showTableNames ?? false
                 : true,
             customLabels: getCustomLabelsFromTableConfig(
                 savedChart.chartConfig.config,
@@ -271,10 +273,37 @@ const ValidDashboardChartTile: FC<{
 
     const dashboardSlug = useDashboardContext((c) => c.dashboard?.slug);
     const dashboardName = useDashboardContext((c) => c.dashboard?.name);
+    const dashboardUuid = useDashboardContext((c) => c.dashboard?.uuid);
+    const dashboardConfig = useDashboardContext((c) => c.dashboard?.config);
+    const syncChartColors = dashboardConfig?.syncChartColors;
+    const syncChartTileUuids = dashboardConfig?.syncChartTileUuids;
+
+    const { data: organization } = useOrganization();
+
+    // CUSTOM (Vega) 类型的图表不支持颜色映射，跳过
+    const isCustomChart = chart.chartConfig.type === ChartType.CUSTOM;
 
     if (health.isInitialLoading || !health.data) {
         return null;
     }
+
+    // 检查当前 tile 是否在同步列表中
+    // 如果 syncChartTileUuids 为空，则对所有非 CUSTOM 图表应用同步（向后兼容）
+    const isTileInSyncList =
+        syncChartTileUuids && syncChartTileUuids.length > 0
+            ? syncChartTileUuids.includes(tileUuid)
+            : true;
+    const shouldSyncColors =
+        syncChartColors && !isCustomChart && isTileInSyncList;
+
+    // 统一使用看板的颜色配置（如果开启同步），否则使用图表自己的颜色
+    // 当同步开启时，优先使用看板的 colorPalette，如果没有则使用组织默认颜色或 ECharts 默认颜色
+    const dashboardPalette = dashboardConfig?.colorPalette;
+    const colorPalette = shouldSyncColors
+        ? dashboardPalette && dashboardPalette.length > 0
+            ? dashboardPalette
+            : organization?.chartColors ?? ECHARTS_DEFAULT_COLORS
+        : chart.colorPalette;
 
     return (
         <VisualizationProvider
@@ -291,7 +320,7 @@ const ValidDashboardChartTile: FC<{
             savedChartUuid={chart.uuid}
             dashboardFilters={dashboardFilters}
             invalidateCache={invalidateCache}
-            colorPalette={chart.colorPalette}
+            colorPalette={colorPalette}
             setEchartsRef={setEchartsRef}
             computedSeries={computedSeries}
             parameters={
@@ -300,6 +329,8 @@ const ValidDashboardChartTile: FC<{
             }
             dashboardSlug={dashboardSlug}
             dashboardName={dashboardName}
+            useHashBased={shouldSyncColors}
+            dashboardUuid={dashboardUuid}
         >
             <ErrorBoundary wrapper={{ h: '100%', w: '100%' }}>
                 <LightdashVisualization
@@ -372,10 +403,37 @@ const ValidDashboardChartTileMinimal: FC<{
 
     const dashboardSlug = useDashboardContext((c) => c.dashboard?.slug);
     const dashboardName = useDashboardContext((c) => c.dashboard?.name);
+    const dashboardUuid = useDashboardContext((c) => c.dashboard?.uuid);
+    const dashboardConfig = useDashboardContext((c) => c.dashboard?.config);
+    const syncChartColors = dashboardConfig?.syncChartColors;
+    const syncChartTileUuids = dashboardConfig?.syncChartTileUuids;
+
+    const { data: organization } = useOrganization();
+
+    // CUSTOM (Vega) 类型的图表不支持颜色映射，跳过
+    const isCustomChart = chart.chartConfig.type === ChartType.CUSTOM;
 
     if (health.isInitialLoading || !health.data) {
         return null;
     }
+
+    // 检查当前 tile 是否在同步列表中
+    // 如果 syncChartTileUuids 为空，则对所有非 CUSTOM 图表应用同步（向后兼容）
+    const isTileInSyncList =
+        syncChartTileUuids && syncChartTileUuids.length > 0
+            ? syncChartTileUuids.includes(tileUuid)
+            : true;
+    const shouldSyncColors =
+        syncChartColors && !isCustomChart && isTileInSyncList;
+
+    // 统一使用看板的颜色配置（如果开启同步），否则使用图表自己的颜色
+    // 当同步开启时，优先使用看板的 colorPalette，如果没有则使用组织默认颜色或 ECharts 默认颜色
+    const dashboardPalette = dashboardConfig?.colorPalette;
+    const colorPalette = shouldSyncColors
+        ? dashboardPalette && dashboardPalette.length > 0
+            ? dashboardPalette
+            : organization?.chartColors ?? ECHARTS_DEFAULT_COLORS
+        : chart.colorPalette;
 
     return (
         <VisualizationProvider
@@ -392,7 +450,7 @@ const ValidDashboardChartTileMinimal: FC<{
             pivotTableMaxColumnLimit={health.data.pivotTable.maxColumnLimit}
             savedChartUuid={chart.uuid}
             dashboardFilters={dashboardFilters}
-            colorPalette={chart.colorPalette}
+            colorPalette={colorPalette}
             setEchartsRef={setEchartsRef}
             computedSeries={computedSeries}
             parameters={
@@ -401,6 +459,8 @@ const ValidDashboardChartTileMinimal: FC<{
             }
             dashboardSlug={dashboardSlug}
             dashboardName={dashboardName}
+            useHashBased={shouldSyncColors}
+            dashboardUuid={dashboardUuid}
         >
             <ErrorBoundary wrapper={{ h: '100%', w: '100%' }}>
                 <LightdashVisualization

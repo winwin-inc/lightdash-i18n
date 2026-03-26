@@ -13,6 +13,10 @@ import { type EChartsOption, type PieSeriesOption } from 'echarts';
 import { useMemo } from 'react';
 import { isPieVisualizationConfig } from '../../components/LightdashVisualization/types';
 import { useVisualizationContext } from '../../components/LightdashVisualization/useVisualizationContext';
+import {
+    applyPieLabelTemplate,
+    formatPercentForLabel,
+} from './pieLabelFormatters';
 import { useLegendDoubleClickTooltip } from './useLegendDoubleClickTooltip';
 export type PieSeriesDataPoint = NonNullable<
     PieSeriesOption['data']
@@ -33,8 +37,13 @@ const useEchartsPieConfig = (
     selectedLegends?: Record<string, boolean>,
     isInDashboard?: boolean,
 ) => {
-    const { visualizationConfig, itemsMap, getGroupColor, minimal } =
-        useVisualizationContext();
+    const {
+        visualizationConfig,
+        itemsMap,
+        getGroupColor,
+        minimal,
+        useHashBased,
+    } = useVisualizationContext();
 
     const theme = useMantineTheme();
     const isMobile = useMediaQuery('(max-width: 768px)');
@@ -99,9 +108,11 @@ const useEchartsPieConfig = (
 
                 // Use all group field IDs as the group prefix for color assignment:
                 const groupPrefix = groupFieldIds.join('_');
-                const itemColor =
-                    groupColorOverrides?.[name] ??
-                    getGroupColor(groupPrefix, name);
+                // 哈希模式下，忽略 groupColorOverrides，强制走哈希分配
+                const itemColor = useHashBased
+                    ? getGroupColor(groupPrefix, name)
+                    : (groupColorOverrides?.[name] ??
+                      getGroupColor(groupPrefix, name));
 
                 const isOutsideLabel = valueLabel === 'outside';
                 const isMobileOutsideLabel = isMobile && isOutsideLabel;
@@ -150,30 +161,22 @@ const useEchartsPieConfig = (
                                 labelTemplate &&
                                 labelTemplate.trim() !== ''
                             ) {
-                                // Replace placeholders with actual values
-                                // In custom format mode, always show values regardless of showValue/showPercentage
-                                // {name} - the group name
-                                // {value} - the formatted numeric value (keeps original format, e.g., "1,234.56" or "50%")
-                                //   Note: For percentage format metrics, this will include the % symbol
-                                // {rawValue} - the raw numeric value (e.g., 1234.56)
-                                // {percent} - the percentage value (0-100, user can add % symbol in template)
-
-                                // Use the original formatted value to preserve the format
-                                // The format is determined by the metric's formatOptions/format settings
-                                // For percentage format metrics (CustomFormatType.PERCENT), this will include the % symbol
+                                const rawNum =
+                                    meta.value.raw ?? rawValueFromParams;
                                 const formattedValue =
                                     meta.value.formatted ?? '';
 
-                                let formattedLabel = labelTemplate
-                                    .replaceAll('{name}', params.name ?? '')
-                                    .replaceAll('{value}', formattedValue)
-                                    .replaceAll(
-                                        '{rawValue}',
-                                        `${
-                                            meta.value.raw ?? rawValueFromParams
-                                        }`,
-                                    )
-                                    .replaceAll('{percent}', `${percentValue}`);
+                                // 未写 :N 时默认 2 位小数，与原有行为一致
+                                let formattedLabel = applyPieLabelTemplate(
+                                    labelTemplate,
+                                    {
+                                        name: params.name ?? '',
+                                        percentValue,
+                                        formattedValue,
+                                        rawValue: rawNum,
+                                    },
+                                    2,
+                                );
 
                                 formattedLabel = formattedLabel.trim();
 
@@ -227,17 +230,19 @@ const useEchartsPieConfig = (
                                 }
                             }
 
-                            // Default behavior for non-custom modes
+                            // Default behavior for non-custom modes (percent fixed 2 decimals for consistency)
+                            const percentFormattedDefault =
+                                formatPercentForLabel(percentValue, 2);
                             let labelText =
                                 valueLabel !== 'hidden' &&
                                 showValue &&
                                 showPercentage
-                                    ? `${percentValue}% - ${meta.value.formatted}`
+                                    ? `${percentFormattedDefault}% - ${meta.value.formatted}`
                                     : showValue
-                                    ? `${meta.value.formatted}`
-                                    : showPercentage
-                                    ? `${percentValue}%`
-                                    : `${params.name}`;
+                                      ? `${meta.value.formatted}`
+                                      : showPercentage
+                                        ? `${percentFormattedDefault}%`
+                                        : `${params.name}`;
 
                             // 移动端外侧标签：如果文本较长，在合适位置插入换行符
                             if (isMobileOutsideLabel && labelText.length > 15) {
@@ -280,7 +285,7 @@ const useEchartsPieConfig = (
 
                 return config;
             });
-    }, [chartConfig, getGroupColor, isMobile]);
+    }, [chartConfig, getGroupColor, isMobile, useHashBased]);
 
     const pieSeriesOption: PieSeriesOption | undefined = useMemo(() => {
         if (!chartConfig) return;
@@ -318,8 +323,8 @@ const useEchartsPieConfig = (
                 ? ['15%', '40%'] // 进一步减小半径，为标签留出更多空间
                 : '40%' // 移动端外侧标签使用更小的半径
             : isDonut
-            ? ['30%', '70%']
-            : '70%';
+              ? ['30%', '70%']
+              : '70%';
 
         // 移动端外侧标签时，调整中心位置以留出标签空间
         let center: [string, string];
@@ -333,8 +338,8 @@ const useEchartsPieConfig = (
                 (showValueDefault || showPercentageDefault)
                     ? ['50%', '55%']
                     : showLegend
-                    ? ['50%', '52%']
-                    : ['50%', '50%'];
+                      ? ['50%', '52%']
+                      : ['50%', '50%'];
         } else {
             center = ['50%', '50%'];
         }
@@ -361,12 +366,12 @@ const useEchartsPieConfig = (
                       },
                   }
                 : hasOutsideLabels
-                ? {
-                      labelLine: {
-                          show: true,
-                      },
-                  }
-                : {}),
+                  ? {
+                        labelLine: {
+                            show: true,
+                        },
+                    }
+                  : {}),
             tooltip: {
                 trigger: 'item',
                 formatter: ({ marker, name, value, percent }) => {
@@ -383,7 +388,11 @@ const useEchartsPieConfig = (
                               )}...`
                             : name;
 
-                    return `${marker} <b>${truncatedName}</b><br />${percent}% - ${formattedValue}`;
+                    const percentFormatted = formatPercentForLabel(
+                        Number(percent),
+                        2,
+                    );
+                    return `${marker} <b>${truncatedName}</b><br />${percentFormatted}% - ${formattedValue}`;
                 },
             },
         };

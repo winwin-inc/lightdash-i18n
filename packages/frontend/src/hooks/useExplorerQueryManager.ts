@@ -4,6 +4,7 @@ import { useParams } from 'react-router';
 import {
     explorerActions,
     selectFilters,
+    selectFromDashboard,
     selectIsEditMode,
     selectIsMinimal,
     selectMetricQuery,
@@ -47,6 +48,7 @@ export const useExplorerQueryManager = () => {
     const tableName = useExplorerSelector(selectTableName);
     const isEditMode = useExplorerSelector(selectIsEditMode);
     const minimal = useExplorerSelector(selectIsMinimal);
+    const fromDashboard = useExplorerSelector(selectFromDashboard);
     const parameterDefinitions = useExplorerSelector(
         selectParameterDefinitions,
     );
@@ -176,6 +178,7 @@ export const useExplorerQueryManager = () => {
             dateZoomGranularity,
             minimal,
             savedChart: chartConfigForQuery,
+            fromDashboard,
         });
 
         if (mainQueryArgs) {
@@ -194,6 +197,7 @@ export const useExplorerQueryManager = () => {
         dateZoomGranularity,
         minimal,
         chartConfigForQuery,
+        fromDashboard,
         dispatch,
     ]);
 

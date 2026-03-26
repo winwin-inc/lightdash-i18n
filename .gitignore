@@ -109,3 +109,6 @@ CLAUDE.local.md
 
 # testings
 testings/
+
+# claude
+.claude/settings.local.json

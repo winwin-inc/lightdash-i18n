@@ -31,15 +31,15 @@ export const useTableStyles = createStyles((theme) => {
                 },
             },
 
-            '> *:first-child > *:first-child > *': {
+            '> *:first-of-type > *:first-of-type > *': {
                 boxShadow: `inset 0 1px 0 0 ${borderColor}, inset -1px -1px 0 0 ${borderColor}`,
             },
 
-            '> *:first-child > *:first-child > *:first-child': {
+            '> *:first-of-type > *:first-of-type > *:first-of-type': {
                 boxShadow: `inset 1px 1px 0 0 ${borderColor}, inset -1px -1px 0 0 ${borderColor}`,
             },
 
-            '> * > tr > *:first-child': {
+            '> * > tr > *:first-of-type': {
                 boxShadow: `inset 1px 0 0 0 ${borderColor}, inset -1px -1px 0 0 ${borderColor}`,
             },
         },
@@ -76,7 +76,7 @@ export const useTableSectionStyles = createStyles<
 
             case SectionType.Footer:
                 return {
-                    '& tr:first-child': {
+                    '& tr:first-of-type': {
                         transition: 'box-shadow 500ms ease',
                         boxShadow: scrollPositions.isAtBottom
                             ? 'none'

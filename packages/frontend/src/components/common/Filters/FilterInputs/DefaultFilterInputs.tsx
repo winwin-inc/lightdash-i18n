@@ -24,6 +24,7 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
     disabled,
     onChange,
     popoverProps,
+    closeDropdownOnMouseLeave,
 }: FilterInputsProps<T>) => {
     const { getField } = useFiltersContext();
     const suggestions = isFilterRule(rule)
@@ -73,6 +74,7 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
                                     values,
                                 })
                             }
+                            closeDropdownOnMouseLeave={closeDropdownOnMouseLeave}
                         />
                     ) : (
                         <FilterStringAutoComplete
@@ -94,6 +96,7 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
                                     values,
                                 })
                             }
+                            closeDropdownOnMouseLeave={closeDropdownOnMouseLeave}
                         />
                     );
 

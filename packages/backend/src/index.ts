@@ -1,7 +1,9 @@
 import { getErrorMessage } from '@lightdash/common';
+import type { Express } from 'express';
 import App from './App';
 import { lightdashConfig } from './config/lightdashConfig';
 import { getEnterpriseAppArguments } from './ee';
+import { jaegerHeaderMiddleware } from './instrumentation/jaegerHeaderMiddleware';
 import knexConfig from './knexfile';
 import Logger from './logging/logger';
 
@@ -17,6 +19,7 @@ process.on('uncaughtException', (err) => {
 
 (async () => {
     try {
+        const enterpriseArgs = await getEnterpriseAppArguments();
         const app = new App({
             lightdashConfig,
             port: process.env.PORT || 8080,
@@ -25,7 +28,11 @@ process.on('uncaughtException', (err) => {
                     ? 'development'
                     : 'production',
             knexConfig,
-            ...(await getEnterpriseAppArguments()),
+            ...enterpriseArgs,
+            customExpressMiddlewares: [
+                (expressApp) => expressApp.use(jaegerHeaderMiddleware),
+                ...(enterpriseArgs.customExpressMiddlewares || []),
+            ],
         });
 
         const onExit = () => {

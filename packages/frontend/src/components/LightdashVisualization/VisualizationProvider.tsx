@@ -1,5 +1,6 @@
 import {
     assertUnreachable,
+    CartesianChartDataModel,
     ChartType,
     FeatureFlags,
     isDimension,
@@ -29,7 +30,11 @@ import {
 import { type CartesianTypeOptions } from '../../hooks/cartesianChartConfig/useCartesianChartConfig';
 import { type EChartSeries } from '../../hooks/echarts/useEchartsCartesianConfig';
 import { type SeriesLike } from '../../hooks/useChartColorConfig/types';
-import { useChartColorConfig } from '../../hooks/useChartColorConfig/useChartColorConfig';
+import {
+    getGlobalHashColor,
+    getHashColor,
+    useChartColorConfig,
+} from '../../hooks/useChartColorConfig/useChartColorConfig';
 import {
     calculateSeriesLikeIdentifier,
     isGroupedSeries,
@@ -82,6 +87,10 @@ export type VisualizationProviderProps = {
     apiErrorDetail?: ApiErrorDetail | null;
     dashboardSlug?: string;
     dashboardName?: string;
+    /** 当为 true 时，使用哈希分配颜色，相同 identifier 获得相同颜色 */
+    useHashBased?: boolean;
+    /** Dashboard UUID，用于全局颜色分配器隔离 */
+    dashboardUuid?: string;
 };
 
 const VisualizationProvider: FC<
@@ -112,6 +121,8 @@ const VisualizationProvider: FC<
     unsavedMetricQuery,
     dashboardSlug,
     dashboardName,
+    useHashBased = false,
+    dashboardUuid,
 }) => {
     const itemsMap = useMemo(() => {
         const metricOverrides = resultsData?.metricQuery?.metricOverrides;
@@ -153,7 +164,7 @@ const VisualizationProvider: FC<
     const { validPivotDimensions, setPivotDimensions } = usePivotDimensions(
         initialPivotDimensions,
         useSqlPivotResults?.enabled
-            ? (unsavedMetricQuery ?? lastValidResultsData?.metricQuery)
+            ? unsavedMetricQuery ?? lastValidResultsData?.metricQuery
             : lastValidResultsData?.metricQuery,
     );
 
@@ -163,7 +174,7 @@ const VisualizationProvider: FC<
     );
 
     const { calculateKeyColorAssignment, calculateSeriesColorAssignment } =
-        useChartColorConfig({ colorPalette });
+        useChartColorConfig({ colorPalette, useHashBased, dashboardUuid });
 
     // cartesian config related
     const [stacking, setStacking] = useState<boolean | StackType>();
@@ -212,12 +223,36 @@ const VisualizationProvider: FC<
             .map((series) => calculateSeriesLikeIdentifier(series).join('|'))
             .sort((a, b) => b.localeCompare(a));
 
+        // 当 useHashBased 开启时，使用哈希分配颜色而非按顺序
+        if (useHashBased) {
+            return Object.fromEntries(
+                sortedSeriesIdentifiers.map((identifier) => {
+                    const parts = identifier.split('|');
+                    const value = parts[parts.length - 1];
+                    // 如果有 dashboardUuid，使用全局颜色分配器（带色差保障）
+                    const color = dashboardUuid
+                        ? getGlobalHashColor(value, colorPalette, dashboardUuid)
+                        : getHashColor(value, colorPalette);
+                    return [identifier, color];
+                }),
+            );
+        }
+
         return Object.fromEntries(
             sortedSeriesIdentifiers.map((identifier, i) => {
-                return [identifier, colorPalette[i % colorPalette.length]];
+                return [
+                    identifier,
+                    CartesianChartDataModel.getDefaultColor(i, colorPalette),
+                ];
             }),
         );
-    }, [chartConfig, colorPalette, computedSeries]);
+    }, [
+        chartConfig,
+        colorPalette,
+        computedSeries,
+        useHashBased,
+        dashboardUuid,
+    ]);
 
     const handleChartConfigChange = useCallback(
         (newChartConfig: ChartConfig) => {
@@ -270,7 +305,8 @@ const VisualizationProvider: FC<
      */
     const getSeriesColor = useCallback(
         (seriesLike: SeriesLike) => {
-            if (seriesLike.color) return seriesLike.color;
+            // 哈希模式下，忽略 series 预设颜色，强制走哈希分配
+            if (!useHashBased && seriesLike.color) return seriesLike.color;
 
             // Check if color is stored in metadata
             const serieId = calculateSeriesLikeIdentifier(seriesLike).join('.');
@@ -323,6 +359,7 @@ const VisualizationProvider: FC<
             chartConfig,
             itemsMap,
             isCalculateSeriesColorEnabled,
+            useHashBased,
         ],
     );
 
@@ -348,6 +385,7 @@ const VisualizationProvider: FC<
         getGroupColor,
         getSeriesColor,
         chartConfig,
+        useHashBased,
     };
 
     switch (chartConfig.type) {

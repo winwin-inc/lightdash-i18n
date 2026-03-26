@@ -1,11 +1,13 @@
 import {
     FilterOperator,
     getFilterRuleWithDefaultValue,
+    getItemLabel,
     supportsSingleValue,
     type DashboardFilterRule,
+    type DashboardFilterableField,
     type FilterRule,
     type FilterType,
-    type FilterableDimension,
+    type Item,
 } from '@lightdash/common';
 import {
     Box,
@@ -32,13 +34,14 @@ import MantineIcon from '../../common/MantineIcon';
 type ParentFilterOption = {
     value: string;
     label: string;
+    categoryLevel?: number;
 };
 
 interface FilterSettingsProps {
     isEditMode: boolean;
     isCreatingNew: boolean;
     filterType: FilterType;
-    field?: FilterableDimension;
+    field?: DashboardFilterableField;
     filterRule: DashboardFilterRule;
     popoverProps?: Omit<PopoverProps, 'children'>;
     onChangeFilterRule: (value: DashboardFilterRule) => void;
@@ -54,7 +57,6 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     filterRule,
     popoverProps,
     onChangeFilterRule,
-    isCustomerUse = false,
     parentFilterOptions = [],
 }) => {
     const { t } = useTranslation();
@@ -73,9 +75,12 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     // Set default label when using revert (undo) button
     useEffect(() => {
         if (filterLabel !== '') {
-            setFilterLabel(filterRule.label ?? field?.label);
+            setFilterLabel(
+                filterRule.label ??
+                    (field ? getItemLabel(field as Item) : undefined),
+            );
         }
-    }, [filterLabel, filterRule.label, field?.label]);
+    }, [filterLabel, filterRule.label, field]);
 
     const handleChangeFilterOperator = (operator: FilterRule['operator']) => {
         onChangeFilterRule(
@@ -138,7 +143,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 ? t(
                                       'components_dashboard_filter.configuration.filter.placeholder',
                                       {
-                                          label: field.label,
+                                          label: getItemLabel(field as Item),
                                       },
                                   )
                                 : t(
@@ -237,6 +242,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 newFilterRule as DashboardFilterRule,
                             )
                         }
+                        closeDropdownOnMouseLeave={isEditMode}
                     />
                 )}
 
@@ -332,125 +338,171 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                             )}
                         />
 
-                        {/* 类目层级配置 - 仅在客户使用模式下显示 */}
-                        {isCustomerUse && (
-                            <Box mt="xs">
-                                <Group spacing="xs" mb="xs">
-                                    <Text size="xs" fw={500}>
+                        {/* 类目层级、筛选器只读、筛选器隐藏：所有环境可配置，配置随看板保存，提升到线上后即生效 */}
+                        <Box mt="xs">
+                            <Group spacing="xs" mb="xs">
+                                <Text size="xs" fw={500}>
+                                    {t(
+                                        'components_dashboard_filter.configuration.category_level.label',
+                                    )}
+                                </Text>
+                                <Tooltip
+                                    withinPortal
+                                    variant="xs"
+                                    label={t(
+                                        'components_dashboard_filter.configuration.category_level.tooltip',
+                                    )}
+                                >
+                                    <MantineIcon
+                                        size="sm"
+                                        icon={IconHelpCircle}
+                                    />
+                                </Tooltip>
+                            </Group>
+                            <Select
+                                size="xs"
+                                placeholder={t(
+                                    'components_dashboard_filter.configuration.category_level.placeholder',
+                                )}
+                                clearable
+                                data={[
+                                    {
+                                        value: '1',
+                                        label: t(
+                                            'components_dashboard_filter.configuration.category_level.level1',
+                                        ),
+                                    },
+                                    {
+                                        value: '2',
+                                        label: t(
+                                            'components_dashboard_filter.configuration.category_level.level2',
+                                        ),
+                                    },
+                                    {
+                                        value: '3',
+                                        label: t(
+                                            'components_dashboard_filter.configuration.category_level.level3',
+                                        ),
+                                    },
+                                    {
+                                        value: '4',
+                                        label: t(
+                                            'components_dashboard_filter.configuration.category_level.level4',
+                                        ),
+                                    },
+                                ]}
+                                value={filterRule.categoryLevel?.toString()}
+                                onChange={(value) => {
+                                    const newCategoryLevel = value
+                                        ? (Number.parseInt(value, 10) as
+                                              | 1
+                                              | 2
+                                              | 3
+                                              | 4)
+                                        : undefined;
+
+                                    // 自动查找并设置父级筛选器
+                                    let autoParentFieldId: string | undefined;
+                                    if (
+                                        newCategoryLevel &&
+                                        newCategoryLevel > 1 &&
+                                        parentFilterOptions.length > 0
+                                    ) {
+                                        // 查找 categoryLevel 为 newCategoryLevel - 1 的筛选器
+                                        const targetParentLevel =
+                                            newCategoryLevel - 1;
+                                        const parentOption =
+                                            parentFilterOptions.find(
+                                                (option) =>
+                                                    option.categoryLevel ===
+                                                    targetParentLevel,
+                                            );
+                                        autoParentFieldId = parentOption?.value;
+                                    }
+
+                                    onChangeFilterRule({
+                                        ...filterRule,
+                                        categoryLevel: newCategoryLevel,
+                                        parentFieldId:
+                                            autoParentFieldId || undefined,
+                                    } as DashboardFilterRule & {
+                                        parentFieldId?: string;
+                                    });
+                                }}
+                            />
+                            <Select
+                                mt="xs"
+                                size="xs"
+                                data={parentFilterOptions}
+                                value={
+                                    (
+                                        filterRule as DashboardFilterRule & {
+                                            parentFieldId?: string;
+                                        }
+                                    ).parentFieldId ?? null
+                                }
+                                label={t(
+                                    'components_dashboard_filter.configuration.category_level.parent_filter_label',
+                                )}
+                                placeholder={t(
+                                    'components_dashboard_filter.configuration.category_level.parent_filter_placeholder',
+                                )}
+                                disabled={parentFilterOptions.length === 0}
+                                clearable
+                                onChange={(value) =>
+                                    onChangeFilterRule({
+                                        ...filterRule,
+                                        parentFieldId: value || undefined,
+                                    } as DashboardFilterRule & {
+                                        parentFieldId?: string;
+                                    })
+                                }
+                            />
+
+                            {/* 筛选器只读配置 */}
+                            <Switch
+                                mt="xs"
+                                label={
+                                    <Text size="xs" mt="two" fw={500}>
                                         {t(
-                                            'components_dashboard_filter.configuration.category_level.label',
+                                            'components_dashboard_filter.configuration.filter_read_only',
                                         )}
                                     </Text>
-                                    <Tooltip
-                                        withinPortal
-                                        variant="xs"
-                                        label={t(
-                                            'components_dashboard_filter.configuration.category_level.tooltip',
-                                        )}
-                                    >
-                                        <MantineIcon
-                                            size="sm"
-                                            icon={IconHelpCircle}
-                                        />
-                                    </Tooltip>
-                                </Group>
-                                <Select
-                                    size="xs"
-                                    placeholder={t(
-                                        'components_dashboard_filter.configuration.category_level.placeholder',
-                                    )}
-                                    clearable
-                                    data={[
-                                        {
-                                            value: '1',
-                                            label: t(
-                                                'components_dashboard_filter.configuration.category_level.level1',
-                                            ),
-                                        },
-                                        {
-                                            value: '2',
-                                            label: t(
-                                                'components_dashboard_filter.configuration.category_level.level2',
-                                            ),
-                                        },
-                                        {
-                                            value: '3',
-                                            label: t(
-                                                'components_dashboard_filter.configuration.category_level.level3',
-                                            ),
-                                        },
-                                        {
-                                            value: '4',
-                                            label: t(
-                                                'components_dashboard_filter.configuration.category_level.level4',
-                                            ),
-                                        },
-                                    ]}
-                                    value={filterRule.categoryLevel?.toString()}
-                                    onChange={(value) => {
-                                        onChangeFilterRule({
-                                            ...filterRule,
-                                            categoryLevel: value
-                                                ? (Number.parseInt(
-                                                      value,
-                                                      10,
-                                                  ) as 1 | 2 | 3 | 4)
-                                                : undefined,
-                                        });
-                                    }}
-                                />
-                                <Select
-                                    mt="xs"
-                                    size="xs"
-                                    data={parentFilterOptions}
-                                    value={
-                                        (
-                                            filterRule as DashboardFilterRule & {
-                                                parentFieldId?: string;
-                                            }
-                                        ).parentFieldId ?? null
-                                    }
-                                    label={t(
-                                        'components_dashboard_filter.configuration.category_level.parent_filter_label',
-                                    )}
-                                    placeholder={t(
-                                        'components_dashboard_filter.configuration.category_level.parent_filter_placeholder',
-                                    )}
-                                    disabled={parentFilterOptions.length === 0}
-                                    clearable
-                                    onChange={(value) =>
-                                        onChangeFilterRule({
-                                            ...filterRule,
-                                            parentFieldId: value || undefined,
-                                        } as DashboardFilterRule & {
-                                            parentFieldId?: string;
-                                        })
-                                    }
-                                />
+                                }
+                                labelPosition="right"
+                                checked={!!filterRule.readOnly}
+                                onChange={(e) => {
+                                    onChangeFilterRule({
+                                        ...filterRule,
+                                        readOnly:
+                                            e.currentTarget.checked ||
+                                            undefined,
+                                    });
+                                }}
+                            />
 
-                                {/* 筛选器只读配置 */}
-                                <Switch
-                                    mt="xs"
-                                    label={
-                                        <Text size="xs" mt="two" fw={500}>
-                                            {t(
-                                                'components_dashboard_filter.configuration.filter_read_only',
-                                            )}
-                                        </Text>
-                                    }
-                                    labelPosition="right"
-                                    checked={!!filterRule.readOnly}
-                                    onChange={(e) => {
-                                        onChangeFilterRule({
-                                            ...filterRule,
-                                            readOnly:
-                                                e.currentTarget.checked ||
-                                                undefined,
-                                        });
-                                    }}
-                                />
-                            </Box>
-                        )}
+                            {/* 筛选器隐藏配置 */}
+                            <Switch
+                                mt="xs"
+                                label={
+                                    <Text size="xs" mt="two" fw={500}>
+                                        {t(
+                                            'components_dashboard_filter.configuration.filter_hidden',
+                                        )}
+                                    </Text>
+                                }
+                                labelPosition="right"
+                                checked={!!filterRule.hidden}
+                                onChange={(e) => {
+                                    onChangeFilterRule({
+                                        ...filterRule,
+                                        hidden:
+                                            e.currentTarget.checked ||
+                                            undefined,
+                                    });
+                                }}
+                            />
+                        </Box>
                     </>
                 )}
             </Stack>
