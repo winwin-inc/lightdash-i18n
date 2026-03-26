@@ -18,8 +18,8 @@ import {
     type BaseFilterRule,
     type ConditionalRuleLabel,
     type CustomSqlDimension,
+    type DashboardFilterableField,
     type Field,
-    type FilterableDimension,
     type FilterableItem,
     type TableCalculation,
 } from '@lightdash/common';
@@ -308,10 +308,13 @@ export const useConditionalRuleLabelFromItem = () => {
     };
 };
 
+const tableLabelFromDashboardField = (f: DashboardFilterableField): string =>
+    'tableLabel' in f && f.tableLabel !== undefined ? f.tableLabel : f.table;
+
 export const getFilterRuleTables = (
     filterRule: BaseFilterRule,
-    field: FilterableDimension,
-    filterableFields: FilterableDimension[],
+    field: DashboardFilterableField,
+    filterableFields: DashboardFilterableField[],
 ): string[] => {
     if (
         isDashboardFilterRule(filterRule) &&
@@ -327,14 +330,16 @@ export const getFilterRuleTables = (
                         getItemId(f) === tileTarget.fieldId,
                 );
                 return targetField
-                    ? uniq([...tables, targetField.tableLabel])
+                    ? uniq([
+                          ...tables,
+                          tableLabelFromDashboardField(targetField),
+                      ])
                     : tables;
             },
             [],
         );
-    } else {
-        return [field.tableLabel];
     }
+    return [tableLabelFromDashboardField(field)];
 };
 
 export const formatDisplayValue = (value: string): string => {

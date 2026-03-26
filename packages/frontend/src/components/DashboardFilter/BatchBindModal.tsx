@@ -1,7 +1,7 @@
 import {
+    type DashboardFilterableField,
     type DashboardFilterRule,
     type DashboardTile,
-    type FilterableDimension,
 } from '@lightdash/common';
 import {
     Box,
@@ -46,8 +46,11 @@ interface BatchBindModalProps {
     onClose: () => void;
     filters: DashboardFilterRule[];
     tiles: DashboardTile[];
-    availableTileFilters: Record<string, FilterableDimension[] | undefined>;
-    allFilterableFieldsMap: Record<string, FilterableDimension>;
+    availableTileFilters: Record<
+        string,
+        DashboardFilterableField[] | undefined
+    >;
+    allFilterableFieldsMap: Record<string, DashboardFilterableField>;
     onApply: (updatedFilters: DashboardFilterRule[]) => void;
 }
 

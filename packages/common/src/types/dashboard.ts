@@ -1,4 +1,7 @@
-import { type FilterableDimension } from './field';
+import {
+    type CompiledCustomSqlDimension,
+    type FilterableDimension,
+} from './field';
 import { type DashboardFilters } from './filter';
 import { type DashboardParameters } from './parameters';
 import {
@@ -246,9 +249,23 @@ export type UpdateMultipleDashboards = Pick<
     'uuid' | 'name' | 'description' | 'spaceUuid'
 >;
 
+/**
+ * 看板候选里展示的 Custom SQL 维度（含展示用 label / tableLabel，由 availableFilters 接口填充）。
+ */
+export type DashboardFilterableCustomSqlDimension =
+    CompiledCustomSqlDimension & {
+        label: string;
+        tableLabel: string;
+    };
+
+/** 看板「可筛选字段」：explore 维度 + 图表内已编译的 Custom SQL 维度 */
+export type DashboardFilterableField =
+    | FilterableDimension
+    | DashboardFilterableCustomSqlDimension;
+
 export type DashboardAvailableFilters = {
     savedQueryFilters: Record<string, number[]>;
-    allFilterableFields: FilterableDimension[];
+    allFilterableFields: DashboardFilterableField[];
 };
 
 export type SavedChartsInfoForDashboardAvailableFilters = {

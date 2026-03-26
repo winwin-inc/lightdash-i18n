@@ -1,11 +1,13 @@
 import {
     FilterOperator,
     getFilterRuleWithDefaultValue,
+    getItemLabel,
     supportsSingleValue,
     type DashboardFilterRule,
+    type DashboardFilterableField,
     type FilterRule,
     type FilterType,
-    type FilterableDimension,
+    type Item,
 } from '@lightdash/common';
 import {
     Box,
@@ -39,7 +41,7 @@ interface FilterSettingsProps {
     isEditMode: boolean;
     isCreatingNew: boolean;
     filterType: FilterType;
-    field?: FilterableDimension;
+    field?: DashboardFilterableField;
     filterRule: DashboardFilterRule;
     popoverProps?: Omit<PopoverProps, 'children'>;
     onChangeFilterRule: (value: DashboardFilterRule) => void;
@@ -73,9 +75,12 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     // Set default label when using revert (undo) button
     useEffect(() => {
         if (filterLabel !== '') {
-            setFilterLabel(filterRule.label ?? field?.label);
+            setFilterLabel(
+                filterRule.label ??
+                    (field ? getItemLabel(field as Item) : undefined),
+            );
         }
-    }, [filterLabel, filterRule.label, field?.label]);
+    }, [filterLabel, filterRule.label, field]);
 
     const handleChangeFilterOperator = (operator: FilterRule['operator']) => {
         onChangeFilterRule(
@@ -138,7 +143,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 ? t(
                                       'components_dashboard_filter.configuration.filter.placeholder',
                                       {
-                                          label: field.label,
+                                          label: getItemLabel(field as Item),
                                       },
                                   )
                                 : t(

@@ -1,6 +1,6 @@
 import {
     type DashboardFilterRule,
-    type FilterableDimension,
+    type DashboardFilterableField,
 } from '@lightdash/common';
 import { Box, Button, Popover, Text, Tooltip } from '@mantine/core';
 
@@ -198,7 +198,7 @@ const AddFilterButton: FC<Props> = ({
 
                 return acc;
             },
-            {} as Record<string, FilterableDimension[]>,
+            {} as Record<string, DashboardFilterableField[]>,
         );
     }, [filterableFieldsByTileUuid, appliedDashboardTiles, filterScope]);
 

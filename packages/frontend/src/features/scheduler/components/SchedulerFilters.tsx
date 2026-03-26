@@ -1,11 +1,13 @@
 import {
     FilterType,
     getFilterTypeFromItem,
+    getItemLabel,
     isWithValueFilter,
     type Dashboard,
     type DashboardFilterRule,
-    type FilterableDimension,
+    type DashboardFilterableField,
     type FilterOperator,
+    type Item,
 } from '@lightdash/common';
 import {
     ActionIcon,
@@ -98,7 +100,7 @@ const FilterItem: FC<SchedulerFilterItemProps> = ({
     const theme = useMantineTheme();
 
     const { itemsMap } =
-        useFiltersContext<Record<string, FilterableDimension>>();
+        useFiltersContext<Record<string, DashboardFilterableField>>();
     const field = itemsMap[dashboardFilter.target.fieldId];
     const [isEditing, setIsEditing] = useState(false);
 
@@ -174,7 +176,9 @@ const FilterItem: FC<SchedulerFilterItemProps> = ({
                     <FieldLabel
                         item={{
                             ...field,
-                            label: dashboardFilter.label ?? field.label,
+                            label:
+                                dashboardFilter.label ??
+                                getItemLabel(field as Item),
                         }}
                         hideTableName
                     />
@@ -451,7 +455,7 @@ const SchedulerFilters: FC<SchedulerFiltersProps> = ({
     );
 
     return (
-        <FiltersProvider<Record<string, FilterableDimension>>
+        <FiltersProvider<Record<string, DashboardFilterableField>>
             popoverProps={{ withinPortal: true }}
             projectUuid={project.projectUuid}
             itemsMap={allFilterableFieldsMap}

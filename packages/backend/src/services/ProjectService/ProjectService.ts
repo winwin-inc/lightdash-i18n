@@ -40,6 +40,7 @@ import {
     CustomSqlQueryForbiddenError,
     DashboardAvailableFilters,
     DashboardBasicDetails,
+    type DashboardFilterableField,
     DashboardFilters,
     DateZoom,
     DbtExposure,
@@ -97,6 +98,7 @@ import {
     maybeOverrideDbtConnection,
     maybeOverrideWarehouseConnection,
     maybeReplaceFieldsInChartVersion,
+    mergeDashboardAvailableFiltersFromChartFilterSets,
     mergeWarehouseCredentials,
     MetricQuery,
     MissingWarehouseCredentialsError,
@@ -216,6 +218,7 @@ import {
     wrapSentryTransaction,
     wrapSentryTransactionSync,
 } from '../../utils';
+import { compileFilterableCustomSqlDimensionsForExplore } from '../../utils/compileCustomSqlDimensionsForDashboard';
 import { EncryptionUtil } from '../../utils/EncryptionUtil/EncryptionUtil';
 import {
     CompiledQuery,
@@ -4746,7 +4749,7 @@ export class ProjectService extends BaseService {
         account: Account,
         savedChartUuid: string,
         dashboardUuid?: string,
-    ): Promise<FilterableDimension[]> {
+    ): Promise<DashboardFilterableField[]> {
         return Sentry.startSpan(
             {
                 op: 'projectService.getAvailableFiltersForSavedQuery',
@@ -4789,9 +4792,28 @@ export class ProjectService extends BaseService {
                     dashboardUuid,
                 );
 
-                return getDimensions(explore).filter(
+                if (isExploreError(explore)) {
+                    return [];
+                }
+
+                const exploreDims = getDimensions(explore).filter(
                     (field) => isFilterableDimension(field) && !field.hidden,
                 );
+
+                const customSqlByChart =
+                    await this.savedChartModel.getSelectedCustomSqlDimensionsForAvailableFilters(
+                        [savedChartUuid],
+                    );
+                const customSqlDims = customSqlByChart[savedChartUuid] ?? [];
+                const compiledCustom =
+                    customSqlDims.length > 0
+                        ? compileFilterableCustomSqlDimensionsForExplore(
+                              explore,
+                              customSqlDims,
+                          )
+                        : [];
+
+                return [...exploreDims, ...compiledCustom];
             },
         );
     }
@@ -4802,7 +4824,7 @@ export class ProjectService extends BaseService {
     ): Promise<DashboardAvailableFilters> {
         let allFilters: {
             uuid: string;
-            filters: CompiledDimension[];
+            filters: DashboardFilterableField[];
         }[] = [];
 
         allFilters = await Sentry.startSpan(
@@ -4827,25 +4849,29 @@ export class ProjectService extends BaseService {
                     return [];
                 }
 
-                const [spaceAccessMap, exploresMap, userSpacesAccess] =
-                    await Promise.all([
-                        this.spaceModel.getSpacesForAccessCheck(
-                            uniqueSpaceUuids,
+                const [
+                    spaceAccessMap,
+                    exploresMap,
+                    userSpacesAccess,
+                    customSqlByChart,
+                ] = await Promise.all([
+                    this.spaceModel.getSpacesForAccessCheck(uniqueSpaceUuids),
+                    this.findExplores({
+                        account,
+                        projectUuid: savedCharts[0].projectUuid, // TODO: route should be updated to be project/dashboard specific. For now we pick it from first chart as they all should be from the same project
+                        exploreNames: savedCharts.map(
+                            (chart) => chart.tableName,
                         ),
-                        this.findExplores({
-                            account,
-                            projectUuid: savedCharts[0].projectUuid, // TODO: route should be updated to be project/dashboard specific. For now we pick it from first chart as they all should be from the same project
-                            exploreNames: savedCharts.map(
-                                (chart) => chart.tableName,
-                            ),
-                            organizationUuid:
-                                account.organization.organizationUuid,
-                        }),
-                        this.spaceModel.getUserSpacesAccess(
-                            account.user.id,
-                            uniqueSpaceUuids,
-                        ),
-                    ]);
+                        organizationUuid: account.organization.organizationUuid,
+                    }),
+                    this.spaceModel.getUserSpacesAccess(
+                        account.user.id,
+                        uniqueSpaceUuids,
+                    ),
+                    this.savedChartModel.getSelectedCustomSqlDimensionsForAvailableFilters(
+                        savedQueryUuids,
+                    ),
+                ]);
 
                 return savedCharts.map((savedChart) => {
                     const spaceAccess = spaceAccessMap.get(
@@ -4869,12 +4895,23 @@ export class ProjectService extends BaseService {
 
                     const explore = exploresMap[savedChart.tableName];
 
-                    let filters: CompiledDimension[] = [];
+                    let filters: DashboardFilterableField[] = [];
                     if (explore && !isExploreError(explore)) {
                         filters = getDimensions(explore).filter(
                             (field) =>
                                 isFilterableDimension(field) && !field.hidden,
                         );
+                        const customSqlDims =
+                            customSqlByChart[savedChart.uuid] ?? [];
+                        if (customSqlDims.length > 0) {
+                            filters = [
+                                ...filters,
+                                ...compileFilterableCustomSqlDimensionsForExplore(
+                                    explore,
+                                    customSqlDims,
+                                ),
+                            ];
+                        }
                     }
 
                     return { uuid: savedChart.uuid, filters };
@@ -4882,41 +4919,10 @@ export class ProjectService extends BaseService {
             },
         );
 
-        const allFilterableFields: FilterableDimension[] = [];
-        const filterIndexMap: Record<string, number> = {};
-
-        allFilters.forEach((filterSet) => {
-            filterSet.filters.forEach((filter) => {
-                const fieldId = getItemId(filter);
-                if (!(fieldId in filterIndexMap)) {
-                    filterIndexMap[fieldId] = allFilterableFields.length;
-                    allFilterableFields.push(filter);
-                }
-            });
-        });
-
-        const savedQueryFilters = savedChartUuidsAndTileUuids.reduce<
-            DashboardAvailableFilters['savedQueryFilters']
-        >((acc, savedChartUuidAndTileUuid) => {
-            const filterResult = allFilters.find(
-                (result) =>
-                    result.uuid === savedChartUuidAndTileUuid.savedChartUuid,
-            );
-            if (!filterResult || !filterResult.filters.length) return acc;
-
-            const filterIndexes = filterResult.filters.map(
-                (filter) => filterIndexMap[getItemId(filter)],
-            );
-            return {
-                ...acc,
-                [savedChartUuidAndTileUuid.tileUuid]: filterIndexes,
-            };
-        }, {});
-
-        return {
-            savedQueryFilters,
-            allFilterableFields,
-        };
+        return mergeDashboardAvailableFiltersFromChartFilterSets(
+            allFilters,
+            savedChartUuidsAndTileUuids,
+        );
     }
 
     async hasSavedCharts(

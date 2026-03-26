@@ -5,7 +5,6 @@ import {
     AnonymousAccount,
     ApiExecuteAsyncDashboardChartQueryResults,
     CommercialFeatureFlags,
-    CompiledDimension,
     CreateEmbedJwt,
     CreateEmbedRequestBody,
     Dashboard,
@@ -20,7 +19,6 @@ import {
     Explore,
     ExploreError,
     FieldValueSearchResult,
-    FilterableDimension,
     ForbiddenError,
     formatRawRows,
     formatRows,
@@ -36,6 +34,7 @@ import {
     isExploreError,
     isFilterableDimension,
     isFilterInteractivityEnabled,
+    mergeDashboardAvailableFiltersFromChartFilterSets,
     MetricQuery,
     NotFoundError,
     NotSupportedError,
@@ -49,6 +48,7 @@ import {
     UpdateEmbed,
     UserAccessControls,
     UserAttributeValueMap,
+    type DashboardFilterableField,
     type ParameterDefinitions,
     type ParametersValuesMap,
 } from '@lightdash/common';
@@ -76,6 +76,7 @@ import {
 } from '../../../services/ProjectService/parameters';
 import { ProjectService } from '../../../services/ProjectService/ProjectService';
 import { getFilteredExplore } from '../../../services/UserAttributesService/UserAttributeUtils';
+import { compileFilterableCustomSqlDimensionsForExplore } from '../../../utils/compileCustomSqlDimensionsForDashboard';
 import { EncryptionUtil } from '../../../utils/EncryptionUtil/EncryptionUtil';
 import { SubtotalsCalculator } from '../../../utils/SubtotalsCalculator';
 import { EmbedDashboardViewed, EmbedQueryViewed } from '../../analytics';
@@ -440,27 +441,32 @@ export class EmbedService extends BaseService {
 
         let allFilters: {
             uuid: string;
-            filters: CompiledDimension[];
+            filters: DashboardFilterableField[];
         }[] = [];
 
         const savedQueryUuids = savedChartUuidsAndTileUuids.map(
             ({ savedChartUuid }) => savedChartUuid,
         );
 
-        if (checkPermissions)
-            savedQueryUuids.map(async (chartUuid) =>
-                this._permissionsGetChartAndResults(
-                    { dashboardUuids, allowAllDashboards },
-                    projectUuid,
-                    chartUuid,
-                    dashboardUuid,
+        if (checkPermissions) {
+            await Promise.all(
+                savedQueryUuids.map((chartUuid) =>
+                    this._permissionsGetChartAndResults(
+                        { dashboardUuids, allowAllDashboards },
+                        projectUuid,
+                        chartUuid,
+                        dashboardUuid,
+                    ),
                 ),
             );
+        }
 
-        const savedCharts =
-            await this.savedChartModel.getInfoForAvailableFilters(
+        const [savedCharts, customSqlByChart] = await Promise.all([
+            this.savedChartModel.getInfoForAvailableFilters(savedQueryUuids),
+            this.savedChartModel.getSelectedCustomSqlDimensionsForAvailableFilters(
                 savedQueryUuids,
-            );
+            ),
+        ]);
 
         const exploreCacheKeys: Record<string, boolean> = {};
         const exploreCache: Record<string, Explore | ExploreError> = {};
@@ -493,50 +499,29 @@ export class EmbedService extends BaseService {
             const explore = exploreCache[savedChart.tableName];
             if (isExploreError(explore))
                 return { uuid: savedChart.uuid, filters: [] };
-            const filters = getDimensions(explore).filter(
-                (field) => isFilterableDimension(field) && !field.hidden,
-            );
+            let filters: DashboardFilterableField[] = getDimensions(
+                explore,
+            ).filter((field) => isFilterableDimension(field) && !field.hidden);
+            const customSqlDims = customSqlByChart[savedChart.uuid] ?? [];
+            if (customSqlDims.length > 0) {
+                filters = [
+                    ...filters,
+                    ...compileFilterableCustomSqlDimensionsForExplore(
+                        explore,
+                        customSqlDims,
+                    ),
+                ];
+            }
 
             return { uuid: savedChart.uuid, filters };
         });
 
         allFilters = await Promise.all(filterPromises);
 
-        const allFilterableFields: FilterableDimension[] = [];
-        const filterIndexMap: Record<string, number> = {};
-
-        allFilters.forEach((filterSet) => {
-            filterSet.filters.forEach((filter) => {
-                const fieldId = getItemId(filter);
-                if (!(fieldId in filterIndexMap)) {
-                    filterIndexMap[fieldId] = allFilterableFields.length;
-                    allFilterableFields.push(filter);
-                }
-            });
-        });
-
-        const savedQueryFilters = savedChartUuidsAndTileUuids.reduce<
-            DashboardAvailableFilters['savedQueryFilters']
-        >((acc, savedChartUuidAndTileUuid) => {
-            const filterResult = allFilters.find(
-                (result) =>
-                    result.uuid === savedChartUuidAndTileUuid.savedChartUuid,
-            );
-            if (!filterResult || !filterResult.filters.length) return acc;
-
-            const filterIndexes = filterResult.filters.map(
-                (filter) => filterIndexMap[getItemId(filter)],
-            );
-            return {
-                ...acc,
-                [savedChartUuidAndTileUuid.tileUuid]: filterIndexes,
-            };
-        }, {});
-
-        return {
-            savedQueryFilters,
-            allFilterableFields,
-        };
+        return mergeDashboardAvailableFiltersFromChartFilterSets(
+            allFilters,
+            savedChartUuidsAndTileUuids,
+        );
     }
 
     /**

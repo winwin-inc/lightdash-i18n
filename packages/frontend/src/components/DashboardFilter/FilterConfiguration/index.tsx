@@ -7,17 +7,19 @@ import {
     getFilterTypeFromItem,
     getFilterTypeFromItemType,
     getItemId,
-    isField,
     isFilterableField,
+    isMetric,
+    isTableCalculation,
     matchFieldByLabel,
     matchFieldByType,
     matchFieldByTypeAndName,
     matchFieldExact,
     type DashboardFieldTarget,
+    type DashboardFilterableField,
     type DashboardFilterRule,
     type DashboardTab,
     type DashboardTile,
-    type FilterableDimension,
+    type Field,
     type ResultColumn,
 } from '@lightdash/common';
 import {
@@ -65,9 +67,9 @@ interface Props {
     tiles: DashboardTile[];
     tabs: DashboardTab[];
     activeTabUuid: string | undefined;
-    field?: FilterableDimension;
-    fields?: FilterableDimension[];
-    availableTileFilters: Record<string, FilterableDimension[]>;
+    field?: DashboardFilterableField;
+    fields?: DashboardFilterableField[];
+    availableTileFilters: Record<string, DashboardFilterableField[]>;
     originalFilterRule?: DashboardFilterRule;
     defaultFilterRule?: DashboardFilterRule;
     popoverProps?: Omit<PopoverProps, 'children'>;
@@ -80,14 +82,24 @@ interface Props {
 }
 
 const getDefaultField = (
-    fields: FilterableDimension[],
-    selectedField: FilterableDimension,
+    fields: DashboardFilterableField[],
+    selectedField: DashboardFilterableField,
 ) => {
+    const selectedAsField = selectedField as unknown as Field;
     return (
-        fields.find(matchFieldExact(selectedField)) ??
-        fields.find(matchFieldByLabel(selectedField)) ??
-        fields.find(matchFieldByTypeAndName(selectedField)) ??
-        fields.find(matchFieldByType(selectedField))
+        fields.find((f) => getItemId(f) === getItemId(selectedField)) ??
+        fields.find((f) =>
+            matchFieldExact(selectedAsField)(f as unknown as Field),
+        ) ??
+        fields.find((f) =>
+            matchFieldByLabel(selectedAsField)(f as unknown as Field),
+        ) ??
+        fields.find((f) =>
+            matchFieldByTypeAndName(selectedAsField)(f as unknown as Field),
+        ) ??
+        fields.find((f) =>
+            matchFieldByType(selectedAsField)(f as unknown as Field),
+        )
     );
 };
 
@@ -115,7 +127,7 @@ const FilterConfiguration: FC<Props> = ({
 
     const [selectedTabId, setSelectedTabId] = useState<FilterTabs>(DEFAULT_TAB);
     const [selectedField, setSelectedField] = useState<
-        FilterableDimension | undefined
+        DashboardFilterableField | undefined
     >(field);
 
     const [draftFilterRule, setDraftFilterRule] = useState<
@@ -140,10 +152,15 @@ const FilterConfiguration: FC<Props> = ({
         return hasSavedFilterValueChanged(defaultFilterRule, draftFilterRule);
     }, [defaultFilterRule, draftFilterRule]);
 
-    const handleChangeField = (newField: FilterableDimension) => {
+    const handleChangeField = (newField: DashboardFilterableField) => {
         const isCreatingTemporary = isCreatingNew && !isEditMode;
 
-        if (newField && isField(newField) && isFilterableField(newField)) {
+        if (
+            newField &&
+            isFilterableField(newField) &&
+            !isTableCalculation(newField) &&
+            !isMetric(newField)
+        ) {
             setDraftFilterRule(
                 createDashboardFilterRuleFromField({
                     field: newField,
