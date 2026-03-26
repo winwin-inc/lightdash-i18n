@@ -1,0 +1,31 @@
+{
+    "name": "@lightdash/mcp",
+    "version": "0.2098.2",
+    "private": true,
+    "license": "MIT",
+    "description": "stdio MCP for Lightdash REST API",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "bin": {
+        "lightdash-mcp": "dist/index.js"
+    },
+    "files": [
+        "dist/**/*"
+    ],
+    "scripts": {
+        "build": "tsc --project tsconfig.json",
+        "typecheck": "tsc --project tsconfig.json --noEmit",
+        "start": "node dist/index.js",
+        "lint": "eslint -c ./.eslintrc.js src/**/*.ts",
+        "fix-lint": "eslint -c ./.eslintrc.js --fix src/**/*.ts"
+    },
+    "dependencies": {
+        "@lightdash/common": "workspace:*",
+        "@modelcontextprotocol/sdk": "^1.17.5",
+        "tslib": "^2.8.1",
+        "zod": "^3.23.8"
+    },
+    "devDependencies": {
+        "typescript": "5.5.4"
+    }
+}
