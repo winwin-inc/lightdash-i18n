@@ -1,0 +1,7 @@
+{
+  "enableAllProjectMcpServers": true,
+  "permissions": {
+    "allow": ["mcp__lightdash__*"]
+  },
+  "enabledMcpjsonServers": ["lightdash"]
+}

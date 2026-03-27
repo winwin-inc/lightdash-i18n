@@ -205,12 +205,168 @@ export function createLightdashRestClient(config: LightdashMcpEnvConfig) {
         );
     }
 
+    // ----- 新增：语义化 API -----
+
+    async function listProjects(apiKey: string): Promise<unknown> {
+        const json = await requestJson<{ results?: unknown }>(
+            apiKey,
+            '/api/v1/org/projects',
+        );
+        return json.results ?? json;
+    }
+
+    async function listSpaces(
+        apiKey: string,
+        projectUuid: string,
+    ): Promise<unknown> {
+        const json = await requestJson<{ results?: unknown }>(
+            apiKey,
+            '/api/v1/projects/' +
+                encodeURIComponent(projectUuid) +
+                '/spaces',
+        );
+        return json.results ?? json;
+    }
+
+    async function searchContent(
+        apiKey: string,
+        projectUuid: string,
+        options: {
+            search?: string;
+            contentTypes?: string[];
+            page?: number;
+            pageSize?: number;
+        },
+    ): Promise<unknown> {
+        const params = new URLSearchParams();
+        if (options.search) params.set('search', options.search);
+        if (options.contentTypes?.length) {
+            options.contentTypes.forEach((t) => params.append('contentTypes', t));
+        }
+        if (options.page) params.set('page', String(options.page));
+        if (options.pageSize) params.set('pageSize', String(options.pageSize));
+        // v2 content API 需要 projectUuids 参数
+        params.set('projectUuids', projectUuid);
+
+        const json = await requestJson<{ results?: unknown }>(
+            apiKey,
+            '/api/v2/content?' + params.toString(),
+        );
+        return json.results ?? json;
+    }
+
+    async function getSavedChart(
+        apiKey: string,
+        chartUuid: string,
+    ): Promise<unknown> {
+        const json = await requestJson<{ results?: unknown }>(
+            apiKey,
+            '/api/v1/saved/' + encodeURIComponent(chartUuid),
+        );
+        return json.results ?? json;
+    }
+
+    async function runSavedChart(
+        apiKey: string,
+        projectUuid: string,
+        body: {
+            chartUuid: string;
+            versionUuid?: string;
+            parameters?: Record<string, unknown>;
+            limit?: number;
+        },
+        options: {
+            pageSize: number;
+            maxPollAttempts: number;
+            pollIntervalMs: number;
+        },
+    ): Promise<{
+        queryUuid: string;
+        rows: unknown[];
+        columns: unknown;
+        fields: ApiExecuteAsyncMetricQueryResults['fields'];
+        warnings: ApiExecuteAsyncMetricQueryResults['warnings'];
+        parameterReferences: ApiExecuteAsyncMetricQueryResults['parameterReferences'];
+        usedParametersValues: ApiExecuteAsyncMetricQueryResults['usedParametersValues'];
+    }> {
+        const payload = {
+            ...body,
+            limit:
+                body.limit !== undefined
+                    ? clampLimit(body.limit, maxLimit)
+                    : body.limit,
+        };
+        const executeResult = await requestJson<{
+            results: ApiExecuteAsyncMetricQueryResults;
+        }>(
+            apiKey,
+            '/api/v2/projects/' +
+                encodeURIComponent(projectUuid) +
+                '/query/chart',
+            {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            },
+        ).then((r) => r.results);
+
+        const { queryUuid } = executeResult;
+
+        for (let i = 0; i < options.maxPollAttempts; i += 1) {
+            const page = await getQueryResultsPage(
+                apiKey,
+                projectUuid,
+                queryUuid,
+                1,
+                options.pageSize,
+            );
+            if (page.status === QueryHistoryStatus.ERROR) {
+                throw new Error(page.error ?? 'Query failed');
+            }
+            if (page.status === QueryHistoryStatus.CANCELLED) {
+                return {
+                    queryUuid,
+                    rows: [],
+                    columns: {},
+                    fields: executeResult.fields,
+                    warnings: executeResult.warnings,
+                    parameterReferences: executeResult.parameterReferences,
+                    usedParametersValues: executeResult.usedParametersValues,
+                };
+            }
+            if (page.status === QueryHistoryStatus.READY) {
+                return {
+                    queryUuid,
+                    rows: page.rows,
+                    columns: page.columns,
+                    fields: executeResult.fields,
+                    warnings: executeResult.warnings,
+                    parameterReferences: executeResult.parameterReferences,
+                    usedParametersValues: executeResult.usedParametersValues,
+                };
+            }
+            await new Promise((r) => setTimeout(r, options.pollIntervalMs));
+        }
+        throw new Error(
+            'Saved chart query ' +
+                queryUuid +
+                ' timed out after ' +
+                options.maxPollAttempts +
+                ' polls',
+        );
+    }
+
     return {
         listExplores,
         getExplore,
         executeMetricQuery,
         getQueryResultsPage,
         runMetricQueryUntilReady,
+        // 新增
+        listProjects,
+        listSpaces,
+        searchContent,
+        getSavedChart,
+        runSavedChart,
     };
 }
 

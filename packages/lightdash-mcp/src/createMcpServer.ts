@@ -8,6 +8,7 @@ import { getHttpRequestApiKey } from './requestContext';
 /**
  * MCP SDK 的 `server.tool` 会对 `z.objectOutputType<Args>` 做深层推导，易触发 TS2589。
  * 这里用窄化后的 handler 类型注册，运行时仍由 SDK 用 Zod 校验入参。
+ * 须使用四参数 tool(name, desc, params, cb)：勿传第五参 `{}` 作 annotations——SDK 将空对象判为 ZodRawShape，会把回调错位成非函数（cb is not a function）。
  */
 function registerToolTyped(
     server: McpServer,
@@ -16,14 +17,14 @@ function registerToolTyped(
     params: ZodRawShape,
     handler: (args: Record<string, unknown>) => Promise<CallToolResult>,
 ): void {
-    const register = server.tool as (
+    // 必须 bind(server)：裸引用 server.tool 再调用会丢失 this，导致 _registeredTools 为 undefined
+    const register = server.tool.bind(server) as (
         n: string,
         desc: string,
         schema: ZodRawShape,
-        annotations: Record<string, unknown>,
         cb: (args: Record<string, unknown>) => Promise<CallToolResult>,
     ) => void;
-    register(name, description, params, {}, handler);
+    register(name, description, params, handler);
 }
 
 // `z.record(z.unknown())` 会在 MCP SDK 的 `z.objectOutputType<Args, …>` 推导中触发递归过深；
@@ -53,6 +54,45 @@ const runMetricQueryParams = {
     pageSize: z.number().optional(),
     maxPollAttempts: z.number().optional(),
     pollIntervalMs: z.number().optional(),
+} satisfies ZodRawShape;
+
+// ----- 新增：语义化工具参数 -----
+
+const contentTypeEnum = z.enum(['chart', 'dashboard', 'space']);
+
+const searchContentParams = {
+    apiKey: z.string().optional(),
+    projectUuid: z.string().optional(),
+    search: z.string().optional(),
+    contentTypes: z.array(contentTypeEnum).optional(),
+    page: z.number().optional(),
+    pageSize: z.number().optional(),
+} satisfies ZodRawShape;
+
+const runSavedChartParams = {
+    apiKey: z.string().optional(),
+    projectUuid: z.string().optional(),
+    chartUuid: z.string(),
+    versionUuid: z.string().optional(),
+    parameters: z.any().optional(),
+    limit: z.number().optional(),
+    pageSize: z.number().optional(),
+    maxPollAttempts: z.number().optional(),
+    pollIntervalMs: z.number().optional(),
+} satisfies ZodRawShape;
+
+const listProjectsParams = {
+    apiKey: z.string().optional(),
+} satisfies ZodRawShape;
+
+const listSpacesParams = {
+    apiKey: z.string().optional(),
+    projectUuid: z.string().optional(),
+} satisfies ZodRawShape;
+
+const getSavedChartParams = {
+    apiKey: z.string().optional(),
+    chartUuid: z.string(),
 } satisfies ZodRawShape;
 
 function resolveProjectUuid(
@@ -90,10 +130,165 @@ export function createLightdashMcpServer(
         version: '0.2098.2',
     });
 
+    // --- 分析师优先：项目 / 空间 / 看板与图表 ---
+
+    registerToolTyped(
+        server,
+        'lightdash_list_projects',
+        '列出你有权限访问的项目；不知道选哪个项目时先用它。',
+        listProjectsParams,
+        async (args) => {
+            const apiKey = resolveApiKey(
+                config,
+                args.apiKey as string | undefined,
+            );
+            const data = await api.listProjects(apiKey);
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(data, null, 2),
+                    },
+                ],
+            };
+        },
+    );
+
+    registerToolTyped(
+        server,
+        'lightdash_search_content',
+        '按关键词查找看板、已保存的图表、空间（文件夹）；可分页。contentTypes 可选：chart、dashboard、space。',
+        searchContentParams,
+        async (args) => {
+            const apiKey = resolveApiKey(
+                config,
+                args.apiKey as string | undefined,
+            );
+            const projectUuid = resolveProjectUuid(
+                config,
+                args.projectUuid as string | undefined,
+            );
+            const data = await api.searchContent(apiKey, projectUuid, {
+                search: args.search as string | undefined,
+                contentTypes: args.contentTypes as
+                    | ('chart' | 'dashboard' | 'space')[]
+                    | undefined,
+                page: args.page as number | undefined,
+                pageSize: args.pageSize as number | undefined,
+            });
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(data, null, 2),
+                    },
+                ],
+            };
+        },
+    );
+
+    registerToolTyped(
+        server,
+        'lightdash_list_spaces',
+        '列出当前项目下的空间（内容文件夹）。',
+        listSpacesParams,
+        async (args) => {
+            const apiKey = resolveApiKey(
+                config,
+                args.apiKey as string | undefined,
+            );
+            const projectUuid = resolveProjectUuid(
+                config,
+                args.projectUuid as string | undefined,
+            );
+            const data = await api.listSpaces(apiKey, projectUuid);
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(data, null, 2),
+                    },
+                ],
+            };
+        },
+    );
+
+    registerToolTyped(
+        server,
+        'lightdash_get_saved_chart',
+        '查看某张已保存图表的名称、可用参数、依赖的数据主题；跑数前先确认参数怎么填。',
+        getSavedChartParams,
+        async (args) => {
+            const apiKey = resolveApiKey(
+                config,
+                args.apiKey as string | undefined,
+            );
+            const data = await api.getSavedChart(
+                apiKey,
+                args.chartUuid as string,
+            );
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(data, null, 2),
+                    },
+                ],
+            };
+        },
+    );
+
+    registerToolTyped(
+        server,
+        'lightdash_run_saved_chart',
+        '按已保存图表跑数；可用 parameters 传筛选（如年份、区域）。limit 会按环境上限自动封顶。',
+        runSavedChartParams,
+        async (args) => {
+            const apiKey = resolveApiKey(
+                config,
+                args.apiKey as string | undefined,
+            );
+            const projectUuid = resolveProjectUuid(
+                config,
+                args.projectUuid as string | undefined,
+            );
+            const pageSize = (args.pageSize as number | undefined) ?? 500;
+            const maxPollAttempts =
+                (args.maxPollAttempts as number | undefined) ?? 120;
+            const pollIntervalMs =
+                (args.pollIntervalMs as number | undefined) ?? 500;
+            const limit = (args.limit as number | undefined) ?? 500;
+
+            const result = await api.runSavedChart(
+                apiKey,
+                projectUuid,
+                {
+                    chartUuid: args.chartUuid as string,
+                    versionUuid: args.versionUuid as string | undefined,
+                    parameters: args.parameters as
+                        | Record<string, unknown>
+                        | undefined,
+                    limit,
+                },
+                { pageSize, maxPollAttempts, pollIntervalMs },
+            );
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(result, null, 2),
+                    },
+                ],
+            };
+        },
+    );
+
+    // --- 即席探索（需字段 ID，适合自定义分析）---
+
     registerToolTyped(
         server,
         'lightdash_list_explores',
-        '列出项目 explores（GET /api/v1/projects/{projectUuid}/explores）',
+        '列出可自助分析的数据主题（来自数据模型），不是「已保存图表」列表。',
         listExploresParams,
         async (args) => {
             const apiKey = resolveApiKey(
@@ -120,7 +315,7 @@ export function createLightdashMcpServer(
     registerToolTyped(
         server,
         'lightdash_get_explore',
-        '获取 explore 与字段元数据（GET .../explores/{exploreId}）',
+        '查看某数据主题下有哪些维度和指标（字段 ID），用于临时分析前选字段。',
         getExploreParams,
         async (args) => {
             const apiKey = resolveApiKey(
@@ -150,7 +345,7 @@ export function createLightdashMcpServer(
     registerToolTyped(
         server,
         'lightdash_run_metric_query',
-        'POST metric-query 后轮询 GET query 直至 ready，返回 rows/columns',
+        '高级：自选维度、指标、筛选做即席查询；需先 get_explore 拿到正确字段 ID。返回含行数据与字段说明。',
         runMetricQueryParams,
         async (args) => {
             const apiKey = resolveApiKey(

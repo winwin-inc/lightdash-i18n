@@ -1,25 +1,27 @@
 # @lightdash/mcp
 
-Lightdash 的 **MCP** 实现：通过 tools 调用 Lightdash REST API（v1 explores、v2 metric-query + 轮询）。
+Lightdash MCP 服务（适用于 Claude Code / Cursor）。
 
-| 模式 | 用途 | 启动 |
-|------|------|------|
-| **stdio** | 本仓库 / IDE 子进程 | `node dist/index.js` 或 `pnpm -F @lightdash/mcp start` |
-| **Streamable HTTP** | 独立部署，客户端只配 `url` + `headers` | `pnpm -F @lightdash/mcp start:http` → `http://<host>:<port>/mcp` |
+目标是让分析师优先通过「项目、空间、看板、已保存图表」快速取数，同时保留即席查询能力给进阶场景。
 
-与产品内 **Enterprise 托管 MCP** 解耦。
+## 启动模式
 
-**完整说明（配置、Skills、测试）**：[docs/lightdash-mcp.md](../../docs/lightdash-mcp.md)
+| 模式 | 适用场景 | 启动命令 |
+|------|----------|----------|
+| `stdio` | 本地开发、IDE 子进程拉起 | `pnpm -F @lightdash/mcp start` |
+| `streamable http` | 独立部署，客户端只配 `url` + `headers` | `pnpm -F @lightdash/mcp start:http` |
+
+HTTP 入口默认：`http://0.0.0.0:3333/mcp`
 
 ## 环境变量
 
-| 变量 | 必填 |
-|------|------|
-| `LIGHTDASH_SITE_URL` | 是 |
-| `LIGHTDASH_API_KEY` | 否（默认 PAT；HTTP 可用请求头或 tool `apiKey` 覆盖） |
-| `LIGHTDASH_DEFAULT_PROJECT_UUID` | 否 |
-| `LIGHTDASH_MAX_LIMIT` | 否 |
-| `LIGHTDASH_MCP_HTTP_PORT` | 否（HTTP 默认 3333） |
+| 变量 | 必填 | 说明 |
+|------|------|------|
+| `LIGHTDASH_SITE_URL` | 是 | Lightdash 站点地址 |
+| `LIGHTDASH_API_KEY` | 否 | 默认 PAT（可被请求头或 tool 的 `apiKey` 覆盖） |
+| `LIGHTDASH_DEFAULT_PROJECT_UUID` | 否 | 默认项目 UUID |
+| `LIGHTDASH_MAX_LIMIT` | 否 | 查询 `limit` 上限 |
+| `LIGHTDASH_MCP_HTTP_PORT` | 否 | HTTP 端口，默认 `3333` |
 
 ## 构建
 
@@ -27,23 +29,32 @@ Lightdash 的 **MCP** 实现：通过 tools 调用 Lightdash REST API（v1 explo
 pnpm -F @lightdash/mcp build
 ```
 
-## 运行
+## 已提供工具（按推荐使用顺序）
 
-```bash
-# stdio（需 .env 或导出变量）
-pnpm -F @lightdash/mcp start
+业务优先：
 
-# HTTP（默认 0.0.0.0:3333/mcp）
-pnpm -F @lightdash/mcp start:http
-```
+- `lightdash_list_projects`
+- `lightdash_search_content`
+- `lightdash_list_spaces`
+- `lightdash_get_saved_chart`
+- `lightdash_run_saved_chart`
 
-## Tools
+进阶（即席分析）：
 
-- `lightdash_list_explores`（`apiKey?`）
-- `lightdash_get_explore`（`apiKey?`）
-- `lightdash_run_metric_query`（`apiKey?`）
+- `lightdash_list_explores`
+- `lightdash_get_explore`
+- `lightdash_run_metric_query`
 
-## 可执行入口（package `bin`）
+## Companion 包
 
-- `lightdash-mcp` → `dist/index.js`（stdio）
-- `lightdash-mcp-http` → `dist/http.js`
+- 技能包在 `packages/lightdash-skills`（给 Claude 的 SKILL 文档与示例）
+
+## 参考文档
+
+- 总文档：[`docs/lightdash-mcp.md`](../../docs/lightdash-mcp.md)
+- 分析师向工具说明：[`docs/lightdash-mcp-user-oriented-tools.md`](../../docs/lightdash-mcp-user-oriented-tools.md)
+
+## 可执行入口（bin）
+
+- `lightdash-mcp` -> `dist/index.js`
+- `lightdash-mcp-http` -> `dist/http.js`

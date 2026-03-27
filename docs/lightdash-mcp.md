@@ -67,6 +67,8 @@ pnpm -F @lightdash/mcp build
 
 ### 3. 客户端配置（`.mcp.json`）
 
+**PAT 小结**：**stdio** 在客户端 `mcpServers.*.env` 或进程侧 `packages/lightdash-mcp/.env` 中设置 `LIGHTDASH_API_KEY`；**HTTP** 在客户端 `headers` 中传 `Authorization: ApiKey …` 或 `x-lightdash-api-key`。与「`cb is not a function`」类 MCP SDK 注册问题无关。
+
 放在**当前在 Claude Code / Cursor 中打开的项目根**（或客户端要求的路径）。模板：**技能包 / HTTP** [skills/.mcp.json.example](../skills/.mcp.json.example)；**仓库根** [.mcp.json.example](../.mcp.json.example)（含 playwright + lightdash stdio 段）。
 
 #### 3a. stdio（本仓库开发）

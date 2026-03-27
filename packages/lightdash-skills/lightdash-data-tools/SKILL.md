@@ -1,15 +1,25 @@
 ---
 name: lightdash-data-tools
-description: 用于 Lightdash 提数路由。用户提到 Lightdash、explore、metric query、拉数、查字段、按条件过滤时触发。优先调用 lightdash_list_explores、lightdash_get_explore、lightdash_run_metric_query。
+description: 用于 Lightdash 即席分析。用户明确要构造 metric query、自选维度/指标、临时拉数、复杂筛选时触发。技术导向，非业务内容浏览。
 ---
 
-# Lightdash Data Tools
+# Lightdash Data Tools（技术向）
 
 ## 何时使用
 
-- 用户要查看项目下有哪些 explores
-- 用户要查看某个 explore 的可用字段（维度、指标）
-- 用户要按条件拉取结果数据（metric query）
+- 用户要查看项目下有哪些 **Explore（数据表/模型）** 可用于自助分析
+- 用户要查看某个 Explore 的可用字段（维度、指标）
+- 用户要**自选字段**构造 metric query（临时分析，非已保存图表）
+- 用户需要自定义筛选、排序、表计算等高级查询
+
+## 与 lightdash-insight-router 的区别
+
+| 场景 | 使用技能 |
+|------|----------|
+| 有哪些图表/看板、搜"XX" | `lightdash-insight-router` |
+| 运行已保存的图表 | `lightdash-insight-router` |
+| 有哪些 Explore 能查 | `lightdash-data-tools` |
+| 自选字段做即席分析 | `lightdash-data-tools` |
 
 ## 标准流程
 
