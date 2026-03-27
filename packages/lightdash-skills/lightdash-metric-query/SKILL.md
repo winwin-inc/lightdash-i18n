@@ -7,7 +7,12 @@ description: 【高级技能】当用户明确要构造或调试 metric query（
 
 ## 目标
 
-帮助用户稳定构造可执行的 `query` 对象，并减少因字段、过滤器形状不匹配导致的失败。
+帮助用户稳定构造可执行的扁平参数（`exploreName`、`dimensions`、`metrics`、`filters` 等），并减少因字段、过滤器形状不匹配导致的失败。
+
+## 强约束（必须）
+
+- 不要传 `query` 嵌套对象，直接传扁平参数
+- `filters` 必须是**对象**，不能是数组旧格式
 
 ## 构造顺序
 
@@ -22,6 +27,21 @@ description: 【高级技能】当用户明确要构造或调试 metric query（
 
 ```json
 {
+  "exploreName": "orders",
+  "dimensions": [],
+  "metrics": [],
+  "filters": {},
+  "sorts": [],
+  "limit": 500,
+  "tableCalculations": []
+}
+```
+
+## 调用示例（正确）
+
+```json
+{
+  "projectUuid": "<projectUuid>",
   "exploreName": "orders",
   "dimensions": [],
   "metrics": [],

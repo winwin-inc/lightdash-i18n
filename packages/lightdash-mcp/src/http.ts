@@ -8,16 +8,86 @@ import { loadConfigFromEnv } from './config';
 import { createLightdashMcpServer } from './createMcpServer';
 import { httpRequestApiKeyStore } from './requestContext';
 
+type AuthCacheEntry = {
+    email: string;
+    expiresAtMs: number;
+};
+
+const AUTH_CACHE_TTL_MS = 90_000;
+const authCache = new Map<string, AuthCacheEntry>();
+
 function parseApiKeyFromRequest(req: express.Request): string | undefined {
-    const auth = req.headers.authorization;
-    if (typeof auth === 'string' && auth.toLowerCase().startsWith('apikey ')) {
-        return auth.slice(7).trim();
-    }
-    const x = req.headers['x-lightdash-api-key'];
-    if (typeof x === 'string' && x.length > 0) {
-        return x;
+    const xApiKey = req.headers['x-api-key'];
+    if (typeof xApiKey === 'string' && xApiKey.length > 0) {
+        return xApiKey;
     }
     return undefined;
+}
+
+function maskApiKey(key: string | undefined): string {
+    if (!key || key.length <= 3) return '***';
+    return `${key.slice(0, 4)}***${key.slice(-4)}`;
+}
+
+function resolveClientIp(req: express.Request): string {
+    const xfwd = req.headers['x-forwarded-for'];
+    if (typeof xfwd === 'string' && xfwd.length > 0) {
+        return xfwd.split(',')[0]?.trim() || req.ip || '-';
+    }
+    return req.ip || '-';
+}
+
+function readEmailFromUserResponse(payload: unknown): string {
+    if (!payload || typeof payload !== 'object') return 'unknown';
+    const p = payload as {
+        results?: {
+            email?: string;
+            user?: { email?: string };
+        };
+    };
+    return (
+        p.results?.email ??
+        p.results?.user?.email ??
+        'unknown'
+    );
+}
+
+async function validateApiKeyAndGetEmail(
+    baseUrl: string,
+    apiKey: string,
+    maskedKey: string,
+): Promise<string> {
+    const now = Date.now();
+    const cached = authCache.get(apiKey);
+    if (cached && cached.expiresAtMs > now) {
+        const remainSec = Math.max(0, Math.floor((cached.expiresAtMs - now) / 1000));
+        process.stderr.write(
+            `[ApiAuth] ${maskedKey} 缓存命中 -> 有效（剩余 ${remainSec}s） | ${cached.email}\n`,
+        );
+        return cached.email;
+    }
+
+    const response = await fetch(`${baseUrl}/api/v1/user`, {
+        method: 'GET',
+        headers: {
+            Authorization: `ApiKey ${apiKey}`,
+            'Content-Type': 'application/json',
+        },
+    });
+    if (!response.ok) {
+        process.stderr.write(
+            `[ApiAuth] ${maskedKey} 校验失败 -> ${response.status}\n`,
+        );
+        throw new Error(`Lightdash API ${response.status}: Failed to authorize user`);
+    }
+    const body = (await response.json()) as unknown;
+    const email = readEmailFromUserResponse(body);
+    authCache.set(apiKey, {
+        email,
+        expiresAtMs: now + AUTH_CACHE_TTL_MS,
+    });
+    process.stderr.write(`[ApiAuth] ${maskedKey} 校验通过 -> ${email}\n`);
+    return email;
 }
 
 async function main(): Promise<void> {
@@ -37,14 +107,42 @@ async function main(): Promise<void> {
     });
 
     app.all('/mcp', async (req: express.Request, res: express.Response) => {
+        const start = Date.now();
+        const ip = resolveClientIp(req);
         const headerKey = parseApiKeyFromRequest(req);
-        await httpRequestApiKeyStore.run({ apiKey: headerKey }, () =>
-            transport.handleRequest(
-                req,
-                res,
-                req.method === 'POST' ? req.body : undefined,
-            ),
-        );
+        const effectiveKey = headerKey ?? config.apiKey;
+        const maskedKey = maskApiKey(effectiveKey);
+        let userEmail = 'unknown';
+
+        try {
+            if (effectiveKey) {
+                userEmail = await validateApiKeyAndGetEmail(
+                    config.baseUrl,
+                    effectiveKey,
+                    maskedKey,
+                );
+            }
+            await httpRequestApiKeyStore.run(
+                {
+                    apiKey: effectiveKey,
+                    userEmail,
+                    maskedKey,
+                },
+                () =>
+                    transport.handleRequest(
+                        req,
+                        res,
+                        req.method === 'POST' ? req.body : undefined,
+                    ),
+            );
+        } finally {
+            const elapsed = Date.now() - start;
+            const status = res.statusCode || 0;
+            const statusTag = status >= 400 ? ` | error(${status})` : '';
+            process.stderr.write(
+                `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: ${maskedKey} | ${status} | ${elapsed}ms${statusTag} | ${userEmail}\n`,
+            );
+        }
     });
 
     const port = Number(process.env.LIGHTDASH_MCP_HTTP_PORT ?? 3333);

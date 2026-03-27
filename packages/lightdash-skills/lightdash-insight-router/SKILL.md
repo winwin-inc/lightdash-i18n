@@ -36,6 +36,9 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 3. 缺关键条件（项目/图表/年份）先反问，不猜
 4. 输出顺序：**结论 -> 关键数字 -> 口径说明**
 5. 不回显 PAT 或任何密钥
+6. 调用 `lightdash_run_metric_query` 时：
+   - 使用**扁平参数**（`exploreName`、`dimensions`、`metrics`、`filters`...），不要再传 `query` 嵌套对象
+   - `filters` 必须是 **对象**，禁止传数组旧格式
 
 ## 分支执行模板
 
@@ -62,6 +65,20 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
   "sorts": [],
   "limit": 500,
   "tableCalculations": []
+}
+```
+
+调用示例（注意 `query` 是对象，不是字符串）：
+
+```json
+{
+  "projectUuid": "<projectUuid>",
+  "exploreName": "orders",
+  "dimensions": ["orders_created_date_month"],
+  "metrics": ["orders_total_revenue"],
+  "filters": {},
+  "sorts": [],
+  "limit": 100
 }
 ```
 

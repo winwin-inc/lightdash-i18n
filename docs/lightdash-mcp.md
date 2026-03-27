@@ -65,7 +65,7 @@ pnpm -F @lightdash/mcp build
 
 ### 3. 客户端配置（`.mcp.json`）
 
-**PAT 小结**：HTTP 在客户端 `headers` 中传 `Authorization: ApiKey …` 或 `x-lightdash-api-key`。与「`cb is not a function`」类 MCP SDK 注册问题无关。
+**PAT 小结**：HTTP 在客户端 `headers` 中传 `x-api-key: <PAT>`。与「`cb is not a function`」类 MCP SDK 注册问题无关。
 
 放在**当前在 Claude Code / Cursor 中打开的项目根**（或客户端要求的路径）。模板：**技能包 / HTTP** [packages/lightdash-skills/.mcp.json.example](../packages/lightdash-skills/.mcp.json.example)。
 
@@ -80,14 +80,14 @@ pnpm -F @lightdash/mcp build
       "type": "http",
       "url": "http://localhost:3333/mcp",
       "headers": {
-        "Authorization": "ApiKey <your-pat>"
+        "x-api-key": "<your-pat>"
       }
     }
   }
 }
 ```
 
-- 也可用请求头 `x-lightdash-api-key: <pat>`。
+- 默认使用请求头 `x-api-key: <pat>`。
 - `url` 必须是 MCP 的 **`/mcp` 端点**，与 `LIGHTDASH_SITE_URL` 无关。
 
 ### 4. Claude Code / Cursor
@@ -171,7 +171,7 @@ User → Skills(指导) → MCP(调用API) → Lightdash API
 | 提交 metric query | POST | `/api/v2/projects/{projectUuid}/query/metric-query` |
 | 查询结果 | GET | `/api/v2/projects/{projectUuid}/query/{queryUuid}?page=&pageSize=` |
 
-**鉴权头**：`Authorization: ApiKey <PAT>`
+**鉴权头**：`x-api-key: <PAT>`
 
 ---
 

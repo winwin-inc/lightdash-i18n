@@ -81,7 +81,7 @@
 ## 5. 认证（与工具无关）
 
 - **stdio**：客户端 `env` 或 `packages/lightdash-mcp/.env` 中配置 `LIGHTDASH_API_KEY` 等。  
-- **HTTP**：客户端 `headers`：`Authorization: ApiKey …` 或 `x-lightdash-api-key`。
+- **HTTP**：客户端 `headers`：`x-api-key: <PAT>`。
 
 ---
 

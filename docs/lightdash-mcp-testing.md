@@ -29,7 +29,7 @@ LIGHTDASH_MCP_HTTP_PORT=3333
       "type": "http",
       "url": "http://localhost:3333/mcp",
       "headers": {
-        "Authorization": "ApiKey <your-pat>"
+        "x-api-key": "<your-pat>"
       }
     }
   }
@@ -89,14 +89,12 @@ LIGHTDASH_MCP_HTTP_PORT=3333
 
 ```json
 {
-  "query": {
-    "exploreName": "<exploreName>",
-    "dimensions": [],
-    "metrics": [],
-    "filters": {},
-    "sorts": [],
-    "limit": 10
-  }
+  "exploreName": "<exploreName>",
+  "dimensions": [],
+  "metrics": [],
+  "filters": {},
+  "sorts": [],
+  "limit": 10
 }
 ```
 

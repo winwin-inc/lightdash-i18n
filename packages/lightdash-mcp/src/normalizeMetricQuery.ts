@@ -1,4 +1,4 @@
-﻿import type { MetricQueryRequest } from '@lightdash/common';
+import type { MetricQueryRequest } from '@lightdash/common';
 
 /** 与 packages/backend QueryController v2 中 metric query 默认值对齐 */
 export function normalizeMetricQueryRequest(
@@ -16,6 +16,13 @@ export function normalizeMetricQueryRequest(
         ? (raw.metrics as unknown[]).filter((x): x is string => typeof x === 'string')
         : [];
     const filters =
+        Array.isArray(raw.filters)
+            ? (() => {
+                  throw new Error(
+                      'query.filters must be an object (not an array)',
+                  );
+              })()
+            : raw.filters &&
         raw.filters &&
         typeof raw.filters === 'object' &&
         raw.filters !== null &&

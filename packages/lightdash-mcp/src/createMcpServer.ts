@@ -3,7 +3,11 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z, type ZodRawShape } from 'zod';
 import type { LightdashMcpEnvConfig } from './config';
 import { createLightdashRestClient } from './lightdashRest';
-import { getHttpRequestApiKey } from './requestContext';
+import {
+    getHttpRequestApiKey,
+    getHttpRequestMaskedKey,
+    getHttpRequestUserEmail,
+} from './requestContext';
 
 /**
  * MCP SDK 的 `server.tool` 会对 `z.objectOutputType<Args>` 做深层推导，易触发 TS2589。
@@ -24,7 +28,17 @@ function registerToolTyped(
         schema: ZodRawShape,
         cb: (args: Record<string, unknown>) => Promise<CallToolResult>,
     ) => void;
-    register(name, description, params, handler);
+    const wrapped = async (
+        args: Record<string, unknown>,
+    ): Promise<CallToolResult> => {
+        const userEmail = getHttpRequestUserEmail() ?? 'unknown';
+        const maskedKey = getHttpRequestMaskedKey() ?? '***';
+        process.stderr.write(
+            `[ToolCall] ${name} | key: ${maskedKey} | ${userEmail}\n`,
+        );
+        return handler(args);
+    };
+    register(name, description, params, wrapped);
 }
 
 // `z.record(z.unknown())` 会在 MCP SDK 的 `z.objectOutputType<Args, …>` 推导中触发递归过深；
@@ -44,7 +58,17 @@ const getExploreParams = {
 const runMetricQueryParams = {
     apiKey: z.string().optional(),
     projectUuid: z.string().optional(),
-    query: z.any(),
+    exploreName: z.string().min(1),
+    dimensions: z.array(z.string()).optional(),
+    metrics: z.array(z.string()).optional(),
+    filters: z.any().optional(),
+    sorts: z.any().optional(),
+    limit: z.number().optional(),
+    tableCalculations: z.any().optional(),
+    additionalMetrics: z.any().optional(),
+    customDimensions: z.any().optional(),
+    timezone: z.string().optional(),
+    metricOverrides: z.any().optional(),
     context: z.string().optional(),
     invalidateCache: z.boolean().optional(),
     parameters: z.any().optional(),
@@ -115,10 +139,149 @@ function resolveApiKey(
     const key = fromArgs ?? getHttpRequestApiKey() ?? config.apiKey;
     if (!key) {
         throw new Error(
-            'apiKey is required (Authorization: ApiKey … header, tool argument, or LIGHTDASH_API_KEY)',
+            'apiKey is required (x-api-key header, tool argument, or LIGHTDASH_API_KEY)',
         );
     }
     return key;
+}
+
+function parseJsonString(value: string): unknown {
+    try {
+        return JSON.parse(value) as unknown;
+    } catch {
+        return value;
+    }
+}
+
+function toStringArray(value: unknown): string[] {
+    const raw =
+        typeof value === 'string' ? parseJsonString(value) : value;
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((item): item is string => typeof item === 'string');
+}
+
+function toObject(value: unknown): Record<string, unknown> {
+    const raw =
+        typeof value === 'string' ? parseJsonString(value) : value;
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+        return raw as Record<string, unknown>;
+    }
+    return {};
+}
+
+function toArray(value: unknown): unknown[] {
+    const raw =
+        typeof value === 'string' ? parseJsonString(value) : value;
+    return Array.isArray(raw) ? raw : [];
+}
+
+function toSorts(value: unknown): unknown[] {
+    const raw = toArray(value);
+    return raw
+        .map((item) => {
+            if (!item || typeof item !== 'object') return null;
+            const obj = item as {
+                fieldId?: unknown;
+                columnId?: unknown;
+                descending?: unknown;
+                order?: unknown;
+                orientation?: unknown;
+            };
+            const fieldId =
+                typeof obj.fieldId === 'string'
+                    ? obj.fieldId
+                    : typeof obj.columnId === 'string'
+                      ? obj.columnId
+                      : undefined;
+            if (!fieldId) return null;
+
+            const descending =
+                typeof obj.descending === 'boolean'
+                    ? obj.descending
+                    : typeof obj.order === 'string'
+                      ? obj.order.toLowerCase() === 'desc'
+                      : typeof obj.orientation === 'string'
+                        ? obj.orientation.toLowerCase() === 'desc'
+                        : false;
+
+            return { fieldId, descending };
+        })
+        .filter((x): x is { fieldId: string; descending: boolean } => x !== null);
+}
+
+function normalizeFilterRule(
+    candidate: unknown,
+    fallbackFieldId?: string,
+): Record<string, unknown> | null {
+    if (!candidate || typeof candidate !== 'object') return null;
+    const src = candidate as {
+        id?: unknown;
+        target?: unknown;
+        operator?: unknown;
+        values?: unknown;
+        fieldId?: unknown;
+    };
+    const target =
+        src.target && typeof src.target === 'object'
+            ? (src.target as Record<string, unknown>)
+            : undefined;
+    const targetFieldId =
+        target && typeof target.fieldId === 'string'
+            ? target.fieldId
+            : typeof src.fieldId === 'string'
+              ? src.fieldId
+              : fallbackFieldId;
+    if (!targetFieldId) return null;
+
+    const operator =
+        typeof src.operator === 'string' && src.operator.length > 0
+            ? src.operator
+            : 'equals';
+    const values = Array.isArray(src.values) ? src.values : [];
+
+    return {
+        id:
+            typeof src.id === 'string' && src.id.length > 0
+                ? src.id
+                : `${targetFieldId}-${operator}`,
+        target: { fieldId: targetFieldId },
+        operator,
+        values,
+    };
+}
+
+function toFilters(value: unknown): Record<string, unknown> {
+    const raw =
+        typeof value === 'string' ? parseJsonString(value) : value;
+    if (!raw) return {};
+
+    // Already in expected grouped shape
+    if (
+        typeof raw === 'object' &&
+        !Array.isArray(raw) &&
+        raw !== null &&
+        ('dimensions' in raw || 'metrics' in raw || 'tableCalculations' in raw)
+    ) {
+        return raw as Record<string, unknown>;
+    }
+
+    // Array form -> treat as dimensions filter list
+    if (Array.isArray(raw)) {
+        const rules = raw
+            .map((rule) => normalizeFilterRule(rule))
+            .filter((r): r is Record<string, unknown> => r !== null);
+        return rules.length > 0 ? { dimensions: rules } : {};
+    }
+
+    // Map form: { fieldId: {...rule} }
+    if (typeof raw === 'object' && raw !== null) {
+        const rules = Object.entries(raw as Record<string, unknown>)
+            .map(([fieldId, rule]) => normalizeFilterRule(rule, fieldId))
+            .filter((r): r is Record<string, unknown> => r !== null);
+        return rules.length > 0 ? { dimensions: rules } : {};
+    }
+
+    return {};
 }
 
 export function createLightdashMcpServer(
@@ -345,7 +508,7 @@ export function createLightdashMcpServer(
     registerToolTyped(
         server,
         'lightdash_run_metric_query',
-        '高级：自选维度、指标、筛选做即席查询；需先 get_explore 拿到正确字段 ID。返回含行数据与字段说明。',
+        '高级：自选维度、指标、筛选做即席查询；需先 get_explore 拿到正确字段 ID。注意：参数为扁平字段，不使用 query 嵌套对象。',
         runMetricQueryParams,
         async (args) => {
             const apiKey = resolveApiKey(
@@ -373,7 +536,19 @@ export function createLightdashMcpServer(
                     dateZoom: args.dateZoom as never,
                     pivotConfiguration: args.pivotConfiguration as never,
                     dashboardUuid: args.dashboardUuid as string | undefined,
-                    query: args.query as Record<string, unknown>,
+                    query: {
+                        exploreName: args.exploreName as string,
+                        dimensions: toStringArray(args.dimensions),
+                        metrics: toStringArray(args.metrics),
+                        filters: toFilters(args.filters),
+                        sorts: toSorts(args.sorts),
+                        limit: args.limit as number | undefined,
+                        tableCalculations: toArray(args.tableCalculations),
+                        additionalMetrics: args.additionalMetrics as unknown,
+                        customDimensions: args.customDimensions as unknown,
+                        timezone: args.timezone as string | undefined,
+                        metricOverrides: args.metricOverrides as unknown,
+                    },
                 },
                 { pageSize, maxPollAttempts, pollIntervalMs },
             );

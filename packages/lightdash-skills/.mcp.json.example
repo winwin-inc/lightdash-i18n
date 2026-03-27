@@ -1,11 +1,11 @@
 {
-  "_doc": "技能包：连接已部署的 Lightdash MCP HTTP 服务。复制为「使用技能的项目根」.mcp.json。url 为 …/mcp；PAT 用 Authorization 或 x-lightdash-api-key。本仓库内 stdio 见仓库根 .mcp.json.example 的 lightdash 段。",
+  "_doc": "技能包：连接已部署的 Lightdash MCP HTTP 服务。复制为「使用技能的项目根」.mcp.json。url 为 …/mcp；PAT 用 x-api-key。",
   "mcpServers": {
     "lightdash": {
       "type": "http",
       "url": "http://localhost:3333/mcp",
       "headers": {
-        "Authorization": "ApiKey <your-personal-access-token>"
+        "x-api-key": "<your-personal-access-token>"
       }
     }
   }

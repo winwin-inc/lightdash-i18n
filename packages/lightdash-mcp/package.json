@@ -13,7 +13,7 @@
         "dist/**/*"
     ],
     "scripts": {
-        "build": "tsc --project tsconfig.json",
+        "build": "tsc --build tsconfig.json --force",
         "typecheck": "tsc --project tsconfig.json --noEmit",
         "start:http": "node dist/http.js",
         "lint": "eslint -c ./.eslintrc.js src/**/*.ts",
