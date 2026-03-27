@@ -6,12 +6,10 @@ Lightdash MCP 服务（适用于 Claude Code / Cursor）。
 
 ## 启动模式
 
-| 模式 | 适用场景 | 启动命令 |
-|------|----------|----------|
-| `stdio` | 本地开发、IDE 子进程拉起 | `pnpm -F @lightdash/mcp start` |
-| `streamable http` | 独立部署，客户端只配 `url` + `headers` | `pnpm -F @lightdash/mcp start:http` |
+仅保留 `streamable http`：
 
-HTTP 入口默认：`http://0.0.0.0:3333/mcp`
+- 启动命令：`pnpm -F @lightdash/mcp start:http`
+- 默认入口：`http://0.0.0.0:3333/mcp`
 
 ## 环境变量
 
@@ -56,5 +54,4 @@ pnpm -F @lightdash/mcp build
 
 ## 可执行入口（bin）
 
-- `lightdash-mcp` -> `dist/index.js`
 - `lightdash-mcp-http` -> `dist/http.js`

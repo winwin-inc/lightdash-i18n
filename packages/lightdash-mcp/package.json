@@ -3,11 +3,10 @@
     "version": "0.2098.2",
     "private": true,
     "license": "MIT",
-    "description": "MCP for Lightdash REST API（stdio 或独立 Streamable HTTP）",
-    "main": "dist/index.js",
+    "description": "MCP for Lightdash REST API（Streamable HTTP）",
+    "main": "dist/http.js",
     "types": "dist/index.d.ts",
     "bin": {
-        "lightdash-mcp": "dist/index.js",
         "lightdash-mcp-http": "dist/http.js"
     },
     "files": [
@@ -16,7 +15,6 @@
     "scripts": {
         "build": "tsc --project tsconfig.json",
         "typecheck": "tsc --project tsconfig.json --noEmit",
-        "start": "node dist/index.js",
         "start:http": "node dist/http.js",
         "lint": "eslint -c ./.eslintrc.js src/**/*.ts",
         "fix-lint": "eslint -c ./.eslintrc.js --fix src/**/*.ts"
