@@ -1,9 +1,9 @@
 ---
 name: lightdash-metric-query
-description: 当用户明确要构造或调试 metric query（filters、sorts、customDimensions、timezone）时使用。与 lightdash-data-tools 配合，专注 query 形状和排障。
+description: 【高级技能】当用户明确要构造或调试 metric query（filters、sorts、customDimensions、timezone）时使用。由 lightdash-insight-router 在需要时调用，普通用户不直接触发。
 ---
 
-# Lightdash Metric Query
+# Lightdash Metric Query（高级技能）
 
 ## 目标
 

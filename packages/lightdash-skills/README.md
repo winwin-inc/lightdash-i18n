@@ -10,7 +10,6 @@ packages/lightdash-skills/
   .mcp.json.example
   README.md
   lightdash-insight-router/SKILL.md
-  lightdash-data-tools/SKILL.md
   lightdash-metric-query/SKILL.md
 ```
 
@@ -37,9 +36,8 @@ packages/lightdash-skills/
 
 ## 当前技能
 
-- `lightdash-insight-router`：业务问题路由（优先项目/内容/保存图表）
-- `lightdash-data-tools`：数据提取流程（搜索、定位、查询）
-- `lightdash-metric-query`：高级 metric query 规则与排障
+- `lightdash-insight-router`：唯一入口路由（保存图表 / 维度指标 / SQL查表三分支）
+- `lightdash-metric-query`：高级 metric query 规则与排障（由 router 在高级场景触发）
 
 ## 使用约定
 

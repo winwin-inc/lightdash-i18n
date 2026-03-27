@@ -29,25 +29,32 @@
 
 ---
 
-## 3. Skills 简化建议（面向非技术人员）
+## 3. Skills 简化建议（合并 router，面向非技术人员）
 
-可以简化。目标是让用户只记住「一个入口技能」。
+可以简化。目标是让用户只记住「一个入口技能」，由 router 自动分流。
 
 建议结构：
 
 | 目录 | 保留建议 | 说明 |
 |------|----------|------|
 | `lightdash-insight-router` | **保留并作为唯一入口** | 非技术用户只需要它；负责识别意图并调用对应 MCP tools。 |
-| `lightdash-data-tools` | 合并到 `lightdash-insight-router`（可选） | 内容可迁入 router，减少“要选哪个技能”的负担。 |
-| `lightdash-metric-query` | **保留为高级技能** | 给进阶用户或排障使用，默认不推荐普通用户直接触发。 |
+| `lightdash-data-tools` | **合并到 `lightdash-insight-router`** | 建议并入，减少“要选哪个技能”的负担。 |
+| `lightdash-metric-query` | 作为 router 的「高级分支」 | 不再单独面向普通用户展示；由 router 在需要时自动进入。 |
 
-最小可用方案（推荐）：
+最小可用方案（推荐，三种模式）：
 
 - 对外只暴露一个名称：`lightdash-insight-router`
-- 在 router 内部处理两类需求：
+- 在 router 内部处理三类需求：
   - **查已有内容**：看板 / 图表 / 空间
-  - **直接取数**：先跑保存图表；没有保存图再走 explore + metric query
-- 把 `lightdash-metric-query` 标注为「高级模式（可选）」
+  - **维度指标分析**：先跑保存图表；没有保存图再走 `list_explores -> get_explore -> run_metric_query`
+  - **SQL/表查询（高级）**：基于表结构或 SQL 模板取数（类似 `lightdash-charts-viewer` 这类处理链路）
+- `lightdash-metric-query` 与 SQL 查询能力统一归到 router 的「高级模式」里
+
+推荐路由规则（router 内部）：
+
+1. 用户提到「看板/图表/报表/驾驶舱」→ 优先内容检索与保存图表执行  
+2. 用户提到「按维度/指标分析」→ 走 explore + metric query  
+3. 用户提到「查表、SQL、明细、原始数据」→ 走 SQL/表查询分支（高级）
 
 ---
 
@@ -64,6 +71,7 @@
 > - 先确认项目与时间范围；  
 > - 优先走已保存图表（search -> get_saved_chart -> run_saved_chart）；  
 > - 找不到现成图表再走 explore 查询（list_explores -> get_explore -> run_metric_query）；  
+> - 当用户明确要查表/SQL/明细时，进入 SQL 或表查询高级模式；  
 > - 输出要简洁，先给结论，再给关键数字与口径。  
 
 建议在 `lightdash-insight-router/SKILL.md` 里将这段作为默认行为说明，减少用户反复提示。
@@ -84,3 +92,4 @@
 | 2026-03-27 | 初版：语义化工具矩阵与路由 |
 | 2026-03-27 | 精简为分析师向；补充 `list_spaces`、`get_saved_chart` 与工具顺序说明 |
 | 2026-03-27 | 增加 skills 简化方案与统一接话模板 |
+| 2026-03-27 | 合并 router：补充 SQL/表查询高级场景与三分支路由 |
