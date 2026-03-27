@@ -36,9 +36,12 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 3. 缺关键条件（项目/图表/年份）先反问，不猜
 4. 输出顺序：**结论 -> 关键数字 -> 口径说明**
 5. 不回显 PAT 或任何密钥
-6. 调用 `lightdash_run_metric_query` 时：
+6. 调用 `lightdash_run_metric_query` 时（效率优先）：
    - 使用**扁平参数**（`exploreName`、`dimensions`、`metrics`、`filters`...），不要再传 `query` 嵌套对象
-   - `filters` 必须是 **对象**，禁止传数组旧格式
+   - 首次查询默认 `limit` 用 50~200（非必要不超过 500），避免超大返回
+   - 首次查询最多 1~2 个维度 + 1 个核心指标，先拿可回答结果，再逐步细化
+   - `filters` 推荐对象 map 形态（如 `{ "cls_3": [{ "operator": "equals", "values": ["即饮茶和奶茶"] }] }`）
+7. 单次问题最多执行 3 次工具调用；超出时先返回阶段性结果并给出下一步选项，不无限重试
 
 ## 分支执行模板
 
@@ -50,9 +53,9 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 ### B. 维度指标分支（高级）
 
-1. `lightdash_list_explores`
-2. `lightdash_get_explore`
-3. `lightdash_run_metric_query`
+1. `lightdash_list_explores`（确认主题）
+2. `lightdash_run_metric_query`（先用短字段名/业务口径直接查，依赖服务端自动字段纠正）
+3. 若失败再 `lightdash_get_explore` + 二次 `lightdash_run_metric_query`（仅一次纠错重试）
 
 最小 query 模板：
 
@@ -91,8 +94,9 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 - 401/403：检查 API Key 权限与项目可见性
 - chart 不存在：先 `lightdash_search_content` 重新定位
-- explore/字段错误：重新 `list_explores` + `get_explore`
+- explore/字段错误：先精简字段重试一次；仍失败再 `get_explore` 对齐字段 ID
 - 查询超时：缩小字段与范围、减小 `limit`、增加筛选
+- 500（筛选相关）：优先改用字段短名 map 过滤 + 减少复杂条件（先单条件 equals，再叠加）
 
 ## 参考文档
 

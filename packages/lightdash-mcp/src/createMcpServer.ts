@@ -160,22 +160,16 @@ function toStringArray(value: unknown): string[] {
     return raw.filter((item): item is string => typeof item === 'string');
 }
 
-function toObject(value: unknown): Record<string, unknown> {
-    const raw =
-        typeof value === 'string' ? parseJsonString(value) : value;
-    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-        return raw as Record<string, unknown>;
-    }
-    return {};
-}
-
 function toArray(value: unknown): unknown[] {
     const raw =
         typeof value === 'string' ? parseJsonString(value) : value;
     return Array.isArray(raw) ? raw : [];
 }
 
-function toSorts(value: unknown): unknown[] {
+function toSorts(
+    value: unknown,
+    resolveFieldId: (field: string) => string,
+): unknown[] {
     const raw = toArray(value);
     return raw
         .map((item) => {
@@ -204,13 +198,14 @@ function toSorts(value: unknown): unknown[] {
                         ? obj.orientation.toLowerCase() === 'desc'
                         : false;
 
-            return { fieldId, descending };
+            return { fieldId: resolveFieldId(fieldId), descending };
         })
         .filter((x): x is { fieldId: string; descending: boolean } => x !== null);
 }
 
 function normalizeFilterRule(
     candidate: unknown,
+    resolveFieldId: (field: string) => string,
     fallbackFieldId?: string,
 ): Record<string, unknown> | null {
     if (!candidate || typeof candidate !== 'object') return null;
@@ -244,13 +239,16 @@ function normalizeFilterRule(
             typeof src.id === 'string' && src.id.length > 0
                 ? src.id
                 : `${targetFieldId}-${operator}`,
-        target: { fieldId: targetFieldId },
+        target: { fieldId: resolveFieldId(targetFieldId) },
         operator,
         values,
     };
 }
 
-function toFilters(value: unknown): Record<string, unknown> {
+function toFilters(
+    value: unknown,
+    resolveFieldId: (field: string) => string,
+): Record<string, unknown> {
     const raw =
         typeof value === 'string' ? parseJsonString(value) : value;
     if (!raw) return {};
@@ -268,7 +266,7 @@ function toFilters(value: unknown): Record<string, unknown> {
     // Array form -> treat as dimensions filter list
     if (Array.isArray(raw)) {
         const rules = raw
-            .map((rule) => normalizeFilterRule(rule))
+            .map((rule) => normalizeFilterRule(rule, resolveFieldId))
             .filter((r): r is Record<string, unknown> => r !== null);
         return rules.length > 0 ? { dimensions: rules } : {};
     }
@@ -276,7 +274,9 @@ function toFilters(value: unknown): Record<string, unknown> {
     // Map form: { fieldId: {...rule} }
     if (typeof raw === 'object' && raw !== null) {
         const rules = Object.entries(raw as Record<string, unknown>)
-            .map(([fieldId, rule]) => normalizeFilterRule(rule, fieldId))
+            .map(([fieldId, rule]) =>
+                normalizeFilterRule(rule, resolveFieldId, fieldId),
+            )
             .filter((r): r is Record<string, unknown> => r !== null);
         return rules.length > 0 ? { dimensions: rules } : {};
     }
@@ -284,14 +284,92 @@ function toFilters(value: unknown): Record<string, unknown> {
     return {};
 }
 
+function normalizeAlias(input: string): string {
+    return input.trim().toLowerCase();
+}
+
+function createFieldIdResolverFromExplore(
+    explore: unknown,
+    exploreName: string,
+): (field: string) => string {
+    const aliases = new Map<string, string>();
+    const addAlias = (alias: string | undefined, fieldId: string): void => {
+        if (!alias) return;
+        const key = normalizeAlias(alias);
+        if (key.length === 0) return;
+        if (!aliases.has(key)) aliases.set(key, fieldId);
+    };
+
+    const walk = (node: unknown): void => {
+        if (Array.isArray(node)) {
+            node.forEach(walk);
+            return;
+        }
+        if (!node || typeof node !== 'object') return;
+        const obj = node as Record<string, unknown>;
+        const fieldId =
+            typeof obj.fieldId === 'string' ? obj.fieldId : undefined;
+        if (fieldId) {
+            addAlias(fieldId, fieldId);
+            if (fieldId.startsWith(`${exploreName}_`)) {
+                addAlias(fieldId.slice(exploreName.length + 1), fieldId);
+            }
+            addAlias(
+                typeof obj.name === 'string' ? obj.name : undefined,
+                fieldId,
+            );
+            addAlias(
+                typeof obj.label === 'string' ? obj.label : undefined,
+                fieldId,
+            );
+        }
+        Object.values(obj).forEach(walk);
+    };
+    walk(explore);
+
+    return (field: string): string => {
+        const direct = aliases.get(normalizeAlias(field));
+        if (direct) return direct;
+        const prefixed = aliases.get(
+            normalizeAlias(`${exploreName}_${field}`),
+        );
+        if (prefixed) return prefixed;
+        return field;
+    };
+}
+
 export function createLightdashMcpServer(
     config: LightdashMcpEnvConfig,
 ): McpServer {
     const api = createLightdashRestClient(config);
+    const resolverCache = new Map<
+        string,
+        { expiresAtMs: number; resolve: (field: string) => string }
+    >();
     const server = new McpServer({
         name: 'lightdash-local-mcp',
         version: '0.2098.2',
     });
+
+    const getFieldResolver = async (
+        apiKey: string,
+        projectUuid: string,
+        exploreName: string,
+    ): Promise<((field: string) => string)> => {
+        const cacheKey = `${projectUuid}:${exploreName}`;
+        const now = Date.now();
+        const cached = resolverCache.get(cacheKey);
+        if (cached && cached.expiresAtMs > now) {
+            return cached.resolve;
+        }
+        const explore = await api.getExplore(apiKey, projectUuid, exploreName);
+        const resolve = createFieldIdResolverFromExplore(explore, exploreName);
+        resolverCache.set(cacheKey, {
+            resolve,
+            expiresAtMs: now + 5 * 60 * 1000,
+        });
+        return resolve;
+    };
 
     // --- 分析师优先：项目 / 空间 / 看板与图表 ---
 
@@ -524,6 +602,12 @@ export function createLightdashMcpServer(
                 (args.maxPollAttempts as number | undefined) ?? 120;
             const pollIntervalMs =
                 (args.pollIntervalMs as number | undefined) ?? 500;
+            const exploreName = args.exploreName as string;
+            const resolveFieldId = await getFieldResolver(
+                apiKey,
+                projectUuid,
+                exploreName,
+            );
             const result = await api.runMetricQueryUntilReady(
                 apiKey,
                 projectUuid,
@@ -537,11 +621,13 @@ export function createLightdashMcpServer(
                     pivotConfiguration: args.pivotConfiguration as never,
                     dashboardUuid: args.dashboardUuid as string | undefined,
                     query: {
-                        exploreName: args.exploreName as string,
-                        dimensions: toStringArray(args.dimensions),
-                        metrics: toStringArray(args.metrics),
-                        filters: toFilters(args.filters),
-                        sorts: toSorts(args.sorts),
+                        exploreName,
+                        dimensions: toStringArray(args.dimensions).map(
+                            resolveFieldId,
+                        ),
+                        metrics: toStringArray(args.metrics).map(resolveFieldId),
+                        filters: toFilters(args.filters, resolveFieldId),
+                        sorts: toSorts(args.sorts, resolveFieldId),
                         limit: args.limit as number | undefined,
                         tableCalculations: toArray(args.tableCalculations),
                         additionalMetrics: args.additionalMetrics as unknown,
