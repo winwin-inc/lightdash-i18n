@@ -1,5 +1,7 @@
 # Project Guidance (Lightdash MCP + Skills)
 
+完整使用步骤（构建 MCP、stdio/HTTP 配置、Skills）：见 **`docs/lightdash-mcp.md`**。
+
 ## Data Query Priority
 
 - 在本仓库做 Lightdash 提数时，优先使用 `packages/lightdash-mcp` 的 MCP tools

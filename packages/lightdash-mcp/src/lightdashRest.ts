@@ -1,11 +1,14 @@
-﻿import type {
+import type {
     ApiExecuteAsyncMetricQueryResults,
     ApiGetAsyncQueryResults,
     ExecuteAsyncMetricQueryRequestParams,
 } from '@lightdash/common';
 import { QueryHistoryStatus } from '@lightdash/common';
 import type { LightdashMcpEnvConfig } from './config';
-import { clampLimit, normalizeMetricQueryRequest } from './normalizeMetricQuery';
+import {
+    clampLimit,
+    normalizeMetricQueryRequest,
+} from './normalizeMetricQuery';
 
 function authHeaders(apiKey: string): Record<string, string> {
     return {
@@ -28,9 +31,13 @@ async function readErrorBody(res: Response): Promise<string> {
 }
 
 export function createLightdashRestClient(config: LightdashMcpEnvConfig) {
-    const { baseUrl, apiKey, maxLimit } = config;
+    const { baseUrl, maxLimit } = config;
 
-    async function requestJson<T>(urlPath: string, init?: RequestInit): Promise<T> {
+    async function requestJson<T>(
+        apiKey: string,
+        urlPath: string,
+        init?: RequestInit,
+    ): Promise<T> {
         const res = await fetch(baseUrl + urlPath, {
             ...init,
             headers: {
@@ -46,10 +53,12 @@ export function createLightdashRestClient(config: LightdashMcpEnvConfig) {
     }
 
     async function listExplores(
+        apiKey: string,
         projectUuid: string,
         filtered: boolean,
     ): Promise<unknown> {
         const json = await requestJson<{ results?: unknown }>(
+            apiKey,
             '/api/v1/projects/' +
                 encodeURIComponent(projectUuid) +
                 '/explores?filtered=' +
@@ -59,10 +68,12 @@ export function createLightdashRestClient(config: LightdashMcpEnvConfig) {
     }
 
     async function getExplore(
+        apiKey: string,
         projectUuid: string,
         exploreId: string,
     ): Promise<unknown> {
         const json = await requestJson<{ results?: unknown }>(
+            apiKey,
             '/api/v1/projects/' +
                 encodeURIComponent(projectUuid) +
                 '/explores/' +
@@ -72,12 +83,14 @@ export function createLightdashRestClient(config: LightdashMcpEnvConfig) {
     }
 
     async function executeMetricQuery(
+        apiKey: string,
         projectUuid: string,
         body: ExecuteAsyncMetricQueryRequestParams,
     ): Promise<ApiExecuteAsyncMetricQueryResults> {
         const json = await requestJson<{
             results: ApiExecuteAsyncMetricQueryResults;
         }>(
+            apiKey,
             '/api/v2/projects/' +
                 encodeURIComponent(projectUuid) +
                 '/query/metric-query',
@@ -90,12 +103,14 @@ export function createLightdashRestClient(config: LightdashMcpEnvConfig) {
     }
 
     async function getQueryResultsPage(
+        apiKey: string,
         projectUuid: string,
         queryUuid: string,
         page: number,
         pageSize: number,
     ): Promise<ApiGetAsyncQueryResults> {
         const json = await requestJson<{ results: ApiGetAsyncQueryResults }>(
+            apiKey,
             '/api/v2/projects/' +
                 encodeURIComponent(projectUuid) +
                 '/query/' +
@@ -109,6 +124,7 @@ export function createLightdashRestClient(config: LightdashMcpEnvConfig) {
     }
 
     async function runMetricQueryUntilReady(
+        apiKey: string,
         projectUuid: string,
         partialBody: {
             context?: ExecuteAsyncMetricQueryRequestParams['context'];
@@ -144,11 +160,16 @@ export function createLightdashRestClient(config: LightdashMcpEnvConfig) {
             dashboardUuid: partialBody.dashboardUuid,
             query: limitedQuery,
         };
-        const executeResult = await executeMetricQuery(projectUuid, body);
+        const executeResult = await executeMetricQuery(
+            apiKey,
+            projectUuid,
+            body,
+        );
         const { queryUuid } = executeResult;
 
         for (let i = 0; i < options.maxPollAttempts; i += 1) {
             const page = await getQueryResultsPage(
+                apiKey,
                 projectUuid,
                 queryUuid,
                 1,

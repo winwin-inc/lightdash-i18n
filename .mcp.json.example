@@ -8,6 +8,14 @@
         "@playwright/mcp@latest"
       ],
       "env": {}
+    },
+    "lightdash": {
+      "command": "node",
+      "args": ["packages/lightdash-mcp/dist/index.js"],
+      "env": {
+        "LIGHTDASH_SITE_URL": "https://your-lightdash.example.com",
+        "LIGHTDASH_API_KEY": "<your-personal-access-token>"
+      }
     }
   }
 }

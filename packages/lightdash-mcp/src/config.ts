@@ -1,6 +1,6 @@
-﻿export type LightdashMcpEnvConfig = {
+export type LightdashMcpEnvConfig = {
     baseUrl: string;
-    apiKey: string;
+    apiKey: string | undefined;
     defaultProjectUuid: string | undefined;
     maxLimit: number;
 };
@@ -10,9 +10,6 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
     const apiKey = process.env.LIGHTDASH_API_KEY;
     if (!raw) {
         throw new Error('LIGHTDASH_SITE_URL is required');
-    }
-    if (!apiKey) {
-        throw new Error('LIGHTDASH_API_KEY is required');
     }
     const baseUrl = raw.replace(/\/$/, '');
     const maxLimitRaw = process.env.LIGHTDASH_MAX_LIMIT;
