@@ -11,6 +11,8 @@ description: 【高级】构造或调试 lightdash_run_metric_query（filters、
 
 - **扁平参数**，禁止嵌套 `query`。
 - `filters` 为**对象**（map），禁止数组旧格式。
+- `parameters` 必须是对象（`{}`），不能传字符串 `"{}"`。
+- `context` 只传 Lightdash 枚举值（例如 `mcp`），不能传业务中文说明。
 
 ## 构造顺序
 
@@ -33,6 +35,8 @@ description: 【高级】构造或调试 lightdash_run_metric_query（filters、
 ## 过滤与排障
 
 - 复杂条件：**先单条件**，再叠加；空结果时先去掉 filters 验证链路。
-- 排障顺序：字段 ID（`get_explore`）→ `exploreName` → 运算符与字段类型 → `limit`/sort → 是否需要 `timezone`。
+- 422 优先判定为**请求校验失败**，先看 payload 类型与枚举值，不要直接归因权限。
+- 含 `lightdash.user.email` 的模型过滤时，默认使用当前 PAT 对应用户邮箱；若邮箱未验证可能被后端置空。
+- 排障顺序：字段 ID（`get_explore`）→ `exploreName` → payload 类型与 `context` → 运算符与字段类型 → `limit`/sort → `timezone`。
 
 详细检查清单：`./QUERY-CHECKLIST.md`

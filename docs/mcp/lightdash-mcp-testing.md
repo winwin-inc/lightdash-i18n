@@ -44,6 +44,7 @@ LIGHTDASH_MCP_HTTP_PORT=3333
 
 ### A. 业务优先工具（必须）
 
+- `lightdash_get_site_info`
 - `lightdash_list_projects`
 - `lightdash_search_content`
 - `lightdash_list_spaces`
@@ -70,11 +71,12 @@ LIGHTDASH_MCP_HTTP_PORT=3333
 
 | 步骤 | 操作 | 预期 |
 |------|------|------|
-| 2.1 | `lightdash_list_projects` | 返回有权限项目列表 |
-| 2.2 | `lightdash_search_content(search: "销售", contentTypes: ["chart"])` | 返回图表列表 |
-| 2.3 | `lightdash_list_spaces(projectUuid)` | 返回空间（文件夹）列表 |
-| 2.4 | `lightdash_get_saved_chart(chartUuid)` | 返回图表详情、参数信息 |
-| 2.5 | `lightdash_run_saved_chart(chartUuid, parameters?, limit?)` | 返回 rows/columns，并包含 fields/warnings |
+| 2.1 | `lightdash_get_site_info` | 返回 `siteBaseUrl`，与 `LIGHTDASH_SITE_URL` 一致 |
+| 2.2 | `lightdash_list_projects` | 返回有权限项目列表 |
+| 2.3 | `lightdash_search_content(search: "销售", contentTypes: ["chart"])` | 返回图表列表，且每条含 `webUrl`、顶层含 `siteBaseUrl` |
+| 2.4 | `lightdash_list_spaces(projectUuid)` | 返回空间（文件夹）列表 |
+| 2.5 | `lightdash_get_saved_chart(chartUuid)` | 返回图表详情、参数信息，且含 `webUrl` |
+| 2.6 | `lightdash_run_saved_chart(chartUuid, parameters?, limit?)` | 返回 rows/columns，并包含 fields/warnings |
 
 ### 3) 高级兜底路径（自定义分析）
 

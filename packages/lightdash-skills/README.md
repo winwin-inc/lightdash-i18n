@@ -41,6 +41,6 @@ packages/lightdash-skills/
 
 ## 使用约定
 
-- 提数优先使用 `packages/lightdash-mcp` 暴露的业务向 tools
+- 提数优先使用 `packages/lightdash-mcp` 暴露的业务向 tools（含 `lightdash_get_site_info`、`search_content` 返回的 `webUrl`）
 - 不在技能正文写明文密钥
 - 能先跑保存图表就先跑保存图表；需要自定义再走 explore + metric query

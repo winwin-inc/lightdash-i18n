@@ -21,10 +21,23 @@ async function readErrorBody(res: Response): Promise<string> {
     const text = await res.text();
     try {
         const j = JSON.parse(text) as {
-            error?: { message?: string };
+            error?: {
+                name?: string;
+                message?: string;
+                data?: unknown;
+                statusCode?: number;
+            };
             message?: string;
         };
-        return j.error?.message ?? j.message ?? text;
+        const message = j.error?.message ?? j.message;
+        const errorName = j.error?.name;
+        const statusCode = j.error?.statusCode;
+        const details =
+            j.error?.data !== undefined ? JSON.stringify(j.error.data) : '';
+        const parts = [errorName, statusCode, message, details]
+            .filter((part): part is string | number => Boolean(part))
+            .map((part) => String(part));
+        return parts.length > 0 ? parts.join(' | ') : text;
     } catch {
         return text;
     }

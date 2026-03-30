@@ -55,6 +55,7 @@ Lightdash REST API
 
 业务优先：
 
+- `lightdash_get_site_info`
 - `lightdash_list_projects`
 - `lightdash_search_content`
 - `lightdash_list_spaces`

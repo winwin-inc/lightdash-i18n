@@ -15,7 +15,7 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 ## 工具顺序（按优先级）
 
-`list_projects` → `search_content` → `list_spaces` → `get_saved_chart` → `run_saved_chart` → `list_explores` → `get_explore` → `run_metric_query`
+`get_site_info`（可选，确认当前站点根）→ `list_projects` → `search_content` → `list_spaces` → `get_saved_chart` → `run_saved_chart` → `list_explores` → `get_explore` → `run_metric_query`
 
 ## 硬规则（必须遵守）
 
@@ -25,6 +25,7 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 - **`run_metric_query` 只用扁平参数**（`exploreName`、`dimensions`、`metrics`、`filters`…），禁止嵌套 `query` 对象；首次 `limit` 50~200，维度 1~2 + 核心指标 1 个。
 - **调用次数**：一般 ≤3；**含类目校验/单层降级**时 ≤4（多 1 次仅用于降级枚举）。超限则给阶段性结果 + 候选反问，不无限重试。
 - **连续失败 2 次**：停止试错，按「已确认信息 + 原因 + 需补充项」回报。
+- **打开 Lightdash 页面**：优先用工具返回的 `webUrl` / `siteBaseUrl`，勿凭记忆拼链接。
 
 ## 类目（默认四级，细节见同目录 SOP）
 
@@ -51,7 +52,7 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 ## 错误速查
 
-401/403 → 密钥与项目权限；chart 丢 → `search_content`；字段错 → 精简重试一次再 `get_explore`；超时/过大 → 减维度与 `limit`；500/筛选 → 单条件 `equals`、单层类目。
+401/403 → 密钥与项目权限；422 → 先查请求体类型与 `context` 枚举（不要先判权限）；chart 丢 → `search_content`；字段错 → 精简重试一次再 `get_explore`；超时/过大 → 减维度与 `limit`；500/筛选 → 单条件 `equals`、单层类目。含 `lightdash.user.email` 时，使用当前 PAT 绑定邮箱，不可假定任意员工身份。
 
 ## 参考文档（优先同目录）
 

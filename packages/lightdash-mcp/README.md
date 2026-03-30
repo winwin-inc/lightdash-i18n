@@ -20,6 +20,9 @@ Lightdash MCP 服务（适用于 Claude Code / Cursor）。
 | `LIGHTDASH_DEFAULT_PROJECT_UUID` | 否 | 默认项目 UUID |
 | `LIGHTDASH_MAX_LIMIT` | 否 | 查询 `limit` 上限 |
 | `LIGHTDASH_MCP_HTTP_PORT` | 否 | HTTP 端口，默认 `3333` |
+| `LIGHTDASH_WEB_DASHBOARD_PATH_TEMPLATE` | 否 | 看板路径模板，占位符 `{projectUuid}` `{uuid}` `{slug}`；默认 `/projects/{projectUuid}/dashboards/{uuid}/view` |
+| `LIGHTDASH_WEB_CHART_PATH_TEMPLATE` | 否 | 图表路径模板；默认 `/projects/{projectUuid}/saved/{uuid}` |
+| `LIGHTDASH_WEB_SPACE_PATH_TEMPLATE` | 否 | 空间路径模板；默认 `/projects/{projectUuid}/spaces/{uuid}` |
 
 ## 构建
 
@@ -31,10 +34,11 @@ pnpm -F @lightdash/mcp build
 
 业务优先：
 
+- `lightdash_get_site_info`（返回 `siteBaseUrl`，无密钥）
 - `lightdash_list_projects`
-- `lightdash_search_content`
+- `lightdash_search_content`（结果含每条 `webUrl` 与顶层 `siteBaseUrl`）
 - `lightdash_list_spaces`
-- `lightdash_get_saved_chart`
+- `lightdash_get_saved_chart`（含 `webUrl`）
 - `lightdash_run_saved_chart`
 
 进阶（即席分析）：
@@ -51,6 +55,13 @@ pnpm -F @lightdash/mcp build
 
 - 总文档：[`docs/lightdash-mcp.md`](../../docs/lightdash-mcp.md)
 - 分析师向工具说明：[`docs/lightdash-mcp-user-oriented-tools.md`](../../docs/lightdash-mcp-user-oriented-tools.md)
+
+## 常见 422 排障
+
+- 422 通常是请求体校验失败，不是权限不足（权限问题更常见 401/403）。
+- `lightdash_run_metric_query` 中 `parameters` 传对象 `{}`，不要传字符串 `"{}"`。
+- `context` 仅支持 Lightdash 枚举值（如 `mcp`），不要传业务中文描述。
+- 含 `lightdash.user.email` 过滤时，使用当前 PAT 对应邮箱；若用户主邮箱未验证，邮箱值可能为空。
 
 ## 可执行入口（bin）
 

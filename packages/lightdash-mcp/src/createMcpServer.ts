@@ -1,7 +1,13 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { QueryExecutionContext } from '@lightdash/common';
 import { z, type ZodRawShape } from 'zod';
 import type { LightdashMcpEnvConfig } from './config';
+import {
+    enrichContentSearchResults,
+    enrichSavedChartResult,
+    loadWebPathTemplatesFromEnv,
+} from './contentWebUrls';
 import { createLightdashRestClient } from './lightdashRest';
 import {
     getHttpRequestApiKey,
@@ -109,6 +115,10 @@ const listProjectsParams = {
     apiKey: z.string().optional(),
 } satisfies ZodRawShape;
 
+const getSiteInfoParams = {
+    apiKey: z.string().optional(),
+} satisfies ZodRawShape;
+
 const listSpacesParams = {
     apiKey: z.string().optional(),
     projectUuid: z.string().optional(),
@@ -151,6 +161,44 @@ function parseJsonString(value: string): unknown {
     } catch {
         return value;
     }
+}
+
+function toObjectLike(
+    value: unknown,
+    fieldName: string,
+): Record<string, unknown> | undefined {
+    const raw = typeof value === 'string' ? parseJsonString(value) : value;
+    if (raw === undefined || raw === null) return undefined;
+    if (typeof raw === 'object' && !Array.isArray(raw)) {
+        return raw as Record<string, unknown>;
+    }
+    throw new Error(
+        `${fieldName} must be an object (or a JSON object string)`,
+    );
+}
+
+function toArrayLike(value: unknown, fieldName: string): unknown[] | undefined {
+    const raw = typeof value === 'string' ? parseJsonString(value) : value;
+    if (raw === undefined || raw === null) return undefined;
+    if (Array.isArray(raw)) return raw;
+    throw new Error(
+        `${fieldName} must be an array (or a JSON array string)`,
+    );
+}
+
+function toOptionalQueryContext(
+    value: unknown,
+): QueryExecutionContext | undefined {
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== 'string' || value.trim().length === 0) {
+        return undefined;
+    }
+    const context = value.trim();
+    const allowed = new Set<string>(Object.values(QueryExecutionContext));
+    if (!allowed.has(context)) {
+        return QueryExecutionContext.MCP;
+    }
+    return context as QueryExecutionContext;
 }
 
 function toStringArray(value: unknown): string[] {
@@ -342,6 +390,7 @@ export function createLightdashMcpServer(
     config: LightdashMcpEnvConfig,
 ): McpServer {
     const api = createLightdashRestClient(config);
+    const webPathTemplates = loadWebPathTemplatesFromEnv();
     const resolverCache = new Map<
         string,
         { expiresAtMs: number; resolve: (field: string) => string }
@@ -375,6 +424,28 @@ export function createLightdashMcpServer(
 
     registerToolTyped(
         server,
+        'lightdash_get_site_info',
+        '返回当前 MCP 所连 Lightdash 的站点根地址 siteBaseUrl（与 LIGHTDASH_SITE_URL 一致）；不含密钥。可与各工具返回的 webUrl 对照使用。',
+        getSiteInfoParams,
+        async (args) => {
+            resolveApiKey(config, args.apiKey as string | undefined);
+            const payload = {
+                siteBaseUrl: config.baseUrl,
+                note: '具体图表/看板打开链接见 search_content、get_saved_chart 等工具返回的 webUrl。',
+            };
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(payload, null, 2),
+                    },
+                ],
+            };
+        },
+    );
+
+    registerToolTyped(
+        server,
         'lightdash_list_projects',
         '列出你有权限访问的项目；不知道选哪个项目时先用它。',
         listProjectsParams,
@@ -398,7 +469,7 @@ export function createLightdashMcpServer(
     registerToolTyped(
         server,
         'lightdash_search_content',
-        '按关键词查找看板、已保存的图表、空间（文件夹）；可分页。contentTypes 可选：chart、dashboard、space。',
+        '按关键词查找看板、已保存的图表、空间（文件夹）；可分页。contentTypes 可选：chart、dashboard、space。返回含 siteBaseUrl，每条内容含 webUrl（浏览器打开地址，由服务端根据 LIGHTDASH_SITE_URL 拼接）。',
         searchContentParams,
         async (args) => {
             const apiKey = resolveApiKey(
@@ -417,11 +488,16 @@ export function createLightdashMcpServer(
                 page: args.page as number | undefined,
                 pageSize: args.pageSize as number | undefined,
             });
+            const enriched = enrichContentSearchResults(
+                config.baseUrl,
+                webPathTemplates,
+                data,
+            );
             return {
                 content: [
                     {
                         type: 'text',
-                        text: JSON.stringify(data, null, 2),
+                        text: JSON.stringify(enriched, null, 2),
                     },
                 ],
             };
@@ -457,7 +533,7 @@ export function createLightdashMcpServer(
     registerToolTyped(
         server,
         'lightdash_get_saved_chart',
-        '查看某张已保存图表的名称、可用参数、依赖的数据主题；跑数前先确认参数怎么填。',
+        '查看某张已保存图表的名称、可用参数、依赖的数据主题；跑数前先确认参数怎么填。返回含 siteBaseUrl 与 webUrl（浏览器打开该图表）。',
         getSavedChartParams,
         async (args) => {
             const apiKey = resolveApiKey(
@@ -468,11 +544,16 @@ export function createLightdashMcpServer(
                 apiKey,
                 args.chartUuid as string,
             );
+            const enriched = enrichSavedChartResult(
+                config.baseUrl,
+                webPathTemplates.chart,
+                data,
+            );
             return {
                 content: [
                     {
                         type: 'text',
-                        text: JSON.stringify(data, null, 2),
+                        text: JSON.stringify(enriched, null, 2),
                     },
                 ],
             };
@@ -612,13 +693,22 @@ export function createLightdashMcpServer(
                 apiKey,
                 projectUuid,
                 {
-                    context: args.context as never,
+                    context: toOptionalQueryContext(args.context),
                     invalidateCache: args.invalidateCache as
                         | boolean
                         | undefined,
-                    parameters: args.parameters as never,
-                    dateZoom: args.dateZoom as never,
-                    pivotConfiguration: args.pivotConfiguration as never,
+                    parameters: toObjectLike(args.parameters, 'parameters') as
+                        | never
+                        | undefined,
+                    dateZoom: toObjectLike(args.dateZoom, 'dateZoom') as
+                        | never
+                        | undefined,
+                    pivotConfiguration: toObjectLike(
+                        args.pivotConfiguration,
+                        'pivotConfiguration',
+                    ) as
+                        | never
+                        | undefined,
                     dashboardUuid: args.dashboardUuid as string | undefined,
                     query: {
                         exploreName,
@@ -630,10 +720,19 @@ export function createLightdashMcpServer(
                         sorts: toSorts(args.sorts, resolveFieldId),
                         limit: args.limit as number | undefined,
                         tableCalculations: toArray(args.tableCalculations),
-                        additionalMetrics: args.additionalMetrics as unknown,
-                        customDimensions: args.customDimensions as unknown,
+                        additionalMetrics: toArrayLike(
+                            args.additionalMetrics,
+                            'additionalMetrics',
+                        ),
+                        customDimensions: toArrayLike(
+                            args.customDimensions,
+                            'customDimensions',
+                        ),
                         timezone: args.timezone as string | undefined,
-                        metricOverrides: args.metricOverrides as unknown,
+                        metricOverrides: toObjectLike(
+                            args.metricOverrides,
+                            'metricOverrides',
+                        ),
                     },
                 },
                 { pageSize, maxPollAttempts, pollIntervalMs },

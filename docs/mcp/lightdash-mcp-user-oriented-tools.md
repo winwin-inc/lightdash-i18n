@@ -8,8 +8,9 @@
 
 | 工具 | 什么时候用 |
 |------|------------|
+| `lightdash_get_site_info` | 看当前 MCP 连的 **站点根地址**（`siteBaseUrl`），不要自己猜域名。 |
 | `lightdash_list_projects` | 不知道当前该选哪个项目时，先看有权限的项目列表。 |
-| `lightdash_search_content` | 按关键词找**看板、已保存图表、空间**；可配合 `contentTypes`：`chart` / `dashboard` / `space`。 |
+| `lightdash_search_content` | 按关键词找**看板、已保存图表、空间**；结果里带 **`webUrl`**（浏览器打开）。可配合 `contentTypes`：`chart` / `dashboard` / `space`。 |
 | `lightdash_list_spaces` | 看当前项目下有哪些**空间（文件夹）**。 |
 | `lightdash_get_saved_chart` | 已知道图表 ID，想看**名称、参数怎么填、用的哪个数据主题**。 |
 | `lightdash_run_saved_chart` | 跑**已保存图表**出数；用 `parameters` 改筛选（如年份）；`limit` 会按环境自动封顶。 |
