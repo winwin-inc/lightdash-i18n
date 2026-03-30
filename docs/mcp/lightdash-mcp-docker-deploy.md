@@ -98,10 +98,11 @@ curl -i http://localhost:3333/mcp
 ### 4.2 构建与推送逻辑
 
 - 使用 `packages/lightdash-mcp/Dockerfile`
-- 推送到阿里云 ACR
+- 推送到阿里云 ACR 的现有仓库 `winwin/lightdash`
 - tag 规则：
-  - tag 触发：去掉前缀后的版本号（`mcp-v0.1.0` -> `0.1.0`）
-  - 手动触发：`sha-<short>` 形式
+  - tag 触发：`mcp-v0.1.0` -> `mcp-0.1.0`
+  - 手动触发：`mcp-sha-<short>`
+  - 同时更新滚动 tag：`mcp-latest`
 
 ### 4.3 需要的仓库 secrets
 
@@ -111,7 +112,7 @@ curl -i http://localhost:3333/mcp
 默认 registry 镜像名在 workflow 中设置为：
 
 ```text
-registry.cn-hangzhou.aliyuncs.com/winwin/lightdash-mcp
+registry.cn-hangzhou.aliyuncs.com/winwin/lightdash
 ```
 
 如需调整，可直接改 workflow 的 `REGISTRY_IMAGE`。
@@ -126,10 +127,10 @@ docker login registry.cn-hangzhou.aliyuncs.com
 IMAGE_VERSION=0.1.0
 REGISTRY=registry.cn-hangzhou.aliyuncs.com
 NAMESPACE=winwin
-REPO=lightdash-mcp
+REPO=lightdash
 
-docker tag lightdash-mcp:${IMAGE_VERSION} ${REGISTRY}/${NAMESPACE}/${REPO}:${IMAGE_VERSION}
-docker push ${REGISTRY}/${NAMESPACE}/${REPO}:${IMAGE_VERSION}
+docker tag lightdash-mcp:${IMAGE_VERSION} ${REGISTRY}/${NAMESPACE}/${REPO}:mcp-${IMAGE_VERSION}
+docker push ${REGISTRY}/${NAMESPACE}/${REPO}:mcp-${IMAGE_VERSION}
 ```
 
 ---

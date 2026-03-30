@@ -8,7 +8,7 @@ on:
 
 env:
     REGISTRY: registry.cn-hangzhou.aliyuncs.com
-    REGISTRY_IMAGE: registry.cn-hangzhou.aliyuncs.com/winwin/lightdash-mcp
+    REGISTRY_IMAGE: registry.cn-hangzhou.aliyuncs.com/winwin/lightdash
 
 jobs:
     build-and-push:
@@ -22,9 +22,10 @@ jobs:
               shell: bash
               run: |
                   if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-                    TAG="${GITHUB_REF_NAME#mcp-v}"
+                    RAW="${GITHUB_REF_NAME#mcp-v}"
+                    TAG="mcp-${RAW}"
                   else
-                    TAG="sha-${GITHUB_SHA::12}"
+                    TAG="mcp-sha-${GITHUB_SHA::12}"
                   fi
                   echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
 
@@ -51,7 +52,7 @@ jobs:
                   provenance: false
                   tags: |
                       ${{ env.REGISTRY_IMAGE }}:${{ steps.vars.outputs.tag }}
-                      ${{ env.REGISTRY_IMAGE }}:latest
+                      ${{ env.REGISTRY_IMAGE }}:mcp-latest
                   labels: |
                       org.opencontainers.image.title=lightdash-mcp
                       org.opencontainers.image.version=${{ steps.vars.outputs.tag }}
