@@ -8,7 +8,7 @@ export type WebPathTemplates = {
     space: string;
 };
 
-const DEFAULT_TEMPLATES: WebPathTemplates = {
+export const DEFAULT_WEB_PATH_TEMPLATES: WebPathTemplates = {
     dashboard: '/projects/{projectUuid}/dashboards/{uuid}/view',
     chart: '/projects/{projectUuid}/saved/{uuid}',
     space: '/projects/{projectUuid}/spaces/{uuid}',
@@ -32,20 +32,6 @@ export function joinSiteUrl(siteBaseUrl: string, path: string): string {
     const base = trimSlash(siteBaseUrl);
     const p = path.startsWith('/') ? path : `/${path}`;
     return `${base}${p}`;
-}
-
-export function loadWebPathTemplatesFromEnv(): WebPathTemplates {
-    return {
-        dashboard:
-            process.env.LIGHTDASH_WEB_DASHBOARD_PATH_TEMPLATE?.trim() ||
-            DEFAULT_TEMPLATES.dashboard,
-        chart:
-            process.env.LIGHTDASH_WEB_CHART_PATH_TEMPLATE?.trim() ||
-            DEFAULT_TEMPLATES.chart,
-        space:
-            process.env.LIGHTDASH_WEB_SPACE_PATH_TEMPLATE?.trim() ||
-            DEFAULT_TEMPLATES.space,
-    };
 }
 
 type ContentLike = {

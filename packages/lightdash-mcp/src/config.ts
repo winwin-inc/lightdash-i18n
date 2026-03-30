@@ -7,16 +7,22 @@ loadDotenv({ path: path.join(__dirname, '..', '.env') });
 export type LightdashMcpEnvConfig = {
     baseUrl: string;
     apiKey: string | undefined;
-    defaultProjectUuid: string | undefined;
+    defaultProjectUuid: string;
     maxLimit: number;
 };
 
 export function loadConfigFromEnv(): LightdashMcpEnvConfig {
     const raw = process.env.LIGHTDASH_SITE_URL;
     const apiKey = process.env.LIGHTDASH_API_KEY;
+    const defaultProjectUuid = process.env.LIGHTDASH_DEFAULT_PROJECT_UUID;
     if (!raw) {
         throw new Error(
             'LIGHTDASH_SITE_URL is required（请设置环境变量，或在 packages/lightdash-mcp/.env 中配置，参考 .env.example）',
+        );
+    }
+    if (!defaultProjectUuid) {
+        throw new Error(
+            'LIGHTDASH_DEFAULT_PROJECT_UUID is required（请设置环境变量，或在 packages/lightdash-mcp/.env 中配置，参考 .env.example）',
         );
     }
     const baseUrl = raw.replace(/\/$/, '');
@@ -30,7 +36,7 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
     return {
         baseUrl,
         apiKey,
-        defaultProjectUuid: process.env.LIGHTDASH_DEFAULT_PROJECT_UUID,
+        defaultProjectUuid,
         maxLimit,
     };
 }

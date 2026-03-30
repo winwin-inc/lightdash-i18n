@@ -47,7 +47,7 @@ pnpm -F @lightdash/mcp start:http
 |------|------|------|
 | `LIGHTDASH_SITE_URL` | 是 | Lightdash 站点根 URL，例如 `https://your-lightdash.example.com`（MCP 调 REST 用，**不是** MCP 自己的监听地址） |
 | `LIGHTDASH_API_KEY` | 否 | 默认 PAT；也可由 HTTP 请求头、`tool` 参数 `apiKey` 覆盖 |
-| `LIGHTDASH_DEFAULT_PROJECT_UUID` | 否 | 默认项目 UUID |
+| `LIGHTDASH_DEFAULT_PROJECT_UUID` | 是 | 默认项目 UUID（服务启动必填） |
 | `LIGHTDASH_MAX_LIMIT` | 否 | 单次 query 的 `limit` 封顶，默认 5000 |
 | `LIGHTDASH_MCP_HTTP_PORT` | 否 | 仅 **HTTP 模式**，默认 `3333` |
 

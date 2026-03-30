@@ -17,18 +17,30 @@ Lightdash MCP 服务（适用于 Claude Code / Cursor）。
 |------|------|------|
 | `LIGHTDASH_SITE_URL` | 是 | Lightdash 站点地址 |
 | `LIGHTDASH_API_KEY` | 否 | 默认 PAT（可被请求头或 tool 的 `apiKey` 覆盖） |
-| `LIGHTDASH_DEFAULT_PROJECT_UUID` | 否 | 默认项目 UUID |
+| `LIGHTDASH_DEFAULT_PROJECT_UUID` | 是 | 默认项目 UUID（服务启动必填） |
 | `LIGHTDASH_MAX_LIMIT` | 否 | 查询 `limit` 上限 |
 | `LIGHTDASH_MCP_HTTP_PORT` | 否 | HTTP 端口，默认 `3333` |
-| `LIGHTDASH_WEB_DASHBOARD_PATH_TEMPLATE` | 否 | 看板路径模板，占位符 `{projectUuid}` `{uuid}` `{slug}`；默认 `/projects/{projectUuid}/dashboards/{uuid}/view` |
-| `LIGHTDASH_WEB_CHART_PATH_TEMPLATE` | 否 | 图表路径模板；默认 `/projects/{projectUuid}/saved/{uuid}` |
-| `LIGHTDASH_WEB_SPACE_PATH_TEMPLATE` | 否 | 空间路径模板；默认 `/projects/{projectUuid}/spaces/{uuid}` |
 
 ## 构建
 
 ```bash
 pnpm -F @lightdash/mcp build
 ```
+
+## Docker 运行
+
+```bash
+docker build -f packages/lightdash-mcp/Dockerfile -t lightdash-mcp:0.1.0 .
+
+docker run --rm -p 3333:3333 \
+  -e LIGHTDASH_SITE_URL="https://your-lightdash.example.com" \
+  -e LIGHTDASH_DEFAULT_PROJECT_UUID="your-project-uuid" \
+  -e LIGHTDASH_MCP_HTTP_PORT=3333 \
+  lightdash-mcp:0.1.0
+```
+
+- 若客户端会在 MCP 请求头里传 `x-api-key`，容器内可不配置 `LIGHTDASH_API_KEY`。
+- 需要容器默认兜底 key 时，再设置 `LIGHTDASH_API_KEY`。
 
 ## 已提供工具（按推荐使用顺序）
 
@@ -55,6 +67,7 @@ pnpm -F @lightdash/mcp build
 
 - 总文档：[`docs/lightdash-mcp.md`](../../docs/lightdash-mcp.md)
 - 分析师向工具说明：[`docs/lightdash-mcp-user-oriented-tools.md`](../../docs/lightdash-mcp-user-oriented-tools.md)
+- Docker 部署：[`docs/mcp/lightdash-mcp-docker-deploy.md`](../../docs/mcp/lightdash-mcp-docker-deploy.md)
 
 ## 常见 422 排障
 

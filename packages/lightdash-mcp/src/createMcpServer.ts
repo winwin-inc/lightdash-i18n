@@ -4,9 +4,9 @@ import { QueryExecutionContext } from '@lightdash/common';
 import { z, type ZodRawShape } from 'zod';
 import type { LightdashMcpEnvConfig } from './config';
 import {
+    DEFAULT_WEB_PATH_TEMPLATES,
     enrichContentSearchResults,
     enrichSavedChartResult,
-    loadWebPathTemplatesFromEnv,
 } from './contentWebUrls';
 import { createLightdashRestClient } from './lightdashRest';
 import {
@@ -133,13 +133,7 @@ function resolveProjectUuid(
     config: LightdashMcpEnvConfig,
     fromArgs: string | undefined,
 ): string {
-    const u = fromArgs ?? config.defaultProjectUuid;
-    if (!u) {
-        throw new Error(
-            'projectUuid is required (tool argument or LIGHTDASH_DEFAULT_PROJECT_UUID)',
-        );
-    }
-    return u;
+    return fromArgs ?? config.defaultProjectUuid;
 }
 
 function resolveApiKey(
@@ -390,14 +384,13 @@ export function createLightdashMcpServer(
     config: LightdashMcpEnvConfig,
 ): McpServer {
     const api = createLightdashRestClient(config);
-    const webPathTemplates = loadWebPathTemplatesFromEnv();
     const resolverCache = new Map<
         string,
         { expiresAtMs: number; resolve: (field: string) => string }
     >();
     const server = new McpServer({
         name: 'lightdash-local-mcp',
-        version: '0.2098.2',
+        version: '0.1.0',
     });
 
     const getFieldResolver = async (
@@ -427,8 +420,7 @@ export function createLightdashMcpServer(
         'lightdash_get_site_info',
         '返回当前 MCP 所连 Lightdash 的站点根地址 siteBaseUrl（与 LIGHTDASH_SITE_URL 一致）；不含密钥。可与各工具返回的 webUrl 对照使用。',
         getSiteInfoParams,
-        async (args) => {
-            resolveApiKey(config, args.apiKey as string | undefined);
+        async () => {
             const payload = {
                 siteBaseUrl: config.baseUrl,
                 note: '具体图表/看板打开链接见 search_content、get_saved_chart 等工具返回的 webUrl。',
@@ -490,7 +482,7 @@ export function createLightdashMcpServer(
             });
             const enriched = enrichContentSearchResults(
                 config.baseUrl,
-                webPathTemplates,
+                DEFAULT_WEB_PATH_TEMPLATES,
                 data,
             );
             return {
@@ -546,7 +538,7 @@ export function createLightdashMcpServer(
             );
             const enriched = enrichSavedChartResult(
                 config.baseUrl,
-                webPathTemplates.chart,
+                DEFAULT_WEB_PATH_TEMPLATES.chart,
                 data,
             );
             return {
