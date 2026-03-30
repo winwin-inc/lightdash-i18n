@@ -153,6 +153,12 @@ Lightdash REST API
 - 人均问答完成时长
 - 失败类型分布（401/400/422/500）
 
+### 7.4 运行门禁（必须启用）
+
+- 缺少最小信息集（项目、时间、指标）时禁止执行查询
+- 单问题最多 3 次工具调用，超过则返回阶段性结果与补充问题；**类目校验/单层降级**见 `lightdash-mcp-query-sop.md` 2.1，允许最多 **4** 次
+- 连续两次失败必须停止重试并输出失败回报模板
+
 ---
 
 ## 8. 版本建议与后续演进
@@ -176,8 +182,9 @@ Lightdash REST API
 
 ## 9. 相关文档
 
-- `docs/lightdash-mcp-user-guide.md`
+- `docs/mcp/lightdash-mcp-user-guide.md`
+- `docs/mcp/lightdash-mcp-query-sop.md`
 - `docs/lightdash-mcp.md`
-- `docs/lightdash-mcp-testing.md`
+- `docs/mcp/lightdash-mcp-testing.md`
 - `packages/lightdash-skills/lightdash-insight-router/SKILL.md`
 

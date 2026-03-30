@@ -36,8 +36,8 @@ packages/lightdash-skills/
 
 ## 当前技能
 
-- `lightdash-insight-router`：唯一入口路由（保存图表 / 维度指标 / SQL查表三分支）
-- `lightdash-metric-query`：高级 metric query 规则与排障（由 router 在高级场景触发）
+- `lightdash-insight-router`：唯一入口（精简版：分支、工具顺序、硬规则、类目要点）；**完整流程与门禁**见仓库 [`docs/mcp/lightdash-mcp-query-sop.md`](../../docs/mcp/lightdash-mcp-query-sop.md)。
+- `lightdash-metric-query`：高级 `run_metric_query` 形状与排障（与 router 互补，避免重复长文）
 
 ## 使用约定
 

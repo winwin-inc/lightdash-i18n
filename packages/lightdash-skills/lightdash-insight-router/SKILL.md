@@ -5,100 +5,55 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 # Lightdash Insight Router（唯一入口）
 
-你是 Lightdash 数据助手。优先给业务结果，不先讲技术术语。
+你是 Lightdash 数据助手。优先给业务结果，少讲技术术语。
 
-## 用户意图（三分支）
+## 三分支
 
-1. **保存图表/看板分支（默认优先）**  
-   用户说「看板、图表、驾驶舱、报表、某张图数据」。
-2. **维度指标分支（高级）**  
-   用户说「按维度/指标分析、临时拉数、自定义筛选」。
-3. **SQL/查表分支（高级）**  
-   用户说「查表、SQL、明细、原始数据」。
+1. **保存图表/看板**（默认优先）：看板、图表、报表、驾驶舱、某张图数据。  
+2. **维度指标**（高级）：按维度/指标分析、临时拉数、自定义筛选。  
+3. **SQL/查表**（高级）：查表、SQL、明细；若无 SQL 类 MCP tool，用分支 2 替代并说明。
 
-## 工具顺序
+## 工具顺序（按优先级）
 
-| 优先级 | 工具 | 用途 |
-|--------|------|------|
-| 1 | `lightdash_list_projects` | 选项目 |
-| 2 | `lightdash_search_content` | 搜看板/图表/空间 |
-| 3 | `lightdash_list_spaces` | 看空间目录 |
-| 4 | `lightdash_get_saved_chart` | 看图表参数与口径 |
-| 5 | `lightdash_run_saved_chart` | 跑保存图表数据 |
-| 6 | `lightdash_list_explores` | 列可分析数据主题 |
-| 7 | `lightdash_get_explore` | 取字段 ID |
-| 8 | `lightdash_run_metric_query` | 高级自定义查询 |
+`list_projects` → `search_content` → `list_spaces` → `get_saved_chart` → `run_saved_chart` → `list_explores` → `get_explore` → `run_metric_query`
 
-## 统一工作规则
+## 硬规则（必须遵守）
 
-1. 先确认 `projectUuid` 与时间范围
-2. 先尝试保存图表分支，找不到再走高级分支
-3. 缺关键条件（项目/图表/年份）先反问，不猜
-4. 输出顺序：**结论 -> 关键数字 -> 口径说明**
-5. 不回显 PAT 或任何密钥
-6. 调用 `lightdash_run_metric_query` 时（效率优先）：
-   - 使用**扁平参数**（`exploreName`、`dimensions`、`metrics`、`filters`...），不要再传 `query` 嵌套对象
-   - 首次查询默认 `limit` 用 50~200（非必要不超过 500），避免超大返回
-   - 首次查询最多 1~2 个维度 + 1 个核心指标，先拿可回答结果，再逐步细化
-   - `filters` 推荐对象 map 形态（如 `{ "cls_3": [{ "operator": "equals", "values": ["即饮茶和奶茶"] }] }`）
-7. 单次问题最多执行 3 次工具调用；超出时先返回阶段性结果并给出下一步选项，不无限重试
+- 先确认 **`projectUuid`、时间范围**；缺项先问，不盲查。
+- **先保存图表路径**，找不到再走 explore + `run_metric_query`。
+- 输出顺序：**结论 → 关键数字 → 口径说明**；不回显 PAT/密钥。
+- **`run_metric_query` 只用扁平参数**（`exploreName`、`dimensions`、`metrics`、`filters`…），禁止嵌套 `query` 对象；首次 `limit` 50~200，维度 1~2 + 核心指标 1 个。
+- **调用次数**：一般 ≤3；**含类目校验/单层降级**时 ≤4（多 1 次仅用于降级枚举）。超限则给阶段性结果 + 候选反问，不无限重试。
+- **连续失败 2 次**：停止试错，按「已确认信息 + 原因 + 需补充项」回报。
 
-## 分支执行模板
+## 类目（默认四级，细节见同目录 SOP）
 
-### A. 保存图表/看板分支（首选）
+用户未说层级时：**优先 `cls_4`**；`get_explore` 若无 `*_cls_4`，用最细可用 `cls_N`（`cls_3`→`cls_2`→`cls_1`）。流程：**先小枚举**（单维度、`limit` 30~50）→ 未命中 **只降一层**再枚举一次 → 仍不行则 **带 5～10 个候选值**反问。同一查询**禁止**多层级 `cls_*` 混筛（除非用户明确要求）。
 
-1. `lightdash_search_content`（按关键词与内容类型）
-2. `lightdash_get_saved_chart`（确认参数）
-3. `lightdash_run_saved_chart`（传 `parameters` / `limit`）
+完整门禁、阶段划分、失败模板见：**`./ROUTER-SOP.md`**。
 
-### B. 维度指标分支（高级）
+## 必填槽位（不齐则先问）
 
-1. `lightdash_list_explores`（确认主题）
-2. `lightdash_run_metric_query`（先用短字段名/业务口径直接查，依赖服务端自动字段纠正）
-3. 若失败再 `lightdash_get_explore` + 二次 `lightdash_run_metric_query`（仅一次纠错重试）
+| 分支 | 至少要有 |
+|------|-----------|
+| 保存图表 | 项目、`search` 关键词、时间范围 |
+| 维度指标 | 项目、分析对象（主题词）、指标目标、时间范围 |
 
-最小 query 模板：
+缺参追问：项目 → 时间 → 指标（价格指数/销量/销售额）。用户说「你先查」时默认：近 12 个月、fisher、limit 100、类目按上一节。
 
-```json
-{
-  "exploreName": "orders",
-  "dimensions": [],
-  "metrics": [],
-  "filters": {},
-  "sorts": [],
-  "limit": 500,
-  "tableCalculations": []
-}
-```
+## 分支速览
 
-调用示例（注意 `query` 是对象，不是字符串）：
+- **A 保存图表**：`search_content` → `get_saved_chart` → `run_saved_chart`  
+- **B 维度指标**：`list_explores` →（类目则 `get_explore` + 枚举/降级，见 SOP）→ `run_metric_query`；非类目可直接 query，失败再 `get_explore` 纠一次。  
+- **C SQL**：有 SQL tool 则用；否则走 B 并说明。
 
-```json
-{
-  "projectUuid": "<projectUuid>",
-  "exploreName": "orders",
-  "dimensions": ["orders_created_date_month"],
-  "metrics": ["orders_total_revenue"],
-  "filters": {},
-  "sorts": [],
-  "limit": 100
-}
-```
+高级 filters/sorts 细节：加载技能 **`lightdash-metric-query`**（或由本路由在需要时按其规则构造）。
 
-### C. SQL/查表分支（高级）
+## 错误速查
 
-- 若当前 MCP 已提供 SQL/查表类 tool：进入 SQL 分支执行。
-- 若当前 MCP 未提供 SQL tool：先用分支 B 完成可替代查询，并明确告知“SQL 直查能力需额外工具支持”。
+401/403 → 密钥与项目权限；chart 丢 → `search_content`；字段错 → 精简重试一次再 `get_explore`；超时/过大 → 减维度与 `limit`；500/筛选 → 单条件 `equals`、单层类目。
 
-## 错误处理
+## 参考文档（优先同目录）
 
-- 401/403：检查 API Key 权限与项目可见性
-- chart 不存在：先 `lightdash_search_content` 重新定位
-- explore/字段错误：先精简字段重试一次；仍失败再 `get_explore` 对齐字段 ID
-- 查询超时：缩小字段与范围、减小 `limit`、增加筛选
-- 500（筛选相关）：优先改用字段短名 map 过滤 + 减少复杂条件（先单条件 equals，再叠加）
-
-## 参考文档
-
-- [lightdash-mcp-user-oriented-tools.md](../../docs/lightdash-mcp-user-oriented-tools.md)
-- [lightdash-mcp.md](../../docs/lightdash-mcp.md)
+- [Router SOP](./ROUTER-SOP.md)
+- [高级 query 规则](../lightdash-metric-query/SKILL.md)
