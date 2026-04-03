@@ -1521,7 +1521,8 @@ export const parseConfig = (): LightdashConfig => {
                 getIntegerFromEnvironmentVariable(
                     'LIGHTDASH_CSV_CELLS_LIMIT',
                 ) || 100000,
-            timezone: process.env.LIGHTDASH_QUERY_TIMEZONE,
+            // IANA tz id; aligns with Dockerfile default (Asia/Shanghai). Override with LIGHTDASH_QUERY_TIMEZONE, e.g. UTC.
+            timezone: process.env.LIGHTDASH_QUERY_TIMEZONE || 'Asia/Shanghai',
             maxPageSize:
                 getIntegerFromEnvironmentVariable(
                     'LIGHTDASH_QUERY_MAX_PAGE_SIZE',
