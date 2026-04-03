@@ -96,33 +96,43 @@ export class ExcelService {
         displayTimezone?: string,
     ): (string | number | Date | null)[] {
         return sortedFieldIds.map((fieldId) => {
-            let rawValue = row[fieldId];
+            const sourceValue = row[fieldId];
+            let rawValue = sourceValue;
 
             if (rawValue === null || rawValue === undefined) {
                 return rawValue;
             }
 
             const item = itemMap[fieldId];
+            const isTimestampField =
+                !!item &&
+                'type' in item &&
+                item.type === DimensionType.TIMESTAMP;
+            const isDateField =
+                !!item && 'type' in item && item.type === DimensionType.DATE;
 
-            // Keep raw export semantics, but normalize DATE/TIMESTAMP to configured display timezone.
-            if (item && 'type' in item) {
-                if (item.type === DimensionType.TIMESTAMP) {
-                    rawValue = ExcelService.formatMomentByTimezone(
-                        rawValue,
-                        'YYYY-MM-DD HH:mm:ss.SSS',
-                        displayTimezone,
-                    );
-                } else if (item.type === DimensionType.DATE) {
-                    rawValue = ExcelService.formatMomentByTimezone(
-                        rawValue,
-                        'YYYY-MM-DD',
-                        displayTimezone,
-                    );
-                }
+            // Always normalize temporal values to configured timezone first.
+            if (isTimestampField) {
+                rawValue = ExcelService.formatMomentByTimezone(
+                    sourceValue,
+                    'YYYY-MM-DD HH:mm:ss.SSS',
+                    displayTimezone,
+                );
+            } else if (isDateField) {
+                rawValue = ExcelService.formatMomentByTimezone(
+                    sourceValue,
+                    'YYYY-MM-DD',
+                    displayTimezone,
+                );
             }
 
             if (onlyRaw) {
                 return rawValue;
+            }
+
+            // Formatted mode: preserve existing formatter behavior, using timezone-normalized temporal value.
+            if (isTimestampField || isDateField) {
+                return formatItemValue(item, rawValue);
             }
 
             const formatExpression = getFormatExpression(item);
