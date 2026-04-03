@@ -2,6 +2,7 @@ import {
     AnyType,
     DimensionType,
     DownloadFileType,
+    FieldType,
     formatItemValue,
     formatRows,
     getErrorMessage,
@@ -104,12 +105,17 @@ export class ExcelService {
             }
 
             const item = itemMap[fieldId];
+            const isMetricField =
+                !!item &&
+                'fieldType' in item &&
+                item.fieldType === FieldType.METRIC;
             const isTimestampField =
                 !!item &&
                 'type' in item &&
                 item.type === DimensionType.TIMESTAMP;
             const isDateField =
                 !!item && 'type' in item && item.type === DimensionType.DATE;
+            const isTemporalField = isTimestampField || isDateField;
 
             // Always normalize temporal values to configured timezone first.
             if (isTimestampField) {
@@ -127,17 +133,26 @@ export class ExcelService {
             }
 
             if (onlyRaw) {
+                // Prevent Excel auto-number formatting for non-metric dimensions like 2025/202503.
+                if (!isMetricField && typeof rawValue === 'number') {
+                    return String(rawValue);
+                }
                 return rawValue;
             }
 
             // Formatted mode: preserve existing formatter behavior, using timezone-normalized temporal value.
-            if (isTimestampField || isDateField) {
+            if (isTemporalField) {
                 return formatItemValue(item, rawValue);
             }
 
             const formatExpression = getFormatExpression(item);
             if (formatExpression) {
                 // Convert string numbers to actual numbers for Excel formatting
+                if (!isMetricField) {
+                    return typeof rawValue === 'number'
+                        ? String(rawValue)
+                        : rawValue;
+                }
                 const stringValue = String(rawValue);
                 if (
                     stringValue.trim() !== '' &&
@@ -373,6 +388,15 @@ export class ExcelService {
             const fieldId = sortedFieldIds[index];
             const item = fields[fieldId];
             const formatExpression = getFormatExpression(item);
+            const isMetricField =
+                !!item &&
+                'fieldType' in item &&
+                item.fieldType === FieldType.METRIC;
+            const isTemporalField =
+                !!item &&
+                'type' in item &&
+                (item.type === DimensionType.DATE ||
+                    item.type === DimensionType.TIMESTAMP);
 
             const column: Partial<Excel.Column> = {
                 header,
@@ -381,7 +405,7 @@ export class ExcelService {
             };
 
             // Apply number formatting at column level if available
-            if (formatExpression) {
+            if (formatExpression && isMetricField && !isTemporalField) {
                 column.style = { numFmt: formatExpression };
             }
 
