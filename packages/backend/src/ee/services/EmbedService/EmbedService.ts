@@ -994,7 +994,9 @@ export class EmbedService extends BaseService {
                 access: [],
             },
             explore,
-            rows: formatRows(rows, fields),
+            rows: formatRows(rows, fields, undefined, {
+                displayTimezone: this.lightdashConfig.query.timezone,
+            }),
             cacheMetadata,
             metricQuery: metricQueryWithDashboardOverrides,
             fields,
@@ -1277,10 +1279,9 @@ export class EmbedService extends BaseService {
                 });
 
                 // Format raw rows (this matches the logic in ProjectService)
-                subtotals = formatRawRows(rows, fields) as Record<
-                    string,
-                    number
-                >[];
+                subtotals = formatRawRows(rows, fields, {
+                    displayTimezone: this.lightdashConfig.query.timezone,
+                }) as Record<string, number>[];
             } catch (e) {
                 this.logger.error(
                     `Error running subtotal query for dimensions ${subtotalDimensions.join(

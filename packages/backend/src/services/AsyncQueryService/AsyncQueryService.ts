@@ -558,6 +558,9 @@ export class AsyncQueryService extends ProjectService {
                 row,
                 queryHistory.fields,
                 queryHistory.pivotValuesColumns,
+                {
+                    displayTimezone: this.lightdashConfig.query.timezone,
+                },
             );
 
         const {
@@ -997,6 +1000,7 @@ export class AsyncQueryService extends ProjectService {
                         columnOrder,
                         hiddenFields,
                         attachmentDownloadName,
+                        displayTimezone: this.lightdashConfig.query.timezone,
                     },
                 );
             case undefined:
@@ -1027,6 +1031,7 @@ export class AsyncQueryService extends ProjectService {
                 sortedFieldIds: string[],
                 headers: string[],
                 streams: { readStream: Readable; writeStream: Writable },
+                displayTimezone?: string,
             ) => Promise<{ truncated: boolean }>;
         },
         options?: {
@@ -1074,6 +1079,7 @@ export class AsyncQueryService extends ProjectService {
                         readStream,
                         writeStream,
                     },
+                    this.lightdashConfig.query.timezone,
                 );
 
                 return {
@@ -2010,8 +2016,9 @@ export class AsyncQueryService extends ProjectService {
             | { dashboardSlug?: string; dashboardName?: string }
             | undefined;
         if (dashboardUuid) {
-            const dashboard =
-                await this.dashboardModel.getByIdOrSlug(dashboardUuid);
+            const dashboard = await this.dashboardModel.getByIdOrSlug(
+                dashboardUuid,
+            );
             exploreContext = {
                 dashboardSlug: dashboard.slug,
                 dashboardName: dashboard.name,

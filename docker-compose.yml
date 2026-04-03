@@ -16,6 +16,8 @@ services:
             - db
             - minio
         environment:
+            # 查询编译 + 结果 DATE/TIMESTAMP 原始字符串（API/CSV）展示时区；需 IANA 名称
+            - LIGHTDASH_QUERY_TIMEZONE=${LIGHTDASH_QUERY_TIMEZONE:-Asia/Shanghai}
             - PGHOST=${PGHOST:-db}
             - PGPORT=${PGPORT:-5432}
             - PGUSER=${PGUSER:-postgres}
