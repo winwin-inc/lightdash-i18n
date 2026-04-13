@@ -246,6 +246,16 @@ export const getValueCell = (info: CellContext<RawResultRow, string>) => {
     return <span>{formatted}</span>;
 };
 
+export const getExploreNameForCalculateTotal = ({
+    metricQueryExploreName,
+    exploreName,
+    exploreBaseTable,
+}: {
+    metricQueryExploreName?: string;
+    exploreName?: string;
+    exploreBaseTable?: string;
+}) => metricQueryExploreName ?? exploreName ?? exploreBaseTable;
+
 export const useColumns = (): TableColumn[] => {
     const { t } = useTranslation();
 
@@ -348,7 +358,11 @@ export const useColumns = (): TableColumn[] => {
 
     const { data: totals } = useCalculateTotal({
         metricQuery: resultsMetricQuery,
-        explore: exploreData?.baseTable,
+        explore: getExploreNameForCalculateTotal({
+            metricQueryExploreName: resultsMetricQuery?.exploreName,
+            exploreName: exploreData?.name,
+            exploreBaseTable: exploreData?.baseTable,
+        }),
         fieldIds: resultsMetricQuery
             ? itemsInMetricQuery(resultsMetricQuery)
             : undefined,

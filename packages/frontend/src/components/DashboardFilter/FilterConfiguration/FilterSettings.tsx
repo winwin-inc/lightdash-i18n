@@ -1,10 +1,10 @@
 import {
     FilterOperator,
+    FilterType,
     getFilterRuleWithDefaultValue,
     supportsSingleValue,
     type DashboardFilterRule,
     type FilterRule,
-    type FilterType,
     type FilterableDimension,
 } from '@lightdash/common';
 import {
@@ -28,6 +28,7 @@ import FilterInputComponent from '../../common/Filters/FilterInputs';
 import { useFilterOperatorOptions } from '../../common/Filters/FilterInputs/utils';
 import { usePlaceholderByFilterTypeAndOperator } from '../../common/Filters/utils/getPlaceholderByFilterTypeAndOperator';
 import MantineIcon from '../../common/MantineIcon';
+import { TagInput } from '../../common/TagInput/TagInput';
 
 type ParentFilterOption = {
     value: string;
@@ -43,6 +44,7 @@ interface FilterSettingsProps {
     filterRule: DashboardFilterRule;
     popoverProps?: Omit<PopoverProps, 'children'>;
     onChangeFilterRule: (value: DashboardFilterRule) => void;
+    onPendingExcludedValueChange?: (value: string) => void;
     isCustomerUse?: boolean;
     parentFilterOptions?: ParentFilterOption[];
 }
@@ -55,6 +57,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     filterRule,
     popoverProps,
     onChangeFilterRule,
+    onPendingExcludedValueChange,
     parentFilterOptions = [],
 }) => {
     const { t } = useTranslation();
@@ -497,6 +500,50 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                     });
                                 }}
                             />
+
+                            {filterType === FilterType.STRING && (
+                                <TagInput
+                                    mt="xs"
+                                    size="xs"
+                                    label={
+                                        <Text size="xs" mt="two" fw={500}>
+                                            {t(
+                                                'components_dashboard_filter.configuration.exclude_values.label',
+                                            )}
+                                        </Text>
+                                    }
+                                    placeholder={t(
+                                        'components_dashboard_filter.configuration.exclude_values.placeholder',
+                                    )}
+                                    clearable
+                                    value={filterRule.excludedValues ?? []}
+                                    onSearchChange={
+                                        onPendingExcludedValueChange
+                                    }
+                                    onChange={(values) => {
+                                        onPendingExcludedValueChange?.('');
+                                        const normalizedExcludedValues =
+                                            Array.from(
+                                                new Set(
+                                                    values
+                                                        .map((v) => v.trim())
+                                                        .filter(
+                                                            (v) => v.length > 0,
+                                                        ),
+                                                ),
+                                            );
+
+                                        onChangeFilterRule({
+                                            ...filterRule,
+                                            excludedValues:
+                                                normalizedExcludedValues.length >
+                                                0
+                                                    ? normalizedExcludedValues
+                                                    : undefined,
+                                        });
+                                    }}
+                                />
+                            )}
                         </Box>
                     </>
                 )}

@@ -2400,7 +2400,11 @@
                 "parent_filter_placeholder": "No parent filter"
             },
             "filter_read_only": "Filter read-only",
-            "filter_hidden": "Filter hidden"
+            "filter_hidden": "Filter hidden",
+            "exclude_values": {
+                "label": "Exclude values from options",
+                "placeholder": "Add values to hide from this filter options list"
+            }
         },
         "tabs": {
             "tooltip_filter": {

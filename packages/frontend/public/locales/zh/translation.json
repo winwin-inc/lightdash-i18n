@@ -2383,7 +2383,11 @@
                 "parent_filter_placeholder": "不设置父级筛选器"
             },
             "filter_read_only": "筛选器只读",
-            "filter_hidden": "筛选器隐藏"
+            "filter_hidden": "筛选器隐藏",
+            "exclude_values": {
+                "label": "排除选项值",
+                "placeholder": "添加不需要在筛选选项中展示的值"
+            }
         },
         "batch_bind": {
             "button": "批量绑定",

@@ -68,13 +68,16 @@ export const getFilterRuleRevertableObject = (
     filterRule: DashboardFilterRule,
 ) => {
     return {
+        target: filterRule.target,
         disabled: filterRule.disabled,
         values: filterRule.values,
         operator: filterRule.operator,
         settings: filterRule.settings,
         label: filterRule.label,
+        tileTargets: filterRule.tileTargets,
         categoryLevel: filterRule.categoryLevel,
         parentFieldId: filterRule.parentFieldId,
+        excludedValues: filterRule.excludedValues,
         readOnly: filterRule.readOnly,
         hidden: filterRule.hidden,
     };

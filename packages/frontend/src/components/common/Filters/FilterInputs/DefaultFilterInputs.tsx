@@ -36,6 +36,7 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
     // Check if the filter should only allow a single value
     const isSingleValue =
         isFilterRule(rule) && 'singleValue' in rule && !!rule.singleValue;
+    const ruleWithExcludedValues = rule as T & { excludedValues?: string[] };
 
     const getPlaceholderByFilterTypeAndOperator =
         usePlaceholderByFilterTypeAndOperator();
@@ -74,7 +75,9 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
                                     values,
                                 })
                             }
-                            closeDropdownOnMouseLeave={closeDropdownOnMouseLeave}
+                            closeDropdownOnMouseLeave={
+                                closeDropdownOnMouseLeave
+                            }
                         />
                     ) : (
                         <FilterStringAutoComplete
@@ -90,13 +93,18 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
                             onDropdownClose={popoverProps?.onClose}
                             values={(rule.values || []).filter(isString)}
                             singleValue={isSingleValue}
+                            excludedValues={
+                                ruleWithExcludedValues.excludedValues
+                            }
                             onChange={(values) =>
                                 onChange({
                                     ...rule,
                                     values,
                                 })
                             }
-                            closeDropdownOnMouseLeave={closeDropdownOnMouseLeave}
+                            closeDropdownOnMouseLeave={
+                                closeDropdownOnMouseLeave
+                            }
                         />
                     );
 
