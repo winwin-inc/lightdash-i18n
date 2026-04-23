@@ -70,6 +70,8 @@ export const getFilterRuleRevertableObject = (
     return {
         target: filterRule.target,
         disabled: filterRule.disabled,
+        required: filterRule.required,
+        singleValue: filterRule.singleValue,
         values: filterRule.values,
         operator: filterRule.operator,
         settings: filterRule.settings,
@@ -87,10 +89,6 @@ export const hasSavedFilterValueChanged = (
     originalFilterRule: DashboardFilterRule,
     filterRule: DashboardFilterRule,
 ) => {
-    if (originalFilterRule.disabled && filterRule.values === undefined) {
-        return false;
-    }
-
     // FIXME: remove this once we fix Date value serialization.
     // example: with date inputs we get a Date object originally but a string after we save the filter
     const serializedInternalFilterRule = produce(filterRule, (draft) => {
@@ -100,6 +98,24 @@ export const hasSavedFilterValueChanged = (
             );
         }
     });
+
+    if (
+        originalFilterRule.disabled &&
+        serializedInternalFilterRule.values === undefined
+    ) {
+        // Keep disabled-filter value compatibility, but still detect other
+        // configuration changes (label, tileTargets, singleValue, etc).
+        const originalRuleForComparison = produce(
+            originalFilterRule,
+            (draft) => {
+                draft.values = undefined;
+            },
+        );
+        return !isEqual(
+            getFilterRuleRevertableObject(originalRuleForComparison),
+            getFilterRuleRevertableObject(serializedInternalFilterRule),
+        );
+    }
 
     return !isEqual(
         getFilterRuleRevertableObject(originalFilterRule),
