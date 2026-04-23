@@ -122,13 +122,6 @@ export const useFilterOperatorOptions = () => {
                 ]);
             case FilterType.DATE:
                 return timeFilterOptions;
-            case FilterType.BOOLEAN:
-                return getFilterOptions([
-                    FilterOperator.NULL,
-                    FilterOperator.NOT_NULL,
-                    FilterOperator.EQUALS,
-                    FilterOperator.NOT_EQUALS,
-                ]);
             default:
                 return assertUnreachable(
                     filterType,

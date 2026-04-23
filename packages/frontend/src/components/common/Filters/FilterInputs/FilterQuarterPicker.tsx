@@ -21,6 +21,8 @@ type Props = Pick<MonthPickerProps, 'value' | 'onChange'> & {
     disabled?: boolean;
     popoverProps?: any;
     autoFocus?: boolean;
+    minDate?: Date;
+    maxDate?: Date;
 };
 
 const QUARTERS = [
@@ -36,6 +38,8 @@ const FilterQuarterPicker: FC<Props> = ({
     placeholder,
     disabled,
     popoverProps,
+    minDate,
+    maxDate,
 }) => {
     const [opened, { open, close }] = useDisclosure(false);
     const { t } = useTranslation();
@@ -69,6 +73,14 @@ const FilterQuarterPicker: FC<Props> = ({
     const handleMonthSelect = (date: Date | null) => {
         if (!date) return;
 
+        const monthStart = dayjs(date).startOf('month');
+        if (minDate && monthStart.isBefore(dayjs(minDate).startOf('month'))) {
+            return;
+        }
+        if (maxDate && monthStart.isAfter(dayjs(maxDate).startOf('month'))) {
+            return;
+        }
+
         // Use dayjs for date handling
         const dateObj = dayjs(date);
         const year = dateObj.year();
@@ -84,10 +96,31 @@ const FilterQuarterPicker: FC<Props> = ({
         (
             date: Date,
         ): {
+            disabled?: boolean;
             sx?: Sx;
             onMouseEnter: () => void;
             onMouseLeave?: () => void;
         } => {
+            const monthStart = dayjs(date).startOf('month');
+            if (
+                minDate &&
+                monthStart.isBefore(dayjs(minDate).startOf('month'))
+            ) {
+                return {
+                    disabled: true,
+                    onMouseEnter: () => undefined,
+                };
+            }
+            if (
+                maxDate &&
+                monthStart.isAfter(dayjs(maxDate).startOf('month'))
+            ) {
+                return {
+                    disabled: true,
+                    onMouseEnter: () => undefined,
+                };
+            }
+
             const month = date.getMonth();
             const year = date.getFullYear();
 
@@ -129,7 +162,7 @@ const FilterQuarterPicker: FC<Props> = ({
                 onMouseLeave: () => setHoveredMonth(null),
             };
         },
-        [hoveredMonth, monthValue, parsedDate, yearValue],
+        [hoveredMonth, maxDate, minDate, monthValue, parsedDate, yearValue],
     );
 
     return (

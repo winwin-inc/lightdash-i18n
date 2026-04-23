@@ -9,6 +9,7 @@ import {
     parseDate,
     timeframeToUnitOfTime,
     type BaseFilterRule,
+    type DashboardFilterRule,
     type DateFilterRule,
 } from '@lightdash/common';
 import { Flex, NumberInput, Text } from '@mantine/core';
@@ -16,7 +17,10 @@ import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { type FilterInputsProps } from '.';
 import useFiltersContext from '../useFiltersContext';
-import { getFirstDayOfWeek } from '../utils/filterDateUtils';
+import {
+    getDashboardFilterDatePickerBounds,
+    getFirstDayOfWeek,
+} from '../utils/filterDateUtils';
 import { usePlaceholderByFilterTypeAndOperator } from '../utils/getPlaceholderByFilterTypeAndOperator';
 import DefaultFilterInputs from './DefaultFilterInputs';
 import FilterDatePicker from './FilterDatePicker';
@@ -54,6 +58,18 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
         disabled: rule.disabled && !rule.values,
     });
 
+    const dashboardRule = rule as unknown as DashboardFilterRule;
+    const timeIntervalStr =
+        isDimension(field) && field.timeInterval
+            ? String(field.timeInterval)
+            : undefined;
+    const { minDate: cfgMin, maxDate: cfgMax } =
+        getDashboardFilterDatePickerBounds(
+            dashboardRule.minAllowedDate,
+            dashboardRule.maxAllowedDate,
+            timeIntervalStr,
+        );
+
     switch (rule.operator) {
         case FilterOperator.EQUALS:
         case FilterOperator.NOT_EQUALS:
@@ -79,6 +95,8 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                                 <FilterWeekPicker
                                     placeholder={placeholder}
                                     disabled={disabled}
+                                    minDate={cfgMin}
+                                    maxDate={cfgMax}
                                     autoFocus={true}
                                     value={
                                         rule.values && rule.values[0]
@@ -118,6 +136,8 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                         return (
                             <FilterMonthAndYearPicker
                                 disabled={disabled}
+                                minDate={cfgMin}
+                                maxDate={cfgMax}
                                 // FIXME: until mantine 7.4: https://github.com/mantinedev/mantine/issues/5401#issuecomment-1874906064
                                 // @ts-ignore
                                 placeholder={placeholder}
@@ -152,6 +172,8 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                         return (
                             <FilterQuarterPicker
                                 disabled={disabled}
+                                minDate={cfgMin}
+                                maxDate={cfgMax}
                                 placeholder={placeholder}
                                 autoFocus={true}
                                 popoverProps={popoverProps}
@@ -170,6 +192,8 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                         return (
                             <FilterYearPicker
                                 disabled={disabled}
+                                minDate={cfgMin}
+                                maxDate={cfgMax}
                                 // FIXME: until mantine 7.4: https://github.com/mantinedev/mantine/issues/5401#issuecomment-1874906064
                                 // @ts-ignore
                                 placeholder={placeholder}
@@ -215,6 +239,8 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                 return (
                     <FilterDateTimePicker
                         disabled={disabled}
+                        minDate={cfgMin}
+                        maxDate={cfgMax}
                         // FIXME: until mantine 7.4: https://github.com/mantinedev/mantine/issues/5401#issuecomment-1874906064
                         // @ts-ignore
                         placeholder={placeholder}
@@ -240,6 +266,8 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
             return (
                 <FilterDatePicker
                     disabled={disabled}
+                    minDate={cfgMin}
+                    maxDate={cfgMax}
                     placeholder={placeholder}
                     // FIXME: mantine v7
                     // mantine does not set the first day of the week based on the locale
@@ -349,6 +377,8 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                 return (
                     <FilterDateTimeRangePicker
                         disabled={disabled}
+                        filterMinDate={cfgMin}
+                        filterMaxDate={cfgMax}
                         autoFocus={true}
                         firstDayOfWeek={getFirstDayOfWeek(startOfWeek)}
                         value={
@@ -378,6 +408,8 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
             return (
                 <FilterDateRangePicker
                     disabled={disabled}
+                    filterMinDate={cfgMin}
+                    filterMaxDate={cfgMax}
                     autoFocus={true}
                     firstDayOfWeek={getFirstDayOfWeek(startOfWeek)}
                     value={

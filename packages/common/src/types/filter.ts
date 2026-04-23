@@ -151,6 +151,9 @@ export type DashboardFilterRule<
     parentFieldId?: string;
     /** Values hidden from filter options list */
     excludedValues?: string[];
+    /** Optional selectable range for date inputs (YYYY-MM-DD) */
+    minAllowedDate?: string;
+    maxAllowedDate?: string;
     readOnly?: boolean;
     /** Hidden filter: not displayed on page, but filter still applies */
     hidden?: boolean;
@@ -378,6 +381,8 @@ export const applyDimensionOverrides = (
                     categoryLevel: dimension.categoryLevel,
                     parentFieldId: dimension.parentFieldId,
                     excludedValues: dimension.excludedValues,
+                    minAllowedDate: dimension.minAllowedDate,
+                    maxAllowedDate: dimension.maxAllowedDate,
                 };
             }
             return dimension;

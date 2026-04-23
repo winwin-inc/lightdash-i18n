@@ -80,6 +80,8 @@ export const getFilterRuleRevertableObject = (
         categoryLevel: filterRule.categoryLevel,
         parentFieldId: filterRule.parentFieldId,
         excludedValues: filterRule.excludedValues,
+        minAllowedDate: filterRule.minAllowedDate,
+        maxAllowedDate: filterRule.maxAllowedDate,
         readOnly: filterRule.readOnly,
         hidden: filterRule.hidden,
     };

@@ -29,6 +29,7 @@ import { useFilterOperatorOptions } from '../../common/Filters/FilterInputs/util
 import { usePlaceholderByFilterTypeAndOperator } from '../../common/Filters/utils/getPlaceholderByFilterTypeAndOperator';
 import MantineIcon from '../../common/MantineIcon';
 import { TagInput } from '../../common/TagInput/TagInput';
+import DateRangeConstraintEditor from './DateRangeConstraintEditor';
 
 type ParentFilterOption = {
     value: string;
@@ -241,6 +242,15 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                             )
                         }
                         closeDropdownOnMouseLeave={isEditMode}
+                    />
+                )}
+
+                {isEditMode && filterType === FilterType.DATE && (
+                    <DateRangeConstraintEditor
+                        field={field}
+                        filterRule={filterRule}
+                        popoverProps={popoverProps}
+                        onChangeFilterRule={onChangeFilterRule}
                     />
                 )}
 
