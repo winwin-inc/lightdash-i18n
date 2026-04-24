@@ -1,4 +1,8 @@
-import { DashboardTileTypes, PromotionAction } from '@lightdash/common';
+import {
+    DashboardChartTile,
+    DashboardTileTypes,
+    PromotionAction,
+} from '@lightdash/common';
 import { analyticsMock } from '../../analytics/LightdashAnalytics.mock';
 import { lightdashConfigMock } from '../../config/lightdashConfig.mock';
 import { DashboardModel } from '../../models/DashboardModel/DashboardModel';
@@ -319,6 +323,53 @@ describe('PromoteService dashboard changes', () => {
             dashboardUuid: null, // not within dashboard
             dashboardName: null,
         });
+    });
+
+    test('getPromotionDashboardChanges should deduplicate chart UUIDs across tiles', async () => {
+        (savedChartModel.get as jest.Mock).mockImplementationOnce(
+            async () => promotedChart.chart,
+        );
+        (savedChartModel.find as jest.Mock).mockImplementationOnce(
+            async () => [],
+        );
+        (spaceModel.find as jest.Mock).mockImplementationOnce(async () => []);
+        (spaceModel.find as jest.Mock).mockImplementationOnce(async () => []);
+
+        const duplicatedChartTile: DashboardChartTile = {
+            uuid: 'duplicate-tile-uuid',
+            type: DashboardTileTypes.SAVED_CHART,
+            x: 4,
+            y: 4,
+            h: 10,
+            w: 10,
+            tabUuid: 'tab-2',
+            properties: {
+                title: 'duplicate chart tile',
+                savedChartUuid: promotedChart.chart.uuid,
+                belongsToDashboard: false,
+            },
+        };
+
+        const [changes, promotedCharts] =
+            await service.getPromotionDashboardChanges(
+                user,
+                {
+                    ...promotedDashboard,
+                    dashboard: {
+                        ...promotedDashboard.dashboard,
+                        tiles: [
+                            promotedDashboard.dashboard.tiles[0],
+                            duplicatedChartTile,
+                        ],
+                    },
+                },
+                missingUpstreamDashboard,
+            );
+
+        expect(savedChartModel.get).toHaveBeenCalledTimes(1);
+        expect(promotedCharts.length).toBe(1);
+        expect(changes.charts).toHaveLength(1);
+        expect(changes.charts[0].action).toBe(PromotionAction.CREATE);
     });
 
     test('getPromotionDashboardChanges create dashboard with chart tiles in different spaces', async () => {

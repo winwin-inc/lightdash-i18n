@@ -1217,17 +1217,21 @@ export class PromoteService extends BaseService {
     > {
         const upstreamProjectUuid = upstreamDashboard.projectUuid;
 
-        const chartUuids = promotedDashboard.dashboard.tiles.reduce<string[]>(
-            (acc, tile) => {
-                if (
-                    isDashboardChartTileType(tile) &&
-                    tile.properties.savedChartUuid
-                ) {
-                    return [...acc, tile.properties.savedChartUuid];
-                }
-                return acc;
-            },
-            [],
+        const chartUuids = Array.from(
+            new Set(
+                promotedDashboard.dashboard.tiles.reduce<string[]>(
+                    (acc, tile) => {
+                        if (
+                            isDashboardChartTileType(tile) &&
+                            tile.properties.savedChartUuid
+                        ) {
+                            return [...acc, tile.properties.savedChartUuid];
+                        }
+                        return acc;
+                    },
+                    [],
+                ),
+            ),
         );
 
         const chartPromises = chartUuids.map((chartUuid) =>

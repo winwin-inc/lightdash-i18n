@@ -233,13 +233,19 @@ export function getFixDuplicateSlugsScripts(
         });
     }
 
-    async function fixDuplicateDashboardSlugs(opts: { dryRun: boolean }) {
+    async function fixDuplicateDashboardSlugs(opts: {
+        dryRun: boolean;
+        projectUuid?: string;
+    }) {
         if (!opts || !('dryRun' in opts)) {
             throw new Error('Missing dryRun option!!');
         }
 
         const { dryRun } = opts;
         const dryRunMessage = dryRun ? ' (dry run)' : '';
+        const projectMessage = opts.projectUuid
+            ? ` project ${opts.projectUuid}`
+            : ' all projects';
 
         return database.transaction(async (trx) => {
             const queryBase = trx(DashboardsTableName)
@@ -254,6 +260,13 @@ export function getFixDuplicateSlugsScripts(
                     `${SpaceTableName}.project_id`,
                 );
 
+            if (opts.projectUuid) {
+                void queryBase.where(
+                    `${ProjectTableName}.project_uuid`,
+                    opts.projectUuid,
+                );
+            }
+
             const duplicateSlugs = await queryBase
                 .clone()
                 .select<{ slug: string; projectUuid: string }[]>({
@@ -267,7 +280,7 @@ export function getFixDuplicateSlugsScripts(
                 .havingRaw('COUNT(*) > 1');
 
             console.info(
-                `Found ${duplicateSlugs.length} duplicate slugs across all projects${dryRunMessage}`,
+                `Found ${duplicateSlugs.length} duplicate dashboard slugs on${projectMessage}${dryRunMessage}`,
             );
 
             for await (const { slug, projectUuid } of duplicateSlugs) {
@@ -324,7 +337,7 @@ export function getFixDuplicateSlugsScripts(
             }
 
             console.info(
-                `Done fixing duplicate slugs for all projects${dryRunMessage}`,
+                `Done fixing duplicate dashboard slugs for${projectMessage}${dryRunMessage}`,
             );
         });
     }
