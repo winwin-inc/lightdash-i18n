@@ -1430,6 +1430,9 @@ importers:
       '@types/express':
         specifier: ^4.17.11
         version: 4.17.23
+      tsx:
+        specifier: ^4.19.2
+        version: 4.19.2
       typescript:
         specifier: 5.5.4
         version: 5.5.4
