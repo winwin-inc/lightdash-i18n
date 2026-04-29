@@ -7,6 +7,7 @@ import {
 } from '../lib/contentWebUrls';
 import { getHttpRequestApiKey } from '../lib/requestContext';
 import type { LightdashRestClient } from '../rest/lightdashRest';
+import { resolveCoreToolsProjectUuid } from './coreToolsContext';
 import { registerToolTyped } from './registerToolTyped';
 
 const runSavedChartParams = {
@@ -34,13 +35,6 @@ const getSavedChartParams = {
     apiKey: z.string().optional(),
     chartUuid: z.string(),
 } satisfies ZodRawShape;
-
-function resolveExtensionProjectUuid(
-    config: LightdashMcpEnvConfig,
-    fromArgs: string | undefined,
-): string {
-    return fromArgs ?? config.defaultProjectUuid;
-}
 
 function resolveExtensionApiKey(
     config: LightdashMcpEnvConfig,
@@ -86,15 +80,16 @@ export function registerExtensionTools(
         server,
         'tool-call',
         'lightdash_list_spaces',
-        '列出当前项目下的空间（内容文件夹）。',
+        '列出当前项目下的空间（内容文件夹）。可选 projectUuid；省略时与核心工具一致：本次参数 > set_project 会话 > 环境 LIGHTDASH_PROJECT_UUID。',
         listSpacesParams,
         async (args) => {
             const apiKey = resolveExtensionApiKey(
                 config,
                 args.apiKey as string | undefined,
             );
-            const projectUuid = resolveExtensionProjectUuid(
+            const projectUuid = resolveCoreToolsProjectUuid(
                 config,
+                apiKey,
                 args.projectUuid as string | undefined,
             );
             const data = await api.listSpaces(apiKey, projectUuid);
@@ -144,15 +139,16 @@ export function registerExtensionTools(
         server,
         'tool-call',
         'lightdash_run_saved_chart',
-        '按已保存图表跑数；可用 parameters 传筛选（如年份、区域）。limit 会按环境上限自动封顶。',
+        '按已保存图表跑数；可用 parameters 传筛选（如年份、区域）。limit 会按环境上限自动封顶。可选 projectUuid；省略时与核心工具一致：本次参数 > set_project 会话 > 环境 LIGHTDASH_PROJECT_UUID。',
         runSavedChartParams,
         async (args) => {
             const apiKey = resolveExtensionApiKey(
                 config,
                 args.apiKey as string | undefined,
             );
-            const projectUuid = resolveExtensionProjectUuid(
+            const projectUuid = resolveCoreToolsProjectUuid(
                 config,
+                apiKey,
                 args.projectUuid as string | undefined,
             );
             const pageSize = (args.pageSize as number | undefined) ?? 500;

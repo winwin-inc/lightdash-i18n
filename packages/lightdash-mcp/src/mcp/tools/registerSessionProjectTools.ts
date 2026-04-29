@@ -15,7 +15,7 @@ export function registerSessionProjectTools(
         server,
         'core-tool',
         'set_project',
-        '设置后续工具使用的默认 projectUuid（内存会话，按 PAT 隔离）。可选 tags 用于目录搜索过滤。默认项目也可来自环境变量 LIGHTDASH_PROJECT_UUID。',
+        '设置后续工具使用的默认 projectUuid（内存会话，按 PAT 隔离）。可选 tags 用于目录搜索过滤。未 set_project 时，可选环境变量 LIGHTDASH_PROJECT_UUID 提供默认项目。',
         {
             apiKey: z.string().optional(),
             projectUuid: z.string(),
@@ -89,8 +89,12 @@ export function registerSessionProjectTools(
                             type: 'text',
                             text: JSON.stringify(
                                 {
-                                    error: 'No active project set. Use set_project to set one.',
-                                    fallbackProjectUuid: config.defaultProjectUuid,
+                                    error: '当前会话（set_project）未设置 projectUuid。',
+                                    sessionProjectUuid: null,
+                                    envDefaultProjectUuid: config.defaultProjectUuid,
+                                    hint: config.defaultProjectUuid
+                                        ? '已配置 LIGHTDASH_PROJECT_UUID；多数工具在未传 projectUuid 时会使用该默认，亦可先 set_project 固定本会话。'
+                                        : '未配置 LIGHTDASH_PROJECT_UUID；调用需要项目的工具前请先 set_project，或在工具参数中传 projectUuid。',
                                 },
                                 null,
                                 2,

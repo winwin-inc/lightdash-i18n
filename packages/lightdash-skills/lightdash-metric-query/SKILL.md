@@ -20,9 +20,10 @@ description: 【高级】构造或调试 run_metric_query（filters、sorts、cu
 
 ## 最小示例
 
+`run_metric_query` 支持可选 **`projectUuid`**；省略时顺序与 **[insight-router/SKILL.md](../lightdash-insight-router/SKILL.md)** 及 **[`packages/lightdash-mcp/README.md`](../../lightdash-mcp/README.md)** 一致。
+
 ```json
 {
-  "projectUuid": "<projectUuid>",
   "exploreName": "orders",
   "dimensions": ["orders_created_date_month"],
   "metrics": ["orders_total_revenue"],

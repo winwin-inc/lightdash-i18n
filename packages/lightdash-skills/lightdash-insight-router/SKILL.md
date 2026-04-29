@@ -19,9 +19,13 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 说明：与仓库 `packages/lightdash-mcp` 当前实现一致；**无** `search_content`、`get_site_info`、`get_saved_chart`、`run_saved_chart`、`get_explore` 等别名工具。
 
+### 可选参数 `projectUuid`（不写死在 skills）
+
+多数需要项目的工具支持**可选** `projectUuid`。省略时解析顺序与 MCP 一致：**本次工具参数** → **`set_project` 会话** → **环境 `LIGHTDASH_PROJECT_UUID`**（未配环境变量则须先 `set_project` 或传参）。涉及工具示例：`find_content`、`list_verified_content`、`list_explores`、`find_explores`、`find_fields`、`run_metric_query`、`run_sql`、`search_field_values`；扩展 **`lightdash_list_spaces`**、**`lightdash_run_saved_chart`**。细则见 **[`packages/lightdash-mcp/README.md`](../../lightdash-mcp/README.md)**。
+
 ## 硬规则（必须遵守）
 
-- 先确认 **`projectUuid`、时间范围**；缺项先问，不盲查。
+- 缺 **时间范围** 等关键槽位先问清，不盲查。项目默认由 MCP；要数别的项目或多项目歧义时用 **`list_projects`** / **`set_project`**（**`ROUTER-SOP.md`**）。
 - **先保存图表路径**，找不到再走 explore + `run_metric_query`。
 - 输出顺序：**结论 → 关键数字 → 口径说明**；不回显 PAT/密钥。
 - **`run_metric_query` 只用扁平参数**（`exploreName`、`dimensions`、`metrics`、`filters`…），禁止嵌套 `query` 对象；首次 `limit` 50~200，维度 1~2 + 核心指标 1 个。
@@ -39,8 +43,8 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 | 分支 | 至少要有 |
 |------|-----------|
-| 保存图表 | 项目、`search` 关键词、时间范围 |
-| 维度指标 | 项目、分析对象（主题词）、指标目标、时间范围 |
+| 保存图表 | 项目上下文、`search` 关键词、时间范围 |
+| 维度指标 | 项目上下文、分析对象（主题词）、指标目标、时间范围 |
 
 缺参追问：项目 → 时间 → 指标（价格指数/销量/销售额）。用户说「你先查」时默认：近 12 个月、fisher、limit 100、类目按上一节。
 

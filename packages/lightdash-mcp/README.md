@@ -65,11 +65,20 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 | 变量                               | 必填  | 说明                                                     |
 | -------------------------------- | --- | ------------------------------------------------------ |
 | `LIGHTDASH_SITE_URL`             | 是   | Lightdash 站点根 URL（无尾斜杠亦可）                              |
-| `LIGHTDASH_PROJECT_UUID`         | 是   | MCP 默认使用的项目 UUID；未在工具里传 `projectUuid` 且未执行 `set_project` 时的回退 |
+| `LIGHTDASH_PROJECT_UUID`         | 否   | MCP 默认项目 UUID；未传时可依赖 **`set_project`** 或各工具可选参数 **`projectUuid`**（见下节） |
 | `LIGHTDASH_API_KEY`              | 否   | 默认 PAT；可被 MCP 请求头 `x-api-key` 或工具参数 `apiKey` 覆盖        |
 | `LIGHTDASH_MAX_LIMIT`            | 否   | 查询类接口的 `limit` 上限                                      |
 | `LIGHTDASH_MCP_HTTP_PORT`        | 否   | HTTP 端口，默认 `3333`                                      |
 
+### 项目 `projectUuid` 解析顺序
+
+对需要项目的工具（含 **`lightdash_list_spaces`**、**`lightdash_run_saved_chart`** 与核心工具），有效项目 UUID 按：
+
+1. **本次工具入参** `projectUuid`（若传入非空字符串）  
+2. **`set_project`** 写入的会话项目（按 PAT 隔离，内存）  
+3. **环境变量** `LIGHTDASH_PROJECT_UUID`
+
+三者皆无时，工具调用会**报错**（进程仍可启动；未配环境默认时属 **fail-late**，部署文档请说明须先 `set_project` 或传参）。
 
 ---
 
@@ -162,6 +171,7 @@ docker run --rm -p 3333:3333 \
   -e LIGHTDASH_PROJECT_UUID="your-project-uuid" \
   -e LIGHTDASH_MCP_HTTP_PORT=3333 \
   lightdash-mcp:0.1.0
+# LIGHTDASH_PROJECT_UUID 可省略：须由客户端先 set_project 或在工具参数中传 projectUuid
 ```
 
 CI 推阿里云时镜像为 **`registry.cn-hangzhou.aliyuncs.com/winwin/lightdash-mcp:<版本>`**，发布线同时打 **`:latest`**；打 Git tag **`mcp-vX.Y.Z`** 触发（详见 `docs/mcp/lightdash-mcp-docker-deploy.md`）。

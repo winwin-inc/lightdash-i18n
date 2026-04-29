@@ -33,9 +33,9 @@ docker build --no-cache -f packages/lightdash-mcp/Dockerfile -t lightdash-mcp:de
 ```bash
 docker run --rm -p 3333:3333 \
   -e LIGHTDASH_SITE_URL="https://your-lightdash.example.com" \
-  -e LIGHTDASH_PROJECT_UUID="your-project-uuid" \
   -e LIGHTDASH_MCP_HTTP_PORT=3333 \
   lightdash-mcp:0.1.0
+# 可选再加：-e LIGHTDASH_PROJECT_UUID="..."（未设时须 MCP 客户端先 set_project 或在工具里传 projectUuid）
 ```
 
 也可以直接复用本地 `.env`：
@@ -79,7 +79,7 @@ curl -i http://localhost:3333/mcp
 | 变量 | 必填 | 说明 |
 |------|------|------|
 | `LIGHTDASH_SITE_URL` | 是 | Lightdash 站点根 URL（MCP 调 REST 使用） |
-| `LIGHTDASH_PROJECT_UUID` | 是 | MCP 默认使用的项目 UUID（服务启动必填） |
+| `LIGHTDASH_PROJECT_UUID` | 否 | MCP 默认项目；未设时依赖 `set_project` 或工具参数 `projectUuid`（解析顺序见包 README） |
 | `LIGHTDASH_API_KEY` | 否 | 默认兜底 PAT；优先级低于请求头 `x-api-key` 和 tool 参数 `apiKey` |
 | `LIGHTDASH_MAX_LIMIT` | 否 | 查询 `limit` 上限 |
 | `LIGHTDASH_MCP_HTTP_PORT` | 否 | HTTP 监听端口，默认 `3333` |

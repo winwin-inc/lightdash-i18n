@@ -15,7 +15,7 @@
     "scripts": {
         "build": "tsc --build tsconfig.json --force",
         "typecheck": "tsc --project tsconfig.json --noEmit",
-        "test": "tsx --test src/lib/catalogSearchHeuristics.test.ts",
+        "test": "tsx --test src/lib/catalogSearchHeuristics.test.ts src/mcp/coreToolsContext.test.ts",
         "start:http": "node dist/http.js",
         "lint": "eslint -c ./.eslintrc.js src/**/*.ts",
         "fix-lint": "eslint -c ./.eslintrc.js --fix src/**/*.ts"

@@ -18,13 +18,10 @@ packages/lightdash-skills/
 
 ## 与 MCP 的关系
 
-- Skills 只负责「如何提问与调用流程」，不直接连服务。
-- 真正请求由 MCP 客户端发起（Claude Code / Cursor）。
-- 推荐对外分发用 HTTP MCP（客户端一般只配 **`url` + `headers`（如 `x-api-key`）**；**站点与默认项目**由 **MCP HTTP 服务端** 的环境变量提供，例如 `LIGHTDASH_SITE_URL`、`LIGHTDASH_PROJECT_UUID`，与 skills 文件本身无关）。
-
-配置模板见：[`.mcp.json.example`](./.mcp.json.example)  
-完整说明见：[`docs/lightdash-mcp.md`](../../docs/lightdash-mcp.md)  
-**工具名**以 monorepo 内 [`packages/lightdash-mcp/README.md`](../lightdash-mcp/README.md) 及 `packages/lightdash-mcp/src/mcp/**` 注册为准（本技能包已按当前实现使用 `find_content`、`lightdash_*` 扩展名等，不再写已移除的别名）。
+- Skills 只描述**怎么问、工具顺序与排障**；不承载 **MCP 服务端环境变量** 或完整连接说明（那些在 **`docs/lightdash-mcp.md`**、**`packages/lightdash-mcp/README.md`**）。
+- 客户端侧模板：[`.mcp.json.example`](./.mcp.json.example)（通常仅 `url` + `headers`）。
+- **工具名**以 **`packages/lightdash-mcp`** 源码注册为准（本包已按当前实现使用 `find_content`、`lightdash_*` 等，不写已移除别名）。
+- 工具可选参数 **`projectUuid`** 及解析顺序见 **[`lightdash-insight-router/SKILL.md`](./lightdash-insight-router/SKILL.md)**（与 MCP README 一致）。
 
 ## Claude 授权（避免反复弹窗）
 

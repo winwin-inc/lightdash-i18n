@@ -14,7 +14,7 @@
 ```env
 LIGHTDASH_SITE_URL=https://your-lightdash.example.com
 LIGHTDASH_API_KEY=<optional>
-LIGHTDASH_PROJECT_UUID=<required，与生产一致>
+# LIGHTDASH_PROJECT_UUID=<可选；不配则本地先 set_project 再调需要项目的工具>
 LIGHTDASH_MAX_LIMIT=<optional>
 LIGHTDASH_MCP_HTTP_PORT=3333
 ```
