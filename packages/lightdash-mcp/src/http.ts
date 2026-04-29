@@ -22,6 +22,12 @@ const authCache = createAuthCache();
 
 async function main(): Promise<void> {
     const config = loadConfigFromEnv();
+    const projectLog =
+        config.defaultProjectUuid ??
+        '(未设置；调用需项目的工具前请先 set_project 或在工具参数传 projectUuid)';
+    process.stderr.write(
+        `[Config] LIGHTDASH_SITE_URL=${config.baseUrl}\n[Config] LIGHTDASH_PROJECT_UUID=${projectLog}\n`,
+    );
     const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
     });
