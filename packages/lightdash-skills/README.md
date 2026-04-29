@@ -2,10 +2,25 @@
 
 给 Claude Code 使用的 Lightdash 技能包（SKILL 文档集合）。
 
+## 版本（推荐与 MCP 同号、一套发版）
+
+本目录**不设 `package.json`**；对外版本只写在 **[`version.json`](./version.json)**（`version` + `updatedAt`），与 `packages/lightdash-mcp/package.json` 的 `version` **一套发版时保持同号**即可。`version.json` 便于分发与后续「检测更新」（可参考 `trade-signal-skills` 的 `manifest.json` + `check-update.*`）。
+
+维护命令在**仓库根**（脚本：[ **`scripts/bump-versions.mjs`**](../../scripts/bump-versions.mjs)）：
+
+```bash
+pnpm bump-mcp-skills -- 0.1.1            # MCP package.json + 本目录 version.json
+# 例外：node scripts/bump-versions.mjs skills 0.1.1   # 只改 version.json
+# 例外：node scripts/bump-versions.mjs mcp 0.0.3     # 只改 MCP
+```
+
+Git tag：可与 MCP 共用同一套号（例如只打 **`mcp-v0.1.1`**），或按需另打 `skills-v*`。
+
 ## 目录结构建议（已按此组织）
 
 ```text
 packages/lightdash-skills/
+  version.json
   .claude/settings.json
   .mcp.json.example
   README.md

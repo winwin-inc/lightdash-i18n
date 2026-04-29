@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-适用于 `@lightdash/skills` 的最小行为约束。
+适用于 Lightdash 技能包的最小行为约束。版本见同目录 **`version.json`**（与 MCP 一套发版时与 `packages/lightdash-mcp` 的 `package.json.version` 同号）；仓库根 **`pnpm bump-mcp-skills -- x.y.z`** 或 `scripts/bump-versions.mjs`。
 
 ## 范围约束（必须）
 

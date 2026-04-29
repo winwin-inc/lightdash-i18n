@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { LightdashMcpEnvConfig } from '../config';
+import { getMcpPackageVersion } from '../lib/mcpPackageVersion';
 import { createFieldIdResolverFromExplore } from './fieldIdResolver';
 import { createLightdashRestClient } from '../rest/lightdashRest';
 import { registerAnalystPrompt } from './registerAnalystPrompt';
@@ -16,7 +17,7 @@ export function createLightdashMcpServer(
     >();
     const server = new McpServer({
         name: 'lightdash-local-mcp',
-        version: '0.1.0',
+        version: getMcpPackageVersion(),
     });
 
     const getFieldResolver = async (

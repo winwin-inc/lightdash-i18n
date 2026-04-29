@@ -5,6 +5,7 @@
 import express from 'express';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { loadConfigFromEnv } from './config';
+import { getMcpPackageVersion } from './lib/mcpPackageVersion';
 import { createLightdashMcpServer } from './mcp/createMcpServer';
 import {
     createAuthCache,
@@ -26,7 +27,7 @@ async function main(): Promise<void> {
         config.defaultProjectUuid ??
         '(未设置；调用需项目的工具前请先 set_project 或在工具参数传 projectUuid)';
     process.stderr.write(
-        `[Config] LIGHTDASH_SITE_URL=${config.baseUrl}\n[Config] LIGHTDASH_PROJECT_UUID=${projectLog}\n`,
+        `[Config] @lightdash/mcp=${getMcpPackageVersion()} | LIGHTDASH_SITE_URL=${config.baseUrl}\n[Config] LIGHTDASH_PROJECT_UUID=${projectLog}\n`,
     );
     const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
