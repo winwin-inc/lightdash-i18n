@@ -9,12 +9,14 @@ packages/lightdash-skills/
   .claude/settings.json
   .mcp.json.example
   README.md
+  CLAUDE.md
   lightdash-insight-router/SKILL.md
   lightdash-metric-query/SKILL.md
 ```
 
 结论：**不需要再额外套一层 `skills/` 子目录**。  
-只要每个技能目录内有 `SKILL.md`，并且项目根有 `.claude` / `.mcp.json` 配置，Claude 就能稳定理解与调用。
+只要每个技能目录内有 `SKILL.md`，并且项目根有 `.claude` / `.mcp.json` 配置，Claude 就能稳定理解与调用。  
+同目录 **[`CLAUDE.md`](./CLAUDE.md)** 为 Claude Code **最小行为约束**（与上述 SKILL 配合；细节仍以 MCP 与 insight-router 为准）。
 
 ## 与 MCP 的关系
 

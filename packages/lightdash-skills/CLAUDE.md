@@ -16,7 +16,7 @@
 
 ## 必守规则
 
-- 先确认项目与时间范围，再取数
+- 先确认**时间范围**等槽位；**项目**默认由 MCP（`LIGHTDASH_PROJECT_UUID` / `set_project` / 工具参数 `projectUuid`，见 **`lightdash-insight-router`**）解析，多项目歧义时再在对话里澄清
 - 不猜 `chartUuid`，不猜 `fieldId`
 - `run_metric_query` 使用扁平参数（不传 `query` 嵌套对象）
 - `filters` 必须是对象，不能是数组旧格式
