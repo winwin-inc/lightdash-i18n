@@ -182,11 +182,11 @@ User → Skills(指导) → MCP(调用API) → Lightdash API
 
 ### 模块划分（`packages/lightdash-mcp/src/`）
 
-1. **`lightdashRest.ts`**：`fetch`、explore / metric-query 与轮询
-2. **`normalizeMetricQuery.ts`**：将不完整 query 规范化为安全默认值
-3. **`createMcpServer.ts`**：注册 MCP tools（Zod 入参）
-4. **`requestContext.ts`**：HTTP 模式下从请求头注入默认 PAT（`AsyncLocalStorage`）
-5. **`http.ts`**：Streamable HTTP 入口（Express + `StreamableHTTPServerTransport`）
+1. **`rest/`**：Lightdash REST 客户端（`requestBase` / `asyncQueryPoll` / `endpoints` 与门面 `lightdashRest.ts`）
+2. **`lib/normalizeMetricQuery.ts`**：将不完整 query 规范化为安全默认值
+3. **`mcp/`**：`createMcpServer.ts`、`registerCoreMcpTools.ts`、`registerExtensionTools.ts`、`registerToolTyped.ts`、`mcp/tools/` 下按领域拆分的工具注册
+4. **`lib/requestContext.ts`**：HTTP 模式下从请求头注入默认 PAT（`AsyncLocalStorage`）
+5. **`http.ts`** + **`http/`**：Streamable HTTP 入口与鉴权缓存、Header 解析
 6. **`config.ts`**：从环境变量加载配置
 
 ### 健壮性规则
@@ -214,4 +214,5 @@ User → Skills(指导) → MCP(调用API) → Lightdash API
 | 2026-03-27 | 收敛为 Streamable HTTP 单模式；更新客户端示例与模块说明；技能包模板迁移到 packages/lightdash-skills |
 | 2026-03-27 | 修正配置说明：MCP 服务用 .env，客户端用 .mcp.json |
 | 2026-03-27 | 合并使用指南与设计说明为单篇文档 |
+| 2026-04-29 | 更新 `packages/lightdash-mcp/src` 目录说明（`mcp/`、`rest/`、`lib/`、`http/`） |
 | 2026-03-26 | 初版：使用指南独立成文 |

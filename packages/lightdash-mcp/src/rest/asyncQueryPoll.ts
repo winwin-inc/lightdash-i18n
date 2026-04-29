@@ -1,100 +1,21 @@
 import type {
     ApiExecuteAsyncMetricQueryResults,
+    ApiExecuteAsyncSqlQueryResults,
     ApiGetAsyncQueryResults,
     ExecuteAsyncMetricQueryRequestParams,
+    ExecuteAsyncSqlQueryRequestParams,
 } from '@lightdash/common';
-import { QueryHistoryStatus } from '@lightdash/common';
-import type { LightdashMcpEnvConfig } from './config';
+import { QueryExecutionContext, QueryHistoryStatus } from '@lightdash/common';
 import {
     clampLimit,
     normalizeMetricQueryRequest,
-} from './normalizeMetricQuery';
+} from '../lib/normalizeMetricQuery';
+import type { RequestJsonFn } from './types';
 
-function authHeaders(apiKey: string): Record<string, string> {
-    return {
-        Authorization: 'ApiKey ' + apiKey,
-        'Content-Type': 'application/json',
-    };
-}
-
-async function readErrorBody(res: Response): Promise<string> {
-    const text = await res.text();
-    try {
-        const j = JSON.parse(text) as {
-            error?: {
-                name?: string;
-                message?: string;
-                data?: unknown;
-                statusCode?: number;
-            };
-            message?: string;
-        };
-        const message = j.error?.message ?? j.message;
-        const errorName = j.error?.name;
-        const statusCode = j.error?.statusCode;
-        const details =
-            j.error?.data !== undefined ? JSON.stringify(j.error.data) : '';
-        const parts = [errorName, statusCode, message, details]
-            .filter((part): part is string | number => Boolean(part))
-            .map((part) => String(part));
-        return parts.length > 0 ? parts.join(' | ') : text;
-    } catch {
-        return text;
-    }
-}
-
-export function createLightdashRestClient(config: LightdashMcpEnvConfig) {
-    const { baseUrl, maxLimit } = config;
-
-    async function requestJson<T>(
-        apiKey: string,
-        urlPath: string,
-        init?: RequestInit,
-    ): Promise<T> {
-        const res = await fetch(baseUrl + urlPath, {
-            ...init,
-            headers: {
-                ...authHeaders(apiKey),
-                ...(init?.headers as Record<string, string> | undefined),
-            },
-        });
-        if (!res.ok) {
-            const msg = await readErrorBody(res);
-            throw new Error('Lightdash API ' + res.status + ': ' + msg);
-        }
-        return res.json() as Promise<T>;
-    }
-
-    async function listExplores(
-        apiKey: string,
-        projectUuid: string,
-        filtered: boolean,
-    ): Promise<unknown> {
-        const json = await requestJson<{ results?: unknown }>(
-            apiKey,
-            '/api/v1/projects/' +
-                encodeURIComponent(projectUuid) +
-                '/explores?filtered=' +
-                (filtered ? 'true' : 'false'),
-        );
-        return json.results ?? json;
-    }
-
-    async function getExplore(
-        apiKey: string,
-        projectUuid: string,
-        exploreId: string,
-    ): Promise<unknown> {
-        const json = await requestJson<{ results?: unknown }>(
-            apiKey,
-            '/api/v1/projects/' +
-                encodeURIComponent(projectUuid) +
-                '/explores/' +
-                encodeURIComponent(exploreId),
-        );
-        return json.results ?? json;
-    }
-
+export function createAsyncQueryMethods(
+    requestJson: RequestJsonFn,
+    maxLimit: number,
+) {
     async function executeMetricQuery(
         apiKey: string,
         projectUuid: string,
@@ -104,9 +25,9 @@ export function createLightdashRestClient(config: LightdashMcpEnvConfig) {
             results: ApiExecuteAsyncMetricQueryResults;
         }>(
             apiKey,
-            '/api/v2/projects/' +
-                encodeURIComponent(projectUuid) +
-                '/query/metric-query',
+            `/api/v2/projects/${ 
+                encodeURIComponent(projectUuid) 
+                }/query/metric-query`,
             {
                 method: 'POST',
                 body: JSON.stringify(body),
@@ -124,14 +45,14 @@ export function createLightdashRestClient(config: LightdashMcpEnvConfig) {
     ): Promise<ApiGetAsyncQueryResults> {
         const json = await requestJson<{ results: ApiGetAsyncQueryResults }>(
             apiKey,
-            '/api/v2/projects/' +
-                encodeURIComponent(projectUuid) +
-                '/query/' +
-                encodeURIComponent(queryUuid) +
-                '?page=' +
-                page +
-                '&pageSize=' +
-                pageSize,
+            `/api/v2/projects/${ 
+                encodeURIComponent(projectUuid) 
+                }/query/${ 
+                encodeURIComponent(queryUuid) 
+                }?page=${ 
+                page 
+                }&pageSize=${ 
+                pageSize}`,
         );
         return json.results;
     }
@@ -210,73 +131,12 @@ export function createLightdashRestClient(config: LightdashMcpEnvConfig) {
             await new Promise((r) => setTimeout(r, options.pollIntervalMs));
         }
         throw new Error(
-            'Query ' +
-                queryUuid +
-                ' timed out after ' +
-                options.maxPollAttempts +
-                ' polls',
+            `Query ${ 
+                queryUuid 
+                } timed out after ${ 
+                options.maxPollAttempts 
+                } polls`,
         );
-    }
-
-    // ----- 新增：语义化 API -----
-
-    async function listProjects(apiKey: string): Promise<unknown> {
-        const json = await requestJson<{ results?: unknown }>(
-            apiKey,
-            '/api/v1/org/projects',
-        );
-        return json.results ?? json;
-    }
-
-    async function listSpaces(
-        apiKey: string,
-        projectUuid: string,
-    ): Promise<unknown> {
-        const json = await requestJson<{ results?: unknown }>(
-            apiKey,
-            '/api/v1/projects/' +
-                encodeURIComponent(projectUuid) +
-                '/spaces',
-        );
-        return json.results ?? json;
-    }
-
-    async function searchContent(
-        apiKey: string,
-        projectUuid: string,
-        options: {
-            search?: string;
-            contentTypes?: string[];
-            page?: number;
-            pageSize?: number;
-        },
-    ): Promise<unknown> {
-        const params = new URLSearchParams();
-        if (options.search) params.set('search', options.search);
-        if (options.contentTypes?.length) {
-            options.contentTypes.forEach((t) => params.append('contentTypes', t));
-        }
-        if (options.page) params.set('page', String(options.page));
-        if (options.pageSize) params.set('pageSize', String(options.pageSize));
-        // v2 content API 需要 projectUuids 参数
-        params.set('projectUuids', projectUuid);
-
-        const json = await requestJson<{ results?: unknown }>(
-            apiKey,
-            '/api/v2/content?' + params.toString(),
-        );
-        return json.results ?? json;
-    }
-
-    async function getSavedChart(
-        apiKey: string,
-        chartUuid: string,
-    ): Promise<unknown> {
-        const json = await requestJson<{ results?: unknown }>(
-            apiKey,
-            '/api/v1/saved/' + encodeURIComponent(chartUuid),
-        );
-        return json.results ?? json;
     }
 
     async function runSavedChart(
@@ -313,9 +173,9 @@ export function createLightdashRestClient(config: LightdashMcpEnvConfig) {
             results: ApiExecuteAsyncMetricQueryResults;
         }>(
             apiKey,
-            '/api/v2/projects/' +
-                encodeURIComponent(projectUuid) +
-                '/query/chart',
+            `/api/v2/projects/${ 
+                encodeURIComponent(projectUuid) 
+                }/query/chart`,
             {
                 method: 'POST',
                 body: JSON.stringify(payload),
@@ -360,27 +220,178 @@ export function createLightdashRestClient(config: LightdashMcpEnvConfig) {
             await new Promise((r) => setTimeout(r, options.pollIntervalMs));
         }
         throw new Error(
-            'Saved chart query ' +
-                queryUuid +
-                ' timed out after ' +
-                options.maxPollAttempts +
-                ' polls',
+            `Saved chart query ${ 
+                queryUuid 
+                } timed out after ${ 
+                options.maxPollAttempts 
+                } polls`,
         );
     }
 
+    async function pollQueryPageUntilReady(
+        apiKey: string,
+        projectUuid: string,
+        queryUuid: string,
+        options: {
+            pageSize: number;
+            maxPollAttempts: number;
+            pollIntervalMs: number;
+        },
+    ): Promise<ApiGetAsyncQueryResults> {
+        for (let i = 0; i < options.maxPollAttempts; i += 1) {
+            const page = await getQueryResultsPage(
+                apiKey,
+                projectUuid,
+                queryUuid,
+                1,
+                options.pageSize,
+            );
+            const st = page.status as string;
+            if (
+                page.status === QueryHistoryStatus.ERROR ||
+                st === 'expired'
+            ) {
+                throw new Error(
+                    'error' in page ? (page.error ?? 'Query failed') : 'Query failed',
+                );
+            }
+            if (
+                page.status === QueryHistoryStatus.READY ||
+                page.status === QueryHistoryStatus.CANCELLED
+            ) {
+                return page;
+            }
+            await new Promise((r) => setTimeout(r, options.pollIntervalMs));
+        }
+        throw new Error(
+            `Query ${ 
+                queryUuid 
+                } timed out after ${ 
+                options.maxPollAttempts 
+                } polls`,
+        );
+    }
+
+    async function executeFieldValueSearch(
+        apiKey: string,
+        projectUuid: string,
+        body: Record<string, unknown>,
+    ): Promise<{ queryUuid: string }> {
+        const json = await requestJson<{ results: { queryUuid: string } }>(
+            apiKey,
+            `/api/v2/projects/${ 
+                encodeURIComponent(projectUuid) 
+                }/query/field-values`,
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    ...body,
+                    context:
+                        body.context ?? QueryExecutionContext.FILTER_AUTOCOMPLETE,
+                }),
+            },
+        );
+        return json.results;
+    }
+
+    async function searchFieldValuesUntilReady(
+        apiKey: string,
+        projectUuid: string,
+        args: {
+            table: string;
+            fieldId: string;
+            query: string;
+            filters?: unknown;
+            limit?: number;
+        },
+        options: {
+            pageSize: number;
+            maxPollAttempts: number;
+            pollIntervalMs: number;
+        },
+    ): Promise<{ queryUuid: string; page: ApiGetAsyncQueryResults }> {
+        const body: Record<string, unknown> = {
+            table: args.table,
+            fieldId: args.fieldId,
+            search: args.query ?? '',
+            limit: args.limit ?? 100,
+            filters: args.filters,
+            context: QueryExecutionContext.FILTER_AUTOCOMPLETE,
+        };
+        const { queryUuid } = await executeFieldValueSearch(
+            apiKey,
+            projectUuid,
+            body,
+        );
+        const page = await pollQueryPageUntilReady(
+            apiKey,
+            projectUuid,
+            queryUuid,
+            options,
+        );
+        return { queryUuid, page };
+    }
+
+    async function executeSqlQuery(
+        apiKey: string,
+        projectUuid: string,
+        body: ExecuteAsyncSqlQueryRequestParams,
+    ): Promise<ApiExecuteAsyncSqlQueryResults> {
+        const json = await requestJson<{ results: ApiExecuteAsyncSqlQueryResults }>(
+            apiKey,
+            `/api/v2/projects/${ 
+                encodeURIComponent(projectUuid) 
+                }/query/sql`,
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    ...body,
+                    context: body.context ?? QueryExecutionContext.SQL_RUNNER,
+                }),
+            },
+        );
+        return json.results;
+    }
+
+    async function runSqlUntilReady(
+        apiKey: string,
+        projectUuid: string,
+        args: {
+            sql: string;
+            limit?: number;
+            invalidateCache?: boolean;
+            parameters?: Record<string, unknown>;
+        },
+        options: {
+            pageSize: number;
+            maxPollAttempts: number;
+            pollIntervalMs: number;
+        },
+    ): Promise<{ queryUuid: string; page: ApiGetAsyncQueryResults }> {
+        const body = {
+            sql: args.sql,
+            limit:
+                args.limit !== undefined
+                    ? clampLimit(args.limit, maxLimit)
+                    : clampLimit(500, maxLimit),
+            invalidateCache: args.invalidateCache,
+            parameters: args.parameters,
+            context: QueryExecutionContext.SQL_RUNNER,
+        } as ExecuteAsyncSqlQueryRequestParams;
+        const { queryUuid } = await executeSqlQuery(apiKey, projectUuid, body);
+        const page = await pollQueryPageUntilReady(
+            apiKey,
+            projectUuid,
+            queryUuid,
+            options,
+        );
+        return { queryUuid, page };
+    }
+
     return {
-        listExplores,
-        getExplore,
-        executeMetricQuery,
-        getQueryResultsPage,
         runMetricQueryUntilReady,
-        // 新增
-        listProjects,
-        listSpaces,
-        searchContent,
-        getSavedChart,
         runSavedChart,
+        searchFieldValuesUntilReady,
+        runSqlUntilReady,
     };
 }
-
-export type LightdashRestClient = ReturnType<typeof createLightdashRestClient>;

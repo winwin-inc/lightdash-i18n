@@ -47,7 +47,7 @@ function webUrlForContentItem(
     item: ContentLike,
 ): string | undefined {
     const projectUuid = item.project?.uuid;
-    const uuid = item.uuid;
+    const {uuid} = item;
     const slug = typeof item.slug === 'string' ? item.slug : '';
     if (!projectUuid || !uuid || !item.contentType) return undefined;
 
@@ -87,7 +87,7 @@ export function enrichContentSearchResults(
 ): unknown {
     if (!raw || typeof raw !== 'object') return raw;
     const obj = raw as Record<string, unknown>;
-    const data = obj.data;
+    const {data} = obj;
     if (!Array.isArray(data)) return raw;
 
     const enriched = data.map((row) => {
@@ -113,8 +113,8 @@ export function enrichSavedChartResult(
     if (!raw || typeof raw !== 'object') return raw;
 
     const tryChart = (chart: Record<string, unknown>): unknown => {
-        const projectUuid = chart.projectUuid;
-        const uuid = chart.uuid;
+        const {projectUuid} = chart;
+        const {uuid} = chart;
         if (
             typeof projectUuid !== 'string' ||
             typeof uuid !== 'string' ||

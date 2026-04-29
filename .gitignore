@@ -112,3 +112,6 @@ testings/
 
 # claude
 .claude/settings.local.json
+
+# cursor
+.cursor/plans/

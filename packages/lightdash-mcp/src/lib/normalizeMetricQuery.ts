@@ -4,7 +4,7 @@ import type { MetricQueryRequest } from '@lightdash/common';
 export function normalizeMetricQueryRequest(
     raw: Record<string, unknown>,
 ): Omit<MetricQueryRequest, 'csvLimit'> {
-    const exploreName = raw.exploreName;
+    const {exploreName} = raw;
     if (typeof exploreName !== 'string' || exploreName.length === 0) {
         throw new Error('query.exploreName must be a non-empty string');
     }

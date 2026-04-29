@@ -5,90 +5,20 @@
 import express from 'express';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { loadConfigFromEnv } from './config';
-import { createLightdashMcpServer } from './createMcpServer';
-import { httpRequestApiKeyStore } from './requestContext';
+import { createLightdashMcpServer } from './mcp/createMcpServer';
+import {
+    createAuthCache,
+    maskApiKey,
+    parseApiKeyFromRequest,
+    parseUserAttributesHeader,
+    resolveClientIp,
+    validateApiKeyAndGetEmail,
+} from './http/authAndCache';
+import {
+    httpRequestApiKeyStore,
+} from './lib/requestContext';
 
-type AuthCacheEntry = {
-    email: string;
-    expiresAtMs: number;
-};
-
-const AUTH_CACHE_TTL_MS = 90_000;
-const authCache = new Map<string, AuthCacheEntry>();
-
-function parseApiKeyFromRequest(req: express.Request): string | undefined {
-    const xApiKey = req.headers['x-api-key'];
-    if (typeof xApiKey === 'string' && xApiKey.length > 0) {
-        return xApiKey;
-    }
-    return undefined;
-}
-
-function maskApiKey(key: string | undefined): string {
-    if (!key || key.length <= 3) return '***';
-    return `${key.slice(0, 4)}***${key.slice(-4)}`;
-}
-
-function resolveClientIp(req: express.Request): string {
-    const xfwd = req.headers['x-forwarded-for'];
-    if (typeof xfwd === 'string' && xfwd.length > 0) {
-        return xfwd.split(',')[0]?.trim() || req.ip || '-';
-    }
-    return req.ip || '-';
-}
-
-function readEmailFromUserResponse(payload: unknown): string {
-    if (!payload || typeof payload !== 'object') return 'unknown';
-    const p = payload as {
-        results?: {
-            email?: string;
-            user?: { email?: string };
-        };
-    };
-    return (
-        p.results?.email ??
-        p.results?.user?.email ??
-        'unknown'
-    );
-}
-
-async function validateApiKeyAndGetEmail(
-    baseUrl: string,
-    apiKey: string,
-    maskedKey: string,
-): Promise<string> {
-    const now = Date.now();
-    const cached = authCache.get(apiKey);
-    if (cached && cached.expiresAtMs > now) {
-        const remainSec = Math.max(0, Math.floor((cached.expiresAtMs - now) / 1000));
-        process.stderr.write(
-            `[ApiAuth] ${maskedKey} 缓存命中 -> 有效（剩余 ${remainSec}s） | ${cached.email}\n`,
-        );
-        return cached.email;
-    }
-
-    const response = await fetch(`${baseUrl}/api/v1/user`, {
-        method: 'GET',
-        headers: {
-            Authorization: `ApiKey ${apiKey}`,
-            'Content-Type': 'application/json',
-        },
-    });
-    if (!response.ok) {
-        process.stderr.write(
-            `[ApiAuth] ${maskedKey} 校验失败 -> ${response.status}\n`,
-        );
-        throw new Error(`Lightdash API ${response.status}: Failed to authorize user`);
-    }
-    const body = (await response.json()) as unknown;
-    const email = readEmailFromUserResponse(body);
-    authCache.set(apiKey, {
-        email,
-        expiresAtMs: now + AUTH_CACHE_TTL_MS,
-    });
-    process.stderr.write(`[ApiAuth] ${maskedKey} 校验通过 -> ${email}\n`);
-    return email;
-}
+const authCache = createAuthCache();
 
 async function main(): Promise<void> {
     const config = loadConfigFromEnv();
@@ -117,6 +47,7 @@ async function main(): Promise<void> {
         try {
             if (effectiveKey) {
                 userEmail = await validateApiKeyAndGetEmail(
+                    authCache,
                     config.baseUrl,
                     effectiveKey,
                     maskedKey,
@@ -127,6 +58,7 @@ async function main(): Promise<void> {
                     apiKey: effectiveKey,
                     userEmail,
                     maskedKey,
+                    userAttributesHeader: parseUserAttributesHeader(req),
                 },
                 () =>
                     transport.handleRequest(
