@@ -18,7 +18,7 @@
 
 ## 排障顺序
 
-1. `fieldId` 是否真实存在（先 `get_explore`）
+1. `fieldId` 是否真实存在（用 `find_fields`、`list_explores` 或缩小 `run_metric_query` 试跑核对）
 2. `exploreName` 是否正确
 3. 请求体类型是否正确（尤其 `parameters` / `filters` / `context`）
 4. 运算符与字段类型是否匹配

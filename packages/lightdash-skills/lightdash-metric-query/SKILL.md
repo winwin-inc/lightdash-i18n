@@ -1,6 +1,6 @@
 ---
 name: lightdash-metric-query
-description: 【高级】构造或调试 lightdash_run_metric_query（filters、sorts、customDimensions、timezone）。由 lightdash-insight-router 在需要时遵循；普通用户走 router 即可。
+description: 【高级】构造或调试 run_metric_query（filters、sorts、customDimensions、timezone）。由 lightdash-insight-router 在需要时遵循；普通用户走 router 即可。
 ---
 
 # Lightdash Metric Query（高级）
@@ -37,6 +37,6 @@ description: 【高级】构造或调试 lightdash_run_metric_query（filters、
 - 复杂条件：**先单条件**，再叠加；空结果时先去掉 filters 验证链路。
 - 422 优先判定为**请求校验失败**，先看 payload 类型与枚举值，不要直接归因权限。
 - 含 `lightdash.user.email` 的模型过滤时，默认使用当前 PAT 对应用户邮箱；若邮箱未验证可能被后端置空。
-- 排障顺序：字段 ID（`get_explore`）→ `exploreName` → payload 类型与 `context` → 运算符与字段类型 → `limit`/sort → `timezone`。
+- 排障顺序：字段 ID（`find_fields` / `list_explores` 与报错信息）→ `exploreName` → payload 类型与 `context` → 运算符与字段类型 → `limit`/sort → `timezone`。
 
 详细检查清单：`./QUERY-CHECKLIST.md`

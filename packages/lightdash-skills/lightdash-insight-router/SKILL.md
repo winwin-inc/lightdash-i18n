@@ -15,7 +15,9 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 ## 工具顺序（按优先级）
 
-`get_site_info`（可选，确认当前站点根）→ `list_projects` → `search_content` → `list_spaces` → `get_saved_chart` → `run_saved_chart` → `list_explores` → `get_explore` → `run_metric_query`
+`lightdash_get_site_info`（可选，站点根 `siteBaseUrl`）→ `list_projects` → `set_project`（按需）→ `find_content` → `lightdash_list_spaces`（按需）→ `lightdash_get_saved_chart` → `lightdash_run_saved_chart` → `list_explores` → `find_explores` / `find_fields`（按需）→ `run_metric_query`
+
+说明：与仓库 `packages/lightdash-mcp` 当前实现一致；**无** `search_content`、`get_site_info`、`get_saved_chart`、`run_saved_chart`、`get_explore` 等别名工具。
 
 ## 硬规则（必须遵守）
 
@@ -29,7 +31,7 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 ## 类目（默认四级，细节见同目录 SOP）
 
-用户未说层级时：**优先 `cls_4`**；`get_explore` 若无 `*_cls_4`，用最细可用 `cls_N`（`cls_3`→`cls_2`→`cls_1`）。流程：**先小枚举**（单维度、`limit` 30~50）→ 未命中 **只降一层**再枚举一次 → 仍不行则 **带 5～10 个候选值**反问。同一查询**禁止**多层级 `cls_*` 混筛（除非用户明确要求）。
+用户未说层级时：**优先 `cls_4`**；结合 `list_explores` / `find_fields` 等可得的维度侧，若无 `*_cls_4`，用最细可用 `cls_N`（`cls_3`→`cls_2`→`cls_1`）。流程：**先小枚举**（单维度、`limit` 30~50）→ 未命中 **只降一层**再枚举一次 → 仍不行则 **带 5～10 个候选值**反问。同一查询**禁止**多层级 `cls_*` 混筛（除非用户明确要求）。
 
 完整门禁、阶段划分、失败模板见：**`./ROUTER-SOP.md`**。
 
@@ -44,15 +46,15 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 ## 分支速览
 
-- **A 保存图表**：`search_content` → `get_saved_chart` → `run_saved_chart`  
-- **B 维度指标**：`list_explores` →（类目则 `get_explore` + 枚举/降级，见 SOP）→ `run_metric_query`；非类目可直接 query，失败再 `get_explore` 纠一次。  
+- **A 保存图表**：`find_content` → `lightdash_get_saved_chart` → `lightdash_run_saved_chart`  
+- **B 维度指标**：`list_explores` →（类目则依 SOP 用小枚举/降级；字段拿不准用 `find_fields` / `find_explores`）→ `run_metric_query`；非类目可直接 `run_metric_query`，失败再收窄维度或核对 `exploreName`/字段 ID。  
 - **C SQL**：有 SQL tool 则用；否则走 B 并说明。
 
 高级 filters/sorts 细节：加载技能 **`lightdash-metric-query`**（或由本路由在需要时按其规则构造）。
 
 ## 错误速查
 
-401/403 → 密钥与项目权限；422 → 先查请求体类型与 `context` 枚举（不要先判权限）；chart 丢 → `search_content`；字段错 → 精简重试一次再 `get_explore`；超时/过大 → 减维度与 `limit`；500/筛选 → 单条件 `equals`、单层类目。含 `lightdash.user.email` 时，使用当前 PAT 绑定邮箱，不可假定任意员工身份。
+401/403 → 密钥与项目权限；422 → 先查请求体类型与 `context` 枚举（不要先判权限）；chart 丢 → `find_content`；字段错 → 精简重试一次，或用 `find_fields` / 缩小 `limit` 验证；超时/过大 → 减维度与 `limit`；500/筛选 → 单条件 `equals`、单层类目。含 `lightdash.user.email` 时，使用当前 PAT 绑定邮箱，不可假定任意员工身份。
 
 ## 参考文档（优先同目录）
 

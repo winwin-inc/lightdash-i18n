@@ -23,7 +23,8 @@ packages/lightdash-skills/
 - 推荐对外分发用 HTTP MCP（客户端只配 `url` + `headers`）。
 
 配置模板见：[`.mcp.json.example`](./.mcp.json.example)  
-完整说明见：[`docs/lightdash-mcp.md`](../../docs/lightdash-mcp.md)
+完整说明见：[`docs/lightdash-mcp.md`](../../docs/lightdash-mcp.md)  
+**工具名**以 monorepo 内 [`packages/lightdash-mcp/README.md`](../lightdash-mcp/README.md) 及 `packages/lightdash-mcp/src/mcp/**` 注册为准（本技能包已按当前实现使用 `find_content`、`lightdash_*` 扩展名等，不再写已移除的别名）。
 
 ## Claude 授权（避免反复弹窗）
 
@@ -41,6 +42,6 @@ packages/lightdash-skills/
 
 ## 使用约定
 
-- 提数优先使用 `packages/lightdash-mcp` 暴露的业务向 tools（含 `lightdash_get_site_info`、`search_content` 返回的 `webUrl`）
+- 提数优先使用 `packages/lightdash-mcp` 暴露的工具：标准 16 个（如 `find_content`、`run_metric_query`）+ 4 个 `lightdash_*` 扩展（如 `lightdash_get_site_info`、`lightdash_get_saved_chart`）；内容类结果中的 `webUrl` 以工具返回值为准
 - 不在技能正文写明文密钥
 - 能先跑保存图表就先跑保存图表；需要自定义再走 explore + metric query
