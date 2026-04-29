@@ -88,7 +88,7 @@ curl -i http://localhost:3333/mcp
 
 ## 4. GitHub Actions 自动构建
 
-新增工作流：`.github/workflows/mcp-image.yml`
+新增工作流：`.github/workflows/build-docker-mcp.yml`
 
 ### 4.1 触发条件
 
@@ -98,11 +98,11 @@ curl -i http://localhost:3333/mcp
 ### 4.2 构建与推送逻辑
 
 - 使用 `packages/lightdash-mcp/Dockerfile`
-- 推送到阿里云 ACR 的现有仓库 `winwin/lightdash`
+- 推送到阿里云 ACR 的独立仓库 **`winwin/lightdash-mcp`**（与主应用 `winwin/lightdash` 分离）
+- 首次使用前请在 ACR 控制台创建该仓库
 - tag 规则：
-  - tag 触发：`mcp-v0.1.0` -> `mcp-0.1.0`
-  - 手动触发：`mcp-sha-<short>`
-  - 同时更新滚动 tag：`mcp-latest`
+  - **Git tag 触发**（`mcp-v*`）：例如 `mcp-v0.1.0` → 推送 `:0.1.0` 与 **`:latest`**
+  - **手动 workflow_dispatch**：仅推送 **`:sha-<commit 前 12 位>`**（不更新 `latest`，避免误覆盖发布线）
 
 ### 4.3 需要的仓库 secrets
 
@@ -112,7 +112,7 @@ curl -i http://localhost:3333/mcp
 默认 registry 镜像名在 workflow 中设置为：
 
 ```text
-registry.cn-hangzhou.aliyuncs.com/winwin/lightdash
+registry.cn-hangzhou.aliyuncs.com/winwin/lightdash-mcp
 ```
 
 如需调整，可直接改 workflow 的 `REGISTRY_IMAGE`。
@@ -127,10 +127,11 @@ docker login registry.cn-hangzhou.aliyuncs.com
 IMAGE_VERSION=0.1.0
 REGISTRY=registry.cn-hangzhou.aliyuncs.com
 NAMESPACE=winwin
-REPO=lightdash
+REPO=lightdash-mcp
 
-docker tag lightdash-mcp:${IMAGE_VERSION} ${REGISTRY}/${NAMESPACE}/${REPO}:mcp-${IMAGE_VERSION}
-docker push ${REGISTRY}/${NAMESPACE}/${REPO}:mcp-${IMAGE_VERSION}
+docker tag lightdash-mcp:${IMAGE_VERSION} ${REGISTRY}/${NAMESPACE}/${REPO}:${IMAGE_VERSION}
+docker push ${REGISTRY}/${NAMESPACE}/${REPO}:${IMAGE_VERSION}
+# 可选：docker tag ... :latest && docker push ... :latest
 ```
 
 ---
@@ -167,7 +168,7 @@ docker push ${REGISTRY}/${NAMESPACE}/${REPO}:mcp-${IMAGE_VERSION}
 ## 8. 版本策略
 
 - MCP 独立版本，建议从 `0.1.0` 开始
-- `mcp-image.yml` 推荐按 `mcp-vX.Y.Z` 打 tag 触发发布
+- `build-docker-mcp.yml` 推荐按 `mcp-vX.Y.Z` 打 tag 触发发布
 - MCP 与 skills 版本不强制绑定；skills 可按文档节奏更新
 
 ---
@@ -177,3 +178,4 @@ docker push ${REGISTRY}/${NAMESPACE}/${REPO}:mcp-${IMAGE_VERSION}
 | 日期 | 说明 |
 |------|------|
 | 2026-03-30 | 切换为 `packages/lightdash-mcp/Dockerfile` + GitHub Actions（`mcp-image.yml`）方案，精简环境变量并移除 `LIGHTDASH_WEB_*_PATH_TEMPLATE` |
+| 2026-04-29 | MCP 镜像改为独立 ACR 仓库 `winwin/lightdash-mcp`；镜像 tag 为 semver 数字 + `latest`（Git tag 仍为 `mcp-v*` 触发）；工作流更名为 `build-docker-mcp.yml`（与 `build-docker-with-i18n.yml` 的 `build-docker-*` 命名一致） |

@@ -1,4 +1,4 @@
-name: Build & Deploy MCP Image
+name: Build & Deploy to ALIYUN - MCP
 
 on:
     workflow_dispatch:
@@ -8,7 +8,8 @@ on:
 
 env:
     REGISTRY: registry.cn-hangzhou.aliyuncs.com
-    REGISTRY_IMAGE: registry.cn-hangzhou.aliyuncs.com/winwin/lightdash
+    # 与主应用镜像 winwin/lightdash 分离；需在 ACR 预先创建仓库 winwin/lightdash-mcp
+    REGISTRY_IMAGE: registry.cn-hangzhou.aliyuncs.com/winwin/lightdash-mcp
 
 jobs:
     build-and-push:
@@ -17,17 +18,34 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Resolve image tag
+            - name: Resolve image tags
               id: vars
               shell: bash
+              env:
+                  REGISTRY_IMAGE: ${{ env.REGISTRY_IMAGE }}
               run: |
                   if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-                    RAW="${GITHUB_REF_NAME#mcp-v}"
-                    TAG="mcp-${RAW}"
+                    VERSION="${GITHUB_REF_NAME#mcp-v}"
+                    if [[ -z "${VERSION}" ]]; then
+                      echo "Invalid tag: expected mcp-vX.Y.Z, got ${GITHUB_REF_NAME}"
+                      exit 1
+                    fi
+                    {
+                      echo "tags<<EOF"
+                      echo "${REGISTRY_IMAGE}:${VERSION}"
+                      echo "${REGISTRY_IMAGE}:latest"
+                      echo "EOF"
+                    } >> "${GITHUB_OUTPUT}"
+                    echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
                   else
-                    TAG="mcp-sha-${GITHUB_SHA::12}"
+                    VERSION="sha-${GITHUB_SHA::12}"
+                    {
+                      echo "tags<<EOF"
+                      echo "${REGISTRY_IMAGE}:${VERSION}"
+                      echo "EOF"
+                    } >> "${GITHUB_OUTPUT}"
+                    echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
                   fi
-                  echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
 
             - name: Set up QEMU
               uses: docker/setup-qemu-action@v3
@@ -50,10 +68,8 @@ jobs:
                   platforms: linux/amd64
                   push: true
                   provenance: false
-                  tags: |
-                      ${{ env.REGISTRY_IMAGE }}:${{ steps.vars.outputs.tag }}
-                      ${{ env.REGISTRY_IMAGE }}:mcp-latest
+                  tags: ${{ steps.vars.outputs.tags }}
                   labels: |
                       org.opencontainers.image.title=lightdash-mcp
-                      org.opencontainers.image.version=${{ steps.vars.outputs.tag }}
+                      org.opencontainers.image.version=${{ steps.vars.outputs.version }}
                       org.opencontainers.image.revision=${{ github.sha }}

@@ -164,6 +164,8 @@ docker run --rm -p 3333:3333 \
   lightdash-mcp:0.1.0
 ```
 
+CI 推阿里云时镜像为 **`registry.cn-hangzhou.aliyuncs.com/winwin/lightdash-mcp:<版本>`**，发布线同时打 **`:latest`**；打 Git tag **`mcp-vX.Y.Z`** 触发（详见 `docs/mcp/lightdash-mcp-docker-deploy.md`）。
+
 若客户端始终在请求里带 `x-api-key`，容器内可不设 `LIGHTDASH_API_KEY`；需要服务端默认 PAT 时再挂载该环境变量。
 
 ---
