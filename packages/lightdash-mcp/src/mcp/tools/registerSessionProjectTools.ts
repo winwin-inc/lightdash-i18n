@@ -15,7 +15,7 @@ export function registerSessionProjectTools(
         server,
         'core-tool',
         'set_project',
-        '设置后续工具使用的默认 projectUuid（内存会话，按 PAT 隔离）。可选 tags 用于目录搜索过滤。默认项目也可来自环境变量 LIGHTDASH_DEFAULT_PROJECT_UUID。',
+        '设置后续工具使用的默认 projectUuid（内存会话，按 PAT 隔离）。可选 tags 用于目录搜索过滤。默认项目也可来自环境变量 LIGHTDASH_PROJECT_UUID。',
         {
             apiKey: z.string().optional(),
             projectUuid: z.string(),

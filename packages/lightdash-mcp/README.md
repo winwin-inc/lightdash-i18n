@@ -65,7 +65,7 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 | 变量                               | 必填  | 说明                                                     |
 | -------------------------------- | --- | ------------------------------------------------------ |
 | `LIGHTDASH_SITE_URL`             | 是   | Lightdash 站点根 URL（无尾斜杠亦可）                              |
-| `LIGHTDASH_DEFAULT_PROJECT_UUID` | 是   | 默认项目 UUID；未在工具里传 `projectUuid` 且未执行 `set_project` 时的回退 |
+| `LIGHTDASH_PROJECT_UUID`         | 是   | MCP 默认使用的项目 UUID；未在工具里传 `projectUuid` 且未执行 `set_project` 时的回退 |
 | `LIGHTDASH_API_KEY`              | 否   | 默认 PAT；可被 MCP 请求头 `x-api-key` 或工具参数 `apiKey` 覆盖        |
 | `LIGHTDASH_MAX_LIMIT`            | 否   | 查询类接口的 `limit` 上限                                      |
 | `LIGHTDASH_MCP_HTTP_PORT`        | 否   | HTTP 端口，默认 `3333`                                      |
@@ -159,7 +159,7 @@ docker build -f packages/lightdash-mcp/Dockerfile -t lightdash-mcp:0.1.0 .
 
 docker run --rm -p 3333:3333 \
   -e LIGHTDASH_SITE_URL="https://your-lightdash.example.com" \
-  -e LIGHTDASH_DEFAULT_PROJECT_UUID="your-project-uuid" \
+  -e LIGHTDASH_PROJECT_UUID="your-project-uuid" \
   -e LIGHTDASH_MCP_HTTP_PORT=3333 \
   lightdash-mcp:0.1.0
 ```

@@ -14,7 +14,7 @@ export type LightdashMcpEnvConfig = {
 export function loadConfigFromEnv(): LightdashMcpEnvConfig {
     const raw = process.env.LIGHTDASH_SITE_URL;
     const apiKey = process.env.LIGHTDASH_API_KEY;
-    const defaultProjectUuid = process.env.LIGHTDASH_DEFAULT_PROJECT_UUID;
+    const defaultProjectUuid = process.env.LIGHTDASH_PROJECT_UUID?.trim();
     if (!raw) {
         throw new Error(
             'LIGHTDASH_SITE_URL is required（请设置环境变量，或在 packages/lightdash-mcp/.env 中配置，参考 .env.example）',
@@ -22,7 +22,7 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
     }
     if (!defaultProjectUuid) {
         throw new Error(
-            'LIGHTDASH_DEFAULT_PROJECT_UUID is required（请设置环境变量，或在 packages/lightdash-mcp/.env 中配置，参考 .env.example）',
+            'LIGHTDASH_PROJECT_UUID 为必填：表示 MCP 默认使用的项目 UUID，未 set_project / 未在工具参数传 projectUuid 时使用（见 .env.example）',
         );
     }
     const baseUrl = raw.replace(/\/$/, '');

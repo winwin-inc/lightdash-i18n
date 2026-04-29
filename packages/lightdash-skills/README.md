@@ -20,7 +20,7 @@ packages/lightdash-skills/
 
 - Skills 只负责「如何提问与调用流程」，不直接连服务。
 - 真正请求由 MCP 客户端发起（Claude Code / Cursor）。
-- 推荐对外分发用 HTTP MCP（客户端只配 `url` + `headers`）。
+- 推荐对外分发用 HTTP MCP（客户端一般只配 **`url` + `headers`（如 `x-api-key`）**；**站点与默认项目**由 **MCP HTTP 服务端** 的环境变量提供，例如 `LIGHTDASH_SITE_URL`、`LIGHTDASH_PROJECT_UUID`，与 skills 文件本身无关）。
 
 配置模板见：[`.mcp.json.example`](./.mcp.json.example)  
 完整说明见：[`docs/lightdash-mcp.md`](../../docs/lightdash-mcp.md)  
