@@ -8,7 +8,7 @@ import { registerQueryTools } from './tools/registerQueryTools';
 import { registerOrgAndHealthTools } from './tools/registerOrgAndHealthTools';
 import { registerSessionProjectTools } from './tools/registerSessionProjectTools';
 
-/** 通过 REST 暴露的 12 个标准 MCP 工具名（与 Lightdash 文档中的工具名一致）。 */
+/** 通过 REST 暴露的核心 MCP 工具（当前 15 个；含与 EE 对齐的 find_charts/find_dashboards 及自建 find_spaces/find_content 等）。 */
 export function registerCoreMcpTools(
     server: McpServer,
     config: LightdashMcpEnvConfig,

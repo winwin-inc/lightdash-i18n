@@ -47,6 +47,6 @@
 
 ## 站点与打开链接
 
-- 需要「在浏览器打开」时：使用工具返回的 **`webUrl`**，或 **`lightdash_get_site_info`** 的 **`siteBaseUrl`**。
+- 需要「在浏览器打开」时：使用工具返回的 **`webUrl`**，或 **`get_site_info`** 的 **`siteBaseUrl`**。
 - 勿凭记忆编造链接；短链等以工具返回值为准。
 

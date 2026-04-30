@@ -10,10 +10,10 @@
 
 推荐顺序：
 
-1. 找项目：`lightdash_list_projects`
-2. 找图表/看板：`lightdash_search_content`
-3. 跑图表拿数：`lightdash_run_saved_chart`
-4. 只有必要时才用高级查询：`lightdash_run_metric_query`
+1. 找项目：`list_projects`
+2. 找图表/看板：`find_charts` / `find_dashboards` / `find_content`
+3. 跑图表拿数：`run_saved_chart`
+4. 只有必要时才用高级查询：`run_metric_query`
 
 ---
 

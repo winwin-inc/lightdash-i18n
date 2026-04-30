@@ -57,13 +57,13 @@ export function registerExtensionTools(
     registerToolTyped(
         server,
         'tool-call',
-        'lightdash_get_site_info',
+        'get_site_info',
         '返回当前 MCP 所连 Lightdash 的站点根地址 siteBaseUrl（与 LIGHTDASH_SITE_URL 一致）；不含密钥。可与各工具返回的 webUrl 对照使用。',
         getSiteInfoParams,
         async () => {
             const payload = {
                 siteBaseUrl: config.baseUrl,
-                note: '图表/看板打开链接见 find_content、lightdash_get_saved_chart 等工具返回的 webUrl。',
+                note: '图表/看板打开链接见 find_charts / find_dashboards / find_content、get_saved_chart 等工具返回的 webUrl。',
             };
             return {
                 content: [
@@ -79,7 +79,7 @@ export function registerExtensionTools(
     registerToolTyped(
         server,
         'tool-call',
-        'lightdash_list_spaces',
+        'list_spaces',
         '列出当前项目下的空间（内容文件夹）。可选 projectUuid；省略时与核心工具一致：本次参数 > set_project 会话 > 环境 LIGHTDASH_PROJECT_UUID。',
         listSpacesParams,
         async (args) => {
@@ -107,7 +107,7 @@ export function registerExtensionTools(
     registerToolTyped(
         server,
         'tool-call',
-        'lightdash_get_saved_chart',
+        'get_saved_chart',
         '查看某张已保存图表的名称、可用参数、依赖的数据主题；跑数前先确认参数怎么填。返回含 siteBaseUrl 与 webUrl（浏览器打开该图表）。',
         getSavedChartParams,
         async (args) => {
@@ -138,7 +138,7 @@ export function registerExtensionTools(
     registerToolTyped(
         server,
         'tool-call',
-        'lightdash_run_saved_chart',
+        'run_saved_chart',
         '按已保存图表跑数；可用 parameters 传筛选（如年份、区域）。limit 会按环境上限自动封顶。可选 projectUuid；省略时与核心工具一致：本次参数 > set_project 会话 > 环境 LIGHTDASH_PROJECT_UUID。',
         runSavedChartParams,
         async (args) => {

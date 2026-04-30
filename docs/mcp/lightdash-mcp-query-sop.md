@@ -63,8 +63,8 @@
 
 目标：确认可用项目/内容/主题，不做大查询。
 
-- 保存图表优先：`lightdash_search_content`
-- 无图表时：`lightdash_list_explores`
+- 保存图表优先：`find_charts` / `find_content`
+- 无图表时：`list_explores`
 
 退出条件：找到目标图表或可用 explore。
 

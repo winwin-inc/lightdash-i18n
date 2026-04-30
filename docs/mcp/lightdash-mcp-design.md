@@ -53,20 +53,19 @@ Lightdash REST API
 
 ### 3.2 当前工具清单
 
-业务优先：
+业务优先（站点 / 项目 / 内容 / 已保存图表）：
 
-- `lightdash_get_site_info`
-- `lightdash_list_projects`
-- `lightdash_search_content`
-- `lightdash_list_spaces`
-- `lightdash_get_saved_chart`
-- `lightdash_run_saved_chart`
+- `get_site_info`
+- `list_projects`
+- `find_content` / `find_charts` / `find_dashboards` / `find_spaces`
+- `list_spaces`
+- `get_saved_chart`
+- `run_saved_chart`
 
-高级兜底：
+高级兜底（目录与查询）：
 
-- `lightdash_list_explores`
-- `lightdash_get_explore`
-- `lightdash_run_metric_query`
+- `list_explores` / `find_explores` / `find_fields`
+- `search_field_values` / `run_sql` / `run_metric_query`
 
 ---
 
@@ -85,7 +84,7 @@ Lightdash REST API
 
 ### 4.2 服务端优化（MCP）
 
-在 `lightdash_run_metric_query` 中实现：
+在 `run_metric_query` 中实现：
 
 - 扁平参数接入（降低模型构造复杂度）
 - `filters/sorts` 自动归一化

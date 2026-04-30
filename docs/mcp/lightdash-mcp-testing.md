@@ -36,7 +36,7 @@ LIGHTDASH_MCP_HTTP_PORT=3333
 }
 ```
 
-5. 重载 MCP，确认看到 `lightdash_*` tools
+5. 重载 MCP，确认看到当前注册的 MCP tools（以 `tools/list` 为准，共 19 个）
 
 ---
 
@@ -44,18 +44,18 @@ LIGHTDASH_MCP_HTTP_PORT=3333
 
 ### A. 业务优先工具（必须）
 
-- `lightdash_get_site_info`
-- `lightdash_list_projects`
-- `lightdash_search_content`
-- `lightdash_list_spaces`
-- `lightdash_get_saved_chart`
-- `lightdash_run_saved_chart`
+- `get_site_info`
+- `list_projects`
+- `find_content` / `find_charts` / `find_dashboards` / `find_spaces`
+- `list_spaces`
+- `get_saved_chart`
+- `run_saved_chart`
 
 ### B. 高级工具（必须）
 
-- `lightdash_list_explores`
-- `lightdash_get_explore`
-- `lightdash_run_metric_query`
+- `list_explores`
+- `find_explores` / `find_fields`
+- `run_metric_query`
 
 ---
 
@@ -71,20 +71,20 @@ LIGHTDASH_MCP_HTTP_PORT=3333
 
 | 步骤 | 操作 | 预期 |
 |------|------|------|
-| 2.1 | `lightdash_get_site_info` | 返回 `siteBaseUrl`，与 `LIGHTDASH_SITE_URL` 一致 |
-| 2.2 | `lightdash_list_projects` | 返回有权限项目列表 |
-| 2.3 | `lightdash_search_content(search: "销售", contentTypes: ["chart"])` | 返回图表列表，且每条含 `webUrl`、顶层含 `siteBaseUrl` |
-| 2.4 | `lightdash_list_spaces(projectUuid)` | 返回空间（文件夹）列表 |
-| 2.5 | `lightdash_get_saved_chart(chartUuid)` | 返回图表详情、参数信息，且含 `webUrl` |
-| 2.6 | `lightdash_run_saved_chart(chartUuid, parameters?, limit?)` | 返回 rows/columns，并包含 fields/warnings |
+| 2.1 | `get_site_info` | 返回 `siteBaseUrl`，与 `LIGHTDASH_SITE_URL` 一致 |
+| 2.2 | `list_projects` | 返回有权限项目列表 |
+| 2.3 | `find_charts(searchQueries: [{ label: "销售" }])` | 返回图表列表，且每条含 `webUrl` |
+| 2.4 | `list_spaces(projectUuid)` | 返回空间（文件夹）列表 |
+| 2.5 | `get_saved_chart(chartUuid)` | 返回图表详情、参数信息，且含 `webUrl` |
+| 2.6 | `run_saved_chart(chartUuid, parameters?, limit?)` | 返回 rows/columns，并包含 fields/warnings |
 
 ### 3) 高级兜底路径（自定义分析）
 
 | 步骤 | 操作 | 预期 |
 |------|------|------|
-| 3.1 | `lightdash_list_explores(filtered: true)` | 返回可用 explores |
-| 3.2 | `lightdash_get_explore(exploreId)` | 返回字段元数据（fieldId/label/type） |
-| 3.3 | `lightdash_run_metric_query`（最小 query） | 正常返回数据 |
+| 3.1 | `list_explores(filtered: true)` | 返回可用 explores |
+| 3.2 | `find_fields(table, fieldSearchQueries)` | 返回目录检索结果（含 fieldId 线索）；或配合 `list_explores` 选定 explore 名 |
+| 3.3 | `run_metric_query`（最小 query） | 正常返回数据 |
 | 3.4 | `filters + sorts + limit` 组合 | 结果筛选与排序正确 |
 
 最小 query 示例：
@@ -124,9 +124,9 @@ LIGHTDASH_MCP_HTTP_PORT=3333
 
 用 `lightdash-insight-router` 验证“入口合一”：
 
-1. 问「有哪些销售图表」-> 应优先走 `search_content`
+1. 问「有哪些销售图表」-> 应优先走 `find_charts` / `find_content`
 2. 问「跑营收趋势去年数据」-> 应走 `get_saved_chart` + `run_saved_chart`
-3. 问「我要按维度临时分析」-> 应走 `list_explores` -> `get_explore` -> `run_metric_query`
+3. 问「我要按维度临时分析」-> 应走 `list_explores` -> `find_fields` -> `run_metric_query`
 4. 问「查表/SQL/明细」-> 应进入高级分支（若无 SQL tool，回退到 explore 路径并说明）
 
 ---

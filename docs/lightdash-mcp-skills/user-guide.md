@@ -62,7 +62,8 @@ claude mcp add lightdash-mcp https://your-mcp-host/mcp \
 - `find_fields`：在某个 explore 里按关键词找字段
 
 **内容**
-- `find_content`：v2 内容搜索，返回 webUrl
+- `find_content`：v2 混合关键词搜索（不固定类型），返回 webUrl
+- `find_charts` / `find_dashboards` / `find_spaces`：分别只搜图表 / 看板 / 空间（与上游 EE 内置 MCP 同名的独立 Tool）
 - `list_verified_content`：已验证的图表和看板
 
 **查询**
@@ -70,10 +71,10 @@ claude mcp add lightdash-mcp https://your-mcp-host/mcp \
 - `run_sql`：跑原始 SQL
 - `run_metric_query`：指标查询 v2
 
-**扩展工具**（`lightdash_*` 前缀）
-- `lightdash_get_site_info`：返回 siteBaseUrl
-- `lightdash_list_spaces`：列空间
-- `lightdash_get_saved_chart` / `lightdash_run_saved_chart`：操作已保存的图表
+**站点 / 已保存图表**（与核心共用 PAT；无前缀命名）
+- `get_site_info`：返回 siteBaseUrl
+- `list_spaces`：列空间
+- `get_saved_chart` / `run_saved_chart`：操作已保存的图表
 
 另外有一个 `lightdash-analyst` Prompt，给模型用的角色说明，不是工具。
 
@@ -102,7 +103,7 @@ Skills 可以用两种方式挂：
 
 先交代清楚你要查什么、时间范围是多少。多项目时先用 `list_projects` / `set_project` 声明上下文。
 
-优先找现成的图表：先 `find_content` 搜搜有没有已做好的，没有再做新的。流程是 `list_explores` → 按需 `find_explores` / `find_fields` → `run_metric_query`。
+优先找现成的图表：已知类型时用 `find_charts` / `find_dashboards`（或与上游同语义的关键词）；不确定类型时用 `find_content` 混合搜。没有再做新的：`list_explores` → 按需 `find_explores` / `find_fields` → `run_metric_query`。
 
 想打开看详情，用工具返回的 `webUrl` / `siteBaseUrl`，别自己去猜 URL 格式。
 

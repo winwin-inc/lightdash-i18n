@@ -1,6 +1,6 @@
 # @lightdash/mcp
 
-独立运行的 Lightdash [Model Context Protocol](https://modelcontextprotocol.io) 服务，面向 Claude Code、Cursor 等客户端。通过站点 **REST API** 提供 **12 个标准 MCP 工具名**（与 Lightdash 文档中的工具名一致）、`**lightdash-analyst`** 提示词，以及 4 个 `**lightdash_*` 扩展工具。不托管在 Lightdash 进程内，适合单独扩缩或与主站版本解耦。
+独立运行的 Lightdash [Model Context Protocol](https://modelcontextprotocol.io) 服务，面向 Claude Code、Cursor 等客户端。通过站点 **REST API** 注册 **19 个 MCP 工具**（**15** 个核心：健康/项目/目录/内容/查询；**4** 个站点与已保存图表相关），以及 **`lightdash-analyst`** 提示词；工具名**统一无前缀**（与 EE 内置 MCP 对齐的仍用上游同名，如 `find_charts`）。不托管在 Lightdash 进程内，适合单独扩缩或与主站版本解耦。
 
 ---
 
@@ -72,7 +72,7 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 
 ### 项目 `projectUuid` 解析顺序
 
-对需要项目的工具（含 **`lightdash_list_spaces`**、**`lightdash_run_saved_chart`** 与核心工具），有效项目 UUID 按：
+对需要项目的工具（含 **`list_spaces`**、**`run_saved_chart`** 与核心工具），有效项目 UUID 按：
 
 1. **本次工具入参** `projectUuid`（若传入非空字符串）  
 2. **`set_project`** 写入的会话项目（按 PAT 隔离，内存）  
@@ -107,30 +107,32 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 
 ## 工具与提示词一览
 
-### 标准工具（12 个）
+### 核心工具（15 个）
 
-`get_lightdash_version` · `list_projects` · `set_project` · `get_current_project` · `list_explores` · `find_explores` · `find_fields` · `find_content` · `list_verified_content` · `search_field_values` · `run_sql` · `run_metric_query`
+`get_lightdash_version` · `list_projects` · `set_project` · `get_current_project` · `list_explores` · `find_explores` · `find_fields` · `find_content` · `find_charts` · `find_dashboards` · `find_spaces` · `list_verified_content` · `search_field_values` · `run_sql` · `run_metric_query`
 
 说明要点：
 
 - `get_lightdash_version`：首条返回内容为短 **version** 文本（无则 `unknown`），第二条为完整 health JSON。
+- `find_charts` / `find_dashboards` / `find_spaces`：与上游 EE 内置 MCP 命名对齐，分别固定 `contentTypes` 为 chart / dashboard / space；`find_content` 为**不传类型过滤**的混合关键词搜索。
 - `run_metric_query`：首条为 **CSV**，第二条为 JSON；响应中含 `**structuredContent`**，便于支持结构化消费的客户端。
 - `find_explores` / `find_fields`：对 `dataCatalog` 返回的条目附加 `**heuristicScore**` 并按其降序排列；响应含 `**heuristicRankingVersion**`（当前为 `1`）。
 
-### 扩展工具（4，仅以下 `lightdash_*`）
+### 站点与已保存图表（4 个）
 
+与核心工具同一 PAT；在扩展注册顺序上先于核心工具加载，名称无前缀。
 
-| 工具名                         | 用途                                          |
-| --------------------------- | ------------------------------------------- |
-| `lightdash_get_site_info`   | 返回 `siteBaseUrl`（与 `LIGHTDASH_SITE_URL` 一致） |
-| `lightdash_list_spaces`     | 列出当前项目下的空间                                  |
-| `lightdash_get_saved_chart` | 按图表 UUID 拉取已保存图表定义（含 `webUrl`）              |
-| `lightdash_run_saved_chart` | 按已保存图表 UUID 执行查询                            |
+| 工具名               | 用途                                          |
+| ----------------- | ------------------------------------------- |
+| `get_site_info`   | 返回 `siteBaseUrl`（与 `LIGHTDASH_SITE_URL` 一致） |
+| `list_spaces`     | 列出当前项目下的空间                                  |
+| `get_saved_chart` | 按图表 UUID 拉取已保存图表定义（含 `webUrl`）              |
+| `run_saved_chart` | 按已保存图表 UUID 执行查询                            |
 
 
 ### 提示词
 
-- `**lightdash-analyst**`：固定分析师说明（与标准工具、扩展工具名一致）。
+- `**lightdash-analyst**`：固定分析师说明（工具名与上文一致）。
 
 ---
 

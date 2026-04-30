@@ -15,13 +15,13 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 ## 工具顺序（按优先级）
 
-`lightdash_get_site_info`（可选，站点根 `siteBaseUrl`）→ `list_projects` → `set_project`（按需）→ `find_content` → `lightdash_list_spaces`（按需）→ `lightdash_get_saved_chart` → `lightdash_run_saved_chart` → `list_explores` → `find_explores` / `find_fields`（按需）→ `run_metric_query`
+`get_site_info`（可选，站点根 `siteBaseUrl`）→ `list_projects` → `set_project`（按需）→ `find_charts` / `find_dashboards`（已知类型）或 `find_content`（混合）→ `list_spaces`（按需）→ `get_saved_chart` → `run_saved_chart` → `list_explores` → `find_explores` / `find_fields`（按需）→ `run_metric_query`
 
 说明：与仓库 `packages/lightdash-mcp` 当前实现一致；工具名以客户端 `tools/list` 为准。
 
 ### 可选参数 `projectUuid`（不写死在 skills）
 
-多数需要项目的工具支持**可选** `projectUuid`。省略时解析顺序与 MCP 一致：**本次工具参数** → **`set_project` 会话** → **环境 `LIGHTDASH_PROJECT_UUID`**（未配环境变量则须先 `set_project` 或传参）。涉及工具示例：`find_content`、`list_verified_content`、`list_explores`、`find_explores`、`find_fields`、`run_metric_query`、`run_sql`、`search_field_values`；扩展 **`lightdash_list_spaces`**、**`lightdash_run_saved_chart`**。细则见 **[`packages/lightdash-mcp/README.md`](../../lightdash-mcp/README.md)**。
+多数需要项目的工具支持**可选** `projectUuid`。省略时解析顺序与 MCP 一致：**本次工具参数** → **`set_project` 会话** → **环境 `LIGHTDASH_PROJECT_UUID`**（未配环境变量则须先 `set_project` 或传参）。涉及工具示例：`find_charts` / `find_dashboards` / `find_spaces`、`find_content`、`list_verified_content`、`list_explores`、`find_explores`、`find_fields`、`run_metric_query`、`run_sql`、`search_field_values`；**`list_spaces`**、**`run_saved_chart`**。细则见 **[`packages/lightdash-mcp/README.md`](../../lightdash-mcp/README.md)**。
 
 ## 硬规则（必须遵守）
 
@@ -50,7 +50,7 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 ## 分支速览
 
-- **A 保存图表**：`find_content` → `lightdash_get_saved_chart` → `lightdash_run_saved_chart`  
+- **A 保存图表**：`find_charts` / `find_dashboards`（已知类型）或 `find_content`（混合）→ `get_saved_chart` → `run_saved_chart`  
 - **B 维度指标**：`list_explores` →（类目则依 SOP 用小枚举/降级；字段拿不准用 `find_fields` / `find_explores`）→ `run_metric_query`；非类目可直接 `run_metric_query`，失败再收窄维度或核对 `exploreName`/字段 ID。  
 - **C SQL**：有 SQL tool 则用；否则走 B 并说明。
 
@@ -58,7 +58,7 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 ## 错误速查
 
-401/403 → 密钥与项目权限；422 → 先查请求体类型与 `context` 枚举（不要先判权限）；chart 丢 → `find_content`；字段错 → 精简重试一次，或用 `find_fields` / 缩小 `limit` 验证；超时/过大 → 减维度与 `limit`；500/筛选 → 单条件 `equals`、单层类目。含 `lightdash.user.email` 时，使用当前 PAT 绑定邮箱，不可假定任意员工身份。
+401/403 → 密钥与项目权限；422 → 先查请求体类型与 `context` 枚举（不要先判权限）；chart 丢 → `find_charts` / `find_content`；字段错 → 精简重试一次，或用 `find_fields` / 缩小 `limit` 验证；超时/过大 → 减维度与 `limit`；500/筛选 → 单条件 `equals`、单层类目。含 `lightdash.user.email` 时，使用当前 PAT 绑定邮箱，不可假定任意员工身份。
 
 ## 参考文档（优先同目录）
 

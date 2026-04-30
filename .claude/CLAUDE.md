@@ -5,10 +5,10 @@
 ## Data Query Priority
 
 - 在本仓库做 Lightdash 提数时，优先使用 `packages/lightdash-mcp` 的 MCP tools
-- 推荐顺序：
-  1. `lightdash_list_explores`
-  2. `lightdash_get_explore`
-  3. `lightdash_run_metric_query`
+- 推荐顺序（自定义指标查询路径）：
+  1. `list_explores`
+  2. `find_fields`（或 `find_explores`）
+  3. `run_metric_query`
 
 ## Query Safety
 

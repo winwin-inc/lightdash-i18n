@@ -70,7 +70,7 @@ curl http://localhost:3333/health
 curl -i http://localhost:3333/mcp
 ```
 
-如果你在客户端（Cursor/Claude）里配置了该 URL，且请求头带 `x-api-key`，就可以直接开始调 `lightdash_*` tools。
+如果你在客户端（Cursor/Claude）里配置了该 URL，且请求头带 `x-api-key`，就可以直接开始调 MCP 工具（见 `packages/lightdash-mcp/README.md`）。
 
 ---
 
