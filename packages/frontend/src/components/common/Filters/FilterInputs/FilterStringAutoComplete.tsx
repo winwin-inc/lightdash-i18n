@@ -42,6 +42,7 @@ type Props = Omit<MultiSelectProps, 'data' | 'onChange'> & {
     suggestions: string[];
     onChange: (values: string[]) => void;
     singleValue?: boolean;
+    excludedValues?: string[];
     /** 编辑模式为 true 时启用「鼠标移出下拉区域则收起」；查看模式不传或 false，不收起 */
     closeDropdownOnMouseLeave?: boolean;
 };
@@ -73,6 +74,7 @@ const FilterStringAutoComplete: FC<Props> = ({
     onDropdownOpen,
     onDropdownClose,
     singleValue,
+    excludedValues,
     closeDropdownOnMouseLeave = false,
     ...rest
 }) => {
@@ -436,14 +438,22 @@ const FilterStringAutoComplete: FC<Props> = ({
     }, [values, singleValue, handleChange]);
 
     const data = useMemo(() => {
+        const excludedValueSet = new Set(
+            (excludedValues ?? [])
+                .map((value) => value.trim())
+                .filter((value) => value.length > 0),
+        );
         // Mantine does not show value tag if value is not found in data
         // so we need to add it manually here
         // also we are merging status indicator as a first item
-        return uniq([...results, ...values]).map((value) => ({
+        const visibleResults = results.filter(
+            (value) => !excludedValueSet.has(value),
+        );
+        return uniq([...visibleResults, ...values]).map((value) => ({
             value,
             label: formatDisplayValue(value),
         }));
-    }, [results, values]);
+    }, [excludedValues, results, values]);
 
     const searchedMaxResults = resultsSet.size >= MAX_AUTOCOMPLETE_RESULTS;
     // memo override component so list doesn't scroll to the top on each click

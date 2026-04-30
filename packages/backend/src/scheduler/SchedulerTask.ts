@@ -1933,7 +1933,9 @@ export default class SchedulerTask {
             if (payload.pivotConfig) {
                 // PivotQueryResults expects a formatted ResultRow[] type, so we need to convert it first
                 // TODO: refactor pivotQueryResults to accept a Record<string, any>[] simple row type for performance
-                const formattedRows = formatRows(rows, itemMap);
+                const formattedRows = formatRows(rows, itemMap, undefined, {
+                    displayTimezone: this.lightdashConfig.query.timezone,
+                });
 
                 const pivotedResults = pivotResultsAsCsv({
                     pivotConfig: payload.pivotConfig,
@@ -2479,7 +2481,9 @@ export default class SchedulerTask {
                 ) {
                     // PivotQueryResults expects a formatted ResultRow[] type, so we need to convert it first
                     // TODO: refactor pivotQueryResults to accept a Record<string, any>[] simple row type for performance
-                    const formattedRows = formatRows(rows, itemMap);
+                    const formattedRows = formatRows(rows, itemMap, undefined, {
+                        displayTimezone: this.lightdashConfig.query.timezone,
+                    });
 
                     const pivotedResults = pivotResultsAsCsv({
                         pivotConfig,
@@ -2621,7 +2625,15 @@ export default class SchedulerTask {
                         ) {
                             // PivotQueryResults expects a formatted ResultRow[] type, so we need to convert it first
                             // TODO: refactor pivotQueryResults to accept a Record<string, any>[] simple row type for performance
-                            const formattedRows = formatRows(rows, itemMap);
+                            const formattedRows = formatRows(
+                                rows,
+                                itemMap,
+                                undefined,
+                                {
+                                    displayTimezone:
+                                        this.lightdashConfig.query.timezone,
+                                },
+                            );
 
                             const pivotedResults = pivotResultsAsCsv({
                                 pivotConfig,

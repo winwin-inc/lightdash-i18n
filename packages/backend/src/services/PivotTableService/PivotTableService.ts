@@ -202,7 +202,9 @@ export class PivotTableService extends BaseService {
     }): Promise<AttachmentUrl> {
         // PivotQueryResults expects a formatted ResultRow[] type, so we need to convert it first
         // TODO: refactor pivotQueryResults to accept a Record<string, any>[] simple row type for performance
-        const formattedRows = formatRows(rows, itemMap);
+        const formattedRows = formatRows(rows, itemMap, undefined, {
+            displayTimezone: this.lightdashConfig.query.timezone,
+        });
 
         const csvResults = pivotResultsAsCsv({
             pivotConfig,

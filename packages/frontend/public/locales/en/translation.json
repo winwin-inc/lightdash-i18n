@@ -2400,7 +2400,17 @@
                 "parent_filter_placeholder": "No parent filter"
             },
             "filter_read_only": "Filter read-only",
-            "filter_hidden": "Filter hidden"
+            "filter_hidden": "Filter hidden",
+            "date_range": {
+                "min_label": "Earliest selectable date",
+                "max_label": "Latest selectable date",
+                "placeholder": "YYYY-MM-DD",
+                "hint": "Leave empty for no limit. Click the date fields and pick in the calendar (stored as YYYY-MM-DD) to bound the date filter pickers above."
+            },
+            "exclude_values": {
+                "label": "Exclude values from options",
+                "placeholder": "Add values to hide from this filter options list"
+            }
         },
         "tabs": {
             "tooltip_filter": {

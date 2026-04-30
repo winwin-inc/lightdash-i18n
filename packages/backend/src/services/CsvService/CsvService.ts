@@ -158,6 +158,40 @@ export const getSchedulerCsvLimit = (
 };
 
 export class CsvService extends BaseService {
+    private static formatMomentByTimezone(
+        value: AnyType,
+        pattern: string,
+        displayTimezone?: string,
+    ): string {
+        if (displayTimezone) {
+            const date = new Date(String(value));
+            if (!Number.isNaN(date.getTime())) {
+                const parts = new Intl.DateTimeFormat('sv-SE', {
+                    timeZone: displayTimezone,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false,
+                }).formatToParts(date);
+                const lookup = Object.fromEntries(
+                    parts.map((part) => [part.type, part.value]),
+                );
+                if (pattern === 'YYYY-MM-DD') {
+                    return `${lookup.year}-${lookup.month}-${lookup.day}`;
+                }
+                const milliseconds = String(date.getUTCMilliseconds()).padStart(
+                    3,
+                    '0',
+                );
+                return `${lookup.year}-${lookup.month}-${lookup.day} ${lookup.hour}:${lookup.minute}:${lookup.second}.${milliseconds}`;
+            }
+        }
+        return moment(value).format(pattern);
+    }
+
     // Helper method to escape CSV values
     private static escapeCsvValue(value: AnyType): string {
         if (value === null || value === undefined) return '';
@@ -247,6 +281,7 @@ export class CsvService extends BaseService {
         itemMap: ItemsMap,
         onlyRaw: boolean,
         sortedFieldIds: string[],
+        displayTimezone?: string,
     ) {
         return sortedFieldIds.map((id: string) => {
             const item = itemMap[id];
@@ -259,10 +294,18 @@ export class CsvService extends BaseService {
 
             const itemIsField = isField(item);
             if (itemIsField && item.type === DimensionType.TIMESTAMP) {
-                data = moment(data).format('YYYY-MM-DD HH:mm:ss.SSS');
+                data = CsvService.formatMomentByTimezone(
+                    data,
+                    'YYYY-MM-DD HH:mm:ss.SSS',
+                    displayTimezone,
+                );
             }
             if (itemIsField && item.type === DimensionType.DATE) {
-                data = moment(data).format('YYYY-MM-DD');
+                data = CsvService.formatMomentByTimezone(
+                    data,
+                    'YYYY-MM-DD',
+                    displayTimezone,
+                );
             }
 
             // Return raw value and let csv-stringify handle the rest
@@ -375,6 +418,7 @@ export class CsvService extends BaseService {
             readStream,
             writeStream,
         }: { readStream: Readable; writeStream: Writable },
+        displayTimezone?: string,
     ): Promise<{ truncated: boolean }> {
         return new Promise((resolve, reject) => {
             const stringifier = stringify({
@@ -435,6 +479,7 @@ export class CsvService extends BaseService {
                         itemMap,
                         onlyRaw,
                         sortedFieldIds,
+                        displayTimezone,
                     );
                     stringifier.write(csvRow);
                 },

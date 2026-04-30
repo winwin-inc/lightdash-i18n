@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import { useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { mergeMaxDate, mergeMinDate } from '../utils/filterDateUtils';
 import FilterDatePicker from './FilterDatePicker';
 
 interface Props
@@ -14,6 +15,8 @@ interface Props
     value: [Date, Date] | null;
     onChange: (value: [Date, Date] | null) => void;
     firstDayOfWeek: DayOfWeek;
+    filterMinDate?: Date;
+    filterMaxDate?: Date;
 }
 
 const FilterDateRangePicker: FC<Props> = ({
@@ -21,6 +24,8 @@ const FilterDateRangePicker: FC<Props> = ({
     disabled,
     firstDayOfWeek,
     onChange,
+    filterMinDate,
+    filterMaxDate,
     ...rest
 }) => {
     const { t } = useTranslation();
@@ -36,9 +41,13 @@ const FilterDateRangePicker: FC<Props> = ({
                 placeholder={t(
                     'components_common_filters_inputs.date_picker.start_date',
                 )}
-                maxDate={
-                    date2 ? dayjs(date2).subtract(1, 'day').toDate() : undefined
-                }
+                minDate={filterMinDate}
+                maxDate={mergeMaxDate(
+                    date2
+                        ? dayjs(date2).subtract(1, 'day').toDate()
+                        : undefined,
+                    filterMaxDate,
+                )}
                 firstDayOfWeek={firstDayOfWeek}
                 {...rest}
                 value={date1}
@@ -61,7 +70,11 @@ const FilterDateRangePicker: FC<Props> = ({
                 placeholder={t(
                     'components_common_filters_inputs.date_picker.end_date',
                 )}
-                minDate={dayjs(date1).add(1, 'day').toDate()}
+                minDate={mergeMinDate(
+                    date1 ? dayjs(date1).add(1, 'day').toDate() : undefined,
+                    filterMinDate,
+                )}
+                maxDate={filterMaxDate}
                 firstDayOfWeek={firstDayOfWeek}
                 {...rest}
                 value={date2}

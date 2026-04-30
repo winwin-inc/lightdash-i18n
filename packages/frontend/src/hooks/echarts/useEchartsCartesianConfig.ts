@@ -138,7 +138,7 @@ export const getAxisTypeFromField = (
             case TableCalculationType.TIMESTAMP:
                 // Use categorical axis for weeks only. Echarts handles the
                 // other time frames well with a time axis
-                // For week intervals, only switch to time axis if there's a reference line on this specific axis
+                // For week intervals, only switch to time axis if there's a reference line on this axis.
                 if (
                     'timeInterval' in item &&
                     item.timeInterval === TimeFrames.WEEK &&
@@ -2837,6 +2837,12 @@ const useEchartsCartesianConfig = (
                     }
                     return sortedParams[0].axisValueLabel;
                 };
+                const getTooltipHeaderRawValue = () => {
+                    if (flipAxes && !('axisDim' in sortedParams[0])) {
+                        return sortedParams[0].seriesName;
+                    }
+                    return sortedParams[0].axisValue;
+                };
                 // When flipping axes, we get all series in the chart
                 const tooltipRows = sortedParams
                     .map((param) => {
@@ -2934,13 +2940,21 @@ const useEchartsCartesianConfig = (
                     const hasFormat = isField(field)
                         ? field.format !== undefined
                         : false;
+                    const fieldType = getItemType(field);
+                    const isDateLikeField =
+                        fieldType === DimensionType.DATE ||
+                        fieldType === DimensionType.TIMESTAMP ||
+                        fieldType === MetricType.DATE ||
+                        fieldType === MetricType.TIMESTAMP ||
+                        fieldType === TableCalculationType.DATE ||
+                        fieldType === TableCalculationType.TIMESTAMP;
 
-                    if (hasFormat) {
+                    if (hasFormat || isDateLikeField) {
                         const tooltipHeader = getFormattedValue(
-                            getTooltipHeader(),
+                            getTooltipHeaderRawValue(),
                             dimensionId,
                             itemsMap,
-                            undefined,
+                            isDateLikeField ? false : undefined,
                             pivotValuesColumnsMap,
                         );
 

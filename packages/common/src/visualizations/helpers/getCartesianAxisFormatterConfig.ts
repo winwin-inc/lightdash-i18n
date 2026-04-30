@@ -50,6 +50,10 @@ export const getCartesianAxisFormatterConfig = ({
         isField(axisItem) &&
         (axisItem.type === DimensionType.DATE ||
             axisItem.type === DimensionType.TIMESTAMP);
+    const isDateOrTimestampField =
+        isField(axisItem) &&
+        (axisItem.type === DimensionType.DATE ||
+            axisItem.type === DimensionType.TIMESTAMP);
     // Only apply axis formatting if the axis is NOT a date or timestamp
     const hasFormattingConfig = !isTimestamp && hasFormatting(axisItem);
     const axisMinInterval =
@@ -66,7 +70,23 @@ export const getCartesianAxisFormatterConfig = ({
 
     const axisConfig: Record<string, unknown> = {};
 
-    if (axisItem && (hasFormattingConfig || axisMinInterval)) {
+    if (isDateOrTimestampField) {
+        axisConfig.axisLabel = {
+            formatter: (value: AnyType) =>
+                formatItemValue(axisItem, value, false),
+        };
+        axisConfig.axisPointer = {
+            label: {
+                formatter: (value: unknown) =>
+                    value &&
+                    typeof value === 'object' &&
+                    'value' in value &&
+                    value.value !== undefined
+                        ? formatItemValue(axisItem, value.value, false)
+                        : undefined,
+            },
+        };
+    } else if (axisItem && (hasFormattingConfig || axisMinInterval)) {
         axisConfig.axisLabel = {
             formatter: (value: AnyType) =>
                 formatItemValue(axisItem, value, true),
@@ -170,6 +190,10 @@ export const getCartesianAxisFormatterConfig = ({
         axisConfig.axisLabel = {
             ...(axisConfig.axisLabel || {}),
             hideOverlap: true,
+            // Keep first/last tick labels visible on dense time axes.
+            // Without this, ECharts can hide the final label when overlap detection runs.
+            showMinLabel: true,
+            showMaxLabel: true,
         };
     }
 

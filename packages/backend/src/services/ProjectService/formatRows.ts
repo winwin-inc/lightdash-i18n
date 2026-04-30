@@ -4,11 +4,14 @@ import { parentPort, workerData } from 'worker_threads';
 type Args = {
     rows: Record<string, AnyType>[];
     itemMap: ItemsMap;
+    displayTimezone?: string;
 };
 
 function run() {
-    const { rows, itemMap }: Args = workerData;
-    const formattedRows = formatRows(rows, itemMap);
+    const { rows, itemMap, displayTimezone }: Args = workerData;
+    const formattedRows = formatRows(rows, itemMap, undefined, {
+        displayTimezone,
+    });
     if (parentPort) parentPort.postMessage(formattedRows);
 }
 

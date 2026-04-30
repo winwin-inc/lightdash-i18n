@@ -2597,6 +2597,10 @@ export class ProjectService extends BaseService {
                                     useWorker,
                                 );
 
+                                const resultFormatOpts = {
+                                    displayTimezone:
+                                        this.lightdashConfig.query.timezone,
+                                };
                                 return useWorker
                                     ? runWorkerThread<ResultRow[]>(
                                           new Worker(
@@ -2605,11 +2609,18 @@ export class ProjectService extends BaseService {
                                                   workerData: {
                                                       rows,
                                                       itemMap: fields,
+                                                      displayTimezone:
+                                                          resultFormatOpts.displayTimezone,
                                                   },
                                               },
                                           ),
                                       )
-                                    : formatRows(rows, fields);
+                                    : formatRows(
+                                          rows,
+                                          fields,
+                                          undefined,
+                                          resultFormatOpts,
+                                      );
                             },
                             'formatRows',
                             this.logger,
@@ -5925,7 +5936,9 @@ export class ProjectService extends BaseService {
                 dashboardContext,
             });
 
-            return formatRawRows(rows, fields);
+            return formatRawRows(rows, fields, {
+                displayTimezone: this.lightdashConfig.query.timezone,
+            });
         };
 
         const subtotalsPromises = dimensionGroupsToSubtotal.map<

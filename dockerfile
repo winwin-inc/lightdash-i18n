@@ -192,11 +192,12 @@
   
   COPY --from=prod-builder /usr/app /usr/app
   
-  # Set timezone
+  # Set timezone (OS) + Lightdash query compiler default (IANA id, same as tz)
   ARG tz=Asia/Shanghai
   RUN ln -sf /usr/share/zoneinfo/$tz /etc/localtime \
     && echo $tz > /etc/timezone
-  
+  ENV LIGHTDASH_QUERY_TIMEZONE=$tz
+
   # Run backend
   COPY ./docker/prod-entrypoint.sh /usr/bin/prod-entrypoint.sh
   

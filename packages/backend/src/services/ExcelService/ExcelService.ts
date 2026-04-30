@@ -2,6 +2,7 @@ import {
     AnyType,
     DimensionType,
     DownloadFileType,
+    FieldType,
     formatItemValue,
     formatRows,
     getErrorMessage,
@@ -29,6 +30,40 @@ import {
 
 export class ExcelService {
     private static readonly EXCEL_ROW_LIMIT = 1_000_000;
+
+    private static formatMomentByTimezone(
+        value: AnyType,
+        pattern: string,
+        displayTimezone?: string,
+    ): string {
+        if (displayTimezone) {
+            const date = new Date(String(value));
+            if (!Number.isNaN(date.getTime())) {
+                const parts = new Intl.DateTimeFormat('sv-SE', {
+                    timeZone: displayTimezone,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false,
+                }).formatToParts(date);
+                const lookup = Object.fromEntries(
+                    parts.map((part) => [part.type, part.value]),
+                );
+                if (pattern === 'YYYY-MM-DD') {
+                    return `${lookup.year}-${lookup.month}-${lookup.day}`;
+                }
+                const milliseconds = String(date.getUTCMilliseconds()).padStart(
+                    3,
+                    '0',
+                );
+                return `${lookup.year}-${lookup.month}-${lookup.day} ${lookup.hour}:${lookup.minute}:${lookup.second}.${milliseconds}`;
+            }
+        }
+        return moment(value).format(pattern);
+    }
 
     // Helper method for date/timestamp conversion
     static convertToExcelDate(value: unknown): Date | unknown {
@@ -59,42 +94,65 @@ export class ExcelService {
         itemMap: ItemsMap,
         onlyRaw: boolean,
         sortedFieldIds: string[],
+        displayTimezone?: string,
     ): (string | number | Date | null)[] {
         return sortedFieldIds.map((fieldId) => {
-            const rawValue = row[fieldId];
-            if (onlyRaw) {
-                return rawValue;
-            }
+            const sourceValue = row[fieldId];
+            let rawValue = sourceValue;
 
             if (rawValue === null || rawValue === undefined) {
                 return rawValue;
             }
 
             const item = itemMap[fieldId];
+            const isMetricField =
+                !!item &&
+                'fieldType' in item &&
+                item.fieldType === FieldType.METRIC;
+            const isTimestampField =
+                !!item &&
+                'type' in item &&
+                item.type === DimensionType.TIMESTAMP;
+            const isDateField =
+                !!item && 'type' in item && item.type === DimensionType.DATE;
+            const isTemporalField = isTimestampField || isDateField;
+
+            // Always normalize temporal values to configured timezone first.
+            if (isTimestampField) {
+                rawValue = ExcelService.formatMomentByTimezone(
+                    sourceValue,
+                    'YYYY-MM-DD HH:mm:ss.SSS',
+                    displayTimezone,
+                );
+            } else if (isDateField) {
+                rawValue = ExcelService.formatMomentByTimezone(
+                    sourceValue,
+                    'YYYY-MM-DD',
+                    displayTimezone,
+                );
+            }
+
+            if (onlyRaw) {
+                // Prevent Excel auto-number formatting for non-metric dimensions like 2025/202503.
+                if (!isMetricField && typeof rawValue === 'number') {
+                    return String(rawValue);
+                }
+                return rawValue;
+            }
+
+            // Formatted mode: preserve existing formatter behavior, using timezone-normalized temporal value.
+            if (isTemporalField) {
+                return formatItemValue(item, rawValue);
+            }
 
             const formatExpression = getFormatExpression(item);
             if (formatExpression) {
-                // For date/timestamp fields with custom formatting, convert to Date object first
-                // if (
-                //     item &&
-                //     'type' in item &&
-                //     (item.type === DimensionType.DATE ||
-                //         item.type === DimensionType.TIMESTAMP)
-                // ) {
-                //     return moment(rawValue).toDate();
-                // }
-                if (item && 'type' in item) {
-                    if (item.type === DimensionType.TIMESTAMP) {
-                        return moment(rawValue).format(
-                            'YYYY-MM-DD HH:mm:ss.SSS',
-                        );
-                    }
-                    if (item.type === DimensionType.DATE) {
-                        return moment(rawValue).format('YYYY-MM-DD');
-                    }
-                }
-
                 // Convert string numbers to actual numbers for Excel formatting
+                if (!isMetricField) {
+                    return typeof rawValue === 'number'
+                        ? String(rawValue)
+                        : rawValue;
+                }
                 const stringValue = String(rawValue);
                 if (
                     stringValue.trim() !== '' &&
@@ -103,21 +161,6 @@ export class ExcelService {
                     return Number(stringValue);
                 }
                 return rawValue;
-            }
-
-            if (item && 'type' in item) {
-                // if (
-                //     item.type === DimensionType.TIMESTAMP ||
-                //     item.type === DimensionType.DATE
-                // ) {
-                //     return moment(rawValue).toDate();
-                // }
-                if (item.type === DimensionType.TIMESTAMP) {
-                    return moment(rawValue).format('YYYY-MM-DD HH:mm:ss.SSS');
-                }
-                if (item.type === DimensionType.DATE) {
-                    return moment(rawValue).format('YYYY-MM-DD');
-                }
             }
 
             // Use standard Lightdash formatting if not onlyRaw and we have item metadata but no format expression
@@ -138,6 +181,7 @@ export class ExcelService {
         customLabels,
         maxColumnLimit,
         pivotDetails,
+        displayTimezone,
     }: {
         rows: Record<string, AnyType>[];
         itemMap: ItemsMap;
@@ -147,9 +191,12 @@ export class ExcelService {
         customLabels: Record<string, string> | undefined;
         maxColumnLimit: number;
         pivotDetails: ReadyQueryResultsPage['pivotDetails'];
+        displayTimezone?: string;
     }): Promise<Excel.Buffer> {
         // PivotQueryResults expects a formatted ResultRow[] type, so we need to convert it first
-        const formattedRows = formatRows(rows, itemMap);
+        const formattedRows = formatRows(rows, itemMap, undefined, {
+            displayTimezone,
+        });
 
         const csvResults = pivotResultsAsCsv({
             pivotConfig,
@@ -283,6 +330,7 @@ export class ExcelService {
             customLabels,
             maxColumnLimit: lightdashConfig.pivotTable.maxColumnLimit,
             pivotDetails,
+            displayTimezone: lightdashConfig.query.timezone,
         });
 
         // Upload the Excel buffer to storage using the storage client pattern
@@ -325,6 +373,7 @@ export class ExcelService {
         fields: ItemsMap,
         onlyRaw: boolean,
         sortedFieldIds: string[],
+        displayTimezone?: string,
     ): Promise<{ truncated: boolean }> {
         // Use the same approach as our working tests - direct filename instead of stream
         const workbook = new Excel.stream.xlsx.WorkbookWriter({
@@ -339,6 +388,15 @@ export class ExcelService {
             const fieldId = sortedFieldIds[index];
             const item = fields[fieldId];
             const formatExpression = getFormatExpression(item);
+            const isMetricField =
+                !!item &&
+                'fieldType' in item &&
+                item.fieldType === FieldType.METRIC;
+            const isTemporalField =
+                !!item &&
+                'type' in item &&
+                (item.type === DimensionType.DATE ||
+                    item.type === DimensionType.TIMESTAMP);
 
             const column: Partial<Excel.Column> = {
                 header,
@@ -347,7 +405,7 @@ export class ExcelService {
             };
 
             // Apply number formatting at column level if available
-            if (formatExpression) {
+            if (formatExpression && isMetricField && !isTemporalField) {
                 column.style = { numFmt: formatExpression };
             }
 
@@ -366,6 +424,7 @@ export class ExcelService {
                     fields,
                     onlyRaw,
                     sortedFieldIds,
+                    displayTimezone,
                 );
 
                 if (Array.isArray(rowData) && rowData.length > 0) {
@@ -419,6 +478,7 @@ export class ExcelService {
             columnOrder?: string[];
             hiddenFields?: string[];
             attachmentDownloadName?: string;
+            displayTimezone?: string;
         } = {},
     ): Promise<{ fileUrl: string; truncated: boolean }> {
         // Handle column ordering and filtering
@@ -429,6 +489,7 @@ export class ExcelService {
             columnOrder = [],
             hiddenFields = [],
             attachmentDownloadName,
+            displayTimezone,
         } = options;
 
         // Process fields and generate headers using shared utility
@@ -456,6 +517,7 @@ export class ExcelService {
                 fields,
                 onlyRaw,
                 sortedFieldIds,
+                displayTimezone,
             );
 
             // Generate filename with truncated flag

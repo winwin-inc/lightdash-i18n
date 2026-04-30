@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
+import moment from 'moment-timezone';
 import { z } from 'zod';
 import {
     type ApiUnusedContent,
@@ -149,11 +150,11 @@ import type {
     EmbedUrl,
 } from './ee';
 import { type AnyType } from './types/any';
+import { type ApiOssUploadUrlResponse } from './types/api/oss';
 import {
     type ApiGetProjectParametersListResults,
     type ApiGetProjectParametersResults,
 } from './types/api/parameters';
-import { type ApiOssUploadUrlResponse } from './types/api/oss';
 import { type ApiGetSpotlightTableConfig } from './types/api/spotlight';
 import { type Account } from './types/auth';
 import {
@@ -204,6 +205,12 @@ import { getOrganizationNameSchema } from './utils/organization';
 import type { PivotValuesColumn } from './visualizations/types';
 
 dayjs.extend(utc);
+
+/** When set, DATE/TIMESTAMP raw values use this IANA timezone in API/CSV (e.g. +08:00). Otherwise UTC (…Z). */
+export type ResultFormattingOptions = {
+    displayTimezone?: string;
+};
+
 export * from './authorization/index';
 export * from './authorization/roleToScopeMapping';
 export * from './authorization/scopes';
@@ -218,7 +225,7 @@ export * from './constants/sqlRunner';
 export { default as DbtSchemaEditor } from './dbt/DbtSchemaEditor/DbtSchemaEditor';
 export * from './dbt/validation';
 export * from './ee/index';
-export * from './pivot';
+export * from './pivot/index';
 export { default as lightdashDbtYamlSchema } from './schemas/json/lightdash-dbt-2.0.json';
 export { default as lightdashProjectConfigSchema } from './schemas/json/lightdash-project-config-1.0.json';
 export * from './templating/template';
@@ -1452,6 +1459,7 @@ export function itemsInMetricQuery(
 export function formatRawValue(
     field: Field | Metric | TableCalculation | CustomDimension | undefined,
     value: AnyType,
+    options?: ResultFormattingOptions,
 ) {
     const isTimestamp =
         isField(field) &&
@@ -1459,7 +1467,11 @@ export function formatRawValue(
             field.type === DimensionType.TIMESTAMP);
 
     if (isTimestamp && value !== null) {
-        // We want to return the datetime in UTC to avoid timezone issues in the frontend like in chart tooltips
+        const tz = options?.displayTimezone;
+        if (tz && moment.tz.zone(tz)) {
+            return moment(value).tz(tz).format();
+        }
+        // UTC ISO avoids ambiguous local interpretation in chart tooltips when no display timezone is set
         return dayjs(value).utc(true).format();
     }
 
@@ -1470,6 +1482,7 @@ export function formatRawValue(
 export function formatRawRows(
     rows: { [col: string]: AnyType }[],
     itemsMap: ItemsMap,
+    options?: ResultFormattingOptions,
 ): Record<string, unknown>[] {
     return rows.map((row) => {
         const resultRow: ResultRow = {};
@@ -1479,7 +1492,7 @@ export function formatRawRows(
             const value = row[columnName];
             const item = itemsMap[columnName];
 
-            resultRow[columnName] = formatRawValue(item, value);
+            resultRow[columnName] = formatRawValue(item, value, options);
         }
 
         return resultRow;
@@ -1490,6 +1503,7 @@ export function formatRow(
     row: { [col: string]: AnyType },
     itemsMap: ItemsMap,
     pivotValuesColumns?: Record<string, PivotValuesColumn> | null,
+    options?: ResultFormattingOptions,
 ): ResultRow {
     const resultRow: ResultRow = {};
     const columnNames = Object.keys(row || {});
@@ -1501,7 +1515,7 @@ export function formatRow(
 
         resultRow[columnName] = {
             value: {
-                raw: formatRawValue(item, value),
+                raw: formatRawValue(item, value, options),
                 formatted: formatItemValue(item, value),
             },
         };
@@ -1514,8 +1528,11 @@ export function formatRows(
     rows: { [col: string]: AnyType }[],
     itemsMap: ItemsMap,
     pivotValuesColumns?: Record<string, PivotValuesColumn> | null,
+    options?: ResultFormattingOptions,
 ): ResultRow[] {
-    return rows.map((row) => formatRow(row, itemsMap, pivotValuesColumns));
+    return rows.map((row) =>
+        formatRow(row, itemsMap, pivotValuesColumns, options),
+    );
 }
 
 const isObject = (object: AnyType) =>
@@ -1676,7 +1693,7 @@ export const SPACE_TREE_1: TreeCreateSpace[] = [
             },
         ],
     },
-] as const;
+];
 
 export const SPACE_TREE_2: TreeCreateSpace[] = [
     {
@@ -1689,4 +1706,4 @@ export const SPACE_TREE_2: TreeCreateSpace[] = [
             },
         ],
     },
-] as const;
+];

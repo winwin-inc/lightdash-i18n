@@ -133,6 +133,35 @@ const FilterConfiguration: FC<Props> = ({
     const [draftFilterRule, setDraftFilterRule] = useState<
         DashboardFilterRule | undefined
     >(defaultFilterRule);
+    const [pendingExcludedValue, setPendingExcludedValue] =
+        useState<string>('');
+
+    const getRuleWithPendingExcludedValue = useCallback(
+        (rule: DashboardFilterRule): DashboardFilterRule => {
+            const pendingValue = pendingExcludedValue.trim();
+            if (!pendingValue) {
+                return rule;
+            }
+            const mergedExcludedValues = Array.from(
+                new Set([...(rule.excludedValues ?? []), pendingValue]),
+            );
+            return {
+                ...rule,
+                excludedValues:
+                    mergedExcludedValues.length > 0
+                        ? mergedExcludedValues
+                        : undefined,
+            };
+        },
+        [pendingExcludedValue],
+    );
+    const draftFilterRuleWithPendingExcludedValue = useMemo(
+        () =>
+            draftFilterRule
+                ? getRuleWithPendingExcludedValue(draftFilterRule)
+                : undefined,
+        [draftFilterRule, getRuleWithPendingExcludedValue],
+    );
 
     /** 与看板已保存配置对比，用于「还原」等需回到持久化状态的逻辑 */
     const isDraftModifiedFromSaved = useMemo(() => {
@@ -147,10 +176,14 @@ const FilterConfiguration: FC<Props> = ({
      * 草稿与磁盘一致但被误判为「未修改」，无法再次点应用。
      */
     const isDraftModifiedFromApplied = useMemo(() => {
-        if (!defaultFilterRule || !draftFilterRule) return false;
+        if (!defaultFilterRule || !draftFilterRuleWithPendingExcludedValue)
+            return false;
 
-        return hasSavedFilterValueChanged(defaultFilterRule, draftFilterRule);
-    }, [defaultFilterRule, draftFilterRule]);
+        return hasSavedFilterValueChanged(
+            defaultFilterRule,
+            draftFilterRuleWithPendingExcludedValue,
+        );
+    }, [defaultFilterRule, draftFilterRuleWithPendingExcludedValue]);
 
     const handleChangeField = (newField: DashboardFilterableField) => {
         const isCreatingTemporary = isCreatingNew && !isEditMode;
@@ -378,26 +411,32 @@ const FilterConfiguration: FC<Props> = ({
     );
 
     const isApplyDisabled = useMemo(() => {
-        if (!draftFilterRule) {
+        if (!draftFilterRuleWithPendingExcludedValue) {
             return true;
         }
 
-        if (!originalFilterRule) {
-            return !isFilterEnabled(draftFilterRule, isEditMode, isCreatingNew);
+        const baselineFilterRule = originalFilterRule ?? defaultFilterRule;
+        if (!baselineFilterRule) {
+            return !isFilterEnabled(
+                draftFilterRuleWithPendingExcludedValue,
+                isEditMode,
+                isCreatingNew,
+            );
         }
 
         if (!isDraftModifiedFromApplied) {
             return true;
         }
 
-        if (hasFilterValueSet(draftFilterRule)) {
+        if (hasFilterValueSet(draftFilterRuleWithPendingExcludedValue)) {
             return false;
         }
 
-        return !hasFilterValueSet(originalFilterRule);
+        return !hasFilterValueSet(baselineFilterRule);
     }, [
-        draftFilterRule,
+        draftFilterRuleWithPendingExcludedValue,
         originalFilterRule,
+        defaultFilterRule,
         isDraftModifiedFromApplied,
         isEditMode,
         isCreatingNew,
@@ -410,14 +449,14 @@ const FilterConfiguration: FC<Props> = ({
             dashboardFiltersFromContext?.dimensions &&
             dashboardFiltersFromContext.dimensions.length > 0
                 ? dashboardFiltersFromContext.dimensions
-                : allFiltersFromContext?.dimensions ?? [];
+                : (allFiltersFromContext?.dimensions ?? []);
 
         const sourceFilters =
             filterScope === 'global'
                 ? globalFilters
                 : tabUuid
-                ? tabFiltersFromContext?.[tabUuid]?.dimensions ?? []
-                : [];
+                  ? (tabFiltersFromContext?.[tabUuid]?.dimensions ?? [])
+                  : [];
 
         const childLevel = draftFilterRule.categoryLevel;
         const currentId = draftFilterRule.id;
@@ -630,6 +669,9 @@ const FilterConfiguration: FC<Props> = ({
                                     field={selectedField}
                                     filterRule={draftFilterRule}
                                     onChangeFilterRule={handleChangeFilterRule}
+                                    onPendingExcludedValueChange={
+                                        setPendingExcludedValue
+                                    }
                                     popoverProps={popoverProps}
                                     isCustomerUse={isCustomerUse}
                                     parentFilterOptions={parentFilterOptions}
@@ -712,8 +754,13 @@ const FilterConfiguration: FC<Props> = ({
                                     e.stopPropagation();
                                     setSelectedTabId(FilterTabs.SETTINGS);
                                     popoverProps?.onClose?.();
-                                    if (!!draftFilterRule)
-                                        onSave(draftFilterRule);
+                                    if (draftFilterRule) {
+                                        onSave(
+                                            draftFilterRuleWithPendingExcludedValue ??
+                                                draftFilterRule,
+                                        );
+                                        setPendingExcludedValue('');
+                                    }
                                 }}
                             >
                                 {t(

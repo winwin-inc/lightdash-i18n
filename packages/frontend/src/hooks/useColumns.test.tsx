@@ -9,7 +9,10 @@ import {
 import { type CellContext } from '@tanstack/react-table';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
-import { getFormattedValueCell } from './useColumns';
+import {
+    getExploreNameForCalculateTotal,
+    getFormattedValueCell,
+} from './useColumns';
 
 /* eslint-disable testing-library/no-container */
 /* eslint-disable testing-library/no-node-access */
@@ -395,5 +398,34 @@ describe('getFormattedValueCell - Bar Chart Display', () => {
         // Bar width should be 75% (75 out of 100)
         // The value 0.75 is converted to 75 by convertFormattedValue
         expect(barElement?.getAttribute('style')).toContain('width: 75%');
+    });
+});
+
+describe('getExploreNameForCalculateTotal', () => {
+    test('should use metricQuery exploreName first', () => {
+        expect(
+            getExploreNameForCalculateTotal({
+                metricQueryExploreName: 'orders_public',
+                exploreName: 'orders',
+                exploreBaseTable: 'orders',
+            }),
+        ).toBe('orders_public');
+    });
+
+    test('should fallback to explore name when metricQuery exploreName is missing', () => {
+        expect(
+            getExploreNameForCalculateTotal({
+                exploreName: 'orders_public',
+                exploreBaseTable: 'orders',
+            }),
+        ).toBe('orders_public');
+    });
+
+    test('should fallback to base table as last resort', () => {
+        expect(
+            getExploreNameForCalculateTotal({
+                exploreBaseTable: 'orders',
+            }),
+        ).toBe('orders');
     });
 });

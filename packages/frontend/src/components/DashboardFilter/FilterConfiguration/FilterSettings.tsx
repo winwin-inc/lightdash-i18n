@@ -1,13 +1,13 @@
 import {
     FilterOperator,
+    FilterType,
     getFilterRuleWithDefaultValue,
     getItemLabel,
     supportsSingleValue,
     type DashboardFilterRule,
-    type DashboardFilterableField,
+    type FilterableDimension,
+    type FilterableItem,
     type FilterRule,
-    type FilterType,
-    type Item,
 } from '@lightdash/common';
 import {
     Box,
@@ -30,6 +30,8 @@ import FilterInputComponent from '../../common/Filters/FilterInputs';
 import { useFilterOperatorOptions } from '../../common/Filters/FilterInputs/utils';
 import { usePlaceholderByFilterTypeAndOperator } from '../../common/Filters/utils/getPlaceholderByFilterTypeAndOperator';
 import MantineIcon from '../../common/MantineIcon';
+import { TagInput } from '../../common/TagInput/TagInput';
+import DateRangeConstraintEditor from './DateRangeConstraintEditor';
 
 type ParentFilterOption = {
     value: string;
@@ -41,10 +43,11 @@ interface FilterSettingsProps {
     isEditMode: boolean;
     isCreatingNew: boolean;
     filterType: FilterType;
-    field?: DashboardFilterableField;
+    field?: FilterableItem;
     filterRule: DashboardFilterRule;
     popoverProps?: Omit<PopoverProps, 'children'>;
     onChangeFilterRule: (value: DashboardFilterRule) => void;
+    onPendingExcludedValueChange?: (value: string) => void;
     isCustomerUse?: boolean;
     parentFilterOptions?: ParentFilterOption[];
 }
@@ -57,6 +60,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     filterRule,
     popoverProps,
     onChangeFilterRule,
+    onPendingExcludedValueChange,
     parentFilterOptions = [],
 }) => {
     const { t } = useTranslation();
@@ -77,7 +81,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
         if (filterLabel !== '') {
             setFilterLabel(
                 filterRule.label ??
-                    (field ? getItemLabel(field as Item) : undefined),
+                    (field ? getItemLabel(field as FilterableItem) : undefined),
             );
         }
     }, [filterLabel, filterRule.label, field]);
@@ -143,7 +147,9 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 ? t(
                                       'components_dashboard_filter.configuration.filter.placeholder',
                                       {
-                                          label: getItemLabel(field as Item),
+                                          label: getItemLabel(
+                                              field as FilterableItem,
+                                          ),
                                       },
                                   )
                                 : t(
@@ -243,6 +249,17 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                             )
                         }
                         closeDropdownOnMouseLeave={isEditMode}
+                    />
+                )}
+
+                {isEditMode && filterType === FilterType.DATE && (
+                    <DateRangeConstraintEditor
+                        field={
+                            field as unknown as FilterableDimension | undefined
+                        }
+                        filterRule={filterRule}
+                        popoverProps={popoverProps}
+                        onChangeFilterRule={onChangeFilterRule}
                     />
                 )}
 
@@ -502,6 +519,50 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                     });
                                 }}
                             />
+
+                            {filterType === FilterType.STRING && (
+                                <TagInput
+                                    mt="xs"
+                                    size="xs"
+                                    label={
+                                        <Text size="xs" mt="two" fw={500}>
+                                            {t(
+                                                'components_dashboard_filter.configuration.exclude_values.label',
+                                            )}
+                                        </Text>
+                                    }
+                                    placeholder={t(
+                                        'components_dashboard_filter.configuration.exclude_values.placeholder',
+                                    )}
+                                    clearable
+                                    value={filterRule.excludedValues ?? []}
+                                    onSearchChange={
+                                        onPendingExcludedValueChange
+                                    }
+                                    onChange={(values) => {
+                                        onPendingExcludedValueChange?.('');
+                                        const normalizedExcludedValues =
+                                            Array.from(
+                                                new Set(
+                                                    values
+                                                        .map((v) => v.trim())
+                                                        .filter(
+                                                            (v) => v.length > 0,
+                                                        ),
+                                                ),
+                                            );
+
+                                        onChangeFilterRule({
+                                            ...filterRule,
+                                            excludedValues:
+                                                normalizedExcludedValues.length >
+                                                0
+                                                    ? normalizedExcludedValues
+                                                    : undefined,
+                                        });
+                                    }}
+                                />
+                            )}
                         </Box>
                     </>
                 )}

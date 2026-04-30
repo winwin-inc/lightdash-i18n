@@ -1,13 +1,13 @@
 import { isDimension } from '@lightdash/common';
 import { ActionIcon, Box, Group, TextInput, Tooltip } from '@mantine/core';
-import { useDebouncedState } from '@mantine/hooks';
+import { useDebouncedValue } from '@mantine/hooks';
 import {
     IconEye,
     IconEyeOff,
     IconLock,
     IconLockOpen,
 } from '@tabler/icons-react';
-import { useState, type FC } from 'react';
+import { useEffect, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../common/MantineIcon';
 import {
@@ -34,21 +34,43 @@ const ColumnConfigurationInput: FC<ColumnConfigurationInputProps> = ({
         getFieldLabelDefault,
     },
 }) => {
-    const [value, setValue] = useDebouncedState(
-        getFieldLabelOverride(fieldId) ?? getFieldLabelDefault(fieldId),
-        500,
+    const fieldLabelOverride = getFieldLabelOverride(fieldId);
+    const fieldLabelDefault = getFieldLabelDefault(fieldId);
+
+    const [value, setValue] = useState(
+        fieldLabelOverride ?? fieldLabelDefault ?? '',
     );
+    const [debouncedValue] = useDebouncedValue(value, 500);
+
+    useEffect(() => {
+        setValue(fieldLabelOverride ?? fieldLabelDefault ?? '');
+    }, [fieldId, fieldLabelOverride, fieldLabelDefault]);
+
+    useEffect(() => {
+        const currentValue = fieldLabelOverride ?? fieldLabelDefault ?? '';
+
+        if (debouncedValue === currentValue) {
+            return;
+        }
+
+        updateColumnProperty(fieldId, {
+            name: debouncedValue,
+        });
+    }, [
+        debouncedValue,
+        fieldId,
+        fieldLabelDefault,
+        fieldLabelOverride,
+        updateColumnProperty,
+    ]);
 
     return (
         <TextInput
             disabled={!isColumnVisible(fieldId) && !disableHidingDimensions}
-            placeholder={getFieldLabelDefault(fieldId)}
-            defaultValue={value}
+            placeholder={fieldLabelDefault}
+            value={value}
             onChange={(e) => {
                 setValue(e.currentTarget.value);
-                updateColumnProperty(fieldId, {
-                    name: e.currentTarget.value,
-                });
             }}
         />
     );
@@ -99,16 +121,16 @@ const ColumnConfiguration: FC<ColumnConfigurationProps> = ({ fieldId }) => {
                               'components_visualization_configs_table.column_configuration.tooltip_columns.part_1',
                           )
                         : disableHidingDimensions
-                        ? t(
-                              'components_visualization_configs_table.column_configuration.tooltip_columns.part_2',
-                          )
-                        : isColumnVisible(fieldId)
-                        ? t(
-                              'components_visualization_configs_table.column_configuration.tooltip_columns.part_3',
-                          )
-                        : t(
-                              'components_visualization_configs_table.column_configuration.tooltip_columns.part_4',
-                          )
+                          ? t(
+                                'components_visualization_configs_table.column_configuration.tooltip_columns.part_2',
+                            )
+                          : isColumnVisible(fieldId)
+                            ? t(
+                                  'components_visualization_configs_table.column_configuration.tooltip_columns.part_3',
+                              )
+                            : t(
+                                  'components_visualization_configs_table.column_configuration.tooltip_columns.part_4',
+                              )
                 }
             >
                 <Box

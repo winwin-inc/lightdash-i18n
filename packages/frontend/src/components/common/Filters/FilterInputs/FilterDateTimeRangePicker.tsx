@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import { useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { mergeMaxDate, mergeMinDate } from '../utils/filterDateUtils';
 import FilterDateTimePicker from './FilterDateTimePicker';
 
 interface Props
@@ -14,6 +15,8 @@ interface Props
     value: [Date, Date] | null;
     onChange: (value: [Date, Date] | null) => void;
     firstDayOfWeek: DayOfWeek;
+    filterMinDate?: Date;
+    filterMaxDate?: Date;
 }
 
 const FilterDateTimeRangePicker: FC<Props> = ({
@@ -21,6 +24,8 @@ const FilterDateTimeRangePicker: FC<Props> = ({
     disabled,
     firstDayOfWeek,
     onChange,
+    filterMinDate,
+    filterMaxDate,
     ...rest
 }) => {
     const { t } = useTranslation();
@@ -40,11 +45,13 @@ const FilterDateTimeRangePicker: FC<Props> = ({
                     'components_common_filters_inputs.date_picker.start_date',
                 )}
                 showTimezone={false}
-                maxDate={
+                minDate={filterMinDate}
+                maxDate={mergeMaxDate(
                     date2
                         ? dayjs(date2).subtract(1, 'second').toDate()
-                        : undefined
-                }
+                        : undefined,
+                    filterMaxDate,
+                )}
                 firstDayOfWeek={firstDayOfWeek}
                 {...rest}
                 value={date1}
@@ -72,9 +79,11 @@ const FilterDateTimeRangePicker: FC<Props> = ({
                 placeholder={t(
                     'components_common_filters_inputs.date_picker.end_date',
                 )}
-                minDate={
-                    date1 ? dayjs(date1).add(1, 'second').toDate() : undefined
-                }
+                minDate={mergeMinDate(
+                    date1 ? dayjs(date1).add(1, 'second').toDate() : undefined,
+                    filterMinDate,
+                )}
+                maxDate={filterMaxDate}
                 firstDayOfWeek={firstDayOfWeek}
                 {...rest}
                 value={date2}
