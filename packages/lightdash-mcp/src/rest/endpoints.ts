@@ -143,34 +143,6 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         return json.results ?? json;
     }
 
-    async function listAiAgents(
-        apiKey: string,
-        projectUuid: string,
-    ): Promise<unknown> {
-        const json = await requestJson<{ results?: unknown }>(
-            apiKey,
-            `/api/v1/projects/${ 
-                encodeURIComponent(projectUuid) 
-                }/aiAgents`,
-        );
-        return json.results ?? json;
-    }
-
-    async function getAiAgent(
-        apiKey: string,
-        projectUuid: string,
-        agentUuid: string,
-    ): Promise<unknown> {
-        const json = await requestJson<{ results?: unknown }>(
-            apiKey,
-            `/api/v1/projects/${ 
-                encodeURIComponent(projectUuid) 
-                }/aiAgents/${ 
-                encodeURIComponent(agentUuid)}`,
-        );
-        return json.results ?? json;
-    }
-
     return {
         listExplores,
         getExplore,
@@ -182,7 +154,5 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         getProject,
         getCatalog,
         listVerifiedContent,
-        listAiAgents,
-        getAiAgent,
     };
 }

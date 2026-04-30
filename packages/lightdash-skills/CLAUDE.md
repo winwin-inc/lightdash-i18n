@@ -11,7 +11,7 @@
 ## 路由规则（三分支）
 
 1. 查已有图表/看板：`find_content` → `lightdash_get_saved_chart` → `lightdash_run_saved_chart`（可先 `set_project` / `list_projects`）
-2. 维度指标分析：`list_explores` →（需要字段/类目时用 `find_explores` / `find_fields`）→ `run_metric_query`（本 HTTP MCP **无** `get_explore` 工具名，勿调用）
+2. 维度指标分析：`list_explores` →（需要字段/类目时用 `find_explores` / `find_fields`）→ `run_metric_query`
 3. 查表/SQL/明细：走高级分支；若无 SQL tool，回退到第 2 条并说明
 
 ## 必守规则

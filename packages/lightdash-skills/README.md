@@ -56,6 +56,6 @@ packages/lightdash-skills/
 
 ## 使用约定
 
-- 提数优先使用 `packages/lightdash-mcp` 暴露的工具：标准 16 个（如 `find_content`、`run_metric_query`）+ 4 个 `lightdash_*` 扩展（如 `lightdash_get_site_info`、`lightdash_get_saved_chart`）；内容类结果中的 `webUrl` 以工具返回值为准
+- 提数优先使用 `packages/lightdash-mcp` 暴露的工具：标准 12 个（如 `find_content`、`run_metric_query`）+ 4 个 `lightdash_*` 扩展（如 `lightdash_get_site_info`、`lightdash_get_saved_chart`）；内容类结果中的 `webUrl` 以工具返回值为准
 - 不在技能正文写明文密钥
 - 能先跑保存图表就先跑保存图表；需要自定义再走 explore + metric query

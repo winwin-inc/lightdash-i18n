@@ -1,6 +1,6 @@
 # @lightdash/mcp
 
-独立运行的 Lightdash [Model Context Protocol](https://modelcontextprotocol.io) 服务，面向 Claude Code、Cursor 等客户端。通过站点 **REST API** 提供 **16 个标准 MCP 工具名**（与 Lightdash 文档中的工具名一致）、`**lightdash-analyst`** 提示词，以及 4 个 `**lightdash_*` 扩展工具。不托管在 Lightdash 进程内，适合单独扩缩或与主站版本解耦。
+独立运行的 Lightdash [Model Context Protocol](https://modelcontextprotocol.io) 服务，面向 Claude Code、Cursor 等客户端。通过站点 **REST API** 提供 **12 个标准 MCP 工具名**（与 Lightdash 文档中的工具名一致）、`**lightdash-analyst`** 提示词，以及 4 个 `**lightdash_*` 扩展工具。不托管在 Lightdash 进程内，适合单独扩缩或与主站版本解耦。
 
 ---
 
@@ -107,9 +107,9 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 
 ## 工具与提示词一览
 
-### 标准工具（16 个）
+### 标准工具（12 个）
 
-`get_lightdash_version` · `list_projects` · `set_project` · `get_current_project` · `list_agents` · `set_agent` · `clear_agent` · `get_current_agent` · `list_explores` · `find_explores` · `find_fields` · `find_content` · `list_verified_content` · `search_field_values` · `run_sql` · `run_metric_query`
+`get_lightdash_version` · `list_projects` · `set_project` · `get_current_project` · `list_explores` · `find_explores` · `find_fields` · `find_content` · `list_verified_content` · `search_field_values` · `run_sql` · `run_metric_query`
 
 说明要点：
 
@@ -130,7 +130,7 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 
 ### 提示词
 
-- `**lightdash-analyst**`：固定分析师说明；若会话中执行过 `set_agent`，会在提示中附加当前 Agent 的 JSON 快照。
+- `**lightdash-analyst**`：固定分析师说明（与标准工具、扩展工具名一致）。
 
 ---
 
@@ -141,16 +141,10 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 | ------------------------------- | ---------------------- | ------------------------------------------------------------------- |
 | 部署                              | 随 Lightdash 进程         | 独立 Node 进程                                                          |
 | 传输                              | 由主站提供                  | Streamable HTTP（`/mcp`）                                             |
-| 会话上下文                           | 主站持久化（如 `mcp_context`） | `set_project` / `set_agent` 仅存**本进程内存**（按 PAT 哈希隔离）                 |
+| 会话上下文                           | 主站持久化（如 `mcp_context`） | `set_project` 仅存**本进程内存**（按 PAT 哈希隔离）                 |
 | `find_explores` / `find_fields` | 主站内置实现                 | **dataCatalog** REST；结果含 `heuristicScore`、`heuristicRankingVersion` |
 | User-Attributes                 | 由主站入口注入                | 由 **MCP 客户端 HTTP 头** 注入并转发                                          |
 
-
----
-
-## Enterprise 与 `aiAgents`
-
-`list_agents`、`set_agent`、`get_current_agent` 及部分与 EE 相关的路由依赖 **Enterprise** 与主站配置。纯 OSS 或未开通相关能力时可能返回 **404**；扩展工具中的读图/跑数仍走常规 REST，以实际部署为准。
 
 ---
 

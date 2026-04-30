@@ -1,17 +1,13 @@
 import { createHash } from 'node:crypto';
 
 /**
- * 在无服务端 mcp_context 表时，按 PAT 在内存中保存 set_project / set_agent 状态，
- * 提供「当前项目 / 当前 Agent」会话语义（与常见 MCP 客户端习惯一致）。
+ * 在无服务端 mcp_context 表时，按 PAT 在内存中保存 set_project 状态，
+ * 提供「当前项目」会话语义（与常见 MCP 客户端习惯一致）。
  */
 export type McpSessionState = {
     projectUuid: string | null;
     projectName: string | null;
     tags: string[] | null;
-    agentUuid: string | null;
-    agentName: string | null;
-    /** GET agent 完整 JSON，供 get_current_agent 快速返回 */
-    agentSnapshot: unknown | null;
     updatedAtMs: number;
 };
 
@@ -40,9 +36,6 @@ export function getMcpSession(apiKey: string): McpSessionState {
         projectUuid: null,
         projectName: null,
         tags: null,
-        agentUuid: null,
-        agentName: null,
-        agentSnapshot: null,
         updatedAtMs: Date.now(),
     };
     sessions.set(k, initial);

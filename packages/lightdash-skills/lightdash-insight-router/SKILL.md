@@ -17,7 +17,7 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 `lightdash_get_site_info`（可选，站点根 `siteBaseUrl`）→ `list_projects` → `set_project`（按需）→ `find_content` → `lightdash_list_spaces`（按需）→ `lightdash_get_saved_chart` → `lightdash_run_saved_chart` → `list_explores` → `find_explores` / `find_fields`（按需）→ `run_metric_query`
 
-说明：与仓库 `packages/lightdash-mcp` 当前实现一致；**无** `search_content`、`get_site_info`、`get_saved_chart`、`run_saved_chart`、`get_explore` 等别名工具。
+说明：与仓库 `packages/lightdash-mcp` 当前实现一致；工具名以客户端 `tools/list` 为准。
 
 ### 可选参数 `projectUuid`（不写死在 skills）
 

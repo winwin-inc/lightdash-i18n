@@ -53,7 +53,7 @@ export function createLightdashMcpServer(
         defaultPoll,
     });
 
-    registerAnalystPrompt(server, config);
+    registerAnalystPrompt(server);
 
     return server;
 }

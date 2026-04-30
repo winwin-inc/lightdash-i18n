@@ -5,6 +5,8 @@
 > **快速上手？** 直接看 [快速开始](#快速开始) 部分。
 > **只想配置？** 看 [配置 MCP](#配置-mcp) 部分。
 > **了解架构？** 看 [架构设计](#架构设计) 部分。
+>
+> **对外分发 / 自建 MCP 与 Skills**：[`docs/lightdash-mcp-skills/`](./lightdash-mcp-skills/README.md)（架构篇 + 使用篇）
 
 ---
 

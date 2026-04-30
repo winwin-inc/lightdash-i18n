@@ -46,9 +46,6 @@ export function registerSessionProjectTools(
                 projectUuid,
                 projectName,
                 tags,
-                agentUuid: null,
-                agentName: null,
-                agentSnapshot: null,
             });
             return {
                 content: [
