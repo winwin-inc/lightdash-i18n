@@ -1,10 +1,10 @@
-# Router SOP（就地版）
+# Router SOP
 
-本文件给 `lightdash-insight-router/SKILL.md` 配套使用，避免跨目录长路径依赖。
+类目、缺参、调用次数与输出格式等门禁；入口与工具顺序见 **[`SKILL.md`](./SKILL.md)**。
 
 ## 最小信息集（缺一先问）
 
-- **项目**：**工具参数 `projectUuid` → `set_project` → 环境 `LIGHTDASH_PROJECT_UUID`**（以 MCP README 为准）；**不在 skills 里写配置**。仅 **多项目歧义**、**用户明确换项目** 或 **报错指项目不对** 时，再在对话里澄清（项目名或 `list_projects` → `set_project`）。
+- **项目**：**工具参数 `projectUuid` → `set_project` → 环境 `LIGHTDASH_PROJECT_UUID`**（以 MCP 服务方文档及 **`tools/list`** 为准）；**不在 skills 里写配置**。仅 **多项目歧义**、**用户明确换项目** 或 **报错指项目不对** 时，再在对话里澄清（项目名或 `list_projects` → `set_project`）。
 - 时间范围：最近 12 个月 / 指定年月 / 指定区间
 - 指标目标：价格指数 / 销量 / 销售额
 
@@ -49,4 +49,8 @@
 
 - 需要「在浏览器打开」时：使用工具返回的 **`webUrl`**，或 **`get_site_info`** 的 **`siteBaseUrl`**。
 - 勿凭记忆编造链接；短链等以工具返回值为准。
+
+## 图表与展示语义
+
+路由与类目仍仅以本 SOP + **[`SKILL.md`](./SKILL.md)** 为准；**柱/线/表/KPI、看板 tile、PoP、MCP 返回如何展示**见 **[`../lightdash-chart-semantics/SKILL.md`](../lightdash-chart-semantics/SKILL.md)**、**[`../lightdash-chart-semantics/resources/mcp-response-mapping.md`](../lightdash-chart-semantics/resources/mcp-response-mapping.md)**、**[`../lightdash-chart-semantics/resources/chart-families-mcp.md`](../lightdash-chart-semantics/resources/chart-families-mcp.md)**。
 

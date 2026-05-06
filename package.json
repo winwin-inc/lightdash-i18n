@@ -134,7 +134,9 @@
         "clean-build-cache": "./scripts/clean-build-cache.sh",
         "clean": "pnpm clean-build-cache && pnpm clean-node-modules",
         "clean-and-build": "pnpm clean && pnpm build",
-        "bump-mcp-skills": "node scripts/bump-versions.mjs all"
+        "bump-mcp-skills": "node scripts/bump-versions.mjs all",
+        "list-mcp-tools": "node scripts/list-mcp-tool-names.mjs",
+        "list-mcp-tools:write": "node scripts/list-mcp-tool-names.mjs --write"
     },
     "lint-staged": {
         "packages/frontend/src/**/*.(ts|tsx|json|css)": [

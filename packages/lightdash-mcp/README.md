@@ -107,6 +107,8 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 
 ## 工具与提示词一览
 
+工具名以本服务实际注册为准；命名列表见 **[`DEV_TOOL_NAMES.md`](./DEV_TOOL_NAMES.md)**。
+
 ### 核心工具（15 个）
 
 `get_lightdash_version` · `list_projects` · `set_project` · `get_current_project` · `list_explores` · `find_explores` · `find_fields` · `find_content` · `find_charts` · `find_dashboards` · `find_spaces` · `list_verified_content` · `search_field_values` · `run_sql` · `run_metric_query`
@@ -159,11 +161,8 @@ pnpm -F @lightdash/mcp test
 
 ## 版本号与发版（`mcp-v*`）
 
-- **运行时来源**：本包 **[`package.json`](./package.json)** 的 **`version`**（MCP Server 元数据与启动日志从该字段读取）。
-- **与 skills 一套发版时**：对外只需**一个 semver**；仓库根执行 **`pnpm bump-mcp-skills -- x.y.z`**，一次写齐 MCP `package.json` 与 `packages/lightdash-skills/version.json`（技能包无 `package.json`）。
-- **例外**：只改一侧时用 `node scripts/bump-versions.mjs mcp x.y.z` 或 `node scripts/bump-versions.mjs skills x.y.z`。
-- **bump 脚本**：仓库根 **[`scripts/bump-versions.mjs`](../../scripts/bump-versions.mjs)** 默认会**写文件**、**仅 `git add` 上述 version 文件**、**`git commit`**（中文 `chore(release): …`）、并打 **`mcp-v<版本号>`** annotated tag（`skills` 子命令只 bump skills，不打 tag）。本地完成**不**自动 `git push`。若只想改文件、不走 git，可加 **`--no-commit`**；若只要 commit 不要 tag，可加 **`--no-tag`**（`mcp` / `all`）。
-- **推送**：确认无误后执行 **`git push`**，再 **`git push origin mcp-vX.Y.Z`**，以触发 CI **[`build-docker-mcp.yml`](../../.github/workflows/build-docker-mcp.yml)** 构建并推送 MCP 镜像。**Git tag** 与 CI 一致：应为 **`mcp-v` + 与 `package.json` 相同的版本号**（例如 `mcp-v0.0.3`；镜像 tag 为 `0.0.3` 与 `latest`）。skills 若同号随发，可不再单独打 `skills-v*`，或按需打与 `mcp-v*` 同号以便分发。
+- **运行时**：本包 **[`package.json`](./package.json)** 的 **`version`**（Server 元数据与启动日志）。
+- **与 lightdash-skills 同号发布**：须与本仓库内 **`packages/lightdash-skills/version.json`** 的 `version` 一致；打 **`mcp-v*`** tag、触发 Docker 构建与推送等，按本 monorepo 既有流程执行（具体命令与脚本选项见仓库内维护文档，不在此罗列）。
 
 ## Docker
 
