@@ -6,7 +6,7 @@
 
 本包**不设 npm `package.json`**。对外版本写在 **[`version.json`](./version.json)**（`version` + `updatedAt`）。若技能与自建 **Lightdash MCP** 一套发版，**建议两者使用相同版本号**，便于对照与排查。`version.json` 也便于分发与后续「检测更新」类流程。
 
-在本仓库内与 MCP 包同步改版本时，见 **[MAINTAINERS.md](./MAINTAINERS.md)**。
+在本仓库内与 MCP 包同步改版本、或生成**对外分发 zip** 时，见 **[MAINTAINERS.md](./MAINTAINERS.md)**（内含「打包」一节）。
 
 布局：根目录含 **`version.json`**、[`CLAUDE.md`](./CLAUDE.md)、[`MAINTAINERS.md`](./MAINTAINERS.md)（维护者可选）；三个子目录各含 `SKILL.md`（router 另有 `ROUTER-SOP.md`）；`lightdash-chart-semantics/resources/` 含 [`mcp-response-mapping.md`](./lightdash-chart-semantics/resources/mcp-response-mapping.md)、[`chart-families-mcp.md`](./lightdash-chart-semantics/resources/chart-families-mcp.md)。**不需要**再套一层 `skills/`；使用方项目根配置 `.claude` / `.mcp.json`。
 

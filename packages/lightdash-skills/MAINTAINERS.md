@@ -2,6 +2,14 @@
 
 本文仅面向在本 **monorepo** 中维护本技能包与 `lightdash-mcp` 的贡献者；对外分发技能时可不包含本文件。
 
+## 打包（Claude Code 对外 zip）
+
+仓库根执行 **`pnpm pack-lightdash-skills`**（脚本 [`scripts/pack-lightdash-skills.mjs`](../../scripts/pack-lightdash-skills.mjs)）。
+
+- **产物**：`dist/lightdash-skills-v<version>.zip`，其中 `<version>` 来自本目录 [`version.json`](./version.json)；解压后顶层目录名为 **`lightdash-skills/`**。
+- **内容**：白名单内的 `README.md`、`CLAUDE.md`、`version.json`、`.mcp.json.example`、`.claude/settings.json`、三技能目录下约定文件及 `lightdash-chart-semantics/resources/*.md`（仅 Claude Code 单轨，**不**生成 OpenClaw 等第二包）。
+- **不包含**：`MAINTAINERS.md`、`.mcp.json`、`.env*`、`.gitignore`（默认）；中间 staging 目录为 `dist/lightdash-skills-pack/stage/`，发版物通常只取 zip 即可。
+
 ## 版本与 MCP 同号
 
 - 技能包版本：[version.json](./version.json)

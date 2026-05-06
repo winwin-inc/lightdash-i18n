@@ -115,3 +115,7 @@ testings/
 
 # cursor
 .cursor/plans/
+
+# lightdash-skills 对外打包（pnpm pack-lightdash-skills）
+/dist/lightdash-skills-pack/
+/dist/lightdash-skills-v*.zip
