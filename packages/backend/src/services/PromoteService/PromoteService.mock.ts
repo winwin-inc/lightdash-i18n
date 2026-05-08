@@ -1,6 +1,5 @@
 import { Ability } from '@casl/ability';
 import {
-    ChartKind,
     ChartType,
     DashboardChartTile,
     DashboardTileTypes,
@@ -170,19 +169,11 @@ export const missingUpstreamChart: UpstreamChart = {
 };
 export const existingUpstreamChart: UpstreamChart = {
     chart: {
+        ...promotedChart.chart,
         uuid: 'upstream-chart-uuid',
-        name: 'apple chart',
-        description: '',
+        projectUuid: upstreamProjectUuid,
         spaceUuid: upstreamSpace.uuid,
         spaceName: upstreamSpace.name,
-        projectUuid: upstreamProjectUuid,
-        organizationUuid,
-        pinnedListUuid: null,
-        chartKind: ChartKind.VERTICAL_BAR,
-        dashboardUuid: null,
-        dashboardName: null,
-        updatedAt: new Date(),
-        chartType: ChartType.CARTESIAN,
         slug: 'apple-chart',
     },
     projectUuid: upstreamProjectUuid,

@@ -112,8 +112,12 @@ testings/
 
 # claude
 .claude/settings.local.json
+.mcp.json
 
 # cursor
 .cursor/plans/*
 .cursor/rules/*
 .cursor/rules.md
+
+# dist
+**/dist/**/*

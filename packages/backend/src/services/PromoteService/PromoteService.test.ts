@@ -28,7 +28,12 @@ import {
 const projectModel = {};
 
 const savedChartModel = {
-    get: jest.fn(async () => promotedChart.chart),
+    get: jest.fn(async (chartUuid: string) => {
+        if (chartUuid === existingUpstreamChart.chart?.uuid) {
+            return existingUpstreamChart.chart;
+        }
+        return promotedChart.chart;
+    }),
     find: jest.fn(async () => [existingUpstreamChart.chart]),
     create: jest.fn(async () => existingUpstreamChart.chart),
 };
@@ -175,6 +180,38 @@ describe('PromoteService chart changes', () => {
         expect(changes.spaces[0].data).toEqual({
             ...existingUpstreamChart.space,
         });
+    });
+
+    test('getChartChanges update chart when only metric query changed', async () => {
+        const upstreamUpdatedAt = new Date('2026-01-02T00:00:00.000Z');
+        const promotedOlderUpdatedAt = new Date('2026-01-01T00:00:00.000Z');
+        (spaceModel.find as jest.Mock).mockImplementationOnce(async () => [
+            upstreamSpace,
+        ]);
+
+        const changes = await service.getChartChanges(
+            {
+                ...promotedChart,
+                chart: {
+                    ...promotedChart.chart,
+                    updatedAt: promotedOlderUpdatedAt,
+                    metricQuery: {
+                        ...promotedChart.chart.metricQuery,
+                        limit: 200,
+                    },
+                },
+            },
+            {
+                ...existingUpstreamChart,
+                chart: {
+                    ...existingUpstreamChart.chart!,
+                    updatedAt: upstreamUpdatedAt,
+                },
+            },
+        );
+
+        expect(changes.charts.length).toBe(1);
+        expect(changes.charts[0].action).toBe(PromotionAction.UPDATE);
     });
 
     test('getChartChanges update chart and create space', async () => {
