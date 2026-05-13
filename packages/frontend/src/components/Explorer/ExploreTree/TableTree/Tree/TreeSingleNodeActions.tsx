@@ -221,7 +221,9 @@ const TreeSingleNodeActions: FC<Props> = ({
                                 );
                             }}
                         >
-                            Write back to dbt
+                            {t(
+                                'components_explorer_custom_metric_write_back_modal.single_custom_metric.write_back_to_dbt',
+                            )}
                         </Menu.Item>
 
                         <Menu.Item
@@ -339,7 +341,9 @@ const TreeSingleNodeActions: FC<Props> = ({
                                     );
                                 }}
                             >
-                                Write back to dbt
+                                {t(
+                                    'components_explorer_custom_metric_write_back_modal.single_custom_metric.write_back_to_dbt',
+                                )}
                             </Menu.Item>
                         )}
 

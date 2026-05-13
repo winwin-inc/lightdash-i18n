@@ -47,11 +47,10 @@ const VisualizationCardOptions: FC = memo(() => {
         setCartesianType,
         setStacking,
         isLoading,
-        resultsData,
         setPivotDimensions,
         pivotDimensions,
     } = useVisualizationContext();
-    const disabled = isLoading || !resultsData || resultsData.rows.length <= 0;
+    const disabled = isLoading;
 
     const cartesianConfig = useMemo(() => {
         if (isCartesianVisualizationConfig(visualizationConfig)) {

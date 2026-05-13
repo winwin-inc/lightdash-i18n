@@ -5377,7 +5377,7 @@
         },
         "modal": {
             "title": {
-                "eidt": "Edit Custom Metric",
+                "edit": "Edit Custom Metric",
                 "create": "Create Custom Metric"
             },
             "label": {
