@@ -41,9 +41,7 @@ import { useAiAgentButtonVisibility } from './ee/features/aiCopilot/hooks/useAiA
 import { useActiveProjectUuid } from './hooks/useActiveProject';
 import { useProject } from './hooks/useProject';
 import useLogoutMutation from './hooks/user/useUserLogoutMutation';
-import {
-    useWeChatMiniProgram,
-} from './hooks/useWeChatMiniProgram';
+import { useWeChatMiniProgram } from './hooks/useWeChatMiniProgram';
 import AuthPopupResult, {
     SuccessAuthPopupResult,
 } from './pages/AuthPopupResult';
@@ -118,7 +116,7 @@ export const MobileNavBar: FC = () => {
     const { mutate: logout } = useLogoutMutation({
         onSuccess: () => {
             posthog.reset();
-            window.location.href = '/login';
+            window.location.href = '/login?reauthenticate=true';
         },
     });
 

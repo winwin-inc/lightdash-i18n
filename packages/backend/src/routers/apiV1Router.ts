@@ -125,14 +125,19 @@ apiV1Router.get(lightdashConfig.auth.azuread.callbackPath, (req, res, next) =>
 apiV1Router.get(
     lightdashConfig.auth.oidc.loginPath,
     storeOIDCRedirect,
-    passport.authenticate(
-        'oidc',
-        lightdashConfig.auth.oidc.scopes
+    (req, res, next) => {
+        const reauthenticate = req.query.reauthenticate === 'true';
+        const authOptions = lightdashConfig.auth.oidc.scopes
             ? {
                   scope: lightdashConfig.auth.oidc.scopes,
               }
-            : {},
-    ),
+            : {};
+
+        return passport.authenticate('oidc', {
+            ...authOptions,
+            ...(reauthenticate ? { prompt: 'login' } : {}),
+        })(req, res, next);
+    },
 );
 
 apiV1Router.get(lightdashConfig.auth.oidc.callbackPath, (req, res, next) =>

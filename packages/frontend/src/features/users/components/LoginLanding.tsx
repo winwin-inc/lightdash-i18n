@@ -71,6 +71,7 @@ const Login: FC<{}> = () => {
     }, [flashMessages.data, showToastError, t]);
     const queryParams = new URLSearchParams(location.search);
     const redirectParam = queryParams.get('redirect');
+    const reauthenticateParam = queryParams.get('reauthenticate') === 'true';
 
     const [preCheckEmail, setPreCheckEmail] = useState<string>();
     const [isLoginOptionsLoadingDebounced, setIsLoginOptionsLoadingDebounced] =
@@ -104,7 +105,11 @@ const Login: FC<{}> = () => {
             localStorage.setItem(LOCAL_STORAGE_KEY, validRedirectUrl);
         }
 
-        window.location.href = `/api/v1${oidcOptions.loginPath.startsWith('/') ? '' : '/'}${oidcOptions.loginPath}?redirect=${encodeURIComponent(forceRedirectUrl)}`;
+        window.location.href = `/api/v1${
+            oidcOptions.loginPath.startsWith('/') ? '' : '/'
+        }${oidcOptions.loginPath}?redirect=${encodeURIComponent(forceRedirectUrl)}${
+            reauthenticateParam ? '&reauthenticate=true' : ''
+        }`;
     }
 
     const form = useForm<LoginParams>({

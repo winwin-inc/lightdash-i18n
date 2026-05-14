@@ -15,7 +15,7 @@ const UserMenu: FC = () => {
     const { mutate: logout } = useLogoutMutation({
         onSuccess: () => {
             posthog.reset();
-            window.location.href = '/login';
+            window.location.href = '/login?reauthenticate=true';
         },
     });
     const { t } = useTranslation();
