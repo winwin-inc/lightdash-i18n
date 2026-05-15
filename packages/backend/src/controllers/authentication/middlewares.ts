@@ -141,32 +141,49 @@ export const allowApiKeyAuthentication: RequestHandler = (req, res, next) => {
     }
 };
 
+export const getSafeRedirectUrl = (
+    redirect: unknown,
+    fallbackPath?: string,
+): string | undefined => {
+    const fallbackUrl = fallbackPath
+        ? new URL(fallbackPath, lightdashConfig.siteUrl).href
+        : undefined;
+
+    if (typeof redirect !== 'string') {
+        return fallbackUrl;
+    }
+
+    try {
+        const redirectUrl = new URL(redirect, lightdashConfig.siteUrl);
+        const originUrl = new URL(lightdashConfig.siteUrl);
+        if (
+            redirectUrl.host === originUrl.host ||
+            process.env.NODE_ENV === 'development'
+        ) {
+            return redirectUrl.href;
+        }
+    } catch (e) {
+        // Fail silently and fallback
+    }
+
+    return fallbackUrl;
+};
+
 export const storeOIDCRedirect: RequestHandler = (req, res, next) => {
     const { redirect, inviteCode, isPopup } = req.query;
     req.session.oauth = {};
     if (typeof inviteCode === 'string') {
         req.session.oauth.inviteCode = inviteCode;
     }
-    if (typeof redirect === 'string') {
-        try {
-            const redirectUrl = new URL(redirect, lightdashConfig.siteUrl);
-            const originUrl = new URL(lightdashConfig.siteUrl);
-            if (
-                redirectUrl.host === originUrl.host ||
-                process.env.NODE_ENV === 'development'
-            ) {
-                req.session.oauth.returnTo = redirectUrl.href;
-            }
-        } catch (e) {
-            next(); // fail silently if we can't parse url
-        }
+    const safeRedirect = getSafeRedirectUrl(redirect);
+    if (safeRedirect) {
+        req.session.oauth.returnTo = safeRedirect;
     }
     if (typeof isPopup === 'string' && isPopup === 'true') {
         req.session.oauth.isPopup = true;
     }
     next();
 };
-
 export const storeSlackContext: RequestHandler = (req, res, next) => {
     const { team, channel, message, thread_ts: threadTs } = req.query;
     req.session.slack = {};

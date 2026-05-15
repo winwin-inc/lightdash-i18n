@@ -5,20 +5,18 @@ import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
-import useLogoutMutation from '../../hooks/user/useUserLogoutMutation';
 import useApp from '../../providers/App/useApp';
 import { UserAvatar } from '../UserAvatar';
 import MantineIcon from '../common/MantineIcon';
 
 const UserMenu: FC = () => {
     const { user } = useApp();
-    const { mutate: logout } = useLogoutMutation({
-        onSuccess: () => {
-            posthog.reset();
-            window.location.href = '/login?reauthenticate=true';
-        },
-    });
     const { t } = useTranslation();
+
+    const logout = () => {
+        posthog.reset();
+        window.location.href = '/api/v1/logout/federated';
+    };
 
     return (
         <Menu
@@ -55,7 +53,7 @@ const UserMenu: FC = () => {
 
                 <Menu.Item
                     role="menuitem"
-                    onClick={() => logout()}
+                    onClick={logout}
                     icon={<MantineIcon icon={IconLogout} />}
                 >
                     {t('components_navbar_user_menu.menus.logout.title')}
