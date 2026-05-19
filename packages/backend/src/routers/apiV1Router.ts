@@ -1,10 +1,12 @@
-import { ForbiddenError } from '@lightdash/common';
 import express from 'express';
 import passport from 'passport';
+import { promisify } from 'util';
 import { lightdashConfig } from '../config/lightdashConfig';
 import {
     getLoginHint,
+    getOidcEndSessionEndpoint,
     getOidcRedirectURL,
+    getSafeRedirectUrl,
     initiateOktaOpenIdLogin,
     storeOIDCRedirect,
     storeSlackContext,
@@ -125,14 +127,19 @@ apiV1Router.get(lightdashConfig.auth.azuread.callbackPath, (req, res, next) =>
 apiV1Router.get(
     lightdashConfig.auth.oidc.loginPath,
     storeOIDCRedirect,
-    passport.authenticate(
-        'oidc',
-        lightdashConfig.auth.oidc.scopes
+    (req, res, next) => {
+        const reauthenticate = req.query.reauthenticate === 'true';
+        const authOptions = lightdashConfig.auth.oidc.scopes
             ? {
                   scope: lightdashConfig.auth.oidc.scopes,
               }
-            : {},
-    ),
+            : {};
+
+        return passport.authenticate('oidc', {
+            ...authOptions,
+            ...(reauthenticate ? { prompt: 'login' } : {}),
+        })(req, res, next);
+    },
 );
 
 apiV1Router.get(lightdashConfig.auth.oidc.callbackPath, (req, res, next) =>
@@ -285,6 +292,49 @@ apiV1Router.get('/logout', (req, res, next) => {
             }
         });
     });
+});
+
+apiV1Router.get('/logout/federated', async (req, res, next) => {
+    const logoutRedirectUrl =
+        getSafeRedirectUrl(req.query.redirect, '/login?reauthenticate=true') ||
+        new URL('/login?reauthenticate=true', lightdashConfig.siteUrl).href;
+
+    const logout = promisify(req.logout.bind(req));
+    const destroySession = promisify(req.session.destroy.bind(req.session));
+
+    try {
+        await logout();
+    } catch (err) {
+        return next(err);
+    }
+
+    try {
+        await destroySession();
+    } catch (err) {
+        return next(err);
+    }
+
+    try {
+        const endSessionEndpoint = await getOidcEndSessionEndpoint();
+        if (!endSessionEndpoint) {
+            return res.redirect(logoutRedirectUrl);
+        }
+
+        const endSessionUrl = new URL(endSessionEndpoint);
+        endSessionUrl.searchParams.set(
+            'post_logout_redirect_uri',
+            logoutRedirectUrl,
+        );
+        if (lightdashConfig.auth.oidc.clientId) {
+            endSessionUrl.searchParams.set(
+                'client_id',
+                lightdashConfig.auth.oidc.clientId,
+            );
+        }
+        return res.redirect(endSessionUrl.href);
+    } catch {
+        return res.redirect(logoutRedirectUrl);
+    }
 });
 
 apiV1Router.use('/saved', savedChartRouter);

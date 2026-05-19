@@ -22,6 +22,18 @@ export const isGenericOidcPassportStrategyAvailableToUse =
     lightdashConfig.auth.oidc.clientId &&
     lightdashConfig.auth.oidc.metadataDocumentEndpoint;
 
+export const getOidcEndSessionEndpoint = async (): Promise<
+    string | undefined
+> => {
+    const metadataUrl = lightdashConfig.auth.oidc.metadataDocumentEndpoint;
+    if (!metadataUrl) {
+        return undefined;
+    }
+
+    const issuer = await Issuer.discover(metadataUrl);
+    return issuer.metadata.end_session_endpoint;
+};
+
 const createOpenIdUserFromProfile = (
     profile: PassportProfile,
     issuer: string,

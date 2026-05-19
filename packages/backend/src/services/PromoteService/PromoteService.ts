@@ -1,7 +1,6 @@
 import { subject } from '@casl/ability';
 import {
     AlreadyExistsError,
-    ChartSummary,
     DashboardDAO,
     ForbiddenError,
     getDeepestPaths,
@@ -21,6 +20,7 @@ import {
     SpaceSummary,
     UnexpectedServerError,
 } from '@lightdash/common';
+import isEqual from 'lodash/isEqual';
 import { LightdashAnalytics } from '../../analytics/LightdashAnalytics';
 import { LightdashConfig } from '../../config/parseConfig';
 import Logger from '../../logging/logger';
@@ -39,7 +39,7 @@ export type PromotedChart = {
 };
 export type UpstreamChart = {
     projectUuid: string;
-    chart: (ChartSummary & { updatedAt: Date }) | undefined;
+    chart: SavedChartDAO | undefined;
     space: PromotedSpace | undefined;
     access: SpaceShare[];
     dashboardUuid?: string; // dashboard uuid if chart belongs to dashboard
@@ -178,6 +178,9 @@ export class PromoteService extends BaseService {
         }
         const upstreamChart =
             upstreamCharts.length === 1 ? upstreamCharts[0] : undefined;
+        const fullUpstreamChart = upstreamChart
+            ? await this.savedChartModel.get(upstreamChart.uuid, undefined)
+            : undefined;
 
         const upstreamSpaces = await this.spaceModel.find({
             projectUuid: upstreamProjectUuid,
@@ -203,7 +206,7 @@ export class PromoteService extends BaseService {
                 ),
             },
             upstreamChart: {
-                chart: upstreamChart,
+                chart: fullUpstreamChart,
                 projectUuid: upstreamProjectUuid,
                 space: upstreamSpace,
                 access: upstreamSpace
@@ -462,7 +465,10 @@ export class PromoteService extends BaseService {
         return (
             promotedChart.updatedAt > upstreamChart.updatedAt ||
             promotedChart.name !== upstreamChart.name ||
-            promotedChart.description !== upstreamChart.description
+            promotedChart.description !== upstreamChart.description ||
+            !isEqual(promotedChart.metricQuery, upstreamChart.metricQuery) ||
+            !isEqual(promotedChart.chartConfig, upstreamChart.chartConfig) ||
+            !isEqual(promotedChart.tableConfig, upstreamChart.tableConfig)
         );
     }
 

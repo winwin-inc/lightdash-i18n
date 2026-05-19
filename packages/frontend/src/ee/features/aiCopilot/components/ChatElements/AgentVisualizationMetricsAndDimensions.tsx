@@ -23,6 +23,7 @@ import {
 import { IconCode } from '@tabler/icons-react';
 import { lighten } from 'polished';
 import { useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import FieldIcon from '../../../../../components/common/Filters/FieldIcon';
 import MantineIcon from '../../../../../components/common/MantineIcon';
@@ -50,6 +51,7 @@ const MetricDimensionItem: FC<{
     customMetric,
     onWriteBackCustomMetric,
 }) => {
+    const { t } = useTranslation();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { user } = useApp();
     const { track } = useTracking();
@@ -92,15 +94,15 @@ const MetricDimensionItem: FC<{
               filters: customMetric.filters,
           }
         : isCompiledMetric(field)
-        ? {
-              type: field.type,
-              sql: field.sql,
-              compiledSql: field.compiledSql,
-              filters: field.filters,
-              table: field.table,
-              name: field.name,
-          }
-        : undefined;
+          ? {
+                type: field.type,
+                sql: field.sql,
+                compiledSql: field.compiledSql,
+                filters: field.filters,
+                table: field.table,
+                name: field.name,
+            }
+          : undefined;
 
     const isHoverCardDisabled =
         (!description && !metricInfo) || isCodeIconHovered;
@@ -159,7 +161,9 @@ const MetricDimensionItem: FC<{
                             <Tooltip
                                 openDelay={200}
                                 position="top"
-                                label="Write back to dbt"
+                                label={t(
+                                    'components_explorer_custom_metric_write_back_modal.single_custom_metric.write_back_to_dbt',
+                                )}
                                 withArrow
                                 offset={5}
                             >

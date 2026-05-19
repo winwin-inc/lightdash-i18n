@@ -40,10 +40,7 @@ import ProjectRoute from './components/ProjectRoute';
 import { useAiAgentButtonVisibility } from './ee/features/aiCopilot/hooks/useAiAgentsButtonVisibility';
 import { useActiveProjectUuid } from './hooks/useActiveProject';
 import { useProject } from './hooks/useProject';
-import useLogoutMutation from './hooks/user/useUserLogoutMutation';
-import {
-    useWeChatMiniProgram,
-} from './hooks/useWeChatMiniProgram';
+import { useWeChatMiniProgram } from './hooks/useWeChatMiniProgram';
 import AuthPopupResult, {
     SuccessAuthPopupResult,
 } from './pages/AuthPopupResult';
@@ -115,12 +112,10 @@ export const MobileNavBar: FC = () => {
     const { activeProjectUuid } = useActiveProjectUuid({
         refetchOnMount: true,
     });
-    const { mutate: logout } = useLogoutMutation({
-        onSuccess: () => {
-            posthog.reset();
-            window.location.href = '/login';
-        },
-    });
+    const logout = () => {
+        posthog.reset();
+        window.location.href = '/api/v1/logout/federated';
+    };
 
     const project = useProject(activeProjectUuid);
     const isCustomerUse = project.data?.isCustomerUse ?? false;
@@ -208,7 +203,7 @@ export const MobileNavBar: FC = () => {
                     label={t('mobile_navbar.logout')}
                     to={`/`}
                     icon={<MantineIcon icon={IconLogout} />}
-                    onClick={() => logout()}
+                    onClick={logout}
                 />
             </Drawer>
         </MantineProvider>

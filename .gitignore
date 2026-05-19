@@ -112,6 +112,7 @@ testings/
 
 # claude
 .claude/settings.local.json
+.mcp.json
 
 # cursor
 .cursor/plans/
@@ -119,3 +120,11 @@ testings/
 # lightdash-skills 对外打包（pnpm pack-lightdash-skills）
 /dist/lightdash-skills-pack/
 /dist/lightdash-skills-v*.zip
+
+# cursor
+.cursor/plans/*
+.cursor/rules/*
+.cursor/rules.md
+
+# dist
+**/dist/**/*
