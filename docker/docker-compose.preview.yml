@@ -108,6 +108,8 @@ services:
 
             ADMIN_API_HOST: ${ADMIN_API_HOST}
             ADMIN_API_KEY: ${ADMIN_API_KEY}
+            ADMIN_NEST_BASE_URL: ${ADMIN_NEST_BASE_URL:-http://admin-nest.prod:8000}
+            ADMIN_NEST_TIMEOUT_MS: ${ADMIN_NEST_TIMEOUT_MS:-10000}
         ports:
             - '8080:8080'
         command: ['pnpm', 'start']

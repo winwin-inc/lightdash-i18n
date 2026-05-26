@@ -2868,6 +2868,20 @@
                             "readOnly": {
                                 "type": "boolean"
                             },
+                            "maxAllowedDate": {
+                                "type": "string"
+                            },
+                            "minAllowedDate": {
+                                "type": "string",
+                                "description": "Optional selectable range for date inputs (YYYY-MM-DD)"
+                            },
+                            "excludedValues": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array",
+                                "description": "Values hidden from filter options list"
+                            },
                             "parentFieldId": {
                                 "type": "string"
                             },
@@ -3083,6 +3097,24 @@
             },
             "DashboardConfig": {
                 "properties": {
+                    "syncChartTileUuids": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "description": "记录需要同步颜色的图表 tile uuid 列表"
+                    },
+                    "colorPalette": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "description": "看板级别的颜色调色板，当 syncChartColors 开启时使用"
+                    },
+                    "syncChartColors": {
+                        "type": "boolean",
+                        "description": "开启颜色同步功能"
+                    },
                     "showTabAddFilterButton": {
                         "$ref": "#/components/schemas/Record_string.boolean_"
                     },
@@ -3643,11 +3675,110 @@
                 "type": "object",
                 "additionalProperties": true
             },
+            "CustomDimensionType.SQL": {
+                "enum": ["sql"],
+                "type": "string"
+            },
+            "CustomDimensionType": {
+                "enum": ["bin", "sql"],
+                "type": "string"
+            },
+            "CustomSqlDimension": {
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "table": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/CustomDimensionType.SQL"
+                    },
+                    "sql": {
+                        "type": "string"
+                    },
+                    "dimensionType": {
+                        "$ref": "#/components/schemas/DimensionType"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "table",
+                    "type",
+                    "sql",
+                    "dimensionType"
+                ],
+                "type": "object",
+                "additionalProperties": true
+            },
+            "CompiledCustomSqlDimension": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/CustomSqlDimension"
+                    },
+                    {
+                        "properties": {
+                            "parameterReferences": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            },
+                            "tablesReferences": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            },
+                            "compiledSql": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["tablesReferences", "compiledSql"],
+                        "type": "object"
+                    }
+                ]
+            },
+            "DashboardFilterableCustomSqlDimension": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/CompiledCustomSqlDimension"
+                    },
+                    {
+                        "properties": {
+                            "tableLabel": {
+                                "type": "string"
+                            },
+                            "label": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["tableLabel", "label"],
+                        "type": "object"
+                    }
+                ],
+                "description": "看板候选里展示的 Custom SQL 维度（含展示用 label / tableLabel，由 availableFilters 接口填充）。"
+            },
+            "DashboardFilterableField": {
+                "anyOf": [
+                    {
+                        "$ref": "#/components/schemas/FilterableDimension"
+                    },
+                    {
+                        "$ref": "#/components/schemas/DashboardFilterableCustomSqlDimension"
+                    }
+                ],
+                "description": "看板「可筛选字段」：explore 维度 + 图表内已编译的 Custom SQL 维度"
+            },
             "DashboardAvailableFilters": {
                 "properties": {
                     "allFilterableFields": {
                         "items": {
-                            "$ref": "#/components/schemas/FilterableDimension"
+                            "$ref": "#/components/schemas/DashboardFilterableField"
                         },
                         "type": "array"
                     },
@@ -4301,10 +4432,6 @@
                 },
                 "type": "object"
             },
-            "CustomDimensionType": {
-                "enum": ["bin", "sql"],
-                "type": "string"
-            },
             "CustomBinDimension": {
                 "properties": {
                     "id": {
@@ -4347,42 +4474,6 @@
                     "type",
                     "dimensionId",
                     "binType"
-                ],
-                "type": "object",
-                "additionalProperties": true
-            },
-            "CustomDimensionType.SQL": {
-                "enum": ["sql"],
-                "type": "string"
-            },
-            "CustomSqlDimension": {
-                "properties": {
-                    "id": {
-                        "type": "string"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "table": {
-                        "type": "string"
-                    },
-                    "type": {
-                        "$ref": "#/components/schemas/CustomDimensionType.SQL"
-                    },
-                    "sql": {
-                        "type": "string"
-                    },
-                    "dimensionType": {
-                        "$ref": "#/components/schemas/DimensionType"
-                    }
-                },
-                "required": [
-                    "id",
-                    "name",
-                    "table",
-                    "type",
-                    "sql",
-                    "dimensionType"
                 ],
                 "type": "object",
                 "additionalProperties": true
@@ -16100,6 +16191,20 @@
                             "readOnly": {
                                 "type": "boolean"
                             },
+                            "maxAllowedDate": {
+                                "type": "string"
+                            },
+                            "minAllowedDate": {
+                                "type": "string",
+                                "description": "Optional selectable range for date inputs (YYYY-MM-DD)"
+                            },
+                            "excludedValues": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array",
+                                "description": "Values hidden from filter options list"
+                            },
                             "parentFieldId": {
                                 "type": "string"
                             },
@@ -16181,6 +16286,20 @@
                         "enum": [1, 2, 3, 4]
                     },
                     "parentFieldId": {
+                        "type": "string"
+                    },
+                    "excludedValues": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "description": "Values hidden from filter options list"
+                    },
+                    "minAllowedDate": {
+                        "type": "string",
+                        "description": "Optional selectable range for date inputs (YYYY-MM-DD)"
+                    },
+                    "maxAllowedDate": {
                         "type": "string"
                     },
                     "readOnly": {
@@ -20030,6 +20149,10 @@
                     },
                     {
                         "properties": {
+                            "dashboardUuid": {
+                                "type": "string",
+                                "description": "从看板跳转到探索页时传入，用于在查询时保持看板上下文（dashboardSlug/dashboardName 等内置用户属性）"
+                            },
                             "pivotConfiguration": {
                                 "$ref": "#/components/schemas/PivotConfiguration"
                             },
@@ -21226,7 +21349,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "0.2094.6",
+        "version": "0.2099.5",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"
@@ -31545,6 +31668,100 @@
                         "description": "the uuid of the comment",
                         "in": "path",
                         "name": "commentId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v1/chart-templates": {
+            "get": {
+                "operationId": "getChartTemplates",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "items": {
+                                                "$ref": "#/components/schemas/Record_string.unknown_"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["ok"],
+                                            "nullable": false
+                                        }
+                                    },
+                                    "required": ["results", "status"],
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["Chart templates"],
+                "security": [],
+                "parameters": []
+            }
+        },
+        "/api/v1/chart-templates/{templateId}": {
+            "get": {
+                "operationId": "getChartTemplateById",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "$ref": "#/components/schemas/Record_string.unknown_"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["ok"],
+                                            "nullable": false
+                                        }
+                                    },
+                                    "required": ["results", "status"],
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["Chart templates"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "templateId",
                         "required": true,
                         "schema": {
                             "type": "string"

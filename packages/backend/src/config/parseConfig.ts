@@ -945,6 +945,10 @@ export type LightdashConfig = {
         host?: string;
         apiKey?: string;
     };
+    adminNest: {
+        baseUrl: string;
+        timeoutMs: number;
+    };
 };
 
 export type SlackConfig = {
@@ -1729,6 +1733,14 @@ export const parseConfig = (): LightdashConfig => {
         adminApi: {
             host: process.env.ADMIN_API_HOST,
             apiKey: process.env.ADMIN_API_KEY,
+        },
+        adminNest: {
+            baseUrl:
+                process.env.ADMIN_NEST_BASE_URL ||
+                'http://admin-nest.prod:8000',
+            timeoutMs:
+                getIntegerFromEnvironmentVariable('ADMIN_NEST_TIMEOUT_MS') ||
+                10000,
         },
         cdn: parseCdnConfig(),
     };

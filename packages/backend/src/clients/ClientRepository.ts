@@ -4,6 +4,7 @@ import { type OperationContext } from '../services/ServiceRepository';
 import { S3CacheClient } from './Aws/S3CacheClient';
 import { S3Client } from './Aws/S3Client';
 import { CategoryRpcClient } from './CategoryRpcClient/CategoryRpcClient';
+import { ChartTemplateClient } from './ChartTemplateClient/ChartTemplateClient';
 import EmailClient from './EmailClient/EmailClient';
 import { GoogleDriveClient } from './Google/GoogleDriveClient';
 import { MicrosoftTeamsClient } from './MicrosoftTeams/MicrosoftTeamsClient';
@@ -17,6 +18,7 @@ import { SlackClient } from './Slack/SlackClient';
 
 export interface ClientManifest {
     categoryRpcClient: CategoryRpcClient;
+    chartTemplateClient: ChartTemplateClient;
     emailClient: EmailClient;
     googleDriveClient: GoogleDriveClient;
     s3CacheClient: S3CacheClient;
@@ -119,6 +121,13 @@ export class ClientRepository
         return this.getClient(
             'categoryRpcClient',
             () => new CategoryRpcClient(this.context.lightdashConfig),
+        );
+    }
+
+    public getChartTemplateClient(): ChartTemplateClient {
+        return this.getClient(
+            'chartTemplateClient',
+            () => new ChartTemplateClient(this.context.lightdashConfig),
         );
     }
 

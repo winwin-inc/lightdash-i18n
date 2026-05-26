@@ -10,6 +10,7 @@ import { AsyncQueryService } from './AsyncQueryService/AsyncQueryService';
 import { BaseService } from './BaseService';
 import { CatalogService } from './CatalogService/CatalogService';
 import { ChangesetService } from './ChangesetService';
+import { ChartTemplateService } from './ChartTemplateService/ChartTemplateService';
 import { CoderService } from './CoderService/CoderService';
 import { CommentService } from './CommentService/CommentService';
 import { ContentService } from './ContentService/ContentService';
@@ -24,11 +25,12 @@ import { GitlabAppService } from './GitlabAppService/GitlabAppService';
 import { GroupsService } from './GroupService';
 import { HealthService } from './HealthService/HealthService';
 import { LightdashAnalyticsService } from './LightdashAnalyticsService/LightdashAnalyticsService';
+import { LogService } from './LogService/LogService';
 import { MetricsExplorerService } from './MetricsExplorerService/MetricsExplorerService';
 import { NotificationsService } from './NotificationsService/NotificationsService';
 import { OAuthService } from './OAuthService/OAuthService';
-import { OssService } from './OssService';
 import { OrganizationService } from './OrganizationService/OrganizationService';
+import { OssService } from './OssService';
 import { PermissionsService } from './PermissionsService/PermissionsService';
 import { PersonalAccessTokenService } from './PersonalAccessTokenService';
 import { PinningService } from './PinningService/PinningService';
@@ -52,7 +54,6 @@ import { UnfurlService } from './UnfurlService/UnfurlService';
 import { UserAttributesService } from './UserAttributesService/UserAttributesService';
 import { UserService } from './UserService';
 import { ValidationService } from './ValidationService/ValidationService';
-import { LogService } from './LogService/LogService';
 /**
  * Interface outlining all services available under the `ServiceRepository`. Add new services to
  * this list (in alphabetical order, please!) to have typescript help ensure you've updated the
@@ -60,6 +61,7 @@ import { LogService } from './LogService/LogService';
  */
 interface ServiceManifest {
     analyticsService: AnalyticsService;
+    chartTemplateService: ChartTemplateService;
     commentService: CommentService;
     csvService: CsvService;
     dashboardService: DashboardService;
@@ -284,6 +286,16 @@ export class ServiceRepository
                     commentModel: this.models.getCommentModel(),
                     notificationsModel: this.models.getNotificationsModel(),
                     userModel: this.models.getUserModel(),
+                }),
+        );
+    }
+
+    public getChartTemplateService(): ChartTemplateService {
+        return this.getService(
+            'chartTemplateService',
+            () =>
+                new ChartTemplateService({
+                    chartTemplateClient: this.clients.getChartTemplateClient(),
                 }),
         );
     }
@@ -1004,10 +1016,7 @@ export class ServiceRepository
     }
 
     public getLogService(): LogService {
-        return this.getService(
-            'logService',
-            () => new LogService(),
-        );
+        return this.getService('logService', () => new LogService());
     }
 
     public getLightdashAnalyticsService(): LightdashAnalyticsService {

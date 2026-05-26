@@ -261,5 +261,9 @@ export const lightdashConfigMock: LightdashConfig = {
     customRoles: {
         enabled: false,
     },
+    adminNest: {
+        baseUrl: 'http://admin-nest.prod:8000',
+        timeoutMs: 10000,
+    },
     experimentalExplorerImprovements: false,
 };
