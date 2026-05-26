@@ -2,6 +2,7 @@ import type {
     ApiExecuteAsyncMetricQueryResults,
     ApiExecuteAsyncSqlQueryResults,
     ApiGetAsyncQueryResults,
+    ReadyQueryResultsPage,
     ExecuteAsyncMetricQueryRequestParams,
     ExecuteAsyncSqlQueryRequestParams,
 } from '@lightdash/common';
@@ -55,6 +56,34 @@ export function createAsyncQueryMethods(
                 pageSize}`,
         );
         return json.results;
+    }
+
+    async function collectAllReadyRows(
+        apiKey: string,
+        projectUuid: string,
+        queryUuid: string,
+        firstPage: ReadyQueryResultsPage,
+        pageSize: number,
+    ): Promise<ReadyQueryResultsPage> {
+        const mergedRows = [...firstPage.rows];
+        const { nextPage: firstNextPage } = firstPage;
+        let nextPage = firstNextPage;
+        while (typeof nextPage === 'number' && nextPage > 0) {
+            const page = await getQueryResultsPage(
+                apiKey,
+                projectUuid,
+                queryUuid,
+                nextPage,
+                pageSize,
+            );
+            if (page.status !== QueryHistoryStatus.READY) break;
+            mergedRows.push(...page.rows);
+            nextPage = page.nextPage;
+        }
+        return {
+            ...firstPage,
+            rows: mergedRows,
+        };
     }
 
     async function runMetricQueryUntilReady(
@@ -121,10 +150,17 @@ export function createAsyncQueryMethods(
                 };
             }
             if (page.status === QueryHistoryStatus.READY) {
+                const mergedPage = await collectAllReadyRows(
+                    apiKey,
+                    projectUuid,
+                    queryUuid,
+                    page,
+                    options.pageSize,
+                );
                 return {
                     queryUuid,
-                    rows: page.rows,
-                    columns: page.columns,
+                    rows: mergedPage.rows,
+                    columns: mergedPage.columns,
                     executeResult,
                 };
             }
@@ -207,10 +243,17 @@ export function createAsyncQueryMethods(
                 };
             }
             if (page.status === QueryHistoryStatus.READY) {
+                const mergedPage = await collectAllReadyRows(
+                    apiKey,
+                    projectUuid,
+                    queryUuid,
+                    page,
+                    options.pageSize,
+                );
                 return {
                     queryUuid,
-                    rows: page.rows,
-                    columns: page.columns,
+                    rows: mergedPage.rows,
+                    columns: mergedPage.columns,
                     fields: executeResult.fields,
                     warnings: executeResult.warnings,
                     parameterReferences: executeResult.parameterReferences,
@@ -259,6 +302,15 @@ export function createAsyncQueryMethods(
                 page.status === QueryHistoryStatus.READY ||
                 page.status === QueryHistoryStatus.CANCELLED
             ) {
+                if (page.status === QueryHistoryStatus.READY) {
+                    return collectAllReadyRows(
+                        apiKey,
+                        projectUuid,
+                        queryUuid,
+                        page,
+                        options.pageSize,
+                    );
+                }
                 return page;
             }
             await new Promise((r) => setTimeout(r, options.pollIntervalMs));

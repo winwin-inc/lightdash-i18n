@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { LightdashMcpEnvConfig } from '../../config';
+import { maybeSlimList, slimProject } from '../../lib/toolOutput';
 import type { LightdashRestClient } from '../../rest/lightdashRest';
 import { registerToolTyped } from '../registerToolTyped';
 import {
@@ -52,16 +53,24 @@ export function registerOrgAndHealthTools(
         'core-tool',
         'list_projects',
         '列出当前 PAT 可访问的项目（REST: GET /api/v1/org/projects）。',
-        { apiKey: z.string().optional() },
+        { apiKey: z.string().optional(), full: z.boolean().optional() },
         async (args) => {
             const apiKey = resolveCoreToolsApiKey(
                 config,
                 args.apiKey as string | undefined,
             );
             const data = await api.listProjects(apiKey);
+            const full = (args.full as boolean | undefined) ?? false;
             return {
                 content: [
-                    { type: 'text', text: JSON.stringify(data, null, 2) },
+                    {
+                        type: 'text',
+                        text: JSON.stringify(
+                            maybeSlimList(data, full, slimProject),
+                            null,
+                            2,
+                        ),
+                    },
                 ],
             };
         },

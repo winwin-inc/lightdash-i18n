@@ -108,6 +108,17 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         return json.results ?? json;
     }
 
+    async function getDashboard(
+        apiKey: string,
+        dashboardUuidOrSlug: string,
+    ): Promise<unknown> {
+        const json = await requestJson<{ results?: unknown }>(
+            apiKey,
+            `/api/v1/dashboards/${encodeURIComponent(dashboardUuidOrSlug)}`,
+        );
+        return json.results ?? json;
+    }
+
     async function getCatalog(
         apiKey: string,
         projectUuid: string,
@@ -143,6 +154,35 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         return json.results ?? json;
     }
 
+    async function getDashboardsAsCode(
+        apiKey: string,
+        projectUuid: string,
+        options?: {
+            ids?: string[];
+            offset?: number;
+            languageMap?: boolean;
+        },
+    ): Promise<unknown> {
+        const params = new URLSearchParams();
+        if (options?.ids && options.ids.length > 0) {
+            options.ids.forEach((id) => params.append('ids', id));
+        }
+        if (typeof options?.offset === 'number') {
+            params.set('offset', String(options.offset));
+        }
+        if (typeof options?.languageMap === 'boolean') {
+            params.set('languageMap', options.languageMap ? 'true' : 'false');
+        }
+        const query = params.toString();
+        const json = await requestJson<{ results?: unknown }>(
+            apiKey,
+            `/api/v1/projects/${encodeURIComponent(
+                projectUuid,
+            )}/dashboards/code${query ? `?${query}` : ''}`,
+        );
+        return json.results ?? json;
+    }
+
     return {
         listExplores,
         getExplore,
@@ -152,7 +192,9 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         getSavedChart,
         getHealth,
         getProject,
+        getDashboard,
         getCatalog,
         listVerifiedContent,
+        getDashboardsAsCode,
     };
 }

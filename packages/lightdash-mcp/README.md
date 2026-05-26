@@ -1,6 +1,6 @@
 # @lightdash/mcp
 
-独立运行的 Lightdash [Model Context Protocol](https://modelcontextprotocol.io) 服务，面向 Claude Code、Cursor 等客户端。通过站点 **REST API** 注册 **19 个 MCP 工具**（**15** 个核心：健康/项目/目录/内容/查询；**4** 个站点与已保存图表相关），以及 **`lightdash-analyst`** 提示词；工具名**统一无前缀**（与 EE 内置 MCP 对齐的仍用上游同名，如 `find_charts`）。不托管在 Lightdash 进程内，适合单独扩缩或与主站版本解耦。
+独立运行的 Lightdash [Model Context Protocol](https://modelcontextprotocol.io) 服务，面向 Claude Code、Cursor 等客户端。通过站点 **REST API** 注册 **22 个 MCP 工具**（**15** 个核心：健康/项目/目录/内容/查询；**7** 个站点与已保存图表/看板导出相关），以及 **`lightdash-analyst`** 提示词；工具名**统一无前缀**（与 EE 内置 MCP 对齐的仍用上游同名，如 `find_charts`）。不托管在 Lightdash 进程内，适合单独扩缩或与主站版本解耦。
 
 ---
 
@@ -117,19 +117,23 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 
 - `get_lightdash_version`：首条返回内容为短 **version** 文本（无则 `unknown`），第二条为完整 health JSON。
 - `find_charts` / `find_dashboards` / `find_spaces`：与上游 EE 内置 MCP 命名对齐，分别固定 `contentTypes` 为 chart / dashboard / space；`find_content` 为**不传类型过滤**的混合关键词搜索。
-- `run_metric_query`：首条为 **CSV**，第二条为 JSON；响应中含 `**structuredContent`**，便于支持结构化消费的客户端。
+- `run_metric_query`：首条为 **CSV**，第二条为 JSON；响应中含 `**structuredContent`**。推荐参数为 `queryConfig`（兼容 `metricQuery` 与扁平参数）。
 - `find_explores` / `find_fields`：对 `dataCatalog` 返回的条目附加 `**heuristicScore**` 并按其降序排列；响应含 `**heuristicRankingVersion**`（当前为 `1`）。
+- `list_verified_content`：先做版本守卫，再尝试路由调用；若站点未部署该接口会返回中文提示而非裸 404。
 
-### 站点与已保存图表（4 个）
+### 站点与已保存图表（7 个）
 
 与核心工具同一 PAT；在扩展注册顺序上先于核心工具加载，名称无前缀。
 
-| 工具名               | 用途                                          |
-| ----------------- | ------------------------------------------- |
-| `get_site_info`   | 返回 `siteBaseUrl`（与 `LIGHTDASH_SITE_URL` 一致） |
-| `list_spaces`     | 列出当前项目下的空间                                  |
-| `get_saved_chart` | 按图表 UUID 拉取已保存图表定义（含 `webUrl`）              |
-| `run_saved_chart` | 按已保存图表 UUID 执行查询                            |
+| 工具名                  | 用途                                                       |
+| -------------------- | ---------------------------------------------------------- |
+| `get_site_info`      | 返回 `siteBaseUrl`（与 `LIGHTDASH_SITE_URL` 一致）                |
+| `list_spaces`        | 列出当前项目下的空间（默认精简输出，`full=true` 返回完整）                        |
+| `get_saved_chart`    | 按图表 UUID 拉取已保存图表定义（含 `webUrl`，默认精简输出）                      |
+| `run_saved_chart`    | 按已保存图表 UUID 执行查询（默认平铺行，`full=true` 返回完整结构）                  |
+| `get_dashboard_tiles`| 查看看板磁贴布局与图表关联                                              |
+| `run_dashboard_tiles`| 批量执行看板中的 `saved_chart` 磁贴（其他磁贴类型会跳过并给出原因）                 |
+| `get_dashboard_code` | 导出看板 as-code 配置（基于 `/api/v1/projects/{projectUuid}/dashboards/code`） |
 
 
 ### 提示词
@@ -148,6 +152,8 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 | 会话上下文                           | 主站持久化（如 `mcp_context`） | `set_project` 仅存**本进程内存**（按 PAT 哈希隔离）                 |
 | `find_explores` / `find_fields` | 主站内置实现                 | **dataCatalog** REST；结果含 `heuristicScore`、`heuristicRankingVersion` |
 | User-Attributes                 | 由主站入口注入                | 由 **MCP 客户端 HTTP 头** 注入并转发                                          |
+| 扩展工具                            | 无 dashboard 扩展工具         | 额外提供 `get_dashboard_tiles` / `run_dashboard_tiles` / `get_dashboard_code` |
+| 输出控制                            | 以内置输出策略为主               | 默认精简，支持 `full=true` 返回完整结构                                             |
 
 
 ---

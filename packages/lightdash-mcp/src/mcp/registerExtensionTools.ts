@@ -5,6 +5,12 @@ import {
     DEFAULT_WEB_PATH_TEMPLATES,
     enrichSavedChartResult,
 } from '../lib/contentWebUrls';
+import {
+    maybeSlimList,
+    rowsToScalarFlat,
+    slimSavedChart,
+    slimSpace,
+} from '../lib/toolOutput';
 import { getHttpRequestApiKey } from '../lib/requestContext';
 import type { LightdashRestClient } from '../rest/lightdashRest';
 import { resolveCoreToolsProjectUuid } from './coreToolsContext';
@@ -20,6 +26,7 @@ const runSavedChartParams = {
     pageSize: z.number().optional(),
     maxPollAttempts: z.number().optional(),
     pollIntervalMs: z.number().optional(),
+    full: z.boolean().optional(),
 } satisfies ZodRawShape;
 
 const getSiteInfoParams = {
@@ -29,11 +36,34 @@ const getSiteInfoParams = {
 const listSpacesParams = {
     apiKey: z.string().optional(),
     projectUuid: z.string().optional(),
+    full: z.boolean().optional(),
 } satisfies ZodRawShape;
 
 const getSavedChartParams = {
     apiKey: z.string().optional(),
     chartUuid: z.string(),
+    full: z.boolean().optional(),
+} satisfies ZodRawShape;
+
+const getDashboardTilesParams = {
+    apiKey: z.string().optional(),
+    dashboardUuid: z.string(),
+    full: z.boolean().optional(),
+} satisfies ZodRawShape;
+
+const runDashboardTilesParams = {
+    apiKey: z.string().optional(),
+    projectUuid: z.string().optional(),
+    dashboardUuid: z.string(),
+    limitPerTile: z.number().optional(),
+    full: z.boolean().optional(),
+} satisfies ZodRawShape;
+
+const getDashboardCodeParams = {
+    apiKey: z.string().optional(),
+    projectUuid: z.string().optional(),
+    dashboardUuid: z.string(),
+    languageMap: z.boolean().optional(),
 } satisfies ZodRawShape;
 
 function resolveExtensionApiKey(
@@ -47,6 +77,14 @@ function resolveExtensionApiKey(
         );
     }
     return key;
+}
+
+function escapeCsvValue(value: unknown): string {
+    const text = String(value ?? '');
+    if (text.includes('"') || text.includes(',') || text.includes('\n')) {
+        return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
 }
 
 export function registerExtensionTools(
@@ -93,11 +131,16 @@ export function registerExtensionTools(
                 args.projectUuid as string | undefined,
             );
             const data = await api.listSpaces(apiKey, projectUuid);
+            const full = (args.full as boolean | undefined) ?? false;
             return {
                 content: [
                     {
                         type: 'text',
-                        text: JSON.stringify(data, null, 2),
+                        text: JSON.stringify(
+                            maybeSlimList(data, full, slimSpace),
+                            null,
+                            2,
+                        ),
                     },
                 ],
             };
@@ -124,11 +167,16 @@ export function registerExtensionTools(
                 DEFAULT_WEB_PATH_TEMPLATES.chart,
                 data,
             );
+            const full = (args.full as boolean | undefined) ?? false;
             return {
                 content: [
                     {
                         type: 'text',
-                        text: JSON.stringify(enriched, null, 2),
+                        text: JSON.stringify(
+                            full ? enriched : slimSavedChart(enriched),
+                            null,
+                            2,
+                        ),
                     },
                 ],
             };
@@ -171,12 +219,219 @@ export function registerExtensionTools(
                 },
                 { pageSize, maxPollAttempts, pollIntervalMs },
             );
+            const full = (args.full as boolean | undefined) ?? false;
+            const flatRows = rowsToScalarFlat(
+                (result as { rows?: unknown }).rows ?? [],
+            );
+            const header = flatRows.length > 0 ? Object.keys(flatRows[0]) : [];
+            const csv =
+                header.length > 0
+                    ? [
+                          header.join(','),
+                          ...flatRows.map((row) =>
+                              header
+                                  .map((key) => escapeCsvValue(row[key]))
+                                  .join(','),
+                          ),
+                      ].join('\n')
+                    : '';
             return {
                 content: [
                     {
                         type: 'text',
-                        text: JSON.stringify(result, null, 2),
+                        text: (() => {
+                            if (full) return JSON.stringify(result, null, 2);
+                            if (csv.length > 0) return csv;
+                            return JSON.stringify({ rows: flatRows }, null, 2);
+                        })(),
                     },
+                ],
+            };
+        },
+    );
+
+    registerToolTyped(
+        server,
+        'tool-call',
+        'get_dashboard_tiles',
+        '读取看板磁贴布局（包含类型、坐标、关联图表信息）。',
+        getDashboardTilesParams,
+        async (args) => {
+            const apiKey = resolveExtensionApiKey(
+                config,
+                args.apiKey as string | undefined,
+            );
+            const dashboard = (await api.getDashboard(
+                apiKey,
+                args.dashboardUuid as string,
+            )) as Record<string, unknown>;
+            const tiles = Array.isArray(dashboard.tiles)
+                ? dashboard.tiles
+                : [];
+            const full = (args.full as boolean | undefined) ?? false;
+            const payload = full
+                ? tiles
+                : tiles.map((tile) => {
+                      const row = tile as Record<string, unknown>;
+                      const properties = (row.properties ?? {}) as Record<
+                          string,
+                          unknown
+                      >;
+                      return {
+                          uuid: row.uuid ?? null,
+                          type: row.type ?? null,
+                          x: row.x ?? null,
+                          y: row.y ?? null,
+                          w: row.w ?? null,
+                          h: row.h ?? null,
+                          chartUuid:
+                              properties.savedChartUuid ??
+                              properties.savedSqlUuid ??
+                              null,
+                          chartName: properties.chartName ?? null,
+                      };
+                  });
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(
+                            {
+                                dashboardUuid: args.dashboardUuid,
+                                tiles: payload,
+                            },
+                            null,
+                            2,
+                        ),
+                    },
+                ],
+            };
+        },
+    );
+
+    registerToolTyped(
+        server,
+        'tool-call',
+        'run_dashboard_tiles',
+        '批量执行看板内可运行磁贴（saved_chart）。sql_chart 与非查询磁贴会跳过并返回说明。',
+        runDashboardTilesParams,
+        async (args) => {
+            const apiKey = resolveExtensionApiKey(
+                config,
+                args.apiKey as string | undefined,
+            );
+            const dashboard = (await api.getDashboard(
+                apiKey,
+                args.dashboardUuid as string,
+            )) as Record<string, unknown>;
+            const projectUuid = resolveCoreToolsProjectUuid(
+                config,
+                apiKey,
+                (args.projectUuid as string | undefined) ??
+                    (dashboard.projectUuid as string | undefined),
+            );
+            const tiles = Array.isArray(dashboard.tiles)
+                ? dashboard.tiles
+                : [];
+            const full = (args.full as boolean | undefined) ?? false;
+            const limit = (args.limitPerTile as number | undefined) ?? 200;
+            const results = await Promise.all(
+                tiles.map(async (tile) => {
+                    const row = tile as Record<string, unknown>;
+                    const properties = (row.properties ?? {}) as Record<
+                        string,
+                        unknown
+                    >;
+                    const tileType = String(row.type ?? '');
+                    const chartUuid =
+                        (properties.savedChartUuid as string | undefined) ??
+                        undefined;
+                    if (tileType !== 'saved_chart' || !chartUuid) {
+                        return {
+                            tileUuid: row.uuid ?? null,
+                            type: row.type ?? null,
+                            status: 'skipped',
+                            reason: '仅支持 saved_chart 磁贴，其他类型已跳过',
+                        };
+                    }
+                    try {
+                        const queryResult = await api.runSavedChart(
+                            apiKey,
+                            projectUuid,
+                            { chartUuid, limit },
+                            {
+                                pageSize: 500,
+                                maxPollAttempts: 120,
+                                pollIntervalMs: 500,
+                            },
+                        );
+                        const flatRows = rowsToScalarFlat(
+                            (queryResult as { rows?: unknown }).rows ?? [],
+                        );
+                        return {
+                            tileUuid: row.uuid ?? null,
+                            type: row.type ?? null,
+                            chartUuid,
+                            status: 'success',
+                            rows: full ? queryResult.rows : flatRows,
+                            rowCount: Array.isArray(flatRows) ? flatRows.length : 0,
+                        };
+                    } catch (error) {
+                        return {
+                            tileUuid: row.uuid ?? null,
+                            type: row.type ?? null,
+                            chartUuid,
+                            status: 'error',
+                            error:
+                                error instanceof Error
+                                    ? error.message
+                                    : String(error),
+                        };
+                    }
+                }),
+            );
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(
+                            {
+                                dashboardUuid: args.dashboardUuid,
+                                projectUuid,
+                                results,
+                            },
+                            null,
+                            2,
+                        ),
+                    },
+                ],
+            };
+        },
+    );
+
+    registerToolTyped(
+        server,
+        'tool-call',
+        'get_dashboard_code',
+        '导出看板 as-code 配置（用于迁移/备份）。',
+        getDashboardCodeParams,
+        async (args) => {
+            const apiKey = resolveExtensionApiKey(
+                config,
+                args.apiKey as string | undefined,
+            );
+            const projectUuid = resolveCoreToolsProjectUuid(
+                config,
+                apiKey,
+                args.projectUuid as string | undefined,
+            );
+            const data = await api.getDashboardsAsCode(apiKey, projectUuid, {
+                ids: [args.dashboardUuid as string],
+                languageMap: (args.languageMap as boolean | undefined) ?? false,
+            });
+            return {
+                content: [
+                    { type: 'text', text: JSON.stringify(data, null, 2) },
                 ],
             };
         },

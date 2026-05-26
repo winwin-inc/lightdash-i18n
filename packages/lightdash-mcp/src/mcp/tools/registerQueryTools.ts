@@ -1,8 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { QueryHistoryStatus } from '@lightdash/common';
+import { QueryExecutionContext, QueryHistoryStatus } from '@lightdash/common';
 import { z } from 'zod';
 import type { LightdashMcpEnvConfig } from '../../config';
 import { metricQueryResultToCsvColumns, rowsToCsv } from '../../lib/csvUtils';
+import { assertReadonlySql } from '../../lib/sqlSafety';
+import { rowsToScalarFlat } from '../../lib/toolOutput';
 import type { LightdashRestClient } from '../../rest/lightdashRest';
 import { registerToolTyped } from '../registerToolTyped';
 import {
@@ -18,6 +20,96 @@ import {
     toSorts,
     toStringArray,
 } from './metricQueryToolArgs';
+
+function toMetricQueryBlock(value: unknown): Record<string, unknown> | null {
+    if (!value) return null;
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value) as unknown;
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                return parsed as Record<string, unknown>;
+            }
+            return null;
+        } catch {
+            return null;
+        }
+    }
+    if (typeof value === 'object' && !Array.isArray(value)) {
+        return value as Record<string, unknown>;
+    }
+    return null;
+}
+
+function hasFlatMetricInputs(args: Record<string, unknown>): boolean {
+    return (
+        args.exploreName !== undefined ||
+        args.dimensions !== undefined ||
+        args.metrics !== undefined ||
+        args.filters !== undefined ||
+        args.sorts !== undefined ||
+        args.limit !== undefined ||
+        args.tableCalculations !== undefined ||
+        args.additionalMetrics !== undefined ||
+        args.customDimensions !== undefined ||
+        args.timezone !== undefined ||
+        args.metricOverrides !== undefined
+    );
+}
+
+function getNormalizedDimensionFilterFieldIds(
+    normalizedFilters: Record<string, unknown>,
+): string[] {
+    const { dimensions } = normalizedFilters;
+    if (!Array.isArray(dimensions)) return [];
+    return dimensions
+        .map((rule) => {
+            if (!rule || typeof rule !== 'object') return null;
+            const { target } = rule as Record<string, unknown>;
+            if (!target || typeof target !== 'object') return null;
+            const { fieldId } = target as Record<string, unknown>;
+            return typeof fieldId === 'string' ? fieldId : null;
+        })
+        .filter((fieldId): fieldId is string => fieldId !== null);
+}
+
+function buildMissingFilterErrorMessage(params: {
+    fieldLabel: string;
+    fieldId: string;
+}): string {
+    return [
+        `缺少必需的筛选条件：explore 表中存在「${params.fieldLabel}」字段`,
+        `(fieldId: ${params.fieldId})，`,
+        '但 filters.dimensions.and 中未找到该字段的筛选条件。',
+        '请在 filters.dimensions.and 里补充该字段后重试。',
+    ].join('\n');
+}
+
+function formatRunMetricQueryError(error: unknown): string {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('filters.dimensions.and')) return message;
+    return `run_metric_query 执行失败：${message}\n请检查 queryConfig/exploreName、filters、sorts 与字段拼写是否正确。`;
+}
+
+function toSqlIdentifier(input: string): string {
+    return `"${input.replace(/"/g, '""')}"`;
+}
+
+function inferSqlDistinctField(table: string, fieldId: string): string {
+    const prefix = `${table}_`;
+    if (fieldId.startsWith(prefix) && fieldId.length > prefix.length) {
+        return fieldId.slice(prefix.length);
+    }
+    return fieldId;
+}
+
+function isFieldValuesEndpointMissing(message: string): boolean {
+    const normalized = message.toLowerCase();
+    const isHttp404 = /^lightdash api 404:/i.test(message);
+    const mentionsFieldValues =
+        normalized.includes('field-values') ||
+        normalized.includes('/query/field-values');
+    return isHttp404 && mentionsFieldValues;
+}
 
 export type CoreQueryToolsDeps = {
     getFieldResolver: (
@@ -44,7 +136,7 @@ export function registerQueryTools(
         server,
         'core-tool',
         'search_field_values',
-        '搜索某维度字段取值（POST …/query/field-values + 轮询）。query 可空字符串表示不限。',
+        '搜索某维度字段取值（POST …/query/field-values + 轮询）。query 可空字符串表示不限。若接口不可用，将回退到 SQL DISTINCT（再失败则回退 metric-query）。',
         {
             apiKey: z.string().optional(),
             projectUuid: z.string().optional(),
@@ -52,6 +144,7 @@ export function registerQueryTools(
             fieldId: z.string(),
             query: z.string().nullable().optional(),
             filters: z.any().optional(),
+            full: z.boolean().optional(),
         },
         async (args) => {
             const apiKey = resolveCoreToolsApiKey(
@@ -63,32 +156,166 @@ export function registerQueryTools(
                 apiKey,
                 args.projectUuid as string | undefined,
             );
-            const { queryUuid, page } = await api.searchFieldValuesUntilReady(
-                apiKey,
-                projectUuid,
-                {
-                    table: args.table as string,
-                    fieldId: args.fieldId as string,
-                    query:
-                        args.query === null || args.query === undefined
-                            ? ''
-                            : String(args.query),
-                    filters: args.filters,
-                    limit: 100,
-                },
-                poll,
-            );
-            const payload =
-                page.status === QueryHistoryStatus.READY
-                    ? {
-                          queryUuid,
-                          rows: page.rows,
-                          columns: page.columns,
-                      }
-                    : { queryUuid, page };
+            const full = (args.full as boolean | undefined) ?? false;
+            const queryText =
+                args.query === null || args.query === undefined
+                    ? ''
+                    : String(args.query);
+            let payload: Record<string, unknown>;
+            try {
+                const { queryUuid, page } = await api.searchFieldValuesUntilReady(
+                    apiKey,
+                    projectUuid,
+                    {
+                        table: args.table as string,
+                        fieldId: args.fieldId as string,
+                        query: queryText,
+                        filters: args.filters,
+                        limit: 100,
+                    },
+                    poll,
+                );
+                payload =
+                    page.status === QueryHistoryStatus.READY
+                        ? {
+                              queryUuid,
+                              rows: page.rows,
+                              columns: page.columns,
+                              source: 'field-values-endpoint',
+                          }
+                        : { queryUuid, page, source: 'field-values-endpoint' };
+            } catch (e) {
+                const message = e instanceof Error ? e.message : String(e);
+                const isMissingEndpoint = isFieldValuesEndpointMissing(message);
+                if (!isMissingEndpoint) {
+                    throw new Error(
+                        `search_field_values 执行失败：${message}\n请检查字段 fieldId、权限以及项目上下文是否正确。`,
+                    );
+                }
+                const table = args.table as string;
+                const fieldId = args.fieldId as string;
+                const hasFilters =
+                    args.filters !== undefined && args.filters !== null;
+                if (!hasFilters) {
+                    const sqlField = inferSqlDistinctField(table, fieldId);
+                    const escapedTable = toSqlIdentifier(table);
+                    const escapedField = toSqlIdentifier(sqlField);
+                    const escapedAlias = toSqlIdentifier(fieldId);
+                    const escapedQuery = queryText.replace(/'/g, "''");
+                    const sql = queryText.trim().length
+                        ? `SELECT DISTINCT ${escapedField} AS ${escapedAlias} FROM ${escapedTable} WHERE CAST(${escapedField} AS TEXT) ILIKE '%${escapedQuery}%' LIMIT 100`
+                        : `SELECT DISTINCT ${escapedField} AS ${escapedAlias} FROM ${escapedTable} LIMIT 100`;
+                    try {
+                        const sqlResult = await api.runSqlUntilReady(
+                            apiKey,
+                            projectUuid,
+                            {
+                                sql,
+                                limit: 100,
+                                invalidateCache: false,
+                            },
+                            poll,
+                        );
+                        payload = {
+                            queryUuid: sqlResult.queryUuid,
+                            rows: rowsToScalarFlat(
+                                (sqlResult.page as { rows?: unknown }).rows ?? [],
+                            ),
+                            columns: (
+                                sqlResult.page as { columns?: unknown }
+                            ).columns,
+                            source: 'sql-distinct-fallback',
+                            note: 'field-values 接口不可用，已回退至 SELECT DISTINCT（假设仓库支持 CAST(.. AS TEXT) + ILIKE）',
+                        };
+                        return {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: full
+                                        ? JSON.stringify(payload, null, 2)
+                                        : JSON.stringify(
+                                              {
+                                                  rows:
+                                                      (payload.rows as
+                                                          | unknown[]
+                                                          | undefined) ?? [],
+                                                  source: payload.source,
+                                              },
+                                              null,
+                                              2,
+                                          ),
+                                },
+                            ],
+                        };
+                    } catch {
+                        // fall through to metric-query fallback
+                    }
+                }
+                const resolveFieldId = await deps.getFieldResolver(
+                    apiKey,
+                    projectUuid,
+                    table,
+                );
+                const resolvedField = resolveFieldId(fieldId);
+                const fallback = await api.runMetricQueryUntilReady(
+                    apiKey,
+                    projectUuid,
+                    {
+                        query: {
+                            exploreName: table,
+                            dimensions: [resolvedField],
+                            metrics: [],
+                            filters: args.filters ?? {},
+                            limit: 100,
+                        },
+                    },
+                    poll,
+                );
+                const flatRows = rowsToScalarFlat(fallback.rows) as Record<
+                    string,
+                    unknown
+                >[];
+                const lowerQuery = queryText.trim().toLowerCase();
+                const values = Array.from(
+                    new Set(
+                        flatRows
+                            .map((r) => r[resolvedField])
+                            .filter((v) => v !== null && v !== undefined)
+                            .map((v) => String(v))
+                            .filter((v) =>
+                                lowerQuery.length > 0
+                                    ? v.toLowerCase().includes(lowerQuery)
+                                    : true,
+                            ),
+                    ),
+                );
+                payload = {
+                    queryUuid: fallback.queryUuid,
+                    rows: values.map((value) => ({ value })),
+                    columns: [resolvedField],
+                    source: 'metric-query-fallback',
+                    note: hasFilters
+                        ? 'field-values 接口不可用，且存在 filters，已回退至 metric-query 去重检索'
+                        : 'SQL DISTINCT 回退失败，已回退至 metric-query 近似去重',
+                };
+            }
             return {
                 content: [
-                    { type: 'text', text: JSON.stringify(payload, null, 2) },
+                    {
+                        type: 'text',
+                        text: full
+                            ? JSON.stringify(payload, null, 2)
+                            : JSON.stringify(
+                                  {
+                                      rows:
+                                          (payload.rows as unknown[] | undefined) ??
+                                          [],
+                                      source: payload.source,
+                                  },
+                                  null,
+                                  2,
+                              ),
+                    },
                 ],
             };
         },
@@ -98,7 +325,7 @@ export function registerQueryTools(
         server,
         'core-tool',
         'run_sql',
-        '执行原始 SQL（POST …/query/sql + 轮询）。limit 受 LIGHTDASH_MAX_LIMIT 约束。',
+        '执行原始 SQL（POST …/query/sql + 轮询）。⚠️ 仅支持 SELECT/CTE 只读语句；limit 受 LIGHTDASH_MAX_LIMIT 约束。',
         {
             apiKey: z.string().optional(),
             projectUuid: z.string().optional(),
@@ -106,6 +333,7 @@ export function registerQueryTools(
             limit: z.number().optional(),
             invalidateCache: z.boolean().optional(),
             parameters: z.any().optional(),
+            full: z.boolean().optional(),
         },
         async (args) => {
             const apiKey = resolveCoreToolsApiKey(
@@ -117,6 +345,7 @@ export function registerQueryTools(
                 apiKey,
                 args.projectUuid as string | undefined,
             );
+            assertReadonlySql(args.sql as string);
             const { queryUuid, page } = await api.runSqlUntilReady(
                 apiKey,
                 projectUuid,
@@ -128,11 +357,12 @@ export function registerQueryTools(
                 },
                 poll,
             );
+            const full = (args.full as boolean | undefined) ?? false;
             const payload =
                 page.status === QueryHistoryStatus.READY
                     ? {
                           queryUuid,
-                          rows: page.rows,
+                          rows: full ? page.rows : rowsToScalarFlat(page.rows),
                           columns: page.columns,
                       }
                     : { queryUuid, page };
@@ -148,11 +378,14 @@ export function registerQueryTools(
         server,
         'core-tool',
         'run_metric_query',
-        '异步指标查询（v2 metric-query + 轮询）。参数为扁平字段，不使用 query 嵌套。',
+        '异步指标查询（v2 metric-query + 轮询）。推荐使用 queryConfig(JSON 块)；metricQuery/扁平参数保留兼容。示例：run_metric_query(queryConfig:{exploreName:"orders",dimensions:["orders_date"],metrics:["orders_count"],filters:{dimensions:{and:[{target:{fieldId:"orders_date"},operator:"inThePast",values:["30 days"]}]}}})。',
         {
             apiKey: z.string().optional(),
             projectUuid: z.string().optional(),
-            exploreName: z.string().min(1),
+            queryConfig: z.any().optional(),
+            exploreName: z.string().min(1).optional(),
+            metricQuery: z.any().optional(),
+            requiredFilterFieldIds: z.array(z.string()).optional(),
             dimensions: z.array(z.string()).optional(),
             metrics: z.array(z.string()).optional(),
             filters: z.any().optional(),
@@ -172,6 +405,7 @@ export function registerQueryTools(
             pageSize: z.number().optional(),
             maxPollAttempts: z.number().optional(),
             pollIntervalMs: z.number().optional(),
+            full: z.boolean().optional(),
         },
         async (args) => {
             const apiKey = resolveCoreToolsApiKey(
@@ -190,56 +424,140 @@ export function registerQueryTools(
             const pollIntervalMs =
                 (args.pollIntervalMs as number | undefined) ??
                 poll.pollIntervalMs;
-            const exploreName = args.exploreName as string;
+            const exploreName = args.exploreName as string | undefined;
+            const queryConfigBlock = toMetricQueryBlock(args.queryConfig);
+            const metricQueryBlock = toMetricQueryBlock(args.metricQuery);
+            const effectiveExploreName =
+                (queryConfigBlock?.exploreName as string | undefined) ??
+                (metricQueryBlock?.exploreName as string | undefined) ??
+                exploreName;
+            if (!effectiveExploreName) {
+                throw new Error(
+                    'run_metric_query 缺少 exploreName，请在 exploreName 或 metricQuery.exploreName 中提供',
+                );
+            }
             const resolveFieldId = await deps.getFieldResolver(
                 apiKey,
                 projectUuid,
-                exploreName,
+                effectiveExploreName,
             );
-            const result = await api.runMetricQueryUntilReady(
-                apiKey,
-                projectUuid,
-                {
-                    context: toOptionalQueryContext(args.context),
-                    invalidateCache: args.invalidateCache as boolean | undefined,
-                    parameters: toObjectLike(args.parameters, 'parameters') as
-                        | never
-                        | undefined,
-                    dateZoom: toObjectLike(args.dateZoom, 'dateZoom') as
-                        | never
-                        | undefined,
-                    pivotConfiguration: toObjectLike(
-                        args.pivotConfiguration,
-                        'pivotConfiguration',
-                    ) as never | undefined,
-                    dashboardUuid: args.dashboardUuid as string | undefined,
-                    query: {
-                        exploreName,
-                        dimensions: toStringArray(args.dimensions).map(
-                            resolveFieldId,
-                        ),
-                        metrics: toStringArray(args.metrics).map(resolveFieldId),
-                        filters: toFilters(args.filters, resolveFieldId),
-                        sorts: toSorts(args.sorts, resolveFieldId),
-                        limit: args.limit as number | undefined,
-                        tableCalculations: toArray(args.tableCalculations),
-                        additionalMetrics: toArrayLike(
-                            args.additionalMetrics,
-                            'additionalMetrics',
-                        ),
-                        customDimensions: toArrayLike(
-                            args.customDimensions,
-                            'customDimensions',
-                        ),
-                        timezone: args.timezone as string | undefined,
-                        metricOverrides: toObjectLike(
-                            args.metricOverrides,
-                            'metricOverrides',
-                        ),
+            const mqDimensions =
+                (
+                    (queryConfigBlock?.dimensions as unknown[] | undefined) ??
+                    (metricQueryBlock?.dimensions as unknown[] | undefined)
+                )?.filter(
+                    (d): d is string => typeof d === 'string',
+                ) ?? toStringArray(args.dimensions);
+            const mqMetrics =
+                (
+                    (queryConfigBlock?.metrics as unknown[] | undefined) ??
+                    (metricQueryBlock?.metrics as unknown[] | undefined)
+                )?.filter(
+                    (d): d is string => typeof d === 'string',
+                ) ?? toStringArray(args.metrics);
+            try {
+                const normalizedFilters = toFilters(
+                    queryConfigBlock?.filters ??
+                        metricQueryBlock?.filters ??
+                        args.filters,
+                    resolveFieldId,
+                );
+                const requiredFilterFieldIds = (
+                    (queryConfigBlock?.requiredFilterFieldIds as
+                        | unknown[]
+                        | undefined) ??
+                    (args.requiredFilterFieldIds as unknown[] | undefined) ??
+                    []
+                ).filter((x): x is string => typeof x === 'string');
+                if (requiredFilterFieldIds.length > 0) {
+                    const existingFieldIds = new Set(
+                        getNormalizedDimensionFilterFieldIds(normalizedFilters),
+                    );
+                    const missing = requiredFilterFieldIds.find(
+                        (fieldId) => !existingFieldIds.has(resolveFieldId(fieldId)),
+                    );
+                    if (missing) {
+                        const resolvedMissing = resolveFieldId(missing);
+                        throw new Error(
+                            buildMissingFilterErrorMessage({
+                                fieldLabel: missing,
+                                fieldId: resolvedMissing,
+                            }),
+                        );
+                    }
+                }
+                const result = await api.runMetricQueryUntilReady(
+                    apiKey,
+                    projectUuid,
+                    {
+                        context:
+                            toOptionalQueryContext(args.context) ??
+                            QueryExecutionContext.MCP,
+                        invalidateCache: args.invalidateCache as
+                            | boolean
+                            | undefined,
+                        parameters: toObjectLike(args.parameters, 'parameters') as
+                            | never
+                            | undefined,
+                        dateZoom: toObjectLike(args.dateZoom, 'dateZoom') as
+                            | never
+                            | undefined,
+                        pivotConfiguration: toObjectLike(
+                            args.pivotConfiguration,
+                            'pivotConfiguration',
+                        ) as never | undefined,
+                        dashboardUuid: args.dashboardUuid as string | undefined,
+                        query: {
+                            exploreName: effectiveExploreName,
+                            dimensions: mqDimensions.map(resolveFieldId),
+                            metrics: mqMetrics.map(resolveFieldId),
+                            filters: normalizedFilters,
+                            sorts: toSorts(
+                                queryConfigBlock?.sorts ??
+                                    metricQueryBlock?.sorts ??
+                                    args.sorts,
+                                resolveFieldId,
+                            ),
+                            limit:
+                                (queryConfigBlock?.limit as number | undefined) ??
+                                (metricQueryBlock?.limit as number | undefined) ??
+                                (args.limit as number | undefined),
+                            tableCalculations: toArray(
+                                queryConfigBlock?.tableCalculations ??
+                                    metricQueryBlock?.tableCalculations ??
+                                    args.tableCalculations,
+                            ),
+                            additionalMetrics: toArrayLike(
+                                queryConfigBlock?.additionalMetrics ??
+                                    metricQueryBlock?.additionalMetrics ??
+                                    args.additionalMetrics,
+                                'additionalMetrics',
+                            ),
+                            customDimensions: toArrayLike(
+                                queryConfigBlock?.customDimensions ??
+                                    metricQueryBlock?.customDimensions ??
+                                    args.customDimensions,
+                                'customDimensions',
+                            ),
+                            timezone:
+                                (queryConfigBlock?.timezone as
+                                    | string
+                                    | undefined) ??
+                                (metricQueryBlock?.timezone as
+                                    | string
+                                    | undefined) ??
+                                (args.timezone as string | undefined),
+                            metricOverrides: toObjectLike(
+                                queryConfigBlock?.metricOverrides ??
+                                    metricQueryBlock?.metricOverrides ??
+                                    args.metricOverrides,
+                                'metricOverrides',
+                            ),
+                        },
                     },
-                },
-                { pageSize, maxPollAttempts, pollIntervalMs },
-            );
+                    { pageSize, maxPollAttempts, pollIntervalMs },
+                );
+            const full = (args.full as boolean | undefined) ?? false;
             const rowsUnknown = result.rows as unknown[];
             const rowRecords = rowsUnknown.filter(
                 (r): r is Record<string, unknown> =>
@@ -260,10 +578,23 @@ export function registerQueryTools(
                     : '';
             const structuredContent = {
                 queryUuid: result.queryUuid,
-                rows: result.rows,
+                rows: full ? result.rows : rowsToScalarFlat(result.rows),
                 columns: result.columns,
                 fields: result.executeResult.fields,
                 warnings: result.executeResult.warnings,
+                deprecatedInputsUsed:
+                    queryConfigBlock === null &&
+                    metricQueryBlock === null &&
+                    hasFlatMetricInputs(args as Record<string, unknown>)
+                        ? [
+                              'exploreName',
+                              'dimensions',
+                              'metrics',
+                              'filters',
+                              'sorts',
+                              'limit',
+                          ]
+                        : [],
             };
             return {
                 content: [
@@ -281,6 +612,9 @@ export function registerQueryTools(
                 ],
                 structuredContent,
             };
+            } catch (error) {
+                throw new Error(formatRunMetricQueryError(error));
+            }
         },
     );
 }
