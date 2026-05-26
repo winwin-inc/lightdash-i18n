@@ -33,17 +33,37 @@ export function slimSpace(item: unknown): AnyRecord {
 
 export function slimContentItem(item: unknown): AnyRecord {
     const row = asRecord(item) ?? {};
-    const project = asRecord(row.project);
-    const space = asRecord(row.space);
     return {
         contentType: row.contentType ?? null,
         uuid: row.uuid ?? null,
         name: row.name ?? null,
         views: row.views ?? null,
         webUrl: row.webUrl ?? null,
+    };
+}
+
+export function slimChartSearchItem(item: unknown): AnyRecord {
+    const row = asRecord(item) ?? {};
+    const space = asRecord(row.space);
+    return {
+        uuid: row.uuid ?? null,
+        name: row.name ?? null,
         chartKind: row.chartKind ?? null,
         spaceName: space?.name ?? null,
-        projectUuid: project?.uuid ?? null,
+        views: row.views ?? null,
+        webUrl: row.webUrl ?? null,
+    };
+}
+
+export function slimDashboardSearchItem(item: unknown): AnyRecord {
+    const row = asRecord(item) ?? {};
+    const space = asRecord(row.space);
+    return {
+        uuid: row.uuid ?? null,
+        name: row.name ?? null,
+        views: row.views ?? null,
+        webUrl: row.webUrl ?? null,
+        spaceName: space?.name ?? null,
     };
 }
 

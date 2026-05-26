@@ -1,3 +1,5 @@
+import { getItemId } from '@lightdash/common';
+
 export function normalizeAlias(input: string): string {
     return input.trim().toLowerCase();
 }
@@ -21,8 +23,18 @@ export function createFieldIdResolverFromExplore(
         }
         if (!node || typeof node !== 'object') return;
         const obj = node as Record<string, unknown>;
+        const tableName =
+            typeof obj.table === 'string'
+                ? obj.table
+                : typeof obj.tableName === 'string'
+                  ? obj.tableName
+                  : undefined;
+        const fallbackFieldId =
+            tableName && typeof obj.name === 'string'
+                ? getItemId({ table: tableName, name: obj.name })
+                : undefined;
         const fieldId =
-            typeof obj.fieldId === 'string' ? obj.fieldId : undefined;
+            typeof obj.fieldId === 'string' ? obj.fieldId : fallbackFieldId;
         if (fieldId) {
             addAlias(fieldId, fieldId);
             if (fieldId.startsWith(`${exploreName}_`)) {

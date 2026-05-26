@@ -1,4 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { getItemId } from '@lightdash/common';
 import { z } from 'zod';
 import type { LightdashMcpEnvConfig } from '../../config';
 import type { LightdashRestClient } from '../../rest/lightdashRest';
@@ -22,9 +23,69 @@ type FieldCandidate = {
     type: string | null;
 };
 
-function collectFieldsFromExplore(explore: unknown): FieldCandidate[] {
+export function resolveFieldIdFromParts(
+    fieldId: unknown,
+    table: unknown,
+    name: unknown,
+): string | null {
+    if (typeof fieldId === 'string' && fieldId.length > 0) return fieldId;
+    if (
+        typeof table === 'string' &&
+        table.length > 0 &&
+        typeof name === 'string' &&
+        name.length > 0
+    ) {
+        return getItemId({ table, name });
+    }
+    return null;
+}
+
+export function collectFieldsFromExplore(explore: unknown): FieldCandidate[] {
     const result: FieldCandidate[] = [];
     const seen = new Set<string>();
+    const pushCandidate = (params: {
+        fieldId: unknown;
+        table: unknown;
+        name: unknown;
+        label: unknown;
+        type: unknown;
+    }): void => {
+        const resolvedFieldId = resolveFieldIdFromParts(
+            params.fieldId,
+            params.table,
+            params.name,
+        );
+        if (!resolvedFieldId || seen.has(resolvedFieldId)) return;
+        seen.add(resolvedFieldId);
+        result.push({
+            fieldId: resolvedFieldId,
+            name: typeof params.name === 'string' ? params.name : null,
+            label: typeof params.label === 'string' ? params.label : null,
+            type: typeof params.type === 'string' ? params.type : null,
+        });
+    };
+    const root = explore as Record<string, unknown> | null;
+    const tables = Array.isArray(root?.tables) ? root.tables : [];
+    tables.forEach((tableItem) => {
+        if (!tableItem || typeof tableItem !== 'object') return;
+        const tableObj = tableItem as Record<string, unknown>;
+        const tableName = tableObj.name;
+        const dimensions = Array.isArray(tableObj.dimensions)
+            ? tableObj.dimensions
+            : [];
+        const metrics = Array.isArray(tableObj.metrics) ? tableObj.metrics : [];
+        [...dimensions, ...metrics].forEach((fieldItem) => {
+            if (!fieldItem || typeof fieldItem !== 'object') return;
+            const fieldObj = fieldItem as Record<string, unknown>;
+            pushCandidate({
+                fieldId: fieldObj.fieldId,
+                table: fieldObj.table ?? tableName,
+                name: fieldObj.name,
+                label: fieldObj.label,
+                type: fieldObj.type,
+            });
+        });
+    });
     const walk = (node: unknown): void => {
         if (Array.isArray(node)) {
             node.forEach(walk);
@@ -32,16 +93,13 @@ function collectFieldsFromExplore(explore: unknown): FieldCandidate[] {
         }
         if (!node || typeof node !== 'object') return;
         const obj = node as Record<string, unknown>;
-        const fieldId = typeof obj.fieldId === 'string' ? obj.fieldId : null;
-        if (fieldId && !seen.has(fieldId)) {
-            seen.add(fieldId);
-            result.push({
-                fieldId,
-                name: typeof obj.name === 'string' ? obj.name : null,
-                label: typeof obj.label === 'string' ? obj.label : null,
-                type: typeof obj.type === 'string' ? obj.type : null,
-            });
-        }
+        pushCandidate({
+            fieldId: obj.fieldId,
+            table: obj.table ?? obj.tableName,
+            name: obj.name,
+            label: obj.label,
+            type: obj.type,
+        });
         Object.values(obj).forEach(walk);
     };
     walk(explore);
@@ -226,7 +284,7 @@ export function registerExploreCatalogTools(
             const explore = await api.getExplore(apiKey, projectUuid, table);
             const exploreFields = collectFieldsFromExplore(explore);
             for (const q of queries) {
-                const searchStr = `${table} ${q.label}`.trim();
+                const searchStr = q.label.trim();
                 const catalog = await api.getCatalog(apiKey, projectUuid, {
                     search: searchStr,
                     type: 'field',
@@ -240,12 +298,26 @@ export function registerExploreCatalogTools(
                 const catalogRows = Array.isArray(catalogResults)
                     ? catalogResults
                     : extractCatalogItems(catalogResults);
-                const catalogTotal = catalogRows.length;
+                const tableScopedCatalogRows = catalogRows.filter((item) => {
+                    if (!item || typeof item !== 'object') return false;
+                    const row = item as Record<string, unknown>;
+                    if (row.tableName === table) return true;
+                    const resolvedFieldId = resolveFieldIdFromParts(
+                        row.fieldId,
+                        row.tableName,
+                        row.name,
+                    );
+                    return (
+                        typeof resolvedFieldId === 'string' &&
+                        resolvedFieldId.startsWith(`${table}_`)
+                    );
+                });
+                const catalogTotal = tableScopedCatalogRows.length;
                 const catalogTotalPageCount = Math.max(
                     1,
                     Math.ceil(catalogTotal / pageSize),
                 );
-                const catalogPaged = catalogRows.slice(
+                const catalogPaged = tableScopedCatalogRows.slice(
                     (page - 1) * pageSize,
                     (page - 1) * pageSize + pageSize,
                 );
@@ -261,18 +333,22 @@ export function registerExploreCatalogTools(
                     page,
                     pageSize,
                     primaryCatalogResults: maybeSlimList(
-                        catalogPaged,
+                        catalogPaged.length > 0 ? catalogPaged : exploreMatched.rows,
                         full,
                         (item) => {
                             const row = item as Record<string, unknown>;
+                            const resolvedFieldId = resolveFieldIdFromParts(
+                                row.fieldId,
+                                row.tableName,
+                                row.name,
+                            );
                             return {
                                 name:
                                     (row.name as string | undefined) ??
-                                    (row.fieldId as string | undefined) ??
+                                    resolvedFieldId ??
                                     null,
                                 label: (row.label as string | undefined) ?? null,
-                                fieldId:
-                                    (row.fieldId as string | undefined) ?? null,
+                                fieldId: resolvedFieldId,
                                 heuristicScore:
                                     (row.heuristicScore as number | undefined) ??
                                     null,

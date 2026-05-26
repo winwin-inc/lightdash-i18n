@@ -94,7 +94,7 @@ function toSqlIdentifier(input: string): string {
     return `"${input.replace(/"/g, '""')}"`;
 }
 
-function inferSqlDistinctField(table: string, fieldId: string): string {
+export function inferSqlDistinctField(table: string, fieldId: string): string {
     const prefix = `${table}_`;
     if (fieldId.startsWith(prefix) && fieldId.length > prefix.length) {
         return fieldId.slice(prefix.length);
@@ -102,12 +102,15 @@ function inferSqlDistinctField(table: string, fieldId: string): string {
     return fieldId;
 }
 
-function isFieldValuesEndpointMissing(message: string): boolean {
+export function isFieldValuesEndpointMissing(message: string): boolean {
     const normalized = message.toLowerCase();
     const isHttp404 = /^lightdash api 404:/i.test(message);
     const mentionsFieldValues =
         normalized.includes('field-values') ||
-        normalized.includes('/query/field-values');
+        normalized.includes('/query/field-values') ||
+        normalized.includes('/field/') ||
+        normalized.includes('api endpoint not found') ||
+        normalized.includes('notfounderror');
     return isHttp404 && mentionsFieldValues;
 }
 
@@ -136,7 +139,7 @@ export function registerQueryTools(
         server,
         'core-tool',
         'search_field_values',
-        '搜索某维度字段取值（POST …/query/field-values + 轮询）。query 可空字符串表示不限。若接口不可用，将回退到 SQL DISTINCT（再失败则回退 metric-query）。',
+        '搜索某维度字段取值（优先走项目 field search 接口）。query 可空字符串表示不限。若接口不可用，将回退到 SQL DISTINCT（再失败则回退 metric-query）。',
         {
             apiKey: z.string().optional(),
             projectUuid: z.string().optional(),
@@ -163,27 +166,48 @@ export function registerQueryTools(
                     : String(args.query);
             let payload: Record<string, unknown>;
             try {
-                const { queryUuid, page } = await api.searchFieldValuesUntilReady(
+                const directResult = (await api.searchFieldUniqueValues(
                     apiKey,
                     projectUuid,
                     {
                         table: args.table as string,
                         fieldId: args.fieldId as string,
-                        query: queryText,
+                        search: queryText,
                         filters: args.filters,
                         limit: 100,
                     },
-                    poll,
-                );
+                )) as Record<string, unknown>;
+                const rawValues = Array.isArray(directResult.results)
+                    ? directResult.results
+                    : [];
                 payload =
-                    page.status === QueryHistoryStatus.READY
+                    rawValues.length > 0 || queryText.length === 0
                         ? {
-                              queryUuid,
-                              rows: page.rows,
-                              columns: page.columns,
-                              source: 'field-values-endpoint',
+                              queryUuid: null,
+                              rows: rawValues.map((value) => ({ value })),
+                              source: 'field-values-v1-endpoint',
+                              cached:
+                                  typeof directResult.cached === 'boolean'
+                                      ? directResult.cached
+                                      : null,
+                              refreshedAt:
+                                  (directResult.refreshedAt as
+                                      | string
+                                      | undefined) ?? null,
                           }
-                        : { queryUuid, page, source: 'field-values-endpoint' };
+                        : {
+                              queryUuid: null,
+                              rows: [],
+                              source: 'field-values-v1-endpoint',
+                              cached:
+                                  typeof directResult.cached === 'boolean'
+                                      ? directResult.cached
+                                      : null,
+                              refreshedAt:
+                                  (directResult.refreshedAt as
+                                      | string
+                                      | undefined) ?? null,
+                          };
             } catch (e) {
                 const message = e instanceof Error ? e.message : String(e);
                 const isMissingEndpoint = isFieldValuesEndpointMissing(message);
@@ -196,6 +220,7 @@ export function registerQueryTools(
                 const fieldId = args.fieldId as string;
                 const hasFilters =
                     args.filters !== undefined && args.filters !== null;
+                const fallbackErrors: string[] = [`primary: ${message}`];
                 if (!hasFilters) {
                     const sqlField = inferSqlDistinctField(table, fieldId);
                     const escapedTable = toSqlIdentifier(table);
@@ -247,57 +272,72 @@ export function registerQueryTools(
                                 },
                             ],
                         };
-                    } catch {
-                        // fall through to metric-query fallback
+                    } catch (sqlError) {
+                        const sqlMessage =
+                            sqlError instanceof Error
+                                ? sqlError.message
+                                : String(sqlError);
+                        fallbackErrors.push(`sql: ${sqlMessage}`);
                     }
                 }
-                const resolveFieldId = await deps.getFieldResolver(
-                    apiKey,
-                    projectUuid,
-                    table,
-                );
-                const resolvedField = resolveFieldId(fieldId);
-                const fallback = await api.runMetricQueryUntilReady(
-                    apiKey,
-                    projectUuid,
-                    {
-                        query: {
-                            exploreName: table,
-                            dimensions: [resolvedField],
-                            metrics: [],
-                            filters: args.filters ?? {},
-                            limit: 100,
+                try {
+                    const resolveFieldId = await deps.getFieldResolver(
+                        apiKey,
+                        projectUuid,
+                        table,
+                    );
+                    const resolvedField = resolveFieldId(fieldId);
+                    const fallback = await api.runMetricQueryUntilReady(
+                        apiKey,
+                        projectUuid,
+                        {
+                            query: {
+                                exploreName: table,
+                                dimensions: [resolvedField],
+                                metrics: [],
+                                filters: args.filters ?? {},
+                                limit: 100,
+                            },
                         },
-                    },
-                    poll,
-                );
-                const flatRows = rowsToScalarFlat(fallback.rows) as Record<
-                    string,
-                    unknown
-                >[];
-                const lowerQuery = queryText.trim().toLowerCase();
-                const values = Array.from(
-                    new Set(
-                        flatRows
-                            .map((r) => r[resolvedField])
-                            .filter((v) => v !== null && v !== undefined)
-                            .map((v) => String(v))
-                            .filter((v) =>
-                                lowerQuery.length > 0
-                                    ? v.toLowerCase().includes(lowerQuery)
-                                    : true,
-                            ),
-                    ),
-                );
-                payload = {
-                    queryUuid: fallback.queryUuid,
-                    rows: values.map((value) => ({ value })),
-                    columns: [resolvedField],
-                    source: 'metric-query-fallback',
-                    note: hasFilters
-                        ? 'field-values 接口不可用，且存在 filters，已回退至 metric-query 去重检索'
-                        : 'SQL DISTINCT 回退失败，已回退至 metric-query 近似去重',
-                };
+                        poll,
+                    );
+                    const flatRows = rowsToScalarFlat(fallback.rows) as Record<
+                        string,
+                        unknown
+                    >[];
+                    const lowerQuery = queryText.trim().toLowerCase();
+                    const values = Array.from(
+                        new Set(
+                            flatRows
+                                .map((r) => r[resolvedField])
+                                .filter((v) => v !== null && v !== undefined)
+                                .map((v) => String(v))
+                                .filter((v) =>
+                                    lowerQuery.length > 0
+                                        ? v.toLowerCase().includes(lowerQuery)
+                                        : true,
+                                ),
+                        ),
+                    );
+                    payload = {
+                        queryUuid: fallback.queryUuid,
+                        rows: values.map((value) => ({ value })),
+                        columns: [resolvedField],
+                        source: 'metric-query-fallback',
+                        note: hasFilters
+                            ? 'field-values 接口不可用，且存在 filters，已回退至 metric-query 去重检索'
+                            : 'SQL DISTINCT 回退失败，已回退至 metric-query 近似去重',
+                    };
+                } catch (metricError) {
+                    const metricMessage =
+                        metricError instanceof Error
+                            ? metricError.message
+                            : String(metricError);
+                    fallbackErrors.push(`metric-query: ${metricMessage}`);
+                    throw new Error(
+                        `search_field_values 执行失败，且所有回退均失败：\n${fallbackErrors.join('\n')}`,
+                    );
+                }
             }
             return {
                 content: [
@@ -360,11 +400,16 @@ export function registerQueryTools(
             const full = (args.full as boolean | undefined) ?? false;
             const payload =
                 page.status === QueryHistoryStatus.READY
-                    ? {
-                          queryUuid,
-                          rows: full ? page.rows : rowsToScalarFlat(page.rows),
-                          columns: page.columns,
-                      }
+                    ? full
+                        ? {
+                              queryUuid,
+                              rows: page.rows,
+                              columns: page.columns,
+                          }
+                        : {
+                              queryUuid,
+                              rows: rowsToScalarFlat(page.rows),
+                          }
                     : { queryUuid, page };
             return {
                 content: [
@@ -577,11 +622,18 @@ export function registerQueryTools(
                       })
                     : '';
             const structuredContent = {
-                queryUuid: result.queryUuid,
-                rows: full ? result.rows : rowsToScalarFlat(result.rows),
-                columns: result.columns,
-                fields: result.executeResult.fields,
-                warnings: result.executeResult.warnings,
+                ...(full
+                    ? {
+                          queryUuid: result.queryUuid,
+                          rows: result.rows,
+                          columns: result.columns,
+                          fields: result.executeResult.fields,
+                          warnings: result.executeResult.warnings,
+                      }
+                    : {
+                          queryUuid: result.queryUuid,
+                          rows: rowsToScalarFlat(result.rows),
+                      }),
                 deprecatedInputsUsed:
                     queryConfigBlock === null &&
                     metricQueryBlock === null &&
@@ -603,12 +655,16 @@ export function registerQueryTools(
                         text:
                             csv.length > 0
                                 ? csv
-                                : '(no tabular columns; see JSON block)',
+                                : '(no tabular columns)',
                     },
-                    {
-                        type: 'text',
-                        text: JSON.stringify(structuredContent, null, 2),
-                    },
+                    ...(full
+                        ? [
+                              {
+                                  type: 'text' as const,
+                                  text: JSON.stringify(structuredContent, null, 2),
+                              },
+                          ]
+                        : []),
                 ],
                 structuredContent,
             };

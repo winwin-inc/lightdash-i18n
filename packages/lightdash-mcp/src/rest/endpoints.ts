@@ -141,6 +141,43 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         return json.results ?? json;
     }
 
+    async function searchFieldUniqueValues(
+        apiKey: string,
+        projectUuid: string,
+        args: {
+            table: string;
+            fieldId: string;
+            search: string;
+            limit?: number;
+            filters?: unknown;
+            forceRefresh?: boolean;
+            parameters?: Record<string, unknown>;
+            dashboardSlug?: string;
+            dashboardName?: string;
+        },
+    ): Promise<unknown> {
+        const json = await requestJson<{ results?: unknown }>(
+            apiKey,
+            `/api/v1/projects/${encodeURIComponent(
+                projectUuid,
+            )}/field/${encodeURIComponent(args.fieldId)}/search`,
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    table: args.table,
+                    search: args.search,
+                    limit: args.limit ?? 100,
+                    filters: args.filters,
+                    forceRefresh: args.forceRefresh,
+                    parameters: args.parameters,
+                    dashboardSlug: args.dashboardSlug,
+                    dashboardName: args.dashboardName,
+                }),
+            },
+        );
+        return json.results ?? json;
+    }
+
     async function listVerifiedContent(
         apiKey: string,
         projectUuid: string,
@@ -194,6 +231,7 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         getProject,
         getDashboard,
         getCatalog,
+        searchFieldUniqueValues,
         listVerifiedContent,
         getDashboardsAsCode,
     };

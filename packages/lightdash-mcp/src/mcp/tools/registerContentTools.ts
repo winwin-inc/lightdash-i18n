@@ -10,7 +10,12 @@ import {
     extractLightdashVersion,
     isVersionAtLeast,
 } from '../../lib/lightdashVersion';
-import { maybeSlimList, slimContentItem } from '../../lib/toolOutput';
+import {
+    maybeSlimList,
+    slimChartSearchItem,
+    slimContentItem,
+    slimDashboardSearchItem,
+} from '../../lib/toolOutput';
 import type { LightdashRestClient } from '../../rest/lightdashRest';
 import { registerToolTyped } from '../registerToolTyped';
 import {
@@ -27,11 +32,21 @@ const searchQueriesSchema = {
     full: z.boolean().optional(),
 };
 
+export function getContentSlimMapper(
+    contentTypes: string[] | undefined,
+): (item: unknown) => Record<string, unknown> {
+    if (!contentTypes || contentTypes.length !== 1) return slimContentItem;
+    if (contentTypes[0] === 'chart') return slimChartSearchItem;
+    if (contentTypes[0] === 'dashboard') return slimDashboardSearchItem;
+    return slimContentItem;
+}
+
 async function runLabelWiseContentSearch(
     args: Record<string, unknown>,
     config: LightdashMcpEnvConfig,
     api: LightdashRestClient,
     contentTypes: string[] | undefined,
+    slimItem: (item: unknown) => Record<string, unknown>,
 ): Promise<CallToolResult> {
     const apiKey = resolveCoreToolsApiKey(
         config,
@@ -61,7 +76,7 @@ async function runLabelWiseContentSearch(
         );
         merged.push({
             label,
-            results: maybeSlimList(enriched, full, slimContentItem),
+            results: maybeSlimList(enriched, full, slimItem),
         });
     }
     return {
@@ -86,6 +101,7 @@ export function registerContentTools(
                 config,
                 api,
                 undefined,
+                getContentSlimMapper(undefined),
             ),
     );
 
@@ -101,6 +117,7 @@ export function registerContentTools(
                 config,
                 api,
                 ['chart'],
+                getContentSlimMapper(['chart']),
             ),
     );
 
@@ -116,6 +133,7 @@ export function registerContentTools(
                 config,
                 api,
                 ['dashboard'],
+                getContentSlimMapper(['dashboard']),
             ),
     );
 
@@ -131,6 +149,7 @@ export function registerContentTools(
                 config,
                 api,
                 ['space'],
+                getContentSlimMapper(['space']),
             ),
     );
 

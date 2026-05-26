@@ -1,10 +1,37 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { LightdashMcpEnvConfig } from '../../config';
+import type { McpSessionState } from '../../lib/mcpSessionStore';
 import type { LightdashRestClient } from '../../rest/lightdashRest';
 import { getMcpSession, patchMcpSession } from '../../lib/mcpSessionStore';
 import { registerToolTyped } from '../registerToolTyped';
 import { resolveCoreToolsApiKey } from '../coreToolsContext';
+
+export function getCurrentProjectContext(
+    session: McpSessionState,
+    defaultProjectUuid: string | null,
+): {
+    sessionProjectUuid: string | null;
+    envDefaultProjectUuid: string | null;
+    effectiveProjectUuid: string | null;
+    source: 'session' | 'env' | 'none';
+} {
+    const sessionProjectUuid =
+        typeof session.projectUuid === 'string' ? session.projectUuid : null;
+    const envProjectUuid = defaultProjectUuid ?? null;
+    const effectiveProjectUuid = sessionProjectUuid ?? envProjectUuid;
+    const source = sessionProjectUuid
+        ? 'session'
+        : envProjectUuid
+          ? 'env'
+          : 'none';
+    return {
+        sessionProjectUuid,
+        envDefaultProjectUuid: envProjectUuid,
+        effectiveProjectUuid,
+        source,
+    };
+}
 
 export function registerSessionProjectTools(
     server: McpServer,
@@ -71,7 +98,7 @@ export function registerSessionProjectTools(
         server,
         'core-tool',
         'get_current_project',
-        '读取 set_project 设置的当前项目（内存会话）。',
+        '读取当前项目上下文（优先 set_project 会话，其次环境 LIGHTDASH_PROJECT_UUID）。会话为内存态并按 PAT 隔离。',
         { apiKey: z.string().optional() },
         async (args) => {
             const apiKey = resolveCoreToolsApiKey(
@@ -79,19 +106,25 @@ export function registerSessionProjectTools(
                 args.apiKey as string | undefined,
             );
             const s = getMcpSession(apiKey);
-            if (!s.projectUuid) {
+            const {
+                sessionProjectUuid,
+                envDefaultProjectUuid,
+                effectiveProjectUuid,
+                source,
+            } = getCurrentProjectContext(s, config.defaultProjectUuid);
+            if (!effectiveProjectUuid) {
                 return {
                     content: [
                         {
                             type: 'text',
                             text: JSON.stringify(
                                 {
-                                    error: '当前会话（set_project）未设置 projectUuid。',
+                                    error: '当前无可用 projectUuid（session 与 env 都为空）。',
                                     sessionProjectUuid: null,
-                                    envDefaultProjectUuid: config.defaultProjectUuid,
-                                    hint: config.defaultProjectUuid
-                                        ? '已配置 LIGHTDASH_PROJECT_UUID；多数工具在未传 projectUuid 时会使用该默认，亦可先 set_project 固定本会话。'
-                                        : '未配置 LIGHTDASH_PROJECT_UUID；调用需要项目的工具前请先 set_project，或在工具参数中传 projectUuid。',
+                                    envDefaultProjectUuid,
+                                    effectiveProjectUuid: null,
+                                    source,
+                                    hint: '请先调用 set_project，或在环境中配置 LIGHTDASH_PROJECT_UUID，或在每次工具参数中传 projectUuid。',
                                 },
                                 null,
                                 2,
@@ -106,9 +139,13 @@ export function registerSessionProjectTools(
                         type: 'text',
                         text: JSON.stringify(
                             {
-                                projectUuid: s.projectUuid,
+                                projectUuid: effectiveProjectUuid,
                                 projectName: s.projectName,
                                 selectedTags: s.tags,
+                                sessionProjectUuid,
+                                envDefaultProjectUuid,
+                                effectiveProjectUuid,
+                                source,
                             },
                             null,
                             2,

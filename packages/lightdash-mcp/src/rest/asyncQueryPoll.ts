@@ -328,22 +328,57 @@ export function createAsyncQueryMethods(
         apiKey: string,
         projectUuid: string,
         body: Record<string, unknown>,
-    ): Promise<{ queryUuid: string }> {
-        const json = await requestJson<{ results: { queryUuid: string } }>(
+    ): Promise<unknown> {
+        const table =
+            typeof body.table === 'string'
+                ? body.table
+                : (() => {
+                      throw new Error('table is required');
+                  })();
+        const fieldId =
+            typeof body.fieldId === 'string'
+                ? body.fieldId
+                : (() => {
+                      throw new Error('fieldId is required');
+                  })();
+        const json = await requestJson<{ results?: unknown }>(
             apiKey,
-            `/api/v2/projects/${ 
-                encodeURIComponent(projectUuid) 
-                }/query/field-values`,
+            `/api/v1/projects/${encodeURIComponent(
+                projectUuid,
+            )}/field/${encodeURIComponent(fieldId)}/search`,
             {
                 method: 'POST',
                 body: JSON.stringify({
-                    ...body,
-                    context:
-                        body.context ?? QueryExecutionContext.FILTER_AUTOCOMPLETE,
+                    table,
+                    search:
+                        typeof body.search === 'string'
+                            ? body.search
+                            : typeof body.query === 'string'
+                              ? body.query
+                              : '',
+                    limit:
+                        typeof body.limit === 'number'
+                            ? body.limit
+                            : clampLimit(100, maxLimit),
+                    filters: body.filters,
+                    forceRefresh:
+                        typeof body.forceRefresh === 'boolean'
+                            ? body.forceRefresh
+                            : false,
+                    parameters:
+                        typeof body.parameters === 'object' ? body.parameters : undefined,
+                    dashboardSlug:
+                        typeof body.dashboardSlug === 'string'
+                            ? body.dashboardSlug
+                            : undefined,
+                    dashboardName:
+                        typeof body.dashboardName === 'string'
+                            ? body.dashboardName
+                            : undefined,
                 }),
             },
         );
-        return json.results;
+        return json.results ?? json;
     }
 
     async function searchFieldValuesUntilReady(
@@ -370,17 +405,24 @@ export function createAsyncQueryMethods(
             filters: args.filters,
             context: QueryExecutionContext.FILTER_AUTOCOMPLETE,
         };
-        const { queryUuid } = await executeFieldValueSearch(
+        const result = (await executeFieldValueSearch(
             apiKey,
             projectUuid,
             body,
-        );
-        const page = await pollQueryPageUntilReady(
-            apiKey,
-            projectUuid,
-            queryUuid,
-            options,
-        );
+        )) as Record<string, unknown>;
+        const values = Array.isArray(result.results) ? result.results : [];
+        const rows = values.map((value) => ({ value }));
+        const queryUuid = 'field-values-v1-search';
+        const page = {
+            status: QueryHistoryStatus.READY,
+            rows,
+            columns: {
+                value: {
+                    type: 'string',
+                    reference: 'value',
+                },
+            },
+        } as unknown as ApiGetAsyncQueryResults;
         return { queryUuid, page };
     }
 
