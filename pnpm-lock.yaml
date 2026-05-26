@@ -42,6 +42,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^5.45.0
         version: 5.62.0(eslint@8.57.1)(typescript@5.5.4)
+      archiver:
+        specifier: ^7.0.1
+        version: 7.0.1
       confusing-browser-globals:
         specifier: ^1.0.11
         version: 1.0.11
@@ -565,49 +568,6 @@ importers:
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@swc/core@1.13.5)(@types/node@24.3.1)(typescript@5.7.2)
-
-  packages/charts-viewer:
-    dependencies:
-      '@mantine/core':
-        specifier: ^8.0.0
-        version: 8.0.0(@types/react@19.0.2)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
-      '@mantine/hooks':
-        specifier: ^8.0.0
-        version: 8.0.0(react@19.1.1)
-      echarts:
-        specifier: ^5.5.0
-        version: 5.6.0
-      echarts-for-react:
-        specifier: ^3.0.2
-        version: 3.0.6(echarts@5.6.0)(react@19.1.1)
-      next:
-        specifier: 15.3.0
-        version: 15.3.0(@babel/core@7.28.4)(@opentelemetry/api@1.9.0)(babel-plugin-macros@3.1.0)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
-      react:
-        specifier: ^19.0.0
-        version: 19.1.1
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.1.1(react@19.1.1)
-      topojson-client:
-        specifier: ^3.1.0
-        version: 3.1.0
-    devDependencies:
-      '@types/node':
-        specifier: ^20
-        version: 20.17.12
-      '@types/react':
-        specifier: 19.0.2
-        version: 19.0.2
-      '@types/react-dom':
-        specifier: 19.0.2
-        version: 19.0.2(@types/react@19.0.2)
-      postcss:
-        specifier: ^8.4.49
-        version: 8.5.6
-      typescript:
-        specifier: 5.5.4
-        version: 5.5.4
 
   packages/cli:
     dependencies:
@@ -15611,6 +15571,7 @@ packages:
   recharts@2.15.0:
     resolution: {integrity: sha512-cIvMxDfpAmqAmVgc4yb7pgm/O1tmmkl/CjrvXuW+62/+7jj/iF9Ykm+hb/UJt42TREHMyd3gb+pkgoa2MxgDIw==}
     engines: {node: '>=14'}
+    deprecated: 1.x and 2.x branches are no longer active. Bump to Recharts v3 to receive latest features and bugfixes. See https://github.com/recharts/recharts/wiki/3.0-migration-guide
     peerDependencies:
       react: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -17365,6 +17326,7 @@ packages:
 
   uuid@10.0.0:
     resolution: {integrity: sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   uuid@11.0.2:
@@ -17381,10 +17343,12 @@ packages:
 
   uuid@8.3.2:
     resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   uuid@9.0.1:
     resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   v8-compile-cache-lib@3.0.1:
@@ -28420,7 +28384,7 @@ snapshots:
   archiver@7.0.1:
     dependencies:
       archiver-utils: 5.0.2
-      async: 3.2.5
+      async: 3.2.6
       buffer-crc32: 1.0.0
       readable-stream: 4.5.2
       readdir-glob: 1.1.3
