@@ -739,6 +739,19 @@ export const isFilterableDimension = (
         DimensionType.BOOLEAN,
     ].includes(dimension.type);
 
+/** Custom SQL 维度用于筛选时，与 {@link isFilterableDimension} 的类型集合对齐 */
+export const isFilterableCustomSqlDimension = (
+    dimension: CustomSqlDimension,
+): boolean =>
+    isCustomSqlDimension(dimension) &&
+    [
+        DimensionType.STRING,
+        DimensionType.NUMBER,
+        DimensionType.DATE,
+        DimensionType.TIMESTAMP,
+        DimensionType.BOOLEAN,
+    ].includes(dimension.dimensionType);
+
 // TODO: FilterableField === FilterableItem, we should remove one of them, as well as one of the type guards
 export type FilterableField =
     | TableCalculation

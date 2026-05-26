@@ -37,6 +37,7 @@
         "@types/pegjs": "^0.10.3",
         "@typescript-eslint/eslint-plugin": "^5.45.0",
         "@typescript-eslint/parser": "^5.45.0",
+        "archiver": "^7.0.1",
         "confusing-browser-globals": "^1.0.11",
         "dotenv": "^16.0.2",
         "dotenv-cli": "^6.0.0",
@@ -133,7 +134,11 @@
         "clean-node-modules": "./scripts/clean-node-modules.sh && pnpm install",
         "clean-build-cache": "./scripts/clean-build-cache.sh",
         "clean": "pnpm clean-build-cache && pnpm clean-node-modules",
-        "clean-and-build": "pnpm clean && pnpm build"
+        "clean-and-build": "pnpm clean && pnpm build",
+        "bump-mcp-skills": "node scripts/bump-versions.mjs all",
+        "list-mcp-tools": "node scripts/list-mcp-tool-names.mjs",
+        "list-mcp-tools:write": "node scripts/list-mcp-tool-names.mjs --write",
+        "pack-lightdash-skills": "node scripts/pack-lightdash-skills.mjs"
     },
     "lint-staged": {
         "packages/frontend/src/**/*.(ts|tsx|json|css)": [

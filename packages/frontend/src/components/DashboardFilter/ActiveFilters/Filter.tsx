@@ -2,8 +2,8 @@ import {
     applyDefaultTileTargets,
     DimensionType,
     getFilterTypeFromItemType,
+    type DashboardFilterableField,
     type DashboardFilterRule,
-    type FilterableDimension,
 } from '@lightdash/common';
 import {
     Box,
@@ -51,7 +51,7 @@ type Props = {
     isEditMode: boolean;
     filterScope: 'global' | 'tab';
     isTemporary?: boolean;
-    field: FilterableDimension | undefined;
+    field: DashboardFilterableField | undefined;
     filterRule: DashboardFilterRule;
     appliesToTabs: string[];
     openPopoverId: string | undefined;
@@ -306,7 +306,7 @@ const Filter: FC<Props> = ({
 
                 return acc;
             },
-            {} as Record<string, FilterableDimension[]>,
+            {} as Record<string, DashboardFilterableField[]>,
         );
     }, [filterableFieldsByTileUuid, appliedDashboardTiles, filterScope]);
 
@@ -463,9 +463,7 @@ const Filter: FC<Props> = ({
                                                     color="gray.7"
                                                     truncate
                                                 >
-                                                    {
-                                                        filterRuleLabels?.operator
-                                                    }{' '}
+                                                    {filterRuleLabels?.operator}{' '}
                                                 </Text>
                                                 <Text fw={700} span truncate>
                                                     {filterRuleLabels?.value}
@@ -516,7 +514,7 @@ const Filter: FC<Props> = ({
                                 filterScope={filterScope}
                                 tabUuid={
                                     filterScope === 'tab'
-                                        ? (appliesToTabs[0] ?? activeTabUuid)
+                                        ? appliesToTabs[0] ?? activeTabUuid
                                         : undefined
                                 }
                             />

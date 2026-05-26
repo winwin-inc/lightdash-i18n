@@ -6,6 +6,8 @@ on:
             - '*'
             - '!*-alpha*'
             - '!*-beta*'
+            # MCP 独立镜像由 build-docker-mcp.yml（mcp-v*）构建，勿重复打主站镜像
+            - '!mcp-v*'
 
     workflow_dispatch:
 

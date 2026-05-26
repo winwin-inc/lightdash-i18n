@@ -1,0 +1,56 @@
+# Router SOP
+
+类目、缺参、调用次数与输出格式等门禁；入口与工具顺序见 **[`SKILL.md`](./SKILL.md)**。
+
+## 最小信息集（缺一先问）
+
+- **项目**：**工具参数 `projectUuid` → `set_project` → 环境 `LIGHTDASH_PROJECT_UUID`**（以 MCP 服务方文档及 **`tools/list`** 为准）；**不在 skills 里写配置**。仅 **多项目歧义**、**用户明确换项目** 或 **报错指项目不对** 时，再在对话里澄清（项目名或 `list_projects` → `set_project`）。
+- 时间范围：最近 12 个月 / 指定年月 / 指定区间
+- 指标目标：价格指数 / 销量 / 销售额
+
+## 缺参追问顺序
+
+1. 项目（**仅**在未满足上条「已能解析项目上下文」时追问）
+2. 时间
+3. 指标
+
+默认（仅用户允许“先查”）：
+
+- 时间：最近 12 个月
+- 指标：fisher
+- limit：100
+
+## 类目默认与降级
+
+- 用户未指定层级：优先 `cls_4`
+- 若结合 `list_explores` / `find_fields` 等可确认维度侧不存在 `*_cls_4`：用最细可用 `cls_N`（`cls_3 -> cls_2 -> cls_1`）
+- 先做小枚举（单维度，limit 30~50）再加主筛选
+- 未命中只允许降一级再枚举一次
+- 仍未命中：返回 5~10 个候选值让用户点选
+
+## 调用次数与停止条件
+
+- 普通问题最多 3 次工具调用
+- 类目校验/降级最多 4 次（多的 1 次只用于降级枚举）
+- 连续失败 2 次：停止试错，输出
+  - 已确认信息
+  - 失败原因
+  - 需补充项
+  - 下一步建议（<=2 条）
+
+## 输出格式
+
+1. 结论
+2. 关键数字
+3. 口径说明
+4. 下一步选项
+
+## 站点与打开链接
+
+- 需要「在浏览器打开」时：使用工具返回的 **`webUrl`**，或 **`get_site_info`** 的 **`siteBaseUrl`**。
+- 勿凭记忆编造链接；短链等以工具返回值为准。
+
+## 图表与展示语义
+
+路由与类目仍仅以本 SOP + **[`SKILL.md`](./SKILL.md)** 为准；**柱/线/表/KPI、看板 tile、PoP、MCP 返回如何展示**见 **[`../lightdash-chart-semantics/SKILL.md`](../lightdash-chart-semantics/SKILL.md)**、**[`../lightdash-chart-semantics/resources/mcp-response-mapping.md`](../lightdash-chart-semantics/resources/mcp-response-mapping.md)**、**[`../lightdash-chart-semantics/resources/chart-families-mcp.md`](../lightdash-chart-semantics/resources/chart-families-mcp.md)**。
+

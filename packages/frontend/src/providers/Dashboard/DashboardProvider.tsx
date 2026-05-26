@@ -8,11 +8,11 @@ import {
     isDashboardChartTileType,
     type CacheMetadata,
     type Dashboard,
+    type DashboardFilterableField,
     type DashboardFilterRule,
     type DashboardFilters,
     type DashboardFiltersFromSearchParam,
     type DashboardParameters,
-    type FilterableDimension,
     type ParameterDefinitions,
     type ParametersValuesMap,
     type ParameterValue,
@@ -542,8 +542,8 @@ const DashboardProvider: React.FC<
         if (!dashboardTabs?.length || !firstTabByOrder) return;
 
         const matchedTab = tabUuid
-            ? (dashboardTabs.find((item) => item.uuid === tabUuid) ??
-              firstTabByOrder)
+            ? dashboardTabs.find((item) => item.uuid === tabUuid) ??
+              firstTabByOrder
             : firstTabByOrder;
 
         setActiveTab(matchedTab);
@@ -560,7 +560,9 @@ const DashboardProvider: React.FC<
             urlMissingOrWrongTab;
 
         if (needRedirect) {
-            const base = `/projects/${projectUuid}/dashboards/${dashboardUuid}/${mode || 'view'}`;
+            const base = `/projects/${projectUuid}/dashboards/${dashboardUuid}/${
+                mode || 'view'
+            }`;
             void navigate(`${base}/tabs/${firstTabByOrder.uuid}`, {
                 replace: true,
             });
@@ -1147,16 +1149,12 @@ const DashboardProvider: React.FC<
             const filters = JSON.parse(tempTabFilterSearchParam);
 
             setTabTemporaryFilters(
-                Object.entries(filters).reduce(
-                    (acc, [uuid, filter]) => {
-                        acc[uuid] =
-                            convertDashboardFiltersParamToDashboardFilters(
-                                filter as DashboardFiltersFromSearchParam,
-                            );
-                        return acc;
-                    },
-                    {} as Record<string, DashboardFilters>,
-                ),
+                Object.entries(filters).reduce((acc, [uuid, filter]) => {
+                    acc[uuid] = convertDashboardFiltersParamToDashboardFilters(
+                        filter as DashboardFiltersFromSearchParam,
+                    );
+                    return acc;
+                }, {} as Record<string, DashboardFilters>),
             );
         }
     });
@@ -1181,7 +1179,7 @@ const DashboardProvider: React.FC<
             return;
 
         const filterFieldsMapping = savedChartUuidsAndTileUuids?.reduce<
-            Record<string, FilterableDimension[]>
+            Record<string, DashboardFilterableField[]>
         >((acc, { tileUuid }) => {
             const filterFields =
                 dashboardAvailableFiltersData.savedQueryFilters[tileUuid]?.map(
@@ -1211,7 +1209,7 @@ const DashboardProvider: React.FC<
         return dashboardAvailableFiltersData?.allFilterableFields &&
             dashboardAvailableFiltersData.allFilterableFields.length > 0
             ? dashboardAvailableFiltersData.allFilterableFields.reduce<
-                  Record<string, FilterableDimension>
+                  Record<string, DashboardFilterableField>
               >(
                   (sum, field) => ({
                       ...sum,

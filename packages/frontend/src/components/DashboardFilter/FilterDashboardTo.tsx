@@ -41,9 +41,19 @@ export const FilterDashboardTo: FC<Props> = ({ filters, onAddFilter }) => {
                     icon={<MantineIcon icon={IconFilter} />}
                     onClick={() => addFilterCallback(filter, true)}
                 >
-                    {Object.values(allFilterableFieldsMap).find(
-                        (field) => getItemId(field) === filter.target.fieldId,
-                    )?.tableLabel || friendlyName(filter.target.tableName)}{' '}
+                    {((): string => {
+                        const f = Object.values(allFilterableFieldsMap).find(
+                            (fld) => getItemId(fld) === filter.target.fieldId,
+                        );
+                        if (
+                            f &&
+                            'tableLabel' in f &&
+                            f.tableLabel !== undefined
+                        ) {
+                            return f.tableLabel;
+                        }
+                        return friendlyName(filter.target.tableName);
+                    })()}{' '}
                     - {friendlyName(filter.target.fieldName)} is{' '}
                     {filter.operator === FilterOperator.NULL && (
                         <Text span fw={500}>
