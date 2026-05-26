@@ -114,6 +114,39 @@ export function isFieldValuesEndpointMissing(message: string): boolean {
     return isHttp404 && mentionsFieldValues;
 }
 
+export function extractV1FieldValues(
+    directResult: Record<string, unknown>,
+): string[] {
+    const candidates =
+        Array.isArray(directResult.results)
+            ? directResult.results
+            : Array.isArray(directResult.values)
+              ? directResult.values
+              : Array.isArray(directResult.rows)
+                ? directResult.rows
+                : [];
+    return candidates
+        .map((value) => {
+            if (value === null || value === undefined) return null;
+            if (typeof value === 'string') return value;
+            if (typeof value === 'number' || typeof value === 'boolean') {
+                return String(value);
+            }
+            if (typeof value === 'object' && !Array.isArray(value)) {
+                const row = value as Record<string, unknown>;
+                if (typeof row.value === 'string') return row.value;
+                if (
+                    typeof row.value === 'number' ||
+                    typeof row.value === 'boolean'
+                ) {
+                    return String(row.value);
+                }
+            }
+            return null;
+        })
+        .filter((v): v is string => v !== null);
+}
+
 export type CoreQueryToolsDeps = {
     getFieldResolver: (
         apiKey: string,
@@ -165,6 +198,7 @@ export function registerQueryTools(
                     ? ''
                     : String(args.query);
             let payload: Record<string, unknown>;
+            const hasFilters = args.filters !== undefined && args.filters !== null;
             try {
                 const directResult = (await api.searchFieldUniqueValues(
                     apiKey,
@@ -177,49 +211,33 @@ export function registerQueryTools(
                         limit: 100,
                     },
                 )) as Record<string, unknown>;
-                const rawValues = Array.isArray(directResult.results)
-                    ? directResult.results
-                    : [];
-                payload =
-                    rawValues.length > 0 || queryText.length === 0
-                        ? {
-                              queryUuid: null,
-                              rows: rawValues.map((value) => ({ value })),
-                              source: 'field-values-v1-endpoint',
-                              cached:
-                                  typeof directResult.cached === 'boolean'
-                                      ? directResult.cached
-                                      : null,
-                              refreshedAt:
-                                  (directResult.refreshedAt as
-                                      | string
-                                      | undefined) ?? null,
-                          }
-                        : {
-                              queryUuid: null,
-                              rows: [],
-                              source: 'field-values-v1-endpoint',
-                              cached:
-                                  typeof directResult.cached === 'boolean'
-                                      ? directResult.cached
-                                      : null,
-                              refreshedAt:
-                                  (directResult.refreshedAt as
-                                      | string
-                                      | undefined) ?? null,
-                          };
+                const rawValues = extractV1FieldValues(directResult);
+                if (rawValues.length === 0) {
+                    throw new Error('FIELD_VALUES_EMPTY');
+                }
+                payload = {
+                    queryUuid: null,
+                    rows: rawValues.map((value) => ({ value })),
+                    source: 'field-values-v1-endpoint',
+                    cached:
+                        typeof directResult.cached === 'boolean'
+                            ? directResult.cached
+                            : null,
+                    refreshedAt:
+                        (directResult.refreshedAt as string | undefined) ?? null,
+                };
             } catch (e) {
                 const message = e instanceof Error ? e.message : String(e);
-                const isMissingEndpoint = isFieldValuesEndpointMissing(message);
-                if (!isMissingEndpoint) {
+                const shouldFallback =
+                    isFieldValuesEndpointMissing(message) ||
+                    message === 'FIELD_VALUES_EMPTY';
+                if (!shouldFallback) {
                     throw new Error(
                         `search_field_values 执行失败：${message}\n请检查字段 fieldId、权限以及项目上下文是否正确。`,
                     );
                 }
                 const table = args.table as string;
                 const fieldId = args.fieldId as string;
-                const hasFilters =
-                    args.filters !== undefined && args.filters !== null;
                 const fallbackErrors: string[] = [`primary: ${message}`];
                 if (!hasFilters) {
                     const sqlField = inferSqlDistinctField(table, fieldId);

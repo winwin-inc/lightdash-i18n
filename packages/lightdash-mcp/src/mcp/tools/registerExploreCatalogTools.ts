@@ -23,6 +23,10 @@ type FieldCandidate = {
     type: string | null;
 };
 
+export function isFieldInTable(fieldId: string, table: string): boolean {
+    return fieldId.startsWith(`${table}_`);
+}
+
 export function resolveFieldIdFromParts(
     fieldId: unknown,
     table: unknown,
@@ -282,7 +286,9 @@ export function registerExploreCatalogTools(
             const tags = getMcpSession(apiKey).tags ?? undefined;
             const results: unknown[] = [];
             const explore = await api.getExplore(apiKey, projectUuid, table);
-            const exploreFields = collectFieldsFromExplore(explore);
+            const exploreFields = collectFieldsFromExplore(explore).filter((field) =>
+                isFieldInTable(field.fieldId, table),
+            );
             for (const q of queries) {
                 const searchStr = q.label.trim();
                 const catalog = await api.getCatalog(apiKey, projectUuid, {
@@ -313,10 +319,6 @@ export function registerExploreCatalogTools(
                     );
                 });
                 const catalogTotal = tableScopedCatalogRows.length;
-                const catalogTotalPageCount = Math.max(
-                    1,
-                    Math.ceil(catalogTotal / pageSize),
-                );
                 const catalogPaged = tableScopedCatalogRows.slice(
                     (page - 1) * pageSize,
                     (page - 1) * pageSize + pageSize,
@@ -327,13 +329,25 @@ export function registerExploreCatalogTools(
                     page,
                     pageSize,
                 );
+                const primaryRows =
+                    catalogPaged.length > 0 ? catalogPaged : exploreMatched.rows;
+                const primarySource = catalogPaged.length > 0 ? 'catalog' : 'explore-hints';
+                const primaryTotal =
+                    primarySource === 'catalog'
+                        ? catalogTotal
+                        : exploreMatched.total;
+                const primaryTotalPageCount = Math.max(
+                    1,
+                    Math.ceil(primaryTotal / pageSize),
+                );
                 results.push({
                     label: q.label,
                     heuristicRankingVersion: HEURISTIC_RANKING_VERSION,
                     page,
                     pageSize,
+                    source: primarySource,
                     primaryCatalogResults: maybeSlimList(
-                        catalogPaged.length > 0 ? catalogPaged : exploreMatched.rows,
+                        primaryRows,
                         full,
                         (item) => {
                             const row = item as Record<string, unknown>;
@@ -356,8 +370,8 @@ export function registerExploreCatalogTools(
                         },
                     ),
                     catalogPagination: {
-                        totalResults: catalogTotal,
-                        totalPageCount: catalogTotalPageCount,
+                        totalResults: primaryTotal,
+                        totalPageCount: primaryTotalPageCount,
                     },
                     supplementalExploreHints: full
                         ? exploreMatched.rows

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     collectFieldsFromExplore,
+    isFieldInTable,
     resolveFieldIdFromParts,
 } from './registerExploreCatalogTools';
 
@@ -36,6 +37,16 @@ describe('collectFieldsFromExplore', () => {
         assert.deepEqual(
             fields.map((f) => f.fieldId).sort(),
             ['orders_order_count', 'orders_order_date'],
+        );
+    });
+});
+
+describe('isFieldInTable', () => {
+    it('keeps only target table prefix', () => {
+        assert.equal(isFieldInTable('orders_order_date', 'orders'), true);
+        assert.equal(
+            isFieldInTable('dim_ld_employee_provinces_email', 'orders'),
+            false,
         );
     });
 });
