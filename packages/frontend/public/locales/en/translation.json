@@ -857,6 +857,7 @@
         "default": "Default",
         "delete_zoom": "Delete zoom",
         "on": "On",
+        "sync_chart_colors": "Sync chart colors",
         "options": {
             "day": "Day",
             "week": "Week",
@@ -864,9 +865,6 @@
             "quarter": "Quarter",
             "year": "Year"
         }
-    },
-    "features_date_zoom": {
-        "sync_chart_colors": "Sync chart colors"
     },
     "dashboard": {
         "color_palette": "Colors",
@@ -5157,7 +5155,13 @@
     },
     "components_visualization_configs_custom_vis_template": {
         "selecting_new_template_will_reset_the_config": "Selecting a new template will reset the config. Use \"ctrl+z\" to undo.",
-        "insert_template": "Insert template"
+        "insert_template": "Insert template",
+        "all_chart_types": "All chart types",
+        "cancel": "Cancel",
+        "apply": "Apply",
+        "no_templates_available": "No templates available",
+        "template_spec_not_available": "Template spec is not available",
+        "preview_not_available": "Preview image is not available"
     },
     "components_visualization_configs_custom_vis_hooks": {
         "error": "Failed to generate custom visualization"

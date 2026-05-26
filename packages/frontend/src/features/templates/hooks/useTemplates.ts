@@ -26,11 +26,11 @@ export const useChartTemplates = (
 
 export const useChartTemplate = (
     templateId: string | undefined,
-    useQueryOptions?: UseQueryOptions<ChartTemplateDetail, ApiError>,
+    useQueryOptions?: UseQueryOptions<ChartTemplateDetail | null, ApiError>,
 ) => {
     const setErrorResponse = useQueryError();
 
-    return useQuery<ChartTemplateDetail, ApiError>({
+    return useQuery<ChartTemplateDetail | null, ApiError>({
         queryKey: ['chart-template', templateId],
         queryFn: () => getChartTemplate(templateId ?? ''),
         retry: false,

@@ -226,12 +226,7 @@ export const ConfigTabs: React.FC = memo(() => {
                         </Config.Heading>
 
                         <Button.Group>
-                            <SelectTemplate
-                                itemsMap={itemsMap}
-                                isCustomConfig={isCustomConfig}
-                                isEditorEmpty={isEditorEmpty}
-                                setEditorConfig={setEditorConfig}
-                            />
+                            <SelectTemplate setEditorConfig={setEditorConfig} />
 
                             {isAiEnabled && (
                                 <GenerateVizWithAi

@@ -5152,7 +5152,13 @@
     },
     "components_visualization_configs_custom_vis_template": {
         "selecting_new_template_will_reset_the_config": "选择新模板将重置配置。使用 \"ctrl+z\" 撤消。",
-        "insert_template": "插入模板"
+        "insert_template": "插入模板",
+        "all_chart_types": "全部图表类型",
+        "cancel": "取消",
+        "apply": "应用",
+        "no_templates_available": "暂无模板",
+        "template_spec_not_available": "模板 JSON 不可用",
+        "preview_not_available": "模板预览图不可用"
     },
     "components_visualization_configs_custom_vis_hooks": {
         "error": "生成自定义可视化失败"
