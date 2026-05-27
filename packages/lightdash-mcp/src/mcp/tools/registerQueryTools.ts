@@ -174,7 +174,6 @@ export function registerQueryTools(
         'search_field_values',
         '搜索某维度字段取值（优先走项目 field search 接口）。query 可空字符串表示不限。若接口不可用，将回退到 SQL DISTINCT（再失败则回退 metric-query）。',
         {
-            apiKey: z.string().optional(),
             projectUuid: z.string().optional(),
             table: z.string(),
             fieldId: z.string(),
@@ -183,10 +182,7 @@ export function registerQueryTools(
             full: z.boolean().optional(),
         },
         async (args) => {
-            const apiKey = resolveCoreToolsApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+            const apiKey = resolveCoreToolsApiKey(config);
             const projectUuid = resolveCoreToolsProjectUuid(
                 config,
                 apiKey,
@@ -385,7 +381,6 @@ export function registerQueryTools(
         'run_sql',
         '执行原始 SQL（POST …/query/sql + 轮询）。⚠️ 仅支持 SELECT/CTE 只读语句；limit 受 LIGHTDASH_MAX_LIMIT 约束。',
         {
-            apiKey: z.string().optional(),
             projectUuid: z.string().optional(),
             sql: z.string(),
             limit: z.number().optional(),
@@ -394,10 +389,7 @@ export function registerQueryTools(
             full: z.boolean().optional(),
         },
         async (args) => {
-            const apiKey = resolveCoreToolsApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+            const apiKey = resolveCoreToolsApiKey(config);
             const projectUuid = resolveCoreToolsProjectUuid(
                 config,
                 apiKey,
@@ -443,7 +435,6 @@ export function registerQueryTools(
         'run_metric_query',
         '异步指标查询（v2 metric-query + 轮询）。推荐使用 queryConfig(JSON 块)；metricQuery/扁平参数保留兼容。示例：run_metric_query(queryConfig:{exploreName:"orders",dimensions:["orders_date"],metrics:["orders_count"],filters:{dimensions:{and:[{target:{fieldId:"orders_date"},operator:"inThePast",values:["30 days"]}]}}})。',
         {
-            apiKey: z.string().optional(),
             projectUuid: z.string().optional(),
             queryConfig: z.any().optional(),
             exploreName: z.string().min(1).optional(),
@@ -471,10 +462,7 @@ export function registerQueryTools(
             full: z.boolean().optional(),
         },
         async (args) => {
-            const apiKey = resolveCoreToolsApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+            const apiKey = resolveCoreToolsApiKey(config);
             const projectUuid = resolveCoreToolsProjectUuid(
                 config,
                 apiKey,

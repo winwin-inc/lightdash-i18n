@@ -1,15 +1,20 @@
 import type { LightdashMcpEnvConfig } from '../config';
 import { getMcpSession } from '../lib/mcpSessionStore';
-import { getHttpRequestApiKey } from '../lib/requestContext';
+import {
+    getHttpRequestApiKey,
+    getHttpRequestOauthAccessToken,
+} from '../lib/requestContext';
 
 export function resolveCoreToolsApiKey(
     config: LightdashMcpEnvConfig,
-    fromArgs: string | undefined,
 ): string {
-    const key = fromArgs ?? getHttpRequestApiKey() ?? config.apiKey;
+    const key =
+        getHttpRequestApiKey() ??
+        getHttpRequestOauthAccessToken() ??
+        config.apiKey;
     if (!key) {
         throw new Error(
-            'apiKey is required (x-api-key header, tool argument, or LIGHTDASH_API_KEY)',
+            'apiKey or OAuth token is required (Authorization Bearer, x-api-key, or LIGHTDASH_API_KEY)',
         );
     }
     return key;

@@ -5,6 +5,10 @@ export const MAX_USER_ATTRIBUTES_HEADER_CHARS = 32_768;
 
 type RequestContextStore = {
     apiKey: string | undefined;
+    authType?: 'apikey' | 'oauth';
+    oauthAccessToken?: string;
+    oauthScopes?: string[];
+    authSubject?: string;
     userEmail?: string;
     maskedKey?: string;
     /**
@@ -20,6 +24,25 @@ export const httpRequestApiKeyStore =
 
 export function getHttpRequestApiKey(): string | undefined {
     return httpRequestApiKeyStore.getStore()?.apiKey;
+}
+
+export function getHttpRequestAuthType():
+    | 'apikey'
+    | 'oauth'
+    | undefined {
+    return httpRequestApiKeyStore.getStore()?.authType;
+}
+
+export function getHttpRequestOauthAccessToken(): string | undefined {
+    return httpRequestApiKeyStore.getStore()?.oauthAccessToken;
+}
+
+export function getHttpRequestOauthScopes(): string[] {
+    return httpRequestApiKeyStore.getStore()?.oauthScopes ?? [];
+}
+
+export function getHttpRequestAuthSubject(): string | undefined {
+    return httpRequestApiKeyStore.getStore()?.authSubject;
 }
 
 export function getHttpRequestUserEmail(): string | undefined {

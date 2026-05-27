@@ -18,12 +18,9 @@ export function registerOrgAndHealthTools(
         'core-tool',
         'get_lightdash_version',
         '返回 Lightdash 实例健康信息（含 version 等，来自 GET /api/v1/health）。',
-        { apiKey: z.string().optional() },
-        async (args) => {
-            const apiKey = resolveCoreToolsApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+        {},
+        async () => {
+            const apiKey = resolveCoreToolsApiKey(config);
             const health = await api.getHealth(apiKey);
             const obj =
                 health &&
@@ -53,12 +50,9 @@ export function registerOrgAndHealthTools(
         'core-tool',
         'list_projects',
         '列出当前 PAT 可访问的项目（REST: GET /api/v1/org/projects）。',
-        { apiKey: z.string().optional(), full: z.boolean().optional() },
+        { full: z.boolean().optional() },
         async (args) => {
-            const apiKey = resolveCoreToolsApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+            const apiKey = resolveCoreToolsApiKey(config);
             const data = await api.listProjects(apiKey);
             const full = (args.full as boolean | undefined) ?? false;
             return {

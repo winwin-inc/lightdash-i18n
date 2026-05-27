@@ -16,7 +16,7 @@ pnpm -F @lightdash/mcp start:http
 
 1. 默认监听 `http://0.0.0.0:3333`，MCP 路径为 `**/mcp**`（Streamable HTTP）。
 
-客户端（示例：Cursor `.mcp.json`）在 `url` 指向上述地址的同时，用 `**x-api-key**` 传入 PAT（也可不设，改由服务端 `LIGHTDASH_API_KEY` 兜底）：
+客户端（示例：Cursor `.mcp.json`）在 `url` 指向上述地址的同时，可用 `**x-api-key**` 传入 PAT（也可不设，改由服务端 `LIGHTDASH_API_KEY` 兜底）：
 
 ```json
 {
@@ -31,6 +31,8 @@ pnpm -F @lightdash/mcp start:http
   }
 }
 ```
+
+也可使用 OAuth：不带认证访问 `/mcp` 时会返回 `401 + WWW-Authenticate(resource_metadata=...)`，客户端按主站 metadata 完成授权后，用 `Authorization: Bearer <token>` 调用本 MCP。
 
 可选：在同一 `headers` 中加入 `**X-Lightdash-User-Attributes**`，值为 **合法 JSON 字符串**（见下文「鉴权与请求头」）。
 
@@ -54,7 +56,7 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 
 说明：
 
-- 本服务从 MCP **HTTP 请求头**读取 PAT 时，只认 `**x-api-key`**（与 `LIGHTDASH_API_KEY` / 工具参数 `apiKey` 的语义一致）。若写成 `apikey:` 等其它头名，**默认不会生效**；只有在你前面还有反向代理把其它头映射成 `x-api-key` 时，才可继续用代理约定的那套头名。
+- 本服务从 MCP **HTTP 请求头**读取 PAT 时，只认 `**x-api-key`**（与 `LIGHTDASH_API_KEY` 的兜底语义一致）。若写成 `apikey:` 等其它头名，**默认不会生效**；只有在你前面还有反向代理把其它头映射成 `x-api-key` 时，才可继续用代理约定的那套头名。
 - `LIGHTDASH_MCP_APIKEY` 仅为示例变量名，可与 shell 或 CI 里已有名称统一；也可直接使用 `LIGHTDASH_API_KEY` 等，只要 `-H` 里展开的是 PAT 即可。
 
 ---
@@ -66,9 +68,13 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 | -------------------------------- | --- | ------------------------------------------------------ |
 | `LIGHTDASH_SITE_URL`             | 是   | Lightdash 站点根 URL（无尾斜杠亦可）                              |
 | `LIGHTDASH_PROJECT_UUID`         | 否   | MCP 默认项目 UUID；未传时可依赖 **`set_project`** 或各工具可选参数 **`projectUuid`**（见下节） |
-| `LIGHTDASH_API_KEY`              | 否   | 默认 PAT；可被 MCP 请求头 `x-api-key` 或工具参数 `apiKey` 覆盖        |
+| `LIGHTDASH_API_KEY`              | 否   | 默认 PAT（仅在 OAuth 关闭时作为请求兜底）；OAuth 模式下用于调用 introspect        |
 | `LIGHTDASH_MAX_LIMIT`            | 否   | 查询类接口的 `limit` 上限                                      |
 | `LIGHTDASH_MCP_HTTP_PORT`        | 否   | HTTP 端口，默认 `3333`                                      |
+| `MCP_OAUTH_ENABLED`              | 否   | 是否启用 OAuth（`true/false`，默认 `true`）                 |
+| `OAUTH_INTROSPECT_URL`           | 否   | introspect 地址（默认 `<LIGHTDASH_SITE_URL>/api/v1/oauth/introspect`） |
+| `OAUTH_REQUIRED_SCOPES`          | 否   | 逗号分隔 scope，默认 `mcp:read`                               |
+| `OAUTH_RESOURCE_METADATA_URL`    | 否   | 401 挑战头中的 `resource_metadata` URL                        |
 
 ### 项目 `projectUuid` 解析顺序
 
@@ -84,15 +90,25 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 
 ## 鉴权与请求头
 
-### Personal Access Token（PAT）
+### Personal Access Token（PAT）与 OAuth Bearer
 
-所有对 Lightdash 后端的出站请求均使用：
+API key 模式下，对 Lightdash 后端的出站请求使用：
 
 `Authorization: ApiKey <token>`
 
-**Token 解析顺序**（后者覆盖前者）：MCP HTTP 请求头 `x-api-key` → 工具入参 `apiKey` → 环境变量 `LIGHTDASH_API_KEY`。未解析到任何 token 时，需要 PAT 的工具会报错。
+OAuth 模式下（`MCP_OAUTH_ENABLED=true` 且请求头为 `Authorization: Bearer <token>`）：
 
-本服务不实现 MCP OAuth；身份以 PAT 对应用户及主站 CASL 为准。
+- MCP 会调用主站 introspect 校验 `active=true` 且满足 `OAUTH_REQUIRED_SCOPES`。
+- 校验通过后，下游请求优先透传 Bearer；若主站接口不接受 Bearer，请改用 `x-api-key`（连接配置层）。
+
+Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Authorization: ApiKey` → 环境变量 `LIGHTDASH_API_KEY`。
+
+工具参数层不再要求传 `apiKey`；建议在 `.mcp.json` 连接配置中设置一次 `x-api-key`。
+
+未带认证调用 `/mcp` 将返回：
+
+- `HTTP 401`
+- `WWW-Authenticate: Bearer resource_metadata="<OAUTH_RESOURCE_METADATA_URL>"`
 
 ### X-Lightdash-User-Attributes（可选）
 
@@ -195,6 +211,9 @@ CI 推阿里云时镜像为 **`registry.cn-hangzhou.aliyuncs.com/winwin/lightdas
 - `**run_metric_query`**：`parameters` 传 JSON **对象**，不要传字符串形式的 `"{}"`。
 - `**context`**：须为 Lightdash 支持的枚举（如 `mcp`），不要传自然语言描述。
 - 过滤条件依赖 `**lightdash.user.email**` 时，请使用当前 PAT 用户的邮箱；主邮箱未验证时可能为空。
+- OAuth 报 `missing required scopes`：检查主站客户端授权 scope，至少包含 `OAUTH_REQUIRED_SCOPES`。
+- OAuth 报 `Auth service unavailable`：检查 `OAUTH_INTROSPECT_URL` 连通性和 `LIGHTDASH_API_KEY` 是否有效。
+- OAuth token 过期/失效：会返回 401 并附带 `WWW-Authenticate`，按 metadata 重新授权。
 
 ---
 

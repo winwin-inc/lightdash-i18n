@@ -44,15 +44,11 @@ export function registerSessionProjectTools(
         'set_project',
         '设置后续工具使用的默认 projectUuid（内存会话，按 PAT 隔离）。可选 tags 用于目录搜索过滤。未 set_project 时，可选环境变量 LIGHTDASH_PROJECT_UUID 提供默认项目。',
         {
-            apiKey: z.string().optional(),
             projectUuid: z.string(),
             tags: z.array(z.string()).optional(),
         },
         async (args) => {
-            const apiKey = resolveCoreToolsApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+            const apiKey = resolveCoreToolsApiKey(config);
             const projectUuid = args.projectUuid as string;
             let projectName: string | null = null;
             try {
@@ -99,12 +95,9 @@ export function registerSessionProjectTools(
         'core-tool',
         'get_current_project',
         '读取当前项目上下文（优先 set_project 会话，其次环境 LIGHTDASH_PROJECT_UUID）。会话为内存态并按 PAT 隔离。',
-        { apiKey: z.string().optional() },
-        async (args) => {
-            const apiKey = resolveCoreToolsApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+        {},
+        async () => {
+            const apiKey = resolveCoreToolsApiKey(config);
             const s = getMcpSession(apiKey);
             const {
                 sessionProjectUuid,

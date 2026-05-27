@@ -9,17 +9,21 @@ import { getMcpPackageVersion } from './lib/mcpPackageVersion';
 import { createLightdashMcpServer } from './mcp/createMcpServer';
 import {
     createAuthCache,
+    createOauthCache,
     maskApiKey,
     parseApiKeyFromRequest,
+    parseBearerTokenFromRequest,
     parseUserAttributesHeader,
     resolveClientIp,
     validateApiKeyAndGetEmail,
+    validateOauthToken,
 } from './http/authAndCache';
 import {
     httpRequestApiKeyStore,
 } from './lib/requestContext';
 
 const authCache = createAuthCache();
+const oauthCache = createOauthCache();
 
 async function main(): Promise<void> {
     const config = loadConfigFromEnv();
@@ -46,23 +50,54 @@ async function main(): Promise<void> {
     app.all('/mcp', async (req: express.Request, res: express.Response) => {
         const start = Date.now();
         const ip = resolveClientIp(req);
+        const bearerToken = parseBearerTokenFromRequest(req);
         const headerKey = parseApiKeyFromRequest(req);
-        const effectiveKey = headerKey ?? config.apiKey;
+        const effectiveKey =
+            headerKey ?? (config.oauthEnabled ? undefined : config.apiKey);
         const maskedKey = maskApiKey(effectiveKey);
         let userEmail = 'unknown';
+        let authType: 'apikey' | 'oauth' | undefined;
+        let oauthScopes: string[] = [];
+        let authSubject: string | undefined;
 
         try {
-            if (effectiveKey) {
+            if (bearerToken && config.oauthEnabled) {
+                const oauthResult = await validateOauthToken(oauthCache, {
+                    introspectUrl: config.oauthIntrospectUrl,
+                    introspectApiKey: config.apiKey,
+                    token: bearerToken,
+                    requiredScopes: config.oauthRequiredScopes,
+                });
+                authType = 'oauth';
+                oauthScopes = oauthResult.scopes;
+                authSubject = oauthResult.subject;
+                userEmail = oauthResult.subject;
+            } else if (effectiveKey) {
                 userEmail = await validateApiKeyAndGetEmail(
                     authCache,
                     config.baseUrl,
                     effectiveKey,
                     maskedKey,
                 );
+                authType = 'apikey';
+            } else {
+                res.set(
+                    'WWW-Authenticate',
+                    `Bearer resource_metadata="${config.oauthResourceMetadataUrl}"`,
+                );
+                res.status(401).json({
+                    error: 'Unauthorized',
+                    hint: 'Provide Authorization: Bearer <token> or x-api-key',
+                });
+                return;
             }
             await httpRequestApiKeyStore.run(
                 {
                     apiKey: effectiveKey,
+                    authType,
+                    oauthAccessToken: authType === 'oauth' ? bearerToken : undefined,
+                    oauthScopes,
+                    authSubject,
                     userEmail,
                     maskedKey,
                     userAttributesHeader: parseUserAttributesHeader(req),
@@ -74,6 +109,42 @@ async function main(): Promise<void> {
                         req.method === 'POST' ? req.body : undefined,
                     ),
             );
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (message.includes('OAuth introspect failed with')) {
+                res.status(503).json({
+                    error: 'Auth service unavailable',
+                    message,
+                });
+                return;
+            }
+            if (message.includes('OAuth introspect requires')) {
+                res.status(503).json({
+                    error: 'Auth service unavailable',
+                    message,
+                });
+                return;
+            }
+            const isAuthError =
+                message.includes('OAuth token') ||
+                message.includes('Failed to authorize user') ||
+                message.includes('missing required scopes');
+            if (isAuthError) {
+                res.set(
+                    'WWW-Authenticate',
+                    `Bearer resource_metadata="${config.oauthResourceMetadataUrl}"`,
+                );
+                res.status(401).json({
+                    error: 'Unauthorized',
+                    message,
+                });
+                return;
+            }
+            res.status(500).json({
+                error: 'Internal server error',
+                message,
+            });
+            return;
         } finally {
             const elapsed = Date.now() - start;
             const status = res.statusCode || 0;

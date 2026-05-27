@@ -17,7 +17,6 @@ import { resolveCoreToolsProjectUuid } from './coreToolsContext';
 import { registerToolTyped } from './registerToolTyped';
 
 const runSavedChartParams = {
-    apiKey: z.string().optional(),
     projectUuid: z.string().optional(),
     chartUuid: z.string(),
     versionUuid: z.string().optional(),
@@ -30,29 +29,24 @@ const runSavedChartParams = {
 } satisfies ZodRawShape;
 
 const getSiteInfoParams = {
-    apiKey: z.string().optional(),
 } satisfies ZodRawShape;
 
 const listSpacesParams = {
-    apiKey: z.string().optional(),
     projectUuid: z.string().optional(),
     full: z.boolean().optional(),
 } satisfies ZodRawShape;
 
 const getSavedChartParams = {
-    apiKey: z.string().optional(),
     chartUuid: z.string(),
     full: z.boolean().optional(),
 } satisfies ZodRawShape;
 
 const getDashboardTilesParams = {
-    apiKey: z.string().optional(),
     dashboardUuid: z.string(),
     full: z.boolean().optional(),
 } satisfies ZodRawShape;
 
 const runDashboardTilesParams = {
-    apiKey: z.string().optional(),
     projectUuid: z.string().optional(),
     dashboardUuid: z.string(),
     limitPerTile: z.number().optional(),
@@ -60,7 +54,6 @@ const runDashboardTilesParams = {
 } satisfies ZodRawShape;
 
 const getDashboardCodeParams = {
-    apiKey: z.string().optional(),
     projectUuid: z.string().optional(),
     dashboardUuid: z.string(),
     languageMap: z.boolean().optional(),
@@ -68,12 +61,11 @@ const getDashboardCodeParams = {
 
 function resolveExtensionApiKey(
     config: LightdashMcpEnvConfig,
-    fromArgs: string | undefined,
 ): string {
-    const key = fromArgs ?? getHttpRequestApiKey() ?? config.apiKey;
+    const key = getHttpRequestApiKey() ?? config.apiKey;
     if (!key) {
         throw new Error(
-            'apiKey is required (x-api-key header, tool argument, or LIGHTDASH_API_KEY)',
+            'apiKey is required (x-api-key header or LIGHTDASH_API_KEY)',
         );
     }
     return key;
@@ -121,10 +113,7 @@ export function registerExtensionTools(
         '列出当前项目下的空间（内容文件夹）。可选 projectUuid；省略时与核心工具一致：本次参数 > set_project 会话 > 环境 LIGHTDASH_PROJECT_UUID。',
         listSpacesParams,
         async (args) => {
-            const apiKey = resolveExtensionApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+            const apiKey = resolveExtensionApiKey(config);
             const projectUuid = resolveCoreToolsProjectUuid(
                 config,
                 apiKey,
@@ -154,10 +143,7 @@ export function registerExtensionTools(
         '查看某张已保存图表的名称、可用参数、依赖的数据主题；跑数前先确认参数怎么填。返回含 siteBaseUrl 与 webUrl（浏览器打开该图表）。',
         getSavedChartParams,
         async (args) => {
-            const apiKey = resolveExtensionApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+            const apiKey = resolveExtensionApiKey(config);
             const data = await api.getSavedChart(
                 apiKey,
                 args.chartUuid as string,
@@ -190,10 +176,7 @@ export function registerExtensionTools(
         '按已保存图表跑数；可用 parameters 传筛选（如年份、区域）。limit 会按环境上限自动封顶。可选 projectUuid；省略时与核心工具一致：本次参数 > set_project 会话 > 环境 LIGHTDASH_PROJECT_UUID。',
         runSavedChartParams,
         async (args) => {
-            const apiKey = resolveExtensionApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+            const apiKey = resolveExtensionApiKey(config);
             const projectUuid = resolveCoreToolsProjectUuid(
                 config,
                 apiKey,
@@ -257,10 +240,7 @@ export function registerExtensionTools(
         '读取看板磁贴布局（包含类型、坐标、关联图表信息）。',
         getDashboardTilesParams,
         async (args) => {
-            const apiKey = resolveExtensionApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+            const apiKey = resolveExtensionApiKey(config);
             const dashboard = (await api.getDashboard(
                 apiKey,
                 args.dashboardUuid as string,
@@ -316,10 +296,7 @@ export function registerExtensionTools(
         '批量执行看板内可运行磁贴（saved_chart）。sql_chart 与非查询磁贴会跳过并返回说明。',
         runDashboardTilesParams,
         async (args) => {
-            const apiKey = resolveExtensionApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+            const apiKey = resolveExtensionApiKey(config);
             const dashboard = (await api.getDashboard(
                 apiKey,
                 args.dashboardUuid as string,
@@ -416,10 +393,7 @@ export function registerExtensionTools(
         '导出看板 as-code 配置（用于迁移/备份）。',
         getDashboardCodeParams,
         async (args) => {
-            const apiKey = resolveExtensionApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+            const apiKey = resolveExtensionApiKey(config);
             const projectUuid = resolveCoreToolsProjectUuid(
                 config,
                 apiKey,

@@ -147,7 +147,6 @@ export function registerExploreCatalogTools(
         'list_explores',
         '列出项目 explores（REST: GET …/explores）。默认精简字段；full=true 返回完整结构。',
         {
-            apiKey: z.string().optional(),
             projectUuid: z.string().optional(),
             filtered: z.boolean().optional(),
             page: z.number().optional(),
@@ -155,10 +154,7 @@ export function registerExploreCatalogTools(
             full: z.boolean().optional(),
         },
         async (args) => {
-            const apiKey = resolveCoreToolsApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+            const apiKey = resolveCoreToolsApiKey(config);
             const projectUuid = resolveCoreToolsProjectUuid(
                 config,
                 apiKey,
@@ -209,16 +205,12 @@ export function registerExploreCatalogTools(
         'find_explores',
         '用数据目录搜索「找 explore」（GET …/dataCatalog?type=table&search=…）。默认精简字段；full=true 返回完整结构。',
         {
-            apiKey: z.string().optional(),
             projectUuid: z.string().optional(),
             searchQuery: z.string(),
             full: z.boolean().optional(),
         },
         async (args) => {
-            const apiKey = resolveCoreToolsApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+            const apiKey = resolveCoreToolsApiKey(config);
             const projectUuid = resolveCoreToolsProjectUuid(
                 config,
                 apiKey,
@@ -257,7 +249,6 @@ export function registerExploreCatalogTools(
         'find_fields',
         '在指定 explore（table）内找字段。主结果来自 dataCatalog（catalog-first 排序）；explore 定义仅作补全与纠错提示。',
         {
-            apiKey: z.string().optional(),
             projectUuid: z.string().optional(),
             table: z.string(),
             fieldSearchQueries: z.array(z.object({ label: z.string() })),
@@ -266,10 +257,7 @@ export function registerExploreCatalogTools(
             full: z.boolean().optional(),
         },
         async (args) => {
-            const apiKey = resolveCoreToolsApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+            const apiKey = resolveCoreToolsApiKey(config);
             const projectUuid = resolveCoreToolsProjectUuid(
                 config,
                 apiKey,

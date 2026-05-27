@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { LightdashMcpEnvConfig } from '../config';
 import { patchMcpSession } from '../lib/mcpSessionStore';
-import { resolveCoreToolsProjectUuid } from './coreToolsContext';
+import { httpRequestApiKeyStore } from '../lib/requestContext';
+import {
+    resolveCoreToolsApiKey,
+    resolveCoreToolsProjectUuid,
+} from './coreToolsContext';
 
 function baseConfig(
     defaultProjectUuid: string | null,
@@ -12,6 +16,11 @@ function baseConfig(
         apiKey: undefined,
         defaultProjectUuid,
         maxLimit: 5000,
+        oauthEnabled: false,
+        oauthIntrospectUrl: 'https://example.com/api/v1/oauth/introspect',
+        oauthRequiredScopes: ['mcp:read'],
+        oauthResourceMetadataUrl:
+            'https://example.com/api/v1/oauth/.well-known/oauth-protected-resource',
     };
 }
 
@@ -54,4 +63,18 @@ test('resolveCoreToolsProjectUuid uses env when no arg and no session', () => {
         undefined,
     );
     assert.equal(u, 'uuid-env-only');
+});
+
+test('resolveCoreToolsApiKey can fallback to oauth token in request context', async () => {
+    await httpRequestApiKeyStore.run(
+        {
+            apiKey: undefined,
+            authType: 'oauth',
+            oauthAccessToken: 'oauth-token-1',
+        },
+        async () => {
+            const token = resolveCoreToolsApiKey(baseConfig(null));
+            assert.equal(token, 'oauth-token-1');
+        },
+    );
 });

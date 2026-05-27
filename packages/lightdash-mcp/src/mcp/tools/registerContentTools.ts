@@ -24,7 +24,6 @@ import {
 } from '../coreToolsContext';
 
 const searchQueriesSchema = {
-    apiKey: z.string().optional(),
     projectUuid: z.string().optional(),
     searchQueries: z.array(z.object({ label: z.string() })),
     page: z.number().optional(),
@@ -48,10 +47,7 @@ async function runLabelWiseContentSearch(
     contentTypes: string[] | undefined,
     slimItem: (item: unknown) => Record<string, unknown>,
 ): Promise<CallToolResult> {
-    const apiKey = resolveCoreToolsApiKey(
-        config,
-        args.apiKey as string | undefined,
-    );
+    const apiKey = resolveCoreToolsApiKey(config);
     const projectUuid = resolveCoreToolsProjectUuid(
         config,
         apiKey,
@@ -158,12 +154,9 @@ export function registerContentTools(
         'core-tool',
         'list_verified_content',
         '列出项目已验证图表/看板（GET …/content-verification）。⚠️ 依赖站点版本支持。',
-        { apiKey: z.string().optional(), projectUuid: z.string().optional() },
+        { projectUuid: z.string().optional() },
         async (args) => {
-            const apiKey = resolveCoreToolsApiKey(
-                config,
-                args.apiKey as string | undefined,
-            );
+            const apiKey = resolveCoreToolsApiKey(config);
             const projectUuid = resolveCoreToolsProjectUuid(
                 config,
                 apiKey,
