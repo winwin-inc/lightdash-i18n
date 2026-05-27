@@ -25,14 +25,27 @@ import {
 const authCache = createAuthCache();
 const oauthCache = createOauthCache();
 
-async function main(): Promise<void> {
-    const config = loadConfigFromEnv();
+function logStartupConfig(config: ReturnType<typeof loadConfigFromEnv>): void {
     const projectLog =
         config.defaultProjectUuid ??
         '(未设置；调用需项目的工具前请先 set_project 或在工具参数传 projectUuid)';
+    const hasApiKey = Boolean(config.apiKey && config.apiKey.length > 0);
+    const oauthScopes =
+        config.oauthRequiredScopes.length > 0
+            ? config.oauthRequiredScopes.join(',')
+            : '(empty)';
     process.stderr.write(
-        `[Config] @lightdash/mcp=${getMcpPackageVersion()} | LIGHTDASH_SITE_URL=${config.baseUrl}\n[Config] LIGHTDASH_PROJECT_UUID=${projectLog}\n`,
+        `[Config] @lightdash/mcp=${getMcpPackageVersion()} | LIGHTDASH_SITE_URL=${config.baseUrl}\n` +
+            `[Config] LIGHTDASH_PROJECT_UUID=${projectLog} | LIGHTDASH_MAX_LIMIT=${config.maxLimit}\n` +
+            `[Config] MCP_OAUTH_ENABLED=${config.oauthEnabled} | OAUTH_REQUIRED_SCOPES=${oauthScopes}\n` +
+            `[Config] OAUTH_RESOURCE_METADATA_URL=${config.oauthResourceMetadataUrl}\n` +
+            `[Config] OAUTH_INTROSPECT_URL=${config.oauthIntrospectUrl} | LIGHTDASH_API_KEY_SET=${hasApiKey}\n`,
     );
+}
+
+async function main(): Promise<void> {
+    const config = loadConfigFromEnv();
+    logStartupConfig(config);
     const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
     });
