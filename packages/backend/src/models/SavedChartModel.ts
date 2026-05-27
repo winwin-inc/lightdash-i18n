@@ -12,6 +12,7 @@ import {
     CustomDimensionType,
     CustomSqlDimension,
     DBFieldTypes,
+    DimensionType,
     ECHARTS_DEFAULT_COLORS,
     Filters,
     getChartKind,
@@ -1618,6 +1619,77 @@ export class SavedChartModel {
             throw new NotFoundError('Saved queries not found');
         }
         return charts;
+    }
+
+    /**
+     * 看板 availableFilters：返回每张图「当前已选维度」中包含的 Custom SQL 维度（未选入 query 的不返回）。
+     */
+    async getSelectedCustomSqlDimensionsForAvailableFilters(
+        savedChartUuids: string[],
+    ): Promise<Record<string, CustomSqlDimension[]>> {
+        if (savedChartUuids.length === 0) {
+            return {};
+        }
+
+        const rows = await this.database(SavedChartsTableName)
+            .select({
+                chartUuid: `${SavedChartsTableName}.saved_query_uuid`,
+                id: `${SavedChartCustomSqlDimensionsTableName}.id`,
+                name: `${SavedChartCustomSqlDimensionsTableName}.name`,
+                table: `${SavedChartCustomSqlDimensionsTableName}.table`,
+                sql: `${SavedChartCustomSqlDimensionsTableName}.sql`,
+                dimensionType: `${SavedChartCustomSqlDimensionsTableName}.dimension_type`,
+            })
+            .join(
+                SavedChartVersionsTableName,
+                `${SavedChartsTableName}.saved_query_id`,
+                `${SavedChartVersionsTableName}.saved_query_id`,
+            )
+            .whereRaw(
+                `${SavedChartVersionsTableName}.saved_queries_version_id = (select sqv2.saved_queries_version_id from ${SavedChartVersionsTableName} sqv2 where sqv2.saved_query_id = ${SavedChartsTableName}.saved_query_id order by sqv2.created_at desc limit 1)`,
+            )
+            .join(
+                SavedChartCustomSqlDimensionsTableName,
+                `${SavedChartCustomSqlDimensionsTableName}.saved_queries_version_id`,
+                `${SavedChartVersionsTableName}.saved_queries_version_id`,
+            )
+            .join(
+                SavedChartVersionFieldsTableName,
+                function joinVersionFields() {
+                    this.on(
+                        `${SavedChartVersionFieldsTableName}.saved_queries_version_id`,
+                        `${SavedChartVersionsTableName}.saved_queries_version_id`,
+                    ).andOn(
+                        `${SavedChartVersionFieldsTableName}.name`,
+                        `${SavedChartCustomSqlDimensionsTableName}.id`,
+                    );
+                },
+            )
+            .where(
+                `${SavedChartVersionFieldsTableName}.field_type`,
+                DBFieldTypes.DIMENSION,
+            )
+            .whereIn(
+                `${SavedChartsTableName}.saved_query_uuid`,
+                savedChartUuids,
+            );
+
+        return rows.reduce<Record<string, CustomSqlDimension[]>>((acc, row) => {
+            const chartUuid = row.chartUuid as string;
+            const dimension: CustomSqlDimension = {
+                id: row.id as string,
+                name: row.name as string,
+                table: row.table as string,
+                type: CustomDimensionType.SQL,
+                sql: row.sql as string,
+                dimensionType: row.dimensionType as DimensionType,
+            };
+            if (!acc[chartUuid]) {
+                acc[chartUuid] = [];
+            }
+            acc[chartUuid].push(dimension);
+            return acc;
+        }, {});
     }
 
     async findInfoForDbtExposures(

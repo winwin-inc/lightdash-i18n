@@ -1,5 +1,6 @@
 import {
     getItemId,
+    isCompiledCustomSqlDimension,
     isDashboardChartTileType,
     isDashboardFieldTarget,
     isDashboardSqlChartTile,
@@ -11,9 +12,11 @@ import {
     type ChartKind,
     type DashboardFieldTarget,
     type DashboardFilterRule,
+    type DashboardFilterableField,
     type DashboardTab,
     type DashboardTile,
     type Field,
+    type Item,
 } from '@lightdash/common';
 import {
     Accordion,
@@ -45,8 +48,8 @@ type TileWithTargetFields = {
     invalidField?: string;
     tileUuid: string;
     tileChartKind?: ChartKind | undefined;
-    sortedFilters: Field[] | undefined;
-    selectedField: Field | undefined;
+    sortedFilters: DashboardFilterableField[] | undefined;
+    selectedField: DashboardFilterableField | undefined;
     tabUuid?: string;
 };
 
@@ -67,8 +70,11 @@ type Props = {
     tiles: DashboardTile[];
     tabs: DashboardTab[];
     activeTabUuid: string | undefined;
-    availableTileFilters: Record<string, Field[] | undefined>;
-    field?: Field;
+    availableTileFilters: Record<
+        string,
+        DashboardFilterableField[] | undefined
+    >;
+    field?: DashboardFilterableField;
     filterRule: DashboardFilterRule;
     popoverProps?: Omit<PopoverProps, 'children'>;
     onChange: (
@@ -99,13 +105,18 @@ const TileFilterConfiguration: FC<Props> = ({
     const sortTilesByFieldMatch = useCallback(
         (
             fieldMatcher: (a: Field) => (b: Field) => boolean,
-            a: Field[] | undefined,
-            b: Field[] | undefined,
+            a: DashboardFilterableField[] | undefined,
+            b: DashboardFilterableField[] | undefined,
         ) => {
             if (!a || !b || !field) return 0;
 
-            const matchA = a.some(fieldMatcher(field));
-            const matchB = b.some(fieldMatcher(field));
+            const fieldAsField = field as unknown as Field;
+            const matchA = a.some((x) =>
+                fieldMatcher(fieldAsField)(x as unknown as Field),
+            );
+            const matchB = b.some((x) =>
+                fieldMatcher(fieldAsField)(x as unknown as Field),
+            );
             return matchA === matchB ? 0 : matchA ? -1 : 1;
         },
         [field],
@@ -118,8 +129,9 @@ const TileFilterConfiguration: FC<Props> = ({
             b: Field,
         ) => {
             if (!field) return 0;
-            const matchA = fieldMatcher(field)(a);
-            const matchB = fieldMatcher(field)(b);
+            const fieldAsField = field as unknown as Field;
+            const matchA = fieldMatcher(fieldAsField)(a as Field);
+            const matchB = fieldMatcher(fieldAsField)(b as Field);
             return matchA === matchB ? 0 : matchA ? -1 : 1;
         },
         [field],
@@ -153,7 +165,7 @@ const TileFilterConfiguration: FC<Props> = ({
                     // If it is the empty string, the filter is disabled.
                     const tileConfig = filterRule.tileTargets?.[tileUuid];
 
-                    let selectedField;
+                    let selectedField: DashboardFilterableField | undefined;
                     let invalidField: string | undefined;
                     if (tileConfig !== false) {
                         selectedField =
@@ -163,10 +175,10 @@ const TileFilterConfiguration: FC<Props> = ({
                                           tileConfig?.fieldId === getItemId(f),
                                   )
                                 : field
-                                  ? filters?.find((f) =>
-                                        matchFieldExact(f)(field),
-                                    )
-                                  : undefined;
+                                ? filters?.find(
+                                      (f) => getItemId(f) === getItemId(field),
+                                  )
+                                : undefined;
 
                         // If tileConfig?.fieldId is set, but the field is not found in the filters, we mark it as invalid filter (missing dimension in model)
                         invalidField =
@@ -179,29 +191,54 @@ const TileFilterConfiguration: FC<Props> = ({
                     }
 
                     const isFilterAvailable = field
-                        ? (filters?.some(matchFieldByType(field)) ?? false)
+                        ? filters?.some(
+                              (f) => getItemId(f) === getItemId(field),
+                          ) ?? false
                         : false;
 
-                    const sortedFilters = field
-                        ? filters
-                              ?.filter(matchFieldByType(field))
-                              .sort((a, b) =>
-                                  sortFieldsByMatch(matchFieldByType, a, b),
-                              )
-                              .sort((a, b) =>
-                                  sortFieldsByMatch(
-                                      matchFieldByTypeAndName,
-                                      a,
-                                      b,
-                                  ),
-                              )
-                              .sort((a, b) =>
-                                  sortFieldsByMatch(matchFieldByLabel, a, b),
-                              )
-                              .sort((a, b) =>
-                                  sortFieldsByMatch(matchFieldExact, a, b),
-                              )
-                        : filters;
+                    const sortedFilters:
+                        | DashboardFilterableField[]
+                        | undefined =
+                        field && filters
+                            ? isCompiledCustomSqlDimension(field)
+                                ? filters.filter(
+                                      (f) => getItemId(f) === getItemId(field),
+                                  )
+                                : filters
+                                      .filter((f) =>
+                                          matchFieldByType(
+                                              field as unknown as Field,
+                                          )(f as unknown as Field),
+                                      )
+                                      .sort((a, b) =>
+                                          sortFieldsByMatch(
+                                              matchFieldByType,
+                                              a as Field,
+                                              b as Field,
+                                          ),
+                                      )
+                                      .sort((a, b) =>
+                                          sortFieldsByMatch(
+                                              matchFieldByTypeAndName,
+                                              a as Field,
+                                              b as Field,
+                                          ),
+                                      )
+                                      .sort((a, b) =>
+                                          sortFieldsByMatch(
+                                              matchFieldByLabel,
+                                              a as Field,
+                                              b as Field,
+                                          ),
+                                      )
+                                      .sort((a, b) =>
+                                          sortFieldsByMatch(
+                                              matchFieldExact,
+                                              a as Field,
+                                              b as Field,
+                                          ),
+                                      )
+                            : filters;
 
                     const tileWithoutTitle =
                         !tile?.properties.title ||
@@ -438,12 +475,15 @@ const TileFilterConfiguration: FC<Props> = ({
                                 mt="sm"
                                 display={!value.checked ? 'none' : 'auto'}
                             >
-                                {isField(value.selectedField) ? (
+                                {isField(value.selectedField) ||
+                                isCompiledCustomSqlDimension(
+                                    value.selectedField,
+                                ) ? (
                                     <FieldSelect
                                         size="xs"
                                         disabled={!value.checked}
-                                        item={value.selectedField}
-                                        items={value.sortedFilters as Field[]}
+                                        item={value.selectedField as Item}
+                                        items={value.sortedFilters as Item[]}
                                         withinPortal={
                                             popoverProps?.withinPortal
                                         }
@@ -453,7 +493,11 @@ const TileFilterConfiguration: FC<Props> = ({
                                             onChange(
                                                 FilterActions.ADD,
                                                 value.tileUuid,
-                                                newField
+                                                newField &&
+                                                    (isField(newField) ||
+                                                        isCompiledCustomSqlDimension(
+                                                            newField,
+                                                        ))
                                                     ? {
                                                           fieldId:
                                                               getItemId(

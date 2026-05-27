@@ -2,10 +2,12 @@ import {
     FilterOperator,
     FilterType,
     getFilterRuleWithDefaultValue,
+    getItemLabel,
     supportsSingleValue,
     type DashboardFilterRule,
-    type FilterRule,
     type FilterableDimension,
+    type FilterableItem,
+    type FilterRule,
 } from '@lightdash/common';
 import {
     Box,
@@ -41,7 +43,7 @@ interface FilterSettingsProps {
     isEditMode: boolean;
     isCreatingNew: boolean;
     filterType: FilterType;
-    field?: FilterableDimension;
+    field?: FilterableItem;
     filterRule: DashboardFilterRule;
     popoverProps?: Omit<PopoverProps, 'children'>;
     onChangeFilterRule: (value: DashboardFilterRule) => void;
@@ -77,9 +79,12 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     // Set default label when using revert (undo) button
     useEffect(() => {
         if (filterLabel !== '') {
-            setFilterLabel(filterRule.label ?? field?.label);
+            setFilterLabel(
+                filterRule.label ??
+                    (field ? getItemLabel(field as FilterableItem) : undefined),
+            );
         }
-    }, [filterLabel, filterRule.label, field?.label]);
+    }, [filterLabel, filterRule.label, field]);
 
     const handleChangeFilterOperator = (operator: FilterRule['operator']) => {
         onChangeFilterRule(
@@ -142,7 +147,9 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 ? t(
                                       'components_dashboard_filter.configuration.filter.placeholder',
                                       {
-                                          label: field.label,
+                                          label: getItemLabel(
+                                              field as FilterableItem,
+                                          ),
                                       },
                                   )
                                 : t(
@@ -247,7 +254,9 @@ const FilterSettings: FC<FilterSettingsProps> = ({
 
                 {isEditMode && filterType === FilterType.DATE && (
                     <DateRangeConstraintEditor
-                        field={field}
+                        field={
+                            field as unknown as FilterableDimension | undefined
+                        }
                         filterRule={filterRule}
                         popoverProps={popoverProps}
                         onChangeFilterRule={onChangeFilterRule}

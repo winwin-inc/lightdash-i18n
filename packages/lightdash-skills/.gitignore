@@ -1,0 +1,8 @@
+# mcp
+.mcp.json
+
+# claude
+.claude/settings.local.json
+
+# testings
+testings/
