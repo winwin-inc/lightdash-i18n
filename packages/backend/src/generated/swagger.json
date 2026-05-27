@@ -19041,6 +19041,103 @@
                 "required": ["status"],
                 "type": "object"
             },
+            "GenerateChartTemplateCandidatesResponse": {
+                "properties": {
+                    "candidates": {
+                        "items": {
+                            "properties": {
+                                "errors": {
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "type": "array"
+                                },
+                                "valid": {
+                                    "type": "boolean"
+                                },
+                                "spec": {
+                                    "$ref": "#/components/schemas/Record_string.unknown_"
+                                },
+                                "reasoning": {
+                                    "type": "string"
+                                },
+                                "strategy": {
+                                    "type": "string",
+                                    "enum": [
+                                        "primary",
+                                        "secondary",
+                                        "conservative"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "errors",
+                                "valid",
+                                "spec",
+                                "reasoning",
+                                "strategy"
+                            ],
+                            "type": "object"
+                        },
+                        "type": "array"
+                    },
+                    "model": {
+                        "type": "string"
+                    },
+                    "templateId": {
+                        "type": "number",
+                        "format": "double"
+                    }
+                },
+                "required": ["candidates", "model", "templateId"],
+                "type": "object"
+            },
+            "GenerateChartTemplateCandidatesRequest": {
+                "properties": {
+                    "model": {
+                        "type": "string"
+                    },
+                    "userPrompt": {
+                        "type": "string"
+                    },
+                    "selectedMetrics": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "selectedDimensions": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "fields": {
+                        "items": {
+                            "properties": {
+                                "isSelected": {
+                                    "type": "boolean"
+                                },
+                                "fieldKind": {
+                                    "type": "string",
+                                    "enum": ["dimension", "metric", "unknown"]
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "fieldId": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["fieldId"],
+                            "type": "object"
+                        },
+                        "type": "array"
+                    }
+                },
+                "required": ["fields"],
+                "type": "object"
+            },
             "ChangesetTSOACompat": {
                 "$ref": "#/components/schemas/Record_string.unknown_"
             },
@@ -21349,7 +21446,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "0.2099.5",
+        "version": "0.2099.6",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"
@@ -31768,6 +31865,66 @@
                         }
                     }
                 ]
+            }
+        },
+        "/api/v1/chart-templates/{templateId}/generate": {
+            "post": {
+                "operationId": "generateChartTemplateCandidates",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "$ref": "#/components/schemas/GenerateChartTemplateCandidatesResponse"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["ok"],
+                                            "nullable": false
+                                        }
+                                    },
+                                    "required": ["results", "status"],
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["Chart templates"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "templateId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/GenerateChartTemplateCandidatesRequest"
+                            }
+                        }
+                    }
+                }
             }
         },
         "/api/v1/projects/{projectUuid}/changesets": {

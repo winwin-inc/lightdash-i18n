@@ -5,6 +5,29 @@ import { LightdashConfig } from '../../config/parseConfig';
 
 export type ChartTemplateListItem = Record<string, unknown>;
 export type ChartTemplateDetail = Record<string, unknown>;
+export type GenerateChartTemplateCandidatesRequest = {
+    fields: Array<{
+        fieldId: string;
+        label?: string;
+        fieldKind?: 'dimension' | 'metric' | 'unknown';
+        isSelected?: boolean;
+    }>;
+    selectedDimensions?: string[];
+    selectedMetrics?: string[];
+    userPrompt?: string;
+    model?: string;
+};
+export type GenerateChartTemplateCandidatesResponse = {
+    templateId: number;
+    model: string;
+    candidates: Array<{
+        strategy: 'primary' | 'secondary' | 'conservative';
+        reasoning: string;
+        spec: Record<string, unknown>;
+        valid: boolean;
+        errors: string[];
+    }>;
+};
 
 export class ChartTemplateClient {
     private readonly config: LightdashConfig;
@@ -17,7 +40,13 @@ export class ChartTemplateClient {
         return this.config.adminNest.baseUrl.replace(/\/+$/, '');
     }
 
-    private async request<T>(path: string): Promise<T> {
+    private async request<T>(
+        path: string,
+        options?: {
+            method?: 'GET' | 'POST';
+            body?: Record<string, unknown>;
+        },
+    ): Promise<T> {
         const { timeoutMs } = this.config.adminNest;
         const timeoutPromise = new Promise<never>((_, reject) => {
             setTimeout(() => {
@@ -31,10 +60,20 @@ export class ChartTemplateClient {
 
         const response = (await Promise.race([
             fetch(`${this.getBaseUrl()}${path}`, {
-                method: 'GET',
+                method: options?.method || 'GET',
                 headers: {
                     Accept: 'application/json',
+                    ...(options?.body
+                        ? {
+                              'Content-Type': 'application/json',
+                          }
+                        : {}),
                 },
+                ...(options?.body
+                    ? {
+                          body: JSON.stringify(options.body),
+                      }
+                    : {}),
             }),
             timeoutPromise,
         ])) as Response;
@@ -62,6 +101,21 @@ export class ChartTemplateClient {
             `/api/nest/chart-library/lightdash/templates/${encodeURIComponent(
                 templateId,
             )}`,
+        );
+    }
+
+    async generateTemplateCandidates(
+        templateId: string,
+        payload: GenerateChartTemplateCandidatesRequest,
+    ): Promise<GenerateChartTemplateCandidatesResponse> {
+        return this.request<GenerateChartTemplateCandidatesResponse>(
+            `/api/nest/chart-library/lightdash/templates/${encodeURIComponent(
+                templateId,
+            )}/generate`,
+            {
+                method: 'POST',
+                body: payload,
+            },
         );
     }
 }

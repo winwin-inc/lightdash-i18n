@@ -3,6 +3,8 @@ import {
     ChartTemplateClient,
     ChartTemplateDetail,
     ChartTemplateListItem,
+    GenerateChartTemplateCandidatesRequest,
+    GenerateChartTemplateCandidatesResponse,
 } from '../../clients/ChartTemplateClient/ChartTemplateClient';
 import { BaseService } from '../BaseService';
 
@@ -40,5 +42,17 @@ export class ChartTemplateService extends BaseService {
     ): Promise<ChartTemplateDetail> {
         ChartTemplateService.assertCanReadTemplates(user);
         return this.chartTemplateClient.getTemplateById(templateId);
+    }
+
+    async generateChartTemplateCandidates(
+        user: SessionUser,
+        templateId: string,
+        payload: GenerateChartTemplateCandidatesRequest,
+    ): Promise<GenerateChartTemplateCandidatesResponse> {
+        ChartTemplateService.assertCanReadTemplates(user);
+        return this.chartTemplateClient.generateTemplateCandidates(
+            templateId,
+            payload,
+        );
     }
 }

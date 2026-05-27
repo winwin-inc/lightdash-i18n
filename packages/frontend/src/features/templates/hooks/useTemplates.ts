@@ -1,11 +1,18 @@
 import { type ApiError } from '@lightdash/common';
-import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
+import {
+    useMutation,
+    useQuery,
+    type UseQueryOptions,
+} from '@tanstack/react-query';
 import useQueryError from '../../../hooks/useQueryError';
 import {
-    type ChartTemplateDetail,
-    type ChartTemplateListItem,
+    generateChartTemplateCandidates,
     getChartTemplate,
     getChartTemplates,
+    type ChartTemplateDetail,
+    type ChartTemplateListItem,
+    type GenerateChartTemplateCandidatesRequest,
+    type GenerateChartTemplateCandidatesResponse,
 } from '../api/templatesApi';
 
 export const useChartTemplates = (
@@ -39,5 +46,22 @@ export const useChartTemplate = (
         },
         ...useQueryOptions,
         enabled: !!templateId && (useQueryOptions?.enabled ?? true),
+    });
+};
+
+export const useGenerateChartTemplateCandidates = () => {
+    const setErrorResponse = useQueryError();
+
+    return useMutation<
+        GenerateChartTemplateCandidatesResponse | null,
+        ApiError,
+        { templateId: string; payload: GenerateChartTemplateCandidatesRequest }
+    >({
+        mutationKey: ['generate-chart-template-candidates'],
+        mutationFn: ({ templateId, payload }) =>
+            generateChartTemplateCandidates(templateId, payload),
+        onError: (result) => {
+            setErrorResponse(result);
+        },
     });
 };

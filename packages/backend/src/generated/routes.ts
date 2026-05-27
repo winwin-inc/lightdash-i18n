@@ -18284,6 +18284,90 @@ const models: TsoaRoute.Models = {
         },
     },
     // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    GenerateChartTemplateCandidatesResponse: {
+        dataType: 'refAlias',
+        type: {
+            dataType: 'nestedObjectLiteral',
+            nestedProperties: {
+                candidates: {
+                    dataType: 'array',
+                    array: {
+                        dataType: 'nestedObjectLiteral',
+                        nestedProperties: {
+                            errors: {
+                                dataType: 'array',
+                                array: { dataType: 'string' },
+                                required: true,
+                            },
+                            valid: { dataType: 'boolean', required: true },
+                            spec: {
+                                ref: 'Record_string.unknown_',
+                                required: true,
+                            },
+                            reasoning: { dataType: 'string', required: true },
+                            strategy: {
+                                dataType: 'union',
+                                subSchemas: [
+                                    { dataType: 'enum', enums: ['primary'] },
+                                    { dataType: 'enum', enums: ['secondary'] },
+                                    {
+                                        dataType: 'enum',
+                                        enums: ['conservative'],
+                                    },
+                                ],
+                                required: true,
+                            },
+                        },
+                    },
+                    required: true,
+                },
+                model: { dataType: 'string', required: true },
+                templateId: { dataType: 'double', required: true },
+            },
+            validators: {},
+        },
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    GenerateChartTemplateCandidatesRequest: {
+        dataType: 'refAlias',
+        type: {
+            dataType: 'nestedObjectLiteral',
+            nestedProperties: {
+                model: { dataType: 'string' },
+                userPrompt: { dataType: 'string' },
+                selectedMetrics: {
+                    dataType: 'array',
+                    array: { dataType: 'string' },
+                },
+                selectedDimensions: {
+                    dataType: 'array',
+                    array: { dataType: 'string' },
+                },
+                fields: {
+                    dataType: 'array',
+                    array: {
+                        dataType: 'nestedObjectLiteral',
+                        nestedProperties: {
+                            isSelected: { dataType: 'boolean' },
+                            fieldKind: {
+                                dataType: 'union',
+                                subSchemas: [
+                                    { dataType: 'enum', enums: ['dimension'] },
+                                    { dataType: 'enum', enums: ['metric'] },
+                                    { dataType: 'enum', enums: ['unknown'] },
+                                ],
+                            },
+                            label: { dataType: 'string' },
+                            fieldId: { dataType: 'string', required: true },
+                        },
+                    },
+                    required: true,
+                },
+            },
+            validators: {},
+        },
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
     ChangesetTSOACompat: {
         dataType: 'refAlias',
         type: { ref: 'Record_string.unknown_', validators: {} },
@@ -39903,6 +39987,73 @@ export function RegisterRoutes(app: Router) {
 
                 await templateService.apiHandler({
                     methodName: 'getChartTemplateById',
+                    controller,
+                    response,
+                    next,
+                    validatedArgs,
+                    successStatus: 200,
+                });
+            } catch (err) {
+                return next(err);
+            }
+        },
+    );
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    const argsChartTemplateController_generateChartTemplateCandidates: Record<
+        string,
+        TsoaRoute.ParameterSchema
+    > = {
+        templateId: {
+            in: 'path',
+            name: 'templateId',
+            required: true,
+            dataType: 'string',
+        },
+        body: {
+            in: 'body',
+            name: 'body',
+            required: true,
+            ref: 'GenerateChartTemplateCandidatesRequest',
+        },
+        req: { in: 'request', name: 'req', required: true, dataType: 'object' },
+    };
+    app.post(
+        '/api/v1/chart-templates/:templateId/generate',
+        ...fetchMiddlewares<RequestHandler>(ChartTemplateController),
+        ...fetchMiddlewares<RequestHandler>(
+            ChartTemplateController.prototype.generateChartTemplateCandidates,
+        ),
+
+        async function ChartTemplateController_generateChartTemplateCandidates(
+            request: ExRequest,
+            response: ExResponse,
+            next: any,
+        ) {
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({
+                    args: argsChartTemplateController_generateChartTemplateCandidates,
+                    request,
+                    response,
+                });
+
+                const container: IocContainer =
+                    typeof iocContainer === 'function'
+                        ? (iocContainer as IocContainerFactory)(request)
+                        : iocContainer;
+
+                const controller: any =
+                    await container.get<ChartTemplateController>(
+                        ChartTemplateController,
+                    );
+                if (typeof controller['setStatus'] === 'function') {
+                    controller.setStatus(undefined);
+                }
+
+                await templateService.apiHandler({
+                    methodName: 'generateChartTemplateCandidates',
                     controller,
                     response,
                     next,

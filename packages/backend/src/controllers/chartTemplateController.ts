@@ -1,9 +1,11 @@
 import { ApiErrorPayload } from '@lightdash/common';
 import {
+    Body,
     Get,
     Middlewares,
     OperationId,
     Path,
+    Post,
     Request,
     Response,
     Route,
@@ -11,6 +13,10 @@ import {
     Tags,
 } from '@tsoa/runtime';
 import express from 'express';
+import {
+    GenerateChartTemplateCandidatesRequest,
+    GenerateChartTemplateCandidatesResponse,
+} from '../clients/ChartTemplateClient/ChartTemplateClient';
 import { allowApiKeyAuthentication, isAuthenticated } from './authentication';
 import { BaseController } from './baseController';
 
@@ -48,6 +54,29 @@ export class ChartTemplateController extends BaseController {
         const results = await this.services
             .getChartTemplateService()
             .getChartTemplateById(req.user!, templateId);
+
+        return {
+            status: 'ok',
+            results,
+        };
+    }
+
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Post('/{templateId}/generate')
+    @OperationId('generateChartTemplateCandidates')
+    async generateChartTemplateCandidates(
+        @Path() templateId: string,
+        @Body() body: GenerateChartTemplateCandidatesRequest,
+        @Request() req: express.Request,
+    ): Promise<{
+        status: 'ok';
+        results: GenerateChartTemplateCandidatesResponse;
+    }> {
+        this.setStatus(200);
+        const results = await this.services
+            .getChartTemplateService()
+            .generateChartTemplateCandidates(req.user!, templateId, body);
 
         return {
             status: 'ok',
