@@ -1,10 +1,11 @@
+import type { Router } from 'express';
 import express from 'express';
 import {
     isAuthenticated,
     unauthorisedInDemo,
 } from '../controllers/authentication';
 
-export const userRouter = express.Router();
+export const userRouter: Router = express.Router();
 
 userRouter.patch(
     '/me',

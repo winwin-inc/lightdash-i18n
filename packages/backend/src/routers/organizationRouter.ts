@@ -4,6 +4,7 @@ import {
     LightdashRequestMethodHeader,
     OnboardingStatus,
 } from '@lightdash/common';
+import type { Router } from 'express';
 import express from 'express';
 import {
     allowApiKeyAuthentication,
@@ -11,7 +12,7 @@ import {
     unauthorisedInDemo,
 } from '../controllers/authentication';
 
-export const organizationRouter = express.Router();
+export const organizationRouter: Router = express.Router();
 
 organizationRouter.post(
     '/projects/precompiled',

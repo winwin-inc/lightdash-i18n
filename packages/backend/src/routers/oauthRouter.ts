@@ -6,6 +6,7 @@ import {
     OAuthIntrospectResponse,
 } from '@lightdash/common';
 import OAuth2Server from '@node-oauth/oauth2-server';
+import type { RequestHandler, Router } from 'express';
 import express from 'express';
 import Logger from '../logging/logger';
 import { DEFAULT_OAUTH_CLIENT_ID } from '../models/OAuth2Model';
@@ -14,7 +15,7 @@ import {
     OAuthService,
 } from '../services/OAuthService/OAuthService';
 
-const oauthRouter = express.Router({ mergeParams: true });
+const oauthRouter: Router = express.Router({ mergeParams: true });
 
 // Get OAuth service from request
 function getOAuthService(req: express.Request): OAuthService {
@@ -344,7 +345,9 @@ oauthRouter.post('/register', async (req, res) => {
 // This endpoint should only be used for the MCP server to discover the OAuth2 server
 // To create new clients
 // We limit the scopes to MCP_READ and MCP_WRITE for now
-export function oauthConfig(baseUrl: string) {
+export function oauthConfig(
+    baseUrl: string,
+): Record<string, string | string[] | boolean> {
     return {
         issuer: baseUrl,
         authorization_endpoint: `${baseUrl}/api/v1/oauth/authorize`,
@@ -369,7 +372,7 @@ export function oauthConfig(baseUrl: string) {
 }
 
 // Export the handler for reuse at root level
-export const oauthAuthorizationServerHandler = (
+export const oauthAuthorizationServerHandler: RequestHandler = (
     req: express.Request,
     res: express.Response,
 ) => {
@@ -391,7 +394,9 @@ oauthRouter.get(
 );
 
 // OAuth2 Protected Resource configuration
-export function oauthProtectedResourceConfig(baseUrl: string) {
+export function oauthProtectedResourceConfig(
+    baseUrl: string,
+): Record<string, string | string[]> {
     return {
         resource: `${baseUrl}/api/v1/mcp`,
         authorization_servers: [baseUrl],
@@ -408,7 +413,7 @@ export function oauthProtectedResourceConfig(baseUrl: string) {
 // This will be requested by the MCP client if authentication fails,
 // The endpoint is provided by the returnHeaderIfUnauthenticated method in mcpRouter.ts
 // Export the handler for reuse at root level
-export const oauthProtectedResourceHandler = (
+export const oauthProtectedResourceHandler: RequestHandler = (
     req: express.Request,
     res: express.Response,
 ) => {

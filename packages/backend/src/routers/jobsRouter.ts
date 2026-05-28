@@ -1,10 +1,11 @@
+import type { Router } from 'express';
 import express from 'express';
 import {
     allowApiKeyAuthentication,
     isAuthenticated,
 } from '../controllers/authentication';
 
-export const jobsRouter = express.Router({ mergeParams: true });
+export const jobsRouter: Router = express.Router({ mergeParams: true });
 
 jobsRouter.get('/', isAuthenticated, async (req, res, next) => {
     next('Not implemented');

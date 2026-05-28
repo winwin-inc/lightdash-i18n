@@ -6,6 +6,7 @@ import {
     ProjectCatalog,
     TablesConfiguration,
 } from '@lightdash/common';
+import type { Router } from 'express';
 import express from 'express';
 
 import path from 'path';
@@ -18,7 +19,7 @@ import { createContentDispositionHeader } from '../utils/FileDownloadUtils/FileD
 
 const fs = require('fs');
 
-export const projectRouter = express.Router({ mergeParams: true });
+export const projectRouter: Router = express.Router({ mergeParams: true });
 
 projectRouter.patch(
     '/',

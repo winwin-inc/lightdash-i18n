@@ -1,3 +1,4 @@
+import type { Router } from 'express';
 import express from 'express';
 import passport from 'passport';
 import { promisify } from 'util';
@@ -24,7 +25,7 @@ import { projectRouter } from './projectRouter';
 import { savedChartRouter } from './savedChartRouter';
 import { userRouter } from './userRouter';
 
-export const apiV1Router = express.Router();
+export const apiV1Router: Router = express.Router();
 
 apiV1Router.get('/livez', async (req, res, next) => {
     res.json({

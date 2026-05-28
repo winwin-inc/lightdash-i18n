@@ -249,7 +249,7 @@ export const getDeprecatedRouteMiddleware =
 export const deprecatedResultsRoute = getDeprecatedRouteMiddleware(
     new Date('2025-04-30'),
     `Please use 'POST /api/v2/projects/{projectUuid}/query' in conjuntion with 'GET /api/v2/projects/{projectUuid}/query/{queryUuid}' instead.`,
-);
+) as RequestHandler;
 
 export const invalidUserErrorHandler: ErrorRequestHandler = (
     err,

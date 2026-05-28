@@ -1,7 +1,8 @@
+import type { Router } from 'express';
 import express from 'express';
 import { unauthorisedInDemo } from '../controllers/authentication';
 
-export const passwordResetLinksRouter = express.Router();
+export const passwordResetLinksRouter: Router = express.Router();
 
 passwordResetLinksRouter.get(
     '/:code',

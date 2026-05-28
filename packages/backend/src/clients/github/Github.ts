@@ -17,6 +17,11 @@ const privateKey = process.env.GITHUB_PRIVATE_KEY
     : undefined;
 const appId = process.env.GITHUB_APP_ID;
 
+type OctokitWithHeaders = {
+    octokit: OctokitRest;
+    headers: Record<string, string> | undefined;
+};
+
 export const githubApp =
     privateKey && appId
         ? new App({
@@ -38,7 +43,9 @@ export const getGithubApp = () => {
     return githubApp;
 };
 
-export const getOctokitRestForUser = (authToken: string) => {
+export const getOctokitRestForUser = (
+    authToken: string,
+): OctokitWithHeaders => {
     const octokit = new OctokitRest();
     const headers = {
         authorization: `Bearer ${authToken}`,
@@ -49,7 +56,7 @@ export const getOctokitRestForUser = (authToken: string) => {
     };
 };
 
-export const getOctokitRestForApp = (installationId: string) => {
+export const getOctokitRestForApp = (installationId: string): OctokitRest => {
     if (appId === undefined)
         throw new Error('Github integration not configured');
 
@@ -68,7 +75,10 @@ export const getOctokitRestForApp = (installationId: string) => {
  * otherwise use the token as a user
  * The token can be generated using the installation id
  */
-export const getOctokit = (installationId?: string, token?: string) => {
+export const getOctokit = (
+    installationId?: string,
+    token?: string,
+): OctokitWithHeaders => {
     if (installationId) {
         return {
             octokit: getOctokitRestForApp(installationId),
@@ -187,7 +197,7 @@ export const createBranch = async ({
     branch: string;
     token: string;
     hostDomain?: string;
-}) => {
+}): Promise<unknown> => {
     const { octokit, headers } = getOctokitRestForUser(token);
 
     try {
@@ -235,7 +245,7 @@ export const updateFile = async ({
     branch: string;
     message: string;
     token: string;
-}) => {
+}): Promise<unknown> => {
     const { octokit, headers } = getOctokitRestForUser(token);
     try {
         const response = await octokit.rest.repos.createOrUpdateFileContents({
@@ -278,7 +288,7 @@ export const createFile = async ({
     branch: string;
     message: string;
     token: string;
-}) => {
+}): Promise<unknown> => {
     const { octokit, headers } = getOctokitRestForUser(token);
 
     try {

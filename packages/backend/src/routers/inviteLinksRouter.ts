@@ -1,4 +1,5 @@
 import { CreateInviteLink, getObjectValue } from '@lightdash/common';
+import type { Router } from 'express';
 import express from 'express';
 import {
     allowApiKeyAuthentication,
@@ -6,7 +7,7 @@ import {
     unauthorisedInDemo,
 } from '../controllers/authentication';
 
-export const inviteLinksRouter = express.Router();
+export const inviteLinksRouter: Router = express.Router();
 
 inviteLinksRouter.get(
     '/:inviteLinkCode',

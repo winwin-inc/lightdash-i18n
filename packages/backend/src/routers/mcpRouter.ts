@@ -2,6 +2,7 @@
 import { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 // eslint-disable-next-line import/extensions
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import type { Router } from 'express';
 import express from 'express';
 import { IncomingMessage } from 'http';
 
@@ -24,7 +25,7 @@ import {
 import { ExtraContext, McpService } from '../ee/services/McpService/McpService';
 import Logger from '../logging/logger';
 
-const mcpRouter = express.Router({ mergeParams: true });
+const mcpRouter: Router = express.Router({ mergeParams: true });
 
 function getMcpService(req: express.Request): McpService {
     try {
