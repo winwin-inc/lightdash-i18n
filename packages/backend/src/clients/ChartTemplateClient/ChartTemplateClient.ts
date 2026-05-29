@@ -53,6 +53,8 @@ export type GenerateChartTemplateCandidatesResponse = {
 export class ChartTemplateClient {
     private readonly config: LightdashConfig;
 
+    private static readonly GENERATE_TIMEOUT_MS = 30000;
+
     constructor(config: LightdashConfig) {
         this.config = config;
     }
@@ -66,9 +68,10 @@ export class ChartTemplateClient {
         options?: {
             method?: 'GET' | 'POST';
             body?: Record<string, unknown>;
+            timeoutMs?: number;
         },
     ): Promise<T> {
-        const { timeoutMs } = this.config.adminNest;
+        const timeoutMs = options?.timeoutMs ?? this.config.adminNest.timeoutMs;
         const timeoutPromise = new Promise<never>((_, reject) => {
             setTimeout(() => {
                 reject(
@@ -136,6 +139,7 @@ export class ChartTemplateClient {
             {
                 method: 'POST',
                 body: payload,
+                timeoutMs: ChartTemplateClient.GENERATE_TIMEOUT_MS,
             },
         );
     }
