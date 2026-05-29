@@ -329,11 +329,35 @@ export const SelectTemplate = ({
         if (!selectedCandidate?.normalizedSpec) return '';
         return JSON.stringify(selectedCandidate.normalizedSpec, null, 2);
     }, [selectedCandidate]);
+    const selectedTemplateDisplayName = useMemo(() => {
+        const rawTemplateName = selectedTemplate?.example_name;
+        if (!rawTemplateName) {
+            return selectedTemplateId ? `模板 ${selectedTemplateId}` : '模板';
+        }
+
+        const matched = rawTemplateName.match(/^(.*?)\((.+)\)$/);
+        if (!matched) {
+            return rawTemplateName;
+        }
+
+        const [, technicalName, chineseName] = matched;
+        return chineseName?.trim() || technicalName?.trim() || rawTemplateName;
+    }, [selectedTemplate, selectedTemplateId]);
+    const selectedCandidateReasoningText = useMemo(() => {
+        if (!selectedCandidate?.reasoning) {
+            return t(
+                'components_visualization_configs_custom_vis_template.ai_no_reasoning',
+            );
+        }
+
+        return selectedCandidate.reasoning.replace(
+            /基于模板\s*\d+\s*规则映射生成/g,
+            `基于模板「${selectedTemplateDisplayName}」规则映射生成`,
+        );
+    }, [selectedCandidate, selectedTemplateDisplayName, t]);
     const hasSelectionMetaDetails = useMemo(() => {
         if (!selectionMetaTips) return false;
         return (
-            selectionMetaTips.chosenDimensions.length > 0 ||
-            selectionMetaTips.chosenMetrics.length > 0 ||
             selectionMetaTips.ignoredDimensions.length > 0 ||
             selectionMetaTips.ignoredMetrics.length > 0 ||
             selectionMetaTips.ambiguityReasons.length > 0 ||
@@ -908,18 +932,30 @@ export const SelectTemplate = ({
                     </Stack>
                 ) : modalStep === 'ai' ? (
                     <Stack spacing="sm">
-                        <Text size="xs" color="dimmed">
-                            {t(
-                                'components_visualization_configs_custom_vis_template.ai_candidates_description',
-                            )}
-                        </Text>
+                        {selectedCandidate ? (
+                            <Group spacing={6} noWrap>
+                                <Text
+                                    size="xs"
+                                    c={
+                                        selectedCandidate.valid
+                                            ? 'green.7'
+                                            : 'orange.8'
+                                    }
+                                    fw={500}
+                                >
+                                    {t(
+                                        selectedCandidate.valid
+                                            ? 'components_visualization_configs_custom_vis_template.ai_validation_passed'
+                                            : 'components_visualization_configs_custom_vis_template.ai_validation_failed',
+                                    )}
+                                </Text>
+                                <Text size="xs" c="dimmed" lineClamp={1}>
+                                    {selectedCandidateReasoningText}
+                                </Text>
+                            </Group>
+                        ) : null}
                         {hasSelectionMetaDetails && selectionMetaTips ? (
-                            <Alert
-                                color="blue"
-                                variant="light"
-                                title="字段裁剪与兜底信息"
-                                p="sm"
-                            >
+                            <Alert color="blue" variant="light" p="sm">
                                 <Stack spacing={4}>
                                     {selectionMetaTips.mappingConfidence ? (
                                         <Group spacing={6}>
@@ -948,24 +984,6 @@ export const SelectTemplate = ({
                                     {selectionMetaTips.usedAiFallback ? (
                                         <Text size="11px" c="dimmed">
                                             - 已触发 AI 兜底选择
-                                        </Text>
-                                    ) : null}
-                                    {selectionMetaTips.chosenDimensions.length >
-                                    0 ? (
-                                        <Text size="11px" c="dimmed">
-                                            - 实际映射维度:{' '}
-                                            {formatFieldList(
-                                                selectionMetaTips.chosenDimensions,
-                                            ).join(', ')}
-                                        </Text>
-                                    ) : null}
-                                    {selectionMetaTips.chosenMetrics.length >
-                                    0 ? (
-                                        <Text size="11px" c="dimmed">
-                                            - 实际映射指标:{' '}
-                                            {formatFieldList(
-                                                selectionMetaTips.chosenMetrics,
-                                            ).join(', ')}
                                         </Text>
                                     ) : null}
                                     {selectionMetaTips.ignoredDimensions
@@ -1009,74 +1027,64 @@ export const SelectTemplate = ({
                             </Text>
                         ) : (
                             <>
-                                <Group spacing={6}>
-                                    {aiCandidates.map((candidate, index) => {
-                                        const isValid = candidate.valid;
-                                        return (
-                                            <Button
-                                                key={`${candidate.strategy}-${index}`}
-                                                size="xs"
-                                                variant={
+                                {aiCandidates.length > 1 ? (
+                                    <Group spacing={6}>
+                                        {aiCandidates.map(
+                                            (candidate, index) => {
+                                                const isValid = candidate.valid;
+                                                const isSelected =
                                                     index ===
-                                                    selectedCandidateIndex
-                                                        ? 'filled'
-                                                        : 'default'
-                                                }
-                                                color={
-                                                    isValid ? 'blue' : 'gray'
-                                                }
-                                                onClick={() =>
-                                                    setSelectedCandidateIndex(
-                                                        index,
-                                                    )
-                                                }
-                                            >
-                                                {t(
-                                                    `components_visualization_configs_custom_vis_template.ai_strategy_${candidate.strategy}`,
-                                                )}
-                                            </Button>
-                                        );
-                                    })}
-                                </Group>
+                                                    selectedCandidateIndex;
+                                                return (
+                                                    <Badge
+                                                        key={`${candidate.strategy}-${index}`}
+                                                        size="sm"
+                                                        radius="sm"
+                                                        variant={
+                                                            isSelected
+                                                                ? 'filled'
+                                                                : 'light'
+                                                        }
+                                                        color={
+                                                            isValid
+                                                                ? 'blue'
+                                                                : 'gray'
+                                                        }
+                                                        sx={{
+                                                            cursor: 'pointer',
+                                                            userSelect: 'none',
+                                                        }}
+                                                        onClick={() =>
+                                                            setSelectedCandidateIndex(
+                                                                index,
+                                                            )
+                                                        }
+                                                    >
+                                                        {t(
+                                                            `components_visualization_configs_custom_vis_template.ai_strategy_${candidate.strategy}`,
+                                                        )}
+                                                    </Badge>
+                                                );
+                                            },
+                                        )}
+                                    </Group>
+                                ) : null}
 
                                 {selectedCandidate ? (
                                     <Stack spacing={6}>
-                                        <Text size="xs" color="dimmed">
-                                            {selectedCandidate.reasoning ||
-                                                t(
-                                                    'components_visualization_configs_custom_vis_template.ai_no_reasoning',
-                                                )}
-                                        </Text>
-
-                                        {selectedCandidate.valid ? (
-                                            <Text size="xs" c="green.7">
-                                                {t(
-                                                    'components_visualization_configs_custom_vis_template.ai_validation_passed',
-                                                )}
-                                            </Text>
-                                        ) : (
-                                            <>
-                                                <Text size="xs" c="orange.8">
-                                                    {t(
-                                                        'components_visualization_configs_custom_vis_template.ai_validation_failed',
-                                                    )}
-                                                </Text>
-                                                {(
-                                                    selectedCandidate.errors ||
-                                                    []
-                                                )
-                                                    .slice(0, 6)
-                                                    .map((error, idx) => (
-                                                        <Text
-                                                            key={`${error}-${idx}`}
-                                                            size="11px"
-                                                            c="dimmed"
-                                                        >
-                                                            - {error}
-                                                        </Text>
-                                                    ))}
-                                            </>
-                                        )}
+                                        {!selectedCandidate.valid
+                                            ? (selectedCandidate.errors || [])
+                                                  .slice(0, 6)
+                                                  .map((error, idx) => (
+                                                      <Text
+                                                          key={`${error}-${idx}`}
+                                                          size="11px"
+                                                          c="dimmed"
+                                                      >
+                                                          - {error}
+                                                      </Text>
+                                                  ))
+                                            : null}
                                         {selectedCandidate.frontendErrors
                                             .length > 0 ? (
                                             <Text size="11px" c="dimmed">
@@ -1089,9 +1097,10 @@ export const SelectTemplate = ({
 
                                         <Group spacing={4}>
                                             <Button
-                                                variant="subtle"
-                                                size="xs"
-                                                compact
+                                                variant="light"
+                                                color="gray"
+                                                size="sm"
+                                                fz="xs"
                                                 onClick={() =>
                                                     setIsSpecPreviewOpen(true)
                                                 }
@@ -1104,9 +1113,10 @@ export const SelectTemplate = ({
                                                 )}
                                             </Button>
                                             <Button
-                                                variant="subtle"
-                                                size="xs"
-                                                compact
+                                                variant="light"
+                                                color="gray"
+                                                size="sm"
+                                                fz="xs"
                                                 onClick={copyTemplateSpec}
                                                 disabled={
                                                     !selectedCandidateSpecString
@@ -1121,9 +1131,10 @@ export const SelectTemplate = ({
                                                       )}
                                             </Button>
                                             <Button
-                                                variant="subtle"
-                                                size="xs"
-                                                compact
+                                                variant="light"
+                                                color="blue"
+                                                size="sm"
+                                                fz="xs"
                                                 onClick={() => {
                                                     void generateAiCandidates();
                                                 }}
@@ -1166,9 +1177,10 @@ export const SelectTemplate = ({
                                     </Text>
                                     <Group spacing={4}>
                                         <Button
-                                            variant="subtle"
-                                            size="xs"
-                                            compact
+                                            variant="light"
+                                            color="gray"
+                                            size="sm"
+                                            fz="xs"
                                             onClick={() =>
                                                 setIsSpecPreviewOpen(true)
                                             }
@@ -1181,9 +1193,10 @@ export const SelectTemplate = ({
                                             )}
                                         </Button>
                                         <Button
-                                            variant="subtle"
-                                            size="xs"
-                                            compact
+                                            variant="light"
+                                            color="gray"
+                                            size="sm"
+                                            fz="xs"
                                             onClick={copyTemplateSpec}
                                             disabled={
                                                 !selectedTemplateSpecString
@@ -1363,9 +1376,10 @@ export const SelectTemplate = ({
             >
                 <Group position="right" mb="xs">
                     <Button
-                        variant="default"
-                        size="xs"
-                        compact
+                        variant="light"
+                        color="blue"
+                        size="sm"
+                        fz="xs"
                         onClick={copyTemplateSpec}
                         disabled={
                             !(
