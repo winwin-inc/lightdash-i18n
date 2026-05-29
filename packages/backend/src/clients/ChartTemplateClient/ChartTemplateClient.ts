@@ -30,6 +30,15 @@ export type GenerateChartTemplateCandidatesResponse = {
             reasons: string[];
             suggestions: string[];
         };
+        selectionMeta?: {
+            chosenDimensions?: string[];
+            chosenMetrics?: string[];
+            ignoredDimensions?: string[];
+            ignoredMetrics?: string[];
+            mappingConfidence?: 'high' | 'medium' | 'low';
+            usedAiFallback?: boolean;
+            ambiguityReasons?: string[];
+        };
         candidates: Array<{
             strategy: 'primary' | 'secondary' | 'conservative';
             reasoning: string;

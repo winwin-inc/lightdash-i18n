@@ -6,6 +6,8 @@ import {
     type MetricQuery,
 } from '@lightdash/common';
 import {
+    Alert,
+    Badge,
     Box,
     Button,
     Divider,
@@ -53,6 +55,8 @@ type CandidateWithValidation =
         normalizedSpec: Record<string, unknown>;
         frontendErrors: string[];
     };
+type GeneratedSelectionMeta =
+    GenerateChartTemplateCandidatesResponse['selectionMeta'];
 
 export const SelectTemplate = ({
     setEditorConfig,
@@ -63,7 +67,7 @@ export const SelectTemplate = ({
     const { itemsMap, resultsData, visualizationConfig } =
         useVisualizationContext();
     const clipboard = useClipboard({ timeout: 1200 });
-    const { showToastSuccess, showToastWarning } = useToaster();
+    const { showToastSuccess } = useToaster();
 
     const [opened, setOpened] = useState(false);
     const [modalStep, setModalStep] = useState<ModalStep>('template');
@@ -86,6 +90,8 @@ export const SelectTemplate = ({
         reasons: string[];
         suggestions: string[];
     } | null>(null);
+    const [selectionMetaTips, setSelectionMetaTips] =
+        useState<GeneratedSelectionMeta>(null);
     const {
         mutateAsync: generateCandidates,
         isLoading: isGeneratingCandidates,
@@ -244,6 +250,18 @@ export const SelectTemplate = ({
             };
         });
     }, [currentQueryFields, itemsMap, t]);
+    const getFieldDisplayName = useCallback(
+        (fieldId: string): string => {
+            const item = itemsMap?.[fieldId];
+            return item ? getItemLabelWithoutTableName(item) : fieldId;
+        },
+        [itemsMap],
+    );
+    const formatFieldList = useCallback(
+        (fieldIds: string[]): string[] =>
+            fieldIds.map((fieldId) => getFieldDisplayName(fieldId)),
+        [getFieldDisplayName],
+    );
 
     const currentFieldKindById = useMemo(
         () =>
@@ -311,6 +329,18 @@ export const SelectTemplate = ({
         if (!selectedCandidate?.normalizedSpec) return '';
         return JSON.stringify(selectedCandidate.normalizedSpec, null, 2);
     }, [selectedCandidate]);
+    const hasSelectionMetaDetails = useMemo(() => {
+        if (!selectionMetaTips) return false;
+        return (
+            selectionMetaTips.chosenDimensions.length > 0 ||
+            selectionMetaTips.chosenMetrics.length > 0 ||
+            selectionMetaTips.ignoredDimensions.length > 0 ||
+            selectionMetaTips.ignoredMetrics.length > 0 ||
+            selectionMetaTips.ambiguityReasons.length > 0 ||
+            selectionMetaTips.mappingConfidence !== null ||
+            selectionMetaTips.usedAiFallback
+        );
+    }, [selectionMetaTips]);
 
     const applyTemplate = useCallback(() => {
         if (!selectedTemplateSpec) return;
@@ -334,11 +364,7 @@ export const SelectTemplate = ({
     ]);
 
     const applyAiCandidate = useCallback(() => {
-        if (
-            !selectedCandidate ||
-            !selectedCandidate.valid ||
-            selectedCandidate.frontendErrors.length > 0
-        ) {
+        if (!selectedCandidate || !selectedCandidate.valid) {
             return;
         }
 
@@ -353,6 +379,7 @@ export const SelectTemplate = ({
         if (!selectedTemplateId) return;
 
         setCompatibilityTips(null);
+        setSelectionMetaTips(null);
         const response = await generateCandidates({
             templateId: selectedTemplateId,
             payload: {
@@ -367,14 +394,7 @@ export const SelectTemplate = ({
             },
         });
 
-        if (!response) {
-            showToastWarning({
-                title: t(
-                    'components_visualization_configs_custom_vis_template.ai_no_candidates',
-                ),
-            });
-            return;
-        }
+        if (!response) return;
 
         if (!response.renderable || response.candidates.length === 0) {
             const compatibility = response.compatibility || {
@@ -382,18 +402,30 @@ export const SelectTemplate = ({
                 reasons: [],
                 suggestions: [],
             };
+            const selectionMeta = response.selectionMeta;
+            const selectionSuggestions: string[] = [];
+            if (selectionMeta?.ignoredDimensions.length) {
+                selectionSuggestions.push(
+                    `自动忽略维度: ${formatFieldList(selectionMeta.ignoredDimensions).join(', ')}`,
+                );
+            }
+            if (selectionMeta?.ignoredMetrics.length) {
+                selectionSuggestions.push(
+                    `自动忽略指标: ${formatFieldList(selectionMeta.ignoredMetrics).join(', ')}`,
+                );
+            }
+            if (selectionMeta?.ambiguityReasons.length) {
+                selectionSuggestions.push(...selectionMeta.ambiguityReasons);
+            }
             setCompatibilityTips({
                 level: compatibility.level,
                 reasons: compatibility.reasons || [],
-                suggestions: compatibility.suggestions || [],
+                suggestions: [
+                    ...(compatibility.suggestions || []),
+                    ...selectionSuggestions,
+                ],
             });
-            showToastWarning({
-                title:
-                    compatibility.reasons[0] ||
-                    t(
-                        'components_visualization_configs_custom_vis_template.ai_no_candidates',
-                    ),
-            });
+            setSelectionMetaTips(selectionMeta);
             return;
         }
 
@@ -411,6 +443,7 @@ export const SelectTemplate = ({
 
         setAiCandidates(candidates);
         setSelectedCandidateIndex(0);
+        setSelectionMetaTips(response.selectionMeta);
         setModalStep('ai');
     }, [
         selectedTemplateId,
@@ -419,8 +452,7 @@ export const SelectTemplate = ({
         selectedDimensions,
         selectedMetrics,
         availableFieldIds,
-        showToastWarning,
-        t,
+        formatFieldList,
     ]);
 
     const copyTemplateSpec = useCallback(() => {
@@ -487,6 +519,7 @@ export const SelectTemplate = ({
                     setAiCandidates([]);
                     setSelectedCandidateIndex(0);
                     setCompatibilityTips(null);
+                    setSelectionMetaTips(null);
                 }}
                 title={t(
                     modalStep === 'template'
@@ -509,6 +542,7 @@ export const SelectTemplate = ({
                 modalBodyProps={{
                     sx: {
                         maxHeight: 'calc(88vh - 130px)',
+                        overflow: 'hidden',
                     },
                 }}
                 actions={
@@ -528,6 +562,7 @@ export const SelectTemplate = ({
                                 setAiCandidates([]);
                                 setSelectedCandidateIndex(0);
                                 setCompatibilityTips(null);
+                                setSelectionMetaTips(null);
                             }}
                         >
                             {modalStep === 'template'
@@ -554,9 +589,7 @@ export const SelectTemplate = ({
                                       isGeneratingCandidates
                                     : modalStep === 'ai'
                                       ? !selectedCandidate ||
-                                        !selectedCandidate.valid ||
-                                        selectedCandidate.frontendErrors
-                                            .length > 0
+                                        !selectedCandidate.valid
                                       : unresolvedRequiredFields.length > 0
                             }
                         >
@@ -585,42 +618,60 @@ export const SelectTemplate = ({
                             )}
                         </Text>
                         {compatibilityTips ? (
-                            <Stack spacing={4}>
-                                <Text
-                                    size="xs"
-                                    c={
-                                        compatibilityTips.level === 'good'
-                                            ? 'green.7'
-                                            : 'orange.8'
-                                    }
+                            <Alert
+                                color={
+                                    compatibilityTips.level === 'good'
+                                        ? 'green'
+                                        : 'yellow'
+                                }
+                                variant="light"
+                                title={t(
+                                    'components_visualization_configs_custom_vis_template.ai_validation_failed',
+                                )}
+                                p="sm"
+                            >
+                                <Box
+                                    sx={{
+                                        maxHeight: 96,
+                                        overflowY: 'auto',
+                                    }}
                                 >
-                                    {t(
-                                        'components_visualization_configs_custom_vis_template.ai_validation_failed',
-                                    )}
-                                </Text>
-                                {compatibilityTips.reasons.map(
-                                    (reason, idx) => (
-                                        <Text
-                                            key={`compatibility-reason-${idx}`}
-                                            size="11px"
-                                            c="dimmed"
-                                        >
-                                            - {reason}
-                                        </Text>
-                                    ),
-                                )}
-                                {compatibilityTips.suggestions.map(
-                                    (suggestion, idx) => (
-                                        <Text
-                                            key={`compatibility-suggestion-${idx}`}
-                                            size="11px"
-                                            c="dimmed"
-                                        >
-                                            - {suggestion}
-                                        </Text>
-                                    ),
-                                )}
-                            </Stack>
+                                    <Stack spacing={4}>
+                                        {compatibilityTips.reasons.map(
+                                            (reason, idx) => (
+                                                <Text
+                                                    key={`compatibility-reason-${idx}`}
+                                                    size="11px"
+                                                    c="dimmed"
+                                                >
+                                                    - {reason}
+                                                </Text>
+                                            ),
+                                        )}
+                                        {compatibilityTips.suggestions.map(
+                                            (suggestion, idx) => (
+                                                <Text
+                                                    key={`compatibility-suggestion-${idx}`}
+                                                    size="11px"
+                                                    c="dimmed"
+                                                >
+                                                    - {suggestion}
+                                                </Text>
+                                            ),
+                                        )}
+                                        {compatibilityTips.reasons.length ===
+                                            0 &&
+                                        compatibilityTips.suggestions.length ===
+                                            0 ? (
+                                            <Text size="11px" c="dimmed">
+                                                {t(
+                                                    'components_visualization_configs_custom_vis_template.ai_no_candidates',
+                                                )}
+                                            </Text>
+                                        ) : null}
+                                    </Stack>
+                                </Box>
+                            </Alert>
                         ) : null}
                         <Select
                             size="xs"
@@ -636,7 +687,15 @@ export const SelectTemplate = ({
                                 display: 'block',
                             }}
                         >
-                            <ScrollArea h={MODAL_SCROLL_HEIGHT}>
+                            <ScrollArea
+                                h={MODAL_SCROLL_HEIGHT}
+                                offsetScrollbars
+                                styles={{
+                                    viewport: {
+                                        paddingRight: 14,
+                                    },
+                                }}
+                            >
                                 <Stack spacing="xs">
                                     {isTemplatesLoading ? (
                                         <Loader color="gray" size="sm" />
@@ -854,6 +913,93 @@ export const SelectTemplate = ({
                                 'components_visualization_configs_custom_vis_template.ai_candidates_description',
                             )}
                         </Text>
+                        {hasSelectionMetaDetails && selectionMetaTips ? (
+                            <Alert
+                                color="blue"
+                                variant="light"
+                                title="字段裁剪与兜底信息"
+                                p="sm"
+                            >
+                                <Stack spacing={4}>
+                                    {selectionMetaTips.mappingConfidence ? (
+                                        <Group spacing={6}>
+                                            <Text size="11px" c="dimmed">
+                                                映射置信度:
+                                            </Text>
+                                            <Badge
+                                                size="xs"
+                                                variant="light"
+                                                color={
+                                                    selectionMetaTips.mappingConfidence ===
+                                                    'high'
+                                                        ? 'green'
+                                                        : selectionMetaTips.mappingConfidence ===
+                                                            'medium'
+                                                          ? 'yellow'
+                                                          : 'orange'
+                                                }
+                                            >
+                                                {
+                                                    selectionMetaTips.mappingConfidence
+                                                }
+                                            </Badge>
+                                        </Group>
+                                    ) : null}
+                                    {selectionMetaTips.usedAiFallback ? (
+                                        <Text size="11px" c="dimmed">
+                                            - 已触发 AI 兜底选择
+                                        </Text>
+                                    ) : null}
+                                    {selectionMetaTips.chosenDimensions.length >
+                                    0 ? (
+                                        <Text size="11px" c="dimmed">
+                                            - 实际映射维度:{' '}
+                                            {formatFieldList(
+                                                selectionMetaTips.chosenDimensions,
+                                            ).join(', ')}
+                                        </Text>
+                                    ) : null}
+                                    {selectionMetaTips.chosenMetrics.length >
+                                    0 ? (
+                                        <Text size="11px" c="dimmed">
+                                            - 实际映射指标:{' '}
+                                            {formatFieldList(
+                                                selectionMetaTips.chosenMetrics,
+                                            ).join(', ')}
+                                        </Text>
+                                    ) : null}
+                                    {selectionMetaTips.ignoredDimensions
+                                        .length > 0 ? (
+                                        <Text size="11px" c="dimmed">
+                                            - 自动忽略维度:{' '}
+                                            {formatFieldList(
+                                                selectionMetaTips.ignoredDimensions,
+                                            ).join(', ')}
+                                        </Text>
+                                    ) : null}
+                                    {selectionMetaTips.ignoredMetrics.length >
+                                    0 ? (
+                                        <Text size="11px" c="dimmed">
+                                            - 自动忽略指标:{' '}
+                                            {formatFieldList(
+                                                selectionMetaTips.ignoredMetrics,
+                                            ).join(', ')}
+                                        </Text>
+                                    ) : null}
+                                    {selectionMetaTips.ambiguityReasons.map(
+                                        (reason, idx) => (
+                                            <Text
+                                                key={`ambiguity-reason-${idx}`}
+                                                size="11px"
+                                                c="dimmed"
+                                            >
+                                                - {reason}
+                                            </Text>
+                                        ),
+                                    )}
+                                </Stack>
+                            </Alert>
+                        ) : null}
 
                         {aiCandidates.length === 0 ? (
                             <Text size="sm" color="dimmed">
@@ -865,10 +1011,7 @@ export const SelectTemplate = ({
                             <>
                                 <Group spacing={6}>
                                     {aiCandidates.map((candidate, index) => {
-                                        const isValid =
-                                            candidate.valid &&
-                                            candidate.frontendErrors.length ===
-                                                0;
+                                        const isValid = candidate.valid;
                                         return (
                                             <Button
                                                 key={`${candidate.strategy}-${index}`}
@@ -905,9 +1048,7 @@ export const SelectTemplate = ({
                                                 )}
                                         </Text>
 
-                                        {selectedCandidate.valid &&
-                                        selectedCandidate.frontendErrors
-                                            .length === 0 ? (
+                                        {selectedCandidate.valid ? (
                                             <Text size="xs" c="green.7">
                                                 {t(
                                                     'components_visualization_configs_custom_vis_template.ai_validation_passed',
@@ -924,9 +1065,6 @@ export const SelectTemplate = ({
                                                     selectedCandidate.errors ||
                                                     []
                                                 )
-                                                    .concat(
-                                                        selectedCandidate.frontendErrors,
-                                                    )
                                                     .slice(0, 6)
                                                     .map((error, idx) => (
                                                         <Text
@@ -939,6 +1077,15 @@ export const SelectTemplate = ({
                                                     ))}
                                             </>
                                         )}
+                                        {selectedCandidate.frontendErrors
+                                            .length > 0 ? (
+                                            <Text size="11px" c="dimmed">
+                                                {
+                                                    selectedCandidate
+                                                        .frontendErrors[0]
+                                                }
+                                            </Text>
+                                        ) : null}
 
                                         <Group spacing={4}>
                                             <Button
@@ -1073,7 +1220,15 @@ export const SelectTemplate = ({
                                     </Text>
                                 )}
                                 <Divider />
-                                <ScrollArea h={MODAL_SCROLL_HEIGHT}>
+                                <ScrollArea
+                                    h={MODAL_SCROLL_HEIGHT}
+                                    offsetScrollbars
+                                    styles={{
+                                        viewport: {
+                                            paddingRight: 14,
+                                        },
+                                    }}
+                                >
                                     <Stack spacing="xs">
                                         {templateFieldRefs.map(
                                             (templateField) => (

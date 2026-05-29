@@ -163,16 +163,6 @@ export const validateGeneratedVegaSpec = (
         errors.push('Schema 不是 Vega-Lite v5');
     }
 
-    const hasMark = !!normalizedSpec.mark;
-    const hasLayerMark =
-        Array.isArray(normalizedSpec.layer) &&
-        normalizedSpec.layer.some(
-            (layer) => isRecord(layer) && Object.hasOwn(layer, 'mark'),
-        );
-    if (!hasMark && !hasLayerMark) {
-        errors.push('缺少可渲染的 mark 或 layer');
-    }
-
     const calculatedFields = collectCalculatedFields(normalizedSpec);
     const pivotInputFields = collectPivotInputFields(normalizedSpec);
     const hasPivotTransform = pivotInputFields.size > 0;

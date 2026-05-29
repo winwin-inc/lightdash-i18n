@@ -48,12 +48,23 @@ export type GeneratedTemplateCompatibility = {
     suggestions: string[];
 };
 
+export type GeneratedTemplateSelectionMeta = {
+    chosenDimensions: string[];
+    chosenMetrics: string[];
+    ignoredDimensions: string[];
+    ignoredMetrics: string[];
+    mappingConfidence: 'high' | 'medium' | 'low' | null;
+    usedAiFallback: boolean;
+    ambiguityReasons: string[];
+};
+
 export type GenerateChartTemplateCandidatesResponse = {
     templateId: number;
     model: string;
     renderable: boolean;
     usedFallback: boolean;
     compatibility: GeneratedTemplateCompatibility;
+    selectionMeta: GeneratedTemplateSelectionMeta | null;
     candidates: GeneratedChartTemplateCandidate[];
 };
 
@@ -177,6 +188,38 @@ const normalizeGeneratedCandidates = (
                   }))
             : [];
 
+    const normalizeSelectionMeta = (
+        input: unknown,
+    ): GeneratedTemplateSelectionMeta | null => {
+        if (!isRecord(input)) {
+            return null;
+        }
+
+        const normalizeStringList = (value: unknown): string[] =>
+            Array.isArray(value)
+                ? value.filter(
+                      (item): item is string => typeof item === 'string',
+                  )
+                : [];
+        const mappingConfidenceValue = input.mappingConfidence;
+        const mappingConfidence =
+            mappingConfidenceValue === 'high' ||
+            mappingConfidenceValue === 'medium' ||
+            mappingConfidenceValue === 'low'
+                ? mappingConfidenceValue
+                : null;
+
+        return {
+            chosenDimensions: normalizeStringList(input.chosenDimensions),
+            chosenMetrics: normalizeStringList(input.chosenMetrics),
+            ignoredDimensions: normalizeStringList(input.ignoredDimensions),
+            ignoredMetrics: normalizeStringList(input.ignoredMetrics),
+            mappingConfidence,
+            usedAiFallback: Boolean(input.usedAiFallback),
+            ambiguityReasons: normalizeStringList(input.ambiguityReasons),
+        };
+    };
+
     const normalizeGenerateData = (
         value: unknown,
     ): GenerateChartTemplateCandidatesResponse | null => {
@@ -197,6 +240,7 @@ const normalizeGeneratedCandidates = (
             renderable,
             usedFallback: Boolean(value.usedFallback),
             compatibility: normalizeCompatibility(value.compatibility),
+            selectionMeta: normalizeSelectionMeta(value.selectionMeta),
             candidates,
         };
     };
