@@ -18,15 +18,27 @@ export type GenerateChartTemplateCandidatesRequest = {
     model?: string;
 };
 export type GenerateChartTemplateCandidatesResponse = {
-    templateId: number;
-    model: string;
-    candidates: Array<{
-        strategy: 'primary' | 'secondary' | 'conservative';
-        reasoning: string;
-        spec: Record<string, unknown>;
-        valid: boolean;
-        errors: string[];
-    }>;
+    success: boolean;
+    data: {
+        templateId: number;
+        model: string;
+        renderable: boolean;
+        usedFallback: boolean;
+        compatibility: {
+            isReasonable: boolean;
+            level: string;
+            reasons: string[];
+            suggestions: string[];
+        };
+        candidates: Array<{
+            strategy: 'primary' | 'secondary' | 'conservative';
+            reasoning: string;
+            spec: Record<string, unknown>;
+            valid: boolean;
+            errors: string[];
+            fieldMapping?: Record<string, string>;
+        }>;
+    };
 };
 
 export class ChartTemplateClient {

@@ -40,7 +40,6 @@ import { isCustomVisualizationConfig } from '../../../../LightdashVisualization/
 import { useVisualizationContext } from '../../../../LightdashVisualization/useVisualizationContext';
 import {
     applyMappingsToSpec,
-    buildDefaultMappings,
     type CurrentQueryField,
     extractTemplateFieldRefs,
     type TemplateFieldRef,
@@ -64,7 +63,7 @@ export const SelectTemplate = ({
     const { itemsMap, resultsData, visualizationConfig } =
         useVisualizationContext();
     const clipboard = useClipboard({ timeout: 1200 });
-    const { showToastSuccess } = useToaster();
+    const { showToastSuccess, showToastWarning } = useToaster();
 
     const [opened, setOpened] = useState(false);
     const [modalStep, setModalStep] = useState<ModalStep>('template');
@@ -82,6 +81,11 @@ export const SelectTemplate = ({
         [],
     );
     const [selectedCandidateIndex, setSelectedCandidateIndex] = useState(0);
+    const [compatibilityTips, setCompatibilityTips] = useState<{
+        level: string;
+        reasons: string[];
+        suggestions: string[];
+    } | null>(null);
     const {
         mutateAsync: generateCandidates,
         isLoading: isGeneratingCandidates,
@@ -270,11 +274,6 @@ export const SelectTemplate = ({
         [selectedFieldIds, currentFieldKindById],
     );
 
-    const defaultMappings = useMemo(
-        () => buildDefaultMappings(templateFieldRefs, currentQueryFields),
-        [templateFieldRefs, currentQueryFields],
-    );
-
     const unresolvedRequiredFields = useMemo(
         () =>
             templateFieldRefs.filter(
@@ -308,14 +307,6 @@ export const SelectTemplate = ({
         return JSON.stringify(selectedTemplateSpec, null, 2);
     }, [selectedTemplateSpec]);
     const selectedCandidate = aiCandidates[selectedCandidateIndex];
-    const hasValidCandidates = useMemo(
-        () =>
-            aiCandidates.some(
-                (candidate) =>
-                    candidate.valid && candidate.frontendErrors.length === 0,
-            ),
-        [aiCandidates],
-    );
     const selectedCandidateSpecString = useMemo(() => {
         if (!selectedCandidate?.normalizedSpec) return '';
         return JSON.stringify(selectedCandidate.normalizedSpec, null, 2);
@@ -358,15 +349,10 @@ export const SelectTemplate = ({
         setModalStep('template');
     }, [selectedCandidate, setEditorConfig]);
 
-    const moveToMappingStep = useCallback(() => {
-        if (!selectedTemplateSpec) return;
-        setFieldMappings(defaultMappings);
-        setModalStep('mapping');
-    }, [selectedTemplateSpec, defaultMappings]);
-
     const generateAiCandidates = useCallback(async () => {
         if (!selectedTemplateId) return;
 
+        setCompatibilityTips(null);
         const response = await generateCandidates({
             templateId: selectedTemplateId,
             payload: {
@@ -380,6 +366,36 @@ export const SelectTemplate = ({
                 selectedMetrics,
             },
         });
+
+        if (!response) {
+            showToastWarning({
+                title: t(
+                    'components_visualization_configs_custom_vis_template.ai_no_candidates',
+                ),
+            });
+            return;
+        }
+
+        if (!response.renderable || response.candidates.length === 0) {
+            const compatibility = response.compatibility || {
+                level: 'warning',
+                reasons: [],
+                suggestions: [],
+            };
+            setCompatibilityTips({
+                level: compatibility.level,
+                reasons: compatibility.reasons || [],
+                suggestions: compatibility.suggestions || [],
+            });
+            showToastWarning({
+                title:
+                    compatibility.reasons[0] ||
+                    t(
+                        'components_visualization_configs_custom_vis_template.ai_no_candidates',
+                    ),
+            });
+            return;
+        }
 
         const candidates = (response?.candidates || []).map((candidate) => {
             const validation = validateGeneratedVegaSpec(
@@ -403,6 +419,8 @@ export const SelectTemplate = ({
         selectedDimensions,
         selectedMetrics,
         availableFieldIds,
+        showToastWarning,
+        t,
     ]);
 
     const copyTemplateSpec = useCallback(() => {
@@ -468,6 +486,7 @@ export const SelectTemplate = ({
                     setModalStep('template');
                     setAiCandidates([]);
                     setSelectedCandidateIndex(0);
+                    setCompatibilityTips(null);
                 }}
                 title={t(
                     modalStep === 'template'
@@ -508,6 +527,7 @@ export const SelectTemplate = ({
                                 setModalStep('template');
                                 setAiCandidates([]);
                                 setSelectedCandidateIndex(0);
+                                setCompatibilityTips(null);
                             }}
                         >
                             {modalStep === 'template'
@@ -564,6 +584,44 @@ export const SelectTemplate = ({
                                 'components_visualization_configs_custom_vis_template.selecting_new_template_will_reset_the_config',
                             )}
                         </Text>
+                        {compatibilityTips ? (
+                            <Stack spacing={4}>
+                                <Text
+                                    size="xs"
+                                    c={
+                                        compatibilityTips.level === 'good'
+                                            ? 'green.7'
+                                            : 'orange.8'
+                                    }
+                                >
+                                    {t(
+                                        'components_visualization_configs_custom_vis_template.ai_validation_failed',
+                                    )}
+                                </Text>
+                                {compatibilityTips.reasons.map(
+                                    (reason, idx) => (
+                                        <Text
+                                            key={`compatibility-reason-${idx}`}
+                                            size="11px"
+                                            c="dimmed"
+                                        >
+                                            - {reason}
+                                        </Text>
+                                    ),
+                                )}
+                                {compatibilityTips.suggestions.map(
+                                    (suggestion, idx) => (
+                                        <Text
+                                            key={`compatibility-suggestion-${idx}`}
+                                            size="11px"
+                                            c="dimmed"
+                                        >
+                                            - {suggestion}
+                                        </Text>
+                                    ),
+                                )}
+                            </Stack>
+                        ) : null}
                         <Select
                             size="xs"
                             value={selectedChartType}
@@ -931,18 +989,6 @@ export const SelectTemplate = ({
                                         </Group>
                                     </Stack>
                                 ) : null}
-
-                                {!hasValidCandidates && (
-                                    <Button
-                                        variant="default"
-                                        size="xs"
-                                        onClick={moveToMappingStep}
-                                    >
-                                        {t(
-                                            'components_visualization_configs_custom_vis_template.ai_fallback_to_mapping',
-                                        )}
-                                    </Button>
-                                )}
                             </>
                         )}
                     </Stack>

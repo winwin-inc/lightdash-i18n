@@ -38,11 +38,22 @@ export type GeneratedChartTemplateCandidate = {
     spec: Record<string, unknown>;
     valid: boolean;
     errors: string[];
+    fieldMapping?: Record<string, string>;
+};
+
+export type GeneratedTemplateCompatibility = {
+    isReasonable: boolean;
+    level: string;
+    reasons: string[];
+    suggestions: string[];
 };
 
 export type GenerateChartTemplateCandidatesResponse = {
     templateId: number;
     model: string;
+    renderable: boolean;
+    usedFallback: boolean;
+    compatibility: GeneratedTemplateCompatibility;
     candidates: GeneratedChartTemplateCandidate[];
 };
 
@@ -102,8 +113,104 @@ const normalizeTemplateDetail = (
 const normalizeGeneratedCandidates = (
     response: unknown,
 ): GenerateChartTemplateCandidatesResponse | null => {
+    const normalizeCompatibility = (
+        input: unknown,
+    ): GeneratedTemplateCompatibility => {
+        if (!isRecord(input)) {
+            return {
+                isReasonable: false,
+                level: 'warning',
+                reasons: [],
+                suggestions: [],
+            };
+        }
+
+        return {
+            isReasonable: Boolean(input.isReasonable),
+            level:
+                typeof input.level === 'string' && input.level.trim().length > 0
+                    ? input.level
+                    : 'warning',
+            reasons: Array.isArray(input.reasons)
+                ? input.reasons.filter(
+                      (reason): reason is string => typeof reason === 'string',
+                  )
+                : [],
+            suggestions: Array.isArray(input.suggestions)
+                ? input.suggestions.filter(
+                      (suggestion): suggestion is string =>
+                          typeof suggestion === 'string',
+                  )
+                : [],
+        };
+    };
+
+    const normalizeCandidates = (
+        input: unknown,
+    ): GeneratedChartTemplateCandidate[] =>
+        Array.isArray(input)
+            ? input
+                  .filter((candidate): candidate is Record<string, unknown> =>
+                      isRecord(candidate),
+                  )
+                  .map((candidate) => ({
+                      strategy:
+                          candidate.strategy === 'secondary' ||
+                          candidate.strategy === 'conservative'
+                              ? candidate.strategy
+                              : 'primary',
+                      reasoning:
+                          typeof candidate.reasoning === 'string'
+                              ? candidate.reasoning
+                              : '',
+                      spec: isRecord(candidate.spec) ? candidate.spec : {},
+                      valid: Boolean(candidate.valid),
+                      errors: Array.isArray(candidate.errors)
+                          ? candidate.errors.filter(
+                                (error): error is string =>
+                                    typeof error === 'string',
+                            )
+                          : [],
+                      fieldMapping: isRecord(candidate.fieldMapping)
+                          ? (candidate.fieldMapping as Record<string, string>)
+                          : undefined,
+                  }))
+            : [];
+
+    const normalizeGenerateData = (
+        value: unknown,
+    ): GenerateChartTemplateCandidatesResponse | null => {
+        if (!isRecord(value)) {
+            return null;
+        }
+
+        const candidates = normalizeCandidates(value.candidates);
+        const renderable =
+            typeof value.renderable === 'boolean'
+                ? value.renderable
+                : candidates.length > 0;
+
+        return {
+            templateId:
+                typeof value.templateId === 'number' ? value.templateId : -1,
+            model: typeof value.model === 'string' ? value.model : '',
+            renderable,
+            usedFallback: Boolean(value.usedFallback),
+            compatibility: normalizeCompatibility(value.compatibility),
+            candidates,
+        };
+    };
+
+    if (
+        isRecord(response) &&
+        typeof response.success === 'boolean' &&
+        isRecord(response.data)
+    ) {
+        return normalizeGenerateData(response.data);
+    }
+
     if (isRecord(response) && isRecord(response.results)) {
-        return response.results as GenerateChartTemplateCandidatesResponse;
+        return normalizeGenerateData(response.results);
     }
 
     if (
@@ -111,11 +218,18 @@ const normalizeGeneratedCandidates = (
         isRecord(response.data) &&
         isRecord(response.data.results)
     ) {
-        return response.data.results as GenerateChartTemplateCandidatesResponse;
+        return normalizeGenerateData(response.data.results);
+    }
+
+    if (isRecord(response) && isRecord(response.data)) {
+        const normalized = normalizeGenerateData(response.data);
+        if (normalized) {
+            return normalized;
+        }
     }
 
     if (isRecord(response) && Array.isArray(response.candidates)) {
-        return response as GenerateChartTemplateCandidatesResponse;
+        return normalizeGenerateData(response);
     }
 
     return null;
