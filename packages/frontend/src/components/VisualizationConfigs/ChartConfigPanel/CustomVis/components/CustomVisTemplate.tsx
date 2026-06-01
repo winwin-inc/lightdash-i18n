@@ -10,7 +10,6 @@ import {
     Badge,
     Box,
     Button,
-    Divider,
     Group,
     Image,
     Loader,
@@ -40,19 +39,21 @@ import MantineIcon from '../../../../common/MantineIcon';
 import MantineModal from '../../../../common/MantineModal';
 import { isCustomVisualizationConfig } from '../../../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../../../LightdashVisualization/useVisualizationContext';
-import {
-    applyMappingsToSpec,
-    type CurrentQueryField,
-    extractTemplateFieldRefs,
-    type TemplateFieldRef,
-} from '../utils/templateFieldMapping';
 import { validateGeneratedVegaSpec } from '../utils/validateGeneratedVegaSpec';
+
+type CurrentQueryField = {
+    fieldId: string;
+    label: string;
+    aliases?: string[];
+    isSelected?: boolean;
+    fieldKind?: 'metric' | 'dimension' | 'unknown';
+};
 
 const MODAL_SCROLL_HEIGHT = 'calc(88vh - 260px)';
 const LAST_SELECTED_TEMPLATE_STORAGE_KEY = 'lastSelectedChartTemplateId';
 const LAST_SELECTED_TEMPLATE_CHART_TYPE_STORAGE_KEY =
     'lastSelectedChartTemplateChartType';
-type ModalStep = 'template' | 'ai' | 'mapping';
+type ModalStep = 'template' | 'ai';
 type CandidateWithValidation =
     GenerateChartTemplateCandidatesResponse['candidates'][number] & {
         normalizedSpec: Record<string, unknown>;
@@ -90,9 +91,6 @@ export const SelectTemplate = ({
     const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
     const [previewImageTitle, setPreviewImageTitle] = useState<string>('');
     const [isSpecPreviewOpen, setIsSpecPreviewOpen] = useState(false);
-    const [fieldMappings, setFieldMappings] = useState<
-        Record<string, string | null>
-    >({});
     const [aiCandidates, setAiCandidates] = useState<CandidateWithValidation[]>(
         [],
     );
@@ -182,11 +180,6 @@ export const SelectTemplate = ({
         [selectedTemplate],
     );
 
-    const templateFieldRefs = useMemo<TemplateFieldRef[]>(
-        () => extractTemplateFieldRefs(selectedTemplateSpec),
-        [selectedTemplateSpec],
-    );
-
     const selectedFieldIds = useMemo(() => {
         const metricQuery: MetricQuery | undefined = resultsData?.metricQuery;
         if (!metricQuery) return [];
@@ -254,32 +247,6 @@ export const SelectTemplate = ({
             });
     }, [itemsMap, returnedFieldIds, selectedFieldIds]);
 
-    const mappingFieldOptions = useMemo(() => {
-        return currentQueryFields.map((field) => {
-            const item = itemsMap?.[field.fieldId];
-            const group = item
-                ? isDimension(item)
-                    ? t(
-                          'components_visualization_configs_custom_vis_template.group_dimensions',
-                      )
-                    : isMetric(item)
-                      ? t(
-                            'components_visualization_configs_custom_vis_template.group_metrics',
-                        )
-                      : t(
-                            'components_visualization_configs_custom_vis_template.group_others',
-                        )
-                : t(
-                      'components_visualization_configs_custom_vis_template.group_others',
-                  );
-
-            return {
-                value: field.fieldId,
-                label: field.label,
-                group,
-            };
-        });
-    }, [currentQueryFields, itemsMap, t]);
     const getFieldDisplayName = useCallback(
         (fieldId: string): string => {
             const item = itemsMap?.[fieldId];
@@ -360,34 +327,6 @@ export const SelectTemplate = ({
         [selectedFieldIds, currentFieldKindById],
     );
 
-    const unresolvedRequiredFields = useMemo(
-        () =>
-            templateFieldRefs.filter(
-                (fieldRef) =>
-                    fieldRef.required && !fieldMappings[fieldRef.field],
-            ),
-        [templateFieldRefs, fieldMappings],
-    );
-    const unresolvedOptionalFields = useMemo(
-        () =>
-            templateFieldRefs.filter(
-                (fieldRef) =>
-                    !fieldRef.required && !fieldMappings[fieldRef.field],
-            ),
-        [templateFieldRefs, fieldMappings],
-    );
-    const mappedRequiredCount = useMemo(
-        () =>
-            templateFieldRefs.filter(
-                (fieldRef) =>
-                    fieldRef.required && !!fieldMappings[fieldRef.field],
-            ).length,
-        [templateFieldRefs, fieldMappings],
-    );
-    const requiredCount = useMemo(
-        () => templateFieldRefs.filter((fieldRef) => fieldRef.required).length,
-        [templateFieldRefs],
-    );
     const selectedTemplateSpecString = useMemo(() => {
         if (!selectedTemplateSpec) return '';
         return JSON.stringify(selectedTemplateSpec, null, 2);
@@ -436,32 +375,6 @@ export const SelectTemplate = ({
             selectionMetaTips.usedAiFallback
         );
     }, [selectionMetaTips]);
-
-    const applyTemplate = useCallback(() => {
-        if (!selectedTemplateSpec) return;
-        if (selectedTemplateId) {
-            rememberSelectedTemplateId(selectedTemplateId);
-        }
-        const mappedSpec = applyMappingsToSpec(
-            selectedTemplateSpec,
-            fieldMappings,
-            {
-                unresolvedOptionalFields: unresolvedOptionalFields.map(
-                    (fieldRef) => fieldRef.field,
-                ),
-            },
-        );
-        setEditorConfig(JSON.stringify(mappedSpec, null, 2));
-        setOpened(false);
-        setModalStep('template');
-    }, [
-        selectedTemplateSpec,
-        selectedTemplateId,
-        rememberSelectedTemplateId,
-        fieldMappings,
-        unresolvedOptionalFields,
-        setEditorConfig,
-    ]);
 
     const applyAiCandidate = useCallback(() => {
         if (!selectedCandidate || !selectedCandidate.valid) {
@@ -662,9 +575,7 @@ export const SelectTemplate = ({
                 title={t(
                     modalStep === 'template'
                         ? 'components_visualization_configs_custom_vis_template.insert_template'
-                        : modalStep === 'ai'
-                          ? 'components_visualization_configs_custom_vis_template.ai_candidates_title'
-                          : 'components_visualization_configs_custom_vis_template.mapping_step_title',
+                        : 'components_visualization_configs_custom_vis_template.ai_candidates_title',
                 )}
                 icon={IconCode}
                 size="xl"
@@ -689,10 +600,7 @@ export const SelectTemplate = ({
                             variant="default"
                             disabled={isGeneratingCandidates}
                             onClick={() => {
-                                if (
-                                    modalStep === 'mapping' ||
-                                    modalStep === 'ai'
-                                ) {
+                                if (modalStep === 'ai') {
                                     setModalStep('template');
                                     return;
                                 }
@@ -709,7 +617,7 @@ export const SelectTemplate = ({
                                       'components_visualization_configs_custom_vis_template.cancel',
                                   )
                                 : t(
-                                      'components_visualization_configs_custom_vis_template.mapping_back_step',
+                                      'components_visualization_configs_custom_vis_template.ai_back_step',
                                   )}
                         </Button>
                         <Button
@@ -718,18 +626,14 @@ export const SelectTemplate = ({
                                     ? () => {
                                           void generateAiCandidates();
                                       }
-                                    : modalStep === 'ai'
-                                      ? applyAiCandidate
-                                      : applyTemplate
+                                    : applyAiCandidate
                             }
                             disabled={
                                 modalStep === 'template'
                                     ? !selectedTemplateSpec ||
                                       isGeneratingCandidates
-                                    : modalStep === 'ai'
-                                      ? !selectedCandidate ||
-                                        !selectedCandidate.valid
-                                      : unresolvedRequiredFields.length > 0
+                                    : !selectedCandidate ||
+                                      !selectedCandidate.valid
                             }
                         >
                             {modalStep === 'template'
@@ -738,13 +642,9 @@ export const SelectTemplate = ({
                                           ? 'components_visualization_configs_custom_vis_template.ai_generating'
                                           : 'components_visualization_configs_custom_vis_template.ai_generate_candidates',
                                   )
-                                : modalStep === 'ai'
-                                  ? t(
-                                        'components_visualization_configs_custom_vis_template.ai_apply_selected_candidate',
-                                    )
-                                  : t(
-                                        'components_visualization_configs_custom_vis_template.confirm_apply_mapped_template',
-                                    )}
+                                : t(
+                                      'components_visualization_configs_custom_vis_template.ai_apply_selected_candidate',
+                                  )}
                         </Button>
                     </>
                 }
@@ -1084,7 +984,7 @@ export const SelectTemplate = ({
                                 </ScrollArea>
                             </div>
                         </Stack>
-                    ) : modalStep === 'ai' ? (
+                    ) : (
                         <Stack spacing="sm">
                             {isGeneratingCandidates ? (
                                 <Group spacing={6}>
@@ -1362,182 +1262,6 @@ export const SelectTemplate = ({
                                             </Group>
                                         </Stack>
                                     ) : null}
-                                </>
-                            )}
-                        </Stack>
-                    ) : (
-                        <Stack spacing="sm">
-                            <Text size="xs" color="dimmed">
-                                {t(
-                                    'components_visualization_configs_custom_vis_template.field_mapping_title',
-                                )}
-                            </Text>
-                            {templateFieldRefs.length === 0 ? (
-                                <Text size="sm" color="dimmed">
-                                    {t(
-                                        'components_visualization_configs_custom_vis_template.no_template_fields_required',
-                                    )}
-                                </Text>
-                            ) : (
-                                <>
-                                    <Group position="apart" align="center">
-                                        <Text size="xs" color="dimmed">
-                                            {t(
-                                                'components_visualization_configs_custom_vis_template.mapping_progress',
-                                                {
-                                                    mapped: mappedRequiredCount,
-                                                    total: requiredCount,
-                                                },
-                                            )}
-                                        </Text>
-                                        <Group spacing={4}>
-                                            <Button
-                                                variant="light"
-                                                color="gray"
-                                                size="sm"
-                                                fz="xs"
-                                                onClick={() =>
-                                                    setIsSpecPreviewOpen(true)
-                                                }
-                                                disabled={
-                                                    !selectedTemplateSpecString
-                                                }
-                                            >
-                                                {t(
-                                                    'components_visualization_configs_custom_vis_template.view_template_json',
-                                                )}
-                                            </Button>
-                                            <Button
-                                                variant="light"
-                                                color="gray"
-                                                size="sm"
-                                                fz="xs"
-                                                onClick={copyTemplateSpec}
-                                                disabled={
-                                                    !selectedTemplateSpecString
-                                                }
-                                            >
-                                                {clipboard.copied
-                                                    ? t(
-                                                          'components_json_viewer_modal.copied',
-                                                      )
-                                                    : t(
-                                                          'components_json_viewer_modal.copy',
-                                                      )}
-                                            </Button>
-                                        </Group>
-                                    </Group>
-                                    {unresolvedRequiredFields.length > 0 && (
-                                        <Text size="xs" c="orange.8">
-                                            {t(
-                                                'components_visualization_configs_custom_vis_template.field_mapping_unresolved',
-                                                {
-                                                    count: unresolvedRequiredFields.length,
-                                                },
-                                            )}
-                                        </Text>
-                                    )}
-                                    {unresolvedOptionalFields.length > 0 && (
-                                        <Text size="xs" color="dimmed">
-                                            {t(
-                                                'components_visualization_configs_custom_vis_template.field_mapping_optional_unresolved',
-                                                {
-                                                    count: unresolvedOptionalFields.length,
-                                                },
-                                            )}
-                                        </Text>
-                                    )}
-                                    <Divider />
-                                    <ScrollArea
-                                        h={MODAL_SCROLL_HEIGHT}
-                                        offsetScrollbars
-                                        styles={{
-                                            viewport: {
-                                                paddingRight: 14,
-                                            },
-                                        }}
-                                    >
-                                        <Stack spacing="xs">
-                                            {templateFieldRefs.map(
-                                                (templateField) => (
-                                                    <Group
-                                                        key={
-                                                            templateField.field
-                                                        }
-                                                        align="flex-end"
-                                                        grow
-                                                    >
-                                                        <Box>
-                                                            <Text
-                                                                size="xs"
-                                                                fw={500}
-                                                            >
-                                                                {
-                                                                    templateField.field
-                                                                }
-                                                            </Text>
-                                                            <Text
-                                                                size="11px"
-                                                                color={
-                                                                    fieldMappings[
-                                                                        templateField
-                                                                            .field
-                                                                    ]
-                                                                        ? 'dimmed'
-                                                                        : templateField.required
-                                                                          ? 'orange.8'
-                                                                          : 'dimmed'
-                                                                }
-                                                            >
-                                                                {fieldMappings[
-                                                                    templateField
-                                                                        .field
-                                                                ]
-                                                                    ? t(
-                                                                          'components_visualization_configs_custom_vis_template.field_mapping_required',
-                                                                      )
-                                                                    : templateField.required
-                                                                      ? t(
-                                                                            'components_visualization_configs_custom_vis_template.field_mapping_unresolved_single',
-                                                                        )
-                                                                      : t(
-                                                                            'components_visualization_configs_custom_vis_template.field_mapping_optional',
-                                                                        )}
-                                                            </Text>
-                                                        </Box>
-                                                        <Select
-                                                            searchable
-                                                            clearable
-                                                            data={
-                                                                mappingFieldOptions
-                                                            }
-                                                            value={
-                                                                fieldMappings[
-                                                                    templateField
-                                                                        .field
-                                                                ] ?? null
-                                                            }
-                                                            onChange={(value) =>
-                                                                setFieldMappings(
-                                                                    (
-                                                                        previous,
-                                                                    ) => ({
-                                                                        ...previous,
-                                                                        [templateField.field]:
-                                                                            value ??
-                                                                            null,
-                                                                    }),
-                                                                )
-                                                            }
-                                                            placeholder={t(
-                                                                'components_visualization_configs_custom_vis_template.field_mapping_select_placeholder',
-                                                            )}
-                                                        />
-                                                    </Group>
-                                                ),
-                                            )}
-                                        </Stack>
-                                    </ScrollArea>
                                 </>
                             )}
                         </Stack>
