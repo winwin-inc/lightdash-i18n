@@ -1,9 +1,9 @@
 # MCP tool names
 
-> 共 **22** 个工具；与当前包内 MCP 注册一致。
+> 共 **24** 个工具；与当前包内 MCP 注册一致。
 
-- Core-like count: **15**
-- Extension (site/chart helpers) count: **7**
+- Core-like count: **16**
+- Extension (site/chart helpers) count: **8**
 
 ## All tools (sorted)
 
@@ -19,6 +19,8 @@
 - `get_dashboard_code`
 - `get_dashboard_tiles`
 - `get_site_info`
+- `list_dashboards`
+- `list_charts`
 - `list_explores`
 - `list_projects`
 - `list_spaces`
@@ -36,6 +38,7 @@
 - `get_dashboard_code`
 - `get_dashboard_tiles`
 - `get_site_info`
+- `list_charts`
 - `list_spaces`
 - `run_dashboard_tiles`
 - `run_saved_chart`

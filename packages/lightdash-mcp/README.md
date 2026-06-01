@@ -1,6 +1,6 @@
 # @lightdash/mcp
 
-独立运行的 Lightdash [Model Context Protocol](https://modelcontextprotocol.io) 服务，面向 Claude Code、Cursor 等客户端。通过站点 **REST API** 注册 **22 个 MCP 工具**（**15** 个核心：健康/项目/目录/内容/查询；**7** 个站点与已保存图表/看板导出相关），以及 **`lightdash-analyst`** 提示词；工具名**统一无前缀**（与 EE 内置 MCP 对齐的仍用上游同名，如 `find_charts`）。不托管在 Lightdash 进程内，适合单独扩缩或与主站版本解耦。
+独立运行的 Lightdash [Model Context Protocol](https://modelcontextprotocol.io) 服务，面向 Claude Code、Cursor 等客户端。通过站点 **REST API** 注册 **24 个 MCP 工具**（**16** 个核心：健康/项目/目录/内容/查询；**8** 个站点与已保存图表/看板导出相关），以及 **`lightdash-analyst`** 提示词；工具名**统一无前缀**（与 EE 内置 MCP 对齐的仍用上游同名，如 `find_charts`）。不托管在 Lightdash 进程内，适合单独扩缩或与主站版本解耦。
 
 ---
 
@@ -125,26 +125,28 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 
 工具名以本服务实际注册为准；命名列表见 **[`DEV_TOOL_NAMES.md`](./DEV_TOOL_NAMES.md)**。
 
-### 核心工具（15 个）
+### 核心工具（16 个）
 
-`get_lightdash_version` · `list_projects` · `set_project` · `get_current_project` · `list_explores` · `find_explores` · `find_fields` · `find_content` · `find_charts` · `find_dashboards` · `find_spaces` · `list_verified_content` · `search_field_values` · `run_sql` · `run_metric_query`
+`get_lightdash_version` · `list_projects` · `set_project` · `get_current_project` · `list_explores` · `find_explores` · `find_fields` · `find_content` · `find_charts` · `find_dashboards` · `find_spaces` · `list_dashboards` · `list_verified_content` · `search_field_values` · `run_sql` · `run_metric_query`
 
 说明要点：
 
 - `get_lightdash_version`：首条返回内容为短 **version** 文本（无则 `unknown`），第二条为完整 health JSON。
 - `find_charts` / `find_dashboards` / `find_spaces`：与上游 EE 内置 MCP 命名对齐，分别固定 `contentTypes` 为 chart / dashboard / space；`find_content` 为**不传类型过滤**的混合关键词搜索。
+- `list_dashboards`：按 `spaceUuid` **层级浏览**空间下看板（非关键词搜索）；搜名称仍用 `find_dashboards`。
 - `run_metric_query`：首条为 **CSV**，第二条为 JSON；响应中含 `**structuredContent`**。推荐参数为 `queryConfig`（兼容 `metricQuery` 与扁平参数）。
 - `find_explores` / `find_fields`：对 `dataCatalog` 返回的条目附加 `**heuristicScore**` 并按其降序排列；响应含 `**heuristicRankingVersion**`（当前为 `1`）。
 - `list_verified_content`：先做版本守卫，再尝试路由调用；若站点未部署该接口会返回中文提示而非裸 404。
 
-### 站点与已保存图表（7 个）
+### 站点与已保存图表（8 个）
 
 与核心工具同一 PAT；在扩展注册顺序上先于核心工具加载，名称无前缀。
 
 | 工具名                  | 用途                                                       |
 | -------------------- | ---------------------------------------------------------- |
 | `get_site_info`      | 返回 `siteBaseUrl`（与 `LIGHTDASH_SITE_URL` 一致）                |
-| `list_spaces`        | 列出当前项目下的空间（默认精简输出，`full=true` 返回完整）                        |
+| `list_spaces`        | 列出当前项目下的空间（层级浏览，默认精简输出）                        |
+| `list_charts`        | 按 `dashboardUuid` 列出看板内已保存图表磁贴（层级浏览）                  |
 | `get_saved_chart`    | 按图表 UUID 拉取已保存图表定义（含 `webUrl`，默认精简输出）                      |
 | `run_saved_chart`    | 按已保存图表 UUID 执行查询（默认平铺行，`full=true` 返回完整结构）                  |
 | `get_dashboard_tiles`| 查看看板磁贴布局与图表关联                                              |

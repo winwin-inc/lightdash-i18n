@@ -152,6 +152,56 @@ export function registerContentTools(
     registerToolTyped(
         server,
         'core-tool',
+        'list_dashboards',
+        '按 spaceUuid 列出空间下的看板（v2 content API 层级浏览，非关键词搜索）。有 spaceUuid 时用此工具；按名称搜索用 find_dashboards。可选 projectUuid；省略时与 list_spaces 一致：本次参数 > set_project > LIGHTDASH_PROJECT_UUID。',
+        {
+            spaceUuid: z.string(),
+            projectUuid: z.string().optional(),
+            page: z.number().optional(),
+            pageSize: z.number().optional(),
+            full: z.boolean().optional(),
+        },
+        async (args) => {
+            const apiKey = resolveCoreToolsApiKey(config);
+            const projectUuid = resolveCoreToolsProjectUuid(
+                config,
+                apiKey,
+                args.projectUuid as string | undefined,
+            );
+            const full = (args.full as boolean | undefined) ?? false;
+            const data = await api.searchContent(apiKey, projectUuid, {
+                spaceUuids: [args.spaceUuid as string],
+                contentTypes: ['dashboard'],
+                page: args.page as number | undefined,
+                pageSize: (args.pageSize as number | undefined) ?? 50,
+            });
+            const enriched = enrichContentSearchResults(
+                config.baseUrl,
+                DEFAULT_WEB_PATH_TEMPLATES,
+                data,
+            );
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(
+                            maybeSlimList(
+                                enriched,
+                                full,
+                                slimDashboardSearchItem,
+                            ),
+                            null,
+                            2,
+                        ),
+                    },
+                ],
+            };
+        },
+    );
+
+    registerToolTyped(
+        server,
+        'core-tool',
         'list_verified_content',
         '列出项目已验证图表/看板（GET …/content-verification）。⚠️ 依赖站点版本支持。',
         { projectUuid: z.string().optional() },

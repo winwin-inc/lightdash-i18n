@@ -5761,8 +5761,15 @@
         "results_may_be_incorrect": "结果可能不正确"
     },
     "components_explorer_sql_card": {
+        "query_title": "查询",
+        "tab_sql": "SQL",
+        "tab_metric_query": "语义查询",
         "copied_to_clipboard": "已复制到剪贴板",
-        "copy_sql": "复制 SQL"
+        "copy_sql": "复制 SQL",
+        "copy_metric_query": "复制语义查询"
+    },
+    "components_rendered_metric_query": {
+        "loading": "正在加载语义查询"
     },
     "components_explorer_write_back_modal": {
         "title": "写回 dbt",

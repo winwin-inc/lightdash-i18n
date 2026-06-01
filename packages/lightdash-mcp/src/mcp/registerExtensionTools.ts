@@ -11,6 +11,7 @@ import {
     slimSavedChart,
     slimSpace,
 } from '../lib/toolOutput';
+import { extractDashboardChartTiles } from '../lib/dashboardTiles';
 import { getHttpRequestApiKey } from '../lib/requestContext';
 import type { LightdashRestClient } from '../rest/lightdashRest';
 import { resolveCoreToolsProjectUuid } from './coreToolsContext';
@@ -42,6 +43,11 @@ const getSavedChartParams = {
 } satisfies ZodRawShape;
 
 const getDashboardTilesParams = {
+    dashboardUuid: z.string(),
+    full: z.boolean().optional(),
+} satisfies ZodRawShape;
+
+const listChartsParams = {
     dashboardUuid: z.string(),
     full: z.boolean().optional(),
 } satisfies ZodRawShape;
@@ -236,6 +242,45 @@ export function registerExtensionTools(
     registerToolTyped(
         server,
         'tool-call',
+        'list_charts',
+        '按 dashboardUuid 列出看板内的已保存图表磁贴（层级浏览，非关键词搜索）。有 dashboardUuid 时用此工具；按名称搜索用 find_charts。',
+        listChartsParams,
+        async (args) => {
+            const apiKey = resolveExtensionApiKey(config);
+            const dashboard = (await api.getDashboard(
+                apiKey,
+                args.dashboardUuid as string,
+            )) as Record<string, unknown>;
+            const tiles = Array.isArray(dashboard.tiles)
+                ? dashboard.tiles
+                : [];
+            const full = (args.full as boolean | undefined) ?? false;
+            const charts = extractDashboardChartTiles(tiles, {
+                full,
+                savedChartsOnly: true,
+                tileUuidKey: 'tileUuid',
+            });
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(
+                            {
+                                dashboardUuid: args.dashboardUuid,
+                                charts,
+                            },
+                            null,
+                            2,
+                        ),
+                    },
+                ],
+            };
+        },
+    );
+
+    registerToolTyped(
+        server,
+        'tool-call',
         'get_dashboard_tiles',
         '读取看板磁贴布局（包含类型、坐标、关联图表信息）。',
         getDashboardTilesParams,
@@ -249,28 +294,10 @@ export function registerExtensionTools(
                 ? dashboard.tiles
                 : [];
             const full = (args.full as boolean | undefined) ?? false;
-            const payload = full
-                ? tiles
-                : tiles.map((tile) => {
-                      const row = tile as Record<string, unknown>;
-                      const properties = (row.properties ?? {}) as Record<
-                          string,
-                          unknown
-                      >;
-                      return {
-                          uuid: row.uuid ?? null,
-                          type: row.type ?? null,
-                          x: row.x ?? null,
-                          y: row.y ?? null,
-                          w: row.w ?? null,
-                          h: row.h ?? null,
-                          chartUuid:
-                              properties.savedChartUuid ??
-                              properties.savedSqlUuid ??
-                              null,
-                          chartName: properties.chartName ?? null,
-                      };
-                  });
+            const payload = extractDashboardChartTiles(tiles, {
+                full,
+                savedChartsOnly: false,
+            });
             return {
                 content: [
                     {
